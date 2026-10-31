@@ -2,8 +2,9 @@
 
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { useRequireLogin } from "@/components/auth/login-dialog";
+import { Turnstile, type TurnstileHandle } from "@/components/common/turnstile";
 import type { DealType } from "@/generated/prisma/enums";
 import { revealContact, recordContactTap, markSafetyTipSeen } from "@/lib/contact/actions";
 import { buildChannelHref, channelCopiesMessage, channelOpensNewTab, type RevealedContact } from "@/lib/contact/links";
@@ -17,9 +18,15 @@ import { SafetyTipDialog } from "./safety-tip-dialog";
 
 /**
  * Contact state shared by the sidebar box and the phone bottom bar of one listing page:
- * "Show contact" (login → revealContact), the first-contact safety tip, the ready message,
- * opening each app, and the email form.
+ * "Show contact" (login → invisible CAPTCHA → revealContact), the first-contact safety tip,
+ * the ready message, opening each app, and the email form.
+ *
+ * The CAPTCHA (Turnstile, action "reveal_contact") is mounted on the first "Show contact", so
+ * listing pages do not load it for visitors who never ask; without a site key it answers at once.
  */
+
+/** How long "Show contact" waits for the CAPTCHA (the visitor may have to tick a box). */
+const CAPTCHA_TIMEOUT_MS = 60_000;
 
 export type ContactListing = {
   id: string;
@@ -109,6 +116,43 @@ export function ContactProvider({
   const [safetyFor, setSafetyFor] = useState<RevealedContact | null>(null);
   const [emailOpen, setEmailOpen] = useState(false);
   const inFlight = useRef<Promise<RevealedContact[] | null> | null>(null);
+  const [captchaOn, setCaptchaOn] = useState(false);
+  const captcha = useRef<TurnstileHandle>(null);
+  const captchaToken = useRef<string | null>(null);
+  const captchaWaiters = useRef<((token: string | null) => void)[]>([]);
+
+  const onCaptchaToken = useCallback((token: string | null) => {
+    const waiters = captchaWaiters.current;
+    captchaWaiters.current = [];
+    // Tokens are single-use: hand a fresh one to whoever waits, keep it otherwise.
+    if (waiters.length > 0) {
+      captchaToken.current = null;
+      waiters.forEach((resolve) => resolve(token));
+    } else {
+      captchaToken.current = token;
+    }
+  }, []);
+
+  /** A Turnstile token for one reveal (null when the check failed or timed out). */
+  const nextCaptchaToken = useCallback((): Promise<string | null> => {
+    const ready = captchaToken.current;
+    if (ready) {
+      captchaToken.current = null;
+      return Promise.resolve(ready);
+    }
+    setCaptchaOn(true);
+    return new Promise((resolve) => {
+      const done = (token: string | null) => {
+        clearTimeout(timer);
+        resolve(token);
+      };
+      const timer = setTimeout(() => {
+        captchaWaiters.current = captchaWaiters.current.filter((waiter) => waiter !== done);
+        resolve(null);
+      }, CAPTCHA_TIMEOUT_MS);
+      captchaWaiters.current.push(done);
+    });
+  }, []);
 
   const message = useMemo(() => {
     const variant = messageVariant(listing.dealType, stay);
@@ -140,8 +184,15 @@ export function ContactProvider({
     const run = (async () => {
       setRevealing(true);
       try {
-        const result = await revealContact(listing.id);
+        const token = await nextCaptchaToken();
+        if (!token) {
+          captcha.current?.reset();
+          showError("captcha_failed");
+          return null;
+        }
+        const result = await revealContact(listing.id, token);
         if (!result.ok) {
+          captcha.current?.reset();
           if (result.error === "blocked") setBlocked(true);
           showError(result.error);
           return null;
@@ -151,6 +202,7 @@ export function ContactProvider({
         setMethods(result.data.methods);
         return result.data.methods;
       } catch {
+        captcha.current?.reset();
         showError("network");
         return null;
       } finally {
@@ -160,7 +212,7 @@ export function ContactProvider({
     })();
     inFlight.current = run;
     return run;
-  }, [methods, listing.id, showError]);
+  }, [methods, listing.id, showError, nextCaptchaToken]);
 
   const open = useCallback(
     (method: RevealedContact) => {
@@ -250,6 +302,21 @@ export function ContactProvider({
   return (
     <ContactContext.Provider value={value}>
       {children}
+      {captchaOn ? (
+        // Turnstile shows itself only when Cloudflare needs the visitor to tick a box.
+        <div className="pointer-events-none fixed inset-x-0 bottom-24 z-50 flex justify-center px-4 empty:hidden">
+          <Turnstile
+            ref={captcha}
+            action="reveal_contact"
+            onToken={onCaptchaToken}
+            onExpire={() => {
+              captchaToken.current = null;
+            }}
+            onError={() => onCaptchaToken(null)}
+            className="pointer-events-auto"
+          />
+        </div>
+      ) : null}
       <SafetyTipDialog
         open={safetyFor !== null}
         publicId={listing.publicId}

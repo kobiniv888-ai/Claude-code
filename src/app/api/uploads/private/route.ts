@@ -2,6 +2,7 @@ import { z } from "zod";
 import { siteConfig } from "@/config/site";
 import { requireUserForAction } from "@/lib/auth/session";
 import { randomToken } from "@/lib/crypto";
+import { db } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 import { checkPdf, IMAGE_MIME_TYPES, processPrivateImage, scanFile, validateImage } from "@/lib/images";
 import { PRIVATE_UPLOAD_PURPOSES, privateUploadPrefix } from "@/lib/media";
@@ -32,7 +33,8 @@ import {
  * JavaScript, launch actions, embedded files…). Files are stored ENCRYPTED with putPrivate under
  * private/<purpose>/<userId>/<random>.<ext> and are never publicly reachable.
  * Consumers (verification requests, ticket messages) must accept only keys of the current user:
- * isOwnPrivateUpload(key, user.id, purpose) from @/lib/media.
+ * isOwnPrivateUpload(key, user.id, purpose) from @/lib/media. Every upload is recorded in
+ * PrivateUpload; the daily cleanup deletes files that were never attached after 48 hours.
  */
 
 export const runtime = "nodejs";
@@ -85,6 +87,9 @@ export async function POST(request: Request) {
     }
 
     const key = `${privateUploadPrefix(purpose, user.id)}${randomToken(18)}.${extension}`;
+    // Tracked before the file exists, so no file escapes the cleanup job: it deletes the file
+    // when nothing references it after 48 hours (see /api/cron/cleanup).
+    await db.privateUpload.create({ data: { key, userId: user.id, purpose } });
     await putPrivate(key, body, mime);
 
     return Response.json(

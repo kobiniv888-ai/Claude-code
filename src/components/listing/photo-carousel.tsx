@@ -1,19 +1,32 @@
 "use client";
 
-import { useCallback, useEffect, useState, type KeyboardEvent } from "react";
+import { lazy, startTransition, Suspense, useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import Image from "next/image";
 import { useLocale, useTranslations } from "next-intl";
-import useEmblaCarousel from "embla-carousel-react";
 import { ImageOffIcon } from "lucide-react";
 import { ChevronEnd, ChevronStart } from "@/components/common/directional-icon";
 import { dirFor } from "@/i18n/locale";
 import { Link } from "@/i18n/navigation";
 import type { ListingCardPhoto } from "@/lib/listing/types";
 import { cn } from "@/lib/utils";
+import type { CarouselApi } from "./photo-carousel-engine";
+
+/** Embla is loaded only when a carousel is about to be used (see PhotoCarousel). */
+const PhotoCarouselEngine = lazy(() => import("./photo-carousel-engine"));
 
 /** Only our image CDN source (demo photos) goes through next/image's optimizer; own media is already resized WebP. */
 function optimizable(url: string): boolean {
   return url.startsWith("https://images.unsplash.com/");
+}
+
+/** Runs `callback` once the browser is idle (Safari has no requestIdleCallback). Returns a cancel function. */
+function whenIdle(callback: () => void): () => void {
+  if (typeof window.requestIdleCallback === "function") {
+    const id = window.requestIdleCallback(callback, { timeout: 3000 });
+    return () => window.cancelIdleCallback(id);
+  }
+  const id = window.setTimeout(callback, 300);
+  return () => window.clearTimeout(id);
 }
 
 const navButton =
@@ -24,6 +37,9 @@ const navButton =
  * Swipeable photos of a listing card. Direction follows the locale (RTL in Hebrew/Arabic).
  * Only the visible photo and the next one are loaded. Each slide links to the listing but is
  * hidden from the tab order and screen readers — the card title is the one real link.
+ *
+ * To keep page loads light, the server renders only the first photo and the carousel starts
+ * (more slides + Embla) when it is pointed at, focused, or on screen once the page is idle.
  */
 export function PhotoCarousel({
   photos,
@@ -45,12 +61,46 @@ export function PhotoCarousel({
 }) {
   const t = useTranslations("listingCard.carousel");
   const locale = useLocale();
-  const [viewportRef, api] = useEmblaCarousel({ direction: dirFor(locale), loop: false, align: "start", skipSnaps: false });
+  const direction = dirFor(locale);
+  const total = photos.length;
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [viewport, setViewport] = useState<HTMLDivElement | null>(null);
+  const [live, setLive] = useState(false);
+  const [api, setApi] = useState<CarouselApi | null>(null);
+  /** A slide asked for (prev/next) before Embla was ready. */
+  const pendingIndex = useRef<number | null>(null);
   const [selected, setSelected] = useState(0);
   const [loadUpTo, setLoadUpTo] = useState(0);
   const [canPrev, setCanPrev] = useState(false);
-  const [canNext, setCanNext] = useState(photos.length > 1);
-  const total = photos.length;
+  const [canNext, setCanNext] = useState(total > 1);
+
+  const activate = useCallback(() => {
+    if (total < 2) return;
+    setLive(true);
+    // Preload the next photo as soon as the visitor points at the card.
+    setLoadUpTo((n) => Math.max(n, 1));
+  }, [total]);
+
+  // Start the carousel for cards that are (almost) on screen once the page is idle, so a swipe
+  // works the first time on touch screens.
+  useEffect(() => {
+    const node = rootRef.current;
+    if (live || total < 2 || !node || typeof IntersectionObserver === "undefined") return;
+    let cancelIdle: (() => void) | undefined;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        observer.disconnect();
+        cancelIdle = whenIdle(() => startTransition(() => setLive(true)));
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+      cancelIdle?.();
+    };
+  }, [live, total]);
 
   useEffect(() => {
     if (!api) return;
@@ -65,25 +115,38 @@ export function PhotoCarousel({
     // Preload the next photo as soon as the visitor starts dragging.
     const preload = () => setLoadUpTo((n) => Math.max(n, 1));
     api.on("pointerDown", preload);
+    if (pendingIndex.current !== null) {
+      api.scrollTo(pendingIndex.current);
+      pendingIndex.current = null;
+    }
     return () => {
       api.off("select", update).off("reInit", update).off("pointerDown", preload);
     };
   }, [api]);
 
-  const prev = useCallback(() => api?.scrollPrev(), [api]);
-  const next = useCallback(() => api?.scrollNext(), [api]);
+  const go = useCallback(
+    (step: 1 | -1) => {
+      if (api) {
+        if (step === 1) api.scrollNext();
+        else api.scrollPrev();
+        return;
+      }
+      // Not started yet: start it and move once Embla is ready.
+      pendingIndex.current = Math.min(Math.max(selected + step, 0), total - 1);
+      activate();
+    },
+    [api, selected, total, activate],
+  );
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     // Arrow keys follow the screen: in RTL, ArrowLeft goes forward.
-    const rtl = dirFor(locale) === "rtl";
+    const rtl = direction === "rtl";
     if (event.key === "ArrowLeft") {
       event.preventDefault();
-      if (rtl) next();
-      else prev();
+      go(rtl ? 1 : -1);
     } else if (event.key === "ArrowRight") {
       event.preventDefault();
-      if (rtl) prev();
-      else next();
+      go(rtl ? -1 : 1);
     }
   };
 
@@ -96,19 +159,22 @@ export function PhotoCarousel({
     );
   }
 
+  const slides = live ? photos : photos.slice(0, 1);
+
   return (
     <div
+      ref={rootRef}
       className={cn("relative overflow-hidden bg-muted", aspect, className)}
       role="group"
       aria-roledescription="carousel"
       aria-label={t("label", { title })}
       onKeyDown={total > 1 ? onKeyDown : undefined}
-      onPointerEnter={() => setLoadUpTo((n) => Math.max(n, 1))}
-      onFocus={() => setLoadUpTo((n) => Math.max(n, 1))}
+      onPointerEnter={activate}
+      onFocus={activate}
     >
-      <div ref={viewportRef} className="size-full overflow-hidden">
+      <div ref={setViewport} className="size-full overflow-hidden">
         <div className="flex size-full touch-pan-y">
-          {photos.map((photo, index) => (
+          {slides.map((photo, index) => (
             <div
               key={`${photo.url}-${index}`}
               className="relative size-full min-w-0 shrink-0 grow-0 basis-full"
@@ -147,7 +213,7 @@ export function PhotoCarousel({
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              prev();
+              go(-1);
             }}
             aria-label={t("previous")}
             className={cn(navButton, "start-2", !canPrev && "invisible")}
@@ -159,7 +225,7 @@ export function PhotoCarousel({
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              next();
+              go(1);
             }}
             aria-label={t("next")}
             className={cn(navButton, "end-2", !canNext && "invisible")}
@@ -182,6 +248,12 @@ export function PhotoCarousel({
           </span>
         </>
       )}
+
+      {live && viewport ? (
+        <Suspense fallback={null}>
+          <PhotoCarouselEngine viewport={viewport} direction={direction} onApi={setApi} />
+        </Suspense>
+      ) : null}
     </div>
   );
 }

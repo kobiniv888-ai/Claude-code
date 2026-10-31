@@ -6,11 +6,18 @@ what is partly finished, what waits for Phase 2, and how to try each thing yours
 ## In one paragraph
 
 Everything the brief lists for Phase 1 is built and working on the local copy of the site, with two
-exceptions that need more than a quick fix: **mobile speed** (Google Lighthouse scores 61–80, the
+exceptions that need more than a quick fix: **mobile speed** (Google Lighthouse scores 71–85, the
 brief asks for 90+) and **a few protections that only switch on with outside services** (CAPTCHA
 keys, a malware scanner, error-monitoring account, backups, Cloudflare). The other open points are
-small and listed at the end. The automatic test suite (45 end-to-end tests that walk through the
-brief's "Definition of done", plus 640+ unit tests) passes.
+small and listed at the end.
+
+**Final check (31 October 2026, after the second speed pass and the security follow-ups): all
+green.** The database schema check, type check, lint, translation check (33 groups × 5 languages),
+659 unit tests, the production build and all 45 end-to-end tests (which walk through the brief's
+"Definition of done") pass, and an accessibility scan (WCAG 2.1 A/AA) finds 0 problems on the home
+page, the Arabic search, a listing, My account and the admin moderation queue on a 360 px phone.
+Mobile Lighthouse Performance: home 81–83, search 77–78, listing 71–77, Jewish Life 75–79, help
+82–85 (52–66 before the speed pass; target 90+).
 
 **Status words used below**
 
@@ -148,7 +155,7 @@ brief's "Definition of done", plus 640+ unit tests) passes.
 |---|---|---|
 | Overview: new users, listings, reports, open tickets, top cities, contact clicks | Done | Admin home. |
 | Moderation queue with risk score and reasons; approve / ask for changes / reject; reason sent in the owner's language | Done | Admin → Moderation. |
-| Reports; listings auto-hidden after 3 open reports until checked | Done | Admin → Reports. The number is in Admin → Settings. |
+| Reports; listings auto-hidden after 3 open reports until checked | Done | Admin → Reports. The number is in Admin → Settings. Only reports from different trusted accounts (older than 7 days or phone-verified) on different devices count; every report still shows here. |
 | Users: search, verify, warn, suspend, ban, internal notes, change role | Done | Admin → Users. |
 | Verification requests (documents deleted after review; only "verified on … by …" kept) | Done | Admin → Verifications. |
 | Tickets: assign, internal notes, **saved replies** | Done | Admin → Tickets → a ticket. **New:** "Saved replies" button on the Tickets page to add, edit and delete them in 5 languages. |
@@ -199,7 +206,7 @@ brief's "Definition of done", plus 640+ unit tests) passes.
 | New account posting many listings fast, several accounts on one device, VoIP numbers | Done | VoIP check needs Twilio. |
 | First listing of every account always checked by a person | Done | Post as a new user → "We're checking your listing". |
 | Safety tip at first contact; video-call tip with today's date and the listing ID | Done | Contact box. |
-| Report on every listing and profile (6 reasons); hidden after several reports | Done | "Report" on a listing. Messages arrive with chat (Phase 2). |
+| Report on every listing and profile (6 reasons); hidden after several reports | Done | "Report" on a listing. Fake new accounts or one device cannot hide a listing. Messages arrive with chat (Phase 2). |
 | Users can block each other | Done | Owner profile → Block. |
 | Paid placements always labeled "Promoted" | Done | — |
 | Warnings for owners about guest-side scams (fake overpayment, "refund the difference") | Done | Safety Center → tips for owners. |
@@ -217,11 +224,11 @@ Full details: `docs/SECURITY-REPORT.md`.
 | Password-free login (phone code, Google, Apple); 2-step login for everyone, required for staff | Done | Account → Settings → 2-step login. |
 | Users only see and change their own data (checked in code on every action) | Done | Reviewed action by action in the security pass. |
 | Rate limits everywhere; invisible CAPTCHA on sign-up/login, support forms, email to owner | Done (needs Turnstile keys) | — |
-| CAPTCHA on "Show contact" and publishing | Partial | See gap 2. |
+| CAPTCHA on "Show contact", publishing and reports | Done (needs Turnstile keys) | Invisible; checked on the server. Without keys it is skipped. See gap 2. |
 | SMS-pumping protection | Done | Only allowed countries, per-phone and per-address limits. Turn on Twilio Fraud Guard. |
 | Uploads: type and size checks, re-encoding, hidden data removed | Done | — |
 | Malware scanning of uploads | Partial | The connection exists; needs a scanner service (`MALWARE_SCAN_URL`). |
-| ID and ownership documents encrypted, staff-only, deleted after review | Done | — |
+| ID and ownership documents encrypted, staff-only, deleted after review | Done | Files never sent are deleted after 48 hours; photos of deleted listings after 30 days (daily cleanup job). |
 | Secrets in environment variables | Done | Every variable is listed in `README.md` and `.env.example`. |
 | Error monitoring (Sentry) | Partial → code done | **New:** server errors are sent to Sentry once `SENTRY_DSN` is set. Browser errors are not collected yet. |
 | Daily backups, Cloudflare | Open (hosting setup) | README, "Going live". |
@@ -235,7 +242,7 @@ Full details: `docs/SECURITY-REPORT.md`.
 |---|---|---|
 | Server-side rendering, clean URLs per language, sitemap, schema.org for listings | Done | `/sitemap.xml`, `/robots.txt`. |
 | Sharing previews (main photo, title, price, city) | Done | Paste a listing link into WhatsApp. |
-| Lighthouse 90+ on mobile | **Partial** | Today 61–80 Performance (Accessibility and Best Practices 100, SEO 92–100). See gap 1 and `docs/integration/performance-seo.md`. |
+| Lighthouse 90+ on mobile | **Partial** | Today 71–85 Performance (was 52–66 before the second performance pass; Accessibility and Best Practices 100, SEO 92–100). See gap 1 and `docs/integration/performance-seo.md`. |
 | WCAG 2.1 AA, screen readers, keyboard, alt text, Accessibility statement | Done | 0 automatic violations across 333 page checks (`docs/integration/ux-a11y.md`). A manual audit with real screen-reader users is still recommended. |
 | Emails in the user's language: welcome, listing live / in review / approved / needs changes / rejected / about to expire / expired / hidden, ticket replies | Done | Admin → Email outbox. Phone verification is the SMS code itself. |
 | New message and saved-search emails; WhatsApp/phone notifications | Phase 2 | — |
@@ -251,7 +258,7 @@ Full details: `docs/SECURITY-REPORT.md`.
 | Admin can approve or reject listings, handle reports and answer tickets | Done (end-to-end test) |
 | Report buttons, safety tips and automatic scam checks work | Done (end-to-end test) |
 | No "lorem ipsum", no broken links, no console errors | Done (end-to-end test) |
-| Lighthouse 90+ | **Not yet** (61–80 on mobile) |
+| Lighthouse 90+ | **Not yet** (71–85 on mobile) |
 | Security checklist done, with a short report | Done in code; production settings still to do (gap 4) |
 
 ## 9. Demo data and setup (brief section 16)
@@ -269,18 +276,19 @@ Full details: `docs/SECURITY-REPORT.md`.
 
 In order of importance. "Before launch" items are needed before real users arrive.
 
-1. **Mobile speed (Lighthouse 90+) — not reached.** Pages score 61–80 on a slow phone test.
-   The main cost is the work the phone does while the page starts (many listing cards with
-   photo carousels). Fixing it means lighter cards on the first screen and loading carousels
-   later — a few days of focused work. *Medium–high; before launch.*
-2. **CAPTCHA on "Show contact" and "Publish."** Today these need a signed-in account (login has
-   the CAPTCHA), a verified phone for publishing, and rate limits. Adding the invisible check
-   touches the main contact flow, so it should be done and tested with real Turnstile keys.
-   *Medium; before launch or as soon as bots appear.*
-3. **Re-checks after some edits.** Paused, expired, rented or sold listings can be edited and put
-   back online, and price changes on live listings are saved, without the scam checks running
-   again at that moment (they run when the owner presses "Save changes", and new text or contact
-   details are checked at once). *Medium; a product decision on when to re-check.*
+1. **Mobile speed (Lighthouse 90+) — not reached.** Pages score 71–85 on a slow phone test (they
+   were 52–66). Done in the second pass: lighter listing cards (server-rendered, photo carousel
+   starts when used or on screen), fewer cards on the home page, no skeleton screens on fast pages,
+   much smaller fonts, the map and toasts load later. What is left is mostly the JavaScript every
+   page loads (header menus, icons, interface text) — details and next steps in
+   `docs/integration/performance-seo.md`. *Medium–high; before launch, and measure on the real
+   host.*
+2. **CAPTCHA on "Show contact", "Publish" and reports — done.** The invisible check is in place
+   and verified on the server; it switches on with the Turnstile keys (gap 4). Try it once with
+   real keys before launch. *Low.*
+3. **Re-checks after some edits — done.** Paused, expired, rented or sold listings that were
+   edited since the last check are checked again before they go back online, and so is a live
+   listing whose price changes; risky ones wait for a moderator. *Done.*
 4. **Production setup (outside the code).** Set every variable from `.env.example` (Turnstile,
    `CRON_SECRET`, encryption key, hash salt, Twilio with Fraud Guard, Resend, R2 storage, Google
    Translate, **`SENTRY_DSN`**), turn on daily database backups, put the domain behind Cloudflare,
@@ -291,9 +299,9 @@ In order of importance. "Before launch" items are needed before real users arriv
 6. **Image search online and text inside photos.** Needs a paid service; the checks are ready to
    connect. *Low–medium.*
 7. **Missing listing pages answer "200" instead of "404"** (they show the designed "not found"
-   page and are hidden from Google, but the status code is wrong), and short listing links like
-   `/listing/113` redirect in the browser instead of on the server. *Low–medium (SEO); a layout
-   decision.*
+   page and are hidden from Google, but the status code is wrong). Short listing links like
+   `/listing/113` now get a real permanent redirect (308) from the server. *Low–medium (SEO); a
+   layout decision.*
 8. **Small things.** Browser-side errors are not sent to Sentry yet; the sitemap needs splitting
    above 9,000 listings; Georgian numbers above 1,000 inside some sentences can differ between
    server and browser. *Low.*

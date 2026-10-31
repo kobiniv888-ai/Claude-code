@@ -7,6 +7,27 @@
 @source not "../../.claude";
 @source not "../../docs";
 
+/* "≈" in converted prices, from a system font (see src/components/layout/fonts.ts). Without a
+   matching local font the browser moves on to the next family in the stack, as before. */
+@font-face {
+  font-family: "Bayit Symbols";
+  src: local("Roboto"), local("Roboto-Regular"), local("Segoe UI"), local("SegoeUI"), local("Helvetica Neue"),
+    local("HelveticaNeue"), local("Arial"), local("ArialMT"), local("Liberation Sans"), local("LiberationSans"),
+    local("DejaVu Sans"), local("DejaVuSans");
+  font-weight: 100 500;
+  font-display: swap;
+  unicode-range: U+2248;
+}
+@font-face {
+  font-family: "Bayit Symbols";
+  src: local("Roboto Bold"), local("Roboto-Bold"), local("Segoe UI Bold"), local("SegoeUI-Bold"),
+    local("Helvetica Neue Bold"), local("HelveticaNeue-Bold"), local("Arial Bold"), local("Arial-BoldMT"),
+    local("Liberation Sans Bold"), local("LiberationSans-Bold"), local("DejaVu Sans Bold"), local("DejaVuSans-Bold");
+  font-weight: 600 900;
+  font-display: swap;
+  unicode-range: U+2248;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -76,13 +97,12 @@
       transform: none;
     }
   }
+  /* Slide only, no fade: an element that starts at opacity 0 is painted (and counted for LCP) late. */
   @keyframes sheet-up {
     from {
-      opacity: 0;
       transform: translateY(24px);
     }
     to {
-      opacity: 1;
       transform: none;
     }
   }

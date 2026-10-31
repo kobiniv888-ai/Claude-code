@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
   ArrowRightIcon,
@@ -14,12 +14,13 @@ import {
   RocketIcon,
   SparklesIcon,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Ltr } from "@/components/common/ltr";
+import { Turnstile, type TurnstileHandle } from "@/components/common/turnstile";
 import { locales, siteConfig, type AppLocale } from "@/config/site";
 import { Link } from "@/i18n/navigation";
 import { formatArea, formatMoney, formatNumber } from "@/lib/format";
@@ -356,6 +357,8 @@ export function PublishStep(props: StepProps) {
   const [accepted, setAccepted] = useState(listing.rulesAccepted);
   const [publishing, setPublishing] = useState(false);
   const [rulesError, setRulesError] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const captcha = useRef<TurnstileHandle>(null);
   const isEdit = context.mode === "edit";
   const steps = stepsFor(kind);
   const stepNumber = (s: NonNullable<MissingRequirement["step"]>) => steps.indexOf(s) + 1;
@@ -382,13 +385,15 @@ export function PublishStep(props: StepProps) {
       toast.error(tw("chrome.fixErrors"));
       return;
     }
-    const result = await track(acceptRulesAndPublish(listing.id, { rulesAccepted: true })).catch(() => null);
+    const result = await track(acceptRulesAndPublish(listing.id, { rulesAccepted: true, turnstileToken: captchaToken })).catch(() => null);
     setPublishing(false);
-    if (!result) return;
-    if (result.ok) {
+    if (result?.ok) {
       onPublished(result.data);
       return;
     }
+    // Turnstile tokens are single-use.
+    captcha.current?.reset();
+    if (!result) return;
     const code = result.error;
     toast.error(tw.has(`errors.${code}`) ? tw(`errors.${code}`) : tw("errors.server_error"));
   };
@@ -464,6 +469,7 @@ export function PublishStep(props: StepProps) {
               )}
             </div>
             <p className="text-sm text-muted-foreground">{t("reviewNote")}</p>
+            <Turnstile ref={captcha} action="publish" onToken={setCaptchaToken} onExpire={() => setCaptchaToken(null)} />
             {missing.length === 0 ? (
               <Button
                 type="button"

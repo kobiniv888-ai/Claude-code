@@ -24,7 +24,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Link, useRouter } from "@/i18n/navigation";
-import { authClient } from "@/lib/auth/client";
 import type { LoginConfig } from "@/lib/auth/config";
 import { safeNextPath, withNext } from "@/lib/auth/next-path";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -67,14 +66,24 @@ function currentPath(): string {
   return safeNextPath(`${window.location.pathname}${window.location.search}`, "/");
 }
 
-export function LoginDialogProviderClient({ config, children }: { config: LoginConfig; children: ReactNode }) {
+export function LoginDialogProviderClient({
+  config,
+  signedIn,
+  children,
+}: {
+  config: LoginConfig;
+  /** From the server's session (updated by router.refresh() after a login). */
+  signedIn: boolean;
+  children: ReactNode;
+}) {
   const t = useTranslations("auth.login");
   const router = useRouter();
-  const { data: session } = authClient.useSession();
-  const sessionRef = useRef(session);
+  // The server already knows whether the visitor is signed in, so no session request (and no
+  // Better Auth client) is needed on page load; it is loaded only to double-check a "no".
+  const signedInRef = useRef(signedIn);
   useEffect(() => {
-    sessionRef.current = session;
-  }, [session]);
+    signedInRef.current = signedIn;
+  }, [signedIn]);
 
   const [open, setOpen] = useState(false);
   const [next, setNext] = useState("/");
@@ -92,7 +101,8 @@ export function LoginDialogProviderClient({ config, children }: { config: LoginC
   }, []);
 
   const isSignedIn = useCallback(async () => {
-    if (sessionRef.current) return true;
+    if (signedInRef.current) return true;
+    const { authClient } = await import("@/lib/auth/client");
     const { data } = await authClient.getSession();
     return !!data;
   }, []);

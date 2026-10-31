@@ -3,16 +3,20 @@
 /**
  * Reports and blocks (BRIEF section 10, "Protecting users"). Signed-in users only.
  *
- * - createReport: one OPEN report per user per target, 5 a day; a listing report then goes
- *   through applyReport(), which hides the listing after enough open reports.
+ * - createReport: invisible CAPTCHA, one OPEN report per user per target, 5 a day; the
+ *   reporting device is linked to the account, then a listing report goes through
+ *   applyReport(), which hides the listing after enough reports from trusted, distinct
+ *   accounts and devices.
  * - blockUser / unblockUser: a blocked pair cannot reveal each other's contact details.
  */
 import { z } from "zod";
 import { fail, ok, runAction, type ActionResult } from "@/lib/action";
+import { linkDevice } from "@/lib/auth/hooks";
 import { requireUserForAction } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { applyReport } from "@/lib/listing/lifecycle";
 import { assertRateLimit } from "@/lib/rate-limit";
+import { assertTurnstile } from "@/lib/turnstile";
 import { reportInputSchema } from "./schemas";
 
 const DAY = 24 * 3600;
@@ -23,7 +27,8 @@ export async function createReport(input: unknown): Promise<ActionResult> {
     const user = await requireUserForAction();
     const parsed = reportInputSchema.safeParse(input);
     if (!parsed.success) return fail("invalid_input", z.flattenError(parsed.error).fieldErrors);
-    const { targetType, targetId, reason, details } = parsed.data;
+    const { targetType, targetId, reason, details, turnstileToken } = parsed.data;
+    await assertTurnstile(turnstileToken, { expectedAction: "report" });
 
     let listingId: string | null = null;
     let targetUserId: string | null = null;
@@ -55,6 +60,8 @@ export async function createReport(input: unknown): Promise<ActionResult> {
     await db.report.create({
       data: { targetType, listingId, targetUserId, reporterId: user.id, reason, details },
     });
+    // Auto-hide counts reports per device (DeviceLink), so the device used now must be known.
+    await linkDevice(user.id);
     if (listingId) await applyReport(listingId);
     return ok();
   });

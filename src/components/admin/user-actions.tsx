@@ -3,7 +3,7 @@
 import { AlertTriangle, BadgeCheck, Ban, BadgeX, Clock, ShieldCheck, Undo2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import type { UserRole, UserStatus } from "@/generated/prisma/enums";
 import {
   banUserAction,

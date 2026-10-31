@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useState, type ReactNode } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { AdminSection } from "@/components/admin/page-header";
 import { Button } from "@/components/ui/button";
 import {

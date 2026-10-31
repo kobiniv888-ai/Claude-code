@@ -278,6 +278,11 @@ export async function createReport(opts: { listingId: string; reporterId: string
     `INSERT INTO "Report" (id, "targetType", "listingId", "reporterId", reason, details) VALUES ($1, 'LISTING', $2, $3, $4::"ReportReason", $5)`,
     [id, opts.listingId, opts.reporterId, opts.reason ?? "FAKE_LISTING", opts.details ?? "E2E report"],
   );
+  // A report from the site links the reporter's device; auto-hide counts one report per device.
+  await sql(
+    `INSERT INTO "DeviceLink" (id, "deviceHash", "userId") VALUES ($1, $2, $3) ON CONFLICT ("deviceHash", "userId") DO NOTHING`,
+    [newId(), `e2e-device-${opts.reporterId}`, opts.reporterId],
+  );
   return id;
 }
 

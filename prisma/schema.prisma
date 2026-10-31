@@ -582,6 +582,9 @@ model Listing {
   riskScore          Int?
   /// [{ code: "duplicate_photos", points: 40, detail: "…" }]
   riskReasons        Json?
+  /// When the automatic checks (assessListing) last ran. Unpause / renew / a price change on a
+  /// live listing run them again when the content changed after this (see lifecycle.ts).
+  lastCheckedAt      DateTime?
   /// Reason code shown to the owner (translated), e.g. "photos_low_quality".
   moderationReason   String?
   /// Free-text note from the moderator (auto-translated to the owner's language).
@@ -824,6 +827,19 @@ model VerificationRequest {
 
   @@index([status, createdAt])
   @@index([userId])
+}
+
+/// Private uploads (POST /api/uploads/private) waiting to be attached to a ticket message, a
+/// verification request or a listing's kosher certificate. The daily cleanup job deletes the file
+/// when it is still not attached after 48 hours, and drops the row either way.
+model PrivateUpload {
+  key       String   @id
+  userId    String
+  /// "verification" | "ticket"
+  purpose   String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }
 
 /// Links a browser/device fingerprint cookie to accounts ("several accounts on one device").

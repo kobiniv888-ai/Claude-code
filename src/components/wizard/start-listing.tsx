@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { ArrowRightIcon, ImageIcon, LoaderCircleIcon, PlusIcon, Trash2Icon } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import {
   AlertDialog,
   AlertDialogAction,

@@ -3,7 +3,7 @@
 import { useId, useRef, useState, useTransition } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { CameraIcon, FileCheck2Icon, FileUpIcon, LoaderIcon, SendIcon, XIcon } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";

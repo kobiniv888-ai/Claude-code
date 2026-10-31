@@ -11,6 +11,8 @@ export const AUTH_HOOK_ERRORS = {
   ACCOUNT_SUSPENDED: "ACCOUNT_SUSPENDED",
   ACCOUNT_BANNED: "ACCOUNT_BANNED",
   ACCOUNT_DELETED: "ACCOUNT_DELETED",
+  /** A sensitive account function before the 2-step code was entered (./two-factor-gate.ts). */
+  TWO_FACTOR_REQUIRED: "TWO_FACTOR_REQUIRED",
 } as const;
 
 export type AuthErrorKey =
@@ -24,6 +26,7 @@ export type AuthErrorKey =
   | "captcha_failed"
   | "account_suspended"
   | "account_banned"
+  | "two_factor_required"
   | "sms_unavailable"
   | "oauth_failed"
   | "network"
@@ -44,6 +47,7 @@ const BY_CODE: Record<string, AuthErrorKey> = {
   [AUTH_HOOK_ERRORS.ACCOUNT_SUSPENDED]: "account_suspended",
   [AUTH_HOOK_ERRORS.ACCOUNT_BANNED]: "account_banned",
   [AUTH_HOOK_ERRORS.ACCOUNT_DELETED]: "account_banned",
+  [AUTH_HOOK_ERRORS.TWO_FACTOR_REQUIRED]: "two_factor_required",
 };
 
 /** Error shape returned by the Better Auth client (`{ error }` of a call). */

@@ -1,5 +1,6 @@
 import createIntlMiddleware from "next-intl/middleware";
 import { NextResponse, type NextRequest } from "next/server";
+import { locales, type AppLocale } from "@/config/site";
 import { routing } from "@/i18n/routing";
 
 const intlMiddleware = createIntlMiddleware(routing);
@@ -48,7 +49,45 @@ function buildCsp(nonce: string) {
   return isDev ? csp : `${csp}; upgrade-insecure-requests`;
 }
 
-export default function proxy(request: NextRequest) {
+/** "/he/listing/113" — a listing link without the words after the number. */
+const BARE_LISTING_PATH = new RegExp(`^/(${locales.join("|")})/listing/(\\d{1,10})/?$`);
+const MAX_PUBLIC_ID = 2_147_483_647;
+
+/**
+ * Bare listing links (emails, links typed or shared by hand) get a real HTTP 308 to the
+ * canonical "/<locale>/listing/<id>-<slug>" address. The page cannot do this itself: it streams
+ * behind loading.tsx, so its redirect would be a client-side meta refresh with status 200.
+ * Only public listings are redirected here (the rest is left to the page), and any failure
+ * falls back to the page as well.
+ */
+async function bareListingRedirect(request: NextRequest): Promise<NextResponse | null> {
+  if (request.method !== "GET" && request.method !== "HEAD") return null;
+  const match = BARE_LISTING_PATH.exec(request.nextUrl.pathname);
+  if (!match) return null;
+  const locale = match[1] as AppLocale;
+  const publicId = Number(match[2]);
+  if (!Number.isSafeInteger(publicId) || publicId <= 0 || publicId > MAX_PUBLIC_ID) return null;
+  try {
+    // Loaded on demand, so other requests never load the database client here.
+    const { publicListingCanonicalPath } = await import("@/lib/listing-page/canonical");
+    const path = await publicListingCanonicalPath(publicId, locale);
+    if (!path || path === `/listing/${publicId}`) return null;
+    const url = request.nextUrl.clone();
+    url.pathname = `/${locale}${path}`;
+    const response = NextResponse.redirect(url, 308);
+    // Search engines still see a permanent move; browsers do not keep it, as the slug follows the title.
+    response.headers.set("Cache-Control", "no-store");
+    return response;
+  } catch (error) {
+    console.error("[proxy] could not resolve a listing link:", error);
+    return null;
+  }
+}
+
+export default async function proxy(request: NextRequest) {
+  const listingRedirect = await bareListingRedirect(request);
+  if (listingRedirect) return listingRedirect;
+
   const nonce = btoa(crypto.randomUUID());
   const csp = buildCsp(nonce);
 

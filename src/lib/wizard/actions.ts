@@ -18,7 +18,13 @@ import {
   PROPERTY_TYPES_BY_DEAL,
   computeShabbatFriendly,
 } from "@/lib/listing/fields";
-import { prepareListingDerivedFields, publicMapPoint, recordPriceChange, submitForPublication } from "@/lib/listing/lifecycle";
+import {
+  prepareListingDerivedFields,
+  publicMapPoint,
+  recheckLiveListingAfterPriceChange,
+  recordPriceChange,
+  submitForPublication,
+} from "@/lib/listing/lifecycle";
 import { isOwnPrivateUpload } from "@/lib/media";
 import { getCityById, getNeighborhoods } from "@/lib/places";
 import { assertRateLimit } from "@/lib/rate-limit";
@@ -26,6 +32,7 @@ import { detectContactInfo, hasContactInfo } from "@/lib/risk/contact-info";
 import { scanText } from "@/lib/risk/scan";
 import { assertNotShabbatMode } from "@/lib/settings";
 import { isTranslationEnabled, translateListing } from "@/lib/translate";
+import { assertTurnstile } from "@/lib/turnstile";
 import { normalizeRanges } from "./availability";
 import { missingRequirements } from "./requirements";
 import {
@@ -387,6 +394,9 @@ export async function updateDraft(
       // phrases or hidden contact details, go through the automatic checks now (as "Save changes"
       // would), so they cannot stay public just because the owner never pressed that button.
       await recheckLiveListing(listing.id, user.id);
+    } else if (listing.status === "LIVE" && update.priceChange) {
+      // A new price is public at once too: the risk checks run again now (e.g. "far below the area").
+      await recheckLivePrice(listing.id, user.id);
     }
     return ok({ savedAt: now.toISOString() });
   } catch (error) {
@@ -415,6 +425,15 @@ async function recheckLiveListing(listingId: string, ownerId: string): Promise<v
     await submitForPublication(listingId, ownerId);
   } catch (error) {
     console.error(`[wizard] re-check of live listing ${listingId} failed:`, error);
+  }
+}
+
+/** Re-runs the risk checks after a price change of a live listing (see updateDraft); never throws. */
+async function recheckLivePrice(listingId: string, ownerId: string): Promise<void> {
+  try {
+    await recheckLiveListingAfterPriceChange(listingId, ownerId);
+  } catch (error) {
+    console.error(`[wizard] price re-check of live listing ${listingId} failed:`, error);
   }
 }
 
@@ -833,13 +852,16 @@ function outcome(
   };
 }
 
+const turnstileTokenSchema = z.string().max(2048).nullish();
+
 /**
- * The owner accepts the listing rules and publishes a draft. The automatic checks decide:
- * LIVE, IN_REVIEW (a person checks it — always for an account's first listing) or BLOCKED.
+ * The owner accepts the listing rules and publishes a draft (behind the invisible CAPTCHA,
+ * action "publish"). The automatic checks decide: LIVE, IN_REVIEW (a person checks it — always
+ * for an account's first listing) or BLOCKED.
  */
 export async function acceptRulesAndPublish(
   listingId: string,
-  input: { rulesAccepted: boolean },
+  input: { rulesAccepted: boolean; turnstileToken?: string | null },
 ): Promise<ActionResult<PublishOutcome>> {
   try {
     const user = await ownerForMutation("publish", PUBLISH_LIMIT);
@@ -848,6 +870,7 @@ export async function acceptRulesAndPublish(
     if (listing.status !== "DRAFT") return fail("already_published");
     const missing = await checkRequirements(listing, user);
     if (missing) return missing;
+    await assertTurnstile(turnstileTokenSchema.parse(input?.turnstileToken), { expectedAction: "publish" });
 
     await finalizeListing(listing, user, { rulesAcceptedAt: new Date(), wizardStep: stepsFor(kindOf(listing)).length });
     const result = await submitForPublication(listing.id, user.id);

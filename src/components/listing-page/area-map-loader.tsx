@@ -1,8 +1,10 @@
 "use client";
 
+import { useRef } from "react";
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import { MapIcon } from "lucide-react";
+import { useNearViewport } from "@/hooks/use-near-viewport";
 import type { AreaMapProps } from "./area-map";
 
 function MapSkeleton() {
@@ -17,7 +19,16 @@ function MapSkeleton() {
 
 const AreaMap = dynamic(() => import("./area-map"), { ssr: false, loading: MapSkeleton });
 
-/** The approximate-area map, loaded only in the browser (Leaflet needs `window`). */
+/**
+ * The approximate-area map, loaded only in the browser (Leaflet needs `window`) and only when the
+ * visitor scrolls near it, so Leaflet and the map tiles do not compete with the top of the page.
+ */
 export function AreaMapLoader(props: AreaMapProps) {
-  return <AreaMap {...props} />;
+  const ref = useRef<HTMLDivElement>(null);
+  const near = useNearViewport(ref);
+  return (
+    <div ref={ref} className="size-full">
+      {near ? <AreaMap {...props} /> : <MapSkeleton />}
+    </div>
+  );
 }

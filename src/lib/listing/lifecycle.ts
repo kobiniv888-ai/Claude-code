@@ -13,7 +13,8 @@ import { AppError, NotFoundError, ValidationError } from "@/lib/errors";
 import { approximateLocation, type LatLng } from "@/lib/geo";
 import { computeShabbatFriendly, MODERATION_REASONS, type ModerationReason } from "@/lib/listing/fields";
 import { computeListingProximity } from "@/lib/nearby";
-import { assessListing, type RiskReason } from "@/lib/risk";
+import { assessListing, type RiskAssessment, type RiskReason } from "@/lib/risk";
+import { countAutoHideReports } from "@/lib/reports/auto-hide";
 import { getSettings } from "@/lib/settings";
 import { translateForLocale, translateListing, updateListingSearchText } from "@/lib/translate";
 
@@ -25,6 +26,8 @@ import { translateForLocale, translateListing, updateListingSearchText } from "@
  *   NEEDS_CHANGES / REJECTED ─owner edits→ checks again   (REJECTED always back to IN_REVIEW)
  *   LIVE ─owner→ PAUSED ⇄ LIVE, RENTED / SOLD, DELETED (soft)
  *   LIVE ─cron→ EXPIRED (warning email first) ─owner renews→ LIVE
+ *   (unpause / renew / a live price change: checks again when the content changed since
+ *    lastCheckedAt — high risk → IN_REVIEW)
  *   LIVE ─enough open reports→ HIDDEN ─moderator→ LIVE
  *
  * Every function checks the current status (and ownership for owner actions), changes it with a
@@ -83,7 +86,7 @@ const OWNER_SELECT = {
 } satisfies Prisma.UserSelect;
 type Owner = Prisma.UserGetPayload<{ select: typeof OWNER_SELECT }>;
 
-/** Owner-facing listing address for emails ("/listing/1234"; the page redirects to the full slug). */
+/** Owner-facing listing address for emails ("/listing/1234"; src/proxy.ts answers a 308 to the full slug). */
 function publicListingPath(publicId: number): string {
   return `/listing/${publicId}`;
 }
@@ -336,6 +339,8 @@ export async function submitForPublication(listingId: string, ownerId: string): 
     console.error(`[lifecycle] nearby places of ${listing.id} failed:`, error);
   }
 
+  // Taken before the checks run, so an edit saved meanwhile still counts as "changed since".
+  const checkedAt = new Date();
   const assessment = await assessListing(listing.id);
   const from = listing.status;
   let target: ListingStatus;
@@ -345,11 +350,7 @@ export async function submitForPublication(listingId: string, ownerId: string): 
   else target = "LIVE";
 
   const now = new Date();
-  const risk = {
-    riskScore: assessment.score,
-    riskReasons: assessment.reasons as unknown as Prisma.InputJsonValue,
-  };
-  let data: Prisma.ListingUncheckedUpdateManyInput = { ...risk };
+  let data: Prisma.ListingUncheckedUpdateManyInput = riskData(assessment, checkedAt);
   if (target === "LIVE" && from !== "LIVE") data = { ...data, ...(await liveData(listing, now)) };
   else if (target !== from) data = { ...data, status: target };
 
@@ -385,6 +386,87 @@ export async function submitForPublication(listingId: string, ownerId: string): 
     status: assessment.blocked ? "BLOCKED" : target === "LIVE" ? "LIVE" : "IN_REVIEW",
     reasons: assessment.reasons,
   };
+}
+
+// ─── Re-checks before going (back) online ─────────────────────
+
+function riskData(assessment: RiskAssessment, checkedAt: Date): Prisma.ListingUncheckedUpdateManyInput {
+  return {
+    riskScore: assessment.score,
+    riskReasons: assessment.reasons as unknown as Prisma.InputJsonValue,
+    lastCheckedAt: checkedAt,
+  };
+}
+
+/** A result that needs a person: a blocked phrase / unverified phone, or a high risk score. */
+function needsPerson(assessment: RiskAssessment): boolean {
+  return assessment.blocked || assessment.requiresReview;
+}
+
+/**
+ * True when what the public sees may have changed since the automatic checks last ran: never
+ * checked, an edit after lastCheckedAt (every wizard save of a published listing moves
+ * contentUpdatedAt, translations and room types included), or a photo added after it.
+ */
+export async function contentChangedSinceCheck(listing: {
+  id: string;
+  lastCheckedAt: Date | null;
+  contentUpdatedAt: Date;
+}): Promise<boolean> {
+  const since = listing.lastCheckedAt;
+  if (!since) return true;
+  if (listing.contentUpdatedAt > since) return true;
+  return (await db.listingPhoto.count({ where: { listingId: listing.id, createdAt: { gt: since } } })) > 0;
+}
+
+/**
+ * Runs the automatic checks when the content changed since they last ran (derived fields such
+ * as the USD price are refreshed first). Null when nothing changed, so nothing ran.
+ */
+async function recheckIfChanged(listing: {
+  id: string;
+  lastCheckedAt: Date | null;
+  contentUpdatedAt: Date;
+}): Promise<{ assessment: RiskAssessment; data: Prisma.ListingUncheckedUpdateManyInput } | null> {
+  if (!(await contentChangedSinceCheck(listing))) return null;
+  await prepareListingDerivedFields(listing.id);
+  const checkedAt = new Date();
+  const assessment = await assessListing(listing.id);
+  return { assessment, data: riskData(assessment, checkedAt) };
+}
+
+const RECHECK_SELECT = {
+  id: true,
+  status: true,
+  title: true,
+  lastCheckedAt: true,
+  contentUpdatedAt: true,
+  owner: { select: OWNER_SELECT },
+} satisfies Prisma.ListingSelect;
+
+export type PriceRecheckResult = { status: ListingStatus; rechecked: boolean; reasons: RiskReason[] };
+
+/**
+ * Call after the owner changed the price of a LIVE listing (the wizard's auto-save): when the
+ * content changed since the last check, the automatic checks run again at once (a price far
+ * below the area, together with anything else that changed). A high-risk result takes the
+ * listing off the site (IN_REVIEW, "listing_in_review" email) until a moderator checks it.
+ */
+export async function recheckLiveListingAfterPriceChange(listingId: string, ownerId: string): Promise<PriceRecheckResult> {
+  const listing = await loadListing(listingId, RECHECK_SELECT, ownerId);
+  if (listing.status !== "LIVE") return { status: listing.status, rechecked: false, reasons: [] };
+  const recheck = await recheckIfChanged(listing);
+  if (!recheck) return { status: "LIVE", rechecked: false, reasons: [] };
+  const { assessment } = recheck;
+  const toReview = needsPerson(assessment);
+  const applied = await transition(listing.id, "LIVE", { ...recheck.data, ...(toReview ? { status: "IN_REVIEW" } : {}) }, ownerId);
+  if (!applied) {
+    return { status: (await loadListing(listing.id, { status: true })).status, rechecked: true, reasons: assessment.reasons };
+  }
+  if (toReview) {
+    await notifyOwner(listing.owner, "listing_in_review", { ownerName: listing.owner.name, listingTitle: listing.title }, { optional: true });
+  }
+  return { status: toReview ? "IN_REVIEW" : "LIVE", rechecked: true, reasons: assessment.reasons };
 }
 
 // ─── Moderation (staff) ───────────────────────────────────────
@@ -552,34 +634,62 @@ export async function restoreHiddenListing(listingId: string, staffId: string): 
 
 // ─── Reports ──────────────────────────────────────────────────
 
+export type ApplyReportResult = { hidden: boolean; openReports: number; countedReports: number };
+
 /**
- * Call after a Report on a listing was created: counts it, and when the OPEN reports reach
- * settings.reportsToAutoHide a LIVE listing is HIDDEN until a moderator checks it (the owner is
- * emailed). Resolve or dismiss the reports before restoring, or the next report hides it again.
+ * Call after a Report on a listing was created: counts it, and when the OPEN reports that count
+ * (countAutoHideReports: one per trusted account — older than newAccountDays or phone-verified —
+ * and per device) reach settings.reportsToAutoHide, a LIVE listing is HIDDEN until a moderator
+ * checks it (the owner is emailed). Every report still reaches the moderators. Resolve or dismiss
+ * the reports before restoring, or the next report hides it again.
  */
-export async function applyReport(listingId: string): Promise<{ hidden: boolean; openReports: number }> {
+export async function applyReport(listingId: string, now: Date = new Date()): Promise<ApplyReportResult> {
   const listing = await db.listing.update({
     where: { id: listingId },
     data: { reportCount: { increment: 1 } },
     select: { id: true, publicId: true, status: true, title: true, owner: { select: OWNER_SELECT } },
   });
-  const [openReports, settings] = await Promise.all([
-    db.report.count({ where: { listingId, status: "OPEN" } }),
+  const [reports, settings] = await Promise.all([
+    db.report.findMany({
+      where: { listingId, status: "OPEN" },
+      orderBy: { createdAt: "asc" },
+      select: {
+        reporterId: true,
+        reporter: {
+          select: {
+            createdAt: true,
+            phoneNumberVerified: true,
+            status: true,
+            deletedAt: true,
+            devices: { select: { deviceHash: true } },
+          },
+        },
+      },
+    }),
     getSettings(),
   ]);
-  if (listing.status !== "LIVE" || openReports < settings.reportsToAutoHide) return { hidden: false, openReports };
+  const openReports = reports.length;
+  const countedReports = countAutoHideReports(
+    reports.map((r) => ({
+      reporterId: r.reporterId,
+      reporter: r.reporter && { ...r.reporter, devices: r.reporter.devices.map((d) => d.deviceHash) },
+    })),
+    { now, newAccountDays: siteConfig.safety.newAccountDays },
+  );
+  const result = { hidden: false, openReports, countedReports };
+  if (listing.status !== "LIVE" || countedReports < settings.reportsToAutoHide) return result;
 
   const applied = await transition(listing.id, "LIVE", { status: "HIDDEN" });
-  if (!applied) return { hidden: false, openReports };
+  if (!applied) return result;
   await audit({
     actorId: null,
     action: "listing.auto_hide",
     targetType: "Listing",
     targetId: listing.id,
-    details: { publicId: listing.publicId, openReports, threshold: settings.reportsToAutoHide },
+    details: { publicId: listing.publicId, openReports, countedReports, threshold: settings.reportsToAutoHide },
   });
   await notifyOwner(listing.owner, "listing_hidden_reports", { ownerName: listing.owner.name, listingTitle: listing.title });
-  return { hidden: true, openReports };
+  return { ...result, hidden: true };
 }
 
 // ─── Owner actions ────────────────────────────────────────────
@@ -587,13 +697,18 @@ export async function applyReport(listingId: string): Promise<{ hidden: boolean;
 export type OwnerActionResult = { status: ListingStatus; changed: boolean; expiresAt: Date | null };
 
 const OWNER_ACTION_SELECT = {
-  id: true,
-  status: true,
+  ...RECHECK_SELECT,
   dealType: true,
   expiresAt: true,
   publishedAt: true,
 } satisfies Prisma.ListingSelect;
 
+/**
+ * Loads the owner's listing, plans the change and applies it conditionally. A change that puts
+ * a listing (back) on the site — unpause, renew — first runs the automatic checks again when
+ * the content changed since they last ran: a high-risk result goes to IN_REVIEW instead
+ * (with the "listing_in_review" email), so editing while paused cannot skip the checks.
+ */
 async function ownerAction(
   listingId: string,
   ownerId: string,
@@ -606,10 +721,23 @@ async function ownerAction(
   const now = new Date();
   const step = plan(listing, now);
   if ("noop" in step) return { status: listing.status, changed: false, expiresAt: listing.expiresAt };
-  const applied = await transition(listing.id, listing.status, step.data, ownerId);
+  let data = step.data;
+  let toReview = false;
+  if (data.status === "LIVE" && listing.status !== "LIVE") {
+    const recheck = await recheckIfChanged(listing);
+    if (recheck) {
+      toReview = needsPerson(recheck.assessment);
+      // In review it keeps its old dates; approval gives it a fresh expiry (see approveListing).
+      data = toReview ? { ...recheck.data, status: "IN_REVIEW" } : { ...data, ...recheck.data };
+    }
+  }
+  const applied = await transition(listing.id, listing.status, data, ownerId);
   const fresh = await loadListing(listing.id, { status: true, expiresAt: true });
   if (!applied) return { status: fresh.status, changed: false, expiresAt: fresh.expiresAt };
   if (action === "delete") await audit({ actorId: ownerId, action: "listing.delete", targetType: "Listing", targetId: listing.id });
+  if (toReview) {
+    await notifyOwner(listing.owner, "listing_in_review", { ownerName: listing.owner.name, listingTitle: listing.title }, { optional: true });
+  }
   return { status: fresh.status, changed: true, expiresAt: fresh.expiresAt };
 }
 

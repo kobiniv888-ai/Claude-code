@@ -16,7 +16,9 @@ import type { ListingCardData, ListingMapPoint } from "@/lib/listing/types";
 import { cn } from "@/lib/utils";
 import { FiltersDialogButton, FiltersSidebar } from "./filters-controls";
 import { MapToggleButton, SortSelect, ViewSwitcher } from "./results-toolbar";
+import { resultListClass } from "./result-cards";
 import { useSearch } from "./search-context";
+import { useMediaQuery } from "./use-media-query";
 import { scrollBehavior } from "@/lib/motion";
 
 const MOVE_DELAY_MS = 600;
@@ -29,6 +31,8 @@ export type SearchResultsProps = {
   fitKey: string;
   /** Server-rendered parts. */
   header: ReactNode;
+  /** The grid/list view's cards (<ResultCards>); null in the map view or without results. */
+  cards: ReactNode;
   chips: ReactNode;
   notice: ReactNode;
   pagination: ReactNode;
@@ -40,12 +44,21 @@ export type SearchResultsProps = {
  * (map on the end side, sticky), and on phones a list with a floating "Map" button or a
  * full-screen map with a card carousel.
  */
-export function SearchResults({ items, mapPoints, fitKey, header, chips, notice, pagination, empty }: SearchResultsProps) {
+export function SearchResults({ items, mapPoints, fitKey, header, cards, chips, notice, pagination, empty }: SearchResultsProps) {
   const { filters, isPending } = useSearch();
   const [hovered, setHovered] = useState<number | null>(null);
   const isMap = filters.view === "map" && mapPoints !== null;
+  // The filter sidebar (~370 elements) only exists on large screens; phones use the filters
+  // drawer. It is rendered in the browser only, into a column that is already reserved — width
+  // and height: it is taller than a short result list, so a placeholder without the same height
+  // would move the footer (and anything under the pointer) when the sidebar appears.
+  const wide = useMediaQuery("(min-width: 1024px)");
 
-  const list = (
+  // The server's cards, except next to the map (and while switching to a view the server has not
+  // rendered yet), where the client list keeps the hovered card and pin in sync.
+  const list = !isMap && cards ? (
+    <Fragment key="cards">{cards}</Fragment>
+  ) : (
     <ResultList
       items={items}
       variant={filters.view === "list" ? "list" : "grid"}
@@ -98,7 +111,11 @@ export function SearchResults({ items, mapPoints, fitKey, header, chips, notice,
   return (
     <>
       <div className="mx-auto w-full max-w-screen-2xl px-4 pb-24 sm:px-6 lg:grid lg:grid-cols-[17rem_minmax(0,1fr)] lg:gap-8 lg:px-8 lg:pb-12 xl:grid-cols-[18rem_minmax(0,1fr)]">
-        <FiltersSidebar className="sticky top-[calc(var(--header-height)+1rem)] hidden max-h-[calc(100dvh-var(--header-height)-2rem)] overflow-y-auto overscroll-contain pe-2 pb-6 lg:block" />
+        {wide ? (
+          <FiltersSidebar className="sticky top-[calc(var(--header-height)+1rem)] hidden h-[calc(100dvh-var(--header-height)-2rem)] overflow-y-auto overscroll-contain pe-2 pb-6 lg:block" />
+        ) : (
+          <div aria-hidden="true" className="hidden h-[calc(100dvh-var(--header-height)-2rem)] lg:block" />
+        )}
         <div className="min-w-0 py-1">{body}</div>
       </div>
       <div
@@ -130,22 +147,14 @@ function ResultList({
   const t = useTranslations("search.results");
   if (items.length === 0) return <>{empty}</>;
   return (
-    <ul
-      aria-label={t("listLabel")}
-      className={cn(
-        variant === "list"
-          ? "flex flex-col gap-4"
-          : compact
-            ? "grid grid-cols-1 gap-x-5 gap-y-6 xl:grid-cols-2"
-            : "grid grid-cols-1 gap-x-5 gap-y-6 sm:grid-cols-2 xl:grid-cols-3",
-      )}
-    >
+    <ul aria-label={t("listLabel")} className={resultListClass(variant, compact)}>
       {items.map((listing, index) => (
         <li key={listing.id} className="min-w-0">
           <ListingCard
             listing={listing}
             variant={variant}
-            priority={index < 3}
+            // Only the first photo is above the fold on phones; the rest load as they come into view.
+            priority={index === 0}
             showCompare
             onHover={onHover}
             className={cn(highlightedId === listing.publicId && "ring-2 ring-primary")}

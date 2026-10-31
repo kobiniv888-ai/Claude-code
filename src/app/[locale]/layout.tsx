@@ -92,7 +92,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
             <NextIntlClientProvider messages={publicClientMessages(messages)}>
               <TooltipProvider delayDuration={400}>
                 <CurrencyProvider currency={currency} rates={rates}>
-                  <LoginDialogProvider>
+                  <LoginDialogProvider signedIn={!!user}>
                     <SkipLink />
                     {children}
                     <AppToaster dir={dir} />

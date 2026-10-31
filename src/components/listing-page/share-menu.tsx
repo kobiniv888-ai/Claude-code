@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { CopyIcon, Share2Icon } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { FacebookIcon, TelegramIcon, WhatsAppIcon, brandColors } from "@/components/common/brand-icons";
 import { Button } from "@/components/ui/button";
 import {

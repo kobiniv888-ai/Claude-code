@@ -25,6 +25,8 @@ import { getSettings, type HomeSectionKey } from "@/lib/settings";
 
 type Props = { params: Promise<{ locale: string }> };
 
+const HOME_ROW_CARDS = 4;
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
   if (!isAppLocale(locale)) return {};
@@ -57,8 +59,9 @@ export default async function HomePage({ params }: Props) {
   const [cities, holidays, featured, newest] = await Promise.all([
     safely("cities", () => getPopularCities(locale), []),
     getHolidayMarks(locale),
-    enabled.has("featured") ? safely("featured listings", () => getFeaturedListings(ctx, 8), none) : none,
-    enabled.has("newest") ? safely("newest listings", () => getNewestListings(ctx, 8), none) : none,
+    // Four cards per row: one row on large screens, and a light page on phones ("See all" opens the search).
+    enabled.has("featured") ? safely("featured listings", () => getFeaturedListings(ctx, HOME_ROW_CARDS), none) : none,
+    enabled.has("newest") ? safely("newest listings", () => getNewestListings(ctx, HOME_ROW_CARDS), none) : none,
   ]);
 
   const sections: Record<HomeSectionKey, () => ReactNode> = {

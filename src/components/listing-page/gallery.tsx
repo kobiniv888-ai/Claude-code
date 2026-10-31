@@ -95,7 +95,25 @@ export function Gallery({
   );
 }
 
-function Photo({ photo, sizes, priority, className }: { photo: PagePhoto; sizes: string; priority?: boolean; className?: string }) {
+/**
+ * `first` marks the main photo (high fetch priority). Both the mosaic (wide screens) and the phone
+ * carousel render it and CSS hides one of them, so it is not preloaded (that fetched both sizes
+ * on every device): the carousel copy loads eagerly, the mosaic copy with `lazy` (a lazy image
+ * that is hidden is never fetched; on wide screens it is on screen and loads at once).
+ */
+function Photo({
+  photo,
+  sizes,
+  first = false,
+  lazy = false,
+  className,
+}: {
+  photo: PagePhoto;
+  sizes: string;
+  first?: boolean;
+  lazy?: boolean;
+  className?: string;
+}) {
   const src = sizes === "large" ? photo.large : photo.medium;
   return (
     <Image
@@ -103,8 +121,8 @@ function Photo({ photo, sizes, priority, className }: { photo: PagePhoto; sizes:
       alt={photo.alt}
       fill
       sizes={sizes === "large" ? "(min-width: 768px) 50vw, 100vw" : "(min-width: 768px) 25vw, 100vw"}
-      priority={priority}
-      fetchPriority={priority ? "high" : undefined}
+      loading={first && !lazy ? "eager" : "lazy"}
+      fetchPriority={first ? "high" : undefined}
       unoptimized
       placeholder={photo.blurDataUrl ? "blur" : "empty"}
       blurDataURL={photo.blurDataUrl ?? undefined}
@@ -143,7 +161,7 @@ function Mosaic({ photos, onOpen }: { photos: PagePhoto[]; onOpen: (index: numbe
             onClick={() => onOpen(index)}
             aria-label={t("open", { index: index + 1, total: photos.length })}
           >
-            <Photo photo={photo} sizes={main ? "large" : "medium"} priority={main} className="group-hover:scale-[1.02] group-hover:brightness-95" />
+            <Photo photo={photo} sizes={main ? "large" : "medium"} first={main} lazy className="group-hover:scale-[1.02] group-hover:brightness-95" />
           </button>
         );
       })}
@@ -185,7 +203,7 @@ function MobileCarousel({ photos, title, onOpen }: { photos: PagePhoto[]; title:
                 tabIndex={index === selected ? 0 : -1}
                 aria-label={t("open", { index: index + 1, total })}
               >
-                {Math.abs(index - selected) <= 1 ? <Photo photo={photo} sizes="medium" priority={index === 0} /> : null}
+                {Math.abs(index - selected) <= 1 ? <Photo photo={photo} sizes="medium" first={index === 0} /> : null}
               </button>
             </div>
           ))}

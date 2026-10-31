@@ -3,7 +3,8 @@
 /**
  * Contacting owners (BRIEF section 8). Every action needs a signed-in user.
  *
- * - revealContact: the owner's contact methods for one listing, only after "Show contact".
+ * - revealContact: the owner's contact methods for one listing, only after "Show contact"
+ *   (behind the invisible CAPTCHA, action "reveal_contact").
  * - recordContactTap: one tap on a channel button (owner stats), before the app opens.
  * - markSafetyTipSeen: the first-contact safety tip was accepted.
  * - sendContactEmail: the email channel — a form, so the owner's address stays hidden.
@@ -54,14 +55,18 @@ export type RevealResult = {
   sender: { name: string; email: string | null };
 };
 
+const turnstileTokenSchema = z.string().max(2048).nullish();
+
 /** The owner's contact methods in their order. EMAIL comes without its value. */
-export async function revealContact(listingId: string): Promise<ActionResult<RevealResult>> {
+export async function revealContact(listingId: string, turnstileToken?: string | null): Promise<ActionResult<RevealResult>> {
   return runAction<RevealResult>(async () => {
     const user = await requireUserForAction();
     const id = listingIdSchema.safeParse(listingId);
-    if (!id.success) return fail("invalid_input");
+    const token = turnstileTokenSchema.safeParse(turnstileToken);
+    if (!id.success || !token.success) return fail("invalid_input");
 
     await assertRateLimit(`contact-reveal:user:${user.id}`, { limit: 30, windowSeconds: HOUR });
+    await assertTurnstile(token.data, { expectedAction: "reveal_contact" });
     const listing = await findContactableListing(id.data);
     if (!listing) return fail("not_found");
     if (await isBlockedBetween(user.id, listing.ownerId)) return fail("blocked");

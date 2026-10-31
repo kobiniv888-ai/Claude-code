@@ -3,7 +3,7 @@
 import { useId, useRef, useState, useTransition, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { CameraIcon, CheckIcon, DownloadIcon, LinkIcon, LoaderIcon, Trash2Icon, UnlinkIcon } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { AppleIcon, GoogleIcon } from "@/components/common/brand-icons";
 import { Ltr } from "@/components/common/ltr";
 import { useCurrency } from "@/components/providers/currency-provider";

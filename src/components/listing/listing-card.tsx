@@ -1,5 +1,3 @@
-"use client";
-
 import { useLocale, useTranslations } from "next-intl";
 import { BathIcon, BedDoubleIcon, LanguagesIcon, MapPinIcon, RulerIcon, UsersIcon, type LucideIcon } from "lucide-react";
 import { Link } from "@/i18n/navigation";
@@ -63,6 +61,9 @@ function useFacts(listing: ListingCardData): Fact[] {
  * The listing card used in search results, the home page, favorites, owner profiles and
  * similar listings. The title link covers the whole card; the heart, compare and photo
  * buttons sit above it and are separate controls.
+ *
+ * Not a client component: from a server component it renders on the server and only the
+ * photos, heart, compare toggle and price hydrate. Pass `onHover` only from a client component.
  */
 export function ListingCard({
   listing,

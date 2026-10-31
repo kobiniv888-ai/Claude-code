@@ -25,7 +25,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Link, useRouter } from "@/i18n/navigation";
-import { signOut } from "@/lib/auth/client";
 import { cn } from "@/lib/utils";
 
 export type UserMenuUser = {
@@ -76,6 +75,8 @@ export function UserMenuClient({ user }: { user: UserMenuUser }) {
   async function logOut() {
     setSigningOut(true);
     try {
+      // Loaded on demand: Better Auth's client is not needed to show the menu.
+      const { signOut } = await import("@/lib/auth/client");
       await signOut();
       router.replace("/");
       router.refresh();

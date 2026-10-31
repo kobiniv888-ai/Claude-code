@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { deletePrivate, isValidStorageKey } from "@/lib/storage";
+import { deletePhotosOfDeletedListings, deleteUnattachedPrivateUploads } from "@/lib/storage/cleanup";
 import { isAuthorizedCron, runCronJob, unauthorized } from "../auth";
 
 /**
@@ -7,7 +8,10 @@ import { isAuthorizedCron, runCronJob, unauthorized } from "../auth";
  * - deletes ended rate-limit windows and expired login / verification codes;
  * - deletes the ID and ownership documents of verification requests that were decided
  *   (approved or rejected) more than 7 days ago, and sets documentsDeletedAt — only
- *   "verified on [date] by [staff]" is kept (BRIEF §11).
+ *   "verified on [date] by [staff]" is kept (BRIEF §11);
+ * - deletes the photo files of listings deleted more than 30 days ago, and private uploads
+ *   never attached to a ticket, verification request or listing after 48 hours
+ *   (see @/lib/storage/cleanup).
  */
 
 export const runtime = "nodejs";
@@ -62,6 +66,14 @@ export async function GET(request: Request) {
       db.verification.deleteMany({ where: { expiresAt: { lt: now } } }),
     ]);
     const documents = await deleteDecidedDocuments(now);
-    return { rateLimits: rateLimits.count, verificationCodes: verifications.count, documents };
+    const deletedListingPhotos = await deletePhotosOfDeletedListings(now);
+    const unattachedUploads = await deleteUnattachedPrivateUploads(now);
+    return {
+      rateLimits: rateLimits.count,
+      verificationCodes: verifications.count,
+      documents,
+      deletedListingPhotos,
+      unattachedUploads,
+    };
   });
 }

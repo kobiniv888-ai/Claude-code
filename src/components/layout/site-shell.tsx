@@ -13,7 +13,7 @@ import { ShabbatModeBanner } from "./shabbat-mode-banner";
 
 /**
  * The public site frame: notices (Shabbat mode, scam alert, demo data), the sticky header,
- * <main id="main">, the footer, the phone bottom bar and the cookie banner.
+ * the cookie banner, <main id="main">, the footer and the phone bottom bar.
  * Used by app/[locale]/(site)/layout.tsx and the 404 page.
  */
 export async function SiteShell({ children }: { children: ReactNode }) {
@@ -34,12 +34,15 @@ export async function SiteShell({ children }: { children: ReactNode }) {
       <ScamAlertBanner />
       {settings.demoDataVisible ? <DemoDataBanner /> : null}
       <Header user={user} />
+      {/* Fixed to the bottom of the screen, but early in the document: the browser parses and
+          paints it with the first screen instead of after the whole page (it was the largest
+          contentful paint on most first visits). Keyboard order: header, then this banner. */}
+      <CookieConsent initialOpen={!consent} />
       <main id="main" tabIndex={-1} className="flex-1 outline-none">
         {children}
       </main>
       <Footer />
       <MobileBottomNav isSignedIn={!!user} />
-      <CookieConsent initialOpen={!consent} />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { ResultsPagination } from "@/components/search/results-pagination";
 import { SearchBar } from "@/components/search/search-bar";
 import { SearchProvider } from "@/components/search/search-context";
 import { SearchEmpty } from "@/components/search/search-empty";
+import { ResultCards } from "@/components/search/result-cards";
 import { SearchResults } from "@/components/search/search-results";
 import { Container } from "@/components/common/container";
 import type { AppLocale } from "@/config/site";
@@ -93,6 +94,11 @@ export default async function SearchPage({ params, searchParams }: Props) {
         items={result.items}
         mapPoints={points}
         fitKey={fitKey}
+        cards={
+          !isMap && result.items.length > 0 ? (
+            <ResultCards items={result.items} variant={filters.view === "list" ? "list" : "grid"} />
+          ) : null
+        }
         header={
           <header className="grid gap-1">
             <p className="text-sm font-semibold text-accent-foreground">{t(`deal.${dealKey}`)}</p>

@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { BedDoubleIcon, BedSingleIcon, BedIcon, HashIcon, PencilIcon, PlusIcon, Trash2Icon, UsersIcon } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import {
   AlertDialog,
   AlertDialogAction,

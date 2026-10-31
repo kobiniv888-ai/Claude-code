@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { CheckIcon, CloudOffIcon, HeartOffIcon, LoaderIcon, SearchIcon } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { EmptyState } from "@/components/common/states";
 import { CompareToggle } from "@/components/listing/compare-toggle";
 import { ListingCard } from "@/components/listing/listing-card";

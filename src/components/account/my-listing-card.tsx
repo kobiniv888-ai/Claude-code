@@ -21,7 +21,7 @@ import {
   Trash2Icon,
   type LucideIcon,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { Ltr } from "@/components/common/ltr";
 import { Price } from "@/components/listing/price";
 import {
@@ -119,6 +119,8 @@ export function MyListingCard({ listing }: { listing: MyListing }) {
       }
       if (action === "bump" && !result.data.changed) toast(t("toast.bumpLater"));
       else if (action === "renew" && !result.data.changed) toast(t("toast.renewLater"));
+      // Edited since the last check and the checks want a person to look (see ownerAction).
+      else if ((action === "unpause" || action === "renew") && result.data.status === "IN_REVIEW") toast(t("toast.inReview"));
       else toast.success(t(`toast.${action}`));
       router.refresh();
     });

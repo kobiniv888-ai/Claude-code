@@ -12,7 +12,7 @@ import {
   Share2Icon,
   ShieldAlertIcon,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { Ltr } from "@/components/common/ltr";
 import { siteConfig } from "@/config/site";

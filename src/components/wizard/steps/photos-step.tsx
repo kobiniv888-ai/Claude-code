@@ -3,7 +3,7 @@
 import { useRef } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { CameraIcon, ImagesIcon, ShieldCheckIcon, StampIcon, SunIcon } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { siteConfig } from "@/config/site";
 import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";

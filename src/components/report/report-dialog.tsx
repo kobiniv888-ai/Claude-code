@@ -1,10 +1,11 @@
 "use client";
 
-import { useId, useState, type FormEvent } from "react";
+import { useId, useRef, useState, type FormEvent } from "react";
 import { useTranslations } from "next-intl";
 import { CheckCircle2Icon, FlagIcon } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { useRequireLogin } from "@/components/auth/login-dialog";
+import { Turnstile, type TurnstileHandle } from "@/components/common/turnstile";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -41,6 +42,8 @@ export function ReportButton({
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [done, setDone] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
+  const captcha = useRef<TurnstileHandle>(null);
   const label = targetType === "LISTING" ? t("reportListing") : t("reportProfile");
 
   const start = () => {
@@ -67,11 +70,13 @@ export function ReportButton({
     setPending(true);
     setError(null);
     try {
-      const result = await createReport({ targetType, targetId, reason, details });
+      const result = await createReport({ targetType, targetId, reason, details, turnstileToken: token });
       if (result.ok) {
         setDone(true);
         return;
       }
+      // Turnstile tokens are single-use.
+      captcha.current?.reset();
       if (result.error === "already_reported") {
         setOpen(false);
         toast.message(t("errors.already_reported"));
@@ -79,6 +84,7 @@ export function ReportButton({
       }
       setError(t.has(`errors.${result.error}`) ? t(`errors.${result.error}` as never) : te(errorMessageKey(result.error)));
     } catch {
+      captcha.current?.reset();
       setError(te("network"));
     } finally {
       setPending(false);
@@ -140,6 +146,7 @@ export function ReportButton({
                   placeholder={t("detailsPlaceholder")}
                 />
               </div>
+              <Turnstile ref={captcha} action="report" onToken={setToken} onExpire={() => setToken(null)} />
               {error ? (
                 <p role="alert" className="rounded-xl bg-destructive/10 p-3 text-sm text-destructive">
                   {error}

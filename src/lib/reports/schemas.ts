@@ -22,6 +22,8 @@ export const reportInputSchema = z
       .max(REPORT_DETAILS_MAX)
       .nullish()
       .transform((v) => v?.trim() || null),
+    /** Invisible CAPTCHA (Turnstile, action "report"); checked by createReport only. */
+    turnstileToken: z.string().max(2048).nullish(),
   })
   .strict()
   .superRefine((value, ctx) => {

@@ -104,7 +104,7 @@ All with `prefers-reduced-motion: reduce`.
 
 | Item | Severity | Notes |
 |---|---|---|
-| Bare listing URLs (`/listing/113`) redirect with a `<meta http-equiv="refresh">` | Medium | axe `meta-refresh` (critical) if checked before the redirect runs. Same cause as "Status codes under streaming" in `phase-a.md`; a real 308 needs the layout owner's decision. Canonical URLs are clean. |
+| ~~Bare listing URLs (`/listing/113`) redirect with a `<meta http-equiv="refresh">`~~ | Fixed | `src/proxy.ts` now answers a real `308` to the canonical slug for public listings (security follow-up pass). Checked on the production build: `curl` shows `308`, and axe (WCAG 2.1 A/AA) finds 0 violations and no `meta-refresh` after the redirect (he/ar 360 px, en 1280 px). |
 | Small inline / text links below 44 px (footer links 36 px, admin table links ~20 px, inline links in sentences) | Low | All ≥ 24 px wide or inline in text, so they pass WCAG 2.2 target size (2.5.8) by the inline/spacing exceptions. Switches, radios and checkboxes are 16–18 px visually but already have an invisible hit area of about 40×32 px or more. |
 | Section and category scrollers on the home page have no visible scroll buttons on phones | Low | They scroll by swipe and by keyboard (each card is focusable); "See all" links give the same content. |
 | Demo listings created by end-to-end tests ("E2E …") show on the home page while the suite runs | Info | Test data of the parallel e2e work, cleaned up by that suite. |

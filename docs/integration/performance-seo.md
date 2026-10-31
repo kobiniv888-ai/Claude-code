@@ -73,6 +73,56 @@ for the two listing issues described below.
 - **Cache headers** for `public/brand`, `public/icons` and `public/images`: one week plus
   stale-while-revalidate. They were `max-age=0`.
 
+## Mobile performance pass (2026-10-31, second pass)
+
+Production build on port 3701, Lighthouse 12.8 mobile preset (simulated throttling), Chromium
+from `/opt/pw-browsers`, `--headless=new --no-sandbox`, HTTP/1.1. Every number is the **median
+of several runs**: the machine is shared and TBT moves by ±150 ms between runs, so the "after"
+column gives the range of two 5-run passes on the final build.
+
+| Page | Before (median of 3): Perf · LCP · TBT | After (medians of 5): Perf · LCP · TBT |
+|---|---|---|
+| `/he` | 66 · 6.5 s · 470 ms | 81–83 · 3.4–3.8 s · 290–360 ms |
+| `/en/search?city=tbilisi` | 56 · 6.1 s · 990 ms | 77–78 · 4.0–4.1 s · 340–360 ms |
+| `/he/listing/89-…` | 57 · 5.3 s · 1,060 ms | 71–77 · 4.3 s · 340–520 ms |
+| `/he/jewish-life` | 63 · 4.3 s · 960 ms | 75–79 · 3.9 s · 350–490 ms |
+| `/en/help` | 52 · 4.2 s · 4,500 ms¹ | 82–85 · 3.1–3.2 s · 330–420 ms |
+
+CLS is 0–0.045 (see "Open"); FCP 1.4–1.7 s. ¹ One noisy baseline run; the help page was at
+66–75 in other baseline runs. **90+ is still not reached** — see "Open".
+
+### How Lighthouse's simulated LCP behaves here
+
+The unthrottled load on localhost is so fast that every font, preloaded image and most of the
+~300 KB of JavaScript have finished downloading before the first paint. Lantern then counts all of
+them as needed for the LCP, so on this setup **LCP ≈ the time to download everything that ended
+before the LCP paint** on slow 4G. Two things follow: the LCP element should paint in the first
+frame (anything that paints later pulls more requests in), and every KB requested early counts.
+A small wrapper around Lantern's `FirstContentfulPaint.getFirstPaintBasedGraph` (run with
+`lighthouse -A` on saved artifacts; not committed) printed the graphs: e.g. `/he` before this pass had 236 KB of fonts, 279 KB of
+scripts and 50 KB of preloaded below-the-fold photos in its LCP graph.
+
+### Changes (each measured)
+
+| Change | Effect |
+|---|---|
+| **No `loading.tsx` on the fast public pages** (home and other `(site)` pages without their own, search, listing, Jewish Life, help). React reveals streamed content at least 300 ms after the skeleton, so the LCP always came after the scripts. The whole page now arrives in one response. | help 52 → 77, Jewish Life 63 → 84, together with the two card changes below. Old listing slugs now get a real HTTP redirect (307). |
+| **Listing cards are server components** (`listing-card.tsx` lost `"use client"`), so on the home page, similar listings and the search grid only the photo, heart, compare and price islands hydrate. | `/he` TBT 470 → 240 ms. |
+| **Photo carousel without Embla on load** (`photo-carousel.tsx`, `photo-carousel-engine.tsx`): the server renders the first photo only; the other slides and Embla (lazy chunk) start on hover/focus/prev-next, or once the card is near the screen and the browser is idle (so the first swipe works on phones). | ~10 fewer elements and no Embla setup per card. Swipe, arrows and keys checked in en/he. |
+| **Cookie banner earlier in the document** (after the header). It is fixed to the bottom but was the last thing in the HTML and the LCP element on first visits, painted after everything else. Its slide-in no longer starts at opacity 0. | `/he` 69 → 84, together with the font, preload and 4-card changes below. |
+| **Fonts: "₾" from a 13 KB face, "≈" from a system font** (`fonts.ts`, `globals.css`). See the fixed "Open" row below. A Hebrew "Wi‑Fi" with a non-breaking hyphen (U+2011, only in the 162 KB Noto Sans Arabic file) pulled 213 KB of Arabic/Hebrew fonts into the listing page; it is a plain hyphen now. | Fonts per page 236–263 KB → 36–62 KB. Listing LCP 6.0 → 4.5 s. |
+| **No preloads for photos below the fold**: home rows and cities load lazily, search preloads only the first card, and the listing gallery no longer preloads its main photo twice (the mosaic copy, hidden on phones, was 88 KB). | — (part of the LCP gains above) |
+| **Home rows show 4 cards** (featured and newest; one row on large screens, "See all" opens the search). | `/he` HTML −25 KB, DOM −400 elements. |
+| **Search grid/list cards rendered on the server** (`result-cards.tsx`); the client list stays for the map view (hover ↔ pin). **The filter sidebar only renders on large screens** (370 elements and 140 KB of HTML that phones never show; phones use the drawer). Its placeholder column also reserves the sidebar's height (`h-[calc(100dvh-var(--header-height)-2rem)]` on both): without it, a short result list grew by ~70 px when the sidebar mounted after hydration on desktop, which moved the footer under the pointer (caught by the e2e language-switcher test in the final regression gate). | search 74 → 78, CLS 0.036 → 0. |
+| **sonner and Better Auth no longer load with every page.** Toasts go through `@/lib/toast` (same calls; sonner loads with `<AppToaster>` after start). The login-dialog provider takes "signed in" from the server instead of `useSession()` (which also sent a session request on every load); `signOut` and `getSession` are imported when used. | −25 KB JS per page, one request less. |
+| **Area map on the listing page starts when scrolled near** (`useNearViewport`); before, Leaflet and the tiles loaded with the page. | Map checked: loads after scrolling, tiles shown. |
+| Tried and reverted: `experimental.inlineCss`. The stylesheet was inlined into the HTML several times (help: 1.3 MB of HTML) and every page got slower (TBT ~900 ms). | — |
+
+Checked after the changes: carousel swipe (he, 412 px), arrows and keys (en, 1280 px), favorites
+open the login dialog when signed out, toasts appear, the listing map loads, search grid/list/map
+views and the hover ring next to the map. axe (WCAG 2.0/2.1 A + AA) finds 0 violations on the five
+pages plus `/ar` and the map view at 360 px and 1280 px.
+
 ## Link crawler (production)
 
 Playwright opens every internal `<a href>` in a new tab at 1280 px. It records the status, console
@@ -146,10 +196,12 @@ Now one load per language runs at a time, and only a missing folder counts as em
 
 | Severity | Issue |
 |---|---|
-| High | **Performance below 90 on mobile (61–80).** The remaining cost is main-thread work: hydration of about 2,000 DOM nodes (listing cards are ~110 nodes each: 6 carousel slides, dots, badges), Embla setting up on every card, the Suspense reveal of `loading.tsx` (React waits at least 300 ms after the skeleton, then restyles the whole page), and relayouts when fonts swap in. Next steps: render only the first carousel slide and start Embla on interaction; show fewer cards on the home page; try `experimental.inlineCss`; measure on the real host (HTTP/2, CDN). |
-| Medium | **One "₾" downloads 168 KB of font.** The lari sign is only in Noto Sans latin-ext, a 168 KB variable file. "≈" pulls the Arabic and Georgian symbol faces (+41 KB). `/he` and search download 254 KB of fonts. Options: put a script font's smaller latin-ext face first in the stack, or a `local()` symbol face for U+20BE/U+2248. This needs a design decision. |
+| High | **Performance below 90 on mobile (71–85 after the second pass above).** What is left: (1) ~300 KB of JavaScript on every page, which Lighthouse counts into the LCP here — the biggest parts are react-dom (73 KB), the Next runtime (45 KB) and ~70 KB of Radix for the header menus, tooltips, sheet and dialogs that also hydrate on phones where they are hidden; loading those menus on first use is the next step. (2) Hydration: lucide-react 1.x icons are client components, so every icon in a server component is serialized into the RSC payload (up to 25 KB on the listing page) and hydrates; icons are ~45% of the DOM (svg + paths). (3) Interface text: every public page ships ~55 KB of messages (tickets, listing, jewishLife, search…) that most pages never read; per-route providers would cut it. (4) Page-specific client trees: the help center's Radix accordion, Jewish Life's places explorer. Measure again on the real host (HTTP/2, CDN): the lab result here depends on how fast localhost delivers the scripts. |
+| ~~Medium~~ Fixed | ~~One "₾" downloads 168 KB of font.~~ A 13 KB face goes first in the stack for U+20BE (a copy of Noto Sans Georgian latin-ext, `src/components/layout/font-files/`, SIL OFL), and "≈" (U+2248, in none of our Noto files) comes from a system font through `local()` ("Bayit Symbols" in `globals.css`); without a matching local font the browser falls back as before. Avoid U+2011 (non-breaking hyphen) in interface text: only Noto Sans Arabic (162 KB) has it. The last three (`auth.json` he, "ה-QR" on the 2-step setup pages) were replaced in the final regression gate; `grep -rn $'‑' messages` is empty. |
 | Low | **Listing SEO 92 in Lighthouse.** Next 16 streams listing metadata after the shell for user agents that are not on its bot list, and Lighthouse 12 no longer sends "Chrome-Lighthouse". Real crawlers (Googlebot renders JS; WhatsApp, Facebook, Telegram, Twitter, Slack and Discord are on Next's bot list) get it in `<head>`. Viber is not on that list; add it with `htmlLimitedBots` if Viber previews matter. |
-| Low | Short or old listing slugs redirect on the client (meta refresh, status 200) because the page streams behind `loading.tsx`. Internal links always use the canonical slug. |
+| Low | Bare listing links (`/listing/113`) now get a real `308` to the canonical slug from `src/proxy.ts` (public listings only, query kept, `Cache-Control: no-store` because the slug follows the title). Old slugs (`/listing/113-old-title`) are redirected by the page itself; since the listing route has no `loading.tsx` any more (second performance pass) that is a real HTTP `307`. Internal links always use the canonical slug. |
 | Low | The zod `jitless` switch relies on zod's shared config global (`globalThis.__zod_globalConfig`). Check that it still exists when zod is upgraded. |
+| Low | **Cookie banner reflows when the script font arrives** (CLS ≈ 0.04 on `/he` and the listing page): it is fixed to the bottom and painted with the fallback font first, so its top edge moves when Noto Sans Hebrew swaps in. It was the same on slow connections before; Lighthouse sees it now that the banner paints with the first screen. Fix with fallback metric overrides (`size-adjust`, ascent) for the script faces. |
+| Low | Client navigations to the pages without `loading.tsx` keep the current page until the next one has loaded (no skeleton). A small navigation progress indicator (`useLinkStatus`) would give feedback on slow connections. |
 | Info | `/help/new-ticket` is `noindex` on purpose (it is a form). |
 | Info | When a cold server runs out of file handles, Turbopack keeps failing the chunks it could not load until restart. The message-loader fix lowers the load, but the server still needs a restart in that case. |

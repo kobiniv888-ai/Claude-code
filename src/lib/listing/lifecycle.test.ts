@@ -122,6 +122,7 @@ async function createListing(
 }
 
 const emailsFor = (template: string) => sent.filter((e) => e.template === template);
+const parseCodes = (reasons: unknown) => (Array.isArray(reasons) ? reasons.map((r) => (r as { code: string }).code) : []);
 
 let ownerA = "";
 let ownerB = "";
@@ -354,17 +355,39 @@ describe("moderation", () => {
     expect(again.status).toBe("IN_REVIEW");
   });
 
-  it("hides a listing after enough open reports and restores it", async () => {
+  /** A report from a new account (on its own device unless `device` is given). */
+  async function report(listingId: string, name: string, opts: { trusted?: boolean; device?: string } = {}) {
+    const trusted = opts.trusted ?? true;
+    const reporter = await createUser(name, trusted ? {} : { verified: false, createdAt: new Date() });
+    await db.deviceLink.create({ data: { userId: reporter, deviceHash: opts.device ?? `${prefix}-device-${name}` } });
+    await db.report.create({ data: { targetType: "LISTING", listingId, reporterId: reporter, reason: "FAKE_LISTING" } });
+    return lifecycle.applyReport(listingId);
+  }
+
+  it("does not hide a listing for reports from fake accounts or one device", async () => {
     const listing = await createListing(ownerA);
     await lifecycle.submitForPublication(listing.id, ownerA);
     const { reportsToAutoHide } = await getSettings();
-    let last = { hidden: false, openReports: 0 };
+    // Brand-new accounts without a verified phone, anonymous reports, and accounts sharing one device.
+    for (let i = 0; i < reportsToAutoHide; i++) await report(listing.id, `fake${i}`, { trusted: false });
+    await db.report.create({ data: { targetType: "LISTING", listingId: listing.id, reason: "FAKE_LISTING" } });
+    let last = await lifecycle.applyReport(listing.id);
+    for (let i = 0; i < reportsToAutoHide; i++) last = await report(listing.id, `shared${i}`, { device: `${prefix}-one-phone` });
+    expect(last).toEqual({ hidden: false, openReports: reportsToAutoHide * 2 + 1, countedReports: 1 });
+    expect((await db.listing.findUniqueOrThrow({ where: { id: listing.id } })).status).toBe("LIVE");
+    expect(emailsFor("listing_hidden_reports")).toHaveLength(0);
+  });
+
+  it("hides a listing after enough reports from distinct trusted accounts and restores it", async () => {
+    const listing = await createListing(ownerA);
+    await lifecycle.submitForPublication(listing.id, ownerA);
+    const { reportsToAutoHide } = await getSettings();
+    let last = { hidden: false, openReports: 0, countedReports: 0 };
     for (let i = 0; i < reportsToAutoHide; i++) {
-      await db.report.create({ data: { targetType: "LISTING", listingId: listing.id, reason: "FAKE_LISTING" } });
-      last = await lifecycle.applyReport(listing.id);
+      last = await report(listing.id, `reporter${i}`);
       if (i < reportsToAutoHide - 1) expect(last.hidden).toBe(false);
     }
-    expect(last).toEqual({ hidden: true, openReports: reportsToAutoHide });
+    expect(last).toEqual({ hidden: true, openReports: reportsToAutoHide, countedReports: reportsToAutoHide });
     const hidden = await db.listing.findUniqueOrThrow({ where: { id: listing.id } });
     expect(hidden).toMatchObject({ status: "HIDDEN", reportCount: reportsToAutoHide });
     expect(emailsFor("listing_hidden_reports")).toHaveLength(1);
@@ -397,6 +420,66 @@ describe("owner actions", () => {
     expect((await db.listing.findUniqueOrThrow({ where: { id: listing.id } })).deletedAt).not.toBeNull();
     await expect(lifecycle.renewListing(listing.id, ownerA)).rejects.toMatchObject({ code: "invalid_status" });
     await expect(lifecycle.renewListing(listing.id, ownerA)).rejects.toBeInstanceOf(AppError);
+  });
+
+  it("checks a listing again before it goes back online when it was edited since the last check", async () => {
+    const listing = await createListing(ownerA);
+    await lifecycle.submitForPublication(listing.id, ownerA);
+    const checked = await db.listing.findUniqueOrThrow({ where: { id: listing.id } });
+    expect(checked.status).toBe("LIVE");
+    expect(checked.lastCheckedAt).not.toBeNull();
+
+    // Paused and untouched: back online without running the checks again.
+    await lifecycle.pauseListing(listing.id, ownerA);
+    expect(await lifecycle.unpauseListing(listing.id, ownerA)).toMatchObject({ status: "LIVE", changed: true });
+    expect((await db.listing.findUniqueOrThrow({ where: { id: listing.id } })).lastCheckedAt).toEqual(checked.lastCheckedAt);
+
+    // Paused, then edited (as the wizard saves it): the checks run and send it to a person.
+    await lifecycle.pauseListing(listing.id, ownerA);
+    await db.listing.update({
+      where: { id: listing.id },
+      data: { description: "I am abroad, payment by Western Union only.", contentUpdatedAt: new Date() },
+    });
+    sent.length = 0;
+    expect(await lifecycle.unpauseListing(listing.id, ownerA)).toMatchObject({ status: "IN_REVIEW", changed: true });
+    const inReview = await db.listing.findUniqueOrThrow({ where: { id: listing.id } });
+    expect(inReview.riskScore).toBeGreaterThanOrEqual(60);
+    expect(inReview.lastCheckedAt!.getTime()).toBeGreaterThan(checked.lastCheckedAt!.getTime());
+    expect(emailsFor("listing_in_review")).toHaveLength(1);
+  });
+
+  it("checks a rented listing again on renew when a photo was added since the last check", async () => {
+    const listing = await createListing(ownerA);
+    await lifecycle.submitForPublication(listing.id, ownerA);
+    await lifecycle.markRented(listing.id, ownerA);
+    // A photo already used by another account's listing (the duplicate-photo check).
+    const theirs = await createListing(ownerB);
+    const copied = await db.listingPhoto.findFirstOrThrow({ where: { listingId: theirs.id }, select: { phash: true } });
+    await db.listingPhoto.create({ data: { listingId: listing.id, url: "https://example.com/new.webp", phash: copied.phash, sortOrder: 9 } });
+    sent.length = 0;
+    expect(await lifecycle.renewListing(listing.id, ownerA)).toMatchObject({ status: "IN_REVIEW", changed: true });
+    const saved = await db.listing.findUniqueOrThrow({ where: { id: listing.id } });
+    expect(parseCodes(saved.riskReasons)).toContain("duplicate_photos_other_account");
+    expect(emailsFor("listing_in_review")).toHaveLength(1);
+  });
+
+  it("re-checks a live listing after a price change only when its content changed since the last check", async () => {
+    const listing = await createListing(ownerA);
+    await lifecycle.submitForPublication(listing.id, ownerA);
+    expect(await lifecycle.recheckLiveListingAfterPriceChange(listing.id, ownerA)).toMatchObject({ status: "LIVE", rechecked: false });
+
+    // The price step saved a new price together with text that was never checked.
+    await db.listing.update({
+      where: { id: listing.id },
+      data: { price: 790, description: "I am abroad, payment by Western Union only.", contentUpdatedAt: new Date() },
+    });
+    sent.length = 0;
+    await expect(lifecycle.recheckLiveListingAfterPriceChange(listing.id, ownerB)).rejects.toBeInstanceOf(NotFoundError);
+    const result = await lifecycle.recheckLiveListingAfterPriceChange(listing.id, ownerA);
+    expect(result).toMatchObject({ status: "IN_REVIEW", rechecked: true });
+    expect(result.reasons.map((r) => r.code)).toContain("scam_phrase");
+    expect((await db.listing.findUniqueOrThrow({ where: { id: listing.id } })).status).toBe("IN_REVIEW");
+    expect(emailsFor("listing_in_review")).toHaveLength(1);
   });
 
   it("records price drops and clears the label when the price goes back up", async () => {

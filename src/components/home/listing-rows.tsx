@@ -7,16 +7,19 @@ import { ListingCard } from "@/components/listing/listing-card";
 import type { AppLocale } from "@/config/site";
 import type { ListingCardData } from "@/lib/listing/types";
 
-/** Cards in a swipeable row on phones and a grid from the lg breakpoint. */
+/**
+ * Cards in a swipeable row on phones and a grid from the lg breakpoint. The rows sit below the
+ * hero and the cities, so their photos load lazily instead of competing with the first screen.
+ */
 function CardRow({ listings, label }: { listings: ListingCardData[]; label: string }) {
   return (
     <ul
       aria-label={label}
       className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-4 overflow-x-auto px-4 pb-2 [scrollbar-width:none] sm:grid sm:grid-cols-2 sm:overflow-visible lg:grid-cols-4 [&::-webkit-scrollbar]:hidden"
     >
-      {listings.map((listing, index) => (
+      {listings.map((listing) => (
         <li key={listing.id} className="w-[82%] max-w-80 shrink-0 snap-start sm:w-auto sm:max-w-none">
-          <ListingCard listing={listing} priority={index < 2} />
+          <ListingCard listing={listing} />
         </li>
       ))}
     </ul>

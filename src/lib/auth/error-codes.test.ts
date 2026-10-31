@@ -18,6 +18,7 @@ describe("authErrorKey", () => {
     expect(authErrorKey({ code: "ACCOUNT_BANNED", status: 403 })).toBe("account_banned");
     expect(authErrorKey({ code: "VERIFICATION_FAILED", status: 403 })).toBe("captcha_failed");
     expect(authErrorKey({ code: "SMS_UNAVAILABLE", status: 503 })).toBe("sms_unavailable");
+    expect(authErrorKey({ code: "TWO_FACTOR_REQUIRED", status: 403 })).toBe("two_factor_required");
   });
 
   it("falls back on the status", () => {

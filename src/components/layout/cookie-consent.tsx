@@ -3,7 +3,7 @@
 import { useId, useState, type ReactNode } from "react";
 import { Cookie, Lock } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Link } from "@/i18n/navigation";

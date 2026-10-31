@@ -3,7 +3,7 @@
 import { Star, TriangleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useState, useTransition, type FormEvent } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useRouter } from "@/i18n/navigation";

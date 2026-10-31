@@ -4,7 +4,8 @@ This is the pre-launch security review the brief asks for (section 11, last poin
 whole code: every server action, every `/api` route, the login system, uploads, private documents,
 public pages and the production server's settings. It was done in two passes on the same day: a
 first review, then a final hardening pass that re-checked everything and looked for what the first
-pass missed.
+pass missed. A follow-up pass then closed the open items that could be fixed in code (see
+"In the follow-up pass").
 
 ## Summary
 
@@ -19,6 +20,9 @@ pass missed.
   deleted as soon as a decision is made.
 - The two passes fixed **10 problems** (4 high, 4 medium, 2 low). None of them was being used
   against the site.
+- The follow-up pass closed 6 more items: checks before a listing goes back online, CAPTCHA on
+  "Show contact", publishing and reports, protection against mass reports, storage cleanup,
+  the 2-step login gap and a real redirect for short listing links.
 - What is still **open** is mostly setup outside the code (CAPTCHA keys, backups, error alerts,
   Cloudflare), two optional anti-scam services, a malware scanner, a lawyer review and a
   professional test before launch. See "Open items".
@@ -30,12 +34,12 @@ pass missed.
 | HTTPS and secure headers (CSP, HSTS) | Done | Every response has HSTS (2 years, preload), `nosniff`, `X-Frame-Options: DENY`, a referrer policy and a permissions policy. Pages have a CSP with a new random key per request, so only our own scripts run, and the site cannot be framed. HTTPS itself comes from the host (Vercel/Cloudflare). |
 | OWASP Top 10 (SQL injection, XSS, CSRF…) | Done | Database access goes through Prisma (no hand-built SQL with user text). React escapes all user text. No user HTML is ever shown; guide articles use a small safe Markdown subset (only `https` links); emails escape every value; search-engine data cannot break out of its script tag. Forms and uploads refuse requests from other websites (CSRF). Links after login (`?next=`) only go to our own pages. Calendar import cannot reach internal addresses (checked again after each redirect, 10 s, 2 MB). File paths cannot escape the storage folder. |
 | Strong passwords or password-free login | Done | Password-free: Google, Apple or a phone code. Unused password and email endpoints of the login library are switched off. |
-| 2-step login for everyone, required for admins | Done | Anyone can turn on an authenticator app. Staff cannot open the admin panel or run admin actions without it. The development shortcut (`DEV_SKIP_STAFF_2FA`) is ignored in production. Codes cannot be reused and are limited to 5 tries per 10 minutes. |
+| 2-step login for everyone, required for admins | Done | Anyone can turn on an authenticator app. Staff cannot open the admin panel or run admin actions without it. The development shortcut (`DEV_SKIP_STAFF_2FA`) is ignored in production. Codes cannot be reused and are limited to 5 tries per 10 minutes. Until the 2-step code is entered, the login library's account functions (sign out other devices, connect or disconnect Google/Apple, read linked accounts, change the phone number) answer "enter your 2-step code first" (`TWO_FACTOR_REQUIRED`). |
 | Users only see and change their own data | Done | Checked in code on every action and route (listings, photos, room types, translations, calendars, favorites and notes, tickets and their files, verification requests, account settings). Users cannot set status, role, risk score, demo flag or paid placement. Staff pages and actions each check their own permission. |
-| Rate limits and invisible CAPTCHA | Mostly done (CAPTCHA needs keys) | Rate limits on login codes, posting, uploads, "Show contact", emails to owners, reports, tickets, the contact form, search and more. Turnstile protects login codes, new tickets, the contact form and "email the owner". It is skipped until the keys are set. Not yet on "Show contact" and publishing (see open items). |
+| Rate limits and invisible CAPTCHA | Done (CAPTCHA needs keys) | Rate limits on login codes, posting, uploads, "Show contact", emails to owners, reports, tickets, the contact form, search and more. Turnstile protects login codes, new tickets, the contact form, "email the owner", "Show contact", publishing a listing and reports, each checked on the server with its own action name. It is skipped until the keys are set. |
 | SMS-pumping protection | Done | Codes go only to the countries in `src/config/site.ts`, at most 5 per phone and 20 per network address per hour, behind the CAPTCHA. Turn on Twilio Fraud Guard too (README step 5). |
 | Uploads: type, size, re-encode, hidden data, malware | Mostly done | Real file type is read from the content (the file name is ignored). Size limits (also for uploads that do not declare their size) and pixel limits. Every image is re-drawn (EXIF/GPS removed). SVG and other types are refused. PDFs (documents only) are checked for scripts and embedded files. A malware-scanner connection exists but is off (see open items). |
-| ID and ownership documents | Done | Encrypted (AES-256-GCM) in private storage, never reachable by a public link. Only staff with the "verifications" permission can open them, with 2-step login. Deleted when approved or rejected (a daily job retries if storage fails). The account keeps only "verified on [date] by [staff member]". |
+| ID and ownership documents | Done | Encrypted (AES-256-GCM) in private storage, never reachable by a public link. Only staff with the "verifications" permission can open them, with 2-step login. Deleted when approved or rejected (a daily job retries if storage fails). The account keeps only "verified on [date] by [staff member]". Uploads that were never sent (an abandoned ID photo or screenshot) are deleted after 48 hours; photos of deleted listings after 30 days. |
 | Secrets in environment variables | Done | No secrets in the code or the browser files (checked in the production build). `.env` is not in git. |
 | Daily backups, error monitoring, Cloudflare | Open (monitoring code ready) | Hosting setup, see open items. Server errors go to Sentry once `SENTRY_DSN` is set. |
 | Privacy: cookie consent, policy, download data, delete account | Done | Cookie banner; privacy, cookie and terms pages; "Download my data" (a JSON file); "Delete my account" signs out everywhere, deletes documents, ticket files and certificate photos, hides listings and removes personal details, including the exact address. Banned or suspended users are signed out and cannot sign in. |
@@ -43,6 +47,56 @@ pass missed.
 | Code review with a short report | Done | This document. |
 
 ## What was fixed
+
+### In the follow-up pass
+
+1. **Edited listings went back online without a new check (medium).** Listings now remember when
+   the automatic checks last ran (`Listing.lastCheckedAt`, set every time they run). When a
+   paused listing is turned back on, or an expired, rented or sold one is renewed, the checks run
+   again first if the listing was edited (or got a new photo) after that time. A price change on
+   a live listing re-runs them at once as well. A high-risk result (blocked phrase, unverified
+   phone or a score at the review threshold) sends the listing to a moderator (In review) with
+   the usual "we're checking your listing" email, and the owner sees a short note.
+   *Files: `src/lib/listing/lifecycle.ts` (`contentChangedSinceCheck`, `ownerAction`,
+   `recheckLiveListingAfterPriceChange`), `src/lib/wizard/actions.ts`,
+   `src/components/account/my-listing-card.tsx`, tests in `src/lib/listing/lifecycle.test.ts`.*
+2. **No CAPTCHA on "Show contact", publishing and reports (medium).** The invisible Turnstile
+   check now protects all three and is verified on the server (actions `reveal_contact`,
+   `publish`, `report`; a token for one cannot be used for another). On listing pages the check
+   loads only when a visitor first taps "Show contact", so other visitors do not download it; if
+   Cloudflare needs a click, its box appears at the bottom of the screen. Without Turnstile keys
+   everything works as before.
+   *Files: `src/lib/contact/actions.ts`, `src/components/contact/contact-provider.tsx`,
+   `src/lib/wizard/actions.ts`, `src/components/wizard/steps/publish-step.tsx`,
+   `src/lib/reports/actions.ts`, `src/lib/reports/schemas.ts`, `src/components/report/report-dialog.tsx`.*
+3. **Fake accounts could hide a competitor's listing (low).** Only reports from accounts that are
+   older than `newAccountDays` (7) or have a verified phone count towards hiding a listing, one per
+   account, and accounts that share a device (DeviceLink) count once; accounts that are suspended,
+   banned or deleted, or without any known device, do not count. Reporting now also links the
+   device used. Every report still reaches the moderators, who can restore a hidden listing as
+   before. *Files: `src/lib/reports/auto-hide.ts` (+ test), `src/lib/listing/lifecycle.ts`
+   (`applyReport`), `src/lib/reports/actions.ts`.*
+4. **Files stayed in storage (low).** The daily cleanup job (`/api/cron/cleanup`) now also
+   - deletes the photo files of listings deleted more than 30 days ago (the photo rows and their
+     fingerprints stay, so re-posted photos are still recognised);
+   - deletes private uploads that were never attached. Every private upload is written to a small
+     table (`PrivateUpload`) *before* the file is stored. After 48 hours the job checks whether a
+     ticket message, a verification request or a listing's kosher certificate uses the file:
+     if not, the file is deleted; either way the row goes. A failed delete is retried the next day.
+     A table was chosen over scanning storage folders because it works the same on local disk and
+     R2/S3 and only ever touches files we know were uploaded through the site.
+   *Files: `src/lib/storage/cleanup.ts` (+ test), `src/app/api/cron/cleanup/route.ts`,
+   `src/app/api/uploads/private/route.ts`, `prisma/schema.prisma`.*
+5. **Account functions before the 2-step code (low).** See the 2-step login row above.
+   *Files: `src/lib/auth/two-factor-gate.ts` (+ test), `src/lib/auth/server.ts`,
+   `src/lib/auth/error-codes.ts`, `messages/*/auth.json`.*
+6. **Short listing links (SEO).** `/he/listing/113` now answers a real `308` to the full address
+   (`/he/listing/113-<title>`) from `src/proxy.ts`, with the query kept (`?checkIn=…`). Only public
+   listings are redirected there, so a hidden listing's title never shows; the page handles the rest.
+   *Files: `src/proxy.ts`, `src/lib/listing-page/canonical.ts`.*
+
+Database changes (additive, applied with `npx prisma db push`): `Listing.lastCheckedAt` and the
+`PrivateUpload` table.
 
 ### In the final pass
 
@@ -94,17 +148,13 @@ pass missed.
 |---|---|---|
 | **High** (before launch) | **Production settings.** Without them, protections quietly switch off. Turnstile: no CAPTCHA. `CRON_SECRET`: the scheduled jobs refuse to run, so listings never expire and documents are not cleaned up. | Set every variable from `.env.example`: `TURNSTILE_*`, `CRON_SECRET`, `APP_ENCRYPTION_KEY`, `HASH_SALT`, `BETTER_AUTH_SECRET`, Twilio with Fraud Guard and only the countries you need. Keep `DEV_SKIP_STAFF_2FA` unset. Never run the development server (`npm run dev`) on a public address, because it shows login codes. |
 | **High** (before launch) | **Independent test.** This review was done by the team that built the site. | Book a short penetration test (2–3 days) by an outside firm before going public. Fix what it finds. |
-| **Medium** | **Paused, expired, rented or sold listings** can be edited and then put back online (unpause/renew) without a new check. Price changes on live listings are not re-checked at once either. (Text, translations, contact details and copied photos on live listings now are.) | Add a "last checked" date to listings. Run the checks again on unpause/renew when the content changed after that date, and on big price drops. |
-| **Medium** | **No CAPTCHA on "Show contact" and publishing.** The brief asks for it. Today these need a signed-in account (login has the CAPTCHA), a verified phone for publishing, and rate limits (30 contact reveals an hour per account, 200 a day per listing). | Add the invisible Turnstile check to "Show contact" and "Publish" before launch, or as soon as bots show up. |
 | **Medium** | **Malware scanner not configured.** Images are re-drawn, which removes hidden content. PDFs only get a structure check. | Run a ClamAV service (or a cloud scanner) and set `MALWARE_SCAN_URL`. The upload code already calls it and refuses files when it cannot answer. |
 | **Medium** | **Two anti-scam checks are off:** "photos found elsewhere online" (reverse-image search) and "phone numbers written inside photos" (text recognition). Duplicate photos on our own site are detected. | Connect a reverse-image service (e.g. Google Vision Web Detection or TinEye) and text recognition. The hooks `riskHooks.reverseImageSearch` and `riskHooks.photoOcr` in `src/lib/risk/index.ts` are ready. |
 | **Medium** | **Backups.** | Turn on daily backups with point-in-time restore (Supabase/Neon) and object versioning on the R2 buckets. Test one restore before launch. |
 | **Medium** | **Error monitoring.** The code now sends server errors (page crashes, failed actions, failed scheduled jobs) to Sentry, without user data, but only once `SENTRY_DSN` is set. Errors in the visitor's browser are not collected yet. | Create a Sentry project and set `SENTRY_DSN`. Add browser error collection later if needed. |
 | **Medium** | **Cloudflare / attack protection.** | Put the domain behind Cloudflare with the WAF and bot protection on. If the site is **not** on Vercel, set `CLIENT_IP_HEADER="cf-connecting-ip"`. Otherwise the per-address limits can be dodged by faking a header. |
 | **Medium** | **Legal review.** | A lawyer should review the privacy, cookie and terms pages for Israel, GDPR/UK and Georgia, and the shared-room options (men, women, families) for each new country. |
-| Low | A listing is hidden automatically after several reports, so a group of fake accounts could hide a competitor's listing. Moderators can restore it. | Count only reports from accounts with a verified phone, or from different devices. |
-| Low | Photos of deleted listings stay reachable by their (unguessable) link. Files uploaded but never sent (e.g. an ID photo for a request the user abandoned) stay encrypted in storage. | Add a cleanup job that removes both after 30 days. |
-| Low | Between the phone code and the 2-step code, a session can already use a few login-library account functions (sign out other devices, connect or disconnect Google). It cannot open the admin panel or any private data. | Fine for launch. Later: block these until the 2-step code is entered. |
+| Low | A group of real, older or phone-verified accounts on different devices can still hide a listing with reports (as intended, so real scams disappear fast). Kosher-certificate photos of deleted listings stay in private storage. | Moderators restore wrongly hidden listings (Admin → Reports). Remove certificate photos of deleted listings in the cleanup job if needed. |
 | Low | Every page sends the browser all interface texts, including the admin panel's wording (no user data). Pages are also heavier than needed. | Send only the public text groups to the browser (layout owner). |
 | Low | `npm audit --omit=dev` finds 9 issues (2 critical) in developer tools only: the test runner (vitest/tinypool), the shadcn command-line tool and its code generator (deepmerge, minimatch). None of them runs on the live site. The fixes are major upgrades or lockfile changes, so they were not applied during this pass. | In a maintenance pass: upgrade vitest to 5.x, move `shadcn` to devDependencies, then run `npm audit fix`. |
 | Low | If the database is briefly unreachable, rate limits let requests through, so the site stays up. | Fine for launch. With heavy traffic, move rate limits to Redis (Upstash). |
@@ -131,3 +181,13 @@ pass missed.
   session were removed afterwards.
 - `npx tsc --noEmit`, `npx eslint .`, `npm run i18n:check` and `npx vitest run` (49 files,
   637 tests) pass.
+- Follow-up pass (port 3702): on the production build `curl` shows `/he/listing/113`,
+  `/en/listing/113` and `/he/listing/113?checkIn=…` answering `308` with the full address (query
+  kept), and a missing listing `404`; axe (WCAG 2.1 A/AA) finds no violations and no
+  `meta-refresh` on the redirected pages (he and ar at 360 px, en at 1280 px). On a development
+  server, signed in as the demo guest: "Show contact" and a report work with the CAPTCHA in
+  place, with 0 axe violations after the reveal and in the report dialog. For a test account with
+  2-step login before the code, `list-sessions`, `revoke-other-sessions`, `unlink-account` and a
+  phone change answered `403 TWO_FACTOR_REQUIRED`; with 2-step login off they work. All test
+  data (report, device link, sessions, test account, rate-limit rows) was removed.
+  `npx vitest run`: 53 files, 659 tests pass.

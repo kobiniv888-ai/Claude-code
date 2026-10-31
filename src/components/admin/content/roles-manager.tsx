@@ -3,7 +3,7 @@
 import { KeyRound, Search, ShieldCheck, ShieldOff, UserMinus, UserPlus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, type FormEvent } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { Ltr } from "@/components/common/ltr";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

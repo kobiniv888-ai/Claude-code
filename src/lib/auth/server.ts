@@ -1,7 +1,7 @@
 import "server-only";
 import { betterAuth, type BetterAuthOptions } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { APIError, createAuthMiddleware } from "better-auth/api";
+import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
 import { captcha } from "better-auth/plugins/captcha";
 import { phoneNumber } from "better-auth/plugins/phone-number";
@@ -18,6 +18,7 @@ import {
   placeholderEmailForPhone,
 } from "./phone";
 import { localeFromRequest } from "./request-locale";
+import { isTwoFactorPending, needsTwoFactorSession } from "./two-factor-gate";
 import { SmsUnavailableError, checkLoginCode, isTwilioConfigured, sendLoginCode } from "./sms";
 
 /**
@@ -146,6 +147,19 @@ export const auth = betterAuth({
       if (ctx.path === "/phone-number/verify") {
         if (!(await limitLoginCodeChecks())) {
           throw hookError("TOO_MANY_REQUESTS", AUTH_HOOK_ERRORS.RATE_LIMITED, "Too many attempts");
+        }
+      }
+      // Sensitive account functions wait for the 2-step code in sessions that need it (./two-factor-gate.ts).
+      if (needsTwoFactorSession(ctx.path, ctx.body)) {
+        const session = await getSessionFromCtx(ctx);
+        if (session) {
+          const row = await db.session.findUnique({
+            where: { id: session.session.id },
+            select: { twoFactorVerifiedAt: true, user: { select: { twoFactorEnabled: true } } },
+          });
+          if (!row || isTwoFactorPending({ twoFactorEnabled: row.user.twoFactorEnabled, twoFactorVerifiedAt: row.twoFactorVerifiedAt })) {
+            throw hookError("FORBIDDEN", AUTH_HOOK_ERRORS.TWO_FACTOR_REQUIRED, "Enter your 2-step login code first");
+          }
         }
       }
     }),

@@ -18,7 +18,7 @@ export async function PopularCities({ locale, cities }: { locale: AppLocale; cit
       <Container>
         <SectionHeading id="home-cities-title" title={t("title")} description={t("lead")} action={{ label: t("all"), href: "/search" }} />
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
-          {cities.map((city, index) => (
+          {cities.map((city) => (
             <li key={city.slug}>
               <Link
                 href={searchPath({ city: city.slug })}
@@ -30,7 +30,6 @@ export async function PopularCities({ locale, cities }: { locale: AppLocale; cit
                     alt=""
                     fill
                     sizes="(min-width: 1024px) 20vw, (min-width: 640px) 33vw, 50vw"
-                    priority={index < 2}
                     className="-z-10 object-cover transition-transform duration-500 group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100"
                   />
                 ) : (

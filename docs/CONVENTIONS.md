@@ -51,6 +51,10 @@ dynamic as usual. Bundled docs: `node_modules/next/dist/docs/`.
    with zod. Rate-limit anything public. Staff actions call `audit()`.
 10. **Every state is designed:** loading (skeletons, not spinners), empty, error and not-found get
     friendly text and a clear next step (`@/components/common/states`).
+    Fast public pages (home, search, listing, Jewish Life, help and the other `(site)` pages without
+    their own) have **no route `loading.tsx`**: React shows streamed content at least 300 ms after a
+    skeleton, which made it the slowest part of the first paint. Use `<Suspense>` around a slow
+    section instead.
 11. **Accessibility:** semantic HTML, labels on every input, `alt` on images, visible focus, keyboard
     reachable dialogs/menus (shadcn does this), color contrast AA.
 12. **Mobile first** from 360px. Test at 360px in Hebrew (RTL) and English.
@@ -101,6 +105,8 @@ docs/
   that list.
 * Write real translations in all five languages (Hebrew, English, Russian, Arabic, Georgian).
   Native speakers will review before launch, so prefer clear, simple wording.
+* Do not put U+2011 (non-breaking hyphen) in messages: of our fonts only Noto Sans Arabic
+  (162 KB) has it, so one such character downloads that file on any page. Use a plain hyphen.
 * Database content that is translated (city names, FAQ, scam alerts…) is a JSON object
   `{ he, en, ru, ar, ka }`; read it with `pickLocalized(value, locale)` from `@/i18n/locale`.
 * Listing text: the owner's original is in `Listing.title/description` (+ `originalLocale`);
@@ -117,6 +123,7 @@ docs/
 | `@/lib/geo` | `haversineMeters`, `walkingMinutes`, `approximateLocation`, bounds helpers (pure) |
 | `@/lib/listing/fields` | vocabularies: deal/property types, amenities, Shabbat & Jewish features, contact channels, moderation reasons |
 | `@/lib/format` | `formatNumber`, `formatMoney`, `formatDate`, `formatTime`, `formatDateRange`, `formatRelativeTime` (client-safe) |
+| `@/lib/toast` | `toast(…)`, `toast.success/error/info/warning/message(…)` — use it instead of importing `sonner` (sonner loads after the page has started) |
 | `@/lib/currency` | `getRates`, `getDisplayCurrency`, `refreshExchangeRates` (server); `@/lib/currency/convert` → `convert`, `toUsd` (client-safe) |
 | `@/components/providers/currency-provider` | `CurrencyProvider`, `useCurrency()` → `{ currency, rates, convert, format }` |
 | `@/lib/hebcal` | Shabbat times, holidays in a range, "is it Shabbat/holiday now", Hebrew date (server) |

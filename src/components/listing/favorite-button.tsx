@@ -3,7 +3,7 @@
 import { useState, type MouseEvent } from "react";
 import { useTranslations } from "next-intl";
 import { HeartIcon } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { useRequireLogin } from "@/components/auth/login-dialog";
 import { useRouter } from "@/i18n/navigation";
 import { errorMessageKey } from "@/lib/errors";

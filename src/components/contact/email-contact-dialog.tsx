@@ -3,7 +3,7 @@
 import { useId, useRef, useState, type FormEvent } from "react";
 import { useTranslations } from "next-intl";
 import { CheckCircle2Icon, MoonStarIcon, SendIcon } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { Turnstile, type TurnstileHandle } from "@/components/common/turnstile";
 import { Button } from "@/components/ui/button";
 import {

@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useCallback, useTransition } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { useRouter } from "@/i18n/navigation";
 import type { ActionResult } from "@/lib/action";
 import { errorMessageKey } from "@/lib/errors";

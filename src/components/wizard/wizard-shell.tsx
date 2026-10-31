@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { CheckCheckIcon, LogOutIcon } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { Ltr } from "@/components/common/ltr";
 import type { AppLocale } from "@/config/site";
