@@ -25,9 +25,25 @@ const mediaHost = (() => {
   }
 })();
 
+/**
+ * Extra hosts that may open the development server and call Server Actions: the forwarded
+ * address of a GitHub Codespace, plus any in EXTRA_ALLOWED_ORIGINS (comma-separated, e.g. a tunnel).
+ */
+const extraOrigins = [
+  ...(process.env.CODESPACES === "true" && process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN
+    ? [`*.${process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}`]
+    : []),
+  ...(process.env.EXTRA_ALLOWED_ORIGINS ?? "")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+];
+
 const nextConfig: NextConfig = {
   // Separate build folders let several dev servers run side by side (NEXT_DIST_DIR=.next-a).
   distDir: process.env.NEXT_DIST_DIR || ".next",
+  allowedDevOrigins: extraOrigins,
+  ...(extraOrigins.length > 0 && { experimental: { serverActions: { allowedOrigins: extraOrigins } } }),
   poweredByHeader: false,
   turbopack: {
     rules: {

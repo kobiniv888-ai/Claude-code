@@ -105,7 +105,15 @@ All demo listings, users and places are marked **Demo**. Before launch, either:
 
 ---
 
-## 2. See it on your phone (a free preview in about 20 minutes)
+## 2. See it on your phone
+
+**Quickest: GitHub Codespaces.** It needs only your GitHub account. The real website, with its own
+database and the demo data, starts in a free cloud computer, and you open it in your phone's
+browser. Logging in works, because the code is shown on screen. Step-by-step guide:
+**[docs/CODESPACES.md](docs/CODESPACES.md)**.
+
+**A public preview on Vercel (about 20 minutes, free accounts):**
+
 
 You can do all of this from a phone browser.
 

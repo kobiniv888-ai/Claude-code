@@ -1,0 +1,19 @@
+{
+  // GitHub Codespaces / VS Code Dev Containers: a ready-to-run Bayit with its own Postgres.
+  // On github.com: Code → Codespaces → "Create codespace" (choose this branch). See docs/CODESPACES.md.
+  "name": "Bayit",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "shutdownAction": "stopCompose",
+  "hostRequirements": { "cpus": 4, "memory": "8gb" },
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": { "label": "Bayit website", "onAutoForward": "notify" }
+  },
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+  "postStartCommand": "bash .devcontainer/start.sh",
+  "customizations": {
+    "codespaces": { "openFiles": ["docs/CODESPACES.md"] }
+  }
+}
