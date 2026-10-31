@@ -1,0 +1,1134 @@
+// Bayit database schema (PostgreSQL, Prisma 7).
+// Phase 1 tables are used now; tables marked "Phase 2" are planned ahead so
+// paid features, reviews and chat can be switched on without a redesign.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────
+
+enum Locale {
+  he
+  en
+  ru
+  ar
+  ka
+}
+
+enum Currency {
+  GEL
+  USD
+  ILS
+  EUR
+  GBP
+  AED
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  MODERATOR
+  SUPPORT
+  EDITOR
+}
+
+enum UserStatus {
+  ACTIVE
+  WARNED
+  SUSPENDED
+  BANNED
+  DELETED
+}
+
+enum AccountType {
+  PRIVATE
+  BUSINESS
+}
+
+enum ListingStatus {
+  DRAFT
+  IN_REVIEW
+  NEEDS_CHANGES
+  LIVE
+  PAUSED
+  EXPIRED
+  RENTED
+  SOLD
+  REJECTED
+  HIDDEN // hidden automatically after several reports, until a moderator checks it
+  DELETED
+}
+
+enum DealType {
+  SHORT_STAY
+  MONTHLY_RENT
+  SALE
+  HOTEL_ROOM
+}
+
+enum PropertyType {
+  APARTMENT
+  STUDIO
+  PENTHOUSE
+  HOUSE
+  VILLA
+  COTTAGE
+  ROOM
+  HOTEL
+  GUESTHOUSE
+  HOSTEL
+}
+
+enum PricePeriod {
+  NIGHT
+  WEEK
+  MONTH
+  TOTAL // sale price
+}
+
+enum BuildingAge {
+  NEW
+  OLD
+}
+
+/// Georgian market "frame" terms for the state of a property.
+enum PropertyCondition {
+  BLACK_FRAME
+  WHITE_FRAME
+  GREEN_FRAME
+  NEWLY_RENOVATED
+  OLD_RENOVATION
+  NEEDS_RENOVATION
+}
+
+enum HeatingType {
+  CENTRAL
+  GAS_BOILER
+  ELECTRIC
+  AIR_CONDITIONING
+}
+
+enum ViewType {
+  SEA
+  MOUNTAIN
+  CITY
+}
+
+enum KitchenKosher {
+  NOT_KOSHER
+  CAN_KASHER
+  KOSHER
+}
+
+/// For rooms in shared apartments.
+enum SharedRoomFor {
+  MEN
+  WOMEN
+  FAMILIES
+}
+
+enum ContactChannel {
+  WHATSAPP
+  TELEGRAM
+  VIBER
+  MESSENGER
+  PHONE
+  SMS
+  EMAIL
+  CHAT // Phase 2
+}
+
+enum AvailabilitySource {
+  OWNER
+  ICAL
+}
+
+enum ReportTarget {
+  LISTING
+  USER
+  MESSAGE
+}
+
+enum ReportReason {
+  FAKE_LISTING
+  ALREADY_RENTED
+  WRONG_PRICE
+  ASKED_MONEY_UPFRONT
+  OFFENSIVE
+  OTHER
+}
+
+enum ReportStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
+}
+
+enum VerificationType {
+  ID // ID document + selfie
+  OWNERSHIP // e.g. NAPR extract with cadastral code
+  BUSINESS // business registration (hotels, agencies)
+  PROPERTY // paid video call / visit (Phase 2)
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  NEEDS_MORE_INFO
+}
+
+enum TicketCategory {
+  LISTING_PROBLEM
+  SCAM_REPORT
+  ACCOUNT_VERIFICATION
+  TECHNICAL
+  PAYMENT
+  OTHER
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_FOR_USER
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  NORMAL
+  URGENT
+}
+
+enum JewishPlaceType {
+  SYNAGOGUE
+  CHABAD_HOUSE
+  KOSHER_RESTAURANT
+  KOSHER_SHOP
+  MIKVEH
+  HERITAGE_SITE
+}
+
+enum FaqCategory {
+  GETTING_STARTED
+  POSTING
+  CONTACTING_OWNERS
+  SAFETY
+  ACCOUNT_VERIFICATION
+  PAYMENTS
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum BannedWordAction {
+  FLAG // adds to the risk score
+  BLOCK // the listing cannot be published with this phrase
+}
+
+enum BannedWordCategory {
+  SCAM
+  CONTACT_INFO
+  OFFENSIVE
+}
+
+enum ArticleStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum EmailStatus {
+  QUEUED
+  SENT
+  FAILED
+  LOGGED // development: not sent, stored for the dev outbox
+}
+
+enum PromotionType {
+  BUMP
+  FEATURED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+enum PaymentPurpose {
+  BUMP
+  FEATURED
+  PREMIUM_PLAN
+  PROPERTY_VERIFICATION
+}
+
+// ─────────────────────────────────────────────────────────────
+// Auth (Better Auth core tables + Bayit profile fields on User)
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id                  String   @id
+  name                String
+  /// Real email, or a placeholder "<digits>@phone.bayit.invalid" for phone-only sign-ups.
+  email               String   @unique
+  emailVerified       Boolean  @default(false)
+  image               String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  /// E.164, e.g. +995555123456 (Better Auth phone-number plugin).
+  phoneNumber         String?  @unique
+  phoneNumberVerified Boolean? @default(false)
+
+  role               UserRole    @default(USER)
+  status             UserStatus  @default(ACTIVE)
+  statusReason       String?
+  suspendedUntil     DateTime?
+  accountType        AccountType @default(PRIVATE)
+  businessName       String?
+  /// User-written; render with dir="auto".
+  bio                String?
+  /// Languages the user speaks (ISO 639-1 codes, e.g. "he", "en", "fr").
+  spokenLanguages    String[]    @default([])
+  locale             Locale      @default(en)
+  currency           Currency?
+  timezone           String      @default("Asia/Tbilisi")
+  keepsShabbat       Boolean     @default(false)
+  showHebrewDates    Boolean     @default(false)
+  /// { email: { messages: true, listing: true, tickets: true, marketing: false } }
+  notificationPrefs  Json?
+  /// 2-step login (TOTP). Required for staff.
+  twoFactorEnabled   Boolean     @default(false)
+  /// Encrypted with APP_ENCRYPTION_KEY.
+  totpSecret         String?
+  idVerifiedAt       DateTime?
+  idVerifiedById     String?
+  businessVerifiedAt DateTime?
+  safetyTipSeenAt    DateTime?
+  lastSeenAt         DateTime?
+  /// Typical reply time in minutes (computed; Phase 2 chat makes this precise).
+  avgReplyMinutes    Int?
+  /// Reply rate percent (Phase 2).
+  replyRate          Int?
+  isDemo             Boolean     @default(false)
+  deletedAt          DateTime?
+
+  sessions              Session[]
+  accounts              Account[]
+  listings              Listing[]             @relation("ListingOwner")
+  favorites             Favorite[]
+  contactClicks         ContactClick[]        @relation("ContactClickGuest")
+  reportsMade           Report[]              @relation("ReportReporter")
+  reportsAgainst        Report[]              @relation("ReportTargetUser")
+  reportsHandled        Report[]              @relation("ReportHandler")
+  blocksMade            UserBlock[]           @relation("Blocker")
+  blocksReceived        UserBlock[]           @relation("Blocked")
+  verificationRequests  VerificationRequest[] @relation("VerificationUser")
+  verificationsReviewed VerificationRequest[] @relation("VerificationReviewer")
+  tickets               Ticket[]              @relation("TicketUser")
+  ticketsAssigned       Ticket[]              @relation("TicketAssignee")
+  ticketMessages        TicketMessage[]
+  auditLogs             AuditLog[]
+  notesAbout            AdminNote[]           @relation("NoteSubject")
+  notesWritten          AdminNote[]           @relation("NoteAuthor")
+  devices               DeviceLink[]
+  listingsReviewed      Listing[]             @relation("ListingReviewer")
+  payments              Payment[]
+
+  @@index([role])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Session {
+  id                  String    @id
+  expiresAt           DateTime
+  token               String    @unique
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  ipAddress           String?
+  userAgent           String?
+  userId              String
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Set when the user passed the 2-step (TOTP) check in this session.
+  twoFactorVerifiedAt DateTime?
+
+  @@index([userId])
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Places
+// ─────────────────────────────────────────────────────────────
+
+model City {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  countryCode String   @default("GE")
+  /// { he, en, ru, ar, ka }
+  names       Json
+  /// Lower-cased names in all languages + aliases, for search in any language.
+  searchText  String
+  lat         Float
+  lng         Float
+  timezone    String   @default("Asia/Tbilisi")
+  photoUrl    String?
+  airportCode String?
+  airportLat  Float?
+  airportLng  Float?
+  isPopular   Boolean  @default(false)
+  sortOrder   Int      @default(0)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  neighborhoods Neighborhood[]
+  listings      Listing[]
+  places        JewishPlace[]
+}
+
+model Neighborhood {
+  id         String   @id @default(cuid())
+  cityId     String
+  city       City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  slug       String
+  /// { he, en, ru, ar, ka }
+  names      Json
+  searchText String
+  lat        Float
+  lng        Float
+  sortOrder  Int      @default(0)
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  listings Listing[]
+
+  @@unique([cityId, slug])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Listings
+// ─────────────────────────────────────────────────────────────
+
+model Listing {
+  id           String        @id @default(cuid())
+  /// Short public number shown as "ID 1234" and used in URLs.
+  publicId     Int           @unique @default(autoincrement())
+  ownerId      String
+  owner        User          @relation("ListingOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  status       ListingStatus @default(DRAFT)
+  /// Last wizard step the owner reached (drafts).
+  wizardStep   Int           @default(1)
+  dealType     DealType      @default(SHORT_STAY)
+  propertyType PropertyType  @default(APARTMENT)
+
+  // Location. lat/lng/address are PRIVATE; only approxLat/approxLng are public.
+  countryCode    String        @default("GE")
+  cityId         String?
+  city           City?         @relation(fields: [cityId], references: [id])
+  neighborhoodId String?
+  neighborhood   Neighborhood? @relation(fields: [neighborhoodId], references: [id])
+  address        String?
+  lat            Float?
+  lng            Float?
+  approxLat      Float?
+  approxLng      Float?
+
+  // Original text (the owner's language). Translations live in ListingTranslation.
+  originalLocale Locale @default(he)
+  title          String @default("")
+  description    String @default("")
+  /// Lower-cased titles (all languages) + place names, for search.
+  searchText     String @default("")
+
+  // Basics
+  rooms       Float?
+  bedrooms    Int?
+  bathrooms   Float?
+  bedsSingle  Int?
+  bedsDouble  Int?
+  bedsSofa    Int?
+  maxGuests   Int?
+  sizeSqm     Float?
+  floor       Int?
+  totalFloors Int?
+  elevator    Boolean?
+  yearBuilt   Int?
+  buildingAge BuildingAge?
+  furnished   Boolean?
+
+  // Georgian market details
+  condition     PropertyCondition?
+  heating       HeatingType[]      @default([])
+  views         ViewType[]         @default([])
+  /// PRIVATE — used only for ownership verification.
+  cadastralCode String?
+
+  /// Amenity keys, see src/lib/listing/fields.ts (e.g. "wifi", "pool").
+  amenities String[] @default([])
+
+  // Jewish-friendly
+  kitchenKosher       KitchenKosher?
+  /// Shabbat checklist keys: hot_plate, hot_water_urn, light_timers, mechanical_key, stairs_or_shabbat_elevator, no_motion_sensors
+  shabbatFeatures     String[]       @default([])
+  /// Other keys: mezuzot, separable_beds, sukkah_space, pesach_ready, kosher_food_nearby, mikveh_nearby, host_keeps_shabbat, host_speaks_hebrew
+  jewishFeatures      String[]       @default([])
+  /// Computed on save from shabbatFeatures (see src/lib/listing/fields.ts).
+  isShabbatFriendly   Boolean        @default(false)
+  // Hotels and guesthouses
+  kosherCertName      String?
+  kosherCertPhotoKey  String?
+  /// kosher_breakfast, kosher_meals, shabbat_meals, separate_swimming
+  hotelJewishFeatures String[]       @default([])
+  sharedRoomFor       SharedRoomFor?
+  /// Walking minutes, computed from the map (Jewish Life places).
+  synagogueWalkMin    Int?
+  chabadWalkMin       Int?
+  /// Cached nearby places with walking times + airport distance. See src/lib/geo.
+  nearby              Json?
+  nearbyUpdatedAt     DateTime?
+
+  // Price (owner's original currency) + USD-normalised values for filters/sorting.
+  price              Decimal?    @db.Decimal(14, 2)
+  currency           Currency    @default(USD)
+  pricePeriod        PricePeriod @default(NIGHT)
+  priceUsd           Decimal?    @db.Decimal(14, 2)
+  pricePerSqmUsd     Decimal?    @db.Decimal(14, 2)
+  previousPrice      Decimal?    @db.Decimal(14, 2)
+  priceDroppedAt     DateTime?
+  deposit            Decimal?    @db.Decimal(14, 2)
+  cleaningFee        Decimal?    @db.Decimal(14, 2)
+  utilitiesIncluded  Boolean?
+  utilitiesEstimate  Decimal?    @db.Decimal(14, 2)
+  minStayNights      Int?
+  weeklyDiscountPct  Int?
+  monthlyDiscountPct Int?
+
+  // House rules
+  checkInFrom    String? // "14:00"
+  checkOutUntil  String? // "11:00"
+  smokingAllowed Boolean?
+  petsAllowed    Boolean?
+  partiesAllowed Boolean?
+  quietHoursFrom String?
+  quietHoursTo   String?
+
+  // Media
+  videoUrl   String?
+  tour360Url String?
+
+  /// [{ channel: "WHATSAPP", value: "+995555123456", order: 0 }] — values are private until "Show contact".
+  contactMethods   Json?
+  contactHoursFrom String?
+  contactHoursTo   String?
+  /// "I don't answer on Shabbat and holidays"
+  noReplyOnShabbat Boolean @default(false)
+
+  // Availability (iCal sync with Airbnb / Booking.com)
+  icalToken      String    @unique @default(cuid())
+  icalImportUrls String[]  @default([])
+  icalSyncedAt   DateTime?
+
+  // Counters (denormalised for cards and stats)
+  viewCount    Int @default(0)
+  contactCount Int @default(0)
+  saveCount    Int @default(0)
+  reportCount  Int @default(0)
+
+  // Moderation
+  riskScore          Int?
+  /// [{ code: "duplicate_photos", points: 40, detail: "…" }]
+  riskReasons        Json?
+  /// Reason code shown to the owner (translated), e.g. "photos_low_quality".
+  moderationReason   String?
+  /// Free-text note from the moderator (auto-translated to the owner's language).
+  moderationNote     String?
+  reviewedAt         DateTime?
+  reviewedById       String?
+  reviewedBy         User?     @relation("ListingReviewer", fields: [reviewedById], references: [id])
+  ownerVerifiedAt    DateTime?
+  propertyVerifiedAt DateTime?
+  rulesAcceptedAt    DateTime?
+
+  // Lifecycle
+  publishedAt      DateTime?
+  expiresAt        DateTime?
+  expiryWarnedAt   DateTime?
+  renewedAt        DateTime?
+  /// Used by "Recommended" sort; set on publish/renew (and paid bumps in Phase 2).
+  bumpedAt         DateTime?
+  featuredUntil    DateTime?
+  /// Shown as "Last updated" — changes when the owner edits content or price.
+  contentUpdatedAt DateTime  @default(now())
+  isDemo           Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+
+  translations  ListingTranslation[]
+  photos        ListingPhoto[]
+  roomTypes     RoomType[]
+  priceChanges  PriceChange[]
+  availability  AvailabilityBlock[]
+  favorites     Favorite[]
+  contactClicks ContactClick[]
+  stats         ListingStatDaily[]
+  reports       Report[]
+  verifications VerificationRequest[]
+  tickets       Ticket[]
+  promotions    Promotion[]
+
+  @@index([status, cityId, dealType])
+  @@index([status, bumpedAt])
+  @@index([status, publishedAt])
+  @@index([ownerId])
+  @@index([approxLat, approxLng])
+  @@index([isDemo])
+}
+
+model ListingTranslation {
+  id            String   @id @default(cuid())
+  listingId     String
+  listing       Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  locale        Locale
+  title         String
+  description   String
+  isOriginal    Boolean  @default(false)
+  /// Produced by the translation API (shown as "Auto-translated · Show original").
+  isAuto        Boolean  @default(false)
+  /// The owner edited this version by hand.
+  editedByOwner Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([listingId, locale])
+}
+
+model ListingPhoto {
+  id          String    @id @default(cuid())
+  listingId   String
+  listing     Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  roomTypeId  String?
+  roomType    RoomType? @relation(fields: [roomTypeId], references: [id], onDelete: SetNull)
+  /// Storage key of the processed (re-encoded, EXIF-stripped, watermarked) image.
+  storageKey  String?
+  /// Public URL (or an external URL for demo photos).
+  url         String
+  width       Int?
+  height      Int?
+  blurDataUrl String?
+  /// Perceptual hash (hex) for duplicate-photo detection.
+  phash       String?
+  bytes       Int?
+  sortOrder   Int       @default(0)
+  isCover     Boolean   @default(false)
+  alt         String?
+  createdAt   DateTime  @default(now())
+
+  @@index([listingId, sortOrder])
+  @@index([phash])
+}
+
+/// Hotels and guesthouses: several room types on one business page.
+model RoomType {
+  id          String         @id @default(cuid())
+  listingId   String
+  listing     Listing        @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  /// { he, en, ru, ar, ka }
+  names       Json
+  description Json?
+  price       Decimal        @db.Decimal(14, 2)
+  currency    Currency       @default(USD)
+  pricePeriod PricePeriod    @default(NIGHT)
+  priceUsd    Decimal?       @db.Decimal(14, 2)
+  maxGuests   Int?
+  bedsSingle  Int?
+  bedsDouble  Int?
+  sizeSqm     Float?
+  quantity    Int?
+  sortOrder   Int            @default(0)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  photos      ListingPhoto[]
+}
+
+model PriceChange {
+  id        String   @id @default(cuid())
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  oldPrice  Decimal  @db.Decimal(14, 2)
+  newPrice  Decimal  @db.Decimal(14, 2)
+  currency  Currency
+  changedAt DateTime @default(now())
+
+  @@index([listingId, changedAt])
+}
+
+/// Dates when the listing is NOT available. endDate is exclusive.
+model AvailabilityBlock {
+  id        String             @id @default(cuid())
+  listingId String
+  listing   Listing            @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  startDate DateTime           @db.Date
+  endDate   DateTime           @db.Date
+  source    AvailabilitySource @default(OWNER)
+  icalUid   String?
+  note      String?
+  createdAt DateTime           @default(now())
+
+  @@index([listingId, startDate])
+}
+
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  /// Personal note (private to the user).
+  note      String?
+  createdAt DateTime @default(now())
+
+  @@unique([userId, listingId])
+}
+
+/// One row per tap on a contact button (for the owner's stats).
+model ContactClick {
+  id        String         @id @default(cuid())
+  listingId String
+  listing   Listing        @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?          @relation("ContactClickGuest", fields: [userId], references: [id], onDelete: SetNull)
+  channel   ContactChannel
+  createdAt DateTime       @default(now())
+
+  @@index([listingId, createdAt])
+}
+
+/// Daily per-listing stats for the owner dashboard.
+model ListingStatDaily {
+  listingId         String
+  listing           Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  date              DateTime @db.Date
+  views             Int      @default(0)
+  contacts          Int      @default(0)
+  saves             Int      @default(0)
+  /// { WHATSAPP: 3, PHONE: 1 }
+  contactsByChannel Json?
+
+  @@id([listingId, date])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Trust & safety
+// ─────────────────────────────────────────────────────────────
+
+model Report {
+  id           String       @id @default(cuid())
+  targetType   ReportTarget
+  listingId    String?
+  listing      Listing?     @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  targetUserId String?
+  targetUser   User?        @relation("ReportTargetUser", fields: [targetUserId], references: [id], onDelete: Cascade)
+  /// Phase 2 (chat messages).
+  messageId    String?
+  reporterId   String?
+  reporter     User?        @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: SetNull)
+  reason       ReportReason
+  details      String?
+  status       ReportStatus @default(OPEN)
+  resolution   String?
+  handledById  String?
+  handledBy    User?        @relation("ReportHandler", fields: [handledById], references: [id], onDelete: SetNull)
+  handledAt    DateTime?
+  createdAt    DateTime     @default(now())
+
+  @@index([status, createdAt])
+  @@index([listingId])
+}
+
+model UserBlock {
+  blockerId String
+  blocker   User     @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockedId String
+  blocked   User     @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([blockerId, blockedId])
+}
+
+/// ID / ownership / business documents. Files are encrypted in private storage
+/// and DELETED after review; only "verified on [date] by [staff]" is kept.
+model VerificationRequest {
+  id                 String             @id @default(cuid())
+  userId             String
+  user               User               @relation("VerificationUser", fields: [userId], references: [id], onDelete: Cascade)
+  type               VerificationType
+  listingId          String?
+  listing            Listing?           @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  status             VerificationStatus @default(PENDING)
+  /// [{ key, kind: "ID_FRONT"|"ID_BACK"|"SELFIE"|"NAPR_EXTRACT"|"BUSINESS_REGISTRATION"|"OTHER", mime, bytes }]
+  documents          Json               @default("[]")
+  cadastralCode      String?
+  userNote           String?
+  decisionReason     String?
+  reviewedById       String?
+  reviewedBy         User?              @relation("VerificationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt         DateTime?
+  documentsDeletedAt DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  @@index([status, createdAt])
+  @@index([userId])
+}
+
+/// Links a browser/device fingerprint cookie to accounts ("several accounts on one device").
+model DeviceLink {
+  id          String   @id @default(cuid())
+  deviceHash  String
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ipHash      String?
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  @@unique([deviceHash, userId])
+  @@index([deviceHash])
+}
+
+/// Cached phone line-type lookups (VoIP detection).
+model PhoneLookup {
+  phoneNumber String   @id
+  lineType    String?
+  carrier     String?
+  isVoip      Boolean  @default(false)
+  checkedAt   DateTime @default(now())
+}
+
+model BannedWord {
+  id        String             @id @default(cuid())
+  phrase    String
+  /// null = applies to every language
+  locale    Locale?
+  action    BannedWordAction   @default(FLAG)
+  category  BannedWordCategory @default(SCAM)
+  /// Risk points added when found (FLAG).
+  weight    Int                @default(25)
+  createdAt DateTime           @default(now())
+
+  @@unique([phrase, locale])
+}
+
+model ScamAlert {
+  id           String        @id @default(cuid())
+  /// { he, en, ru, ar, ka }
+  title        Json
+  body         Json
+  severity     AlertSeverity @default(WARNING)
+  active       Boolean       @default(true)
+  /// Also show as the site-wide banner.
+  showAsBanner Boolean       @default(false)
+  startsAt     DateTime      @default(now())
+  endsAt       DateTime?
+  createdById  String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+// ─────────────────────────────────────────────────────────────
+// Support
+// ─────────────────────────────────────────────────────────────
+
+model Ticket {
+  id            String         @id @default(cuid())
+  number        Int            @unique @default(autoincrement())
+  userId        String?
+  user          User?          @relation("TicketUser", fields: [userId], references: [id], onDelete: SetNull)
+  /// For the public contact form (no account).
+  guestEmail    String?
+  guestName     String?
+  category      TicketCategory
+  priority      TicketPriority @default(NORMAL)
+  status        TicketStatus   @default(OPEN)
+  subject       String
+  listingId     String?
+  listing       Listing?       @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  assignedToId  String?
+  assignedTo    User?          @relation("TicketAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  locale        Locale         @default(en)
+  rating        Int?
+  ratingComment String?
+  lastMessageAt DateTime       @default(now())
+  closedAt      DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  messages TicketMessage[]
+
+  @@index([status, priority, lastMessageAt])
+  @@index([userId])
+}
+
+model TicketMessage {
+  id          String   @id @default(cuid())
+  ticketId    String
+  ticket      Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId    String?
+  author      User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  fromStaff   Boolean  @default(false)
+  /// Internal staff note — never shown to the user.
+  internal    Boolean  @default(false)
+  body        String
+  /// [{ key, mime, bytes, name }] — private storage
+  attachments Json?
+  createdAt   DateTime @default(now())
+
+  @@index([ticketId, createdAt])
+}
+
+model SavedReply {
+  id        String   @id @default(cuid())
+  title     String
+  /// { he, en, ru, ar, ka }
+  body      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model FaqItem {
+  id        String      @id @default(cuid())
+  category  FaqCategory
+  /// { he, en, ru, ar, ka }
+  question  Json
+  answer    Json
+  sortOrder Int         @default(0)
+  published Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@index([category, sortOrder])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Jewish Life
+// ─────────────────────────────────────────────────────────────
+
+/// Added by admins only. Never invent places: demo points must have isDemo = true.
+model JewishPlace {
+  id          String          @id @default(cuid())
+  type        JewishPlaceType
+  /// { he, en, ru, ar, ka }
+  names       Json
+  description Json?
+  address     Json?
+  cityId      String?
+  city        City?           @relation(fields: [cityId], references: [id], onDelete: SetNull)
+  lat         Float
+  lng         Float
+  phone       String?
+  website     String?
+  /// Free text per language, e.g. { en: "Shacharit 8:00" }
+  hours       Json?
+  isDemo      Boolean         @default(false)
+  active      Boolean         @default(true)
+  createdById String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([type, active])
+  @@index([cityId])
+}
+
+/// Guide articles (Phase 2 content; table ready for the editor).
+model Article {
+  id               String        @id @default(cuid())
+  slug             String        @unique
+  category         String
+  title            Json
+  excerpt          Json?
+  /// Markdown per language
+  body             Json
+  coverUrl         String?
+  status           ArticleStatus @default(DRAFT)
+  /// e.g. property-buying guide checked by a local lawyer
+  reviewedByLawyer Boolean       @default(false)
+  publishedAt      DateTime?
+  authorId         String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+}
+
+// ─────────────────────────────────────────────────────────────
+// Admin, settings, system
+// ─────────────────────────────────────────────────────────────
+
+/// Runtime settings changed by admins (listing expiry, Shabbat mode, …). See src/lib/settings.
+model SiteSetting {
+  key         String   @id
+  value       Json
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+}
+
+/// Admin overrides of interface text, merged over messages/*.json.
+model TranslationOverride {
+  id          String   @id @default(cuid())
+  locale      Locale
+  /// "namespace.path.to.key"
+  key         String
+  value       String
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+
+  @@unique([locale, key])
+}
+
+/// Every admin action is logged.
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  /// e.g. "listing.approve", "user.ban", "settings.update"
+  action     String
+  targetType String?
+  targetId   String?
+  details    Json?
+  ipHash     String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([actorId])
+  @@index([targetType, targetId])
+}
+
+/// Internal staff notes about a user.
+model AdminNote {
+  id            String   @id @default(cuid())
+  subjectUserId String
+  subjectUser   User     @relation("NoteSubject", fields: [subjectUserId], references: [id], onDelete: Cascade)
+  authorId      String?
+  author        User?    @relation("NoteAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  body          String
+  createdAt     DateTime @default(now())
+
+  @@index([subjectUserId])
+}
+
+/// Every email we send (or, in development, would have sent).
+model EmailOutbox {
+  id         String      @id @default(cuid())
+  to         String
+  template   String
+  locale     Locale
+  subject    String
+  html       String
+  text       String?
+  status     EmailStatus @default(QUEUED)
+  provider   String?
+  providerId String?
+  error      String?
+  createdAt  DateTime    @default(now())
+  sentAt     DateTime?
+
+  @@index([createdAt])
+}
+
+model ExchangeRate {
+  id        String   @id @default(cuid())
+  base      Currency @default(USD)
+  /// { GEL: 2.7, ILS: 3.7, … } — units per 1 base
+  rates     Json
+  source    String
+  fetchedAt DateTime @default(now())
+
+  @@index([fetchedAt])
+}
+
+/// Fixed-window rate limiting that works on serverless hosts.
+model RateLimit {
+  key     String   @id
+  count   Int      @default(0)
+  resetAt DateTime
+}
+
+// ─────────────────────────────────────────────────────────────
+// Phase 2 (planned now so money features need no redesign)
+// ─────────────────────────────────────────────────────────────
+
+model Promotion {
+  id          String        @id @default(cuid())
+  listingId   String
+  listing     Listing       @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  type        PromotionType
+  startsAt    DateTime      @default(now())
+  endsAt      DateTime?
+  paymentId   String?
+  payment     Payment?      @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  /// Set when an admin adds a featured listing by hand.
+  createdById String?
+  createdAt   DateTime      @default(now())
+
+  @@index([type, endsAt])
+}
+
+model Payment {
+  id          String         @id @default(cuid())
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Pluggable provider id, e.g. "stripe", "tbc", "bog", "tranzila"
+  provider    String
+  providerRef String?
+  amount      Decimal        @db.Decimal(14, 2)
+  currency    Currency
+  status      PaymentStatus  @default(PENDING)
+  purpose     PaymentPurpose
+  meta        Json?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  promotions Promotion[]
+
+  @@index([userId])
+}
