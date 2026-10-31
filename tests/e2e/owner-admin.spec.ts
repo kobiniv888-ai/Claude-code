@@ -31,7 +31,7 @@ async function choose(input: ReturnType<Page["getByRole"]>) {
 
 async function expectStep(page: Page, step: number, heading: string) {
   await expect(page).toHaveURL(new RegExp(`[?&]step=${step}(&|$)`));
-  await expect(page.getByRole("heading", { level: 2, name: heading })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
 }
 
 test("a new user signs up, posts a listing with photos and it goes into review", async ({ page, context, consoleErrors }) => {

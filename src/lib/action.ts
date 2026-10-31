@@ -22,6 +22,7 @@ import {
   type ErrorMessageKey,
   type FieldErrors,
 } from "@/lib/errors";
+import { reportError } from "@/lib/monitoring";
 
 export type ActionResult<T = void> =
   | { ok: true; data: T }
@@ -67,10 +68,12 @@ export function toActionError(error: unknown): ActionFailure {
     // Feature-specific AppError codes (e.g. "file_too_large") pass through unchanged.
     if (KNOWN_CODES.has(error.code) || error.status < 500) return fail(error.code);
     console.error("[action] server error:", error);
+    void reportError(error, { kind: "action" });
     return fail("server_error");
   }
 
   console.error("[action] unexpected error:", error);
+  void reportError(error, { kind: "action" });
   return fail("server_error");
 }
 

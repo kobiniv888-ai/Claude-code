@@ -22,6 +22,7 @@ prices are all in **`src/config/site.ts`**. The logo files are in `public/brand/
 | `docs/CONVENTIONS.md` | Engineering rules (read before changing code) |
 | `docs/DEMO-DATA.md` | Demo listings and demo logins |
 | `docs/SECURITY-REPORT.md` | Security review and anything still open |
+| `docs/PHASE1-STATUS.md` | Phase 1 checked against the brief: what is done, what is open, how to test |
 
 ---
 
@@ -215,6 +216,7 @@ Turn `DB_PUSH_ON_BUILD` and `SEED_ON_BUILD` off once the preview is set up.
 | `CRON_SECRET` | Protects the scheduled jobs (`/api/cron/*`) | Jobs refuse to run in production |
 | `CLIENT_IP_HEADER` | Trusted header with the visitor IP (e.g. `cf-connecting-ip`) | Standard proxy headers |
 | `MALWARE_SCAN_URL`, `MALWARE_SCAN_TOKEN` | External malware scanner for uploads | Built-in checks only |
+| `SENTRY_DSN` (+ optional `SENTRY_ENVIRONMENT`, `SENTRY_RELEASE`) | Error monitoring: server crashes, failed actions and failed scheduled jobs go to Sentry (no SDK; path without query, no user data) | Errors only in the server log |
 | `DEV_SKIP_STAFF_2FA` | Skip staff 2-step login (development only) | Off; ignored in production |
 | `NEXT_DIST_DIR` | Separate build folder (only for running several dev servers) | `.next` |
 

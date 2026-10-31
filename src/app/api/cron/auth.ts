@@ -1,5 +1,6 @@
 import "server-only";
 import { safeEqual } from "@/lib/crypto";
+import { reportError } from "@/lib/monitoring";
 
 /**
  * Shared by the cron route handlers (not a route itself).
@@ -40,6 +41,7 @@ export async function runCronJob(job: string, task: () => Promise<Record<string,
     return Response.json({ ok: true, job, durationMs, ...result }, { headers: NO_STORE });
   } catch (error) {
     console.error(`[cron] ${job} failed:`, error);
+    await reportError(error, { kind: "cron", tags: { job } });
     return Response.json({ ok: false, job, error: "server_error" }, { status: 500, headers: NO_STORE });
   }
 }

@@ -57,7 +57,7 @@ test("scam phrases and a phone number in the description send a listing to revie
 
   const { context, page, consoleErrors } = await openAs(browser, owner.phone);
   await page.goto(`/en/post/${draft.id}?step=10`);
-  await expect(page.getByRole("heading", { level: 2, name: "Preview and publish" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Preview and publish" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Before you can publish" })).toHaveCount(0);
   await settle(page);
   await page.getByRole("checkbox", { name: /I accept the listing rules/ }).click();
