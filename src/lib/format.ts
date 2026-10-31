@@ -5,6 +5,15 @@
  */
 import { siteConfig, type AppLocale, type CurrencyCode } from "@/config/site";
 import { intlLocale } from "@/i18n/locale";
+import {
+  GEORGIAN_DATE_BASE,
+  GEORGIAN_NUMBER_BASE,
+  georgianCompactSuffix,
+  georgianizeDateParts,
+  georgianRelativeTime,
+  isGeorgianLocale,
+  type RelativeUnit,
+} from "./format-georgian";
 
 type Locale = AppLocale | string;
 export type DateInput = Date | string | number;
@@ -32,21 +41,44 @@ function cached<T extends Intl.NumberFormat | Intl.DateTimeFormat | Intl.Relativ
   return formatter;
 }
 
+// Georgian is never formatted by Intl directly: browsers without Georgian data (Chrome) would
+// print English and break hydration. See ./format-georgian.ts.
+
 function numberFormat(locale: Locale, options: Intl.NumberFormatOptions) {
-  const tag = intlLocale(locale);
+  const tag = isGeorgianLocale(locale) ? GEORGIAN_NUMBER_BASE : intlLocale(locale);
   return cached("n", tag, options, () => new Intl.NumberFormat(tag, options));
 }
 
 function dateFormat(locale: Locale, options: Intl.DateTimeFormatOptions) {
-  const tag = intlLocale(locale);
+  const tag = isGeorgianLocale(locale) ? GEORGIAN_DATE_BASE : intlLocale(locale);
   return cached("d", tag, options, () => new Intl.DateTimeFormat(tag, options));
+}
+
+/** Joins number parts; `currency` replaces the currency symbol, Georgian gets its own compact suffixes. */
+function joinNumberParts(parts: Intl.NumberFormatPart[], locale: Locale, currency?: string): string {
+  const georgian = isGeorgianLocale(locale);
+  return parts
+    .map((part) => {
+      if (part.type === "currency" && currency !== undefined) return currency;
+      if (part.type === "compact" && georgian) return georgianCompactSuffix(part.value);
+      return part.value;
+    })
+    .join("");
+}
+
+/**
+ * Node and browsers disagree on thin / narrow no-break spaces in dates ("1\u2009–\u20095" vs
+ * "1 – 5"), which breaks hydration. Plain spaces everywhere.
+ */
+function normalizeSpaces(text: string): string {
+  return text.replace(/[\u2009\u202F]/g, " ");
 }
 
 // ─── Numbers ──────────────────────────────────────────────────
 
 export function formatNumber(value: number, locale: Locale, options?: Intl.NumberFormatOptions): string {
   if (!Number.isFinite(value)) return "";
-  return numberFormat(locale, options ?? {}).format(value);
+  return joinNumberParts(numberFormat(locale, options ?? {}).formatToParts(value), locale);
 }
 
 /** Symbols we always show (Intl would print "ლ" for GEL in Russian or "US$" in Arabic). */
@@ -100,11 +132,7 @@ export function formatMoney(
     maximumFractionDigits,
     ...(compact ? { notation: "compact" as const } : {}),
   });
-  const symbol = currencySymbol(currency);
-  return formatter
-    .formatToParts(amount)
-    .map((part) => (part.type === "currency" ? symbol : part.value))
-    .join("");
+  return joinNumberParts(formatter.formatToParts(amount), locale, currencySymbol(currency));
 }
 
 /** Unit label for square meters in each language. */
@@ -157,14 +185,19 @@ function withDefaults(options: Intl.DateTimeFormatOptions | undefined): Intl.Dat
 export function formatDate(date: DateInput, locale: Locale, options?: Intl.DateTimeFormatOptions): string {
   const { date: d, calendarDate } = toDate(date);
   if (Number.isNaN(d.getTime())) return "";
-  return dateFormat(locale, withZone(withDefaults(options), calendarDate)).format(d);
+  const opts = withZone(withDefaults(options), calendarDate);
+  const formatter = dateFormat(locale, opts);
+  if (isGeorgianLocale(locale)) return normalizeSpaces(georgianizeDateParts(formatter.formatToParts(d), opts, d));
+  return normalizeSpaces(formatter.format(d));
 }
 
 /** "17:42" (or "5:42 PM" in English), in Georgia time unless `timeZone` is given. */
 export function formatTime(date: DateInput, locale: Locale, timeZone?: string): string {
   const { date: d } = toDate(date);
   if (Number.isNaN(d.getTime())) return "";
-  return dateFormat(locale, { hour: "numeric", minute: "2-digit", timeZone: timeZone ?? DEFAULT_TIME_ZONE }).format(d);
+  return normalizeSpaces(
+    dateFormat(locale, { hour: "numeric", minute: "2-digit", timeZone: timeZone ?? DEFAULT_TIME_ZONE }).format(d),
+  );
 }
 
 /** "Oct 1 – 5, 2026". */
@@ -179,11 +212,14 @@ export function formatDateRange(
   if (Number.isNaN(a.date.getTime()) || Number.isNaN(b.date.getTime())) return "";
   const opts = withZone(withDefaults(options), a.calendarDate && b.calendarDate);
   const formatter = dateFormat(locale, opts);
-  if (a.date.getTime() > b.date.getTime()) return formatter.formatRange(b.date, a.date);
-  return formatter.formatRange(a.date, b.date);
+  const [from, to] = a.date.getTime() > b.date.getTime() ? [b.date, a.date] : [a.date, b.date];
+  if (isGeorgianLocale(locale)) {
+    return normalizeSpaces(georgianizeDateParts(formatter.formatRangeToParts(from, to), opts, from, to));
+  }
+  return normalizeSpaces(formatter.formatRange(from, to));
 }
 
-const RELATIVE_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
+const RELATIVE_UNITS: [RelativeUnit, number][] = [
   ["year", 365 * 24 * 3600],
   ["month", 30 * 24 * 3600],
   ["week", 7 * 24 * 3600],
@@ -199,11 +235,13 @@ export function formatRelativeTime(date: DateInput, locale: Locale, now: Date = 
   if (Number.isNaN(d.getTime())) return "";
   const diffSeconds = (d.getTime() - now.getTime()) / 1000;
   const abs = Math.abs(diffSeconds);
+  // The largest unit that fits at least once: 50 minutes → "50 minutes ago", 3 days → "3 days ago".
+  const [unit, seconds]: [RelativeUnit, number] =
+    abs < 45 ? ["second", 1] : (RELATIVE_UNITS.find(([, s]) => abs >= s) ?? ["second", 1]);
+  const value = abs < 45 ? 0 : Math.trunc(diffSeconds / seconds);
+
+  if (isGeorgianLocale(locale)) return georgianRelativeTime(value, unit, (n) => formatNumber(n, locale));
   const tag = intlLocale(locale);
   const formatter = cached("r", tag, {}, () => new Intl.RelativeTimeFormat(tag, { numeric: "auto" }));
-
-  if (abs < 45) return formatter.format(0, "second");
-  // The largest unit that fits at least once: 50 minutes → "50 minutes ago", 3 days → "3 days ago".
-  const [unit, seconds] = RELATIVE_UNITS.find(([, s]) => abs >= s) ?? ["second", 1];
-  return formatter.format(Math.trunc(diffSeconds / seconds), unit);
+  return formatter.format(value, unit);
 }

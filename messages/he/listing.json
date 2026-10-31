@@ -1,0 +1,285 @@
+{
+  "loading": "טוען את המודעה…",
+  "meta": {
+    "title": "{title} · {city}",
+    "from": "החל מ-{price}",
+    "per": {
+      "NIGHT": "{price} ללילה",
+      "WEEK": "{price} לשבוע",
+      "MONTH": "{price} לחודש"
+    }
+  },
+  "breadcrumbs": {
+    "label": "אתם כאן",
+    "search": "מודעות"
+  },
+  "header": {
+    "listingId": "מס׳ <ltr>{id}</ltr>",
+    "updated": "עודכן ב-{date}",
+    "views": "{count, plural, one {צפייה אחת} other {{formatted} צפיות}}"
+  },
+  "status": {
+    "title": "לא מוצגת לציבור: {status}",
+    "manage": "לניהול המודעות שלי",
+    "staffNote": "תצוגה לצוות — מבקרים לא רואים את הדף הזה.",
+    "labels": {
+      "DRAFT": "טיוטה",
+      "IN_REVIEW": "ממתינה לבדיקה",
+      "NEEDS_CHANGES": "נדרשים שינויים",
+      "LIVE": "פעילה",
+      "PAUSED": "מושהית",
+      "EXPIRED": "פג תוקף",
+      "RENTED": "הושכרה",
+      "SOLD": "נמכרה",
+      "REJECTED": "נדחתה",
+      "HIDDEN": "הוסתרה בעקבות דיווחים",
+      "DELETED": "נמחקה",
+      "EXPIRED_DATE": "פג תוקף",
+      "DEMO_HIDDEN": "נתוני ההדגמה מוסתרים",
+      "OWNER_INACTIVE": "חשבון המפרסם אינו פעיל"
+    },
+    "text": {
+      "DRAFT": "רק אתם רואים את התצוגה הזו. השלימו את השלבים ופרסמו כשתהיו מוכנים.",
+      "IN_REVIEW": "הצוות שלנו בודק את המודעה. היא תעלה לאוויר מיד לאחר האישור.",
+      "NEEDS_CHANGES": "מנהל תוכן ביקש שינויים. ערכו את המודעה ושלחו אותה שוב.",
+      "LIVE": "המודעה פעילה.",
+      "PAUSED": "המודעה מושהית. הפעילו אותה שוב כדי שאורחים יראו אותה.",
+      "EXPIRED": "תוקף המודעה פג. חדשו אותה כדי להציג אותה שוב.",
+      "RENTED": "המודעה סומנה כמושכרת, ולכן אורחים כבר לא רואים אותה.",
+      "SOLD": "המודעה סומנה כנמכרה, ולכן מבקרים כבר לא רואים אותה.",
+      "REJECTED": "המודעה נדחתה ואינה מוצגת למבקרים.",
+      "HIDDEN": "כמה אנשים דיווחו על המודעה. היא תישאר מוסתרת עד שמנהל תוכן יבדוק אותה.",
+      "DELETED": "המודעה נמחקה.",
+      "EXPIRED_DATE": "המודעה עברה את תאריך התפוגה. חדשו אותה כדי להציג אותה שוב.",
+      "DEMO_HIDDEN": "זהו תוכן הדגמה, ונתוני ההדגמה כבויים עבור המבקרים.",
+      "OWNER_INACTIVE": "חשבון המפרסם מושעה, ולכן המודעה לא מוצגת."
+    }
+  },
+  "translation": {
+    "auto": "תורגם אוטומטית",
+    "byOwner": "תורגם על ידי המפרסם",
+    "showOriginal": "להצגת המקור",
+    "showTranslation": "להצגת התרגום",
+    "showingOriginal": "מקור ({language})"
+  },
+  "gallery": {
+    "label": "תמונות של {title}",
+    "open": "פתיחת תמונה {index} מתוך {total}",
+    "showAll": "{count, plural, one {להצגת התמונה} other {להצגת כל {formatted} התמונות}}",
+    "counter": "{index} / {total}",
+    "slide": "תמונה {index} מתוך {total}",
+    "previous": "התמונה הקודמת",
+    "next": "התמונה הבאה",
+    "close": "סגירה",
+    "lightboxTitle": "תמונות של {title}",
+    "lightboxHint": "החליקו או השתמשו במקשי החיצים כדי לראות עוד תמונות. Esc לסגירה.",
+    "noPhotos": "עדיין אין תמונות",
+    "video": "סרטון",
+    "videoTitle": "סרטון של {title}",
+    "videoHint": "הסרטון מוצג מ-YouTube או מ-Vimeo.",
+    "tour": "סיור 360°",
+    "opensNewTab": "(נפתח בכרטיסייה חדשה)"
+  },
+  "share": {
+    "button": "שיתוף",
+    "text": "תראו את המקום הזה: {title}",
+    "copy": "העתקת קישור",
+    "copied": "הקישור הועתק",
+    "copyFailed": "לא הצלחנו להעתיק את הקישור",
+    "networks": {
+      "whatsapp": "WhatsApp",
+      "telegram": "Telegram",
+      "facebook": "Facebook"
+    }
+  },
+  "contactBox": {
+    "label": "יצירת קשר עם המפרסם",
+    "hostedBy": "מפרסם",
+    "hostedByBusiness": "עסק",
+    "languages": "שפות",
+    "memberSince": "חבר/ה מאז",
+    "replyTime": "בדרך כלל עונה",
+    "replyTimes": {
+      "hour": "תוך שעה",
+      "fewHours": "תוך כמה שעות",
+      "day": "תוך יום",
+      "days": "תוך כמה ימים"
+    },
+    "localTime": "השעה אצל המפרסם",
+    "contactHours": "שעות נוחות לשיחה",
+    "repliesAfterShabbat": "עכשיו שבת — המפרסם יענה במוצאי שבת.",
+    "repliesAfterHoliday": "עכשיו חג — המפרסם יענה בצאת החג.",
+    "videoTip": "לפני כל תשלום, בקשו שיחת וידאו חיה: המפרסם צריך להראות את המקום ודף עם התאריך של היום ומספר המודעה (<ltr>{id}</ltr>)."
+  },
+  "badges": {
+    "label": "תגי אמינות",
+    "phoneVerified": "טלפון מאומת",
+    "idVerified": "תעודה מזהה מאומתת",
+    "ownerVerified": "בעלות מאומתת",
+    "propertyVerified": "הנכס אומת",
+    "businessVerified": "עסק מאומת",
+    "business": "עסק",
+    "keepsShabbat": "שומר/ת שבת",
+    "demo": "הדגמה",
+    "hints": {
+      "phoneVerified": "מספר הטלפון אומת בקוד",
+      "idVerified": "הצוות שלנו בדק תעודה מזהה ותמונת סלפי",
+      "ownerVerified": "הצוות שלנו בדק הוכחת בעלות או זכות להשכיר",
+      "propertyVerified": "הצוות שלנו ראה את הנכס בשיחת וידאו או בביקור",
+      "businessVerified": "הצוות שלנו בדק את רישום העסק",
+      "keepsShabbat": "לא עונה בשבתות ובחגים",
+      "demo": "תוכן לדוגמה לניסיון האתר — לא מפרסם אמיתי"
+    }
+  },
+  "description": {
+    "title": "על המקום",
+    "empty": "המפרסם עדיין לא כתב תיאור.",
+    "showMore": "עוד",
+    "showLess": "פחות"
+  },
+  "amenities": {
+    "title": "מה יש במקום"
+  },
+  "jewish": {
+    "title": "מתאים לשומרי מסורת",
+    "kitchen": "מטבח",
+    "synagogue": "בית הכנסת הקרוב",
+    "chabad": "בית חב״ד",
+    "walk": "{count, plural, one {דקת הליכה אחת} other {{count} דקות הליכה}}",
+    "shabbatChecklist": "רשימת שבת",
+    "shabbatFriendly": "מתאים לשבת",
+    "shabbatFriendlyHint": "מתאים לשבת פירושו מפתח רגיל, בלי חיישני תנועה בכניסה, ופלטה או מיחם.",
+    "has": "יש",
+    "hasNot": "אין",
+    "jewishFeatures": "עוד לאורחים יהודים",
+    "hotelKosher": "אוכל כשר",
+    "supervision": "השגחת כשרות"
+  },
+  "rules": {
+    "title": "כללי הבית",
+    "checkIn": "כניסה",
+    "checkOut": "יציאה",
+    "from": "החל מ-{time}",
+    "until": "עד {time}",
+    "quietHours": "שעות שקט",
+    "allowed": "מותר",
+    "notAllowed": "אסור",
+    "smoking": {
+      "yes": "מותר לעשן",
+      "no": "אסור לעשן"
+    },
+    "pets": {
+      "yes": "חיות מחמד מתקבלות בברכה",
+      "no": "בלי חיות מחמד"
+    },
+    "parties": {
+      "yes": "מותר לערוך מסיבות ואירועים",
+      "no": "בלי מסיבות ואירועים"
+    }
+  },
+  "costs": {
+    "title": "כל העלויות",
+    "titleSale": "פרטי המחיר",
+    "deposit": "פיקדון",
+    "cleaningFee": "דמי ניקיון",
+    "utilities": "חשבונות",
+    "utilitiesIncluded": "כלולים במחיר",
+    "utilitiesNotIncluded": "לא כלולים",
+    "utilitiesEstimate": "כ-{amount} לחודש, לא כלולים",
+    "minStay": "שהייה מינימלית",
+    "nights": "{count, plural, one {לילה אחד} two {שני לילות} other {{count} לילות}}",
+    "weeklyDiscount": "הנחה שבועית",
+    "monthlyDiscount": "הנחה חודשית",
+    "percentOff": "{count}% הנחה",
+    "pricePerSqm": "מחיר למ״ר",
+    "perSqm": "{price} למ״ר",
+    "priceHistory": "שינויי מחיר"
+  },
+  "details": {
+    "title": "פרטי הנכס",
+    "dealType": "סוג עסקה",
+    "propertyType": "סוג נכס",
+    "rooms": "חדרים",
+    "bedrooms": "חדרי שינה",
+    "bathrooms": "חדרי רחצה",
+    "beds": "מיטות",
+    "bedsDouble": "{count, plural, one {זוגית אחת} other {{count} זוגיות}}",
+    "bedsSingle": "{count, plural, one {יחיד אחת} other {{count} יחיד}}",
+    "bedsSofa": "{count, plural, one {ספה נפתחת אחת} other {{count} ספות נפתחות}}",
+    "maxGuests": "אורחים (מקסימום)",
+    "sharedRoomFor": "חדר בדירת שותפים עבור",
+    "size": "שטח",
+    "floor": "קומה",
+    "floorOf": "{floor} מתוך {total}",
+    "elevator": "מעלית",
+    "building": "בניין",
+    "yearBuilt": "שנת בנייה",
+    "furnished": "מרוהט",
+    "heating": "חימום",
+    "views": "נוף",
+    "condition": "מצב הנכס",
+    "yes": "כן",
+    "no": "לא"
+  },
+  "rooms": {
+    "title": "חדרים",
+    "subtitle": "{count, plural, one {סוג חדר אחד} other {{count} סוגי חדרים}}",
+    "guests": "{count, plural, one {עד אורח אחד} other {עד {count} אורחים}}",
+    "bedsDouble": "{count, plural, one {מיטה זוגית אחת} other {{count} מיטות זוגיות}}",
+    "bedsSingle": "{count, plural, one {מיטת יחיד אחת} other {{count} מיטות יחיד}}"
+  },
+  "calendar": {
+    "title": "זמינות",
+    "subtitle": "החודש והחודש הבא. המפרסם מעדכן את היומן.",
+    "allFree": "אין תאריכים תפוסים החודש ובחודש הבא. בקשו מהמפרסם לאשר את התאריכים שלכם.",
+    "available": "פנוי",
+    "booked": "תפוס",
+    "past": "עבר",
+    "today": "היום"
+  },
+  "map": {
+    "title": "איפה זה",
+    "note": "העיגול מראה את האזור המשוער. המפרסם ישתף את הכתובת המדויקת אחרי שתיצרו קשר.",
+    "label": "מפה של האזור המשוער: {place}",
+    "loading": "טוען את המפה…"
+  },
+  "nearby": {
+    "title": "בסביבה",
+    "note": "זמני ההליכה הם הערכה לפי המפה.",
+    "synagogue": "בית כנסת",
+    "chabad": "בית חב״ד",
+    "kosherFood": "אוכל כשר",
+    "mikveh": "מקווה",
+    "supermarket": "סופרמרקט",
+    "airport": "שדה תעופה",
+    "walk": "{count, plural, one {דקת הליכה} other {{count} דק׳ הליכה}}",
+    "km": "{km} ק״מ ({code})",
+    "transport": {
+      "metro": "תחנת מטרו",
+      "train": "תחנת רכבת",
+      "tram": "תחנת חשמלית",
+      "bus": "תחנת אוטובוס"
+    }
+  },
+  "shabbat": {
+    "label": "שבת וחגים"
+  },
+  "reviews": {
+    "title": "ביקורות",
+    "empty": "עדיין אין ביקורות."
+  },
+  "safety": {
+    "label": "בטיחות",
+    "reportHint": "משהו לא תקין במודעה? ספרו לנו."
+  },
+  "similar": {
+    "title": "מקומות דומים",
+    "viewAll": "עוד בעיר הזו"
+  },
+  "notFound": {
+    "title": "המודעה הזו לא זמינה",
+    "description": "ייתכן שהנכס הושכר, נמכר או שהמפרסם הסיר את המודעה. יש עוד הרבה מקומות לראות.",
+    "search": "לכל המודעות",
+    "home": "חזרה לדף הבית"
+  }
+}

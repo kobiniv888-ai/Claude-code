@@ -486,7 +486,7 @@ const recipientSelect = {
   userId: true,
   guestName: true,
   guestEmail: true,
-  user: { select: { name: true, email: true, locale: true, notificationPrefs: true, status: true } },
+  user: { select: { name: true, email: true, contactEmail: true, locale: true, notificationPrefs: true, status: true } },
 } satisfies Prisma.TicketSelect;
 
 type RecipientTicket = Prisma.TicketGetPayload<{ select: typeof recipientSelect }>;

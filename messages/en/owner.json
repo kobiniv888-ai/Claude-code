@@ -1,0 +1,37 @@
+{
+  "loading": "Loading the profile…",
+  "meta": {
+    "title": "{name}",
+    "description": "{count, plural, =0 {{name} on the site — profile and trust badges.} one {{name} — {formatted} active listing, profile and trust badges.} other {{name} — {formatted} active listings, profile and trust badges.}}"
+  },
+  "ownerProfile": "Owner profile",
+  "businessProfile": "Business profile",
+  "memberSince": "Member since",
+  "languages": "Speaks",
+  "replyRate": "Reply rate",
+  "replyRateValue": "{count}%",
+  "replyTime": "Usually replies",
+  "replyTimes": {
+    "hour": "within an hour",
+    "fewHours": "within a few hours",
+    "day": "within a day",
+    "days": "in a few days"
+  },
+  "activeListings": "Active listings",
+  "about": "About {name}",
+  "selfNote": "This is how other people see your profile. Your phone number and email are never shown here.",
+  "blockedNote": "You blocked this user. Neither of you can see the other's contact details.",
+  "privacyNote": "Phone numbers and emails are never shown on profiles. Contact owners from their listings.",
+  "listingsTitle": "Listings by {name}",
+  "noListings": "No active listings right now",
+  "noListingsHint": "This owner has no listings on the site at the moment.",
+  "browse": "Browse listings",
+  "reviews": "Reviews",
+  "noReviews": "No reviews yet.",
+  "notFound": {
+    "title": "This profile is not available",
+    "description": "The account may have been closed. You can still browse all listings.",
+    "search": "Browse listings",
+    "home": "Back to home"
+  }
+}

@@ -1,0 +1,192 @@
+{
+  "meta": {
+    "title": {
+      "any": "נכסים בגאורגיה",
+      "rent": "נכסים להשכרה בגאורגיה",
+      "shortStay": "השכרה לטווח קצר בגאורגיה",
+      "monthly": "השכרה חודשית בגאורגיה",
+      "buy": "נכסים למכירה בגאורגיה",
+      "hotels": "מלונות ובתי הארחה בגאורגיה"
+    },
+    "titleIn": {
+      "any": "נכסים ב{place}",
+      "rent": "נכסים להשכרה ב{place}",
+      "shortStay": "השכרה לטווח קצר ב{place}",
+      "monthly": "השכרה חודשית ב{place}",
+      "buy": "נכסים למכירה ב{place}",
+      "hotels": "מלונות ובתי הארחה ב{place}"
+    },
+    "withPage": "{title} – עמוד {page}",
+    "description": "דירות, בתים, מלונות ונכסים למכירה בכל גאורגיה, עם פרטי כשרות ושבת, זמן הליכה לבית הכנסת וקשר ישיר עם הבעלים.",
+    "descriptionIn": "נכסים ב{place}: פרטי כשרות ושבת, זמן הליכה לבית הכנסת, בעלים מאומתים וקשר ישיר בלי דמי הזמנה."
+  },
+  "bar": {
+    "label": "חיפוש נכסים",
+    "where": "לאן",
+    "wherePlaceholder": "עיר, שכונה או מספר מודעה",
+    "whereTo": "לאן נוסעים?",
+    "clearPlace": "ניקוי המקום",
+    "popularPlaces": "יעדים פופולריים",
+    "suggestions": "מקומות",
+    "searchFor": "חיפוש „{query}”",
+    "suggestionsFailed": "ההצעות לא זמינות כרגע. אפשר עדיין לחפש את מה שהקלדתם.",
+    "suggestionCount": "{count, plural, =0 {לא נמצאו מקומות} one {נמצא מקום אחד} other {נמצאו {count} מקומות}}",
+    "dealLabel": "מה אתם מחפשים?",
+    "deal": {
+      "short-stay": "לטווח קצר",
+      "monthly": "השכרה חודשית",
+      "buy": "קנייה",
+      "hotels": "מלונות"
+    },
+    "dates": "תאריכים",
+    "moveIn": "תאריך כניסה",
+    "addDates": "הוספת תאריכים",
+    "addMoveIn": "בחירת תאריך",
+    "clearDates": "ניקוי התאריכים",
+    "guests": "אורחים",
+    "addGuests": "הוספת אורחים",
+    "guestCount": "{count, plural, one {אורח אחד} two {שני אורחים} other {{count} אורחים}}",
+    "submit": "חיפוש",
+    "sheetTitle": "חיפוש",
+    "sheetDescription": "בחרו מקום, תאריכים ומספר אורחים.",
+    "closeSheet": "סגירת החיפוש",
+    "clear": "ניקוי הכול"
+  },
+  "dates": {
+    "holidayLegend": "חג יהודי — העבירו את הסמן על היום כדי לראות איזה"
+  },
+  "guests": {
+    "label": "אורחים",
+    "hint": "מבוגרים וילדים",
+    "any": "הכול",
+    "decrease": "פחות אורחים",
+    "increase": "יותר אורחים"
+  },
+  "filters": {
+    "title": "סינון",
+    "clear": "ניקוי",
+    "close": "סגירת הסינון",
+    "dialogDescription": "צמצמו את רשימת הנכסים. התוצאות מתעדכנות כשלוחצים על הכפתור למטה.",
+    "showResults": "הצגת התוצאות",
+    "showCount": "{count, plural, one {הצגת נכס אחד} other {הצגת {formatted} נכסים}}",
+    "noResults": "אין נכסים מתאימים — שנו את הסינון",
+    "activeCount": "{count, plural, one {מסנן אחד פעיל} other {{count} מסננים פעילים}}",
+    "selectedCount": "{count, plural, one {נבחר אחד} other {נבחרו {count}}}",
+    "sections": {
+      "deal": "סוג עסקה ונכס",
+      "price": "מחיר",
+      "dates": "תאריכים ואורחים",
+      "moveIn": "תאריך כניסה ואורחים",
+      "rooms": "חדרים",
+      "jewish": "מותאם לשומרי מסורת",
+      "amenities": "מאפיינים",
+      "property": "פרטי הנכס",
+      "owner": "מפרסם",
+      "listing": "המודעה"
+    },
+    "any": "הכול",
+    "anyTime": "בכל זמן",
+    "atLeast": "{value}+",
+    "dealType": "עסקה",
+    "propertyType": "סוג נכס",
+    "priceNeedsDeal": "בחרו סוג עסקה למעלה כדי לסנן לפי מחיר — מחירי לילה, חודש ומכירה שונים מאוד.",
+    "priceMin": "מחיר מינימלי",
+    "priceMax": "מחיר מקסימלי",
+    "priceTop": "{price}+",
+    "priceCurrencyNote": "המחירים ב-{currency}, לפי שער משוער של היום.",
+    "min": "מ-",
+    "max": "עד",
+    "clearDates": "ניקוי התאריכים",
+    "rooms": "חדרים",
+    "bedrooms": "חדרי שינה",
+    "bathrooms": "חדרי רחצה",
+    "shabbatFriendlyHint": "מפתח רגיל, פלטה או מיחם, ובלי חיישני תנועה בכניסה.",
+    "kitchen": "מטבח",
+    "synagogueWalk": "בית כנסת במרחק הליכה של",
+    "walkMinutes": "{count} דק׳",
+    "jewishFeatures": "פרטים לשומרי מסורת",
+    "hotelFeatures": "מלונות ובתי הארחה",
+    "sharedRoomFor": "חדר משותף עבור",
+    "showAllAmenities": "הצגת כל {count} המאפיינים",
+    "showFewerAmenities": "הצגת פחות מאפיינים",
+    "size": "גודל",
+    "sqm": "מ״ר",
+    "sizeMin": "גודל מינימלי במטרים רבועים",
+    "sizeMax": "גודל מקסימלי במטרים רבועים",
+    "floor": "קומה",
+    "floorMin": "הקומה הנמוכה ביותר",
+    "floorMax": "הקומה הגבוהה ביותר",
+    "condition": "מצב הנכס",
+    "heating": "חימום",
+    "views": "נוף",
+    "buildingAge": "בניין",
+    "verifiedHint": "הצוות שלנו בדק את תעודת הזהות של הבעלים או הוכחת בעלות.",
+    "ownerType": "מפרסם",
+    "postedWithin": "פורסם ב"
+  },
+  "chips": {
+    "heading": "מסננים פעילים",
+    "remove": "הסרת המסנן",
+    "clearAll": "ניקוי הכול",
+    "text": "„{q}”",
+    "moveIn": "כניסה ב-{date}",
+    "between": "{min} – {max}",
+    "atLeast": "מ-{min}",
+    "atMost": "עד {max}",
+    "minRooms": "{value}+ חדרים",
+    "minBedrooms": "{value}+ חדרי שינה",
+    "minBathrooms": "{value}+ חדרי רחצה",
+    "floor": "קומה {range}",
+    "mapArea": "אזור במפה"
+  },
+  "toolbar": {
+    "sortLabel": "מיון לפי",
+    "viewLabel": "תצוגה",
+    "showMap": "מפה",
+    "showList": "רשימה"
+  },
+  "results": {
+    "listLabel": "תוצאות החיפוש",
+    "loading": "טוענים נכסים…",
+    "deal": {
+      "any": "כל הנכסים",
+      "rent": "נכסים להשכרה",
+      "shortStay": "השכרה לטווח קצר",
+      "monthly": "השכרה חודשית",
+      "buy": "נכסים למכירה",
+      "hotels": "מלונות ובתי הארחה"
+    },
+    "count": "{count, plural, =0 {לא נמצאו נכסים} one {נכס אחד} other {{formatted} נכסים}}",
+    "countIn": "{count, plural, =0 {לא נמצאו נכסים ב{place}} one {נכס אחד ב{place}} other {{formatted} נכסים ב{place}}}"
+  },
+  "map": {
+    "loading": "טוענים את המפה…",
+    "searchAsMove": "חיפוש בזמן הזזת המפה",
+    "count": "{count, plural, one {נכס אחד} other {{formatted} נכסים}}",
+    "noPrice": "מחיר לפי בקשה",
+    "openListing": "למודעה",
+    "carouselLabel": "נכסים במפה",
+    "noResultsHere": "אין נכסים באזור הזה. הקטינו את התצוגה או הזיזו את המפה."
+  },
+  "pagination": {
+    "label": "עמודי התוצאות",
+    "previous": "הקודם",
+    "next": "הבא",
+    "page": "עמוד {page}",
+    "summary": "עמוד {page} מתוך {pages}"
+  },
+  "empty": {
+    "title": "אין נכסים שמתאימים לחיפוש",
+    "description": "נסו תאריכים אחרים, טווח מחירים רחב יותר או פחות מסננים — או חפשו בעיר אחרת.",
+    "titleNoListings": "עדיין אין כאן נכסים",
+    "descriptionNoListings": "נכסים חדשים נוספים כל יום. בינתיים אפשר לחפש בעיר אחרת.",
+    "clear": "ניקוי כל המסננים",
+    "tryCities": "ערים פופולריות"
+  },
+  "error": {
+    "title": "לא הצלחנו לטעון את התוצאות",
+    "description": "משהו השתבש אצלנו. נסו שוב בעוד רגע.",
+    "retry": "ניסיון נוסף",
+    "startOver": "חיפוש חדש"
+  }
+}

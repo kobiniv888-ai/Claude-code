@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useId } from "react";
 import { useTranslations } from "next-intl";
 import {
   closestCenter,
@@ -63,7 +63,7 @@ function MethodRow({
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        "grid gap-3 rounded-xl border bg-card p-3 sm:p-4",
+        "grid min-w-0 gap-3 rounded-xl border bg-card p-3 sm:p-4",
         isDragging ? "z-10 border-primary shadow-card-hover" : error ? "border-destructive/50" : "border-border",
       )}
     >
@@ -139,6 +139,8 @@ export function ContactStep({ listing, context, values, set, errors }: StepProps
   const enabled = new Set(methods.map((m) => m.channel));
   const available = CONTACT_CHANNELS.filter((c) => !enabled.has(c));
   const defaultPhone = context.user.phoneVerified ? context.user.phoneNumber : null;
+  // A stable id keeps dnd-kit's aria-describedby the same on the server and the client.
+  const dndId = useId();
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
@@ -184,6 +186,7 @@ export function ContactStep({ listing, context, values, set, errors }: StepProps
       <Section title={t("methodsTitle")} description={t("methodsDescription")}>
         {methods.length > 0 ? (
           <DndContext
+            id={dndId}
             sensors={sensors}
             collisionDetection={closestCenter}
             onDragEnd={onDragEnd}

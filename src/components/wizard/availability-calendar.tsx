@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import type { AppLocale } from "@/config/site";
 import { dirFor } from "@/i18n/locale";
-import { formatDateRange } from "@/lib/format";
+import { formatDateRange as formatRangeRaw } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
   addDays,
@@ -21,6 +21,14 @@ import {
   todayDay,
 } from "@/lib/wizard/availability";
 import type { DayRange } from "@/lib/wizard/types";
+
+/**
+ * Node's and the browser's ICU put different spaces (thin / narrow no-break vs regular) around
+ * the range dash, which breaks hydration of server-rendered ranges; use regular spaces.
+ */
+function formatDateRange(...args: Parameters<typeof formatRangeRaw>): string {
+  return formatRangeRaw(...args).replace(/[\u2009\u202f]/g, " ");
+}
 
 const DAY_PICKER_LOCALES = { he, en: enUS, ru, ar, ka } as const;
 
@@ -82,7 +90,7 @@ export function AvailabilityCalendar({
 
   return (
     <div className="grid gap-4">
-      <div className="flex justify-center overflow-x-auto rounded-xl border border-border bg-background p-1 sm:p-3">
+      <div className="relative flex justify-center overflow-x-auto rounded-xl border border-border bg-background p-1 sm:p-3">
         <Calendar
           mode="range"
           selected={selection}

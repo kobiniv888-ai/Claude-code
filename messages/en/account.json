@@ -1,0 +1,513 @@
+{
+  "loading": "Loading…",
+  "meta": {
+    "overview": "My account",
+    "listings": "My listings",
+    "stats": "Listing statistics",
+    "favorites": "Saved listings",
+    "compare": "Compare listings",
+    "verification": "Verification center",
+    "settings": "Account settings",
+    "description": "Your listings, saved homes, verification and settings in one place."
+  },
+  "nav": {
+    "label": "My account",
+    "heading": "My account",
+    "overview": "Overview",
+    "listings": "My listings",
+    "favorites": "Saved",
+    "compare": "Compare",
+    "messages": "Messages",
+    "savedSearches": "Saved searches",
+    "reviews": "Reviews",
+    "tickets": "Support",
+    "verification": "Verification",
+    "settings": "Settings",
+    "ticketsWaiting": "{count, plural, one {{count} ticket waiting for your reply} other {{count} tickets waiting for your reply}}",
+    "compareCount": "{count, plural, one {{count} listing to compare} other {{count} listings to compare}}"
+  },
+  "error": {
+    "title": "This page didn't load",
+    "body": "Something went wrong on our side. Please try again — your listings and settings are safe.",
+    "retry": "Try again",
+    "home": "Back to my account"
+  },
+  "errors": {
+    "pending_exists": "We're already checking a request like this. You'll get an email as soon as we've reviewed it.",
+    "already_verified": "This is already verified — nothing more to do here.",
+    "not_business": "Business verification is for business accounts. Switch your account type in Settings first.",
+    "last_sign_in_method": "This is the only way you can sign in, so it can't be removed. Verify a phone number or connect another account first.",
+    "confirmation_mismatch": "The word you typed doesn't match. Please type it exactly as shown.",
+    "staff_account": "Staff accounts can't be deleted here. Please ask an administrator."
+  },
+  "badgeState": {
+    "verified": "Verified",
+    "pending": "Being checked",
+    "actionNeeded": "Action needed",
+    "notStarted": "Not verified"
+  },
+  "overview": {
+    "greeting": "Hello,",
+    "lead": "Here's what's happening with your account on {siteName}.",
+    "verification": {
+      "title": "Your trust badges",
+      "lead": "Verified owners get more trust and more contacts.",
+      "count": "{done} of {total} done",
+      "badges": {
+        "phone": "Phone verified",
+        "id": "ID verified",
+        "owner": "Owner verified"
+      }
+    },
+    "listings": {
+      "title": "My listings",
+      "all": "{count, plural, one {See {countText} listing} other {See all {countText} listings}}"
+    },
+    "attention": {
+      "title": "Needs your attention",
+      "allGood": "You're all set — nothing needs your attention right now.",
+      "needsChanges": "Changes requested",
+      "fix": "Edit listing",
+      "expiring": "{count, plural, =0 {Expires today} one {Expires in {countText} day} other {Expires in {countText} days}}",
+      "expiringOn": "Ends on {date}. Renew it to keep it on the site.",
+      "renew": "Renew",
+      "expired": "{count, plural, one {{countText} listing has expired} other {{countText} listings have expired}}",
+      "expiredHint": "Expired listings are hidden. Renew them with one tap.",
+      "review": "Review",
+      "drafts": "{count, plural, one {{countText} unfinished draft} other {{countText} unfinished drafts}}",
+      "draftsHint": "Your progress is saved. Pick up where you left off.",
+      "continue": "Continue",
+      "ticket": "Support is waiting for your reply",
+      "reply": "Reply"
+    },
+    "quick": {
+      "title": "Quick actions",
+      "post": "Post a listing",
+      "postHint": "Free — takes about 10 minutes",
+      "verify": "Verify your ID",
+      "verifyHint": "Earn the ID verified badge",
+      "favorites": "Saved listings",
+      "favoritesHint": "{count, plural, =0 {Nothing saved yet} one {{countText} saved} other {{countText} saved}}",
+      "support": "Help and support",
+      "supportHint": "{count, plural, =0 {No open tickets} one {{countText} open ticket} other {{countText} open tickets}}"
+    }
+  },
+  "listings": {
+    "title": "My listings",
+    "lead": "Manage your listings: edit, pause, renew and see how they're doing.",
+    "post": "Post a listing",
+    "howItWorks": "How it works",
+    "emptyTitle": "You haven't posted a listing yet",
+    "emptyBody": "Listing is free. Add photos, Jewish-friendly details and your contact options — guests contact you directly.",
+    "filtersLabel": "Filter by status",
+    "filters": {
+      "all": "All",
+      "live": "Live",
+      "review": "In review",
+      "changes": "Needs changes",
+      "paused": "Paused",
+      "expired": "Expired",
+      "drafts": "Drafts",
+      "closed": "Rented / sold",
+      "other": "Rejected / hidden"
+    },
+    "emptyFilterTitle": "No listings here",
+    "emptyFilterBody": "None of your listings has this status right now.",
+    "showAll": "Show all listings",
+    "pagination": "Pages",
+    "previous": "Previous",
+    "next": "Next",
+    "pageOf": "Page {page} of {total}",
+    "untitled": "Untitled draft",
+    "ownerVerified": "Owner verified",
+    "id": "ID",
+    "moderatorNote": "Note from our team",
+    "draftStep": "Saved at step {step}",
+    "counters": {
+      "views": "Views",
+      "contacts": "Contact clicks",
+      "saves": "Saves"
+    },
+    "expiresToday": "Expires today",
+    "expiresIn": "{count, plural, one {Expires in {countText} day} other {Expires in {countText} days}}",
+    "expiredOn": "Expired on {date}",
+    "more": "More",
+    "moreFor": "More actions for {title}",
+    "working": "Working…",
+    "actions": {
+      "continue": "Continue",
+      "edit": "Edit",
+      "view": "View on site",
+      "stats": "Stats",
+      "pause": "Pause",
+      "unpause": "Turn back on",
+      "renew": "Renew",
+      "markRented": "Mark as rented",
+      "markSold": "Mark as sold",
+      "bump": "Bump to top",
+      "delete": "Delete"
+    },
+    "toast": {
+      "pause": "Listing paused. It's hidden until you turn it back on.",
+      "unpause": "Your listing is back on.",
+      "renew": "Renewed — your listing is live again.",
+      "renewLater": "You can renew this listing in its last days before it expires.",
+      "markRented": "Marked as rented. Congratulations!",
+      "markSold": "Marked as sold. Congratulations!",
+      "bump": "Your listing moved to the top.",
+      "bumpLater": "This listing was already bumped today. Try again tomorrow.",
+      "delete": "Listing deleted."
+    },
+    "confirm": {
+      "cancel": "Cancel",
+      "delete": {
+        "title": "Delete this listing?",
+        "body": "“{title}” will be removed from the site and from your listings. This can't be undone.",
+        "action": "Delete listing"
+      },
+      "markRented": {
+        "title": "Mark as rented?",
+        "body": "“{title}” will be hidden from search. You can renew it later when it's available again.",
+        "action": "Mark as rented"
+      },
+      "markSold": {
+        "title": "Mark as sold?",
+        "body": "“{title}” will be hidden from search. You can renew it later if the sale falls through.",
+        "action": "Mark as sold"
+      }
+    }
+  },
+  "stats": {
+    "title": "Statistics",
+    "rangeLabel": "Time period",
+    "range": "{count, plural, other {Last {countText} days}}",
+    "metrics": {
+      "views": "Views",
+      "contacts": "Contact clicks",
+      "saves": "Saves"
+    },
+    "allTime": "{value} since you posted it",
+    "channels": {
+      "title": "Contact clicks by channel",
+      "lead": "How guests reached out in this period.",
+      "empty": "No contact clicks in this period yet.",
+      "channel": "Channel"
+    },
+    "table": {
+      "toggle": "Show the numbers as a table",
+      "caption": "Views, contact clicks and saves per day",
+      "date": "Date"
+    },
+    "notFound": {
+      "title": "Listing not found",
+      "body": "This listing doesn't exist or isn't yours.",
+      "back": "Back to my listings"
+    }
+  },
+  "favorites": {
+    "title": "Saved listings",
+    "lead": "{count, plural, one {{countText} saved listing. Add a private note to remember what you liked.} other {{countText} saved listings. Add a private note to remember what you liked.}}",
+    "leadEmpty": "Tap the heart on any listing to save it here.",
+    "openCompare": "Compare",
+    "limit": "Showing your latest {count} saved listings.",
+    "note": {
+      "label": "My note",
+      "placeholder": "e.g. Close to the synagogue, ask about parking",
+      "saving": "Saving…",
+      "saved": "Saved",
+      "error": "Couldn't save your note. Check your connection.",
+      "private": "Only you can see this note."
+    },
+    "remove": "Remove",
+    "removed": "Removed from saved listings.",
+    "emptyTitle": "No saved listings yet",
+    "emptyBody": "Save homes you like with the heart button, then compare them and keep notes here.",
+    "search": "Find a place",
+    "unavailable": "No longer available",
+    "unavailableBody": "This listing is no longer on the site — it may be rented, paused or removed.",
+    "untitled": "Listing"
+  },
+  "compare": {
+    "title": "Compare listings",
+    "lead": "{count, plural, other {Up to {countText} listings side by side.}}",
+    "caption": "Listings compared side by side",
+    "notSpecified": "Not specified",
+    "yes": "Yes",
+    "no": "No",
+    "emptyTitle": "Nothing to compare yet",
+    "emptyBody": "{count, plural, other {Tap “Compare” on up to {countText} listings — in search results or your saved listings — and see them side by side here.}}",
+    "search": "Search listings",
+    "favorites": "Saved listings",
+    "errorTitle": "We couldn't load the listings",
+    "errorBody": "Please check your connection and try again.",
+    "retry": "Try again",
+    "addMore": "Add at least one more listing to compare.",
+    "clear": "Clear all",
+    "removeFrom": "Remove {title} from compare",
+    "view": "View listing",
+    "walkMinutes": "{count, plural, one {{countText} min walk} other {{countText} min walk}}",
+    "sections": {
+      "basics": "Basics",
+      "facts": "Key facts",
+      "jewish": "Jewish-friendly",
+      "amenities": "Amenities",
+      "costs": "Costs"
+    },
+    "rows": {
+      "price": "Price",
+      "location": "Location",
+      "type": "Type",
+      "verified": "Owner",
+      "rooms": "Rooms",
+      "bedrooms": "Bedrooms",
+      "bathrooms": "Bathrooms",
+      "size": "Size",
+      "guests": "Guests",
+      "floor": "Floor",
+      "minStay": "Minimum stay",
+      "shabbatFriendly": "Shabbat-friendly",
+      "kitchen": "Kitchen",
+      "kosherCert": "Kosher certificate",
+      "synagogue": "Synagogue",
+      "chabad": "Chabad house",
+      "jewishFeatures": "Details",
+      "amenities": "What's included",
+      "deposit": "Deposit",
+      "cleaningFee": "Cleaning fee",
+      "utilities": "Utilities",
+      "weeklyDiscount": "Weekly discount",
+      "monthlyDiscount": "Monthly discount"
+    },
+    "verified": "Verified",
+    "notVerified": "Not verified yet",
+    "floorOf": "{floor} of {total}",
+    "nights": "{count, plural, one {{countText} night} other {{countText} nights}}",
+    "utilitiesIncluded": "Included in the price",
+    "utilitiesAbout": "About"
+  },
+  "verification": {
+    "title": "Verification center",
+    "lead": "Badges show guests that you're a real person and the real owner. Verified owners on {siteName} get more trust and more contacts.",
+    "privacy": {
+      "title": "Your documents are safe",
+      "encrypted": "Files are encrypted and kept in private storage — never on the public site.",
+      "staffOnly": "Only our verification team can open them.",
+      "deleted": "They are deleted right after the review. We keep only “verified on [date]”."
+    },
+    "phone": {
+      "title": "Phone verified",
+      "verified": "Verified number:",
+      "lead": "Confirm your phone number with a one-time code. It's required to post a listing.",
+      "cta": "Verify my phone"
+    },
+    "id": {
+      "title": "ID verified",
+      "lead": "Upload a photo of your ID card or passport and a selfie. A team member checks it by hand, usually within one working day."
+    },
+    "verifiedOn": "Verified on {date}.",
+    "pendingSince": "We're checking your documents (sent on {date}). You'll get an email when we're done.",
+    "rejectedOn": "Not approved ({date})",
+    "moreInfoOn": "We need more information ({date})",
+    "tryAgain": "Please fix this and send the documents again.",
+    "owner": {
+      "title": "Owner verified",
+      "lead": "Prove that you own the property, or may rent it out — one request per listing.",
+      "whatIsTitle": "What is a NAPR extract?",
+      "whatIs1": "In Georgia, property ownership is recorded by the National Agency of Public Registry (NAPR). An extract from the public registry shows the owner's name and the property's cadastral code.",
+      "whatIs2": "You can download it for free on napr.gov.ge or get it at any Public Service Hall. The owner's name must match the name on your ID.",
+      "whatIs3": "Renting out someone else's property? Add a power of attorney or the owner's written permission to the same file.",
+      "noListings": "Post a listing first — then you can verify ownership for it.",
+      "post": "Post a listing",
+      "untitled": "Untitled listing",
+      "listingId": "ID",
+      "start": "Verify ownership",
+      "cadastral": "Cadastral code",
+      "cadastralHint": "As written on the extract, for example 01.10.14.003.012. It's never shown publicly.",
+      "cadastralInvalid": "This doesn't look like a cadastral code. Use numbers separated by dots."
+    },
+    "business": {
+      "title": "Business verified",
+      "lead": "Hotels, guesthouses and agencies: upload your business registration extract.",
+      "privateLead": "For hotels, guesthouses and agencies. Switch your account type to Business in Settings to start.",
+      "switch": "Change account type"
+    },
+    "property": {
+      "title": "Property verified",
+      "lead": "A live video call with our team, or a visit from a local representative, to confirm the place matches the listing.",
+      "soon": "Coming soon"
+    },
+    "note": "A note for our team",
+    "submitted": "Thank you! We've received your documents and will check them soon.",
+    "sending": "Sending…",
+    "send": "Send for review",
+    "upload": {
+      "optional": "optional",
+      "uploaded": "File uploaded",
+      "remove": "Remove file",
+      "uploading": "Uploading…",
+      "choose": "Choose a photo or PDF",
+      "choosePhoto": "Take or choose a photo",
+      "slots": {
+        "ID_FRONT": {
+          "label": "ID — front side",
+          "hint": "ID card or passport photo page. All corners visible, no glare."
+        },
+        "ID_BACK": {
+          "label": "ID — back side",
+          "hint": "Only for ID cards with information on the back."
+        },
+        "SELFIE": {
+          "label": "Selfie with your ID",
+          "hint": "Hold your ID next to your face. Good light, no sunglasses."
+        },
+        "NAPR_EXTRACT": {
+          "label": "NAPR registry extract",
+          "hint": "PDF or a clear photo of every page."
+        },
+        "BUSINESS_REGISTRATION": {
+          "label": "Business registration extract",
+          "hint": "PDF or a clear photo of the registration document."
+        }
+      }
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "lead": "Your profile, language, notifications, security and privacy.",
+    "saved": "Saved.",
+    "saving": "Saving…",
+    "save": "Save changes",
+    "fieldErrors": {
+      "invalid": "Please check this field.",
+      "required": "This field is required.",
+      "invalid_email": "Please enter a valid email address."
+    },
+    "profile": {
+      "title": "Profile",
+      "lead": "Guests see your name, photo, bio and languages on your listings.",
+      "photo": "Profile photo",
+      "photoAlt": "Your profile photo",
+      "photoSaved": "Photo updated.",
+      "uploading": "Uploading…",
+      "changePhoto": "Change photo",
+      "addPhoto": "Add a photo",
+      "removePhoto": "Remove",
+      "photoHint": "A friendly, clear photo of your face builds trust. Hidden data (like location) is removed.",
+      "name": "Name",
+      "nameHint": "Use your real name — it must match your ID for verification.",
+      "bio": "About you",
+      "bioPlaceholder": "A few words about you and your place, in any language.",
+      "languages": "Languages you speak",
+      "languagesHint": "Shown on your listings so guests know how to talk to you.",
+      "keepsShabbat": "I keep Shabbat",
+      "keepsShabbatHint": "Guests will know you may not answer on Shabbat and holidays.",
+      "accountType": "Account type",
+      "types": {
+        "PRIVATE": {
+          "label": "Private",
+          "hint": "You rent out or sell your own place."
+        },
+        "BUSINESS": {
+          "label": "Business",
+          "hint": "Hotel, guesthouse, agency or developer."
+        }
+      },
+      "businessName": "Business name"
+    },
+    "email": {
+      "title": "Email for notifications",
+      "lead": "You sign in with your phone",
+      "leadNoPhone": "Where we send emails about your listings and support tickets.",
+      "loginEmail": "Sign-in email:",
+      "label": "Contact email",
+      "hintWithLogin": "Optional. If you add one, we send notifications there instead of your sign-in email.",
+      "hintPhone": "Add an email to get updates about your listings and replies from support. We never show it publicly."
+    },
+    "preferences": {
+      "title": "Language and display",
+      "lead": "How the site and our emails look for you.",
+      "language": "Language",
+      "languageHint": "For the site and for the emails we send you.",
+      "currency": "Show prices in",
+      "currencyHint": "Prices are converted with daily exchange rates; owners set their own currency.",
+      "currencies": {
+        "GEL": "Georgian lari",
+        "USD": "US dollar",
+        "ILS": "Israeli shekel",
+        "EUR": "Euro",
+        "GBP": "British pound",
+        "AED": "UAE dirham"
+      },
+      "hebrewDates": "Show Hebrew dates",
+      "hebrewDatesHint": "Adds the Hebrew date next to dates, for example in calendars."
+    },
+    "notifications": {
+      "title": "Notifications",
+      "lead": "Choose which emails you get. Security and account emails are always sent.",
+      "noEmail": "You don't have an email address yet, so we can't send you emails.",
+      "addEmail": "Add an email",
+      "emailTitle": "Email",
+      "email": {
+        "listing": {
+          "label": "Listing updates",
+          "hint": "When a listing goes live, is reviewed or is about to expire."
+        },
+        "tickets": {
+          "label": "Support replies",
+          "hint": "When our support team answers your ticket."
+        },
+        "messages": {
+          "label": "New messages",
+          "hint": "When someone sends you a message on the site."
+        },
+        "marketing": {
+          "label": "Tips and news",
+          "hint": "Occasional travel tips, Jewish life in Georgia and new features. Off unless you turn it on."
+        }
+      },
+      "whatsappTitle": "WhatsApp",
+      "whatsapp": {
+        "label": "WhatsApp notifications",
+        "hint": "Important updates about your listings on WhatsApp."
+      }
+    },
+    "connected": {
+      "title": "Connected accounts",
+      "lead": "Sign in faster with Google or Apple. You can always sign in with your phone too.",
+      "providers": {
+        "google": "Google",
+        "apple": "Apple"
+      },
+      "linked": "Connected",
+      "notLinked": "Not connected",
+      "lastMethod": "Connected — your only way to sign in, so it can't be removed",
+      "unlink": "Disconnect",
+      "unlinked": "Account disconnected.",
+      "link": "Connect"
+    },
+    "data": {
+      "title": "Download my data",
+      "lead": "Get a copy of everything we keep about you, as a JSON file.",
+      "includes": "Your profile, listings (with translations and photo links), saved listings and notes, support tickets, reports, contact clicks, verification statuses and sign-in sessions.",
+      "excludes": "Verification documents are not included — we delete them after review.",
+      "limit": "You can download your data up to 3 times a day.",
+      "download": "Download my data"
+    },
+    "delete": {
+      "title": "Delete my account",
+      "lead": "Permanently remove your account and personal data.",
+      "what1": "All your listings are removed from the site.",
+      "what2": "Your saved listings, notes, sessions, connected accounts and documents are deleted.",
+      "what3": "Support conversations stay, but without your name or contact details.",
+      "button": "Delete my account",
+      "dialogTitle": "Delete your account for good?",
+      "dialogBody": "This can't be undone. We'll send a confirmation to your email and sign you out.",
+      "typeToConfirm": "Type <word></word> to confirm",
+      "confirmWord": "DELETE",
+      "cancel": "Keep my account",
+      "confirm": "Delete forever",
+      "deleting": "Deleting…",
+      "staff": "Staff accounts can't be deleted from here. Please ask an administrator to remove your staff role first."
+    }
+  }
+}

@@ -1,0 +1,192 @@
+{
+  "meta": {
+    "title": {
+      "any": "Homes in Georgia",
+      "rent": "Homes for rent in Georgia",
+      "shortStay": "Short stays in Georgia",
+      "monthly": "Monthly rentals in Georgia",
+      "buy": "Homes for sale in Georgia",
+      "hotels": "Hotels and guesthouses in Georgia"
+    },
+    "titleIn": {
+      "any": "Homes in {place}",
+      "rent": "Homes for rent in {place}",
+      "shortStay": "Short stays in {place}",
+      "monthly": "Monthly rentals in {place}",
+      "buy": "Homes for sale in {place}",
+      "hotels": "Hotels and guesthouses in {place}"
+    },
+    "withPage": "{title} – page {page}",
+    "description": "Apartments, houses, hotels and homes for sale across Georgia, with kosher and Shabbat-friendly details, synagogue walking times and direct contact with owners.",
+    "descriptionIn": "Homes in {place}: kosher and Shabbat-friendly details, walking time to the synagogue, verified owners and direct contact with no booking fees."
+  },
+  "bar": {
+    "label": "Search homes",
+    "where": "Where",
+    "wherePlaceholder": "City, neighborhood or listing ID",
+    "whereTo": "Where to?",
+    "clearPlace": "Clear place",
+    "popularPlaces": "Popular destinations",
+    "suggestions": "Places",
+    "searchFor": "Search for “{query}”",
+    "suggestionsFailed": "Suggestions are not available right now. You can still search for what you typed.",
+    "suggestionCount": "{count, plural, =0 {No matching places} one {{count} place found} other {{count} places found}}",
+    "dealLabel": "What are you looking for?",
+    "deal": {
+      "short-stay": "Short stay",
+      "monthly": "Monthly rent",
+      "buy": "Buy",
+      "hotels": "Hotels"
+    },
+    "dates": "Dates",
+    "moveIn": "Move-in date",
+    "addDates": "Add dates",
+    "addMoveIn": "Add a date",
+    "clearDates": "Clear dates",
+    "guests": "Guests",
+    "addGuests": "Add guests",
+    "guestCount": "{count, plural, one {{count} guest} other {{count} guests}}",
+    "submit": "Search",
+    "sheetTitle": "Search",
+    "sheetDescription": "Choose a place, dates and the number of guests.",
+    "closeSheet": "Close search",
+    "clear": "Clear all"
+  },
+  "dates": {
+    "holidayLegend": "Jewish holiday — point at a day to see which one"
+  },
+  "guests": {
+    "label": "Guests",
+    "hint": "Adults and children",
+    "any": "Any",
+    "decrease": "Fewer guests",
+    "increase": "More guests"
+  },
+  "filters": {
+    "title": "Filters",
+    "clear": "Clear",
+    "close": "Close filters",
+    "dialogDescription": "Narrow down the homes. The results update when you tap the button at the bottom.",
+    "showResults": "Show results",
+    "showCount": "{count, plural, one {Show {formatted} home} other {Show {formatted} homes}}",
+    "noResults": "No homes match — change the filters",
+    "activeCount": "{count, plural, one {{count} filter on} other {{count} filters on}}",
+    "selectedCount": "{count, plural, one {{count} selected} other {{count} selected}}",
+    "sections": {
+      "deal": "Deal and property type",
+      "price": "Price",
+      "dates": "Dates and guests",
+      "moveIn": "Move-in date and guests",
+      "rooms": "Rooms",
+      "jewish": "Jewish-friendly",
+      "amenities": "Amenities",
+      "property": "Property details",
+      "owner": "Owner",
+      "listing": "Listing"
+    },
+    "any": "Any",
+    "anyTime": "Any time",
+    "atLeast": "{value}+",
+    "dealType": "Deal",
+    "propertyType": "Property type",
+    "priceNeedsDeal": "Choose a deal above to filter by price — nightly, monthly and sale prices are very different.",
+    "priceMin": "Minimum price",
+    "priceMax": "Maximum price",
+    "priceTop": "{price}+",
+    "priceCurrencyNote": "Prices in {currency}, converted at today's approximate rate.",
+    "min": "Min",
+    "max": "Max",
+    "clearDates": "Clear dates",
+    "rooms": "Rooms",
+    "bedrooms": "Bedrooms",
+    "bathrooms": "Bathrooms",
+    "shabbatFriendlyHint": "A regular key, a hot plate or hot-water urn, and no motion sensors at the entrance.",
+    "kitchen": "Kitchen",
+    "synagogueWalk": "Synagogue within a walk of",
+    "walkMinutes": "{count} min",
+    "jewishFeatures": "Jewish-friendly details",
+    "hotelFeatures": "Hotels and guesthouses",
+    "sharedRoomFor": "Shared room for",
+    "showAllAmenities": "Show all {count} amenities",
+    "showFewerAmenities": "Show fewer amenities",
+    "size": "Size",
+    "sqm": "m²",
+    "sizeMin": "Minimum size in square meters",
+    "sizeMax": "Maximum size in square meters",
+    "floor": "Floor",
+    "floorMin": "Lowest floor",
+    "floorMax": "Highest floor",
+    "condition": "Condition",
+    "heating": "Heating",
+    "views": "View",
+    "buildingAge": "Building",
+    "verifiedHint": "Our team checked the owner's ID or proof of ownership.",
+    "ownerType": "Posted by",
+    "postedWithin": "Posted within"
+  },
+  "chips": {
+    "heading": "Active filters",
+    "remove": "Remove filter",
+    "clearAll": "Clear all",
+    "text": "“{q}”",
+    "moveIn": "Move in {date}",
+    "between": "{min} – {max}",
+    "atLeast": "From {min}",
+    "atMost": "Up to {max}",
+    "minRooms": "{value}+ rooms",
+    "minBedrooms": "{value}+ bedrooms",
+    "minBathrooms": "{value}+ bathrooms",
+    "floor": "Floor {range}",
+    "mapArea": "Map area"
+  },
+  "toolbar": {
+    "sortLabel": "Sort by",
+    "viewLabel": "View",
+    "showMap": "Map",
+    "showList": "List"
+  },
+  "results": {
+    "listLabel": "Search results",
+    "loading": "Loading homes…",
+    "deal": {
+      "any": "All homes",
+      "rent": "Homes for rent",
+      "shortStay": "Short stays",
+      "monthly": "Monthly rentals",
+      "buy": "Homes for sale",
+      "hotels": "Hotels and guesthouses"
+    },
+    "count": "{count, plural, =0 {No homes found} one {{formatted} home} other {{formatted} homes}}",
+    "countIn": "{count, plural, =0 {No homes found in {place}} one {{formatted} home in {place}} other {{formatted} homes in {place}}}"
+  },
+  "map": {
+    "loading": "Loading the map…",
+    "searchAsMove": "Search as I move the map",
+    "count": "{count, plural, one {{formatted} home} other {{formatted} homes}}",
+    "noPrice": "Price on request",
+    "openListing": "View listing",
+    "carouselLabel": "Homes on the map",
+    "noResultsHere": "No homes in this area. Zoom out or move the map."
+  },
+  "pagination": {
+    "label": "Pages of results",
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page {page}",
+    "summary": "Page {page} of {pages}"
+  },
+  "empty": {
+    "title": "No homes match your search",
+    "description": "Try other dates, a wider price range or fewer filters — or look in another city.",
+    "titleNoListings": "No homes here yet",
+    "descriptionNoListings": "New homes are added every day. Try another city in the meantime.",
+    "clear": "Clear all filters",
+    "tryCities": "Popular cities"
+  },
+  "error": {
+    "title": "We couldn't load the results",
+    "description": "Something went wrong on our side. Please try again in a moment.",
+    "retry": "Try again",
+    "startOver": "Start a new search"
+  }
+}

@@ -284,6 +284,8 @@ model User {
   /// Real email, or a placeholder "<digits>@phone.bayit.invalid" for phone-only sign-ups.
   email               String   @unique
   emailVerified       Boolean  @default(false)
+  /// Where notifications go when `email` is a phone-only placeholder (set in account settings).
+  contactEmail        String?
   image               String?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt

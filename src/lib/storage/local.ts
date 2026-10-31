@@ -12,7 +12,12 @@ import { assertValidStorageKey } from "./keys";
 export type Visibility = "public" | "private";
 
 function root(): string {
-  return path.resolve(process.env.STORAGE_LOCAL_DIR?.trim() || path.join(process.cwd(), "storage"));
+  // Runtime data, not source: turbopackIgnore stops the build from tracing the whole project
+  // into the server bundle because of these dynamic paths.
+  return path.resolve(
+    /* turbopackIgnore: true */ process.env.STORAGE_LOCAL_DIR?.trim() ||
+      path.join(/* turbopackIgnore: true */ process.cwd(), "storage"),
+  );
 }
 
 /** Absolute path for a key, guaranteed to stay inside the visibility folder. */

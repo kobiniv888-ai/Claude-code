@@ -1,0 +1,192 @@
+{
+  "meta": {
+    "title": {
+      "any": "Жильё в Грузии",
+      "rent": "Аренда жилья в Грузии",
+      "shortStay": "Посуточная аренда в Грузии",
+      "monthly": "Помесячная аренда в Грузии",
+      "buy": "Недвижимость на продажу в Грузии",
+      "hotels": "Отели и гостевые дома в Грузии"
+    },
+    "titleIn": {
+      "any": "Жильё: {place}",
+      "rent": "Аренда жилья: {place}",
+      "shortStay": "Посуточная аренда: {place}",
+      "monthly": "Помесячная аренда: {place}",
+      "buy": "Недвижимость на продажу: {place}",
+      "hotels": "Отели и гостевые дома: {place}"
+    },
+    "withPage": "{title} — страница {page}",
+    "description": "Квартиры, дома, отели и недвижимость на продажу по всей Грузии — с информацией о кашруте и Шаббате, временем пешком до синагоги и прямым контактом с владельцами.",
+    "descriptionIn": "Жильё: {place}. Кашрут и Шаббат, время пешком до синагоги, проверенные владельцы и прямой контакт без комиссии за бронирование."
+  },
+  "bar": {
+    "label": "Поиск жилья",
+    "where": "Где",
+    "wherePlaceholder": "Город, район или номер объявления",
+    "whereTo": "Куда едем?",
+    "clearPlace": "Очистить место",
+    "popularPlaces": "Популярные направления",
+    "suggestions": "Места",
+    "searchFor": "Искать «{query}»",
+    "suggestionsFailed": "Подсказки сейчас недоступны. Вы всё равно можете искать по введённому тексту.",
+    "suggestionCount": "{count, plural, =0 {Подходящих мест нет} one {Найдено {count} место} few {Найдено {count} места} many {Найдено {count} мест} other {Найдено {count} места}}",
+    "dealLabel": "Что вы ищете?",
+    "deal": {
+      "short-stay": "Посуточно",
+      "monthly": "Помесячно",
+      "buy": "Купить",
+      "hotels": "Отели"
+    },
+    "dates": "Даты",
+    "moveIn": "Дата заезда",
+    "addDates": "Выбрать даты",
+    "addMoveIn": "Выбрать дату",
+    "clearDates": "Сбросить даты",
+    "guests": "Гости",
+    "addGuests": "Добавить гостей",
+    "guestCount": "{count, plural, one {{count} гость} few {{count} гостя} many {{count} гостей} other {{count} гостя}}",
+    "submit": "Найти",
+    "sheetTitle": "Поиск",
+    "sheetDescription": "Выберите место, даты и количество гостей.",
+    "closeSheet": "Закрыть поиск",
+    "clear": "Сбросить всё"
+  },
+  "dates": {
+    "holidayLegend": "Еврейский праздник — наведите на день, чтобы узнать какой"
+  },
+  "guests": {
+    "label": "Гости",
+    "hint": "Взрослые и дети",
+    "any": "Любое",
+    "decrease": "Меньше гостей",
+    "increase": "Больше гостей"
+  },
+  "filters": {
+    "title": "Фильтры",
+    "clear": "Сбросить",
+    "close": "Закрыть фильтры",
+    "dialogDescription": "Уточните поиск. Результаты обновятся, когда вы нажмёте кнопку внизу.",
+    "showResults": "Показать результаты",
+    "showCount": "{count, plural, one {Показать {formatted} вариант} few {Показать {formatted} варианта} many {Показать {formatted} вариантов} other {Показать {formatted} варианта}}",
+    "noResults": "Ничего не найдено — измените фильтры",
+    "activeCount": "{count, plural, one {{count} фильтр включён} few {{count} фильтра включено} many {{count} фильтров включено} other {{count} фильтра включено}}",
+    "selectedCount": "{count, plural, one {выбран {count}} few {выбрано {count}} many {выбрано {count}} other {выбрано {count}}}",
+    "sections": {
+      "deal": "Тип сделки и жилья",
+      "price": "Цена",
+      "dates": "Даты и гости",
+      "moveIn": "Дата заезда и гости",
+      "rooms": "Комнаты",
+      "jewish": "Для соблюдающих традиции",
+      "amenities": "Удобства",
+      "property": "О недвижимости",
+      "owner": "Владелец",
+      "listing": "Объявление"
+    },
+    "any": "Любой",
+    "anyTime": "За всё время",
+    "atLeast": "{value}+",
+    "dealType": "Сделка",
+    "propertyType": "Тип жилья",
+    "priceNeedsDeal": "Выберите тип сделки выше, чтобы фильтровать по цене — цены за ночь, за месяц и при продаже сильно отличаются.",
+    "priceMin": "Минимальная цена",
+    "priceMax": "Максимальная цена",
+    "priceTop": "{price}+",
+    "priceCurrencyNote": "Цены в {currency} по примерному сегодняшнему курсу.",
+    "min": "От",
+    "max": "До",
+    "clearDates": "Сбросить даты",
+    "rooms": "Комнаты",
+    "bedrooms": "Спальни",
+    "bathrooms": "Ванные",
+    "shabbatFriendlyHint": "Обычный ключ, плата или термопот, и никаких датчиков движения у входа.",
+    "kitchen": "Кухня",
+    "synagogueWalk": "Синагога в пешей доступности",
+    "walkMinutes": "{count} мин",
+    "jewishFeatures": "Для соблюдающих традиции",
+    "hotelFeatures": "Отели и гостевые дома",
+    "sharedRoomFor": "Общая комната для",
+    "showAllAmenities": "Показать все удобства ({count})",
+    "showFewerAmenities": "Свернуть удобства",
+    "size": "Площадь",
+    "sqm": "м²",
+    "sizeMin": "Минимальная площадь в квадратных метрах",
+    "sizeMax": "Максимальная площадь в квадратных метрах",
+    "floor": "Этаж",
+    "floorMin": "Этаж от",
+    "floorMax": "Этаж до",
+    "condition": "Состояние",
+    "heating": "Отопление",
+    "views": "Вид",
+    "buildingAge": "Здание",
+    "verifiedHint": "Наша команда проверила документ владельца или подтверждение права собственности.",
+    "ownerType": "Кто разместил",
+    "postedWithin": "Опубликовано"
+  },
+  "chips": {
+    "heading": "Включённые фильтры",
+    "remove": "Убрать фильтр",
+    "clearAll": "Сбросить всё",
+    "text": "«{q}»",
+    "moveIn": "Заезд {date}",
+    "between": "{min} – {max}",
+    "atLeast": "От {min}",
+    "atMost": "До {max}",
+    "minRooms": "Комнат: {value}+",
+    "minBedrooms": "Спален: {value}+",
+    "minBathrooms": "Ванных: {value}+",
+    "floor": "Этаж {range}",
+    "mapArea": "Область на карте"
+  },
+  "toolbar": {
+    "sortLabel": "Сортировка",
+    "viewLabel": "Вид",
+    "showMap": "Карта",
+    "showList": "Список"
+  },
+  "results": {
+    "listLabel": "Результаты поиска",
+    "loading": "Загружаем варианты…",
+    "deal": {
+      "any": "Всё жильё",
+      "rent": "Аренда жилья",
+      "shortStay": "Посуточная аренда",
+      "monthly": "Помесячная аренда",
+      "buy": "Продажа недвижимости",
+      "hotels": "Отели и гостевые дома"
+    },
+    "count": "{count, plural, =0 {Ничего не найдено} one {{formatted} вариант} few {{formatted} варианта} many {{formatted} вариантов} other {{formatted} варианта}}",
+    "countIn": "{count, plural, =0 {Ничего не найдено: {place}} one {{formatted} вариант: {place}} few {{formatted} варианта: {place}} many {{formatted} вариантов: {place}} other {{formatted} варианта: {place}}}"
+  },
+  "map": {
+    "loading": "Загружаем карту…",
+    "searchAsMove": "Искать при перемещении карты",
+    "count": "{count, plural, one {{formatted} вариант} few {{formatted} варианта} many {{formatted} вариантов} other {{formatted} варианта}}",
+    "noPrice": "Цена по запросу",
+    "openListing": "Открыть объявление",
+    "carouselLabel": "Жильё на карте",
+    "noResultsHere": "В этой области ничего нет. Уменьшите масштаб или сдвиньте карту."
+  },
+  "pagination": {
+    "label": "Страницы результатов",
+    "previous": "Назад",
+    "next": "Далее",
+    "page": "Страница {page}",
+    "summary": "Страница {page} из {pages}"
+  },
+  "empty": {
+    "title": "По вашему запросу ничего не найдено",
+    "description": "Попробуйте другие даты, более широкий диапазон цен или меньше фильтров — или поищите в другом городе.",
+    "titleNoListings": "Здесь пока нет жилья",
+    "descriptionNoListings": "Новые объявления появляются каждый день. А пока загляните в другой город.",
+    "clear": "Сбросить все фильтры",
+    "tryCities": "Популярные города"
+  },
+  "error": {
+    "title": "Не удалось загрузить результаты",
+    "description": "У нас что-то пошло не так. Попробуйте ещё раз через минуту.",
+    "retry": "Попробовать снова",
+    "startOver": "Начать новый поиск"
+  }
+}

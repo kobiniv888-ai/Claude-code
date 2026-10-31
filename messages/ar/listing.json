@@ -1,0 +1,285 @@
+{
+  "loading": "جارٍ تحميل الإعلان…",
+  "meta": {
+    "title": "{title} · {city}",
+    "from": "ابتداءً من {price}",
+    "per": {
+      "NIGHT": "{price} / ليلة",
+      "WEEK": "{price} / أسبوع",
+      "MONTH": "{price} / شهر"
+    }
+  },
+  "breadcrumbs": {
+    "label": "أنت هنا",
+    "search": "الإعلانات"
+  },
+  "header": {
+    "listingId": "رقم <ltr>{id}</ltr>",
+    "updated": "آخر تحديث {date}",
+    "views": "{count, plural, zero {لا مشاهدات} one {مشاهدة واحدة} two {مشاهدتان} few {{formatted} مشاهدات} many {{formatted} مشاهدة} other {{formatted} مشاهدة}}"
+  },
+  "status": {
+    "title": "غير منشور: {status}",
+    "manage": "إدارة إعلاناتي",
+    "staffNote": "معاينة للفريق — الزوار لا يرون هذه الصفحة.",
+    "labels": {
+      "DRAFT": "مسودة",
+      "IN_REVIEW": "قيد المراجعة",
+      "NEEDS_CHANGES": "مطلوب تعديلات",
+      "LIVE": "منشور",
+      "PAUSED": "متوقف مؤقتًا",
+      "EXPIRED": "منتهي الصلاحية",
+      "RENTED": "مؤجَّر",
+      "SOLD": "مُباع",
+      "REJECTED": "مرفوض",
+      "HIDDEN": "مخفي بعد بلاغات",
+      "DELETED": "محذوف",
+      "EXPIRED_DATE": "منتهي الصلاحية",
+      "DEMO_HIDDEN": "البيانات التجريبية مخفية",
+      "OWNER_INACTIVE": "حساب المعلِن غير نشط"
+    },
+    "text": {
+      "DRAFT": "أنت وحدك ترى هذه المعاينة. أكمل الخطوات وانشر الإعلان عندما تكون جاهزًا.",
+      "IN_REVIEW": "فريقنا يراجع الإعلان. سيُنشر فور الموافقة عليه.",
+      "NEEDS_CHANGES": "طلب أحد المشرفين تعديلات. عدّل الإعلان وأرسله مرة أخرى.",
+      "LIVE": "الإعلان منشور.",
+      "PAUSED": "الإعلان متوقف مؤقتًا. فعّله مجددًا ليراه الضيوف.",
+      "EXPIRED": "انتهت صلاحية الإعلان. جدّده لعرضه مرة أخرى.",
+      "RENTED": "تم وضع علامة «مؤجَّر» على الإعلان، لذلك لم يعد الضيوف يرونه.",
+      "SOLD": "تم وضع علامة «مُباع» على الإعلان، لذلك لم يعد الزوار يرونه.",
+      "REJECTED": "تم رفض هذا الإعلان ولا يُعرض للزوار.",
+      "HIDDEN": "أبلغ عدة أشخاص عن هذا الإعلان. سيبقى مخفيًا حتى يراجعه أحد المشرفين.",
+      "DELETED": "تم حذف هذا الإعلان.",
+      "EXPIRED_DATE": "تجاوز الإعلان تاريخ انتهاء صلاحيته. جدّده لعرضه مرة أخرى.",
+      "DEMO_HIDDEN": "هذا محتوى تجريبي، وعرض البيانات التجريبية متوقف للزوار.",
+      "OWNER_INACTIVE": "حساب المعلِن موقوف، لذلك لا يُعرض الإعلان."
+    }
+  },
+  "translation": {
+    "auto": "ترجمة آلية",
+    "byOwner": "ترجمة المعلِن",
+    "showOriginal": "عرض النص الأصلي",
+    "showTranslation": "عرض الترجمة",
+    "showingOriginal": "النص الأصلي ({language})"
+  },
+  "gallery": {
+    "label": "صور {title}",
+    "open": "فتح الصورة {index} من {total}",
+    "showAll": "{count, plural, one {عرض الصورة} other {عرض كل الصور ({formatted})}}",
+    "counter": "{index} / {total}",
+    "slide": "الصورة {index} من {total}",
+    "previous": "الصورة السابقة",
+    "next": "الصورة التالية",
+    "close": "إغلاق",
+    "lightboxTitle": "صور {title}",
+    "lightboxHint": "اسحب أو استخدم مفاتيح الأسهم لرؤية المزيد من الصور. اضغط Esc للإغلاق.",
+    "noPhotos": "لا توجد صور بعد",
+    "video": "فيديو",
+    "videoTitle": "فيديو {title}",
+    "videoHint": "يُعرض الفيديو من YouTube أو Vimeo.",
+    "tour": "جولة 360°",
+    "opensNewTab": "(يفتح في علامة تبويب جديدة)"
+  },
+  "share": {
+    "button": "مشاركة",
+    "text": "انظر إلى هذا المكان: {title}",
+    "copy": "نسخ الرابط",
+    "copied": "تم نسخ الرابط",
+    "copyFailed": "تعذّر نسخ الرابط",
+    "networks": {
+      "whatsapp": "WhatsApp",
+      "telegram": "Telegram",
+      "facebook": "Facebook"
+    }
+  },
+  "contactBox": {
+    "label": "التواصل مع المعلِن",
+    "hostedBy": "المعلِن",
+    "hostedByBusiness": "منشأة تجارية",
+    "languages": "اللغات",
+    "memberSince": "عضو منذ",
+    "replyTime": "يرد عادةً",
+    "replyTimes": {
+      "hour": "خلال ساعة",
+      "fewHours": "خلال بضع ساعات",
+      "day": "خلال يوم",
+      "days": "خلال بضعة أيام"
+    },
+    "localTime": "الوقت لدى المعلِن",
+    "contactHours": "أفضل وقت للاتصال",
+    "repliesAfterShabbat": "الآن يوم السبت — سيرد المعلِن بعد انتهاء السبت.",
+    "repliesAfterHoliday": "الآن عيد يهودي — سيرد المعلِن بعد انتهاء العيد.",
+    "videoTip": "قبل دفع أي مبلغ، اطلب مكالمة فيديو مباشرة: على المعلِن أن يُريك المكان وورقة عليها تاريخ اليوم ورقم الإعلان (<ltr>{id}</ltr>)."
+  },
+  "badges": {
+    "label": "شارات الثقة",
+    "phoneVerified": "الهاتف موثَّق",
+    "idVerified": "الهوية موثَّقة",
+    "ownerVerified": "الملكية موثَّقة",
+    "propertyVerified": "العقار موثَّق",
+    "businessVerified": "منشأة موثَّقة",
+    "business": "منشأة تجارية",
+    "keepsShabbat": "يحافظ على السبت",
+    "demo": "تجريبي",
+    "hints": {
+      "phoneVerified": "تم تأكيد رقم الهاتف برمز",
+      "idVerified": "راجع فريقنا وثيقة هوية وصورة سيلفي",
+      "ownerVerified": "راجع فريقنا إثبات الملكية أو الحق في التأجير",
+      "propertyVerified": "رأى فريقنا العقار في مكالمة فيديو أو زيارة",
+      "businessVerified": "راجع فريقنا تسجيل المنشأة",
+      "keepsShabbat": "لا يرد أيام السبت والأعياد اليهودية",
+      "demo": "محتوى نموذجي لتجربة الموقع — ليس معلِنًا حقيقيًا"
+    }
+  },
+  "description": {
+    "title": "عن هذا المكان",
+    "empty": "لم يكتب المعلِن وصفًا بعد.",
+    "showMore": "عرض المزيد",
+    "showLess": "عرض أقل"
+  },
+  "amenities": {
+    "title": "المرافق"
+  },
+  "jewish": {
+    "title": "مناسب للضيوف اليهود",
+    "kitchen": "المطبخ",
+    "synagogue": "أقرب كنيس",
+    "chabad": "بيت حاباد",
+    "walk": "{count, plural, one {دقيقة سيرًا} two {دقيقتان سيرًا} few {{count} دقائق سيرًا} other {{count} دقيقة سيرًا}}",
+    "shabbatChecklist": "قائمة السبت",
+    "shabbatFriendly": "مناسب للسبت",
+    "shabbatFriendlyHint": "مناسب للسبت يعني مفتاحًا عاديًا، ولا توجد حساسات حركة عند المدخل، وتوجد صفيحة تسخين أو غلاية ماء.",
+    "has": "متوفر",
+    "hasNot": "غير متوفر",
+    "jewishFeatures": "المزيد للضيوف اليهود",
+    "hotelKosher": "طعام كوشير",
+    "supervision": "إشراف الكشروت"
+  },
+  "rules": {
+    "title": "قواعد المكان",
+    "checkIn": "تسجيل الوصول",
+    "checkOut": "تسجيل المغادرة",
+    "from": "من {time}",
+    "until": "حتى {time}",
+    "quietHours": "ساعات الهدوء",
+    "allowed": "مسموح",
+    "notAllowed": "غير مسموح",
+    "smoking": {
+      "yes": "التدخين مسموح",
+      "no": "ممنوع التدخين"
+    },
+    "pets": {
+      "yes": "الحيوانات الأليفة مرحَّب بها",
+      "no": "بدون حيوانات أليفة"
+    },
+    "parties": {
+      "yes": "الحفلات والمناسبات مسموحة",
+      "no": "بدون حفلات أو مناسبات"
+    }
+  },
+  "costs": {
+    "title": "كل التكاليف",
+    "titleSale": "تفاصيل السعر",
+    "deposit": "التأمين",
+    "cleaningFee": "رسوم التنظيف",
+    "utilities": "الفواتير",
+    "utilitiesIncluded": "مشمولة في السعر",
+    "utilitiesNotIncluded": "غير مشمولة",
+    "utilitiesEstimate": "حوالي {amount} شهريًا، غير مشمولة",
+    "minStay": "الحد الأدنى للإقامة",
+    "nights": "{count, plural, one {ليلة واحدة} two {ليلتان} few {{count} ليالٍ} other {{count} ليلة}}",
+    "weeklyDiscount": "خصم أسبوعي",
+    "monthlyDiscount": "خصم شهري",
+    "percentOff": "خصم {count}%",
+    "pricePerSqm": "السعر للمتر المربع",
+    "perSqm": "{price} / م²",
+    "priceHistory": "تغيّرات السعر"
+  },
+  "details": {
+    "title": "تفاصيل العقار",
+    "dealType": "نوع الصفقة",
+    "propertyType": "نوع العقار",
+    "rooms": "الغرف",
+    "bedrooms": "غرف النوم",
+    "bathrooms": "الحمامات",
+    "beds": "الأسرّة",
+    "bedsDouble": "{count, plural, one {سرير مزدوج} two {سريران مزدوجان} few {{count} أسرّة مزدوجة} other {{count} سريرًا مزدوجًا}}",
+    "bedsSingle": "{count, plural, one {سرير مفرد} two {سريران مفردان} few {{count} أسرّة مفردة} other {{count} سريرًا مفردًا}}",
+    "bedsSofa": "{count, plural, one {كنبة سرير} two {كنبتا سرير} few {{count} كنبات سرير} other {{count} كنبة سرير}}",
+    "maxGuests": "الضيوف (الحد الأقصى)",
+    "sharedRoomFor": "غرفة في شقة مشتركة لـ",
+    "size": "المساحة",
+    "floor": "الطابق",
+    "floorOf": "{floor} من {total}",
+    "elevator": "مصعد",
+    "building": "المبنى",
+    "yearBuilt": "سنة البناء",
+    "furnished": "مفروش",
+    "heating": "التدفئة",
+    "views": "الإطلالة",
+    "condition": "الحالة",
+    "yes": "نعم",
+    "no": "لا"
+  },
+  "rooms": {
+    "title": "الغرف",
+    "subtitle": "{count, plural, one {نوع غرفة واحد} two {نوعان من الغرف} few {{count} أنواع غرف} other {{count} نوع غرفة}}",
+    "guests": "{count, plural, one {حتى ضيف واحد} two {حتى ضيفين} few {حتى {count} ضيوف} other {حتى {count} ضيفًا}}",
+    "bedsDouble": "{count, plural, one {سرير مزدوج} two {سريران مزدوجان} few {{count} أسرّة مزدوجة} other {{count} سريرًا مزدوجًا}}",
+    "bedsSingle": "{count, plural, one {سرير مفرد} two {سريران مفردان} few {{count} أسرّة مفردة} other {{count} سريرًا مفردًا}}"
+  },
+  "calendar": {
+    "title": "التوفر",
+    "subtitle": "هذا الشهر والشهر القادم. يحدّث المعلِن التقويم.",
+    "allFree": "لا توجد تواريخ محجوزة هذا الشهر أو الشهر القادم. اطلب من المعلِن تأكيد تواريخك.",
+    "available": "متاح",
+    "booked": "محجوز",
+    "past": "مضى",
+    "today": "اليوم"
+  },
+  "map": {
+    "title": "الموقع",
+    "note": "تُظهر الدائرة المنطقة التقريبية. يشارك المعلِن العنوان الدقيق بعد أن تتواصل معه.",
+    "label": "خريطة المنطقة التقريبية: {place}",
+    "loading": "جارٍ تحميل الخريطة…"
+  },
+  "nearby": {
+    "title": "بالقرب من المكان",
+    "note": "أوقات المشي تقديرية بحسب الخريطة.",
+    "synagogue": "كنيس",
+    "chabad": "بيت حاباد",
+    "kosherFood": "طعام كوشير",
+    "mikveh": "مِكفاه",
+    "supermarket": "سوبرماركت",
+    "airport": "المطار",
+    "walk": "{count, plural, one {دقيقة سيرًا} two {دقيقتان سيرًا} few {{count} دقائق سيرًا} other {{count} دقيقة سيرًا}}",
+    "km": "{km} كم ({code})",
+    "transport": {
+      "metro": "محطة مترو",
+      "train": "محطة قطار",
+      "tram": "محطة ترام",
+      "bus": "موقف حافلات"
+    }
+  },
+  "shabbat": {
+    "label": "السبت والأعياد"
+  },
+  "reviews": {
+    "title": "التقييمات",
+    "empty": "لا توجد تقييمات بعد."
+  },
+  "safety": {
+    "label": "الأمان",
+    "reportHint": "هل هناك مشكلة في هذا الإعلان؟ أخبرنا."
+  },
+  "similar": {
+    "title": "أماكن مشابهة",
+    "viewAll": "المزيد في هذه المدينة"
+  },
+  "notFound": {
+    "title": "هذا الإعلان غير متاح",
+    "description": "ربما تم تأجيره أو بيعه أو حذفه من قِبل المعلِن. هناك أماكن كثيرة أخرى لتراها.",
+    "search": "تصفّح الإعلانات",
+    "home": "العودة إلى الرئيسية"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "reportListing": "דיווח על המודעה",
+  "reportProfile": "דיווח על הפרופיל",
+  "listingIntro": "ספרו לנו מה לא בסדר. הצוות שלנו בודק כל דיווח, והמפרסם לא יודע מי דיווח.",
+  "profileIntro": "ספרו לנו מה לא בסדר בפרופיל הזה. הצוות שלנו בודק כל דיווח בדיסקרטיות.",
+  "reasonLabel": "סיבה",
+  "reasons": {
+    "FAKE_LISTING": "מודעה מזויפת",
+    "ALREADY_RENTED": "כבר הושכר או נמכר",
+    "WRONG_PRICE": "מחיר שגוי",
+    "ASKED_MONEY_UPFRONT": "ביקשו כסף מראש",
+    "OFFENSIVE": "תוכן פוגעני",
+    "OTHER": "אחר"
+  },
+  "detailsOptional": "פרטים (לא חובה)",
+  "detailsRequired": "פרטים",
+  "detailsPlaceholder": "מה קרה? הוסיפו כל מה שיעזור לנו לבדוק.",
+  "submit": "שליחת הדיווח",
+  "sending": "שולח…",
+  "thanksTitle": "תודה",
+  "thanks": "הדיווח נשלח. מנהל תוכן יבדוק אותו בקרוב.",
+  "close": "סגירה",
+  "errors": {
+    "reason": "נא לבחור סיבה.",
+    "details": "{count, plural, one {נא לתאר את הבעיה בתו אחד לפחות.} other {נא לתאר את הבעיה ב-{count} תווים לפחות.}}",
+    "already_reported": "כבר דיווחתם על זה. הצוות שלנו יבדוק.",
+    "own_target": "אי אפשר לדווח על עצמכם או על מודעה שלכם.",
+    "not_found": "המודעה או הפרופיל כבר לא זמינים."
+  },
+  "block": {
+    "block": "חסימה",
+    "unblock": "ביטול חסימה",
+    "confirmTitle": "לחסום את {name}?",
+    "confirmText": "שניכם לא תוכלו לראות את פרטי הקשר זה של זה. אפשר לבטל את החסימה בכל עת.",
+    "confirm": "חסימה",
+    "cancel": "ביטול",
+    "blocked": "{name} נחסם/ה",
+    "unblocked": "החסימה של {name} בוטלה"
+  }
+}

@@ -1,0 +1,87 @@
+import type { Metadata } from "next";
+import { getTranslations, setRequestLocale } from "next-intl/server";
+import {
+  ConnectedAccounts,
+  ContactEmailForm,
+  DataExport,
+  DeleteAccount,
+  NotificationsForm,
+  PreferencesForm,
+  ProfileForm,
+  SettingsSection,
+} from "@/components/account/settings-forms";
+import { TwoFactorSettings } from "@/components/auth/two-factor-settings";
+import { Ltr } from "@/components/common/ltr";
+import { PageHeader } from "@/components/common/page-header";
+import { getAccountSettings } from "@/lib/account/queries";
+import { requireUser } from "@/lib/auth/session";
+import { pageMetadata } from "@/lib/seo";
+
+type Props = { params: Promise<{ locale: string }> };
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "account.meta" });
+  return pageMetadata({ locale, path: "/account/settings", title: t("settings"), description: t("description"), noIndex: true });
+}
+
+/** /account/settings — profile, contact email, language & currency, notifications, security and privacy. */
+export default async function SettingsPage({ params }: Props) {
+  const { locale } = await params;
+  setRequestLocale(locale);
+  const user = await requireUser({ next: "/account/settings" });
+  const t = await getTranslations("account.settings");
+  const data = await getAccountSettings(user.id);
+
+  return (
+    <div className="grid gap-4 sm:gap-6">
+      <PageHeader title={t("title")} description={t("lead")} className="pb-0 sm:pb-0" />
+
+      <SettingsSection id="profile" title={t("profile.title")} lead={t("profile.lead")}>
+        <ProfileForm data={data} />
+      </SettingsSection>
+
+      <SettingsSection
+        id="email"
+        title={t("email.title")}
+        lead={
+          data.phoneNumber ? (
+            <>
+              {t("email.lead")} <Ltr>{data.phoneNumber}</Ltr>
+            </>
+          ) : (
+            t("email.leadNoPhone")
+          )
+        }
+      >
+        <ContactEmailForm loginEmail={data.loginEmail} contactEmail={data.contactEmail} />
+      </SettingsSection>
+
+      <SettingsSection id="preferences" title={t("preferences.title")} lead={t("preferences.lead")}>
+        <PreferencesForm data={data} />
+      </SettingsSection>
+
+      <SettingsSection id="notifications" title={t("notifications.title")} lead={t("notifications.lead")}>
+        <NotificationsForm prefs={data.notifications} emailAvailable={!!(data.contactEmail || data.loginEmail)} />
+      </SettingsSection>
+
+      <div id="security" className="scroll-mt-24">
+        <TwoFactorSettings enabled={data.twoFactorEnabled} isStaff={user.isStaff} returnTo="/account/settings#security" />
+      </div>
+
+      {data.providers.length > 0 ? (
+        <SettingsSection id="connected" title={t("connected.title")} lead={t("connected.lead")}>
+          <ConnectedAccounts data={data} />
+        </SettingsSection>
+      ) : null}
+
+      <SettingsSection id="data" title={t("data.title")} lead={t("data.lead")}>
+        <DataExport />
+      </SettingsSection>
+
+      <SettingsSection id="delete" title={t("delete.title")} lead={t("delete.lead")} tone="danger">
+        <DeleteAccount isStaff={user.isStaff} />
+      </SettingsSection>
+    </div>
+  );
+}

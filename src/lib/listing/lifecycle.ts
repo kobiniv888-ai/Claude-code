@@ -74,6 +74,7 @@ const OWNER_SELECT = {
   id: true,
   name: true,
   email: true,
+  contactEmail: true,
   locale: true,
   notificationPrefs: true,
   phoneNumber: true,

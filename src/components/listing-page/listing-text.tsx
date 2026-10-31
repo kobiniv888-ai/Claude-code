@@ -1,0 +1,110 @@
+"use client";
+
+import { createContext, useContext, useId, useState, type ReactNode } from "react";
+import { useTranslations } from "next-intl";
+import { ChevronDownIcon, LanguagesIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { needsShowMore } from "@/lib/listing-page/helpers";
+import type { LocalizedText } from "@/lib/listing-page/types";
+import { cn } from "@/lib/utils";
+
+/**
+ * Title and description with the "Auto-translated · Show original" switch: one state for the
+ * page, so the switch next to the title changes both texts in place.
+ */
+type TextState = { showOriginal: boolean; toggle: () => void; title: LocalizedText; description: LocalizedText; translated: boolean };
+
+const TextContext = createContext<TextState | null>(null);
+
+function useListingText(): TextState {
+  const value = useContext(TextContext);
+  if (!value) throw new Error("useListingText must be used inside <ListingTextProvider>");
+  return value;
+}
+
+export function ListingTextProvider({
+  title,
+  description,
+  translated,
+  children,
+}: {
+  title: LocalizedText;
+  description: LocalizedText;
+  translated: boolean;
+  children: ReactNode;
+}) {
+  const [showOriginal, setShowOriginal] = useState(false);
+  return (
+    <TextContext.Provider value={{ showOriginal, toggle: () => setShowOriginal((v) => !v), title, description, translated }}>
+      {children}
+    </TextContext.Provider>
+  );
+}
+
+export function ListingTitle({ className }: { className?: string }) {
+  const { showOriginal, title, translated } = useListingText();
+  return (
+    <h1 dir="auto" className={cn("text-2xl font-bold tracking-tight text-balance sm:text-3xl", className)}>
+      {translated && showOriginal ? title.original : title.shown}
+    </h1>
+  );
+}
+
+/** "Auto-translated · Show original" (or "Translated by the owner · Show original"). */
+export function TranslationSwitch({ auto, originalLanguage }: { auto: boolean; originalLanguage: string }) {
+  const t = useTranslations("listing.translation");
+  const { showOriginal, toggle, translated } = useListingText();
+  if (!translated) return null;
+  return (
+    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+      <LanguagesIcon className="size-4" aria-hidden />
+      <span>{showOriginal ? t("showingOriginal", { language: originalLanguage }) : auto ? t("auto") : t("byOwner")}</span>
+      <span aria-hidden>·</span>
+      <button
+        type="button"
+        onClick={toggle}
+        aria-pressed={showOriginal}
+        className="rounded font-semibold text-primary underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        {showOriginal ? t("showTranslation") : t("showOriginal")}
+      </button>
+    </p>
+  );
+}
+
+export function ListingDescription() {
+  const t = useTranslations("listing.description");
+  const { showOriginal, description, translated } = useListingText();
+  const text = translated && showOriginal ? description.original : description.shown;
+  const [expanded, setExpanded] = useState(false);
+  const id = useId();
+  if (!text) return <p className="text-muted-foreground">{t("empty")}</p>;
+  const long = needsShowMore(text);
+  return (
+    <div>
+      <div
+        id={id}
+        dir="auto"
+        className={cn(
+          "text-base leading-relaxed whitespace-pre-line text-foreground/90",
+          long && !expanded && "line-clamp-[8] mask-b-from-60%",
+        )}
+      >
+        {text}
+      </div>
+      {long ? (
+        <Button
+          type="button"
+          variant="link"
+          className="mt-2 h-auto px-0 font-semibold"
+          aria-expanded={expanded}
+          aria-controls={id}
+          onClick={() => setExpanded((v) => !v)}
+        >
+          {expanded ? t("showLess") : t("showMore")}
+          <ChevronDownIcon className={cn("size-4 transition-transform", expanded && "rotate-180")} aria-hidden />
+        </Button>
+      ) : null}
+    </div>
+  );
+}

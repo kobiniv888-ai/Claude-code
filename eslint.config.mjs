@@ -12,6 +12,14 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Bayit: side-by-side dev/build folders (NEXT_DIST_DIR=.next-*), the generated Prisma
+    // client, local file storage, test output and agent tooling are not source code.
+    ".next-*/**",
+    "src/generated/**",
+    "storage/**",
+    "test-results/**",
+    "playwright-report/**",
+    ".claude/**",
   ]),
 ]);
 

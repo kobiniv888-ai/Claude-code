@@ -166,3 +166,20 @@ describe("verification documents", () => {
     expect(compareCadastralCodes(null, "01.10")).toBe("missing");
   });
 });
+
+describe("audit labels", () => {
+  it("links targets to their admin pages", async () => {
+    const { auditTargetHref } = await import("./audit-labels");
+    expect(auditTargetHref("Listing", "abc")).toBe("/admin/moderation/abc");
+    expect(auditTargetHref("User", "u 1")).toBe("/admin/users/u%201");
+    expect(auditTargetHref("VerificationRequest", "v1")).toBe("/admin/verifications/v1");
+    expect(auditTargetHref("SiteSetting", "x")).toBeNull();
+    expect(auditTargetHref("Ticket", null)).toBeNull();
+  });
+
+  it("turns action names into message keys", async () => {
+    const { auditActionKey } = await import("./audit-labels");
+    expect(auditActionKey("listing.request_changes")).toBe("actions.listing_request_changes");
+    expect(auditActionKey("user.ban")).toBe("actions.user_ban");
+  });
+});

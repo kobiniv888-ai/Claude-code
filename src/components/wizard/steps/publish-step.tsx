@@ -110,7 +110,7 @@ function PageSummary({ values, context, goTo }: Pick<StepProps, "values" | "cont
   const city = context.cities.find((c) => c.id === values.cityId);
 
   return (
-    <div className="grid gap-5">
+    <div className="grid content-start gap-5">
       {facts.length > 0 && (
         <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
           {facts.map((fact) => (

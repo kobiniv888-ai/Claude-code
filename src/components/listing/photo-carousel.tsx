@@ -117,7 +117,7 @@ export function PhotoCarousel({
               aria-label={t("slide", { index: index + 1, total })}
               aria-hidden={index !== selected || undefined}
             >
-              <Link href={href} tabIndex={-1} aria-hidden="true" prefetch={false} className="block size-full" draggable={false}>
+              <Link href={href} tabIndex={-1} aria-hidden="true" prefetch={false} className="relative block size-full" draggable={false}>
                 {index <= loadUpTo ? (
                   <Image
                     src={photo.url}

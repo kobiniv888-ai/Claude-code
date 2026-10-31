@@ -101,6 +101,13 @@ export const auth = betterAuth({
     useSecureCookies: isProduction,
   },
 
+  rateLimit: {
+    // The browser reads the session on every page view. With the default limit (100 per 10 s per
+    // IP and path) visitors sharing one carrier/office IP would start getting 429s. It only reads
+    // the caller's own cookie; sign-in and login codes keep their own limits.
+    customRules: { "/get-session": false },
+  },
+
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
       if (ctx.path === "/phone-number/send-otp") {

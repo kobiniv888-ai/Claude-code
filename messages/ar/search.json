@@ -1,0 +1,192 @@
+{
+  "meta": {
+    "title": {
+      "any": "عقارات في جورجيا",
+      "rent": "عقارات للإيجار في جورجيا",
+      "shortStay": "إقامات قصيرة في جورجيا",
+      "monthly": "إيجار شهري في جورجيا",
+      "buy": "عقارات للبيع في جورجيا",
+      "hotels": "فنادق ودور ضيافة في جورجيا"
+    },
+    "titleIn": {
+      "any": "عقارات في {place}",
+      "rent": "عقارات للإيجار في {place}",
+      "shortStay": "إقامات قصيرة في {place}",
+      "monthly": "إيجار شهري في {place}",
+      "buy": "عقارات للبيع في {place}",
+      "hotels": "فنادق ودور ضيافة في {place}"
+    },
+    "withPage": "{title} – الصفحة {page}",
+    "description": "شقق ومنازل وفنادق وعقارات للبيع في جميع أنحاء جورجيا، مع تفاصيل الطعام الكوشير والسبت ومدة المشي إلى الكنيس وتواصل مباشر مع المالكين.",
+    "descriptionIn": "عقارات في {place}: تفاصيل الكوشير والسبت، ومدة المشي إلى الكنيس، ومالكون موثّقون، وتواصل مباشر بلا رسوم حجز."
+  },
+  "bar": {
+    "label": "البحث عن عقار",
+    "where": "أين",
+    "wherePlaceholder": "مدينة أو حي أو رقم الإعلان",
+    "whereTo": "إلى أين؟",
+    "clearPlace": "مسح المكان",
+    "popularPlaces": "وجهات شائعة",
+    "suggestions": "أماكن",
+    "searchFor": "البحث عن «{query}»",
+    "suggestionsFailed": "الاقتراحات غير متاحة الآن. لا يزال بإمكانك البحث عمّا كتبته.",
+    "suggestionCount": "{count, plural, =0 {لا توجد أماكن مطابقة} one {تم العثور على مكان واحد} two {تم العثور على مكانين} few {تم العثور على {count} أماكن} many {تم العثور على {count} مكانًا} other {تم العثور على {count} مكان}}",
+    "dealLabel": "عمّ تبحث؟",
+    "deal": {
+      "short-stay": "إقامة قصيرة",
+      "monthly": "إيجار شهري",
+      "buy": "شراء",
+      "hotels": "فنادق"
+    },
+    "dates": "التواريخ",
+    "moveIn": "تاريخ الانتقال",
+    "addDates": "أضف التواريخ",
+    "addMoveIn": "اختر تاريخًا",
+    "clearDates": "مسح التواريخ",
+    "guests": "الضيوف",
+    "addGuests": "أضف الضيوف",
+    "guestCount": "{count, plural, one {ضيف واحد} two {ضيفان} few {{count} ضيوف} many {{count} ضيفًا} other {{count} ضيف}}",
+    "submit": "بحث",
+    "sheetTitle": "بحث",
+    "sheetDescription": "اختر المكان والتواريخ وعدد الضيوف.",
+    "closeSheet": "إغلاق البحث",
+    "clear": "مسح الكل"
+  },
+  "dates": {
+    "holidayLegend": "عيد يهودي — مرّر المؤشر على اليوم لمعرفة اسمه"
+  },
+  "guests": {
+    "label": "الضيوف",
+    "hint": "بالغون وأطفال",
+    "any": "أي عدد",
+    "decrease": "ضيوف أقل",
+    "increase": "ضيوف أكثر"
+  },
+  "filters": {
+    "title": "الفلاتر",
+    "clear": "مسح",
+    "close": "إغلاق الفلاتر",
+    "dialogDescription": "ضيّق نطاق البحث. تتحدّث النتائج عند الضغط على الزر في الأسفل.",
+    "showResults": "عرض النتائج",
+    "showCount": "{count, plural, one {عرض عقار واحد} two {عرض عقارين} few {عرض {formatted} عقارات} many {عرض {formatted} عقارًا} other {عرض {formatted} عقار}}",
+    "noResults": "لا توجد عقارات مطابقة — غيّر الفلاتر",
+    "activeCount": "{count, plural, one {فلتر واحد مفعّل} two {فلتران مفعّلان} few {{count} فلاتر مفعّلة} many {{count} فلترًا مفعّلًا} other {{count} فلتر مفعّل}}",
+    "selectedCount": "{count, plural, one {تم اختيار واحد} two {تم اختيار اثنين} few {تم اختيار {count}} many {تم اختيار {count}} other {تم اختيار {count}}}",
+    "sections": {
+      "deal": "نوع الصفقة والعقار",
+      "price": "السعر",
+      "dates": "التواريخ والضيوف",
+      "moveIn": "تاريخ الانتقال والضيوف",
+      "rooms": "الغرف",
+      "jewish": "مناسب للعائلات اليهودية",
+      "amenities": "المرافق",
+      "property": "تفاصيل العقار",
+      "owner": "المالك",
+      "listing": "الإعلان"
+    },
+    "any": "الكل",
+    "anyTime": "أي وقت",
+    "atLeast": "{value}+",
+    "dealType": "الصفقة",
+    "propertyType": "نوع العقار",
+    "priceNeedsDeal": "اختر نوع الصفقة في الأعلى للتصفية حسب السعر — أسعار الليلة والشهر والبيع مختلفة جدًا.",
+    "priceMin": "أدنى سعر",
+    "priceMax": "أعلى سعر",
+    "priceTop": "{price}+",
+    "priceCurrencyNote": "الأسعار بعملة {currency} حسب سعر الصرف التقريبي لليوم.",
+    "min": "من",
+    "max": "إلى",
+    "clearDates": "مسح التواريخ",
+    "rooms": "الغرف",
+    "bedrooms": "غرف النوم",
+    "bathrooms": "الحمّامات",
+    "shabbatFriendlyHint": "مفتاح عادي، وصفيحة تسخين أو غلاية ماء، ولا حساسات حركة عند المدخل.",
+    "kitchen": "المطبخ",
+    "synagogueWalk": "كنيس على مسافة مشي",
+    "walkMinutes": "{count} د",
+    "jewishFeatures": "تفاصيل للعائلات اليهودية",
+    "hotelFeatures": "الفنادق ودور الضيافة",
+    "sharedRoomFor": "غرفة مشتركة لـ",
+    "showAllAmenities": "عرض كل المرافق ({count})",
+    "showFewerAmenities": "عرض مرافق أقل",
+    "size": "المساحة",
+    "sqm": "م²",
+    "sizeMin": "أصغر مساحة بالمتر المربع",
+    "sizeMax": "أكبر مساحة بالمتر المربع",
+    "floor": "الطابق",
+    "floorMin": "أدنى طابق",
+    "floorMax": "أعلى طابق",
+    "condition": "حالة العقار",
+    "heating": "التدفئة",
+    "views": "الإطلالة",
+    "buildingAge": "المبنى",
+    "verifiedHint": "تحقّق فريقنا من هوية المالك أو من إثبات الملكية.",
+    "ownerType": "المعلِن",
+    "postedWithin": "نُشر خلال"
+  },
+  "chips": {
+    "heading": "الفلاتر المفعّلة",
+    "remove": "إزالة الفلتر",
+    "clearAll": "مسح الكل",
+    "text": "«{q}»",
+    "moveIn": "الانتقال في {date}",
+    "between": "{min} – {max}",
+    "atLeast": "من {min}",
+    "atMost": "حتى {max}",
+    "minRooms": "{value}+ غرف",
+    "minBedrooms": "{value}+ غرف نوم",
+    "minBathrooms": "{value}+ حمّامات",
+    "floor": "الطابق {range}",
+    "mapArea": "منطقة على الخريطة"
+  },
+  "toolbar": {
+    "sortLabel": "الترتيب حسب",
+    "viewLabel": "طريقة العرض",
+    "showMap": "الخريطة",
+    "showList": "القائمة"
+  },
+  "results": {
+    "listLabel": "نتائج البحث",
+    "loading": "جارٍ تحميل العقارات…",
+    "deal": {
+      "any": "كل العقارات",
+      "rent": "عقارات للإيجار",
+      "shortStay": "إقامات قصيرة",
+      "monthly": "إيجار شهري",
+      "buy": "عقارات للبيع",
+      "hotels": "فنادق ودور ضيافة"
+    },
+    "count": "{count, plural, =0 {لم يتم العثور على عقارات} one {عقار واحد} two {عقاران} few {{formatted} عقارات} many {{formatted} عقارًا} other {{formatted} عقار}}",
+    "countIn": "{count, plural, =0 {لم يتم العثور على عقارات في {place}} one {عقار واحد في {place}} two {عقاران في {place}} few {{formatted} عقارات في {place}} many {{formatted} عقارًا في {place}} other {{formatted} عقار في {place}}}"
+  },
+  "map": {
+    "loading": "جارٍ تحميل الخريطة…",
+    "searchAsMove": "ابحث عند تحريك الخريطة",
+    "count": "{count, plural, one {عقار واحد} two {عقاران} few {{formatted} عقارات} many {{formatted} عقارًا} other {{formatted} عقار}}",
+    "noPrice": "السعر عند الطلب",
+    "openListing": "عرض الإعلان",
+    "carouselLabel": "عقارات على الخريطة",
+    "noResultsHere": "لا توجد عقارات في هذه المنطقة. صغّر الخريطة أو حرّكها."
+  },
+  "pagination": {
+    "label": "صفحات النتائج",
+    "previous": "السابق",
+    "next": "التالي",
+    "page": "الصفحة {page}",
+    "summary": "الصفحة {page} من {pages}"
+  },
+  "empty": {
+    "title": "لا توجد عقارات تطابق بحثك",
+    "description": "جرّب تواريخ أخرى أو نطاق أسعار أوسع أو فلاتر أقل — أو ابحث في مدينة أخرى.",
+    "titleNoListings": "لا توجد عقارات هنا بعد",
+    "descriptionNoListings": "تُضاف عقارات جديدة كل يوم. جرّب مدينة أخرى في الأثناء.",
+    "clear": "مسح كل الفلاتر",
+    "tryCities": "مدن شائعة"
+  },
+  "error": {
+    "title": "تعذّر تحميل النتائج",
+    "description": "حدث خطأ من جهتنا. يُرجى المحاولة مرة أخرى بعد قليل.",
+    "retry": "حاول مرة أخرى",
+    "startOver": "بحث جديد"
+  }
+}

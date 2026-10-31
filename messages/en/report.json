@@ -1,0 +1,40 @@
+{
+  "reportListing": "Report listing",
+  "reportProfile": "Report profile",
+  "listingIntro": "Tell us what's wrong. Our team checks every report, and the owner doesn't see who sent it.",
+  "profileIntro": "Tell us what's wrong with this profile. Our team checks every report privately.",
+  "reasonLabel": "Reason",
+  "reasons": {
+    "FAKE_LISTING": "Fake listing",
+    "ALREADY_RENTED": "Already rented or sold",
+    "WRONG_PRICE": "Wrong price",
+    "ASKED_MONEY_UPFRONT": "Asked for money up front",
+    "OFFENSIVE": "Offensive",
+    "OTHER": "Other"
+  },
+  "detailsOptional": "Details (optional)",
+  "detailsRequired": "Details",
+  "detailsPlaceholder": "What happened? Add anything that helps us check it.",
+  "submit": "Send report",
+  "sending": "Sending…",
+  "thanksTitle": "Thank you",
+  "thanks": "Your report was sent. A moderator will check it soon.",
+  "close": "Close",
+  "errors": {
+    "reason": "Please choose a reason.",
+    "details": "{count, plural, one {Please describe the problem in at least {count} character.} other {Please describe the problem in at least {count} characters.}}",
+    "already_reported": "You already reported this. Our team will check it.",
+    "own_target": "You can't report yourself or your own listing.",
+    "not_found": "This listing or profile is no longer available."
+  },
+  "block": {
+    "block": "Block",
+    "unblock": "Unblock",
+    "confirmTitle": "Block {name}?",
+    "confirmText": "You won't see each other's contact details. You can unblock at any time.",
+    "confirm": "Block",
+    "cancel": "Cancel",
+    "blocked": "{name} is blocked",
+    "unblocked": "{name} is unblocked"
+  }
+}

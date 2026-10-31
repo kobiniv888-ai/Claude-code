@@ -1,0 +1,285 @@
+{
+  "loading": "Loading the listing…",
+  "meta": {
+    "title": "{title} · {city}",
+    "from": "from {price}",
+    "per": {
+      "NIGHT": "{price} / night",
+      "WEEK": "{price} / week",
+      "MONTH": "{price} / month"
+    }
+  },
+  "breadcrumbs": {
+    "label": "You are here",
+    "search": "Listings"
+  },
+  "header": {
+    "listingId": "ID <ltr>{id}</ltr>",
+    "updated": "Updated {date}",
+    "views": "{count, plural, one {{formatted} view} other {{formatted} views}}"
+  },
+  "status": {
+    "title": "Not public: {status}",
+    "manage": "Manage my listings",
+    "staffNote": "Staff preview — visitors cannot see this page.",
+    "labels": {
+      "DRAFT": "Draft",
+      "IN_REVIEW": "Waiting for review",
+      "NEEDS_CHANGES": "Changes needed",
+      "LIVE": "Live",
+      "PAUSED": "Paused",
+      "EXPIRED": "Expired",
+      "RENTED": "Rented",
+      "SOLD": "Sold",
+      "REJECTED": "Rejected",
+      "HIDDEN": "Hidden after reports",
+      "DELETED": "Deleted",
+      "EXPIRED_DATE": "Expired",
+      "DEMO_HIDDEN": "Demo data is hidden",
+      "OWNER_INACTIVE": "Owner account inactive"
+    },
+    "text": {
+      "DRAFT": "Only you can see this preview. Finish the steps and publish it when you are ready.",
+      "IN_REVIEW": "Our team is checking this listing. It goes live as soon as it is approved.",
+      "NEEDS_CHANGES": "A moderator asked for changes. Edit the listing and send it again.",
+      "LIVE": "This listing is live.",
+      "PAUSED": "The listing is paused. Turn it back on to show it to guests again.",
+      "EXPIRED": "The listing expired. Renew it to show it again.",
+      "RENTED": "The listing is marked as rented, so guests no longer see it.",
+      "SOLD": "The listing is marked as sold, so visitors no longer see it.",
+      "REJECTED": "This listing was rejected and is not shown to visitors.",
+      "HIDDEN": "Several people reported this listing. It stays hidden until a moderator checks it.",
+      "DELETED": "This listing was deleted.",
+      "EXPIRED_DATE": "The listing passed its expiry date. Renew it to show it again.",
+      "DEMO_HIDDEN": "This is demo content, and demo data is switched off for visitors.",
+      "OWNER_INACTIVE": "The owner's account is suspended, so the listing is not shown."
+    }
+  },
+  "translation": {
+    "auto": "Auto-translated",
+    "byOwner": "Translated by the owner",
+    "showOriginal": "Show original",
+    "showTranslation": "Show translation",
+    "showingOriginal": "Original ({language})"
+  },
+  "gallery": {
+    "label": "Photos of {title}",
+    "open": "Open photo {index} of {total}",
+    "showAll": "{count, plural, one {Show the photo} other {Show all {formatted} photos}}",
+    "counter": "{index} / {total}",
+    "slide": "Photo {index} of {total}",
+    "previous": "Previous photo",
+    "next": "Next photo",
+    "close": "Close",
+    "lightboxTitle": "Photos of {title}",
+    "lightboxHint": "Swipe or use the arrow keys to see more photos. Press Esc to close.",
+    "noPhotos": "No photos yet",
+    "video": "Video",
+    "videoTitle": "Video of {title}",
+    "videoHint": "The video plays from YouTube or Vimeo.",
+    "tour": "360° tour",
+    "opensNewTab": "(opens in a new tab)"
+  },
+  "share": {
+    "button": "Share",
+    "text": "Look at this place: {title}",
+    "copy": "Copy link",
+    "copied": "Link copied",
+    "copyFailed": "Could not copy the link",
+    "networks": {
+      "whatsapp": "WhatsApp",
+      "telegram": "Telegram",
+      "facebook": "Facebook"
+    }
+  },
+  "contactBox": {
+    "label": "Contact the owner",
+    "hostedBy": "Listed by",
+    "hostedByBusiness": "Business",
+    "languages": "Speaks",
+    "memberSince": "Member since",
+    "replyTime": "Usually replies",
+    "replyTimes": {
+      "hour": "within an hour",
+      "fewHours": "within a few hours",
+      "day": "within a day",
+      "days": "in a few days"
+    },
+    "localTime": "Owner's local time",
+    "contactHours": "Best time to call",
+    "repliesAfterShabbat": "It's Shabbat now — the owner replies after Shabbat.",
+    "repliesAfterHoliday": "It's a Jewish holiday now — the owner replies after the holiday.",
+    "videoTip": "Before paying anything, ask for a live video call: the owner should show the place and a paper with today's date and the listing ID (<ltr>{id}</ltr>)."
+  },
+  "badges": {
+    "label": "Trust badges",
+    "phoneVerified": "Phone verified",
+    "idVerified": "ID verified",
+    "ownerVerified": "Owner verified",
+    "propertyVerified": "Property verified",
+    "businessVerified": "Verified business",
+    "business": "Business",
+    "keepsShabbat": "Keeps Shabbat",
+    "demo": "Demo",
+    "hints": {
+      "phoneVerified": "The phone number was confirmed with a code",
+      "idVerified": "Our team checked an ID document and a selfie",
+      "ownerVerified": "Our team checked proof of ownership or the right to rent",
+      "propertyVerified": "Our team saw the property on a video call or a visit",
+      "businessVerified": "Our team checked the business registration",
+      "keepsShabbat": "Does not reply on Shabbat and Jewish holidays",
+      "demo": "Sample content for trying the site — not a real owner"
+    }
+  },
+  "description": {
+    "title": "About this place",
+    "empty": "The owner has not written a description yet.",
+    "showMore": "Show more",
+    "showLess": "Show less"
+  },
+  "amenities": {
+    "title": "Amenities"
+  },
+  "jewish": {
+    "title": "Jewish-friendly",
+    "kitchen": "Kitchen",
+    "synagogue": "Nearest synagogue",
+    "chabad": "Chabad house",
+    "walk": "{count, plural, one {{count} min walk} other {{count} min walk}}",
+    "shabbatChecklist": "Shabbat checklist",
+    "shabbatFriendly": "Shabbat-friendly",
+    "shabbatFriendlyHint": "Shabbat-friendly means a regular key, no motion sensors at the entrance, and a hot plate or a hot-water urn.",
+    "has": "Yes",
+    "hasNot": "No",
+    "jewishFeatures": "More for Jewish guests",
+    "hotelKosher": "Kosher food",
+    "supervision": "Kosher supervision"
+  },
+  "rules": {
+    "title": "House rules",
+    "checkIn": "Check-in",
+    "checkOut": "Check-out",
+    "from": "from {time}",
+    "until": "until {time}",
+    "quietHours": "Quiet hours",
+    "allowed": "Allowed",
+    "notAllowed": "Not allowed",
+    "smoking": {
+      "yes": "Smoking allowed",
+      "no": "No smoking"
+    },
+    "pets": {
+      "yes": "Pets welcome",
+      "no": "No pets"
+    },
+    "parties": {
+      "yes": "Parties and events allowed",
+      "no": "No parties or events"
+    }
+  },
+  "costs": {
+    "title": "All costs",
+    "titleSale": "Price details",
+    "deposit": "Security deposit",
+    "cleaningFee": "Cleaning fee",
+    "utilities": "Utilities",
+    "utilitiesIncluded": "Included in the price",
+    "utilitiesNotIncluded": "Not included",
+    "utilitiesEstimate": "about {amount} a month, not included",
+    "minStay": "Minimum stay",
+    "nights": "{count, plural, one {{count} night} other {{count} nights}}",
+    "weeklyDiscount": "Weekly discount",
+    "monthlyDiscount": "Monthly discount",
+    "percentOff": "{count}% off",
+    "pricePerSqm": "Price per m²",
+    "perSqm": "{price} / m²",
+    "priceHistory": "Price changes"
+  },
+  "details": {
+    "title": "Property details",
+    "dealType": "Deal",
+    "propertyType": "Property type",
+    "rooms": "Rooms",
+    "bedrooms": "Bedrooms",
+    "bathrooms": "Bathrooms",
+    "beds": "Beds",
+    "bedsDouble": "{count, plural, one {{count} double} other {{count} double}}",
+    "bedsSingle": "{count, plural, one {{count} single} other {{count} single}}",
+    "bedsSofa": "{count, plural, one {{count} sofa bed} other {{count} sofa beds}}",
+    "maxGuests": "Guests (max)",
+    "sharedRoomFor": "Room in a shared flat for",
+    "size": "Size",
+    "floor": "Floor",
+    "floorOf": "{floor} of {total}",
+    "elevator": "Elevator",
+    "building": "Building",
+    "yearBuilt": "Year built",
+    "furnished": "Furnished",
+    "heating": "Heating",
+    "views": "View",
+    "condition": "Condition",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "rooms": {
+    "title": "Rooms",
+    "subtitle": "{count, plural, one {{count} room type} other {{count} room types}}",
+    "guests": "{count, plural, one {Up to {count} guest} other {Up to {count} guests}}",
+    "bedsDouble": "{count, plural, one {{count} double bed} other {{count} double beds}}",
+    "bedsSingle": "{count, plural, one {{count} single bed} other {{count} single beds}}"
+  },
+  "calendar": {
+    "title": "Availability",
+    "subtitle": "This month and next. The owner keeps the calendar up to date.",
+    "allFree": "No dates are booked in this month or the next. Ask the owner to confirm your dates.",
+    "available": "Available",
+    "booked": "Booked",
+    "past": "Past",
+    "today": "Today"
+  },
+  "map": {
+    "title": "Where it is",
+    "note": "The circle shows the approximate area. The owner shares the exact address after you contact them.",
+    "label": "Map of the approximate area: {place}",
+    "loading": "Loading the map…"
+  },
+  "nearby": {
+    "title": "Nearby",
+    "note": "Walking times are estimates from the map.",
+    "synagogue": "Synagogue",
+    "chabad": "Chabad house",
+    "kosherFood": "Kosher food",
+    "mikveh": "Mikveh",
+    "supermarket": "Supermarket",
+    "airport": "Airport",
+    "walk": "{count, plural, one {{count} min walk} other {{count} min walk}}",
+    "km": "{km} km ({code})",
+    "transport": {
+      "metro": "Metro station",
+      "train": "Train station",
+      "tram": "Tram stop",
+      "bus": "Bus stop"
+    }
+  },
+  "shabbat": {
+    "label": "Shabbat and holidays"
+  },
+  "reviews": {
+    "title": "Reviews",
+    "empty": "No reviews yet."
+  },
+  "safety": {
+    "label": "Safety",
+    "reportHint": "Something wrong with this listing? Tell us."
+  },
+  "similar": {
+    "title": "Similar places",
+    "viewAll": "See more in this city"
+  },
+  "notFound": {
+    "title": "This listing is not available",
+    "description": "It may have been rented, sold or removed by the owner. There are many more places to see.",
+    "search": "Browse listings",
+    "home": "Back to home"
+  }
+}

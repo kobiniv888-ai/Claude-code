@@ -55,6 +55,9 @@ export default function proxy(request: NextRequest) {
   // Pass the nonce to the app (layout reads it for next-themes / JSON-LD scripts).
   request.headers.set("x-nonce", nonce);
   request.headers.set("content-security-policy", csp);
+  // The page being opened, for "?next=" when a layout sends a signed-out visitor to /login
+  // (requireUser / requireStaff; validated there by safeNextPath). Always overwritten here.
+  request.headers.set("x-pathname", request.nextUrl.pathname + request.nextUrl.search);
 
   const response = intlMiddleware(request) ?? NextResponse.next({ request });
 

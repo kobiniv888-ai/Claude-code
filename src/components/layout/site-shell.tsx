@@ -1,3 +1,4 @@
+import { unstable_rethrow } from "next/navigation";
 import type { ReactNode } from "react";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getConsent } from "@/lib/consent";
@@ -17,7 +18,9 @@ import { ShabbatModeBanner } from "./shabbat-mode-banner";
  */
 export async function SiteShell({ children }: { children: ReactNode }) {
   const [user, settings, consent] = await Promise.all([
-    getCurrentUser().catch((error) => {
+    getCurrentUser().catch((error: unknown) => {
+      // Let Next.js handle its own control-flow errors (dynamic rendering, redirects).
+      unstable_rethrow(error);
       console.error("[layout] could not read the session", error);
       return null;
     }),

@@ -1,24 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
   closestCenter,
   DndContext,
+  KeyboardCode,
   KeyboardSensor,
   PointerSensor,
   TouchSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type KeyboardCoordinateGetter,
 } from "@dnd-kit/core";
-import {
-  arrayMove,
-  rectSortingStrategy,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-} from "@dnd-kit/sortable";
+import { arrayMove, rectSortingStrategy, SortableContext, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVerticalIcon, PencilIcon, StarIcon, Trash2Icon } from "lucide-react";
 import {
@@ -45,6 +41,37 @@ type GridActions = {
   onSetCover?: (id: string) => void;
   onDelete: (id: string) => void;
   onAlt: (id: string, alt: string) => Promise<boolean>;
+};
+
+/**
+ * Arrow keys for a wrapping grid: Left/Right stay on the same row, Up/Down in the same column.
+ * (dnd-kit's sortableKeyboardCoordinates compares exact pixel offsets, so sub-pixel column
+ * positions can make "Right" jump a row down.) Returns the target tile's top-left corner.
+ */
+const gridKeyboardCoordinates: KeyboardCoordinateGetter = (event, { context }) => {
+  const { active, collisionRect, droppableRects, droppableContainers } = context;
+  const code = event.code;
+  if (code !== KeyboardCode.Left && code !== KeyboardCode.Right && code !== KeyboardCode.Up && code !== KeyboardCode.Down) {
+    return undefined;
+  }
+  event.preventDefault();
+  if (!active || !collisionRect) return undefined;
+  const tolerance = Math.max(4, Math.min(collisionRect.width, collisionRect.height) / 2);
+  let best: { x: number; y: number; distance: number } | null = null;
+  for (const entry of droppableContainers.getEnabled()) {
+    const rect = entry.disabled ? undefined : droppableRects.get(entry.id);
+    if (!rect) continue;
+    const dx = rect.left - collisionRect.left;
+    const dy = rect.top - collisionRect.top;
+    const distance =
+      code === KeyboardCode.Right && Math.abs(dy) < tolerance && dx > tolerance ? dx
+      : code === KeyboardCode.Left && Math.abs(dy) < tolerance && dx < -tolerance ? -dx
+      : code === KeyboardCode.Down && Math.abs(dx) < tolerance && dy > tolerance ? dy
+      : code === KeyboardCode.Up && Math.abs(dx) < tolerance && dy < -tolerance ? -dy
+      : null;
+    if (distance !== null && (!best || distance < best.distance)) best = { x: rect.left, y: rect.top, distance };
+  }
+  return best ? { x: best.x, y: best.y } : undefined;
 };
 
 function AltEditor({ photo, onSave, label }: { photo: WizardPhoto; onSave: (alt: string) => Promise<boolean>; label: string }) {
@@ -237,8 +264,10 @@ export function PhotoGrid({
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(KeyboardSensor, { coordinateGetter: gridKeyboardCoordinates }),
   );
+  // A stable id keeps dnd-kit's aria-describedby the same on the server and the client.
+  const dndId = useId();
   const ids = photos.map((p) => p.id);
   const position = (id: string | number) => formatNumber(ids.indexOf(String(id)) + 1, locale);
 
@@ -253,6 +282,7 @@ export function PhotoGrid({
 
   return (
     <DndContext
+      id={dndId}
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragEnd={onDragEnd}

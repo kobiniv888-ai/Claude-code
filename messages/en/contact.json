@@ -1,0 +1,81 @@
+{
+  "showContact": "Show contact",
+  "revealing": "Loading contact details…",
+  "showContactHint": "Contact details are shown only to signed-in visitors. Logging in takes one tap.",
+  "availableChannels": "Ways to contact",
+  "contactOwner": "Contact the owner",
+  "allOptions": "Contact",
+  "sheetDescription": "The owner's contact options",
+  "noChannels": "The owner has not added contact options yet.",
+  "manageListings": "Manage my listings",
+  "unavailable": {
+    "preview": "The contact buttons work once the listing is live.",
+    "own": "This is your listing. Guests see your contact buttons here.",
+    "blocked": "You can't contact this owner."
+  },
+  "channel": {
+    "WHATSAPP": "WhatsApp",
+    "TELEGRAM": "Telegram",
+    "VIBER": "Viber",
+    "MESSENGER": "Messenger",
+    "PHONE": "Call",
+    "SMS": "SMS",
+    "EMAIL": "Email"
+  },
+  "channelAction": {
+    "WHATSAPP": "Message on WhatsApp",
+    "TELEGRAM": "Message on Telegram",
+    "VIBER": "Message on Viber",
+    "MESSENGER": "Message on Messenger",
+    "PHONE": "Call the owner",
+    "SMS": "Send a text message",
+    "EMAIL": "Send an email"
+  },
+  "copied": "Message copied — paste it in {app}",
+  "copyFailed": "We couldn't copy the message. Write to the owner in {app}.",
+  "message": {
+    "datesGuests": "Hi! I saw your listing ‘{title}’ (ID {id}) on {siteName}. Is it free on {dates} for {guests, plural, one {{guests} guest} other {{guests} guests}}?",
+    "dates": "Hi! I saw your listing ‘{title}’ (ID {id}) on {siteName}. Is it free on {dates}?",
+    "guests": "Hi! I saw your listing ‘{title}’ (ID {id}) on {siteName}. Is it free for {guests, plural, one {{guests} guest} other {{guests} guests}}? Which dates are available?",
+    "plain": "Hi! I saw your listing ‘{title}’ (ID {id}) on {siteName}. Is it still available? I'd like to know more.",
+    "sale": "Hi! I saw your property ‘{title}’ (ID {id}) on {siteName}. Is it still for sale? I'd like to know more and arrange a viewing."
+  },
+  "safety": {
+    "title": "Before you contact the owner",
+    "intro": "A few rules keep you safe from scams:",
+    "point1": "Never pay before you've checked the owner and seen the place, in person or on a live video call.",
+    "point2": "Don't send money by bank transfer, Bit, PayBox, crypto or gift cards to someone you haven't verified.",
+    "point3": "{siteName} will never send you a payment link in a chat.",
+    "videoTitle": "Video-call tip:",
+    "video": "ask the owner to show the apartment and a paper with today's date and the listing ID (<ltr>{id}</ltr>).",
+    "understand": "I understand",
+    "more": "More safety tips"
+  },
+  "email": {
+    "title": "Email the owner",
+    "description": "Your message goes to the owner by email. Their address stays private, and they reply to the address you give here.",
+    "name": "Your name",
+    "email": "Your email",
+    "emailHint": "The owner will reply to this address.",
+    "message": "Message",
+    "send": "Send message",
+    "sending": "Sending…",
+    "sentTitle": "Message sent",
+    "sent": "The owner will reply to your email. Check your spam folder too.",
+    "close": "Close",
+    "shabbat": "Messages are paused during Shabbat and Jewish holidays. Please send yours after Shabbat.",
+    "errors": {
+      "name": "Please enter your name.",
+      "email": "Please enter a valid email address.",
+      "message": "Please write at least a short message."
+    }
+  },
+  "errors": {
+    "blocked": "You can't contact this owner.",
+    "no_email": "This owner can't receive email right now. Please use another contact option.",
+    "own_listing": "This is your own listing.",
+    "send_failed": "The message could not be sent. Please try again in a few minutes.",
+    "unavailable": "This contact option is not available. Please try another one.",
+    "not_found": "This listing is no longer available."
+  }
+}

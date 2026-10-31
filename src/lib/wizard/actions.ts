@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { getLocale } from "next-intl/server";
 import { z } from "zod";
 import type { Prisma } from "@/generated/prisma/client";
@@ -81,10 +80,11 @@ function kindOf(listing: Pick<ListingRow, "dealType" | "propertyType">): Listing
 
 const orNull = (value: string) => (value.trim() === "" ? null : value.trim());
 
-/** Listing paths that show this listing (account list, public page) are re-rendered after a change. */
-function revalidateListing(listing: { status: string }) {
-  if (listing.status !== "DRAFT") revalidatePath("/[locale]/account/listings", "page");
-}
+/*
+ * No revalidatePath() here: every page that shows an owner's listing is rendered per request,
+ * and revalidating from a wizard action re-renders the wizard page itself (the post route then
+ * redirects a just-published listing to the edit route and the result screen is lost).
+ */
 
 // ─── Create ───────────────────────────────────────────────────
 
@@ -381,7 +381,6 @@ export async function updateDraft(
       const { oldPrice, newPrice, currency } = update.priceChange;
       await recordPriceChange(listing.id, oldPrice, newPrice, currency);
     }
-    revalidateListing(listing);
     return ok({ savedAt: now.toISOString() });
   } catch (error) {
     return toActionError(error);
@@ -432,7 +431,6 @@ async function writePhotoOrder(listingId: string, ids: string[], mainPhotos: boo
 async function touchContent(listing: ListingRow) {
   if (listing.status !== "DRAFT") {
     await db.listing.update({ where: { id: listing.id }, data: { contentUpdatedAt: new Date() } });
-    revalidateListing(listing);
   }
 }
 
@@ -641,7 +639,6 @@ export async function setAvailability(listingId: string, blocks: unknown): Promi
         })),
       }),
     ]);
-    revalidateListing(listing);
     return ok({ blocked: ranges });
   } catch (error) {
     return toActionError(error);
@@ -820,7 +817,6 @@ export async function acceptRulesAndPublish(
     await finalizeListing(listing, user, { rulesAcceptedAt: new Date(), wizardStep: stepsFor(kindOf(listing)).length });
     const result = await submitForPublication(listing.id, user.id);
     const fresh = await requireOwnedListing(listing.id, user.id);
-    revalidatePath("/[locale]/account/listings", "page");
     return ok(outcome(fresh, result));
   } catch (error) {
     return toActionError(error);
@@ -861,7 +857,6 @@ export async function saveChanges(
       // Paused, expired, rented… listings keep their status; their data is refreshed.
       await refreshWithoutResubmit(listing.id);
     }
-    revalidatePath("/[locale]/account/listings", "page");
     return ok({ resubmitted: result !== null, outcome: result });
   } catch (error) {
     return toActionError(error);
