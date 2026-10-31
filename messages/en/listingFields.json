@@ -1,0 +1,196 @@
+{
+  "dealType": {
+    "SHORT_STAY": "Short stay",
+    "MONTHLY_RENT": "Monthly rent",
+    "SALE": "For sale",
+    "HOTEL_ROOM": "Hotel or guesthouse room"
+  },
+  "dealFilter": {
+    "rent": "Rent",
+    "short-stay": "Short stay",
+    "monthly": "Monthly rent",
+    "buy": "Buy",
+    "hotels": "Hotels and guesthouses"
+  },
+  "propertyType": {
+    "APARTMENT": "Apartment",
+    "STUDIO": "Studio",
+    "PENTHOUSE": "Penthouse",
+    "HOUSE": "Private house",
+    "VILLA": "Villa",
+    "COTTAGE": "Cottage",
+    "ROOM": "Room in a shared apartment",
+    "HOTEL": "Hotel",
+    "GUESTHOUSE": "Guesthouse",
+    "HOSTEL": "Hostel"
+  },
+  "pricePeriod": {
+    "NIGHT": "per night",
+    "WEEK": "per week",
+    "MONTH": "per month",
+    "TOTAL": "total price"
+  },
+  "amenity": {
+    "wifi": "Wi-Fi",
+    "air_conditioning": "Air conditioning",
+    "heating": "Heating",
+    "washing_machine": "Washing machine",
+    "dryer": "Dryer",
+    "dishwasher": "Dishwasher",
+    "full_kitchen": "Full kitchen",
+    "workspace": "Workspace",
+    "tv": "TV",
+    "parking": "Parking",
+    "balcony_terrace": "Balcony or terrace",
+    "yard": "Yard",
+    "pool": "Pool",
+    "sauna": "Sauna",
+    "gym": "Gym",
+    "near_sea": "Near the sea",
+    "near_ski_lifts": "Near ski lifts",
+    "crib_high_chair": "Crib and high chair",
+    "wheelchair_access": "Wheelchair access",
+    "self_check_in": "Self check-in"
+  },
+  "houseRule": {
+    "pets_allowed": "Pets allowed",
+    "smoking_allowed": "Smoking allowed"
+  },
+  "shabbatFeature": {
+    "hot_plate": "Hot plate (plata)",
+    "hot_water_urn": "Hot-water urn",
+    "light_timers": "Light timers",
+    "mechanical_key": "Regular key (not a keypad or electronic lock)",
+    "stairs_or_shabbat_elevator": "Stairs or a Shabbat elevator",
+    "no_motion_sensors": "No motion-sensor lights or automatic doors"
+  },
+  "jewishFeature": {
+    "mezuzot": "Mezuzot on the doors",
+    "separable_beds": "Beds that can be separated",
+    "sukkah_space": "Space for a sukkah",
+    "pesach_ready": "Pesach-ready kitchen",
+    "kosher_food_nearby": "Kosher food nearby",
+    "mikveh_nearby": "Mikveh nearby",
+    "host_keeps_shabbat": "Host keeps Shabbat",
+    "host_speaks_hebrew": "Host speaks Hebrew"
+  },
+  "hotelJewishFeature": {
+    "kosher_breakfast": "Kosher breakfast",
+    "kosher_meals": "Kosher meals",
+    "shabbat_meals": "Shabbat meals",
+    "separate_swimming": "Separate swimming hours"
+  },
+  "kitchenKosher": {
+    "NOT_KOSHER": "Not kosher",
+    "CAN_KASHER": "Can be kashered on request",
+    "KOSHER": "Kosher (separate meat and dairy)"
+  },
+  "kitchenFilter": {
+    "kosher": "Kosher kitchen",
+    "kosher_or_kasherable": "Kosher or can be kashered"
+  },
+  "sharedRoomFor": {
+    "MEN": "Men only",
+    "WOMEN": "Women only",
+    "FAMILIES": "Families"
+  },
+  "condition": {
+    "BLACK_FRAME": "Black frame",
+    "WHITE_FRAME": "White frame",
+    "GREEN_FRAME": "Green frame",
+    "NEWLY_RENOVATED": "Newly renovated",
+    "OLD_RENOVATION": "Old renovation",
+    "NEEDS_RENOVATION": "Needs renovation"
+  },
+  "conditionHint": {
+    "BLACK_FRAME": "Bare shell: walls and roof only, no plaster, wiring or plumbing.",
+    "WHITE_FRAME": "Ready for finishing: plastered walls, wiring and plumbing in place.",
+    "GREEN_FRAME": "Almost finished: walls and floors ready for the final touches.",
+    "NEWLY_RENOVATED": "Renovated recently and ready to move in.",
+    "OLD_RENOVATION": "Renovated years ago: livable, but dated.",
+    "NEEDS_RENOVATION": "Needs repairs before you can live in it."
+  },
+  "heating": {
+    "CENTRAL": "Central heating",
+    "GAS_BOILER": "Gas boiler",
+    "ELECTRIC": "Electric",
+    "AIR_CONDITIONING": "Air conditioning"
+  },
+  "view": {
+    "SEA": "Sea view",
+    "MOUNTAIN": "Mountain view",
+    "CITY": "City view"
+  },
+  "buildingAge": {
+    "NEW": "New building",
+    "OLD": "Old building"
+  },
+  "contactChannel": {
+    "WHATSAPP": "WhatsApp",
+    "TELEGRAM": "Telegram",
+    "VIBER": "Viber",
+    "MESSENGER": "Messenger",
+    "PHONE": "Phone call",
+    "SMS": "SMS",
+    "EMAIL": "Email"
+  },
+  "reportReason": {
+    "FAKE_LISTING": "Fake listing or scam",
+    "ALREADY_RENTED": "Already rented or sold",
+    "WRONG_PRICE": "Wrong price",
+    "ASKED_MONEY_UPFRONT": "Asked for money before a viewing",
+    "OFFENSIVE": "Offensive content",
+    "OTHER": "Something else"
+  },
+  "ownerType": {
+    "private": "Private owner",
+    "business": "Business"
+  },
+  "postedWithin": {
+    "24h": "Last 24 hours",
+    "3d": "Last 3 days",
+    "7d": "Last week",
+    "30d": "Last month"
+  },
+  "sort": {
+    "recommended": "Recommended",
+    "newest": "Newest",
+    "price_asc": "Price: low to high",
+    "price_desc": "Price: high to low",
+    "price_sqm": "Price per m²",
+    "synagogue": "Closest to a synagogue",
+    "rating": "Top rated",
+    "updated": "Recently updated",
+    "price_drop": "Price dropped"
+  },
+  "viewMode": {
+    "grid": "Grid",
+    "list": "List",
+    "map": "Map"
+  },
+  "filter": {
+    "shabbatFriendly": "Shabbat-friendly",
+    "bigFamily": "Suits big families (sleeps 8+)",
+    "verifiedOnly": "Verified owners only",
+    "hasPhotos": "Has photos",
+    "hasVideo": "Has video",
+    "furnished": "Furnished",
+    "elevator": "Elevator",
+    "synagogueMaxWalk": "Synagogue within {count} min walk"
+  },
+  "facts": {
+    "rooms": "{count, plural, one {{count} room} other {{count} rooms}}",
+    "bedrooms": "{count, plural, one {{count} bedroom} other {{count} bedrooms}}",
+    "bathrooms": "{count, plural, one {{count} bathroom} other {{count} bathrooms}}",
+    "guests": "{count, plural, one {{count} guest} other {{count} guests}}",
+    "upToGuests": "{count, plural, one {Up to {count} guest} other {Up to {count} guests}}",
+    "beds": "{count, plural, one {{count} bed} other {{count} beds}}",
+    "size": "{size}",
+    "floor": "Floor {floor}",
+    "floorOf": "Floor {floor} of {total}",
+    "studio": "Studio",
+    "synagogueWalk": "{count} min walk to synagogue",
+    "chabadWalk": "{count} min walk to Chabad house",
+    "minStay": "{count, plural, one {Minimum {count} night} other {Minimum {count} nights}}"
+  }
+}

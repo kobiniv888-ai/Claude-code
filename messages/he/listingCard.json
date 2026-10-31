@@ -1,0 +1,68 @@
+{
+  "labels": {
+    "new": "חדש",
+    "priceDropped": "ירד במחיר",
+    "promoted": "מקודם",
+    "demo": "הדגמה"
+  },
+  "badges": {
+    "verified": "מאומת",
+    "verifiedHint": "הצוות שלנו בדק את תעודת הזהות של הבעלים או את הוכחת הבעלות",
+    "business": "עסק",
+    "shabbatFriendly": "מתאים לשבת",
+    "kosherKitchen": "מטבח כשר",
+    "synagogueWalk": "{count} דק׳ הליכה לבית כנסת"
+  },
+  "price": {
+    "per": {
+      "NIGHT": "/ לילה",
+      "WEEK": "/ שבוע",
+      "MONTH": "/ חודש"
+    },
+    "from": "החל מ־{price}",
+    "onRequest": "מחיר לפי בקשה",
+    "original": "{price} במקור",
+    "approx": "≈ {price}",
+    "approxHint": "בקירוב, לפי שער החליפין של היום. המחיר של הבעלים הוא {price}."
+  },
+  "favorite": {
+    "save": "שמירת {title}",
+    "unsave": "הסרת {title} מהשמורים",
+    "saved": "נשמר במועדפים שלך",
+    "removed": "הוסר מהמועדפים שלך",
+    "failed": "לא הצלחנו לעדכן את השמורים. נסו שוב.",
+    "viewSaved": "לשמורים"
+  },
+  "carousel": {
+    "label": "תמונות של {title}",
+    "previous": "התמונה הקודמת",
+    "next": "התמונה הבאה",
+    "slide": "תמונה {index} מתוך {total}",
+    "goTo": "הצגת תמונה {index}",
+    "noPhotos": "עדיין אין תמונות"
+  },
+  "autoTranslated": "תורגם אוטומטית",
+  "listingId": "מזהה {id}",
+  "compare": {
+    "add": "השוואה",
+    "remove": "הסרה מההשוואה",
+    "added": "נוסף להשוואה",
+    "removed": "הוסר מההשוואה",
+    "full": "אפשר להשוות עד {count} מודעות. הסירו אחת כדי להוסיף אחרת.",
+    "open": "להשוואה"
+  },
+  "recentlyViewed": {
+    "title": "נצפו לאחרונה",
+    "clear": "ניקוי",
+    "scrollBack": "גלילה אחורה",
+    "scrollForward": "גלילה קדימה"
+  },
+  "grid": {
+    "label": "מודעות",
+    "loading": "טוען מודעות…"
+  },
+  "empty": {
+    "title": "אין מודעות להצגה",
+    "description": "נסו עיר אחרת, תאריכים אחרים או פחות מסננים."
+  }
+}

@@ -1,0 +1,196 @@
+{
+  "dealType": {
+    "SHORT_STAY": "მოკლევადიანი",
+    "MONTHLY_RENT": "თვიური ქირა",
+    "SALE": "იყიდება",
+    "HOTEL_ROOM": "ოთახი სასტუმროში ან საოჯახო სასტუმროში"
+  },
+  "dealFilter": {
+    "rent": "ქირავდება",
+    "short-stay": "დღიურად",
+    "monthly": "თვიურად",
+    "buy": "ყიდვა",
+    "hotels": "სასტუმროები და საოჯახო სასტუმროები"
+  },
+  "propertyType": {
+    "APARTMENT": "ბინა",
+    "STUDIO": "სტუდიო",
+    "PENTHOUSE": "პენტჰაუსი",
+    "HOUSE": "კერძო სახლი",
+    "VILLA": "ვილა",
+    "COTTAGE": "კოტეჯი",
+    "ROOM": "ოთახი საერთო ბინაში",
+    "HOTEL": "სასტუმრო",
+    "GUESTHOUSE": "საოჯახო სასტუმრო",
+    "HOSTEL": "ჰოსტელი"
+  },
+  "pricePeriod": {
+    "NIGHT": "ღამეში",
+    "WEEK": "კვირაში",
+    "MONTH": "თვეში",
+    "TOTAL": "სრული ფასი"
+  },
+  "amenity": {
+    "wifi": "Wi-Fi",
+    "air_conditioning": "კონდიციონერი",
+    "heating": "გათბობა",
+    "washing_machine": "სარეცხი მანქანა",
+    "dryer": "საშრობი",
+    "dishwasher": "ჭურჭლის სარეცხი მანქანა",
+    "full_kitchen": "სრულად აღჭურვილი სამზარეულო",
+    "workspace": "სამუშაო ადგილი",
+    "tv": "ტელევიზორი",
+    "parking": "პარკინგი",
+    "balcony_terrace": "აივანი ან ტერასა",
+    "yard": "ეზო",
+    "pool": "აუზი",
+    "sauna": "საუნა",
+    "gym": "სპორტდარბაზი",
+    "near_sea": "ზღვასთან ახლოს",
+    "near_ski_lifts": "სათხილამურო საბაგიროსთან ახლოს",
+    "crib_high_chair": "ბავშვის საწოლი და სკამი",
+    "wheelchair_access": "ეტლით მისადგომი",
+    "self_check_in": "დამოუკიდებელი შესვლა"
+  },
+  "houseRule": {
+    "pets_allowed": "შინაური ცხოველები დაშვებულია",
+    "smoking_allowed": "მოწევა დაშვებულია"
+  },
+  "shabbatFeature": {
+    "hot_plate": "გამაცხელებელი ფირფიტა (პლატა)",
+    "hot_water_urn": "ცხელი წყლის სამოვარი",
+    "light_timers": "განათების ტაიმერები",
+    "mechanical_key": "ჩვეულებრივი გასაღები (არა კოდიანი ან ელექტრონული საკეტი)",
+    "stairs_or_shabbat_elevator": "კიბე ან შაბათის ლიფტი",
+    "no_motion_sensors": "მოძრაობის სენსორიანი განათებისა და ავტომატური კარების გარეშე"
+  },
+  "jewishFeature": {
+    "mezuzot": "მეზუზები კარებზე",
+    "separable_beds": "საწოლები, რომელთა გაყოფაც შეიძლება",
+    "sukkah_space": "ადგილი სუკასთვის",
+    "pesach_ready": "პესახისთვის მზად სამზარეულო",
+    "kosher_food_nearby": "კოშერული საკვები ახლოს",
+    "mikveh_nearby": "მიკვე ახლოს",
+    "host_keeps_shabbat": "მასპინძელი შაბათს იცავს",
+    "host_speaks_hebrew": "მასპინძელი ებრაულად საუბრობს"
+  },
+  "hotelJewishFeature": {
+    "kosher_breakfast": "კოშერული საუზმე",
+    "kosher_meals": "კოშერული კვება",
+    "shabbat_meals": "შაბათის ტრაპეზი",
+    "separate_swimming": "ცალკე საცურაო საათები"
+  },
+  "kitchenKosher": {
+    "NOT_KOSHER": "არაკოშერული",
+    "CAN_KASHER": "მოთხოვნისას შეიძლება კოშერულად მომზადება",
+    "KOSHER": "კოშერული (ხორცი და რძე ცალ-ცალკე)"
+  },
+  "kitchenFilter": {
+    "kosher": "კოშერული სამზარეულო",
+    "kosher_or_kasherable": "კოშერული ან შესაძლებელია გაკოშერება"
+  },
+  "sharedRoomFor": {
+    "MEN": "მხოლოდ მამაკაცებისთვის",
+    "WOMEN": "მხოლოდ ქალებისთვის",
+    "FAMILIES": "ოჯახებისთვის"
+  },
+  "condition": {
+    "BLACK_FRAME": "შავი კარკასი",
+    "WHITE_FRAME": "თეთრი კარკასი",
+    "GREEN_FRAME": "მწვანე კარკასი",
+    "NEWLY_RENOVATED": "ახალი რემონტი",
+    "OLD_RENOVATION": "ძველი რემონტი",
+    "NEEDS_RENOVATION": "სარემონტო"
+  },
+  "conditionHint": {
+    "BLACK_FRAME": "შავი კარკასი: მხოლოდ კედლები და სახურავი, ბათქაშის, გაყვანილობისა და სანტექნიკის გარეშე.",
+    "WHITE_FRAME": "თეთრი კარკასი: კედლები გალესილია, გაყვანილობა და სანტექნიკა გაყვანილია.",
+    "GREEN_FRAME": "მწვანე კარკასი: კედლები და იატაკი მზადაა საბოლოო მოპირკეთებისთვის.",
+    "NEWLY_RENOVATED": "ახლახან გარემონტებული, შესახლებისთვის მზად.",
+    "OLD_RENOVATION": "წლების წინ გარემონტებული: საცხოვრებლად ვარგისია, მაგრამ მოძველებულია.",
+    "NEEDS_RENOVATION": "შესახლებამდე სჭირდება შეკეთება."
+  },
+  "heating": {
+    "CENTRAL": "ცენტრალური გათბობა",
+    "GAS_BOILER": "გაზის ქვაბი",
+    "ELECTRIC": "ელექტრო გათბობა",
+    "AIR_CONDITIONING": "კონდიციონერი"
+  },
+  "view": {
+    "SEA": "ხედი ზღვაზე",
+    "MOUNTAIN": "ხედი მთებზე",
+    "CITY": "ხედი ქალაქზე"
+  },
+  "buildingAge": {
+    "NEW": "ახალი აშენებული",
+    "OLD": "ძველი აშენებული"
+  },
+  "contactChannel": {
+    "WHATSAPP": "WhatsApp",
+    "TELEGRAM": "Telegram",
+    "VIBER": "Viber",
+    "MESSENGER": "Messenger",
+    "PHONE": "ზარი",
+    "SMS": "SMS",
+    "EMAIL": "ელფოსტა"
+  },
+  "reportReason": {
+    "FAKE_LISTING": "ყალბი განცხადება ან თაღლითობა",
+    "ALREADY_RENTED": "უკვე გაქირავებულია ან გაყიდულია",
+    "WRONG_PRICE": "არასწორი ფასი",
+    "ASKED_MONEY_UPFRONT": "ნახვამდე ფული მოითხოვეს",
+    "OFFENSIVE": "შეურაცხმყოფელი შინაარსი",
+    "OTHER": "სხვა მიზეზი"
+  },
+  "ownerType": {
+    "private": "კერძო მესაკუთრე",
+    "business": "ბიზნესი"
+  },
+  "postedWithin": {
+    "24h": "ბოლო 24 საათი",
+    "3d": "ბოლო 3 დღე",
+    "7d": "ბოლო კვირა",
+    "30d": "ბოლო თვე"
+  },
+  "sort": {
+    "recommended": "რეკომენდებული",
+    "newest": "უახლესი",
+    "price_asc": "ფასი: ზრდადობით",
+    "price_desc": "ფასი: კლებადობით",
+    "price_sqm": "ფასი მ²-ზე",
+    "synagogue": "სინაგოგასთან ყველაზე ახლოს",
+    "rating": "საუკეთესო შეფასება",
+    "updated": "ახლახან განახლებული",
+    "price_drop": "ფასი შემცირდა"
+  },
+  "viewMode": {
+    "grid": "ბადე",
+    "list": "სია",
+    "map": "რუკა"
+  },
+  "filter": {
+    "shabbatFriendly": "შაბათისთვის შესაფერისი",
+    "bigFamily": "დიდი ოჯახებისთვის (8+ ადგილი)",
+    "verifiedOnly": "მხოლოდ დადასტურებული მესაკუთრეები",
+    "hasPhotos": "ფოტოებით",
+    "hasVideo": "ვიდეოთი",
+    "furnished": "ავეჯით",
+    "elevator": "ლიფტი",
+    "synagogueMaxWalk": "სინაგოგა {count} წუთის სავალზე"
+  },
+  "facts": {
+    "rooms": "{count, plural, one {{count} ოთახი} other {{count} ოთახი}}",
+    "bedrooms": "{count, plural, one {{count} საძინებელი} other {{count} საძინებელი}}",
+    "bathrooms": "{count, plural, one {{count} სააბაზანო} other {{count} სააბაზანო}}",
+    "guests": "{count, plural, one {{count} სტუმარი} other {{count} სტუმარი}}",
+    "upToGuests": "{count, plural, one {{count} სტუმრამდე} other {{count} სტუმრამდე}}",
+    "beds": "{count, plural, one {{count} საწოლი} other {{count} საწოლი}}",
+    "size": "{size}",
+    "floor": "სართული {floor}",
+    "floorOf": "სართული {floor} / {total}",
+    "studio": "სტუდიო",
+    "synagogueWalk": "{count} წთ ფეხით სინაგოგამდე",
+    "chabadWalk": "{count} წთ ფეხით ხაბადის სახლამდე",
+    "minStay": "{count, plural, one {მინიმუმ {count} ღამე} other {მინიმუმ {count} ღამე}}"
+  }
+}

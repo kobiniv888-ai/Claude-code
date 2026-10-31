@@ -1,0 +1,68 @@
+{
+  "labels": {
+    "new": "New",
+    "priceDropped": "Price dropped",
+    "promoted": "Promoted",
+    "demo": "Demo"
+  },
+  "badges": {
+    "verified": "Verified",
+    "verifiedHint": "Our team checked the owner's ID or proof of ownership",
+    "business": "Business",
+    "shabbatFriendly": "Shabbat-friendly",
+    "kosherKitchen": "Kosher kitchen",
+    "synagogueWalk": "{count} min walk to synagogue"
+  },
+  "price": {
+    "per": {
+      "NIGHT": "/ night",
+      "WEEK": "/ week",
+      "MONTH": "/ month"
+    },
+    "from": "from {price}",
+    "onRequest": "Price on request",
+    "original": "{price} original",
+    "approx": "≈ {price}",
+    "approxHint": "Approximate, at today's exchange rate. The owner's price is {price}."
+  },
+  "favorite": {
+    "save": "Save {title}",
+    "unsave": "Remove {title} from saved",
+    "saved": "Saved to your favorites",
+    "removed": "Removed from your favorites",
+    "failed": "Could not update your saved listings. Please try again.",
+    "viewSaved": "View saved"
+  },
+  "carousel": {
+    "label": "Photos of {title}",
+    "previous": "Previous photo",
+    "next": "Next photo",
+    "slide": "Photo {index} of {total}",
+    "goTo": "Show photo {index}",
+    "noPhotos": "No photos yet"
+  },
+  "autoTranslated": "Auto-translated",
+  "listingId": "ID {id}",
+  "compare": {
+    "add": "Compare",
+    "remove": "Remove from compare",
+    "added": "Added to compare",
+    "removed": "Removed from compare",
+    "full": "You can compare up to {count} listings. Remove one to add another.",
+    "open": "Compare now"
+  },
+  "recentlyViewed": {
+    "title": "Recently viewed",
+    "clear": "Clear",
+    "scrollBack": "Scroll back",
+    "scrollForward": "Scroll forward"
+  },
+  "grid": {
+    "label": "Listings",
+    "loading": "Loading listings…"
+  },
+  "empty": {
+    "title": "No listings to show",
+    "description": "Try another city, other dates or fewer filters."
+  }
+}

@@ -1,0 +1,94 @@
+/**
+ * Public listing shapes shared by the server queries and the client components (client-safe).
+ *
+ * These are PUBLIC data: they never contain the exact address, lat/lng, cadastral code or
+ * contact values. `lat`/`lng` are the approximate map point (Listing.approxLat/approxLng).
+ */
+import type { CurrencyCode } from "@/config/site";
+import type { DealType, PricePeriod, PropertyType } from "@/generated/prisma/enums";
+
+export type ListingCardPhoto = {
+  /** Medium size (≈800 px) URL. */
+  url: string;
+  alt: string;
+  blurDataUrl?: string;
+};
+
+export type ListingCardBadges = {
+  /** The owner's ID is verified, or the ownership of this property is verified. */
+  verified: boolean;
+  /** Posted by a business account (hotel, agency…). */
+  business: boolean;
+  shabbatFriendly: boolean;
+  kosherKitchen: boolean;
+  /** Walking minutes to the nearest synagogue. */
+  synagogueWalkMin: number | null;
+  /** Published within siteConfig.listings.newLabelDays. */
+  isNew: boolean;
+  /** Price dropped within siteConfig.listings.priceDropLabelDays. */
+  priceDropped: boolean;
+  /** Featured (paid or hand-picked) — always labeled "Promoted". */
+  promoted: boolean;
+  demo: boolean;
+};
+
+export type ListingCardData = {
+  /** Listing.id (use for favorites). */
+  id: string;
+  /** The short public number ("ID 1234"). */
+  publicId: number;
+  /** Localized path without the locale prefix: "/listing/1234-sunny-flat-in-vake". */
+  href: string;
+  /** In the visitor's language when a translation exists, otherwise the original. */
+  title: string;
+  titleIsAutoTranslated: boolean;
+  cityName: string | null;
+  neighborhoodName: string | null;
+  /** Up to 6 photos, cover first. */
+  photos: ListingCardPhoto[];
+  /** In the owner's currency. Null when there is no price. */
+  price: number | null;
+  currency: CurrencyCode;
+  pricePeriod: PricePeriod;
+  /** True when `price` is the cheapest room type ("from ₾120"), for hotels. */
+  priceIsFrom: boolean;
+  priceUsd: number | null;
+  dealType: DealType;
+  propertyType: PropertyType;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  sizeSqm: number | null;
+  maxGuests: number | null;
+  badges: ListingCardBadges;
+  /** Approximate map point only (never the exact location). */
+  lat: number | null;
+  lng: number | null;
+  isFavorite: boolean;
+  /** ISO date-time. */
+  publishedAt: string | null;
+};
+
+/** One marker on the search map. */
+export type ListingMapPoint = {
+  publicId: number;
+  /** Approximate. */
+  lat: number;
+  lng: number;
+  price: number | null;
+  currency: CurrencyCode;
+  pricePeriod: PricePeriod;
+  priceIsFrom: boolean;
+  title: string;
+  href: string;
+  /** Small photo URL, or null. */
+  photo: string | null;
+};
+
+export type ListingSearchResult = {
+  items: ListingCardData[];
+  total: number;
+  /** 1-based; clamped to pageCount. */
+  page: number;
+  pageSize: number;
+  pageCount: number;
+};

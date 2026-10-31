@@ -1,0 +1,196 @@
+{
+  "dealType": {
+    "SHORT_STAY": "Посуточно",
+    "MONTHLY_RENT": "Помесячная аренда",
+    "SALE": "Продажа",
+    "HOTEL_ROOM": "Номер в отеле или гостевом доме"
+  },
+  "dealFilter": {
+    "rent": "Аренда",
+    "short-stay": "Посуточно",
+    "monthly": "Помесячно",
+    "buy": "Купить",
+    "hotels": "Отели и гостевые дома"
+  },
+  "propertyType": {
+    "APARTMENT": "Квартира",
+    "STUDIO": "Студия",
+    "PENTHOUSE": "Пентхаус",
+    "HOUSE": "Частный дом",
+    "VILLA": "Вилла",
+    "COTTAGE": "Коттедж",
+    "ROOM": "Комната в общей квартире",
+    "HOTEL": "Отель",
+    "GUESTHOUSE": "Гостевой дом",
+    "HOSTEL": "Хостел"
+  },
+  "pricePeriod": {
+    "NIGHT": "за ночь",
+    "WEEK": "за неделю",
+    "MONTH": "в месяц",
+    "TOTAL": "полная стоимость"
+  },
+  "amenity": {
+    "wifi": "Wi-Fi",
+    "air_conditioning": "Кондиционер",
+    "heating": "Отопление",
+    "washing_machine": "Стиральная машина",
+    "dryer": "Сушильная машина",
+    "dishwasher": "Посудомоечная машина",
+    "full_kitchen": "Полностью оборудованная кухня",
+    "workspace": "Рабочее место",
+    "tv": "Телевизор",
+    "parking": "Парковка",
+    "balcony_terrace": "Балкон или терраса",
+    "yard": "Двор",
+    "pool": "Бассейн",
+    "sauna": "Сауна",
+    "gym": "Тренажёрный зал",
+    "near_sea": "Рядом с морем",
+    "near_ski_lifts": "Рядом с подъёмниками",
+    "crib_high_chair": "Детская кроватка и стульчик",
+    "wheelchair_access": "Доступно на коляске",
+    "self_check_in": "Самостоятельное заселение"
+  },
+  "houseRule": {
+    "pets_allowed": "Можно с животными",
+    "smoking_allowed": "Можно курить"
+  },
+  "shabbatFeature": {
+    "hot_plate": "Плата для подогрева",
+    "hot_water_urn": "Электросамовар (мейхам)",
+    "light_timers": "Таймеры для света",
+    "mechanical_key": "Обычный ключ (не кодовый или электронный замок)",
+    "stairs_or_shabbat_elevator": "Лестница или «субботний» лифт",
+    "no_motion_sensors": "Нет датчиков движения и автоматических дверей"
+  },
+  "jewishFeature": {
+    "mezuzot": "Мезузы на дверях",
+    "separable_beds": "Кровати можно раздвинуть",
+    "sukkah_space": "Место для сукки",
+    "pesach_ready": "Кухня готова к Песаху",
+    "kosher_food_nearby": "Кошерная еда рядом",
+    "mikveh_nearby": "Миква рядом",
+    "host_keeps_shabbat": "Хозяин соблюдает Шабат",
+    "host_speaks_hebrew": "Хозяин говорит на иврите"
+  },
+  "hotelJewishFeature": {
+    "kosher_breakfast": "Кошерный завтрак",
+    "kosher_meals": "Кошерное питание",
+    "shabbat_meals": "Субботние трапезы",
+    "separate_swimming": "Раздельные часы в бассейне"
+  },
+  "kitchenKosher": {
+    "NOT_KOSHER": "Некошерная",
+    "CAN_KASHER": "Можно откошеровать по запросу",
+    "KOSHER": "Кошерная (мясное и молочное отдельно)"
+  },
+  "kitchenFilter": {
+    "kosher": "Кошерная кухня",
+    "kosher_or_kasherable": "Кошерная или можно откошеровать"
+  },
+  "sharedRoomFor": {
+    "MEN": "Только для мужчин",
+    "WOMEN": "Только для женщин",
+    "FAMILIES": "Для семей"
+  },
+  "condition": {
+    "BLACK_FRAME": "Чёрный каркас",
+    "WHITE_FRAME": "Белый каркас",
+    "GREEN_FRAME": "Зелёный каркас",
+    "NEWLY_RENOVATED": "Свежий ремонт",
+    "OLD_RENOVATION": "Старый ремонт",
+    "NEEDS_RENOVATION": "Требует ремонта"
+  },
+  "conditionHint": {
+    "BLACK_FRAME": "Голые стены: только стены и крыша, без штукатурки, проводки и сантехники.",
+    "WHITE_FRAME": "Под чистовую отделку: стены оштукатурены, проводка и сантехника есть.",
+    "GREEN_FRAME": "Почти готово: стены и полы готовы к финальной отделке.",
+    "NEWLY_RENOVATED": "Недавний ремонт, можно сразу заезжать.",
+    "OLD_RENOVATION": "Ремонт сделан давно: жить можно, но всё устарело.",
+    "NEEDS_RENOVATION": "Перед заселением нужен ремонт."
+  },
+  "heating": {
+    "CENTRAL": "Центральное отопление",
+    "GAS_BOILER": "Газовый котёл",
+    "ELECTRIC": "Электрическое",
+    "AIR_CONDITIONING": "Кондиционер"
+  },
+  "view": {
+    "SEA": "Вид на море",
+    "MOUNTAIN": "Вид на горы",
+    "CITY": "Вид на город"
+  },
+  "buildingAge": {
+    "NEW": "Новостройка",
+    "OLD": "Старый дом"
+  },
+  "contactChannel": {
+    "WHATSAPP": "WhatsApp",
+    "TELEGRAM": "Telegram",
+    "VIBER": "Viber",
+    "MESSENGER": "Messenger",
+    "PHONE": "Звонок",
+    "SMS": "SMS",
+    "EMAIL": "Эл. почта"
+  },
+  "reportReason": {
+    "FAKE_LISTING": "Фальшивое объявление или мошенничество",
+    "ALREADY_RENTED": "Уже сдано или продано",
+    "WRONG_PRICE": "Неверная цена",
+    "ASKED_MONEY_UPFRONT": "Просили деньги до просмотра",
+    "OFFENSIVE": "Оскорбительное содержание",
+    "OTHER": "Другое"
+  },
+  "ownerType": {
+    "private": "Частный владелец",
+    "business": "Компания"
+  },
+  "postedWithin": {
+    "24h": "За последние 24 часа",
+    "3d": "За последние 3 дня",
+    "7d": "За последнюю неделю",
+    "30d": "За последний месяц"
+  },
+  "sort": {
+    "recommended": "Рекомендуемые",
+    "newest": "Новые",
+    "price_asc": "Цена: по возрастанию",
+    "price_desc": "Цена: по убыванию",
+    "price_sqm": "Цена за м²",
+    "synagogue": "Ближе к синагоге",
+    "rating": "Высокий рейтинг",
+    "updated": "Недавно обновлённые",
+    "price_drop": "Цена снижена"
+  },
+  "viewMode": {
+    "grid": "Плитка",
+    "list": "Список",
+    "map": "Карта"
+  },
+  "filter": {
+    "shabbatFriendly": "Подходит для Шаббата",
+    "bigFamily": "Для больших семей (от 8 мест)",
+    "verifiedOnly": "Только проверенные владельцы",
+    "hasPhotos": "С фото",
+    "hasVideo": "С видео",
+    "furnished": "С мебелью",
+    "elevator": "Лифт",
+    "synagogueMaxWalk": "Синагога в {count} мин пешком"
+  },
+  "facts": {
+    "rooms": "{count, plural, one {{count} комната} few {{count} комнаты} many {{count} комнат} other {{count} комнаты}}",
+    "bedrooms": "{count, plural, one {{count} спальня} few {{count} спальни} many {{count} спален} other {{count} спальни}}",
+    "bathrooms": "{count, plural, one {{count} санузел} few {{count} санузла} many {{count} санузлов} other {{count} санузла}}",
+    "guests": "{count, plural, one {{count} гость} few {{count} гостя} many {{count} гостей} other {{count} гостя}}",
+    "upToGuests": "{count, plural, one {До {count} гостя} other {До {count} гостей}}",
+    "beds": "{count, plural, one {{count} кровать} few {{count} кровати} many {{count} кроватей} other {{count} кровати}}",
+    "size": "{size}",
+    "floor": "Этаж {floor}",
+    "floorOf": "Этаж {floor} из {total}",
+    "studio": "Студия",
+    "synagogueWalk": "{count} мин пешком до синагоги",
+    "chabadWalk": "{count} мин пешком до Бейт Хабада",
+    "minStay": "{count, plural, one {Минимум {count} ночь} few {Минимум {count} ночи} many {Минимум {count} ночей} other {Минимум {count} ночи}}"
+  }
+}

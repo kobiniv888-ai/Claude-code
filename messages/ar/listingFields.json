@@ -1,0 +1,196 @@
+{
+  "dealType": {
+    "SHORT_STAY": "إقامة قصيرة",
+    "MONTHLY_RENT": "إيجار شهري",
+    "SALE": "للبيع",
+    "HOTEL_ROOM": "غرفة في فندق أو دار ضيافة"
+  },
+  "dealFilter": {
+    "rent": "إيجار",
+    "short-stay": "إقامة قصيرة",
+    "monthly": "إيجار شهري",
+    "buy": "شراء",
+    "hotels": "فنادق ودور ضيافة"
+  },
+  "propertyType": {
+    "APARTMENT": "شقة",
+    "STUDIO": "استوديو",
+    "PENTHOUSE": "بنتهاوس",
+    "HOUSE": "منزل خاص",
+    "VILLA": "فيلا",
+    "COTTAGE": "كوخ",
+    "ROOM": "غرفة في شقة مشتركة",
+    "HOTEL": "فندق",
+    "GUESTHOUSE": "دار ضيافة",
+    "HOSTEL": "بيت شباب"
+  },
+  "pricePeriod": {
+    "NIGHT": "لليلة",
+    "WEEK": "للأسبوع",
+    "MONTH": "للشهر",
+    "TOTAL": "السعر الإجمالي"
+  },
+  "amenity": {
+    "wifi": "واي فاي",
+    "air_conditioning": "تكييف",
+    "heating": "تدفئة",
+    "washing_machine": "غسالة ملابس",
+    "dryer": "مجفف ملابس",
+    "dishwasher": "غسالة صحون",
+    "full_kitchen": "مطبخ مجهز",
+    "workspace": "مساحة عمل",
+    "tv": "تلفاز",
+    "parking": "موقف سيارات",
+    "balcony_terrace": "شرفة أو تراس",
+    "yard": "فناء",
+    "pool": "مسبح",
+    "sauna": "ساونا",
+    "gym": "صالة رياضية",
+    "near_sea": "قريب من البحر",
+    "near_ski_lifts": "قريب من مصاعد التزلج",
+    "crib_high_chair": "سرير وكرسي أطفال",
+    "wheelchair_access": "مناسب للكراسي المتحركة",
+    "self_check_in": "تسجيل وصول ذاتي"
+  },
+  "houseRule": {
+    "pets_allowed": "يُسمح بالحيوانات الأليفة",
+    "smoking_allowed": "يُسمح بالتدخين"
+  },
+  "shabbatFeature": {
+    "hot_plate": "صفيحة تسخين (بلاطة)",
+    "hot_water_urn": "غلاية ماء ساخن (ميحام)",
+    "light_timers": "مؤقتات للإضاءة",
+    "mechanical_key": "مفتاح عادي (ليس لوحة أرقام أو قفلًا إلكترونيًا)",
+    "stairs_or_shabbat_elevator": "درج أو مصعد السبت",
+    "no_motion_sensors": "لا أضواء بحساسات حركة ولا أبواب أوتوماتيكية"
+  },
+  "jewishFeature": {
+    "mezuzot": "مزوزوت على الأبواب",
+    "separable_beds": "أسرّة يمكن فصلها",
+    "sukkah_space": "مكان للسوكا",
+    "pesach_ready": "مطبخ جاهز لعيد الفصح",
+    "kosher_food_nearby": "طعام كوشير قريب",
+    "mikveh_nearby": "مكفاه قريب",
+    "host_keeps_shabbat": "المضيف يحفظ السبت",
+    "host_speaks_hebrew": "المضيف يتحدث العبرية"
+  },
+  "hotelJewishFeature": {
+    "kosher_breakfast": "فطور كوشير",
+    "kosher_meals": "وجبات كوشير",
+    "shabbat_meals": "وجبات السبت",
+    "separate_swimming": "ساعات سباحة منفصلة"
+  },
+  "kitchenKosher": {
+    "NOT_KOSHER": "غير كوشير",
+    "CAN_KASHER": "يمكن تهيئته كوشير عند الطلب",
+    "KOSHER": "كوشير (اللحوم والألبان منفصلة)"
+  },
+  "kitchenFilter": {
+    "kosher": "مطبخ كوشير",
+    "kosher_or_kasherable": "كوشير أو يمكن تحويله إلى كوشير"
+  },
+  "sharedRoomFor": {
+    "MEN": "للرجال فقط",
+    "WOMEN": "للنساء فقط",
+    "FAMILIES": "للعائلات"
+  },
+  "condition": {
+    "BLACK_FRAME": "هيكل أسود",
+    "WHITE_FRAME": "هيكل أبيض",
+    "GREEN_FRAME": "هيكل أخضر",
+    "NEWLY_RENOVATED": "مُجدد حديثًا",
+    "OLD_RENOVATION": "تجديد قديم",
+    "NEEDS_RENOVATION": "يحتاج إلى تجديد"
+  },
+  "conditionHint": {
+    "BLACK_FRAME": "هيكل خام: جدران وسقف فقط، بلا لياسة أو كهرباء أو سباكة.",
+    "WHITE_FRAME": "جاهز للتشطيب: الجدران مُلَيَّسة والكهرباء والسباكة موجودة.",
+    "GREEN_FRAME": "شبه مكتمل: الجدران والأرضيات جاهزة للمسات الأخيرة.",
+    "NEWLY_RENOVATED": "تم تجديده مؤخرًا وجاهز للسكن.",
+    "OLD_RENOVATION": "تم تجديده منذ سنوات: صالح للسكن لكنه قديم.",
+    "NEEDS_RENOVATION": "يحتاج إلى إصلاحات قبل السكن فيه."
+  },
+  "heating": {
+    "CENTRAL": "تدفئة مركزية",
+    "GAS_BOILER": "مرجل غاز",
+    "ELECTRIC": "تدفئة كهربائية",
+    "AIR_CONDITIONING": "مكيف هواء"
+  },
+  "view": {
+    "SEA": "إطلالة على البحر",
+    "MOUNTAIN": "إطلالة على الجبال",
+    "CITY": "إطلالة على المدينة"
+  },
+  "buildingAge": {
+    "NEW": "مبنى جديد",
+    "OLD": "مبنى قديم"
+  },
+  "contactChannel": {
+    "WHATSAPP": "WhatsApp",
+    "TELEGRAM": "Telegram",
+    "VIBER": "Viber",
+    "MESSENGER": "Messenger",
+    "PHONE": "مكالمة هاتفية",
+    "SMS": "رسالة SMS",
+    "EMAIL": "البريد الإلكتروني"
+  },
+  "reportReason": {
+    "FAKE_LISTING": "إعلان مزيف أو احتيال",
+    "ALREADY_RENTED": "تم تأجيره أو بيعه بالفعل",
+    "WRONG_PRICE": "السعر غير صحيح",
+    "ASKED_MONEY_UPFRONT": "طُلب مال قبل المعاينة",
+    "OFFENSIVE": "محتوى مسيء",
+    "OTHER": "سبب آخر"
+  },
+  "ownerType": {
+    "private": "مالك خاص",
+    "business": "شركة"
+  },
+  "postedWithin": {
+    "24h": "آخر 24 ساعة",
+    "3d": "آخر 3 أيام",
+    "7d": "آخر أسبوع",
+    "30d": "آخر شهر"
+  },
+  "sort": {
+    "recommended": "موصى به",
+    "newest": "الأحدث",
+    "price_asc": "السعر: من الأقل إلى الأعلى",
+    "price_desc": "السعر: من الأعلى إلى الأقل",
+    "price_sqm": "السعر لكل م²",
+    "synagogue": "الأقرب إلى كنيس",
+    "rating": "الأعلى تقييمًا",
+    "updated": "المحدّثة مؤخرًا",
+    "price_drop": "انخفض سعرها"
+  },
+  "viewMode": {
+    "grid": "شبكة",
+    "list": "قائمة",
+    "map": "خريطة"
+  },
+  "filter": {
+    "shabbatFriendly": "مناسب للسبت",
+    "bigFamily": "مناسب للعائلات الكبيرة (8 أشخاص أو أكثر)",
+    "verifiedOnly": "الملاك الموثَّقون فقط",
+    "hasPhotos": "مع صور",
+    "hasVideo": "مع فيديو",
+    "furnished": "مفروش",
+    "elevator": "مصعد",
+    "synagogueMaxWalk": "كنيس على بعد {count} دقيقة سيرًا أو أقل"
+  },
+  "facts": {
+    "rooms": "{count, plural, zero {{count} غرف} one {غرفة واحدة} two {غرفتان} few {{count} غرف} many {{count} غرفة} other {{count} غرفة}}",
+    "bedrooms": "{count, plural, zero {{count} غرف نوم} one {غرفة نوم واحدة} two {غرفتا نوم} few {{count} غرف نوم} many {{count} غرفة نوم} other {{count} غرفة نوم}}",
+    "bathrooms": "{count, plural, zero {{count} حمامات} one {حمام واحد} two {حمامان} few {{count} حمامات} many {{count} حمامًا} other {{count} حمام}}",
+    "guests": "{count, plural, zero {{count} ضيوف} one {ضيف واحد} two {ضيفان} few {{count} ضيوف} many {{count} ضيفًا} other {{count} ضيف}}",
+    "upToGuests": "{count, plural, one {حتى ضيف واحد} two {حتى ضيفين} few {حتى {count} ضيوف} many {حتى {count} ضيفًا} other {حتى {count} ضيف}}",
+    "beds": "{count, plural, zero {{count} أسرّة} one {سرير واحد} two {سريران} few {{count} أسرّة} many {{count} سريرًا} other {{count} سرير}}",
+    "size": "{size}",
+    "floor": "الطابق {floor}",
+    "floorOf": "الطابق {floor} من {total}",
+    "studio": "استوديو",
+    "synagogueWalk": "{count} دقيقة سيرًا إلى الكنيس",
+    "chabadWalk": "{count} دقيقة سيرًا إلى بيت حاباد",
+    "minStay": "{count, plural, one {ليلة واحدة على الأقل} two {ليلتان على الأقل} few {{count} ليالٍ على الأقل} many {{count} ليلة على الأقل} other {{count} ليلة على الأقل}}"
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "labels": {
+    "new": "جديد",
+    "priceDropped": "انخفض السعر",
+    "promoted": "مُروَّج",
+    "demo": "تجريبي"
+  },
+  "badges": {
+    "verified": "موثَّق",
+    "verifiedHint": "تحقق فريقنا من هوية المالك أو من إثبات الملكية",
+    "business": "شركة",
+    "shabbatFriendly": "مناسب للسبت",
+    "kosherKitchen": "مطبخ كوشير",
+    "synagogueWalk": "{count} دقيقة سيرًا إلى الكنيس"
+  },
+  "price": {
+    "per": {
+      "NIGHT": "/ ليلة",
+      "WEEK": "/ أسبوع",
+      "MONTH": "/ شهر"
+    },
+    "from": "ابتداءً من {price}",
+    "onRequest": "السعر عند الطلب",
+    "original": "{price} السعر الأصلي",
+    "approx": "≈ {price}",
+    "approxHint": "تقريبي، بسعر صرف اليوم. سعر المالك هو {price}."
+  },
+  "favorite": {
+    "save": "حفظ {title}",
+    "unsave": "إزالة {title} من المحفوظات",
+    "saved": "تم الحفظ في المفضلة",
+    "removed": "تمت الإزالة من المفضلة",
+    "failed": "تعذّر تحديث المحفوظات. حاول مرة أخرى.",
+    "viewSaved": "عرض المحفوظات"
+  },
+  "carousel": {
+    "label": "صور {title}",
+    "previous": "الصورة السابقة",
+    "next": "الصورة التالية",
+    "slide": "الصورة {index} من {total}",
+    "goTo": "عرض الصورة {index}",
+    "noPhotos": "لا توجد صور بعد"
+  },
+  "autoTranslated": "مترجم تلقائيًا",
+  "listingId": "المعرّف {id}",
+  "compare": {
+    "add": "مقارنة",
+    "remove": "إزالة من المقارنة",
+    "added": "أُضيف إلى المقارنة",
+    "removed": "أُزيل من المقارنة",
+    "full": "يمكنك مقارنة {count} إعلانات كحد أقصى. أزل إعلانًا لإضافة آخر.",
+    "open": "قارن الآن"
+  },
+  "recentlyViewed": {
+    "title": "شوهدت مؤخرًا",
+    "clear": "مسح",
+    "scrollBack": "التمرير للخلف",
+    "scrollForward": "التمرير للأمام"
+  },
+  "grid": {
+    "label": "الإعلانات",
+    "loading": "جارٍ تحميل الإعلانات…"
+  },
+  "empty": {
+    "title": "لا توجد إعلانات للعرض",
+    "description": "جرّب مدينة أخرى أو تواريخ أخرى أو عددًا أقل من الفلاتر."
+  }
+}

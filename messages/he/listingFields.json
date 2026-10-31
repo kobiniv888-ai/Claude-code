@@ -1,0 +1,196 @@
+{
+  "dealType": {
+    "SHORT_STAY": "שהייה קצרה",
+    "MONTHLY_RENT": "השכרה חודשית",
+    "SALE": "למכירה",
+    "HOTEL_ROOM": "חדר במלון או בבית הארחה"
+  },
+  "dealFilter": {
+    "rent": "השכרה",
+    "short-stay": "לטווח קצר",
+    "monthly": "השכרה חודשית",
+    "buy": "קנייה",
+    "hotels": "מלונות ובתי הארחה"
+  },
+  "propertyType": {
+    "APARTMENT": "דירה",
+    "STUDIO": "סטודיו",
+    "PENTHOUSE": "פנטהאוז",
+    "HOUSE": "בית פרטי",
+    "VILLA": "וילה",
+    "COTTAGE": "קוטג׳",
+    "ROOM": "חדר בדירת שותפים",
+    "HOTEL": "מלון",
+    "GUESTHOUSE": "בית הארחה",
+    "HOSTEL": "הוסטל"
+  },
+  "pricePeriod": {
+    "NIGHT": "ללילה",
+    "WEEK": "לשבוע",
+    "MONTH": "לחודש",
+    "TOTAL": "מחיר כולל"
+  },
+  "amenity": {
+    "wifi": "Wi‑Fi",
+    "air_conditioning": "מיזוג אוויר",
+    "heating": "חימום",
+    "washing_machine": "מכונת כביסה",
+    "dryer": "מייבש כביסה",
+    "dishwasher": "מדיח כלים",
+    "full_kitchen": "מטבח מאובזר",
+    "workspace": "פינת עבודה",
+    "tv": "טלוויזיה",
+    "parking": "חניה",
+    "balcony_terrace": "מרפסת",
+    "yard": "חצר",
+    "pool": "בריכה",
+    "sauna": "סאונה",
+    "gym": "חדר כושר",
+    "near_sea": "קרוב לים",
+    "near_ski_lifts": "קרוב למעליות הסקי",
+    "crib_high_chair": "עריסה וכיסא תינוק",
+    "wheelchair_access": "נגיש לכיסא גלגלים",
+    "self_check_in": "צ׳ק־אין עצמאי"
+  },
+  "houseRule": {
+    "pets_allowed": "מותר עם חיות מחמד",
+    "smoking_allowed": "מותר לעשן"
+  },
+  "shabbatFeature": {
+    "hot_plate": "פלטה",
+    "hot_water_urn": "מיחם",
+    "light_timers": "שעון שבת לתאורה",
+    "mechanical_key": "מפתח רגיל (לא קודן או מנעול חשמלי)",
+    "stairs_or_shabbat_elevator": "מדרגות או מעלית שבת",
+    "no_motion_sensors": "בלי תאורת חיישנים או דלתות אוטומטיות"
+  },
+  "jewishFeature": {
+    "mezuzot": "מזוזות על הדלתות",
+    "separable_beds": "מיטות שאפשר להפריד",
+    "sukkah_space": "מקום לסוכה",
+    "pesach_ready": "מטבח מוכן לפסח",
+    "kosher_food_nearby": "אוכל כשר בקרבת מקום",
+    "mikveh_nearby": "מקווה בקרבת מקום",
+    "host_keeps_shabbat": "המארח שומר שבת",
+    "host_speaks_hebrew": "המארח דובר עברית"
+  },
+  "hotelJewishFeature": {
+    "kosher_breakfast": "ארוחת בוקר כשרה",
+    "kosher_meals": "ארוחות כשרות",
+    "shabbat_meals": "ארוחות שבת",
+    "separate_swimming": "שעות רחצה נפרדות"
+  },
+  "kitchenKosher": {
+    "NOT_KOSHER": "לא כשר",
+    "CAN_KASHER": "אפשר להכשיר לפי בקשה",
+    "KOSHER": "כשר (בשרי וחלבי בנפרד)"
+  },
+  "kitchenFilter": {
+    "kosher": "מטבח כשר",
+    "kosher_or_kasherable": "כשר או ניתן להכשרה"
+  },
+  "sharedRoomFor": {
+    "MEN": "לגברים בלבד",
+    "WOMEN": "לנשים בלבד",
+    "FAMILIES": "למשפחות"
+  },
+  "condition": {
+    "BLACK_FRAME": "שלד שחור",
+    "WHITE_FRAME": "שלד לבן",
+    "GREEN_FRAME": "שלד ירוק",
+    "NEWLY_RENOVATED": "משופץ לאחרונה",
+    "OLD_RENOVATION": "שיפוץ ישן",
+    "NEEDS_RENOVATION": "דורש שיפוץ"
+  },
+  "conditionHint": {
+    "BLACK_FRAME": "שלד: קירות וגג בלבד, בלי טיח, חשמל או אינסטלציה.",
+    "WHITE_FRAME": "מוכן לגמר: קירות מטויחים, חשמל ואינסטלציה במקום.",
+    "GREEN_FRAME": "כמעט גמור: קירות ורצפות מוכנים לגימור האחרון.",
+    "NEWLY_RENOVATED": "שופץ לאחרונה ומוכן לכניסה.",
+    "OLD_RENOVATION": "שופץ לפני שנים: ראוי למגורים, אבל מיושן.",
+    "NEEDS_RENOVATION": "צריך תיקונים לפני שאפשר לגור בו."
+  },
+  "heating": {
+    "CENTRAL": "הסקה מרכזית",
+    "GAS_BOILER": "דוד גז",
+    "ELECTRIC": "חימום חשמלי",
+    "AIR_CONDITIONING": "מזגן"
+  },
+  "view": {
+    "SEA": "נוף לים",
+    "MOUNTAIN": "נוף להרים",
+    "CITY": "נוף לעיר"
+  },
+  "buildingAge": {
+    "NEW": "בניין חדש",
+    "OLD": "בניין ישן"
+  },
+  "contactChannel": {
+    "WHATSAPP": "WhatsApp",
+    "TELEGRAM": "Telegram",
+    "VIBER": "Viber",
+    "MESSENGER": "Messenger",
+    "PHONE": "שיחת טלפון",
+    "SMS": "SMS",
+    "EMAIL": "אימייל"
+  },
+  "reportReason": {
+    "FAKE_LISTING": "מודעה מזויפת או הונאה",
+    "ALREADY_RENTED": "כבר הושכר או נמכר",
+    "WRONG_PRICE": "מחיר שגוי",
+    "ASKED_MONEY_UPFRONT": "ביקשו כסף לפני צפייה בנכס",
+    "OFFENSIVE": "תוכן פוגעני",
+    "OTHER": "משהו אחר"
+  },
+  "ownerType": {
+    "private": "בעלים פרטי",
+    "business": "עסק"
+  },
+  "postedWithin": {
+    "24h": "ב־24 השעות האחרונות",
+    "3d": "ב־3 הימים האחרונים",
+    "7d": "בשבוע האחרון",
+    "30d": "בחודש האחרון"
+  },
+  "sort": {
+    "recommended": "מומלץ",
+    "newest": "החדש ביותר",
+    "price_asc": "מחיר: מהנמוך לגבוה",
+    "price_desc": "מחיר: מהגבוה לנמוך",
+    "price_sqm": "מחיר למ״ר",
+    "synagogue": "הכי קרוב לבית כנסת",
+    "rating": "הדירוג הגבוה ביותר",
+    "updated": "עודכן לאחרונה",
+    "price_drop": "ירד במחיר"
+  },
+  "viewMode": {
+    "grid": "רשת",
+    "list": "רשימה",
+    "map": "מפה"
+  },
+  "filter": {
+    "shabbatFriendly": "מתאים לשבת",
+    "bigFamily": "מתאים למשפחות גדולות (8+ מקומות לינה)",
+    "verifiedOnly": "בעלים מאומתים בלבד",
+    "hasPhotos": "עם תמונות",
+    "hasVideo": "עם וידאו",
+    "furnished": "מרוהט",
+    "elevator": "מעלית",
+    "synagogueMaxWalk": "בית כנסת עד {count} דק׳ הליכה"
+  },
+  "facts": {
+    "rooms": "{count, plural, one {חדר אחד} other {{count} חדרים}}",
+    "bedrooms": "{count, plural, one {חדר שינה אחד} other {{count} חדרי שינה}}",
+    "bathrooms": "{count, plural, one {חדר רחצה אחד} other {{count} חדרי רחצה}}",
+    "guests": "{count, plural, one {אורח אחד} other {{count} אורחים}}",
+    "upToGuests": "{count, plural, one {עד אורח אחד} other {עד {count} אורחים}}",
+    "beds": "{count, plural, one {מיטה אחת} other {{count} מיטות}}",
+    "size": "{size}",
+    "floor": "קומה {floor}",
+    "floorOf": "קומה {floor} מתוך {total}",
+    "studio": "סטודיו",
+    "synagogueWalk": "{count} דק׳ הליכה לבית כנסת",
+    "chabadWalk": "{count} דק׳ הליכה לבית חב״ד",
+    "minStay": "{count, plural, one {מינימום לילה אחד} other {מינימום {count} לילות}}"
+  }
+}
