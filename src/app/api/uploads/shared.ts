@@ -48,13 +48,42 @@ export function assertContentLength(request: Request, maxBytes: number): void {
   }
 }
 
-export async function readForm(request: Request): Promise<FormData> {
+/**
+ * Reads the body, but never more than `maxBytes`: a body sent without Content-Length (chunked)
+ * passes assertContentLength, so the limit is enforced again while reading.
+ */
+async function readBodyCapped(request: Request, maxBytes: number): Promise<Uint8Array<ArrayBuffer>> {
+  const reader = request.body?.getReader();
+  if (!reader) return new Uint8Array();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel().catch(() => undefined);
+      throw new AppError("file_too_large", "Request body too large", { status: 413 });
+    }
+    chunks.push(value);
+  }
+  const body = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return body;
+}
+
+export async function readForm(request: Request, maxBytes: number): Promise<FormData> {
   const type = request.headers.get("content-type") ?? "";
   if (!type.toLowerCase().startsWith("multipart/form-data")) {
     throw new ValidationError({ file: ["multipart_required"] });
   }
+  const body = await readBodyCapped(request, maxBytes);
   try {
-    return await request.formData();
+    return await new Response(body, { headers: { "content-type": type } }).formData();
   } catch {
     throw new ValidationError({ file: ["unreadable_form"] });
   }

@@ -47,7 +47,8 @@ let userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)";
 
 const { db } = await import("@/lib/db");
 const lifecycle = await import("./lifecycle");
-const { assessListing, clearBannedWordsCache } = await import("@/lib/risk");
+const { assessListing, clearBannedWordsCache, isPhotoOfOtherAccount } = await import("@/lib/risk");
+const { approximateLocation, haversineMeters } = await import("@/lib/geo");
 const stats = await import("./stats");
 const { getSettings } = await import("@/lib/settings");
 const { AppError, NotFoundError } = await import("@/lib/errors");
@@ -170,6 +171,15 @@ afterAll(async () => {
 });
 
 describe("publishing", () => {
+  it("moves the public map point by a secret, stable offset (not derivable from the listing id)", () => {
+    const a = lifecycle.publicMapPoint(point, "listing-id-1");
+    expect(lifecycle.publicMapPoint(point, "listing-id-1")).toEqual(a);
+    expect(a).not.toEqual(approximateLocation(point, "listing-id-1"));
+    const meters = haversineMeters(point, a);
+    expect(meters).toBeGreaterThan(0);
+    expect(meters).toBeLessThanOrEqual(1000);
+  });
+
   it("sends the first listing of an account to review, with derived fields filled in", async () => {
     const listing = await createListing(ownerA);
     const result = await lifecycle.submitForPublication(listing.id, ownerA);
@@ -251,6 +261,12 @@ describe("automatic checks", () => {
     expect(ownResult.reasons.map((r) => r.code)).toEqual(["duplicate_photos_same_account"]);
     expect(ownResult.score).toBe(10);
     expect(ownResult.requiresReview).toBe(false);
+
+    // The single-photo check used when a photo is added to a live listing.
+    expect(await isPhotoOfOtherAccount(nearHash(original.phash!, 3), copy.id, ownerB)).toBe(true);
+    expect(await isPhotoOfOtherAccount(other.phash!, own.id, ownerA)).toBe(false);
+    expect(await isPhotoOfOtherAccount(randomHash(), copy.id, ownerB)).toBe(false);
+    expect(await isPhotoOfOtherAccount("not-a-hash", copy.id, ownerB)).toBe(false);
   });
 
   it("flags scam phrases and contact details, and sends the listing to review", async () => {

@@ -47,7 +47,8 @@ function seededRandom(seed: string): () => number {
 
 /**
  * The public map point: the real location moved by a stable random offset of
- * 40%–100% of `maxMeters`, so the exact address is never exposed.
+ * 40%–100% of `maxMeters`, so the exact address is never exposed. `seed` must be secret
+ * (listings use publicMapPoint in @/lib/listing/lifecycle, which derives it from HASH_SALT).
  */
 export function approximateLocation(
   point: LatLng,

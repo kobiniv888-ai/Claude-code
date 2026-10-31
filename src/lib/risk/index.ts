@@ -382,6 +382,23 @@ export function combineRiskResults(results: CheckResult[], reviewThreshold: numb
   };
 }
 
+/**
+ * True when `phash` matches a photo of another account's listing (the same test as the
+ * duplicate-photo check). Used when a photo is added to a listing that is already live.
+ */
+export async function isPhotoOfOtherAccount(phash: string, listingId: string, ownerId: string): Promise<boolean> {
+  if (!/^[0-9a-f]{16}$/.test(phash)) return false;
+  const rows = await db.$queryRaw<{ found: boolean }[]>`
+    SELECT EXISTS (
+      SELECT 1
+      FROM "ListingPhoto" p
+      JOIN "Listing" l ON l."id" = p."listingId"
+      WHERE p."listingId" <> ${listingId} AND l."ownerId" <> ${ownerId} AND p."phash" ~ '^[0-9a-f]{16}$'
+        AND bit_count(('x' || p."phash")::bit(64) # ('x' || ${phash})::bit(64)) <= ${DUPLICATE_PHOTO_MAX_DISTANCE}
+    ) AS found`;
+  return rows[0]?.found === true;
+}
+
 export async function assessListing(listingId: string): Promise<RiskAssessment> {
   const listing = await db.listing.findUnique({ where: { id: listingId }, select: LISTING_SELECT });
   if (!listing) throw new NotFoundError("Listing not found");

@@ -5,8 +5,10 @@ import { requireUserForAction } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { AppError, NotFoundError } from "@/lib/errors";
 import { IMAGE_MIME_TYPES, processListingPhoto, removeListingPhotoFiles, scanFile, validateImage } from "@/lib/images";
+import { submitForPublication } from "@/lib/listing/lifecycle";
 import { listingPhotoStorageKey, photoUrl, photoVariantKey } from "@/lib/media";
 import { assertRateLimit } from "@/lib/rate-limit";
+import { isPhotoOfOtherAccount } from "@/lib/risk";
 import { assertNotShabbatMode } from "@/lib/settings";
 import { putPublic } from "@/lib/storage";
 import {
@@ -57,7 +59,7 @@ export async function POST(request: Request) {
     await assertRateLimit(`upload:photo:${user.id}`, UPLOAD_LIMIT);
     assertContentLength(request, siteConfig.listings.maxPhotoBytes + MULTIPART_OVERHEAD_BYTES);
 
-    const form = await readForm(request);
+    const form = await readForm(request, siteConfig.listings.maxPhotoBytes + MULTIPART_OVERHEAD_BYTES);
     const { listingId, roomTypeId } = parseFields(fieldsSchema, {
       listingId: textField(form, "listingId"),
       roomTypeId: textField(form, "roomTypeId"),
@@ -70,7 +72,7 @@ export async function POST(request: Request) {
     // Ownership: only the owner's own, not deleted listing (and its own room type).
     const listing = await db.listing.findFirst({
       where: { id: listingId, ownerId: user.id, status: { not: "DELETED" } },
-      select: { id: true, _count: { select: { photos: true } } },
+      select: { id: true, status: true, _count: { select: { photos: true } } },
     });
     if (!listing) throw new NotFoundError("Listing not found");
     if (roomTypeId) {
@@ -136,6 +138,16 @@ export async function POST(request: Request) {
     } catch (error) {
       await removeListingPhotoFiles(stored);
       throw error;
+    }
+
+    // A photo added to a live listing is public at once. When it already belongs to another
+    // account's listing (the duplicate-photo check), the automatic checks run again now.
+    if (listing.status === "LIVE") {
+      try {
+        if (await isPhotoOfOtherAccount(processed.phash, listing.id, user.id)) await submitForPublication(listing.id, user.id);
+      } catch (error) {
+        console.error(`[uploads:listing-photo] re-check of live listing ${listing.id} failed:`, error);
+      }
     }
 
     return Response.json(

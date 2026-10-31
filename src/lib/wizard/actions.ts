@@ -11,7 +11,6 @@ import { getRates } from "@/lib/currency";
 import { toUsd } from "@/lib/currency/convert";
 import { db } from "@/lib/db";
 import { NotFoundError } from "@/lib/errors";
-import { approximateLocation } from "@/lib/geo";
 import { removeListingPhotoFiles } from "@/lib/images";
 import {
   BUSINESS_PROPERTY_TYPES,
@@ -19,7 +18,7 @@ import {
   PROPERTY_TYPES_BY_DEAL,
   computeShabbatFriendly,
 } from "@/lib/listing/fields";
-import { prepareListingDerivedFields, recordPriceChange, submitForPublication } from "@/lib/listing/lifecycle";
+import { prepareListingDerivedFields, publicMapPoint, recordPriceChange, submitForPublication } from "@/lib/listing/lifecycle";
 import { isOwnPrivateUpload } from "@/lib/media";
 import { getCityById, getNeighborhoods } from "@/lib/places";
 import { assertRateLimit } from "@/lib/rate-limit";
@@ -196,7 +195,7 @@ async function buildStepUpdate<S extends SavableStepKey>(
       }
       const lat = hasPin ? Number(v.lat!.toFixed(6)) : null;
       const lng = hasPin ? Number(v.lng!.toFixed(6)) : null;
-      const approx = hasPin ? approximateLocation({ lat: lat!, lng: lng! }, listing.id) : null;
+      const approx = hasPin ? publicMapPoint({ lat: lat!, lng: lng! }, listing.id) : null;
       const data: Prisma.ListingUpdateInput = {
         city: cityId ? { connect: { id: cityId } } : { disconnect: true },
         neighborhood: neighborhoodId ? { connect: { id: neighborhoodId } } : { disconnect: true },
@@ -387,11 +386,7 @@ export async function updateDraft(
       // A live listing shows each auto-saved edit at once. New contact methods, or text with scam
       // phrases or hidden contact details, go through the automatic checks now (as "Save changes"
       // would), so they cannot stay public just because the owner never pressed that button.
-      try {
-        await submitForPublication(listing.id, user.id);
-      } catch (error) {
-        console.error(`[wizard] re-check of live listing ${listing.id} failed:`, error);
-      }
+      await recheckLiveListing(listing.id, user.id);
     }
     return ok({ savedAt: now.toISOString() });
   } catch (error) {
@@ -405,9 +400,22 @@ async function needsImmediateRecheck(step: SavableStepKey, update: StepUpdate, i
   if (step === "contact") return true;
   if (step !== "details" || !update.textChanged) return false;
   const { title, description } = input as ParsedStep<"details">;
-  const text = `${title}\n${description}`;
+  return textNeedsRecheck(`${title}\n${description}`);
+}
+
+/** Text with hidden contact details or scam phrases: a live listing must be checked again now. */
+async function textNeedsRecheck(text: string): Promise<boolean> {
   if (hasContactInfo(detectContactInfo(text))) return true;
   return (await scanText(text)).hits.length > 0;
+}
+
+/** Runs the automatic checks on a live listing right away (see updateDraft); never throws. */
+async function recheckLiveListing(listingId: string, ownerId: string): Promise<void> {
+  try {
+    await submitForPublication(listingId, ownerId);
+  } catch (error) {
+    console.error(`[wizard] re-check of live listing ${listingId} failed:`, error);
+  }
 }
 
 /** Remembers the step the owner is on (for steps without their own data: photos, rooms, preview). */
@@ -711,6 +719,10 @@ export async function saveTranslations(
       update: { title: v.title, description: v.description, isOriginal: false, isAuto: false, editedByOwner: true },
     });
     await touchContent(listing);
+    // A hand-written translation of a live listing is public at once, like an edit of the original.
+    if (listing.status === "LIVE" && (await textNeedsRecheck(`${v.title}\n${v.description}`))) {
+      await recheckLiveListing(listing.id, user.id);
+    }
     return ok({
       translation: {
         locale: v.locale,

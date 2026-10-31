@@ -26,7 +26,8 @@ async function removeFiles(keys: string[], remove: (key: string) => Promise<void
 /**
  * Removes a user's personal data and anonymizes the account (server-only, no session checks —
  * the caller is the user's own "Delete my account" action):
- *  - every listing → DELETED (soft) with its contact details cleared;
+ *  - every listing → DELETED (soft) with its contact details, exact address/map point, cadastral
+ *    code, kosher certificate photo and calendar imports cleared;
  *  - favorites (save counters adjusted), sessions, social/password accounts, device links,
  *    blocks are deleted;
  *  - verification documents and the user's ticket attachments are deleted from private storage
@@ -38,7 +39,7 @@ export async function deleteAccountData(userId: string): Promise<void> {
   const now = new Date();
   const user = await db.user.findUniqueOrThrow({ where: { id: userId }, select: { id: true, image: true } });
 
-  const [requests, ticketMessages, favorites] = await Promise.all([
+  const [requests, ticketMessages, favorites, kosherCerts] = await Promise.all([
     db.verificationRequest.findMany({
       where: { userId, documentsDeletedAt: null },
       select: { id: true, status: true, documents: true },
@@ -48,6 +49,7 @@ export async function deleteAccountData(userId: string): Promise<void> {
       select: { id: true, attachments: true },
     }),
     db.favorite.findMany({ where: { userId }, select: { listingId: true } }),
+    db.listing.findMany({ where: { ownerId: userId, kosherCertPhotoKey: { not: null } }, select: { kosherCertPhotoKey: true } }),
   ]);
 
   const verificationKeys = requests
@@ -56,6 +58,10 @@ export async function deleteAccountData(userId: string): Promise<void> {
   const ticketKeys = ticketMessages
     .flatMap((m) => documentKeys(m.attachments))
     .filter((key) => isOwnPrivateUpload(key, userId, "ticket"));
+  // Kosher certificate photos are private "verification" uploads kept on the listing.
+  const kosherCertKeys = kosherCerts
+    .map((l) => l.kosherCertPhotoKey)
+    .filter((key): key is string => isOwnPrivateUpload(key, userId, "verification"));
   const undecided = requests.filter((r) => r.status === "PENDING" || r.status === "NEEDS_MORE_INFO").map((r) => r.id);
   const decided = requests.filter((r) => !undecided.includes(r.id)).map((r) => r.id);
   const favoriteListingIds = favorites.map((f) => f.listingId);
@@ -65,7 +71,19 @@ export async function deleteAccountData(userId: string): Promise<void> {
       where: { ownerId: userId, status: { not: "DELETED" } },
       data: { status: "DELETED", deletedAt: now },
     }),
-    db.listing.updateMany({ where: { ownerId: userId }, data: { contactMethods: Prisma.DbNull } }),
+    // The exact place and private details go too; only the public, approximate point stays.
+    db.listing.updateMany({
+      where: { ownerId: userId },
+      data: {
+        contactMethods: Prisma.DbNull,
+        address: null,
+        lat: null,
+        lng: null,
+        cadastralCode: null,
+        kosherCertPhotoKey: null,
+        icalImportUrls: [],
+      },
+    }),
     db.listing.updateMany({
       where: { id: { in: favoriteListingIds }, saveCount: { gt: 0 } },
       data: { saveCount: { decrement: 1 } },
@@ -108,7 +126,7 @@ export async function deleteAccountData(userId: string): Promise<void> {
   ]);
 
   // Files go after the database changes, so a storage hiccup never leaves a half-deleted account.
-  await removeFiles([...verificationKeys, ...ticketKeys], deletePrivate);
+  await removeFiles([...new Set([...verificationKeys, ...ticketKeys, ...kosherCertKeys])], deletePrivate);
   const avatarKey = ownAvatarKey(user.image, userId);
   if (avatarKey) await removeFiles([avatarKey], deletePublic);
 }

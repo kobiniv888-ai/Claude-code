@@ -51,7 +51,7 @@ export async function POST(request: Request) {
     const user = await requireUserForAction();
     // Before the body is read: bigger requests are refused without parsing them.
     assertContentLength(request, siteConfig.listings.maxPhotoBytes + MULTIPART_OVERHEAD_BYTES);
-    const form = await readForm(request);
+    const form = await readForm(request, siteConfig.listings.maxPhotoBytes + MULTIPART_OVERHEAD_BYTES);
     const { purpose } = parseFields(fieldsSchema, { purpose: textField(form, "purpose") });
     // Support pauses for Shabbat (admin setting); verification documents can always be sent.
     if (purpose === "ticket") await assertNotShabbatMode();

@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     const user = await requireUserForAction();
     await assertRateLimit(`upload:avatar:${user.id}`, { limit: 10, windowSeconds: 3600 });
     assertContentLength(request, AVATAR_MAX_BYTES + MULTIPART_OVERHEAD_BYTES);
-    const form = await readForm(request);
+    const form = await readForm(request, AVATAR_MAX_BYTES + MULTIPART_OVERHEAD_BYTES);
     const file = formFile(form);
     if (file.size > AVATAR_MAX_BYTES) throw new AppError("file_too_large", "File too large", { status: 413 });
 

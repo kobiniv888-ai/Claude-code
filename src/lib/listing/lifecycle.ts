@@ -5,11 +5,12 @@ import { Prisma, type Currency, type ListingStatus } from "@/generated/prisma/cl
 import { isAppLocale } from "@/i18n/locale";
 import { getMessages } from "@/i18n/messages";
 import { audit } from "@/lib/audit";
+import { hmacHash } from "@/lib/crypto";
 import { getRates, toUsd, type Rates } from "@/lib/currency";
 import { db } from "@/lib/db";
 import { notificationEmailFor, sendEmail, type EmailData, type EmailTemplate } from "@/lib/email";
 import { AppError, NotFoundError, ValidationError } from "@/lib/errors";
-import { approximateLocation } from "@/lib/geo";
+import { approximateLocation, type LatLng } from "@/lib/geo";
 import { computeShabbatFriendly, MODERATION_REASONS, type ModerationReason } from "@/lib/listing/fields";
 import { computeListingProximity } from "@/lib/nearby";
 import { assessListing, type RiskReason } from "@/lib/risk";
@@ -175,6 +176,16 @@ export function computeUsdPrices(
 }
 
 /**
+ * The public map point of a listing (approxLat/approxLng). The offset is derived from a server
+ * secret (HASH_SALT), not from the listing id alone: the id is visible in the browser and the
+ * offset formula ships in the map code, so an id-only seed would let anyone undo the offset
+ * and find the exact address.
+ */
+export function publicMapPoint(point: LatLng, listingId: string): LatLng {
+  return approximateLocation(point, hmacHash(`approx-location:${listingId}`));
+}
+
+/**
  * Recomputes everything derived from the owner's input: the public approximate map point
  * (stable per listing), USD prices for filters and sorting, the Shabbat-friendly badge and the
  * search text. Safe to call after every save.
@@ -198,7 +209,7 @@ export async function prepareListingDerivedFields(listingId: string): Promise<vo
     rates,
   );
   const approx =
-    listing.lat !== null && listing.lng !== null ? approximateLocation({ lat: listing.lat, lng: listing.lng }, listing.id) : null;
+    listing.lat !== null && listing.lng !== null ? publicMapPoint({ lat: listing.lat, lng: listing.lng }, listing.id) : null;
 
   await db.$transaction([
     ...listing.roomTypes.map((room, i) =>
