@@ -1,0 +1,202 @@
+{
+  "common": {
+    "greeting": "Hi {name},",
+    "greetingNoName": "Hello,",
+    "signoff": "Warm regards,",
+    "team": "The {brand} team",
+    "buttonFallback": "If the button doesn't work, copy this link into your browser:",
+    "safety": "{brand} will never ask you for a password, a code or a payment by email or message.",
+    "footerAccount": "You're receiving this email because you have an account on {brand}.",
+    "footerGuest": "You're receiving this email because you contacted {brand}.",
+    "help": "Help center",
+    "settings": "Email settings",
+    "privacy": "Privacy",
+    "tagline": "Homes in Georgia for Jewish travelers, families and investors"
+  },
+  "templates": {
+    "welcome": {
+      "subject": "Welcome to {brand}",
+      "preheader": "Find a home in Georgia, or list yours in a few minutes.",
+      "heading": "Welcome to {brand}!",
+      "body1": "We're glad you're here. {brand} helps Jewish and Israeli travelers, families and investors find homes in Georgia, and helps owners reach them directly.",
+      "body2": "You can save favorite listings, contact owners on WhatsApp, Telegram or by phone, and post your own home for free.",
+      "body3": "Safety tip: never pay a deposit before you have seen the home or signed an agreement.",
+      "cta": "Go to my account"
+    },
+    "listing_live": {
+      "subject": "Your listing is live: {title}",
+      "preheader": "Guests can now find you and contact you.",
+      "heading": "Your listing is live",
+      "body1": "Good news: “{title}” is now visible on {brand}, and guests can contact you directly.",
+      "body2": "It stays live until {date}. We'll remind you before it expires so you can renew it with one click.",
+      "body2NoDate": "Keep your prices and availability up to date so guests get the right information.",
+      "cta": "View my listing"
+    },
+    "listing_in_review": {
+      "subject": "We're checking your listing: {title}",
+      "preheader": "A moderator will look at it soon.",
+      "heading": "Your listing is being reviewed",
+      "body1": "Thank you for posting “{title}”. Before it goes live, a member of our team checks it. We do this for every new account, and whenever our automatic safety checks ask for a second look.",
+      "body2": "This usually takes less than a day. We'll email you as soon as it's done.",
+      "cta": "My listings"
+    },
+    "listing_approved": {
+      "subject": "Approved: “{title}” is live",
+      "preheader": "Your listing passed review.",
+      "heading": "Your listing was approved",
+      "body1": "Our team reviewed “{title}”, and it is now live on {brand}.",
+      "body2": "Tip: listings with clear photos, accurate Jewish-friendly details and quick replies get the most contacts.",
+      "cta": "View my listing"
+    },
+    "listing_needs_changes": {
+      "subject": "Changes needed: {title}",
+      "preheader": "A small fix and your listing can go live.",
+      "heading": "Your listing needs a few changes",
+      "body1": "Our team reviewed “{title}” and asks you to change something before it can go live.",
+      "reasonLabel": "What to change",
+      "noteLabel": "Note from our team",
+      "body2": "Edit the listing and send it again. We'll check it quickly.",
+      "cta": "Edit my listing"
+    },
+    "listing_rejected": {
+      "subject": "Your listing was not approved: {title}",
+      "preheader": "Here is why, and what you can do.",
+      "heading": "Your listing was not approved",
+      "body1": "We're sorry. After review, “{title}” can't be published on {brand}.",
+      "reasonLabel": "Reason",
+      "noteLabel": "Note from our team",
+      "body2": "If you think this is a mistake, contact us through the help center and we'll take another look.",
+      "cta": "Contact support"
+    },
+    "listing_expiring": {
+      "subject": "Your listing expires on {date}: {title}",
+      "preheader": "Renew it with one click to stay visible.",
+      "heading": "Your listing is about to expire",
+      "body1": "“{title}” will stop being shown on {date}.",
+      "body2": "Still available? Renew it now and it stays live for another period. If it's already rented or sold, you can mark it that way.",
+      "cta": "Renew my listing"
+    },
+    "listing_expired": {
+      "subject": "Your listing has expired: {title}",
+      "preheader": "Renew it any time to show it again.",
+      "heading": "Your listing has expired",
+      "body1": "“{title}” is no longer shown to guests.",
+      "body2": "Your listing and photos are saved. Renew it any time and it goes live again.",
+      "cta": "Renew my listing"
+    },
+    "listing_hidden_reports": {
+      "subject": "Your listing is hidden while we check it: {title}",
+      "preheader": "Several people reported it, so a moderator will review it.",
+      "heading": "Your listing is temporarily hidden",
+      "body1": "Several people reported “{title}”, so we've hidden it until a moderator checks it. This is an automatic safety step and doesn't mean you did anything wrong.",
+      "body2": "We usually finish within a day. If something needs to change, we'll tell you exactly what.",
+      "cta": "My listings"
+    },
+    "ticket_created": {
+      "subject": "We got your request (#{number}): {subject}",
+      "preheader": "Our support team will reply soon.",
+      "heading": "We received your request",
+      "body1": "Thank you for contacting us. Your request number is #{number}.",
+      "subjectLabel": "Subject",
+      "body2": "We usually reply within one business day, and we'll email you when there's an answer.",
+      "cta": "View my request"
+    },
+    "ticket_reply": {
+      "subject": "New reply to your request #{number}",
+      "preheader": "Our support team answered you.",
+      "heading": "You have a new reply",
+      "body1": "There's a new reply to your request #{number}, “{subject}”.",
+      "replyLabel": "Reply",
+      "body2": "Need anything else? Reply from your account and we'll continue from there.",
+      "body2Guest": "Need anything else? Just reply to this email.",
+      "cta": "Open the conversation"
+    },
+    "ticket_status": {
+      "subject": "Request #{number}: {status}",
+      "preheader": "The status of your request has changed.",
+      "heading": "Your request was updated",
+      "body1": "The status of your request #{number}, “{subject}”, is now: {status}.",
+      "cta": "View my request"
+    },
+    "contact_owner": {
+      "subject": "New message about your listing: {title}",
+      "preheader": "{sender} wrote to you on {brand}.",
+      "heading": "You have a new message",
+      "body1": "{sender} sent you a message about “{title}” (ID {id}).",
+      "messageLabel": "Message",
+      "fromLabel": "From",
+      "emailLabel": "Email",
+      "phoneLabel": "Phone",
+      "datesLabel": "Dates",
+      "body2": "Reply to this email to answer {sender} directly. Your email address is only shared if you reply.",
+      "safety": "Stay safe: be careful with anyone who asks you to pay a fee, share a code or use an unusual payment link.",
+      "cta": "View the listing"
+    },
+    "verification_approved": {
+      "subject": "Your verification was approved",
+      "preheader": "Your {type} check is complete.",
+      "heading": "Verification approved",
+      "body1": "Good news: we checked and approved your {type}. A “Verified” badge now appears on your profile and listings.",
+      "body2": "To protect your privacy, we deleted the documents you sent when the check was done. We keep only the date and who checked them.",
+      "cta": "Verification center"
+    },
+    "verification_rejected": {
+      "subject": "We couldn't verify your {type}",
+      "preheader": "Here's what to do next.",
+      "heading": "Verification not approved",
+      "body1": "We reviewed your {type}, but we couldn't approve it.",
+      "reasonLabel": "Reason",
+      "noteLabel": "Note from our team",
+      "body2": "You can send new documents from the verification center at any time. The documents you sent have been deleted.",
+      "cta": "Try again"
+    },
+    "account_warning": {
+      "subject": "Important notice about your {brand} account",
+      "preheader": "Please read our community rules.",
+      "heading": "A warning on your account",
+      "body1": "Our team found activity on your account that goes against our rules.",
+      "reasonLabel": "Reason",
+      "body2": "Please read the listing rules. If this happens again, your account may be suspended. If you think this is a mistake, contact support.",
+      "cta": "Read the rules"
+    },
+    "account_suspended": {
+      "subject": "Your {brand} account is suspended",
+      "preheader": "You can't post or contact owners for now.",
+      "heading": "Your account is suspended",
+      "body1": "Your account has been suspended, so you can't post listings or contact owners for now.",
+      "untilLine": "The suspension ends on {date}.",
+      "reasonLabel": "Reason",
+      "body2": "If you think this is a mistake, contact support and a team member will review it.",
+      "cta": "Contact support"
+    },
+    "account_deleted": {
+      "subject": "Your {brand} account was deleted",
+      "preheader": "We're sorry to see you go.",
+      "heading": "Your account was deleted",
+      "body1": "As you asked, your {brand} account and your listings have been deleted. Some records may be kept for a short time where the law requires it.",
+      "body2": "Thank you for being part of {brand}. You're welcome back any time.",
+      "body3": "Didn't ask for this? Contact us right away.",
+      "cta": "Contact us"
+    }
+  },
+  "ticketStatus": {
+    "OPEN": "Open",
+    "IN_PROGRESS": "In progress",
+    "WAITING_FOR_USER": "Waiting for your reply",
+    "RESOLVED": "Resolved",
+    "CLOSED": "Closed"
+  },
+  "ticketStatusHint": {
+    "OPEN": "We'll reply soon.",
+    "IN_PROGRESS": "A team member is working on it.",
+    "WAITING_FOR_USER": "We need some information from you. Please reply so we can continue.",
+    "RESOLVED": "If everything is sorted, there's nothing more to do. If not, just reply and we'll reopen it.",
+    "CLOSED": "This request is closed. If you need more help, please open a new request."
+  },
+  "verificationType": {
+    "ID": "ID document",
+    "OWNERSHIP": "proof of ownership",
+    "BUSINESS": "business registration",
+    "PROPERTY": "property check"
+  }
+}

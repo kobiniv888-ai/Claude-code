@@ -1,0 +1,162 @@
+{
+  "metaTitle": "Safety Center",
+  "metaDescription": "How to spot rental scams in Georgia, safety tips for guests and owners, how {siteName} verifies listings, what to do if something goes wrong, and current scam alerts.",
+  "hero": {
+    "eyebrow": "Safety Center",
+    "title": "Stay safe when you rent, buy or host",
+    "lead": "Most people are honest. These tips help you spot the few who are not — before you send any money.",
+    "report": "Report a scam",
+    "alerts": "See current alerts"
+  },
+  "goldenRule": {
+    "title": "The golden rule",
+    "body": "Never pay before you've checked the owner and seen the place — in person or on a live video call.",
+    "noLinks": "{siteName} will never send you a payment link in a chat."
+  },
+  "alerts": {
+    "title": "Current scam alerts",
+    "lead": "Warnings from our team about scams we are seeing right now.",
+    "severity": {
+      "INFO": "Information",
+      "WARNING": "Warning",
+      "CRITICAL": "Urgent"
+    },
+    "posted": "Posted {date}",
+    "until": "Until {date}",
+    "emptyTitle": "No active alerts right now",
+    "emptyBody": "When we see a new kind of scam, we post a warning here. Until then, the tips below protect you from the most common ones.",
+    "errorTitle": "We couldn't load the alerts",
+    "errorBody": "Please try again in a few minutes. The safety tips below still apply.",
+    "loading": "Loading alerts"
+  },
+  "spot": {
+    "title": "How to spot a scam",
+    "lead": "Be careful if you see any of these signs. One alone may be innocent; two or more are a warning.",
+    "deposit": {
+      "title": "A deposit before you've seen the place",
+      "body": "The “owner” asks for a deposit or the full rent before a viewing or a video call."
+    },
+    "abroad": {
+      "title": "“I'm abroad, I'll post you the keys”",
+      "body": "The owner can't meet you and offers to send the keys by courier once you pay."
+    },
+    "paymentLinks": {
+      "title": "Payment links in a chat",
+      "body": "A link to a “secure payment”, a “booking confirmation” or a copy of a well-known website, sent on WhatsApp, Telegram or by email."
+    },
+    "untraceable": {
+      "title": "Western Union, gift cards or crypto",
+      "body": "A request to pay in a way that can't be traced or reversed: money-transfer services, gift cards or cryptocurrency."
+    },
+    "lowPrice": {
+      "title": "A price far below the area",
+      "body": "A large, central apartment for much less than similar places nearby. If it looks too good to be true, it usually is."
+    },
+    "pressure": {
+      "title": "Pressure to decide fast",
+      "body": "“Lots of people want it — pay today or I'll give it to someone else.” Scammers don't want you to have time to check."
+    },
+    "offPlatform": {
+      "title": "Moving somewhere else to pay",
+      "body": "A request to continue on another site or app to “complete the booking” or pay. {siteName} doesn't take bookings or payments."
+    },
+    "report": {
+      "title": "Seen one of these signs?",
+      "body": "Tell us. Your report protects the next person too.",
+      "cta": "Report it"
+    }
+  },
+  "guests": {
+    "title": "Tips for guests and buyers",
+    "tip1": "Never pay before you've checked the owner and seen the place, in person or on a live video call.",
+    "tip2": "Don't send money by bank transfer, Bit, PayBox, crypto or gift cards to someone you haven't verified.",
+    "tip3": "{siteName} will never send you a payment link in a chat.",
+    "tip4": "Look for verification badges and a recent “Last updated” date on the listing.",
+    "tip5": "Keep the conversation somewhere you can find it later, and note the listing ID.",
+    "tip6": "Buying property? Check the Public Registry extract and use your own lawyer before you pay anything.",
+    "video": {
+      "title": "The video-call check",
+      "body": "Ask the owner for a short live video call. Ask them to walk through the apartment and to show a paper with today's date and the listing ID. A real owner can do it in two minutes; a scammer usually can't."
+    }
+  },
+  "owners": {
+    "title": "Tips for owners",
+    "lead": "Scammers target owners too.",
+    "overpayment": {
+      "title": "Fake overpayments",
+      "body": "A “guest” pays more than the price and asks you to “please refund the difference”. The original payment is cancelled later — and your refund is gone."
+    },
+    "screenshots": {
+      "title": "Fake payment screenshots",
+      "body": "A screenshot is not a payment. Check your own bank account or app before you hand over keys or confirm dates."
+    },
+    "codes": {
+      "title": "Never share codes sent to your phone",
+      "body": "No one from {siteName}, from a bank or a guest needs the codes sent to you by SMS or WhatsApp. Anyone who asks is trying to take over your account."
+    }
+  },
+  "verification": {
+    "title": "How verification works",
+    "lead": "Owners earn badges by proving who they are, and every listing goes through automatic checks.",
+    "badgesTitle": "Owner badges",
+    "checksTitle": "Automatic checks on every new or edited listing",
+    "checksLead": "Each listing gets a risk score. Low-risk listings go live; higher-risk ones wait for a person.",
+    "checks": {
+      "photos": "Photos already used in another listing or account",
+      "price": "A price far below the usual price for the area and size",
+      "phrases": "Scam phrases in all five languages, such as “send the deposit first”",
+      "contacts": "Phone numbers or links hidden in the text or the photos",
+      "accounts": "A new account posting many listings fast, several accounts on one device, or virtual phone numbers",
+      "firstListing": "The first listing from every account is always reviewed by a person"
+    }
+  },
+  "badges": {
+    "phone": {
+      "label": "Phone verified",
+      "body": "Confirmed their phone number with a code. Required to post."
+    },
+    "id": {
+      "label": "ID verified",
+      "body": "Sent an ID document and a selfie, checked by hand by our team."
+    },
+    "owner": {
+      "label": "Owner verified",
+      "body": "Proved they own the property or may rent it out — in Georgia, with a Public Registry (NAPR) extract."
+    },
+    "property": {
+      "label": "Property verified",
+      "body": "A live video call with our team, or a visit from a local representative.",
+      "soon": "Coming soon"
+    }
+  },
+  "help": {
+    "title": "If something goes wrong",
+    "lead": "Act quickly. The sooner you tell us, the more we can do — for you and for the next person.",
+    "step1": {
+      "title": "Stop paying",
+      "body": "Don't send any more money, even if you're promised a refund."
+    },
+    "step2": {
+      "title": "Keep the evidence",
+      "body": "Save the chats, phone numbers, payment receipts, screenshots and the listing ID."
+    },
+    "step3": {
+      "title": "Report the listing or profile",
+      "body": "Use the Report button on the listing or on the owner's profile, so we can hide it quickly."
+    },
+    "step4": {
+      "title": "Open an urgent ticket",
+      "body": "Choose <scamTicket>Report a scam</scamTicket> in the help center. These tickets go to the front of the queue."
+    },
+    "step5": {
+      "title": "Contact your bank",
+      "body": "Call your bank or card company right away. They may be able to stop or reverse the payment."
+    },
+    "step6": {
+      "title": "Contact the police",
+      "body": "In Georgia, call <ltr>112</ltr>. You can also report it to the police in your own country."
+    },
+    "cta": "Report a scam now",
+    "helpCenter": "Help center"
+  }
+}

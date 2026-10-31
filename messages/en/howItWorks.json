@@ -1,0 +1,105 @@
+{
+  "metaTitle": "How it works",
+  "metaDescription": "How {siteName} works for guests and owners: search with Jewish-friendly filters, check the verification badges and contact owners directly, with no booking fees.",
+  "hero": {
+    "eyebrow": "How it works",
+    "title": "From search to keys, in three simple steps",
+    "lead": "{siteName} connects guests with owners directly. No booking fees, no middlemen — and checks at every step to keep scammers out."
+  },
+  "tabs": {
+    "label": "Choose your track",
+    "guests": "For guests",
+    "owners": "For owners"
+  },
+  "step": "Step {number}",
+  "guests": {
+    "title": "For guests and buyers",
+    "lead": "Find a home that fits your family and your traditions.",
+    "step1": {
+      "title": "Search and filter",
+      "body": "Search by city, dates and price, then narrow it down with the details that matter to you.",
+      "chips": {
+        "kosher": "Kosher kitchen",
+        "shabbat": "Shabbat-friendly",
+        "synagogue": "Walk to a synagogue"
+      }
+    },
+    "step2": {
+      "title": "Check the listing and the owner",
+      "body": "Look through the photos, the details and the house rules. Verification badges show what the owner has proven to us, and the “Last updated” date shows the listing is current."
+    },
+    "step3": {
+      "title": "Contact the owner directly",
+      "body": "Tap WhatsApp, Telegram, Viber, Messenger, phone or email, and a ready message in your language opens in the app. You agree everything with the owner — no booking fees."
+    },
+    "cta": "Start searching"
+  },
+  "owners": {
+    "title": "For owners and businesses",
+    "lead": "Reach Jewish and Israeli guests and buyers — for free.",
+    "step1": {
+      "title": "Verify your phone and post for free",
+      "body": "Sign up with Google, Apple or your phone, confirm your number with a code and post your listing step by step. Write it once — we translate it into the other four languages."
+    },
+    "step2": {
+      "title": "Automatic checks and review",
+      "body": "Every new or edited listing goes through automatic checks, and your first listing is always reviewed by a person. Most listings go live right away; some wait for a moderator first. We email you either way."
+    },
+    "step3": {
+      "title": "Guests contact you directly",
+      "body": "Guests reach you in the apps you choose, in the order you choose. Your contact details are shown only to signed-in users, which keeps bots away."
+    },
+    "cta": "List your property"
+  },
+  "badges": {
+    "title": "Verification badges, explained",
+    "lead": "Badges show what an owner has proven to us. More badges mean more trust — but always follow the safety tips too.",
+    "phone": {
+      "label": "Phone verified",
+      "body": "The owner confirmed their phone number with a code by SMS or WhatsApp.",
+      "tag": "Required to post"
+    },
+    "id": {
+      "label": "ID verified",
+      "body": "The owner sent an ID document and a selfie, and our team checked them by hand.",
+      "tag": "Optional"
+    },
+    "owner": {
+      "label": "Owner verified",
+      "body": "The owner proved they own the property or may rent it out. In Georgia that's an extract from the Public Registry (NAPR) in the same name as their ID; hotels send their business registration.",
+      "tag": "Optional"
+    },
+    "property": {
+      "label": "Property verified",
+      "body": "A live video call with our team, or a visit from a local representative, confirms that the place is real and matches the listing.",
+      "tag": "Coming soon"
+    },
+    "link": "How we check listings"
+  },
+  "faq": {
+    "title": "Common questions",
+    "q1": {
+      "q": "Does {siteName} cost anything?",
+      "a": "Searching, contacting owners and posting a listing are all free. We don't charge booking fees."
+    },
+    "q2": {
+      "q": "Can I book or pay through the site?",
+      "a": "Not at the moment. You agree the dates and the payment with the owner yourself. Never pay before you've checked the owner and seen the place, in person or on a live video call."
+    },
+    "q3": {
+      "q": "Why do I have to sign in to see contact details?",
+      "a": "It stops bots from collecting owners' phone numbers. Signing in takes one tap with Google or Apple, or a code sent to your phone."
+    },
+    "q4": {
+      "q": "How do I know a listing is real?",
+      "a": "Look for verification badges and a recent “Last updated” date, and read our Safety Center. If something feels wrong, report the listing — we check every report."
+    },
+    "more": "More answers in the help center"
+  },
+  "cta": {
+    "title": "Ready to find your place in Georgia?",
+    "body": "Search homes with Jewish-friendly details, or list your property for free.",
+    "search": "Search homes",
+    "post": "List your property"
+  }
+}

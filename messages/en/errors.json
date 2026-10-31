@@ -1,0 +1,15 @@
+{
+  "rate_limited": "You're going a bit fast. Please wait a minute and try again.",
+  "shabbat_mode": "Posting, messages and support are paused for Shabbat and holidays. You can keep browsing — please try again after Shabbat ends. Shabbat Shalom!",
+  "auth_required": "Please sign in to continue.",
+  "forbidden": "You don't have permission to do this. If you think this is a mistake, contact support.",
+  "not_found": "We couldn't find what you're looking for. It may have been removed — please check the link or go back.",
+  "invalid_input": "Some details need fixing. Please check the highlighted fields and try again.",
+  "captcha_failed": "We couldn't confirm you're not a robot. Please refresh the page and try again.",
+  "server_error": "Something went wrong on our side. Please try again in a moment.",
+  "file_too_large": "This file is too large. Please choose a smaller file and try again.",
+  "file_type_not_allowed": "This file type isn't supported. Please upload a JPG, PNG, WebP or HEIC photo, or a PDF.",
+  "too_many_photos": "You've reached the photo limit. Remove a photo before adding a new one.",
+  "phone_not_verified": "Please verify your phone number first — it only takes a minute.",
+  "network": "No connection. Please check your internet and try again."
+}

@@ -1,0 +1,451 @@
+{
+  "common": {
+    "eyebrow": "Legal",
+    "draftTitle": "Draft — to be reviewed by a lawyer before launch",
+    "draftBody": "This is a working draft prepared for {siteName}. It is not legal advice and is not yet binding. A qualified lawyer will review and complete it before the site opens to the public.",
+    "lastUpdated": "Last updated",
+    "toc": "On this page",
+    "otherDocs": "Other legal pages"
+  },
+  "nav": {
+    "terms": "Terms of use",
+    "privacy": "Privacy policy",
+    "cookies": "Cookie policy",
+    "listingRules": "Listing rules",
+    "accessibility": "Accessibility statement"
+  },
+  "index": {
+    "title": "Legal information",
+    "metaDescription": "The terms, policies and rules that apply when you use {siteName}.",
+    "lead": "The terms, policies and rules that apply when you use {siteName}."
+  },
+  "terms": {
+    "title": "Terms of use",
+    "summary": "The rules for using {siteName}, for guests and for owners.",
+    "metaDescription": "The terms of use of {siteName}: what the service does, your obligations, listing accuracy, fair housing, moderation and the limits of our responsibility.",
+    "lead": "The agreement between you and {siteName} when you search, post or contact someone on the site.",
+    "sections": {
+      "intro": {
+        "title": "About these terms",
+        "p1": "These terms apply when you use {siteName} — the website and any app (the “service”). The service is run by <todo>company name and registration number</todo>, <todo>registered address</todo> (“we”, “us”).",
+        "p2": "By using the service you agree to these terms, together with our <privacy>Privacy policy</privacy>, <cookies>Cookie policy</cookies> and <listingRules>Listing rules</listingRules>. If you don't agree, please don't use the service."
+      },
+      "service": {
+        "title": "What {siteName} does",
+        "p1": "{siteName} is a listing platform. Owners and businesses post homes, rooms, hotels and property for sale in Georgia. Guests, renters and buyers find them and contact the owner directly.",
+        "p2": "We are not a party to any agreement between guests and owners. We don't own, manage, inspect or rent out the properties on the site, and we are not a real-estate agent or broker."
+      },
+      "noBookings": {
+        "title": "No bookings or payments",
+        "p1": "At this stage the service doesn't take bookings or payments. Prices, dates, deposits, cancellations and payment are agreed directly between you and the other person, at your own responsibility.",
+        "note": "We will never send you a payment link in a chat or ask you to pay through another site on our behalf. If someone does, it is a scam — please <scamTicket>report it</scamTicket>.",
+        "p2": "If we add paid features or secure bookings in the future, we will update these terms and tell you before the changes apply to you."
+      },
+      "accounts": {
+        "title": "Your account",
+        "list": {
+          "a": "You must be at least 18 years old to create an account.",
+          "b": "The information you give us must be true and up to date, including your name and phone number.",
+          "c": "Keep your login safe. Never share codes sent to your phone — our team will never ask for them.",
+          "d": "One person may have one personal account. Businesses must register as a business.",
+          "e": "You are responsible for what happens in your account. Tell us at once if you think someone else has used it."
+        }
+      },
+      "conduct": {
+        "title": "Using the service fairly",
+        "p1": "When you use the service, you agree not to:",
+        "list": {
+          "a": "post false, misleading or outdated information;",
+          "b": "pretend to be someone else, or offer a property you have no right to offer;",
+          "c": "ask for or send money in a way designed to avoid our checks, or use the service for fraud;",
+          "d": "collect other users' contact details, send spam, or use bots or scrapers;",
+          "e": "harass, threaten or discriminate against anyone;",
+          "f": "try to break, overload or get around the security of the service;",
+          "g": "break any law, including the tax, tenancy and short-term rental rules that apply to you."
+        }
+      },
+      "listings": {
+        "title": "Listings and accuracy",
+        "p1": "Owners are fully responsible for their listings. A listing must describe a real property honestly, with real photos and the full price, and must follow our <listingRules>Listing rules</listingRules>.",
+        "p2": "Jewish-friendly details — such as a kosher kitchen, Shabbat-friendly features or the walking time to a synagogue — must be accurate. Guests rely on them.",
+        "p3": "Walking times and distances on the site are estimates. Automatic translations may contain mistakes; the owner's original text is always available."
+      },
+      "prohibited": {
+        "title": "Prohibited content",
+        "p1": "You may not post:",
+        "list": {
+          "a": "content that is illegal or fraudulent, or that infringes someone else's rights (for example, copied photos);",
+          "b": "contact details, links or payment instructions inside the listing text or photos;",
+          "c": "hateful, violent, sexual or offensive content;",
+          "d": "listings for anything other than real accommodation or property;",
+          "e": "terms that exclude people because of who they are (see “Fair housing and equal treatment”);",
+          "f": "malware, phishing or links to fake payment pages."
+        }
+      },
+      "fairHousing": {
+        "title": "Fair housing and equal treatment",
+        "p1": "{siteName} serves the Jewish community through features: kosher kitchens, Shabbat-friendly homes, walking times to synagogues and Hebrew-speaking hosts. These describe the property and the service. They are never rules about who may rent or buy.",
+        "p2": "Listings and messages must not refuse, limit or prefer guests, tenants or buyers because of religion, ethnicity, nationality, sex, disability, family status or any other protected characteristic. In some countries, such as the USA and the UK, this can also break fair-housing and equality laws.",
+        "p3": "We may edit or remove content that breaks this rule."
+      },
+      "moderation": {
+        "title": "Moderation and removal",
+        "p1": "To keep the service safe, every new or edited listing goes through automatic checks, and some listings — including the first listing of every account — are reviewed by a person before they go live.",
+        "p2": "We may ask for changes, refuse, hide or remove a listing, limit features, or suspend or close an account if we reasonably believe it breaks these terms or the law, or puts users at risk. Where we can, we tell you the reason in your language and give you a way to respond.",
+        "p3": "Listings expire after {expiryDays} days unless the owner renews them.",
+        "p4": "If you think we made a mistake, write to us through the <help>help center</help>."
+      },
+      "reports": {
+        "title": "Reports",
+        "p1": "You can report a listing, a profile or a message with the Report button. A listing with several reports may be hidden until a moderator checks it. Please report honestly — false reports may lead to action against your account."
+      },
+      "content": {
+        "title": "Your content",
+        "p1": "You keep the rights to the text and photos you post. You give us a non-exclusive, worldwide, royalty-free licence to host, show, translate and adapt that content (for example, resize photos or add a watermark) and to use it to promote the service, for as long as it is on the service.",
+        "p2": "You confirm that you have the right to post it and that it doesn't infringe anyone else's rights."
+      },
+      "liability": {
+        "title": "Limits of our responsibility",
+        "p1": "We work hard to keep scammers out, but we can't check everything, and we don't guarantee any listing, owner, guest or property. A badge shows only what someone proved to us at a certain time.",
+        "p2": "To the extent the law allows, we are not responsible for agreements between users, for money you paid to other users, or for indirect or consequential losses. Nothing in these terms limits a responsibility that by law cannot be limited.",
+        "p3": "<todo>Liability cap and consumer-law wording, for each country where we operate</todo>"
+      },
+      "changes": {
+        "title": "Changes",
+        "p1": "We may change the service and these terms. If a change is important, we will tell you on the site or by email before it applies. The date at the top of this page shows when the terms last changed."
+      },
+      "law": {
+        "title": "Governing law and disputes",
+        "p1": "<todo>Governing law and courts — this depends on where the company is registered: Israel, Georgia or elsewhere</todo>",
+        "p2": "If you live in the EU, the UK or another country with mandatory consumer protection, you keep the rights those laws give you."
+      },
+      "contact": {
+        "title": "Contact",
+        "p1": "Questions about these terms? Write to <mailto>{email}</mailto> or use the <contact>contact form</contact>."
+      }
+    }
+  },
+  "privacy": {
+    "title": "Privacy policy",
+    "summary": "What personal data we collect, why, how long we keep it and your rights.",
+    "metaDescription": "How {siteName} collects, uses and protects personal data, including ID documents, and your rights under Israeli law, the GDPR and the law of Georgia.",
+    "lead": "What we collect, why we collect it, and the choices you have — in plain language.",
+    "sections": {
+      "intro": {
+        "title": "Who we are",
+        "p1": "This policy explains how {siteName} collects and uses personal data when you use the website and any app. The data controller is <todo>company name, registration number and address</todo>.",
+        "p2": "We have tried to write it in plain language. If anything is unclear, <contact>ask us</contact>."
+      },
+      "collect": {
+        "title": "What we collect",
+        "list": {
+          "a": "<b>Account data</b> — your name, email address, photo (if you add one), language and currency, and how you sign in (Google, Apple or phone).",
+          "b": "<b>Phone number</b> — to verify your account with a code and, if you are an owner, so guests can contact you. We check whether a number is virtual (VoIP) to prevent fraud.",
+          "c": "<b>Listing data</b> — everything you enter when you post: the property's details, photos, prices, availability and exact address. The exact address is never shown publicly; the map shows an approximate location.",
+          "d": "<b>Contact clicks</b> — when someone taps “Show contact” or a contact button, we record it, to show owners their statistics and to detect abuse.",
+          "e": "<b>Support and reports</b> — your tickets, messages and screenshots, and the reports you send.",
+          "f": "<b>Device and anti-fraud data</b> — IP address, approximate country, browser and device type, and a random device ID stored in a cookie. These help us detect fake accounts and scams.",
+          "g": "<b>ID and ownership documents</b> — only if you ask for a verification badge (see the next section)."
+        }
+      },
+      "documents": {
+        "title": "ID and ownership documents",
+        "p1": "If you ask for the “ID verified” or “Owner verified” badge, you upload an ID document and a selfie and, for ownership, a Public Registry (NAPR) extract or a business registration.",
+        "p2": "These files are stored encrypted in private storage, seen only by the staff who check them, and deleted after the review. We keep only a record of the result — for example, “verified on [date] by [staff member]”."
+      },
+      "why": {
+        "title": "Why we use your data",
+        "list": {
+          "a": "to run the service: create your account, publish listings and let guests contact owners;",
+          "b": "to keep users safe: verify phones and identities, run automatic scam checks, review listings and handle reports;",
+          "c": "to translate listings into the other languages;",
+          "d": "to send service messages: verification codes, listing approved or needs changes, listing about to expire, replies to your tickets;",
+          "e": "to answer your support requests;",
+          "f": "to improve the site — with analytics only if you allow it;",
+          "g": "to meet our legal obligations and to defend legal claims."
+        }
+      },
+      "bases": {
+        "title": "Legal bases",
+        "p1": "Where the GDPR or similar laws apply, we rely on:",
+        "list": {
+          "a": "<b>Contract</b> — to provide the service you signed up for;",
+          "b": "<b>Legitimate interests</b> — to prevent fraud, keep the service secure and improve it, balanced against your rights;",
+          "c": "<b>Consent</b> — for optional cookies and analytics. You can withdraw it at any time;",
+          "d": "<b>Legal obligation</b> — where the law requires us to keep or share data."
+        }
+      },
+      "sharing": {
+        "title": "Who we share data with",
+        "p1": "We don't sell your personal data. We share it only as needed to run the service:",
+        "list": {
+          "a": "<b>Other users</b> — your public profile and listings. An owner's contact details are shown only to signed-in users who tap “Show contact”.",
+          "b": "<b>Service providers (processors)</b> — hosting and storage, SMS and phone checks, email delivery, automatic translation and security (CAPTCHA). They act on our instructions and must protect your data. <todo>List of processors and their countries</todo>",
+          "c": "<b>Authorities</b> — when the law requires it, or to protect someone from serious harm or fraud."
+        },
+        "p2": "Some providers are in other countries. When data leaves the EU, the UK or Israel, we use protections the law accepts, such as adequacy decisions or standard contractual clauses."
+      },
+      "retention": {
+        "title": "How long we keep data",
+        "list": {
+          "a": "<b>Account data</b> — while your account is open. It is deleted when you delete your account, except what the law requires us to keep.",
+          "b": "<b>Listings</b> — while they are live or saved in your account. <todo>Period after which deleted listings are erased</todo>",
+          "c": "<b>ID and ownership documents</b> — deleted after the review; only the verification record is kept.",
+          "d": "<b>Support tickets and reports</b> — <todo>period after they are closed</todo>",
+          "e": "<b>Security and anti-fraud logs</b> — <todo>period</todo>"
+        }
+      },
+      "rights": {
+        "title": "Your rights",
+        "p1": "Depending on where you live, you may have the right to:",
+        "list": {
+          "a": "see the data we hold about you and get a copy — use <b>Download my data</b> in your <settings>account settings</settings>;",
+          "b": "correct data that is wrong;",
+          "c": "delete your account and your data — use <b>Delete my account</b> in your account settings;",
+          "d": "object to or limit some uses of your data, and withdraw consent at any time;",
+          "e": "receive your data in a format you can take to another service;",
+          "f": "complain to a data-protection authority."
+        },
+        "p2": "To use a right that isn't in your settings, write to <mailto>{email}</mailto>. We may ask you to confirm your identity first."
+      },
+      "laws": {
+        "title": "Laws we follow",
+        "list": {
+          "a": "<b>Israel</b> — the Protection of Privacy Law, 5741-1981, and its regulations, including the Data Security Regulations.",
+          "b": "<b>European Union and United Kingdom</b> — the GDPR and the UK GDPR, for users there.",
+          "c": "<b>Georgia</b> — the Law of Georgia on Personal Data Protection."
+        },
+        "p1": "You can contact the Privacy Protection Authority in Israel, the data-protection authority in your EU country, the Information Commissioner's Office in the UK, or the Personal Data Protection Service of Georgia."
+      },
+      "security": {
+        "title": "How we protect your data",
+        "p1": "We use HTTPS everywhere, encrypt sensitive files, limit staff access by role, require 2-step login for staff, log staff actions and keep daily backups. No system is perfect: if a breach affects you, we will tell you as the law requires."
+      },
+      "children": {
+        "title": "Children",
+        "p1": "The service is not meant for children. You must be at least 18 to create an account."
+      },
+      "changes": {
+        "title": "Changes to this policy",
+        "p1": "If we change this policy in an important way, we will tell you on the site or by email. The date at the top of the page shows the latest version."
+      },
+      "contact": {
+        "title": "Contact",
+        "p1": "For privacy questions, write to <mailto>{email}</mailto>.",
+        "p2": "<todo>Data protection officer or EU/UK representative, if required</todo>"
+      }
+    }
+  },
+  "cookies": {
+    "title": "Cookie policy",
+    "summary": "The cookies we use and how to change your choice.",
+    "metaDescription": "Which cookies {siteName} uses — necessary, preferences and analytics — what each one does, and how to change your cookie settings.",
+    "lead": "Which cookies we use, what each one does, and how to change your choice at any time.",
+    "sections": {
+      "intro": {
+        "title": "What cookies are",
+        "p1": "Cookies are small text files that a website saves in your browser. We use them to keep you signed in, remember your choices and protect the site from fraud. We also use similar technology, such as your browser's local storage, for the same purposes."
+      },
+      "categories": {
+        "title": "The kinds of cookies we use",
+        "list": {
+          "a": "<b>Strictly necessary</b> — needed for the site to work and stay secure: signing in, security and fraud prevention, and remembering your cookie choice. These are always on.",
+          "b": "<b>Preferences</b> — remember your language and currency, so you don't have to choose them again.",
+          "c": "<b>Analytics</b> — help us understand how the site is used, so we can improve it. Only with your consent. <todo>Name of the analytics tool, if any</todo>"
+        }
+      },
+      "list": {
+        "title": "The cookies we set",
+        "table": {
+          "purpose": "What it does",
+          "duration": "How long it stays",
+          "categories": {
+            "necessary": "Strictly necessary",
+            "preferences": "Preferences"
+          },
+          "rows": {
+            "locale": {
+              "purpose": "Remembers the language you chose.",
+              "duration": "1 year"
+            },
+            "currency": {
+              "purpose": "Remembers the currency you chose for prices.",
+              "duration": "1 year"
+            },
+            "consent": {
+              "purpose": "Remembers your cookie choice, so we don't ask again on every page.",
+              "duration": "1 year"
+            },
+            "device": {
+              "purpose": "A random device ID that helps us detect fake accounts and fraud. It contains no name or contact details.",
+              "duration": "1 year"
+            },
+            "session": {
+              "purpose": "Keep you signed in securely (Better Auth session cookies).",
+              "duration": "Until you sign out or the session expires"
+            }
+          }
+        },
+        "p1": "The durations are approximate. We will keep this list up to date when we add or change cookies."
+      },
+      "thirdParty": {
+        "title": "Cookies from other services",
+        "p1": "If you sign in with Google or Apple, those companies may set their own cookies on their pages, under their own policies. Our security providers — for example, the CAPTCHA that blocks bots — may also use strictly necessary cookies or similar technology."
+      },
+      "control": {
+        "title": "How to change your choice",
+        "p1": "You can change or withdraw your consent at any time. The button below clears your saved choice and reloads the page, and the cookie banner asks you again.",
+        "consentButton": "Change cookie settings",
+        "p2": "You can also delete or block cookies in your browser settings. If you block strictly necessary cookies, signing in and some other parts of the site will not work."
+      },
+      "contact": {
+        "title": "Contact",
+        "p1": "Questions about cookies? Write to <mailto>{email}</mailto>."
+      }
+    }
+  },
+  "listingRules": {
+    "title": "Listing rules",
+    "summary": "What may be listed and how, so guests can trust every listing.",
+    "metaDescription": "The rules for listings on {siteName}: real photos, honest prices, accurate Jewish-friendly details, no contact details in the text, equal treatment and expiry.",
+    "lead": "Clear rules keep listings honest and help guests trust what they see.",
+    "sections": {
+      "intro": {
+        "title": "Why we have rules",
+        "p1": "These rules apply to every listing on {siteName}, in every language, together with the <terms>Terms of use</terms>. Listings that break them are sent back for changes or removed."
+      },
+      "allowed": {
+        "title": "What may be listed",
+        "list": {
+          "a": "Apartments, houses, villas and rooms for short stays or monthly rent;",
+          "b": "Hotels and guesthouses;",
+          "c": "Apartments, houses and villas for sale."
+        },
+        "p1": "You may only list a property that you own or have the right to rent out or sell. Agents and property managers must have the owner's permission and must register as a business.",
+        "p2": "Each listing is for one real property (a hotel may list several room types in one listing). Don't post the same property more than once."
+      },
+      "photos": {
+        "title": "Photos",
+        "list": {
+          "a": "Real, recent photos of the actual property only — no stock images, no renders presented as photos, and no photos copied from other listings.",
+          "b": "At least {minPhotos} photos, including the main rooms, the kitchen and the bathroom.",
+          "c": "No contact details, logos or text added to the photos.",
+          "d": "No people who can be recognized, unless they agreed."
+        },
+        "p1": "We check photos automatically and compare them with the photos of other listings."
+      },
+      "prices": {
+        "title": "Honest prices",
+        "list": {
+          "a": "Show the full price, including all mandatory fees (cleaning, utilities, service charges), or list each fee clearly in the costs section.",
+          "b": "State the deposit, if there is one, and when it is paid.",
+          "c": "Don't show a low price to attract clicks and ask for more later.",
+          "d": "A sale price must be the real asking price."
+        }
+      },
+      "contacts": {
+        "title": "Contact details",
+        "p1": "Add your contact methods only in your listing's contact settings — never in the title, the description or the photos. Contact details are shown to signed-in guests when they tap “Show contact”, which protects you from bots and spam.",
+        "p2": "Listings with phone numbers, links or usernames hidden in the text or photos are sent back for changes."
+      },
+      "location": {
+        "title": "Location",
+        "p1": "Enter the exact address. It stays private: the public map shows an approximate location, within about {locationMeters} meters, and guests get the exact address from you.",
+        "p2": "Walking times to synagogues and other places are calculated from the exact address and shown as approximate."
+      },
+      "jewish": {
+        "title": "Jewish-friendly details",
+        "p1": "Guests rely on these details, so they must be true:",
+        "list": {
+          "a": "<b>Kosher kitchen</b> — describe exactly what there is (for example, separate sets for meat and dairy, or a kitchen that was kashered). Don't call a kitchen kosher if it isn't.",
+          "b": "<b>Shabbat-friendly</b> — mark only features that really exist, such as a regular key instead of an electronic lock, a hot plate, an urn or a Shabbat elevator.",
+          "c": "<b>Nearby synagogues</b> — choose them from our map of places; don't invent distances or walking times."
+        }
+      },
+      "kosher": {
+        "title": "Kosher certificates for hotels and guesthouses",
+        "p1": "A hotel or guesthouse that says its food is kosher must name the supervising authority and be able to show a valid certificate. We may ask for a copy at any time, and again when it expires.",
+        "p2": "Without a valid certificate, describe the food honestly — for example, “vegetarian” or “no meat served” — but don't use the word “kosher”."
+      },
+      "equal": {
+        "title": "Equal treatment",
+        "p1": "Describe the property, not the people you want. Listings must not exclude or prefer guests, tenants or buyers because of religion, ethnicity, nationality, sex, disability, family status or any other protected characteristic.",
+        "note": "Features such as a kosher kitchen or a short walk to a synagogue are welcome. Rules such as “Jews only” or “no foreigners” are not.",
+        "p2": "House rules about the property itself — such as no smoking, no parties, quiet hours or a maximum number of guests — are fine."
+      },
+      "expiry": {
+        "title": "Expiry and renewal",
+        "p1": "Listings expire after {expiryDays} days unless you renew them. We email you a few days before. Renew only if the listing is still available and up to date, and mark it as rented or sold when it no longer is."
+      },
+      "review": {
+        "title": "What triggers a review or removal",
+        "p1": "A listing may be sent to a moderator, sent back to you for changes, hidden or removed if, for example:",
+        "list": {
+          "a": "its photos already appear in another listing or account;",
+          "b": "the price is far below the usual price for the area;",
+          "c": "the text contains scam phrases or hidden contact details;",
+          "d": "it comes from a brand-new account posting many listings, or from several accounts on one device;",
+          "e": "users report it several times;",
+          "f": "it breaks any rule on this page or the Terms of use."
+        },
+        "p2": "The first listing from every account is always reviewed by a person. Serious or repeated breaks of the rules can lead to the account being suspended or closed."
+      },
+      "contact": {
+        "title": "Questions",
+        "p1": "Not sure whether something is allowed? Visit the <help>help center</help> or write to <mailto>{email}</mailto>."
+      }
+    }
+  },
+  "accessibility": {
+    "title": "Accessibility statement",
+    "summary": "How we make the site usable for everyone, and how to reach us.",
+    "metaDescription": "The accessibility statement of {siteName}: our WCAG 2.1 AA and IS 5568 target, what we have done, known limitations and how to contact our accessibility coordinator.",
+    "lead": "We want everyone to be able to find a home, post a listing and get help — including people with disabilities.",
+    "sections": {
+      "commitment": {
+        "title": "Our commitment",
+        "p1": "{siteName} builds accessibility into the site itself, rather than adding it at the end. We test with a keyboard and with screen readers, in all five languages."
+      },
+      "standard": {
+        "title": "The standard we follow",
+        "p1": "Our target is the Web Content Accessibility Guidelines (WCAG) 2.1 at level AA, and Israeli Standard IS 5568, which is based on WCAG and is required by the Equal Rights for Persons with Disabilities (Service Accessibility Adjustments) Regulations, 5773-2013.",
+        "p2": "<todo>Conformance status, after an independent accessibility audit</todo>"
+      },
+      "done": {
+        "title": "What we have done",
+        "list": {
+          "a": "<b>Keyboard</b> — pages, menus, dialogs and forms can be used with a keyboard alone, with a clearly visible focus indicator.",
+          "b": "<b>Screen readers</b> — headings, landmarks and labels are marked up properly, and every page declares its language and reading direction, so screen readers work in all five languages.",
+          "c": "<b>Contrast and text</b> — colors meet AA contrast in light and dark mode, and text can be enlarged with the browser's zoom.",
+          "d": "<b>Right-to-left</b> — Hebrew and Arabic pages are fully mirrored, while phone numbers, prices and links stay readable left-to-right.",
+          "e": "<b>Images</b> — meaningful images have text alternatives; decorative icons are hidden from screen readers.",
+          "f": "<b>Mobile</b> — the site works from small phone screens, 360 pixels wide, up to large desktop screens.",
+          "g": "<b>No overlay plugins</b> — we don't use accessibility overlay widgets. We fix the site itself."
+        }
+      },
+      "limitations": {
+        "title": "Known limitations",
+        "p1": "We are still testing the site. Known issues will be listed here, with the date we expect to fix them:",
+        "list": {
+          "a": "<todo>Known limitations found in the accessibility audit</todo>",
+          "b": "Content written by users, such as listing descriptions and photos, and automatic translations may not always be fully accessible.",
+          "c": "Interactive maps can be hard to use with a screen reader or a keyboard. Addresses and walking times are also shown as text."
+        }
+      },
+      "contact": {
+        "title": "Contact our accessibility coordinator",
+        "p1": "If something on the site is hard to use, or you need information in another format, please tell us. We aim to reply within <todo>number</todo> business days.",
+        "list": {
+          "a": "Accessibility coordinator: <todo>name</todo>",
+          "b": "Phone: <todo>phone number</todo>",
+          "c": "Email: <mailto>{email}</mailto>",
+          "d": "Or open a ticket in the <help>help center</help>."
+        }
+      },
+      "review": {
+        "title": "Date of this statement",
+        "p1": "This statement was last reviewed on {date}. We review it at least once a year and after major changes to the site."
+      }
+    }
+  }
+}
