@@ -1,0 +1,80 @@
+{
+  "loading": "Loading the help center…",
+  "meta": {
+    "title": "Help center",
+    "description": "Answers to common questions about {siteName}: getting started, posting a listing, contacting owners, safety, verification and payments."
+  },
+  "hero": {
+    "title": "How can we help?",
+    "lead": "Search our answers, or browse by topic. If you can't find what you need, our support team is happy to help."
+  },
+  "search": {
+    "label": "Search the help center",
+    "placeholder": "e.g. deposit, verification",
+    "hint": "Results appear as you type.",
+    "clear": "Clear search",
+    "results": "{count, plural, =0 {No answers found} one {One answer found} other {{countText} answers found}}",
+    "resultsTitle": "Answers for “<q>{query}</q>”",
+    "noResultsTitle": "No answers for “<q>{query}</q>”",
+    "noResultsBody": "Try different or fewer words — or ask our support team directly. We usually need just a few details to help.",
+    "openTicket": "Open a ticket"
+  },
+  "topics": {
+    "title": "Browse by topic",
+    "count": "{count, plural, =0 {No questions yet} one {One question} other {{countText} questions}}"
+  },
+  "faq": {
+    "title": "Frequently asked questions",
+    "all": "All topics",
+    "filterLabel": "Show questions about",
+    "copyLink": "Copy link",
+    "copied": "Link copied",
+    "emptyTopic": "No questions in this topic yet",
+    "emptyTopicBody": "We're still writing answers for this topic. Our support team can help you right away."
+  },
+  "empty": {
+    "title": "Our answers are on their way",
+    "body": "We're still writing the help center. In the meantime, our support team will gladly answer any question.",
+    "ticket": "Open a ticket"
+  },
+  "categories": {
+    "GETTING_STARTED": {
+      "title": "Getting started"
+    },
+    "POSTING": {
+      "title": "Posting a listing"
+    },
+    "CONTACTING_OWNERS": {
+      "title": "Contacting owners"
+    },
+    "SAFETY": {
+      "title": "Safety"
+    },
+    "ACCOUNT_VERIFICATION": {
+      "title": "Account and verification"
+    },
+    "PAYMENTS": {
+      "title": "Payments"
+    }
+  },
+  "contactOptions": {
+    "title": "Still need help?",
+    "lead": "Our support team reads every message and answers in your language.",
+    "ticket": {
+      "title": "Open a ticket",
+      "body": "Follow the conversation in your account and attach screenshots."
+    },
+    "contact": {
+      "title": "Contact form",
+      "body": "No account? Write to us and we'll answer by email."
+    },
+    "safety": {
+      "title": "Safety Center",
+      "body": "How to spot scams and stay safe as a guest or owner."
+    },
+    "scam": {
+      "title": "Report a scam — urgent",
+      "body": "Asked to pay up front? Tell us now — scam reports are handled first."
+    }
+  }
+}

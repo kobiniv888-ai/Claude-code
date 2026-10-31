@@ -1,0 +1,15 @@
+{
+  "shabbat": {
+    "title": "Shabbat Shalom",
+    "titleHoliday": "Chag Sameach",
+    "text": "Posting, messages and support are paused until {time} (Israel time). You can keep browsing."
+  },
+  "scam": {
+    "label": "Safety alert",
+    "more": "Safety Center",
+    "dismiss": "Dismiss this alert"
+  },
+  "demo": {
+    "text": "Preview: listings marked “Demo” are examples, not real homes."
+  }
+}

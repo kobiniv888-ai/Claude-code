@@ -1,0 +1,265 @@
+{
+  "loading": "Loading your support tickets…",
+  "status": {
+    "OPEN": "Open",
+    "IN_PROGRESS": "In progress",
+    "WAITING_FOR_USER": "Waiting for you",
+    "RESOLVED": "Resolved",
+    "CLOSED": "Closed"
+  },
+  "statusStaff": {
+    "OPEN": "Open",
+    "IN_PROGRESS": "In progress",
+    "WAITING_FOR_USER": "Waiting for the user",
+    "RESOLVED": "Resolved",
+    "CLOSED": "Closed"
+  },
+  "statusHint": {
+    "OPEN": "We've got your message. A member of our support team will pick it up soon.",
+    "IN_PROGRESS": "A team member is working on it. We'll write here as soon as we have news.",
+    "WAITING_FOR_USER": "We need a little more information from you. Please reply below so we can continue.",
+    "RESOLVED": "We think this is sorted. Tell us if it helped — or reply below if you still need help and we'll reopen it.",
+    "CLOSED": "This ticket is closed. If you need more help, you're welcome to open a new one."
+  },
+  "priority": {
+    "URGENT": "Urgent"
+  },
+  "category": {
+    "LISTING_PROBLEM": {
+      "label": "Listing problem",
+      "hint": "Something is wrong with a listing — yours or someone else's."
+    },
+    "SCAM_REPORT": {
+      "label": "Report a scam",
+      "hint": "Someone asked for money up front, or a listing looks fake."
+    },
+    "ACCOUNT_VERIFICATION": {
+      "label": "Account or verification",
+      "hint": "Signing in, your profile, ID or ownership checks."
+    },
+    "TECHNICAL": {
+      "label": "Technical problem",
+      "hint": "A page, button or upload isn't working as it should."
+    },
+    "PAYMENT": {
+      "label": "Payment",
+      "hint": "Questions about paid features and receipts."
+    },
+    "OTHER": {
+      "label": "Other",
+      "hint": "Anything else — ideas and feedback are welcome too."
+    }
+  },
+  "progress": {
+    "title": "Ticket progress",
+    "step": "Step {current} of {total}",
+    "done": "Done",
+    "current": "Current step",
+    "upcoming": "Still to come"
+  },
+  "messages": {
+    "listLabel": "Conversation",
+    "empty": "No messages yet.",
+    "you": "You",
+    "supportTeam": "{siteName} support",
+    "staffName": "{name} · {siteName} support",
+    "staff": "Support team",
+    "requester": "User",
+    "internalNote": "Internal note — the user can't see this",
+    "attachment": "Attachment",
+    "sizeKb": "{size} KB",
+    "sizeMb": "{size} MB"
+  },
+  "screenshots": {
+    "add": "Add screenshots",
+    "count": "{current} of {max}",
+    "listLabel": "Chosen screenshots",
+    "thumbAlt": "Screenshot {number}",
+    "uploading": "Uploading…",
+    "retry": "Try again",
+    "remove": "Remove screenshot {number}",
+    "tooMany": "You can attach up to {max} screenshots."
+  },
+  "form": {
+    "categoryLegend": "What is it about?",
+    "categoryHint": "Choosing the right topic gets your ticket to the right person faster.",
+    "urgentTag": "Urgent",
+    "scam": {
+      "title": "Your safety comes first",
+      "stopPaying": "Don't send any more money and stop sharing personal details with this person.",
+      "bank": "If you already paid, contact your bank or payment app right away — they can sometimes stop the transfer.",
+      "evidence": "Add the listing link and screenshots of the chat and of any payment request.",
+      "danger": "If you are in danger, call the local emergency number (112 in Georgia)."
+    },
+    "subject": "Subject",
+    "subjectPlaceholder": "For example: the owner asked for a deposit by bank transfer",
+    "message": "Describe the problem",
+    "messagePlaceholder": "What happened, when, and what have you already tried?",
+    "messageHint": "Write in any language you like. Please don't share passwords or card numbers.",
+    "counter": "{current} / {max}",
+    "listing": "Linked listing",
+    "optional": "(optional)",
+    "listingPlaceholder": "1234 or a link to the listing",
+    "listingHint": "Paste the listing number (shown as “ID” on the listing) or its link.",
+    "listingChecking": "Looking for the listing…",
+    "listingFound": "Found listing <ltr>ID {id}</ltr>",
+    "screenshots": "Screenshots",
+    "screenshotsHint": "Up to {max} images, for example a chat or an error message. They're stored encrypted and only our support team can see them.",
+    "privacy": "Only you and our support team can see this ticket.",
+    "submit": "Send ticket",
+    "sending": "Sending…",
+    "waitUploads": "Uploading screenshots…"
+  },
+  "fieldErrors": {
+    "category_required": "Please choose a topic.",
+    "subject_short": "Please write a short subject.",
+    "subject_long": "The subject is too long — please shorten it.",
+    "message_short": "Please tell us a bit more about it.",
+    "message_long": "Your message is too long — please shorten it or split it into two messages.",
+    "reply_short": "Please write your reply first.",
+    "listing_invalid": "That doesn't look like a listing number or listing link.",
+    "listing_not_found": "We couldn't find a listing with this number. Please check it and try again.",
+    "too_many_attachments": "You've reached the screenshot limit. Remove one to add another.",
+    "attachment_invalid": "One of the screenshots couldn't be attached. Please remove it and upload it again.",
+    "rating_required": "Please choose from 1 to 5 stars.",
+    "comment_long": "Your comment is too long — please shorten it.",
+    "name_short": "Please write your name.",
+    "name_long": "The name is too long — please shorten it.",
+    "email_invalid": "Please check your email address — for example name@example.com.",
+    "invalid": "Please check this field."
+  },
+  "errors": {
+    "ticket_closed": "This ticket is already closed, so it can't get new replies. Please open a new ticket.",
+    "already_rated": "You've already rated this ticket — thank you!",
+    "not_rateable": "This ticket can be rated once it's marked as resolved.",
+    "listing_invalid": "That doesn't look like a listing number or listing link.",
+    "listing_not_found": "We couldn't find a listing with this number. Please check it and try again.",
+    "attachment_invalid": "One of the screenshots couldn't be attached. Please remove it and upload it again.",
+    "invalid_assignee": "This team member can't be assigned to support tickets."
+  },
+  "shabbat": {
+    "title": "Support is resting for Shabbat",
+    "body": "New tickets and replies are paused for Shabbat and holidays. You can keep reading the help center — please write to us after Shabbat ends. Shabbat Shalom!",
+    "endsAt": "Support opens again: {time} (Israel time).",
+    "urgent": "If you are in danger, call the local emergency number (112 in Georgia). Safety advice is always available in the <safety>Safety Center</safety>."
+  },
+  "newPage": {
+    "metaTitle": "Open a support ticket",
+    "crumbHelp": "Help center",
+    "crumb": "New ticket",
+    "title": "Open a support ticket",
+    "lead": "Tell us what happened and we'll answer here and by email. Scam reports are handled first.",
+    "asideLabel": "Tips for a quick answer",
+    "tipsTitle": "What helps us answer quickly",
+    "tips": {
+      "listingId": "The listing number or link, if it's about a listing.",
+      "screenshots": "Screenshots of the chat, the error or the payment request.",
+      "steps": "What you did, what you expected and what happened instead."
+    },
+    "scamTitle": "Think it's a scam?",
+    "scamBody": "Never pay before you've checked the owner and seen the place, in person or on a live video call.",
+    "scamLink": "How to spot scams",
+    "updatesTitle": "How we'll update you",
+    "updatesEmail": "We'll email you every time we reply. You can also follow everything in “My tickets”.",
+    "updatesNoEmail": "Your account has no email address, so you'll find our replies in “My tickets”. Add an email in your settings to get updates by email too.",
+    "myTickets": "Go to my tickets"
+  },
+  "listPage": {
+    "title": "My support tickets",
+    "lead": "Every conversation with our support team, newest first.",
+    "new": "New ticket",
+    "listHeading": "Your tickets",
+    "emptyTitle": "No tickets yet",
+    "emptyBody": "When you ask our support team for help, the conversation will appear here. Many answers are already in the help center.",
+    "emptyCta": "Open a ticket",
+    "emptyFaq": "Browse the help center",
+    "waitingNotice": "{count, plural, one {One ticket is waiting for your reply.} other {{countText} tickets are waiting for your reply.}}",
+    "pagination": "Ticket pages",
+    "previous": "Newer",
+    "next": "Older",
+    "pageOf": "Page {page} of {total}"
+  },
+  "list": {
+    "number": "Ticket {number}",
+    "updated": "Updated {time}",
+    "lastFromTeam": "Support:",
+    "lastFromYou": "You:",
+    "replyNeeded": "Reply needed"
+  },
+  "detail": {
+    "metaTitle": "Ticket {number}",
+    "metaTitleFallback": "Support ticket",
+    "metaDescription": "Your conversation with our support team.",
+    "crumbTickets": "My tickets",
+    "crumb": "Ticket {number}",
+    "eyebrow": "Ticket {number}",
+    "opened": "Opened {date}",
+    "updated": "Last update {time}",
+    "listing": "Linked listing <ltr>ID {id}</ltr>",
+    "listingUntitled": "Listing details are not public",
+    "viewListing": "View listing",
+    "conversation": "Conversation",
+    "closedTitle": "This ticket is closed",
+    "closedOn": "Closed on {date}. If you need more help, open a new ticket.",
+    "closedBody": "If you need more help, open a new ticket.",
+    "ratedLabel": "You rated our help {rating} out of 5.",
+    "thanksForRating": "Thanks for your feedback!",
+    "newTicket": "Open a new ticket",
+    "createdToast": "Ticket {number} is open",
+    "createdToastBody": "We'll reply here and let you know by email."
+  },
+  "reply": {
+    "title": "Write a reply",
+    "titleWaiting": "We're waiting for your reply",
+    "reopenHint": "Sending a reply puts your ticket back in our queue.",
+    "label": "Your message",
+    "placeholder": "Write your answer or add more details…",
+    "counter": "{current} / {max}",
+    "submit": "Send reply",
+    "sending": "Sending…",
+    "waitUploads": "Uploading screenshots…",
+    "sent": "Reply sent"
+  },
+  "rating": {
+    "title": "Was this helpful?",
+    "lead": "Rate our help from 1 to 5 stars. It takes a second and helps us get better.",
+    "legend": "Your rating",
+    "stars": {
+      "1": "Not helpful",
+      "2": "A little helpful",
+      "3": "Somewhat helpful",
+      "4": "Helpful",
+      "5": "Very helpful"
+    },
+    "comment": "Anything you'd like to add?",
+    "optional": "(optional)",
+    "commentPlaceholder": "What went well, and what could we do better?",
+    "closesNote": "Sending your rating closes the ticket.",
+    "submit": "Send rating",
+    "sending": "Sending…",
+    "pickStars": "Please choose from 1 to 5 stars.",
+    "thanks": "Thank you for your feedback!"
+  },
+  "close": {
+    "button": "Close ticket",
+    "title": "Close this ticket?",
+    "body": "Close it if your problem is solved. You won't be able to reply afterwards, but you can always open a new ticket.",
+    "cancel": "Keep it open",
+    "confirm": "Close ticket",
+    "closing": "Closing…",
+    "done": "Ticket closed"
+  },
+  "loadError": {
+    "title": "We couldn't load this page",
+    "body": "Something went wrong on our side. Please try again in a moment.",
+    "retry": "Try again",
+    "contact": "Write to support",
+    "help": "Go to the help center"
+  },
+  "notFound": {
+    "title": "We couldn't find this ticket",
+    "body": "It may belong to another account, or the link is incomplete. All your tickets are in “My tickets”.",
+    "myTickets": "My tickets",
+    "help": "Help center"
+  }
+}

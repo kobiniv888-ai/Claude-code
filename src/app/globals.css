@@ -7,9 +7,12 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
+  /* --font-site is set on <html> (src/components/layout/fonts.ts): Noto Sans for Latin + Cyrillic,
+     then one Noto face per script. Each face only loads for the characters it covers
+     (unicode-range), so a Hebrew page downloads Latin + Hebrew only. */
+  --font-sans: var(--font-site, ui-sans-serif, system-ui, sans-serif);
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-site, ui-sans-serif, system-ui, sans-serif);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -52,6 +55,32 @@
   --color-destructive-foreground: var(--destructive-foreground);
   --shadow-card: var(--shadow-card);
   --shadow-card-hover: var(--shadow-card-hover);
+  --shadow-float: var(--shadow-float);
+  --shadow-header: var(--shadow-header);
+  --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-fade-up: fade-up 0.5s var(--ease-soft) both;
+  --animate-sheet-up: sheet-up 0.35s var(--ease-soft) both;
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes sheet-up {
+    from {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -106,6 +135,9 @@
   --radius: 0.75rem; /* 12px cards; xl = 16px */
   --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 4px 16px rgb(16 24 40 / 0.06);
   --shadow-card-hover: 0 2px 4px rgb(16 24 40 / 0.06), 0 12px 32px rgb(16 24 40 / 0.1);
+  --shadow-float: 0 4px 12px rgb(16 24 40 / 0.08), 0 16px 48px rgb(16 24 40 / 0.14);
+  --shadow-header: 0 1px 0 rgb(16 24 40 / 0.04), 0 6px 24px rgb(16 24 40 / 0.06);
+  --shimmer-highlight: rgb(255 255 255 / 0.65);
   --sidebar: #ffffff;
   --sidebar-foreground: #1a1f2b;
   --sidebar-primary: var(--brand-primary);
@@ -153,6 +185,9 @@
   --chart-5: #fbbf24;
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 16px rgb(0 0 0 / 0.25);
   --shadow-card-hover: 0 2px 4px rgb(0 0 0 / 0.35), 0 12px 32px rgb(0 0 0 / 0.35);
+  --shadow-float: 0 4px 12px rgb(0 0 0 / 0.35), 0 16px 48px rgb(0 0 0 / 0.45);
+  --shadow-header: 0 1px 0 rgb(255 255 255 / 0.04), 0 6px 24px rgb(0 0 0 / 0.35);
+  --shimmer-highlight: rgb(255 255 255 / 0.06);
   --sidebar: #171d2b;
   --sidebar-foreground: #eef1f6;
   --sidebar-primary: #93b4f0;
@@ -163,17 +198,110 @@
   --sidebar-ring: #93b4f0;
 }
 
+/* ── LAYOUT TOKENS ──
+   --header-height: height of the sticky site header. Use it for your own sticky bars:
+     class="sticky top-(--header-height)"
+   --bottom-nav-height: space taken by the mobile bottom bar (0 on desktop and on pages that
+     render <HideBottomNav />). Use it for anything fixed to the bottom of the screen:
+     class="fixed bottom-(--bottom-nav-height)" */
+:root {
+  --header-height: 3.5rem;
+  --bottom-nav-height: 0px;
+  color-scheme: light;
+}
+.dark {
+  color-scheme: dark;
+}
+@media (width >= 64rem) {
+  :root {
+    --header-height: 6.75rem;
+  }
+}
+@media (width < 64rem) {
+  body:has([data-bottom-nav]) {
+    --bottom-nav-height: calc(4rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+/* <HideBottomNav /> (post wizard, full-screen flows) removes the bar and its space. */
+body:has([data-hide-bottom-nav]) {
+  --bottom-nav-height: 0px;
+}
+body:has([data-hide-bottom-nav]) [data-bottom-nav] {
+  display: none;
+}
+
+/* Skeleton shimmer: a soft light sweep in the reading direction (no spinners). */
+@utility shimmer {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background-color: var(--muted);
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background-image: linear-gradient(90deg, transparent, var(--shimmer-highlight), transparent);
+    animation: shimmer 1.6s ease-in-out infinite;
+  }
+  [dir="rtl"] &::after {
+    animation-name: shimmer-rtl;
+  }
+}
+@keyframes shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes shimmer-rtl {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+/* Space for the iPhone home indicator / Android gesture bar. */
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    @apply font-sans;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
   body {
-    @apply bg-background text-foreground;
+    @apply min-h-dvh bg-background text-foreground;
+  }
+  ::selection {
+    background-color: color-mix(in oklab, var(--primary) 22%, transparent);
   }
   button:not(:disabled), [role="button"]:not(:disabled) {
     cursor: pointer;
   }
-  html {
-    @apply font-sans;
+  /* A clear keyboard focus ring for anything that does not draw its own. */
+  :where(a, button, summary, [tabindex], input, select, textarea):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  /* Calm motion for people who ask for it: no sweeping, sliding or shimmering. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }

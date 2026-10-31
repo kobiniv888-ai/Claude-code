@@ -1,0 +1,18 @@
+{
+  "errors": {
+    "file_too_large": "This file is too large. Please choose a smaller file, or compress the photo, and try again.",
+    "file_type_not_allowed": "This file type isn't supported. Please upload a JPG, PNG, WebP or AVIF photo — or a PDF for verification documents.",
+    "image_too_small": "This photo is too small. Please choose a larger, sharper photo.",
+    "image_corrupt": "We couldn't read this file. It may be damaged — please try another one.",
+    "file_rejected": "This file can't be accepted for safety reasons. Please upload a plain photo or a scanned PDF.",
+    "file_scan_failed": "We couldn't check this file right now. Please try again in a few minutes.",
+    "too_many_photos": "You've reached the photo limit. Remove a photo before adding a new one.",
+    "invalid_input": "Something is missing from the upload. Please choose the file again.",
+    "not_found": "We couldn't find this listing. It may have been deleted.",
+    "auth_required": "Please sign in to upload files.",
+    "rate_limited": "You've uploaded a lot of files in a short time. Please wait a little and try again.",
+    "shabbat_mode": "Uploads are paused for Shabbat and holidays. Please try again after Shabbat ends.",
+    "network": "The upload was interrupted. Please check your connection and try again.",
+    "server_error": "Something went wrong while uploading. Please try again."
+  }
+}

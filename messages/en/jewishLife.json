@@ -1,0 +1,199 @@
+{
+  "loading": "Loading Jewish Life…",
+  "meta": {
+    "title": "Jewish life in Georgia: synagogues, kosher food and Shabbat times",
+    "description": "A map of synagogues, Chabad houses, kosher restaurants and shops, mikvaot and Jewish heritage sites in Georgia, with this week's Shabbat times for every city and a Jewish calendar — on {siteName}."
+  },
+  "hero": {
+    "eyebrow": "Jewish Life",
+    "title": "Jewish life in Georgia",
+    "lead": "Synagogues, kosher food and Shabbat times for your trip to Tbilisi, Batumi and beyond — all in one place.",
+    "jumpLabel": "On this page",
+    "jump": {
+      "places": "Map of places",
+      "times": "Shabbat times",
+      "calendar": "Jewish calendar",
+      "guides": "Guides",
+      "emergency": "Emergency numbers"
+    }
+  },
+  "intro": {
+    "title": "A warm welcome for Jewish travelers",
+    "p1": "Georgia is home to one of the oldest Jewish communities in the world, and Jewish life has been part of the country for many centuries. Georgians are known for their hospitality, and Israeli and Jewish visitors are a familiar sight in Tbilisi, Batumi and beyond.",
+    "p2": "In the larger cities you can find synagogues, Chabad houses and kosher food. Opening hours, prayer times and kashrut supervision can change, so it's always worth checking with the place directly before you go.",
+    "p3": "On this page you'll find a map of Jewish places added by our team, this week's Shabbat times for every city, a Jewish calendar with holidays and candle-lighting times, and emergency numbers to keep at hand.",
+    "highlights": {
+      "pray": {
+        "title": "Pray and connect",
+        "body": "Find synagogues and Chabad houses on the map. Listings show the walking time to the nearest synagogue."
+      },
+      "kosher": {
+        "title": "Eat kosher",
+        "body": "Kosher restaurants and shops are marked on the map. Ask about the supervision when you arrive."
+      },
+      "shabbat": {
+        "title": "Keep Shabbat comfortably",
+        "body": "Filter for Shabbat-friendly homes — a regular key, no motion sensors, a hot plate — close to a synagogue."
+      }
+    }
+  },
+  "places": {
+    "eyebrow": "Map",
+    "title": "Synagogues, kosher food and Jewish sites",
+    "lead": "Places are checked and added by our team. Choose a type or a city to narrow the map.",
+    "mapLabel": "Map of Jewish places",
+    "types": {
+      "SYNAGOGUE": "Synagogue",
+      "CHABAD_HOUSE": "Chabad house",
+      "KOSHER_RESTAURANT": "Kosher restaurant",
+      "KOSHER_SHOP": "Kosher shop",
+      "MIKVEH": "Mikveh",
+      "HERITAGE_SITE": "Jewish heritage site"
+    },
+    "typesPlural": {
+      "SYNAGOGUE": "Synagogues",
+      "CHABAD_HOUSE": "Chabad houses",
+      "KOSHER_RESTAURANT": "Kosher restaurants",
+      "KOSHER_SHOP": "Kosher shops",
+      "MIKVEH": "Mikvaot",
+      "HERITAGE_SITE": "Heritage sites"
+    },
+    "typeFilterLabel": "Type of place",
+    "allTypes": "All",
+    "cityLabel": "City",
+    "allCities": "All cities",
+    "cityOption": "{city} ({count})",
+    "viewLabel": "Show as",
+    "viewList": "List",
+    "viewMap": "Map",
+    "listLabel": "Places",
+    "resultCount": "{count, plural, =0 {No places} one {{count} place} other {{count} places}}",
+    "demoBadge": "Demo",
+    "demoNote": "Sample point — not a real place",
+    "demoLegend": "Points marked “Demo” are samples, not real places",
+    "address": "Address",
+    "hours": "Hours",
+    "phone": "Phone",
+    "website": "Website",
+    "directions": "Get directions",
+    "showOnMap": "Show on map",
+    "showInList": "Show in list",
+    "opensInNewTab": "(opens in a new tab)",
+    "noMatchTitle": "No places match these filters",
+    "noMatchBody": "Try another type of place or choose all cities.",
+    "clearFilters": "Clear filters",
+    "emptyTitle": "No places on the map yet",
+    "emptyBody": "Places are added by our team. Know a place? Tell us",
+    "emptyCta": "Tell us about a place",
+    "suggestTitle": "Know a place that's missing?",
+    "suggestBody": "Tell us about a synagogue, kosher restaurant or Jewish site and our team will check it and add it.",
+    "suggestCta": "Suggest a place"
+  },
+  "times": {
+    "eyebrow": "Shabbat",
+    "title": "Shabbat times in every city",
+    "lead": "This week's candle lighting and Havdalah, in each city's local time. Choose a city to see it in the calendar.",
+    "caption": "Candle lighting and Havdalah times this week, by city",
+    "city": "City",
+    "candleLighting": "Candle lighting",
+    "havdalah": "Havdalah",
+    "timeZone": "Time zone",
+    "noTime": "Not available",
+    "noHavdalah": "Yom Tov begins",
+    "zoneNote": "All times are local time (<zone>{offset}</zone>).",
+    "zoneNoteMulti": "Each city's times are in its own local time.",
+    "methodNote": "Candle lighting is {candles} minutes before sunset; Havdalah is {havdalah} minutes after sunset. Your community may follow a different custom.",
+    "unavailable": "Shabbat times aren't available right now. Please try again later."
+  },
+  "calendar": {
+    "eyebrow": "Calendar",
+    "title": "Jewish calendar",
+    "lead": "Hebrew dates, holidays and candle-lighting times. Choose a city and move between months.",
+    "cityLabel": "Times for",
+    "navLabel": "Change month",
+    "previous": "Previous month",
+    "next": "Next month",
+    "thisMonth": "This month",
+    "caption": "Jewish calendar for {month}, with times for {city}",
+    "listLabel": "Days of the month, with times for {city}",
+    "today": "Today",
+    "candleLighting": "Candle lighting",
+    "havdalah": "Havdalah",
+    "legend": {
+      "yomTov": "Yom Tov",
+      "holiday": "Holiday",
+      "fast": "Fast day",
+      "modern": "Israeli national day",
+      "timesIn": "Times in {city} local time"
+    }
+  },
+  "upcoming": {
+    "title": "Upcoming holidays",
+    "empty": "No holidays in the coming months.",
+    "beginsEvening": "begins at sunset on {date}",
+    "now": "Now",
+    "yomTov": "Yom Tov",
+    "category": {
+      "major": "Holiday",
+      "minor": "Holiday",
+      "fast": "Fast day",
+      "modern": "Israeli national day"
+    },
+    "showInCalendar": "Show in calendar"
+  },
+  "guides": {
+    "eyebrow": "Guides",
+    "title": "Guides for Jewish travelers",
+    "lead": "Practical guides to Jewish life in Georgia.",
+    "read": "Read",
+    "reviewedByLawyer": "Checked by a local lawyer",
+    "comingSoonBadge": "Coming soon",
+    "comingSoonTitle": "Our guides are on the way",
+    "comingSoonBody": "We're writing practical guides with people who know Georgia well. Here's what's coming:",
+    "topics": {
+      "history": {
+        "title": "The Jewish history of Georgia",
+        "body": "A community with deep roots, and the places where you can see its story."
+      },
+      "kosher": {
+        "title": "Keeping kosher in Georgia",
+        "body": "Where to buy and eat kosher food, and what to ask about supervision."
+      },
+      "shabbat": {
+        "title": "Shabbat in Tbilisi and Batumi",
+        "body": "Synagogues, meals and choosing a Shabbat-friendly place to stay."
+      },
+      "travel": {
+        "title": "Tips for Israeli travelers",
+        "body": "Getting there, getting around and making the most of your trip."
+      },
+      "property": {
+        "title": "Buying property in Georgia",
+        "body": "How buying works for foreigners — checked by a local lawyer before we publish it."
+      }
+    }
+  },
+  "guide": {
+    "back": "Back to Jewish Life",
+    "published": "Published {date}",
+    "reviewedByLawyer": "Checked by a local lawyer"
+  },
+  "emergency": {
+    "eyebrow": "Emergency",
+    "title": "Emergency and embassy contacts",
+    "lead": "In an emergency anywhere in Georgia, call 112 — police, ambulance and fire.",
+    "general": {
+      "title": "Emergency services in Georgia",
+      "body": "One number for police, ambulance and fire, free from any phone, 24 hours a day."
+    },
+    "call": "Call",
+    "opensInNewTab": "(opens in a new tab)",
+    "moreSoon": "Embassy and community contacts will be added here by our team."
+  },
+  "error": {
+    "title": "We couldn't load Jewish Life",
+    "body": "Something went wrong on our side. Please try again in a moment.",
+    "retry": "Try again",
+    "home": "Go to the home page"
+  }
+}

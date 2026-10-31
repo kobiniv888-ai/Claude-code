@@ -1,0 +1,31 @@
+{
+  "card": {
+    "thisWeek": "This week",
+    "title": "Shabbat in {city}",
+    "candleLighting": "Candle lighting",
+    "havdalah": "Havdalah",
+    "noTime": "Not available",
+    "noHavdalah": "Yom Tov begins — no Havdalah",
+    "holidayReading": "Holiday reading: {name}",
+    "hebrewDate": "Hebrew date: {date}",
+    "localTime": "Times are in {city} local time (<zone>{offset}</zone>).",
+    "moreLink": "All cities and the Jewish calendar",
+    "unavailable": "Shabbat times aren't available right now. Please try again later."
+  },
+  "strip": {
+    "title": "This week's Shabbat times",
+    "lead": "Candle lighting and Havdalah, in local time.",
+    "allCities": "All cities and the calendar"
+  },
+  "holidays": {
+    "title": "Jewish holidays during your dates",
+    "beginsEvening": "{name} begins in the evening",
+    "yomTov": "Yom Tov",
+    "more": "{count, plural, one {and {count} more holiday} other {and {count} more holidays}}",
+    "yomTovNote": "On Yom Tov, as on Shabbat, observant guests don't travel or use the phone — plan check-in and check-out around it.",
+    "hint": {
+      "sukkah_space": "Your dates include {holiday} — filter for homes with space for a sukkah",
+      "pesach_ready": "Your dates include {holiday} — filter for homes ready for Pesach"
+    }
+  }
+}

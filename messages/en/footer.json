@@ -1,0 +1,37 @@
+{
+  "mission": "A trusted place to find and list homes in Georgia — with Jewish-friendly details, verified owners and direct contact with no booking fees.",
+  "columns": {
+    "explore": "Explore",
+    "company": "About {name}",
+    "support": "Help & safety",
+    "legal": "Legal"
+  },
+  "links": {
+    "rent": "Homes for rent",
+    "buy": "Property for sale",
+    "hotels": "Hotels & guesthouses",
+    "map": "Search on the map",
+    "jewishLife": "Jewish Life",
+    "post": "List your property",
+    "about": "About us",
+    "howItWorks": "How it works",
+    "contact": "Contact us",
+    "help": "Help & support",
+    "safety": "Safety Center",
+    "listingRules": "Listing rules",
+    "terms": "Terms of use",
+    "privacy": "Privacy policy",
+    "cookies": "Cookie policy",
+    "accessibility": "Accessibility"
+  },
+  "social": {
+    "title": "Follow us",
+    "facebook": "{name} on Facebook",
+    "instagram": "{name} on Instagram",
+    "telegram": "{name} on Telegram",
+    "whatsapp": "{name} on WhatsApp"
+  },
+  "preferences": "Language and currency",
+  "copyright": "© {year} {name}. All rights reserved.",
+  "madeFor": "Made for the Jewish community in Georgia and around the world."
+}

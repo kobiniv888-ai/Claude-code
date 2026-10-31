@@ -1,0 +1,76 @@
+{
+  "skipToContent": "Skip to main content",
+  "homeLink": "{name} — home page",
+  "mainNav": "Main",
+  "breadcrumb": "Breadcrumb",
+  "tabs": {
+    "rent": "Rent",
+    "buy": "Buy",
+    "hotels": "Hotels",
+    "map": "Map",
+    "jewishLife": "Jewish Life",
+    "about": "About",
+    "help": "Help"
+  },
+  "post": "Post a listing",
+  "listFree": "List your property for free",
+  "searchHomes": "Search homes",
+  "saved": "Saved",
+  "messages": "Messages",
+  "safety": "Safety Center",
+  "contact": "Contact us",
+  "menu": {
+    "open": "Open menu",
+    "title": "Menu",
+    "browse": "Browse",
+    "settings": "Settings",
+    "account": "My account",
+    "more": "More"
+  },
+  "language": {
+    "label": "Language",
+    "change": "Language: {current}. Change language"
+  },
+  "currency": {
+    "label": "Currency",
+    "change": "Currency: {current}. Change currency",
+    "hint": "Prices are converted with approximate daily rates. The owner's original price is always shown too.",
+    "error": "We couldn't change the currency. Please try again.",
+    "names": {
+      "GEL": "Georgian lari",
+      "USD": "US dollar",
+      "ILS": "Israeli shekel",
+      "EUR": "Euro",
+      "GBP": "British pound",
+      "AED": "UAE dirham"
+    }
+  },
+  "theme": {
+    "label": "Appearance",
+    "change": "Change appearance",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "Device setting"
+  },
+  "bottomNav": {
+    "label": "Quick navigation",
+    "home": "Home",
+    "search": "Search",
+    "post": "Post",
+    "postLabel": "Post a listing",
+    "saved": "Saved",
+    "profile": "Profile",
+    "login": "Log in"
+  },
+  "home": {
+    "eyebrow": "Tbilisi · Batumi · Kutaisi and beyond",
+    "lead": "Apartments, houses, hotels and property for sale — with kosher and Shabbat-friendly details, verified owners and direct contact. No booking fees.",
+    "popular": "Popular destinations",
+    "points": {
+      "verified": "Verified owners",
+      "jewish": "Jewish-friendly details",
+      "direct": "Direct contact, no fees",
+      "languages": "Support in 5 languages"
+    }
+  }
+}

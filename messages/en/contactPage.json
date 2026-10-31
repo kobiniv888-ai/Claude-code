@@ -1,0 +1,52 @@
+{
+  "loading": "Loading the contact form…",
+  "meta": {
+    "title": "Contact us",
+    "description": "Write to the {siteName} support team — no account needed. We answer by email in your language."
+  },
+  "hero": {
+    "title": "Contact us",
+    "lead": "Questions, problems or ideas — write to the {siteName} team. No account needed: we'll answer by email."
+  },
+  "form": {
+    "title": "Send us a message",
+    "name": "Your name",
+    "email": "Your email",
+    "emailHint": "We'll only use it to answer you.",
+    "category": "Topic",
+    "categoryPlaceholder": "Choose a topic",
+    "message": "Your message",
+    "messagePlaceholder": "How can we help? If it's about a listing, please include its number or link.",
+    "counter": "{current} / {max}",
+    "honeypot": "Leave this field empty",
+    "privacy": "We use your details only to answer this message.",
+    "submit": "Send message",
+    "sending": "Sending…",
+    "sent": {
+      "title": "Thank you, {name}!",
+      "body": "We've received your message and will answer at <ltr>{email}</ltr>.",
+      "number": "Your request number is {number}.",
+      "spam": "Can't see our answer? Please check your spam folder.",
+      "help": "Back to the help center",
+      "another": "Send another message"
+    }
+  },
+  "aside": {
+    "label": "Other ways to get help",
+    "signedInTitle": "You're signed in",
+    "signedInBody": "Open a ticket instead to attach screenshots and follow the whole conversation in your account.",
+    "signedInCta": "Open a ticket",
+    "emailTitle": "Prefer email?",
+    "emailBody": "You can also write to us directly:",
+    "moreLabel": "More help",
+    "help": {
+      "title": "Help center",
+      "body": "Quick answers to common questions"
+    },
+    "safety": {
+      "title": "Safety Center",
+      "body": "How to spot scams and stay safe"
+    },
+    "scam": "Asked to pay before seeing the place? <link>Report a scam</link> — these reports are handled first."
+  }
+}

@@ -1,0 +1,134 @@
+{
+  "reasons": {
+    "photos_low_quality": {
+      "label": "Photos are low quality",
+      "explanation": "Some photos are blurry, dark or too small. Please upload clear, bright photos of the actual property."
+    },
+    "photos_not_property": {
+      "label": "Photos don't show the property",
+      "explanation": "Please use only photos of this property — no stock images, maps, logos or pictures of other places."
+    },
+    "photos_watermark_other_site": {
+      "label": "Photos have another site's watermark",
+      "explanation": "Some photos carry the logo or watermark of another website. Please upload your own original photos."
+    },
+    "price_unrealistic": {
+      "label": "The price looks unrealistic",
+      "explanation": "The price is far from what similar places cost. Please check the amount, the currency and the period (night, month or total price)."
+    },
+    "description_contact_info": {
+      "label": "Contact details in the text",
+      "explanation": "Please remove phone numbers, links, emails and usernames from the title and description. Guests contact you with the contact buttons."
+    },
+    "description_incomplete": {
+      "label": "The description is incomplete",
+      "explanation": "Please describe the property in more detail: the rooms, its condition, what's included and the house rules."
+    },
+    "wrong_location": {
+      "label": "The location is wrong",
+      "explanation": "The pin on the map or the city doesn't match the property. Please move the pin to the right place."
+    },
+    "wrong_category": {
+      "label": "Wrong category",
+      "explanation": "The deal type or property type doesn't match this property. Please choose the right one."
+    },
+    "duplicate_listing": {
+      "label": "Duplicate listing",
+      "explanation": "This property is already listed. Please edit your existing listing instead of posting it again."
+    },
+    "suspected_scam": {
+      "label": "Suspected scam",
+      "explanation": "This listing shows signs of a scam, so it can't be published. If you think this is a mistake, please contact our support team."
+    },
+    "prohibited_content": {
+      "label": "Content not allowed",
+      "explanation": "The listing includes content that our listing rules don't allow. Please check the rules and remove it."
+    },
+    "discriminatory_terms": {
+      "label": "Discriminatory wording",
+      "explanation": "Listings may not limit who can rent or buy (for example by religion, origin or gender). Please describe the property and its features instead."
+    },
+    "other": {
+      "label": "Other",
+      "explanation": "Please read the note from our team and update your listing."
+    }
+  },
+  "risk": {
+    "duplicate_photos_other_account": "Same photos in another account's listing",
+    "duplicate_photos_same_account": "Same photos in another listing by this owner",
+    "price_far_below_area": "Price far below the area",
+    "scam_phrase": "Scam phrases",
+    "blocked_phrase": "Blocked phrase",
+    "contact_info_in_text": "Contact details in the text",
+    "new_account_velocity": "New account posting fast",
+    "shared_device": "Device shared with other accounts",
+    "voip_phone": "Virtual (VoIP) phone number",
+    "first_listing": "First listing of the account",
+    "phone_not_verified": "Phone not verified"
+  },
+  "statuses": {
+    "DRAFT": {
+      "label": "Draft",
+      "description": "Not published yet. Finish the steps and publish when you're ready."
+    },
+    "IN_REVIEW": {
+      "label": "In review",
+      "description": "We're checking your listing — usually within a few hours."
+    },
+    "NEEDS_CHANGES": {
+      "label": "Needs changes",
+      "description": "Our team asked for a change. Edit the listing and send it again."
+    },
+    "LIVE": {
+      "label": "Live",
+      "description": "Your listing is on the site and guests can contact you."
+    },
+    "PAUSED": {
+      "label": "Paused",
+      "description": "Hidden from the site for now. You can turn it back on at any time."
+    },
+    "EXPIRED": {
+      "label": "Expired",
+      "description": "This listing is no longer shown. Renew it to put it back on the site."
+    },
+    "RENTED": {
+      "label": "Rented",
+      "description": "Marked as rented and hidden from search."
+    },
+    "SOLD": {
+      "label": "Sold",
+      "description": "Marked as sold and hidden from search."
+    },
+    "REJECTED": {
+      "label": "Rejected",
+      "description": "This listing can't be published. See the reason, or contact support."
+    },
+    "HIDDEN": {
+      "label": "Hidden",
+      "description": "Hidden after reports from visitors. A moderator is checking it."
+    },
+    "DELETED": {
+      "label": "Deleted",
+      "description": "This listing was deleted."
+    }
+  },
+  "inReview": {
+    "title": "We're checking your listing",
+    "message": "We're checking your listing — usually within a few hours."
+  },
+  "errors": {
+    "invalid_status": "This can't be done while the listing is in its current status. Please refresh the page and try again.",
+    "missing_requirements": "Some required details are missing. Please complete the highlighted steps.",
+    "rules_not_accepted": "Please accept the listing rules before publishing.",
+    "wrong_deal_type": "This action doesn't match the deal type of this listing.",
+    "phone_not_verified": "Please verify your phone number first — it only takes a minute."
+  },
+  "requirements": {
+    "phoneVerified": "Verify your phone number",
+    "location": "Choose the city and mark the location on the map",
+    "details": "Add a title and the property details",
+    "photos": "Add at least {count} photos",
+    "price": "Enter the price",
+    "contact": "Add a way to contact you"
+  }
+}

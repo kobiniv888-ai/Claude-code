@@ -1,0 +1,27 @@
+{
+  "title": "Cookies on {name}",
+  "description": "We use necessary cookies to keep the site working and secure. With your permission, we also remember your preferences and measure how the site is used, so we can improve it.",
+  "policyLink": "Cookie policy",
+  "acceptAll": "Accept all",
+  "necessaryOnly": "Necessary only",
+  "customize": "Customize",
+  "save": "Save my choices",
+  "settingsTitle": "Cookie settings",
+  "settingsDescription": "Choose which cookies we may use. You can change your choice at any time on the cookie policy page.",
+  "alwaysOn": "Always on",
+  "categories": {
+    "necessary": {
+      "title": "Strictly necessary",
+      "description": "Signing in, security, fraud protection and remembering this choice. The site can't work without them."
+    },
+    "preferences": {
+      "title": "Preferences",
+      "description": "Remember choices like your theme, recently viewed homes and notices you closed on this device."
+    },
+    "analytics": {
+      "title": "Analytics",
+      "description": "Anonymous statistics that show us which pages are useful, so we can improve the site."
+    }
+  },
+  "saved": "Your cookie choices were saved."
+}

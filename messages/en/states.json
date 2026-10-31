@@ -1,0 +1,39 @@
+{
+  "loading": "Loading…",
+  "loadingPage": "Loading the page",
+  "empty": {
+    "title": "Nothing here yet",
+    "description": "When there is something to show, you will find it here."
+  },
+  "error": {
+    "eyebrow": "Something went wrong",
+    "title": "We couldn't load this page",
+    "description": "It's not you — something went wrong on our side. Please try again in a moment. If it keeps happening, let us know.",
+    "retry": "Try again",
+    "home": "Go to the home page",
+    "report": "Report a problem",
+    "reference": "Error reference: {digest}"
+  },
+  "notFound": {
+    "eyebrow": "Error 404",
+    "title": "We couldn't find this page",
+    "description": "The link may be old or mistyped, or the listing may have been removed. Search for homes or start again from the home page.",
+    "search": "Search homes",
+    "home": "Go to the home page",
+    "help": "Visit the Help center",
+    "suggestions": "Popular pages"
+  },
+  "global": {
+    "notFoundTitle": "Page not found",
+    "notFoundDescription": "This address doesn't exist. Choose your language to continue:",
+    "errorTitle": "Something went wrong",
+    "errorDescription": "Please reload the page. If it keeps happening, try again a little later.",
+    "reload": "Reload the page",
+    "home": "Home page"
+  },
+  "safetyTip": {
+    "title": "Stay safe",
+    "text": "Never pay before you've checked the owner and seen the place, in person or on a live video call. {name} will never send you a payment link.",
+    "link": "How to spot a scam"
+  }
+}

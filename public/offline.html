@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#FAF8F5" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0F1420" media="(prefers-color-scheme: dark)" />
+    <meta name="robots" content="noindex" />
+    <title>Offline · Bayit</title>
+    <link rel="icon" href="/brand/logo-mark.svg" type="image/svg+xml" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #faf8f5;
+        --card: #ffffff;
+        --fg: #1a1f2b;
+        --muted: #5b6270;
+        --border: #e4e0d9;
+        --primary: #1e3a6e;
+        --primary-fg: #ffffff;
+        --ring: #3b5ea8;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0f1420;
+          --card: #171d2b;
+          --fg: #eef1f6;
+          --muted: #a3abba;
+          --border: #2a3245;
+          --primary: #93b4f0;
+          --primary-fg: #0f1a33;
+          --ring: #93b4f0;
+        }
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; }
+      body {
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: grid;
+        place-items: center;
+        padding: 24px 16px calc(24px + env(safe-area-inset-bottom, 0px));
+        background: var(--bg);
+        color: var(--fg);
+        font-family: "Noto Sans", "Noto Sans Hebrew", "Noto Sans Arabic", "Noto Sans Georgian", system-ui, -apple-system,
+          "Segoe UI", Roboto, Arial, sans-serif;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+      }
+      main {
+        width: 100%;
+        max-width: 28rem;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 28px 24px;
+        box-shadow: 0 1px 2px rgb(16 24 40 / 0.04), 0 8px 32px rgb(16 24 40 / 0.08);
+        text-align: center;
+      }
+      .mark { width: 56px; height: 56px; margin: 0 auto 16px; display: block; }
+      .icon { width: 28px; height: 28px; color: var(--muted); margin: 0 auto 8px; display: block; }
+      h1 { font-size: 1.375rem; margin: 0 0 6px; letter-spacing: -0.01em; }
+      p { margin: 0; color: var(--muted); }
+      .primary p { font-size: 1rem; }
+      button {
+        margin-top: 20px;
+        min-height: 44px;
+        padding: 10px 22px;
+        border: 0;
+        border-radius: 12px;
+        background: var(--primary);
+        color: var(--primary-fg);
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button:focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; }
+      ul { list-style: none; margin: 24px 0 0; padding: 20px 0 0; border-top: 1px solid var(--border); display: grid; gap: 12px; }
+      li { font-size: 0.875rem; }
+      li strong { display: block; color: var(--fg); font-weight: 600; }
+      li p { font-size: 0.8125rem; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <svg class="mark" viewBox="0 0 64 64" aria-hidden="true">
+        <rect width="64" height="64" rx="16" fill="#1E3A6E" />
+        <path d="M13 31 32 15l19 16" fill="none" stroke="#E5805F" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+        <path fill="#FFFFFF" d="M23.5 48.5V36.5a8.5 8.5 0 0 1 17 0v12a1.5 1.5 0 0 1-1.5 1.5H25a1.5 1.5 0 0 1-1.5-1.5Z" />
+      </svg>
+      <div class="primary" id="primary"></div>
+      <button type="button" id="retry">Try again</button>
+      <ul id="others">
+        <li lang="he" dir="rtl" data-retry="לנסות שוב">
+          <strong>אין חיבור לאינטרנט</strong>
+          <p>נראה שאינכם מחוברים. בדקו את החיבור ונסו שוב.</p>
+        </li>
+        <li lang="en" dir="ltr" data-retry="Try again">
+          <strong>You're offline</strong>
+          <p>It looks like you're not connected. Check your connection and try again.</p>
+        </li>
+        <li lang="ru" dir="ltr" data-retry="Попробовать снова">
+          <strong>Нет подключения к интернету</strong>
+          <p>Похоже, вы не в сети. Проверьте подключение и попробуйте снова.</p>
+        </li>
+        <li lang="ar" dir="rtl" data-retry="حاول مرة أخرى">
+          <strong>لا يوجد اتصال بالإنترنت</strong>
+          <p>يبدو أنك غير متصل. تحقّق من الاتصال وحاول مرة أخرى.</p>
+        </li>
+        <li lang="ka" dir="ltr" data-retry="ხელახლა ცდა">
+          <strong>ინტერნეტთან კავშირი არ არის</strong>
+          <p>როგორც ჩანს, ხაზგარეშე ხართ. შეამოწმეთ კავშირი და სცადეთ ხელახლა.</p>
+        </li>
+      </ul>
+    </main>
+    <script>
+      (function () {
+        // Show the visitor's language first (from the address: /he/…, /ar/…), then the other four.
+        var match = /^\/(he|en|ru|ar|ka)(\/|$)/.exec(location.pathname);
+        var lang = match ? match[1] : (navigator.language || "en").slice(0, 2);
+        var item = document.querySelector('#others li[lang="' + lang + '"]') || document.querySelector('#others li[lang="en"]');
+        var primary = document.getElementById("primary");
+        var retry = document.getElementById("retry");
+        var title = document.createElement("h1");
+        title.textContent = item.querySelector("strong").textContent;
+        var text = document.createElement("p");
+        text.textContent = item.querySelector("p").textContent;
+        primary.appendChild(title);
+        primary.appendChild(text);
+        primary.lang = item.lang;
+        primary.dir = item.dir;
+        retry.textContent = item.getAttribute("data-retry");
+        retry.lang = item.lang;
+        document.documentElement.lang = item.lang;
+        item.parentNode.removeChild(item);
+        retry.addEventListener("click", function () { location.reload(); });
+        window.addEventListener("online", function () { location.reload(); });
+      })();
+    </script>
+  </body>
+</html>

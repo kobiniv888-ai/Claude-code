@@ -1,0 +1,302 @@
+import { describe, expect, it } from "vitest";
+import { addDays, applyRange, daysToRanges, isRangeBlocked, normalizeRanges, rangesToDays } from "./availability";
+import { missingRequirements } from "./requirements";
+import {
+  contactStepSchema,
+  contactValueProblem,
+  detailsStepSchema,
+  isVideoUrl,
+  normalizeContactValue,
+  pickStepData,
+  priceStepSchema,
+  roomTypeSchema,
+  stepIssues,
+  stepSaveSchemas,
+  type WizardValues,
+} from "./schemas";
+import { applies, parseStepParam, stepAt, stepNumber, stepsFor } from "./steps";
+
+const base: WizardValues = {
+  dealType: "SHORT_STAY",
+  propertyType: "APARTMENT",
+  businessName: "",
+  cityId: "city1",
+  neighborhoodId: null,
+  address: "",
+  lat: 41.7151,
+  lng: 44.8271,
+  rooms: 3,
+  bedrooms: 2,
+  bathrooms: 1,
+  bedsSingle: null,
+  bedsDouble: 1,
+  bedsSofa: null,
+  maxGuests: 4,
+  sizeSqm: 80,
+  floor: 3,
+  totalFloors: 9,
+  elevator: true,
+  yearBuilt: 2015,
+  buildingAge: "NEW",
+  furnished: true,
+  condition: null,
+  heating: [],
+  views: [],
+  cadastralCode: "",
+  sharedRoomFor: null,
+  originalLocale: "he",
+  title: "Sunny apartment near Vake Park",
+  description: "A bright three-room apartment with a balcony, five minutes from Vake Park and the synagogue.",
+  videoUrl: "",
+  tour360Url: "",
+  amenities: ["wifi"],
+  petsAllowed: null,
+  smokingAllowed: false,
+  partiesAllowed: null,
+  checkInFrom: "14:00",
+  checkOutUntil: "11:00",
+  quietHoursFrom: "",
+  quietHoursTo: "",
+  kitchenKosher: "CAN_KASHER",
+  shabbatFeatures: ["hot_plate"],
+  jewishFeatures: [],
+  hotelJewishFeatures: [],
+  kosherCertName: "",
+  kosherCertPhotoKey: null,
+  price: 90,
+  currency: "USD",
+  pricePeriod: "NIGHT",
+  deposit: null,
+  cleaningFee: 20,
+  utilitiesIncluded: null,
+  utilitiesEstimate: null,
+  minStayNights: 2,
+  weeklyDiscountPct: 10,
+  monthlyDiscountPct: null,
+  icalImportUrls: [],
+  contactMethods: [{ channel: "WHATSAPP", value: "+995555123456", order: 0 }],
+  contactHoursFrom: "",
+  contactHoursTo: "",
+  noReplyOnShabbat: true,
+};
+const kind = { dealType: "SHORT_STAY", propertyType: "APARTMENT" } as const;
+
+describe("steps", () => {
+  it("adds the room types step only for hotels", () => {
+    expect(stepsFor(kind)).not.toContain("rooms");
+    expect(stepsFor(kind)).toHaveLength(10);
+    const hotel = { dealType: "HOTEL_ROOM", propertyType: "HOTEL" } as const;
+    expect(stepsFor(hotel)).toHaveLength(11);
+    expect(stepNumber("rooms", hotel)).toBe(8);
+    expect(stepNumber("price", hotel)).toBe(9);
+    expect(stepNumber("price", kind)).toBe(8);
+  });
+
+  it("parses ?step= as a number or a key and clamps it", () => {
+    expect(parseStepParam("3", kind, 1)).toBe("location");
+    expect(parseStepParam("photos", kind, 1)).toBe("photos");
+    expect(parseStepParam("rooms", kind, 2)).toBe("property"); // not a step here → fallback
+    expect(parseStepParam("99", kind, 1)).toBe("publish");
+    expect(parseStepParam(undefined, kind, 4)).toBe("details");
+    expect(stepAt(0, kind)).toBe("deal");
+  });
+
+  it("shows fields per deal/property type", () => {
+    expect(applies("sharedRoomFor", { dealType: "MONTHLY_RENT", propertyType: "ROOM" })).toBe(true);
+    expect(applies("sharedRoomFor", kind)).toBe(false);
+    expect(applies("condition", { dealType: "SALE", propertyType: "HOUSE" })).toBe(true);
+    expect(applies("cleaningFee", { dealType: "SALE", propertyType: "HOUSE" })).toBe(false);
+    expect(applies("availability", { dealType: "SALE", propertyType: "HOUSE" })).toBe(false);
+  });
+});
+
+describe("step save schemas", () => {
+  it("accepts a half-filled step (auto-save)", () => {
+    const empty = { ...base, title: "", description: "", maxGuests: null, rooms: null };
+    expect(detailsStepSchema.safeParse(pickStepData("details", empty)).success).toBe(true);
+  });
+
+  it("rejects values out of range or in the wrong format", () => {
+    expect(detailsStepSchema.safeParse({ ...pickStepData("details", base), maxGuests: 0 }).success).toBe(false);
+    expect(detailsStepSchema.safeParse({ ...pickStepData("details", base), rooms: 2.3 }).success).toBe(false);
+    expect(detailsStepSchema.safeParse({ ...pickStepData("details", base), rooms: 2.5 }).success).toBe(true);
+    expect(detailsStepSchema.safeParse({ ...pickStepData("details", base), title: "x".repeat(91) }).success).toBe(false);
+    expect(detailsStepSchema.safeParse({ ...pickStepData("details", base), videoUrl: "http://youtube.com/x" }).success).toBe(false);
+    expect(detailsStepSchema.safeParse({ ...pickStepData("details", base), tour360Url: "https://my.matterport.com/show/?m=1" }).success).toBe(true);
+    expect(stepSaveSchemas.amenities.safeParse({ ...pickStepData("amenities", base), checkInFrom: "25:00" }).success).toBe(false);
+    expect(stepSaveSchemas.amenities.safeParse({ ...pickStepData("amenities", base), amenities: ["jacuzzi"] }).success).toBe(false);
+  });
+
+  it("only accepts enabled currencies and https iCal links", () => {
+    expect(priceStepSchema.safeParse({ ...pickStepData("price", base), currency: "GBP" }).success).toBe(false);
+    expect(priceStepSchema.safeParse({ ...pickStepData("price", base), icalImportUrls: ["http://airbnb.com/a.ics"] }).success).toBe(false);
+    const parsed = priceStepSchema.parse({
+      ...pickStepData("price", base),
+      price: 99.999,
+      icalImportUrls: ["https://www.airbnb.com/calendar/ical/1.ics", ""],
+    });
+    expect(parsed.price).toBe(100);
+    expect(parsed.icalImportUrls).toEqual(["https://www.airbnb.com/calendar/ical/1.ics"]);
+    expect(
+      priceStepSchema.safeParse({ ...pickStepData("price", base), icalImportUrls: ["https://a.b/1", "https://a.b/2", "https://a.b/3", "https://a.b/4"] })
+        .success,
+    ).toBe(false);
+  });
+
+  it("dedupes vocabularies and keeps contact methods unique and ordered", () => {
+    expect(stepSaveSchemas.jewish.parse({ ...pickStepData("jewish", base), shabbatFeatures: ["hot_plate", "hot_plate"] }).shabbatFeatures).toEqual([
+      "hot_plate",
+    ]);
+    const twice = [
+      { channel: "WHATSAPP", value: "+995555123456", order: 0 },
+      { channel: "WHATSAPP", value: "+995555123457", order: 1 },
+    ];
+    expect(contactStepSchema.safeParse({ ...pickStepData("contact", base), contactMethods: twice }).success).toBe(false);
+    const parsed = contactStepSchema.parse({
+      ...pickStepData("contact", base),
+      contactMethods: [
+        { channel: "TELEGRAM", value: "t.me/cohen_home", order: 5 },
+        { channel: "PHONE", value: "+995555123456", order: 1 },
+      ],
+    });
+    expect(parsed.contactMethods.map((m) => [m.channel, m.order, m.value])).toEqual([
+      ["PHONE", 0, "+995555123456"],
+      ["TELEGRAM", 1, "@cohen_home"],
+    ]);
+  });
+});
+
+describe("stepIssues (Next is blocked)", () => {
+  it("is empty for a complete step", () => {
+    for (const step of ["deal", "property", "location", "details", "amenities", "jewish", "price", "contact"] as const) {
+      expect(stepIssues(step, base, kind)).toEqual({});
+    }
+  });
+
+  it("requires title, description and guests for a short stay", () => {
+    const issues = stepIssues("details", { ...base, title: "Short", description: "", maxGuests: null }, kind);
+    expect(issues).toMatchObject({ title: "titleTooShort", description: "required", maxGuests: "required" });
+  });
+
+  it("checks cross-field rules", () => {
+    expect(stepIssues("details", { ...base, floor: 10, totalFloors: 5 }, kind).floor).toBe("floorAboveTotal");
+    expect(stepIssues("details", { ...base, bedrooms: 4, rooms: 2 }, kind).bedrooms).toBe("bedroomsAboveRooms");
+  });
+
+  it("requires size and rooms for a sale, and sharedRoomFor for a room", () => {
+    const sale = { dealType: "SALE", propertyType: "APARTMENT" } as const;
+    expect(stepIssues("details", { ...base, sizeSqm: null }, sale).sizeSqm).toBe("required");
+    const room = { dealType: "MONTHLY_RENT", propertyType: "ROOM" } as const;
+    expect(stepIssues("details", base, room).sharedRoomFor).toBe("required");
+  });
+
+  it("needs a pin inside Georgia and a city", () => {
+    expect(stepIssues("location", { ...base, lat: null, lng: null }, kind).lat).toBe("pinRequired");
+    expect(stepIssues("location", { ...base, lat: 32.08, lng: 34.78 }, kind).lat).toBe("outsideGeorgia");
+    expect(stepIssues("location", { ...base, cityId: null }, kind).cityId).toBe("cityRequired");
+  });
+
+  it("needs a price (except hotels) and a valid period", () => {
+    expect(stepIssues("price", { ...base, price: null }, kind).price).toBe("priceRequired");
+    expect(stepIssues("price", { ...base, pricePeriod: "MONTH" }, kind).pricePeriod).toBe("pickOne");
+    const hotel = { dealType: "HOTEL_ROOM", propertyType: "HOTEL" } as const;
+    expect(stepIssues("price", { ...base, dealType: "HOTEL_ROOM", propertyType: "HOTEL", price: null }, hotel)).toEqual({});
+  });
+
+  it("validates contact values per channel", () => {
+    const methods = [
+      { channel: "WHATSAPP" as const, value: "+995 12", order: 0 },
+      { channel: "MESSENGER" as const, value: "a b", order: 1 },
+    ];
+    const issues = stepIssues("contact", { ...base, contactMethods: methods }, kind);
+    expect(issues["contact.WHATSAPP"]).toBe("invalidPhone");
+    expect(issues["contact.MESSENGER"]).toBe("invalidMessenger");
+    expect(stepIssues("contact", { ...base, contactMethods: [] }, kind).contactMethods).toBe("contactRequired");
+  });
+});
+
+describe("contact helpers", () => {
+  it("validates and normalizes values", () => {
+    expect(contactValueProblem("PHONE", "+995555123456")).toBeNull();
+    expect(contactValueProblem("TELEGRAM", "@cohen_home")).toBeNull();
+    expect(contactValueProblem("TELEGRAM", "+972501234567")).toBeNull();
+    expect(contactValueProblem("EMAIL", "not-an-email")).toBe("invalidEmail");
+    expect(normalizeContactValue("MESSENGER", "https://m.me/john.cohen?ref=1")).toBe("john.cohen");
+    expect(normalizeContactValue("EMAIL", " Name@Example.COM ")).toBe("name@example.com");
+    expect(isVideoUrl("https://youtu.be/abc")).toBe(true);
+    expect(isVideoUrl("https://example.com/video")).toBe(false);
+  });
+});
+
+describe("room types", () => {
+  it("requires a name and a positive price", () => {
+    const room = { name: "Double room", price: 80, currency: "GEL", pricePeriod: "NIGHT", maxGuests: 2, bedsSingle: null, bedsDouble: 1, sizeSqm: null, quantity: 4 };
+    expect(roomTypeSchema.safeParse(room).success).toBe(true);
+    expect(roomTypeSchema.safeParse({ ...room, price: 0 }).success).toBe(false);
+    expect(roomTypeSchema.safeParse({ ...room, name: "" }).success).toBe(false);
+    expect(roomTypeSchema.safeParse({ ...room, pricePeriod: "TOTAL" }).success).toBe(false);
+  });
+});
+
+describe("missingRequirements", () => {
+  it("lists what blocks publishing, in step order", () => {
+    const missing = missingRequirements({
+      values: { ...base, price: null, contactMethods: [] },
+      photoCount: 3,
+      phoneVerified: false,
+    });
+    expect(missing.map((m) => m.key)).toEqual(["phoneVerified", "photos", "price", "contact"]);
+    expect(missing.find((m) => m.key === "photos")?.step).toBe("photos");
+  });
+
+  it("is empty for a complete listing", () => {
+    expect(missingRequirements({ values: base, photoCount: 5, phoneVerified: true })).toEqual([]);
+  });
+
+  it("lets hotels use room-type photos and prices", () => {
+    const hotel = { ...base, dealType: "HOTEL_ROOM" as const, propertyType: "HOTEL" as const, price: null, maxGuests: null };
+    expect(missingRequirements({ values: hotel, photoCount: 2, roomPhotoCount: 3, pricedRoomTypes: 1, phoneVerified: true })).toEqual([]);
+    expect(missingRequirements({ values: hotel, photoCount: 5, pricedRoomTypes: 0, phoneVerified: true })).toEqual([
+      { key: "price", step: "rooms" },
+    ]);
+  });
+});
+
+describe("availability ranges", () => {
+  it("converts between days and inclusive ranges", () => {
+    const ranges = [{ start: "2026-12-30", end: "2027-01-02" }];
+    expect([...rangesToDays(ranges)]).toEqual(["2026-12-30", "2026-12-31", "2027-01-01", "2027-01-02"]);
+    expect(daysToRanges(["2026-11-03", "2026-11-01", "2026-11-02", "2026-11-05"])).toEqual([
+      { start: "2026-11-01", end: "2026-11-03" },
+      { start: "2026-11-05", end: "2026-11-05" },
+    ]);
+    expect(addDays("2027-02-28", 1)).toBe("2027-03-01");
+  });
+
+  it("blocks and frees ranges", () => {
+    let blocked = applyRange([], "2026-11-10", "2026-11-12", true);
+    expect(blocked).toEqual([{ start: "2026-11-10", end: "2026-11-12" }]);
+    expect(isRangeBlocked(blocked, "2026-11-11", "2026-11-12")).toBe(true);
+    blocked = applyRange(blocked, "2026-11-11", "2026-11-11", false);
+    expect(blocked).toEqual([
+      { start: "2026-11-10", end: "2026-11-10" },
+      { start: "2026-11-12", end: "2026-11-12" },
+    ]);
+  });
+
+  it("merges, sorts and clips to today", () => {
+    expect(
+      normalizeRanges(
+        [
+          { start: "2026-11-20", end: "2026-11-22" },
+          { start: "2026-10-01", end: "2026-11-02" },
+          { start: "2026-11-23", end: "2026-11-25" },
+        ],
+        "2026-11-01",
+      ),
+    ).toEqual([
+      { start: "2026-11-01", end: "2026-11-02" },
+      { start: "2026-11-20", end: "2026-11-25" },
+    ]);
+  });
+});
