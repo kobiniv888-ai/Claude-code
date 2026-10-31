@@ -1,6 +1,6 @@
 import { expect, settle, test } from "./fixtures";
 
-/** Phones from 360 px: the guest flow and right-to-left pages without overflow. */
+/** Phones from 360 px and tablets: the guest flow and right-to-left pages without overflow. */
 
 test("search and filter on a phone", async ({ page, consoleErrors }) => {
   await page.goto("/en");
@@ -37,3 +37,16 @@ for (const path of ["/he/search?city=tbilisi", "/he/listing/91", "/ar/jewish-lif
     expect(overflow).toBeLessThanOrEqual(1);
   });
 }
+
+test.describe("tablet", () => {
+  test.use({ viewport: { width: 768, height: 1024 } });
+  for (const path of ["/he", "/en/search?city=tbilisi", "/ar/listing/91"]) {
+    test(`no sideways overflow at 768 px: ${path}`, async ({ page }) => {
+      await page.goto(path);
+      await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();
+      await settle(page);
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      expect(overflow).toBeLessThanOrEqual(1);
+    });
+  }
+});

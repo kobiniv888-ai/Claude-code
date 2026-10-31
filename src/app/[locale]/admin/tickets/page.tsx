@@ -1,4 +1,4 @@
-import { LifeBuoy, Siren } from "lucide-react";
+import { LifeBuoy, MessageSquareText, Siren } from "lucide-react";
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { AdminFilterBar } from "@/components/admin/filter-bar";
@@ -7,6 +7,7 @@ import { AdminPageHeader } from "@/components/admin/page-header";
 import { AdminPagination } from "@/components/admin/pagination";
 import { Ltr } from "@/components/common/ltr";
 import { EmptyState } from "@/components/common/states";
+import { Button } from "@/components/ui/button";
 import { TicketCategoryLabel, TicketPriorityBadge, TicketStatusBadge } from "@/components/tickets";
 import { Link } from "@/i18n/navigation";
 import { enumParam, pageParam } from "@/lib/admin/params";
@@ -40,16 +41,28 @@ export default async function TicketsPage({ params, searchParams }: PageProps<"/
     assigned: enumParam(query, "assigned", TICKET_ASSIGNED_FILTERS),
   };
   const page = pageParam(query);
-  const [t, tAdmin, tTickets, result] = await Promise.all([
+  const [t, tAdmin, tTickets, tReplies, result] = await Promise.all([
     getTranslations("admin.tickets"),
     getTranslations("admin"),
     getTranslations("tickets"),
+    getTranslations("adminContent.savedReplies"),
     listStaffTickets(filters, staff.id, page),
   ]);
 
   return (
     <>
-      <AdminPageHeader title={t("title")} description={t("description")} />
+      <AdminPageHeader
+        title={t("title")}
+        description={t("description")}
+        actions={
+          <Button asChild variant="outline" size="sm" className="h-9">
+            <Link href="/admin/tickets/saved-replies">
+              <MessageSquareText aria-hidden />
+              {tReplies("title")}
+            </Link>
+          </Button>
+        }
+      />
       <AdminFilterBar
         fields={[
           {

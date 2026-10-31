@@ -12,6 +12,7 @@ import type { ListingCardData } from "@/lib/listing/types";
 import { cn } from "@/lib/utils";
 import { ListingCard } from "./listing-card";
 import { ListingCardSkeleton } from "./listing-card-skeleton";
+import { scrollBehavior } from "@/lib/motion";
 
 type Loaded = { cards: Map<number, ListingCardData>; missing: Set<number>; failed: boolean };
 
@@ -76,7 +77,7 @@ export function RecentlyViewed({
     const el = scroller.current;
     if (!el) return;
     const sign = dirFor(locale) === "rtl" ? -1 : 1;
-    el.scrollBy({ left: direction * sign * el.clientWidth * 0.85, behavior: "smooth" });
+    el.scrollBy({ left: direction * sign * el.clientWidth * 0.85, behavior: scrollBehavior() });
   };
 
   return (

@@ -11,6 +11,7 @@ import {
   type ComponentProps,
   type ReactNode,
 } from "react";
+import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import { LogInIcon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,8 +27,19 @@ import { Link, useRouter } from "@/i18n/navigation";
 import { authClient } from "@/lib/auth/client";
 import type { LoginConfig } from "@/lib/auth/config";
 import { safeNextPath, withNext } from "@/lib/auth/next-path";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { LoginPanel } from "./login-panel";
+
+// The login form (phone input with the country list and number rules) loads when the dialog
+// opens, not with every page.
+const LoginPanel = dynamic(() => import("./login-panel").then((m) => m.LoginPanel), {
+  loading: () => (
+    <div aria-hidden className="grid gap-3">
+      <Skeleton className="h-11 rounded-xl" />
+      <Skeleton className="h-11 rounded-xl" />
+    </div>
+  ),
+});
 
 /**
  * Log in without leaving the page.
@@ -67,8 +79,13 @@ export function LoginDialogProviderClient({ config, children }: { config: LoginC
   const [open, setOpen] = useState(false);
   const [next, setNext] = useState("/");
   const pending = useRef<PendingAction | null>(null);
+  // The button or link that opened the dialog. The phone field takes focus as soon as the dialog
+  // mounts, so the dialog cannot tell on its own where to give focus back when it closes.
+  const opener = useRef<HTMLElement | null>(null);
 
   const openLogin = useCallback((afterLogin?: PendingAction) => {
+    const active = document.activeElement;
+    opener.current = active instanceof HTMLElement && active !== document.body ? active : null;
     pending.current = afterLogin ?? null;
     setNext(currentPath());
     setOpen(true);
@@ -103,6 +120,14 @@ export function LoginDialogProviderClient({ config, children }: { config: LoginC
         <DialogContent
           showCloseButton={false}
           className="max-h-[calc(100dvh-2rem)] gap-5 overflow-y-auto rounded-2xl p-5 sm:max-w-md sm:p-7"
+          onCloseAutoFocus={(event) => {
+            const target = opener.current;
+            opener.current = null;
+            if (target?.isConnected) {
+              event.preventDefault();
+              target.focus({ preventScroll: true });
+            }
+          }}
         >
           <DialogHeader className="pe-8 text-start">
             <DialogTitle className="text-xl font-semibold">{t("dialogTitle")}</DialogTitle>

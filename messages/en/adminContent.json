@@ -733,5 +733,29 @@
     "emptyDescription": "Emails appear here when someone signs up, a ticket is answered or a listing changes status.",
     "noMatchTitle": "No emails match",
     "noMatchDescription": "Change or clear the filters."
+  },
+  "savedReplies": {
+    "title": "Saved replies",
+    "description": "Ready answers for support tickets. Agents pick one in the reply box and can change it before sending.",
+    "backToTickets": "Back to tickets",
+    "listTitle": "All saved replies",
+    "count": "{count, plural, =0 {(none)} one {({count} reply)} other {({count} replies)}}",
+    "add": "Add reply",
+    "addTitle": "New saved reply",
+    "editTitle": "Edit saved reply",
+    "dialogDescription": "Write the text in Hebrew and English at least; other languages fall back to English. {placeholder} is replaced with the user's name.",
+    "name": "Name",
+    "nameHint": "Only staff see it, in the list of saved replies.",
+    "body": "Reply text",
+    "empty": "No saved replies yet. Add the answers you send most often.",
+    "edit": "Edit",
+    "editNamed": "Edit: {name}",
+    "deleteNamed": "Delete: {name}",
+    "deleteTitle": "Delete this saved reply?",
+    "deleted": "Saved reply deleted",
+    "save": "Save",
+    "saved": "Saved reply updated",
+    "created": "Saved reply added",
+    "cancel": "Cancel"
   }
 }

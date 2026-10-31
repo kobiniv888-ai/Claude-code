@@ -79,6 +79,22 @@ Emails are not sent until Resend is configured. You can read them under **Admin 
 | `npm run demo:remove -- --yes` | Delete all demo data permanently |
 | `npm run db:studio` | Browse the database |
 
+### End-to-end tests
+
+The Playwright tests in `tests/e2e/` walk through the "Definition of done" (brief, section 15):
+languages and right-to-left, guest search and WhatsApp contact, posting a listing, moderation,
+reports, tickets, scam checks, favorites, Jewish Life, help and the contact form.
+
+1. Local database with demo data (`npm run db:seed`), demo data visible, and
+   `DEV_SKIP_STAFF_2FA="true"` in `.env`. No Twilio: the tests read login codes from
+   `GET /api/dev/last-otp`.
+2. `npm run test:e2e` — starts a development server on port 3601 (build folder `.next-3601`), or
+   reuses one already running there. One file: `npx playwright test tests/e2e/guest.spec.ts`.
+   Report: `npx playwright show-report`; traces of failed tests are in `test-results/`.
+
+The tests create their own users (phones `+995 555 99x xxx`) and listings named "E2E …", and
+delete them, with the demo listings' view and contact counters, when the run ends.
+
 ### Demo data: one switch
 
 All demo listings, users and places are marked **Demo**. Before launch, either:

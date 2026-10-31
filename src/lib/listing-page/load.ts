@@ -378,6 +378,19 @@ export async function getListingPaths(listingId: string): Promise<Record<AppLoca
     select: { publicId: true, title: true, originalLocale: true, translations: { select: { locale: true, title: true } } },
   });
   if (!row) return null;
+  return listingPathsByLocale(row);
+}
+
+/**
+ * The canonical path of a listing in each language (/listing/<id>-<slug of the title in that
+ * language>): what the page redirects to, its hreflang alternates and the sitemap entries.
+ */
+export function listingPathsByLocale(row: {
+  publicId: number;
+  title: string;
+  originalLocale: Locale;
+  translations: { locale: Locale; title: string }[];
+}): Record<AppLocale, string> {
   return Object.fromEntries(
     locales.map((locale) => [locale, listingPath(row.publicId, localizedTitle({ ...row, translations: row.translations.filter((tr) => tr.locale === locale) }, locale).title)]),
   ) as Record<AppLocale, string>;

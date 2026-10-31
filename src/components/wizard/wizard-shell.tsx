@@ -37,6 +37,7 @@ import { PublishStep } from "./steps/publish-step";
 import { RoomsStep } from "./steps/rooms-step";
 import { useAutosave } from "./use-autosave";
 import { WizardNav, WizardProgress } from "./wizard-chrome";
+import { scrollBehavior } from "@/lib/motion";
 
 const STEP_COMPONENTS: Record<WizardStepKey, ComponentType<StepProps>> = {
   deal: DealStep,
@@ -214,7 +215,7 @@ export function WizardShell({
       );
       if (el) {
         el.focus({ preventScroll: true });
-        el.scrollIntoView({ block: "center", behavior: "smooth" });
+        el.scrollIntoView({ block: "center", behavior: scrollBehavior() });
       }
     });
   };
@@ -390,13 +391,14 @@ export function WizardShell({
 
       <div className="mt-6 grid gap-6" data-wizard-step={step}>
         <div className="grid gap-1.5">
-          <h2
+          {/* The step title is the page's main heading (the wizard has no other <h1>). */}
+          <h1
             ref={headingRef}
             tabIndex={-1}
             className="text-2xl font-bold tracking-tight text-balance outline-none sm:text-3xl"
           >
             {t(`${step}.title`)}
-          </h2>
+          </h1>
           <p className="text-pretty text-muted-foreground">{t(`${step}.subtitle`)}</p>
         </div>
         {attempted.has(step) && Object.keys(currentIssues).length > 0 && (

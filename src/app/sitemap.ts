@@ -2,7 +2,8 @@ import type { MetadataRoute } from "next";
 import { locales, siteConfig } from "@/config/site";
 import { db } from "@/lib/db";
 import { DEAL_FILTERS, type DealFilter } from "@/lib/listing/search-params";
-import { listingPath, searchPath } from "@/lib/listing/urls";
+import { searchPath } from "@/lib/listing/urls";
+import { listingPathsByLocale } from "@/lib/listing-page/load";
 import { publicListingWhere } from "@/lib/listing/where";
 import { getCities } from "@/lib/places";
 import { absoluteUrl, localizedPath, X_DEFAULT_LOCALE } from "@/lib/seo";
@@ -75,7 +76,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           where: publicListingWhere({ demoVisible, now }),
           orderBy: { updatedAt: "desc" },
           take: MAX_LISTINGS,
-          select: { publicId: true, title: true, updatedAt: true },
+          select: { publicId: true, title: true, originalLocale: true, updatedAt: true, translations: { select: { locale: true, title: true } } },
         }),
       [],
     ),
@@ -106,12 +107,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...guides.flatMap((guide) =>
       localized(`/jewish-life/guides/${guide.slug}`, { lastModified: guide.updatedAt, changeFrequency: "monthly", priority: 0.5 }),
     ),
-    ...listings.flatMap((listing) =>
-      localized(listingPath(listing.publicId, listing.title), {
+    // Each language has its own address (the slug of the title in that language); the page
+    // redirects any other slug to it, so the sitemap lists exactly those.
+    ...listings.flatMap((listing) => {
+      const paths = listingPathsByLocale(listing);
+      const languages: Record<string, string> = Object.fromEntries(
+        locales.map((locale) => [locale, absoluteUrl(localizedPath(locale, paths[locale]))]),
+      );
+      languages["x-default"] = languages[X_DEFAULT_LOCALE];
+      return locales.map((locale) => ({
+        url: languages[locale],
+        alternates: { languages },
         lastModified: listing.updatedAt,
-        changeFrequency: "weekly",
+        changeFrequency: "weekly" as const,
         priority: 0.6,
-      }),
-    ),
+      }));
+    }),
   ];
 }

@@ -49,7 +49,7 @@ export function AvailabilityCalendar({ blocks, nowIso }: { blocks: DateBlock[]; 
                         key={day.date}
                         className={cn(
                           "h-9 rounded-lg tabular-nums",
-                          day.past && "text-muted-foreground/50",
+                          day.past && "text-muted-foreground",
                           !day.past && day.blocked && "bg-muted text-muted-foreground line-through decoration-muted-foreground/60",
                           !day.past && !day.blocked && "bg-verified-soft/60 font-medium text-foreground",
                           day.today && "ring-2 ring-primary",

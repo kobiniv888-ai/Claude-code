@@ -35,11 +35,15 @@ async function expectStep(page: Page, step: number, heading: string) {
 }
 
 test("a new user signs up, posts a listing with photos and it goes into review", async ({ page, context, consoleErrors }) => {
+  // The longest flow: sign-up, 10 wizard steps, 6 uploads, publish.
+  test.slow();
   // Sign up with a fresh phone number.
   ownerPhone = await freshPhone();
   await page.goto("/en/login");
   await settle(page);
   await loginThroughForm(page, ownerPhone);
+  // Without ?next= the login page continues to the account (the first visit may compile it).
+  await expect(page).toHaveURL(/\/en\/account$/, { timeout: 90_000 });
   await expect(page.getByRole("banner").getByRole("link", { name: "Log in" })).toBeHidden({ timeout: 30_000 });
   const [user] = await sql<{ phoneNumberVerified: boolean }>(`SELECT "phoneNumberVerified" FROM "User" WHERE "phoneNumber" = $1`, [ownerPhone]);
   expect(user?.phoneNumberVerified).toBe(true);

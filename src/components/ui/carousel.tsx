@@ -73,15 +73,19 @@ function Carousel({
 
   const handleKeyDown = React.useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
+      // Arrow keys follow the screen: in a right-to-left carousel, ArrowLeft goes forward.
+      const rtl = opts?.direction === "rtl"
       if (event.key === "ArrowLeft") {
         event.preventDefault()
-        scrollPrev()
+        if (rtl) scrollNext()
+        else scrollPrev()
       } else if (event.key === "ArrowRight") {
         event.preventDefault()
-        scrollNext()
+        if (rtl) scrollPrev()
+        else scrollNext()
       }
     },
-    [scrollPrev, scrollNext]
+    [scrollPrev, scrollNext, opts?.direction]
   )
 
   React.useEffect(() => {

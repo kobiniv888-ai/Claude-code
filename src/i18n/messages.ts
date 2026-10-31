@@ -20,8 +20,11 @@ async function readLocale(locale: AppLocale): Promise<Messages> {
   let files: string[] = [];
   try {
     files = (await fs.readdir(dir)).filter((f) => f.endsWith(".json")).sort();
-  } catch {
-    return {};
+  } catch (error) {
+    // No folder for this language: English fills in. Any other error (e.g. too many open files
+    // under load) must fail the request rather than cache a page full of message keys.
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return {};
+    throw error;
   }
   const entries = await Promise.all(
     files.map(async (file) => {
@@ -72,11 +75,23 @@ async function loadOverrides(locale: AppLocale): Promise<{ key: string; value: s
   }
 }
 
+/** Loads in progress, so a burst of requests on a cold server reads the files once, not once each. */
+const loading = new Map<AppLocale, Promise<Messages>>();
+
 export async function getMessages(locale: AppLocale): Promise<Messages> {
   const cached = cache.get(locale);
   const ttl = isProd ? 60_000 : 0;
   if (cached && Date.now() - cached.loadedAt < ttl) return cached.messages;
 
+  let pending = loading.get(locale);
+  if (!pending) {
+    pending = loadMessages(locale).finally(() => loading.delete(locale));
+    loading.set(locale, pending);
+  }
+  return pending;
+}
+
+async function loadMessages(locale: AppLocale): Promise<Messages> {
   const [english, localized, overrides] = await Promise.all([
     readLocale("en"),
     locale === "en" ? Promise.resolve({}) : readLocale(locale),

@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { PlaceCard } from "./place-card";
 import { PLACE_TYPE_STYLE } from "./place-type-style";
 import type { MapFocusRequest } from "./places-map";
+import { scrollBehavior } from "@/lib/motion";
 
 function MapSkeleton() {
   return <Skeleton className="size-full rounded-2xl" />;
@@ -140,7 +141,7 @@ export function PlacesExplorer({
   function selectFromMap(id: string) {
     setSelectedId(id);
     if (isDesktop) {
-      cardRefs.current.get(id)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      cardRefs.current.get(id)?.scrollIntoView({ behavior: scrollBehavior(), block: "nearest" });
     }
   }
 
@@ -149,7 +150,7 @@ export function PlacesExplorer({
     setView("list");
     requestAnimationFrame(() => {
       const card = cardRefs.current.get(id);
-      card?.scrollIntoView({ behavior: "smooth", block: "center" });
+      card?.scrollIntoView({ behavior: scrollBehavior(), block: "center" });
       card?.querySelector<HTMLElement>("h3")?.focus({ preventScroll: true });
     });
   }

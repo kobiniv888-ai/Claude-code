@@ -125,6 +125,7 @@ export function PhotoCarousel({
                     fill
                     sizes={sizes}
                     priority={priority && index === 0}
+                    fetchPriority={priority && index === 0 ? "high" : undefined}
                     loading={priority && index === 0 ? undefined : "lazy"}
                     unoptimized={!optimizable(photo.url)}
                     placeholder={photo.blurDataUrl ? "blur" : "empty"}

@@ -12,7 +12,6 @@
  * Serializing is stable (always the same order) and leaves out defaults, so equal filters give
  * equal URLs (good for caching and canonical links).
  */
-import { z } from "zod";
 import { siteConfig } from "@/config/site";
 import type {
   BuildingAge,
@@ -342,17 +341,20 @@ const exactKey = (v: string) => v.toLowerCase();
 const TRUE_VALUES = new Set(["1", "true", "yes", "on"]);
 const flag = (value: string | null) => (value ? TRUE_VALUES.has(value.toLowerCase()) : false);
 
-const slugSchema = z
-  .string()
-  .max(64)
-  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+// Plain checks instead of zod: this module is part of the home page's search bar bundle.
+const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/** A city or neighborhood slug ("old-tbilisi"), or null. */
+function slugOrNull(value: string | undefined): string | null {
+  return value !== undefined && value.length <= 64 && SLUG.test(value) ? value : null;
+}
 
 /** A number in [min, max], rounded to `step`; anything else is null. */
 function numberIn(value: string | null, min: number, max: number, step = 1): number | null {
   if (value === null || !/^-?\d+(\.\d+)?$/.test(value)) return null;
-  const parsed = z.coerce.number().finite().min(min).max(max).safeParse(value);
-  if (!parsed.success) return null;
-  const rounded = Math.round(parsed.data / step) * step;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < min || parsed > max) return null;
+  const rounded = Math.round(parsed / step) * step;
   return rounded < min || rounded > max ? null : Number(rounded.toFixed(2));
 }
 
@@ -395,10 +397,9 @@ export function parseSearchParams(input: SearchParamsInput | null | undefined): 
 
   filters.deal = pickOne(one("deal"), DEAL_FILTERS, exactKey);
 
-  const city = slugSchema.safeParse(one("city")?.toLowerCase());
-  filters.city = city.success ? city.data : null;
-  const neighborhood = slugSchema.safeParse(one("neighborhood")?.toLowerCase());
-  filters.neighborhood = filters.city && neighborhood.success ? neighborhood.data : null;
+  filters.city = slugOrNull(one("city")?.toLowerCase());
+  const neighborhood = slugOrNull(one("neighborhood")?.toLowerCase());
+  filters.neighborhood = filters.city ? neighborhood : null;
 
   filters.q = parseQuery(read.one("q"));
 

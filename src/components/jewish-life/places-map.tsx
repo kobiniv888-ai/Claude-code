@@ -9,6 +9,7 @@ import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
 import { dirFor } from "@/i18n/locale";
 import { JEWISH_PLACE_TYPES, type JewishPlaceType, type PublicJewishPlace } from "@/lib/jewish-life/places";
 import { PLACE_TYPE_STYLE } from "./place-type-style";
+import { prefersReducedMotion } from "@/lib/motion";
 
 /**
  * The Jewish Life map (client-only — load it with next/dynamic and `ssr: false`).
@@ -107,7 +108,7 @@ function FocusOnRequest({
     const place = places.find((p) => p.id === request.id);
     if (!place) return;
     const target: [number, number] = [place.lat, place.lng];
-    map.flyTo(target, Math.max(map.getZoom(), 15), { duration: 0.6 });
+    map.flyTo(target, Math.max(map.getZoom(), 15), { duration: 0.6, animate: !prefersReducedMotion() });
     map.once("moveend", () => markers.current.get(place.id)?.openPopup());
   }, [map, request, places, markers]);
   return null;

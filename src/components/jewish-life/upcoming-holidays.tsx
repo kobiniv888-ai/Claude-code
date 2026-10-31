@@ -90,7 +90,7 @@ export async function UpcomingHolidays({
               </div>
               <Link
                 href={jewishLifeHref(params, { month: month === currentMonth ? null : month }, "calendar")}
-                className="mt-2 inline-flex items-center gap-1 rounded-sm text-xs font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                className="mt-1 inline-flex min-h-6 items-center gap-1 rounded-sm text-xs font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               >
                 {t("showInCalendar")}
                 <span className="sr-only">: {names.get(group.key)}</span>

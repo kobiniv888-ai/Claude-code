@@ -133,9 +133,10 @@ export function RiskChip({
     <span
       className={cn(pill, "tabular-nums", RISK_LEVEL_STYLES[level], className)}
       title={t(`level.${level}`)}
-      aria-label={score == null ? t("none") : t("aria", { score: value, level: t(`level.${level}`) })}
     >
       <span aria-hidden>{value}</span>
+      {/* aria-label is not allowed on a plain <span>; screen readers read this text instead. */}
+      <span className="sr-only">{score == null ? t("none") : t("aria", { score: value, level: t(`level.${level}`) })}</span>
     </span>
   );
 }

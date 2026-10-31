@@ -88,9 +88,10 @@ export function MobileMenu({ isSignedIn, postLabel }: { isSignedIn: boolean; pos
         <Button
           variant="outline"
           className="h-10 gap-2 rounded-full border-border bg-card ps-3 pe-2.5 shadow-xs"
-          aria-label={t("menu.open")}
+          // The visible language code is part of the name (WCAG 2.5.3 label in name).
+          aria-label={`${t("menu.open")} · ${locale.toUpperCase()}`}
         >
-          <span className="text-xs font-semibold text-muted-foreground" dir="ltr">
+          <span aria-hidden className="text-xs font-semibold text-muted-foreground" dir="ltr">
             {locale.toUpperCase()}
           </span>
           <span aria-hidden className="h-4 w-px bg-border" />

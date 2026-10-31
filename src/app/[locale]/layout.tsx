@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
-import { getTranslations, setRequestLocale } from "next-intl/server";
+import { getMessages, getTranslations, setRequestLocale } from "next-intl/server";
 import { LoginDialogProvider } from "@/components/auth/login-dialog-provider";
 import { InlineScript } from "@/components/common/inline-script";
 import { DISMISSED_ALERTS_SCRIPT } from "@/components/layout/dismissed-alerts";
@@ -15,11 +15,13 @@ import { RegisterServiceWorker } from "@/components/pwa/register-sw";
 import { DirectionProvider } from "@/components/ui/direction";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { siteConfig } from "@/config/site";
+import { publicClientMessages } from "@/i18n/client-messages";
 import { dirFor } from "@/i18n/locale";
 import { routing } from "@/i18n/routing";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getDisplayCurrency, getRates } from "@/lib/currency";
 import { DEFAULT_OG_IMAGE, absoluteUrl, ogLocale, siteName } from "@/lib/seo";
+import { ZOD_JITLESS_SCRIPT } from "@/lib/zod-jitless";
 import "../globals.css";
 
 export function generateStaticParams() {
@@ -69,10 +71,11 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
   setRequestLocale(locale);
   const dir = dirFor(locale);
 
-  const [nonce, user, rates] = await Promise.all([
+  const [nonce, user, rates, messages] = await Promise.all([
     headers().then((h) => h.get("x-nonce") ?? undefined),
     getCurrentUser().catch(() => null),
     getRates(),
+    getMessages(),
   ]);
   const currency = await getDisplayCurrency(user?.currency);
 
@@ -80,11 +83,13 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
     <html lang={locale} dir={dir} style={fontStyle} suppressHydrationWarning>
       <head>
         <InlineScript nonce={nonce} html={DISMISSED_ALERTS_SCRIPT} />
+        <InlineScript nonce={nonce} html={ZOD_JITLESS_SCRIPT} />
       </head>
       <body>
         <ThemeProvider nonce={nonce}>
           <DirectionProvider dir={dir}>
-            <NextIntlClientProvider>
+            {/* Public pages only ship the namespaces their client components read (see client-messages). */}
+            <NextIntlClientProvider messages={publicClientMessages(messages)}>
               <TooltipProvider delayDuration={400}>
                 <CurrencyProvider currency={currency} rates={rates}>
                   <LoginDialogProvider>

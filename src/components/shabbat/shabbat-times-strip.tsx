@@ -86,7 +86,7 @@ export async function ShabbatTimesStrip({
         </div>
         <Link
           href="/jewish-life#shabbat-times"
-          className="inline-flex items-center gap-1.5 self-start rounded-md text-sm font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:self-auto"
+          className="inline-flex min-h-6 items-center gap-1.5 self-start rounded-md text-sm font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:self-auto"
         >
           {t("strip.allCities")}
           <ArrowRight aria-hidden="true" className="size-4 rtl:-scale-x-100" />

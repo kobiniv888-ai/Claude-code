@@ -4,6 +4,7 @@ import { useSyncExternalStore } from "react";
 import { Monitor, Moon, Sun } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
+import { useSetTheme } from "@/components/providers/theme-provider";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -34,7 +35,8 @@ export function useMounted() {
 /** Header button: light / dark / device setting. */
 export function ThemeToggle({ className }: { className?: string }) {
   const t = useTranslations("nav.theme");
-  const { theme, setTheme } = useTheme();
+  const { theme } = useTheme();
+  const setTheme = useSetTheme();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -61,7 +63,8 @@ export function ThemeToggle({ className }: { className?: string }) {
 /** Three-way switch for menus and settings pages. */
 export function ThemeSegmented({ className }: { className?: string }) {
   const t = useTranslations("nav.theme");
-  const { theme, setTheme } = useTheme();
+  const { theme } = useTheme();
+  const setTheme = useSetTheme();
   const mounted = useMounted();
   const current = mounted ? (theme ?? "system") : null;
   return (

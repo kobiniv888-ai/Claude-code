@@ -4,10 +4,14 @@ import * as React from "react"
 import { cn } from "cn"
 import { Drawer as DrawerPrimitive } from "vaul"
 
+import { useReturnFocus } from "@/components/ui/use-return-focus"
+
 function Drawer({
+  // Move focus into the drawer when it opens, like every other dialog (vaul defaults to false).
+  autoFocus = true,
   ...props
 }: React.ComponentProps<typeof DrawerPrimitive.Root>) {
-  return <DrawerPrimitive.Root data-slot="drawer" {...props} />
+  return <DrawerPrimitive.Root data-slot="drawer" autoFocus={autoFocus} {...props} />
 }
 
 function DrawerTrigger({
@@ -47,8 +51,11 @@ function DrawerOverlay({
 function DrawerContent({
   className,
   children,
+  onOpenAutoFocus,
+  onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof DrawerPrimitive.Content>) {
+  const returnFocus = useReturnFocus({ onOpenAutoFocus, onCloseAutoFocus })
   return (
     <DrawerPortal data-slot="drawer-portal">
       <DrawerOverlay />
@@ -59,6 +66,7 @@ function DrawerContent({
           className
         )}
         {...props}
+        {...returnFocus}
       >
         <div className="mx-auto mt-4 hidden h-1 w-[100px] shrink-0 rounded-full bg-muted group-data-[vaul-drawer-direction=bottom]/drawer-content:block" />
         {children}

@@ -104,6 +104,7 @@ function Photo({ photo, sizes, priority, className }: { photo: PagePhoto; sizes:
       fill
       sizes={sizes === "large" ? "(min-width: 768px) 50vw, 100vw" : "(min-width: 768px) 25vw, 100vw"}
       priority={priority}
+      fetchPriority={priority ? "high" : undefined}
       unoptimized
       placeholder={photo.blurDataUrl ? "blur" : "empty"}
       blurDataURL={photo.blurDataUrl ?? undefined}

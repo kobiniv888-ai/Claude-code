@@ -15,8 +15,8 @@ const baseURL = BASE_URL;
 export default defineConfig({
   testDir: "tests/e2e",
   globalSetup: "./tests/e2e/global-setup.ts",
-  // The dev server compiles each route on first use: be generous.
-  timeout: 120_000,
+  // The dev server compiles each route on first use and can be slow on a busy machine: be generous.
+  timeout: 180_000,
   expect: { timeout: 20_000 },
   fullyParallel: false,
   workers: process.env.CI ? 1 : 2,

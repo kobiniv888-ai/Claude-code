@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
-import { locales, siteConfig } from "@/config/site";
+import { pageMetadata } from "@/lib/seo";
 
 /**
  * Title, description, canonical URL and hreflang alternates for a content page.
  * `path` is the page path without the locale, e.g. "/about".
+ *
+ * Uses the shared pageMetadata(): a page's `openGraph` replaces the layout's, so it must carry
+ * the social image, site name and locale itself (shared links showed no picture before).
  */
 export function contentMetadata({
   locale,
@@ -16,15 +19,5 @@ export function contentMetadata({
   title: string;
   description: string;
 }): Metadata {
-  const languages: Record<string, string> = {};
-  for (const l of locales) languages[l] = `/${l}${path}`;
-  languages["x-default"] = `/en${path}`;
-  return {
-    // Absolute URLs for canonical/hreflang (search engines ignore relative alternates).
-    metadataBase: new URL(siteConfig.url),
-    title,
-    description,
-    alternates: { canonical: `/${locale}${path}`, languages },
-    openGraph: { title, description, url: `/${locale}${path}`, type: "website" },
-  };
+  return pageMetadata({ locale, path, title, description });
 }

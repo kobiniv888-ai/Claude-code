@@ -4,15 +4,34 @@ import { acceptCookies, loginByPhone } from "./helpers/auth";
 /** Console noise that is not an app error (external photos that cannot load offline, dev HMR). */
 const IGNORED_CONSOLE = [/Failed to load resource/i, /\[HMR\]/, /\[Fast Refresh\]/, /Download the React DevTools/];
 
+/**
+ * Errors thrown by the development server's hot reload itself (e.g. a refresh message that
+ * arrives while the page is still starting, when a file in the working tree changes).
+ */
+const IGNORED_PAGE_ERROR_STACK = [/\bhmrRefresh\b/, /WebSocket\.handleMessage/];
+
 /** Collects every console error and uncaught page error of a page (minus the noise above). */
 export function trackConsoleErrors(page: Page): string[] {
   const errors: string[] = [];
+  // While the development server hot-reloads a changed file (and just after), React may log
+  // transient warnings: they are not errors of the page itself.
+  let refreshing = false;
+  let refreshedAt = 0;
+  const duringRefresh = () => refreshing || Date.now() - refreshedAt < 3_000;
   page.on("console", (message) => {
-    if (message.type() !== "error") return;
     const text = message.text();
+    if (/\[Fast Refresh\] rebuilding/.test(text)) refreshing = true;
+    if (/\[Fast Refresh\] done/.test(text)) {
+      refreshing = false;
+      refreshedAt = Date.now();
+    }
+    if (message.type() !== "error" || duringRefresh()) return;
     if (!IGNORED_CONSOLE.some((pattern) => pattern.test(text))) errors.push(text.slice(0, 500));
   });
-  page.on("pageerror", (error) => errors.push(`pageerror: ${error.message}`.slice(0, 500)));
+  page.on("pageerror", (error) => {
+    if (IGNORED_PAGE_ERROR_STACK.some((pattern) => pattern.test(error.stack ?? ""))) return;
+    errors.push(`pageerror: ${error.message}`.slice(0, 500));
+  });
   return errors;
 }
 

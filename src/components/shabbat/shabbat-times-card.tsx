@@ -191,7 +191,7 @@ export async function ShabbatTimesCard({
         <Link
           href="/jewish-life#shabbat-times"
           className={cn(
-            "inline-flex items-center gap-1.5 self-start rounded-md text-sm font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+            "inline-flex min-h-6 items-center gap-1.5 self-start rounded-md text-sm font-semibold text-primary underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
             compact ? "mt-2" : "mt-4",
           )}
         >

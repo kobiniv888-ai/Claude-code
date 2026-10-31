@@ -16,7 +16,7 @@ export function Toc({ title, items, className }: { title: string; items: TocItem
             href={`#${item.id}`}
             className="flex gap-2.5 rounded-lg px-2.5 py-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
           >
-            <span aria-hidden="true" className="w-5 shrink-0 text-end font-medium tabular-nums text-muted-foreground/80">
+            <span aria-hidden="true" className="w-5 shrink-0 text-end font-medium tabular-nums text-muted-foreground">
               {index + 1}
             </span>
             <span className="min-w-0">{item.label}</span>

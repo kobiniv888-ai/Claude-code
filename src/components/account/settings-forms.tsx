@@ -209,7 +209,8 @@ function AvatarField({ name, image }: { name: string; image: string | null }) {
   );
 }
 
-export function ProfileForm({ data }: { data: AccountSettingsData }) {
+/** `languageNames`: spoken-language names in the page language, from the server (Intl data differs per browser). */
+export function ProfileForm({ data, languageNames }: { data: AccountSettingsData; languageNames: Record<string, string> }) {
   const t = useTranslations("account.settings.profile");
   const locale = useLocale();
   const id = useId();
@@ -293,7 +294,7 @@ export function ProfileForm({ data }: { data: AccountSettingsData }) {
                 )}
               >
                 {on ? <CheckIcon className="size-3.5" aria-hidden="true" /> : null}
-                {languageName(code, locale)}
+                {languageNames[code] ?? languageName(code, locale)}
               </button>
             );
           })}

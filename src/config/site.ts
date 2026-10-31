@@ -67,7 +67,7 @@ export const siteConfig = {
     accent: "#B4533A", // terracotta — Georgian roofs
     wine: "#7B2D3B", // Georgian wine
     background: "#FAF8F5", // off-white
-    verified: "#15803D", // green "Verified"
+    verified: "#13763A", // green "Verified" (AA as text on its soft tints)
     warning: "#B45309", // amber warnings
   },
 

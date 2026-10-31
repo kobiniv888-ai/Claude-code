@@ -13,7 +13,6 @@ import {
   UserIcon,
   UserRoundIcon,
 } from "lucide-react";
-import { formatPhoneNumberIntl } from "react-phone-number-input";
 import { Ltr } from "@/components/common/ltr";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -32,7 +31,7 @@ import { cn } from "@/lib/utils";
 export type UserMenuUser = {
   name: string;
   image: string | null;
-  /** A real email or the phone number — shown under the name. */
+  /** A real email or the phone number (already formatted by the server) — shown under the name. */
   contact: string | null;
   contactIsPhone: boolean;
   isStaff: boolean;
@@ -89,7 +88,8 @@ export function UserMenuClient({ user }: { user: UserMenuUser }) {
     <DropdownMenu>
       <DropdownMenuTrigger
         className="flex h-10 items-center gap-2 rounded-full border border-border bg-card ps-3 pe-1 shadow-xs transition-shadow outline-none hover:shadow-card focus-visible:ring-3 focus-visible:ring-ring/50 aria-expanded:shadow-card"
-        aria-label={t("openMenu")}
+        // The visible initials are part of the name (WCAG 2.5.3 label in name).
+        aria-label={[t("openMenu"), initials(user.name)].filter(Boolean).join(" · ")}
       >
         <MenuIcon className="size-4 text-muted-foreground" aria-hidden />
         <UserAvatar user={user} />
@@ -103,7 +103,7 @@ export function UserMenuClient({ user }: { user: UserMenuUser }) {
             </span>
             {user.contact && (
               <span className="truncate text-xs text-muted-foreground">
-                <Ltr>{user.contactIsPhone ? formatPhoneNumberIntl(user.contact) || user.contact : user.contact}</Ltr>
+                <Ltr>{user.contact}</Ltr>
               </span>
             )}
           </span>

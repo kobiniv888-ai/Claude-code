@@ -2,6 +2,11 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+/* Tailwind scans the whole project for class names: skip the design-skill examples and docs, which
+   are not part of the site (they more than doubled the stylesheet). */
+@source not "../../.claude";
+@source not "../../docs";
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -95,7 +100,7 @@
   --brand-primary: #1e3a6e; /* deep trustworthy blue */
   --brand-accent: #b4533a; /* terracotta — Georgian roofs */
   --brand-wine: #7b2d3b; /* Georgian wine */
-  --brand-verified: #15803d; /* green "Verified" */
+  --brand-verified: #13763a; /* green "Verified" (AA as text on its soft tints) */
   --brand-warning: #b45309; /* amber warnings */
 
   --background: #faf8f5; /* off-white */
@@ -129,7 +134,7 @@
   --ring: #3b5ea8;
   --chart-1: #1e3a6e;
   --chart-2: #b4533a;
-  --chart-3: #15803d;
+  --chart-3: #13763a;
   --chart-4: #7b2d3b;
   --chart-5: #b45309;
   --radius: 0.75rem; /* 12px cards; xl = 16px */
@@ -220,6 +225,25 @@
 @media (width < 64rem) {
   body:has([data-bottom-nav]) {
     --bottom-nav-height: calc(4rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+/* Keyboard focus never lands under the sticky header or a mobile bottom bar (WCAG 2.4.11
+   "focus not obscured"). Top: a scroll margin on focusable things only, so in-page anchors keep
+   their own scroll-mt offsets. Bottom: a scroll padding (both bottom bars are 4rem tall). */
+:where(a[href], button, input, select, textarea, summary, [tabindex]) {
+  scroll-margin-top: calc(var(--header-height) + 0.5rem);
+}
+@media (width < 64rem) {
+  html:has([data-bottom-nav]),
+  html:has([data-listing-contact-bar]) {
+    scroll-padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+  }
+  html:has([data-hide-bottom-nav]):not(:has([data-listing-contact-bar])) {
+    scroll-padding-bottom: 0;
+  }
+  /* Search results: the floating "Map" button sits 2rem above the bottom bar. */
+  html:has([data-floating-map-toggle]) {
+    scroll-padding-bottom: calc(9.5rem + env(safe-area-inset-bottom, 0px));
   }
 }
 /* <HideBottomNav /> (post wizard, full-screen flows) removes the bar and its space. */

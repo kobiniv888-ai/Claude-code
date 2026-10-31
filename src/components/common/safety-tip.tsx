@@ -62,7 +62,7 @@ export function SafetyTip({
         {link ? (
           <Link
             href={href}
-            className="group mt-1 inline-flex w-fit items-center gap-1 rounded-md text-sm font-semibold text-primary underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="group mt-1 inline-flex min-h-6 w-fit items-center gap-1 rounded-md text-sm font-semibold text-primary underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
           >
             {link}
             <ArrowEnd aria-hidden className="size-3.5" />

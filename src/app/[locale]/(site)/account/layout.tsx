@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
+import { NextIntlClientProvider } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
 import { AccountShell } from "@/components/account/account-shell";
 import { accountNavItems } from "@/lib/account/nav";
@@ -23,8 +24,11 @@ export default async function AccountLayout({
   const waitingTickets = await db.ticket.count({ where: { userId: user.id, status: "WAITING_FOR_USER" } });
 
   return (
-    <AccountShell items={accountNavItems()} user={{ name: user.name, image: user.image }} waitingTickets={waitingTickets}>
-      {children}
-    </AccountShell>
+    // All interface text for the dashboard's client components (the site root only sends public namespaces).
+    <NextIntlClientProvider>
+      <AccountShell items={accountNavItems()} user={{ name: user.name, image: user.image }} waitingTickets={waitingTickets}>
+        {children}
+      </AccountShell>
+    </NextIntlClientProvider>
   );
 }

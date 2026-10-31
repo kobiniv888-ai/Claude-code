@@ -45,6 +45,8 @@ export const LIMITS = {
   translation: 5000,
   emergencyLabel: 200,
   emergencyPhone: 40,
+  savedReplyTitle: 120,
+  savedReplyBody: 4000,
 } as const;
 
 /** Time zones a city can use (Georgia today; Israel, the UK, the UAE and the US for Phase 3). */
@@ -242,6 +244,15 @@ export const faqReorderSchema = z.object({
   category: z.enum(FAQ_CATEGORIES),
   ids: z.array(id).min(1).max(500),
 });
+
+// ─── Saved replies (support tickets) ─────────────────────────
+
+/** A ready answer for ticket replies: an internal title and the text in each language. */
+export const savedReplySchema = z.object({
+  title: text(LIMITS.savedReplyTitle).min(1, "required"),
+  body: requiredLocalized(LIMITS.savedReplyBody),
+});
+export type SavedReplyInput = z.input<typeof savedReplySchema>;
 
 // ─── Scam alerts ─────────────────────────────────────────────
 

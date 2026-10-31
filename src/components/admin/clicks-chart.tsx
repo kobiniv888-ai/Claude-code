@@ -26,7 +26,7 @@ export function ClicksByChannelChart({
     <div>
       <div aria-hidden dir="ltr" className="w-full" style={{ height }}>
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} layout="vertical" margin={{ top: 4, right: 12, bottom: 4, left: 12 }} barCategoryGap={8}>
+          <BarChart accessibilityLayer={false} data={data} layout="vertical" margin={{ top: 4, right: 12, bottom: 4, left: 12 }} barCategoryGap={8}>
             <CartesianGrid horizontal={false} stroke="var(--border)" strokeDasharray="0" />
             <XAxis
               type="number"

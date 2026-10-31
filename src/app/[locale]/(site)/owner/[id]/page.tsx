@@ -103,12 +103,13 @@ export default async function OwnerPage({ params }: Props) {
 
         <dl className="grid gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
           {facts.map(({ key, icon: Icon, label, value }) => (
-            <div key={key} className="flex items-start gap-3">
-              <Icon className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
-              <div className="grid">
-                <dt className="text-sm text-muted-foreground">{label}</dt>
-                <dd className="font-medium">{value}</dd>
-              </div>
+            // dt/dd must be direct children of the group <div>, so the icon sits inside the <dt>.
+            <div key={key} className="relative grid ps-8">
+              <dt className="text-sm text-muted-foreground">
+                <Icon className="absolute start-0 top-0.5 size-5 text-primary" aria-hidden />
+                {label}
+              </dt>
+              <dd className="font-medium">{value}</dd>
             </div>
           ))}
         </dl>

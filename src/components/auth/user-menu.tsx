@@ -1,3 +1,4 @@
+import { formatPhoneInternational } from "@/lib/auth/phone";
 import type { CurrentUser } from "@/lib/auth/session";
 import { LoginButton } from "./login-dialog";
 import { UserMenuClient, type UserMenuUser } from "./user-menu-client";
@@ -19,7 +20,8 @@ export function UserMenu({ user, className }: { user: CurrentUser | null; classN
   const menuUser: UserMenuUser = {
     name: user.name,
     image: user.image,
-    contact: sameAsName ? null : contact,
+    // Formatted here so the browser does not need the phone-number metadata (~50 KB) on every page.
+    contact: sameAsName || !contact ? null : user.emailIsPlaceholder ? formatPhoneInternational(contact) : contact,
     contactIsPhone: user.emailIsPlaceholder,
     isStaff: user.isStaff,
   };

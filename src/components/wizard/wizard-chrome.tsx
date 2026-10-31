@@ -15,6 +15,7 @@ import { formatNumber, formatTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { WizardStepKey } from "@/lib/wizard/steps";
 import type { SaveState } from "./use-autosave";
+import { scrollBehavior } from "@/lib/motion";
 
 export function SaveIndicator({ state, onRetry }: { state: SaveState; onRetry: () => void }) {
   const t = useTranslations("wizard.chrome");
@@ -82,7 +83,7 @@ export function WizardProgress({
 
   useEffect(() => {
     const chip = listRef.current?.querySelector<HTMLElement>('[aria-current="step"]');
-    chip?.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
+    chip?.scrollIntoView({ block: "nearest", inline: "center", behavior: scrollBehavior() });
   }, [current]);
 
   const percent = Math.round((position / steps.length) * 100);

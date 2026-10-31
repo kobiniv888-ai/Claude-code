@@ -1,11 +1,13 @@
 "use client";
 
 import { useRef, useState, type ComponentProps, type FormEvent, type ReactNode } from "react";
+import dynamic from "next/dynamic";
 import { useLocale, useTranslations } from "next-intl";
 import { CalendarDays, MapPin, Search, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "@/i18n/navigation";
 import { formatDate } from "@/lib/format";
 import { formatStay } from "@/lib/search/format-stay";
@@ -22,9 +24,14 @@ import {
 } from "@/lib/search/search-bar";
 import { cn } from "@/lib/utils";
 import { GuestsStepper } from "./guests-stepper";
-import { HolidayCalendar } from "./holiday-calendar";
 import { PlaceCombobox, type PopularPlace } from "./place-combobox";
 import { useMediaQuery } from "./use-media-query";
+
+// The date picker (react-day-picker + date-fns) only shows in the dates popover or sheet: load it
+// when one opens instead of with the home page.
+const HolidayCalendar = dynamic(() => import("./holiday-calendar").then((m) => m.HolidayCalendar), {
+  loading: () => <Skeleton aria-hidden className="h-[19rem] w-[17rem] max-w-full rounded-xl" />,
+});
 
 export type SearchBarProps = {
   /** "hero": the big bar on the home page (with the deal tabs); "compact": the bar above the results. */

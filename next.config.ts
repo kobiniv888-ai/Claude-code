@@ -55,7 +55,15 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: { "/**": ["./messages/**/*"] },
   serverExternalPackages: ["sharp"],
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    // Files in public/ have stable names but no content hash: cache them for a week and
+    // revalidate in the background (sw.js and offline.html keep the default no-cache).
+    const publicAssetCache = [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      { source: "/brand/:path*", headers: publicAssetCache },
+      { source: "/icons/:path*", headers: publicAssetCache },
+      { source: "/images/:path*", headers: publicAssetCache },
+    ];
   },
 };
 

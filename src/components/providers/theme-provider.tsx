@@ -1,7 +1,7 @@
 "use client";
 
-import type { ComponentProps } from "react";
-import { ThemeProvider as NextThemesProvider } from "next-themes";
+import { useCallback, type ComponentProps } from "react";
+import { ThemeProvider as NextThemesProvider, useTheme } from "next-themes";
 
 /**
  * Light / dark / device theme (class "dark" on <html>). The layout passes the CSP nonce so the
@@ -18,12 +18,38 @@ export function ThemeProvider({ nonce, children, ...props }: ComponentProps<type
       attribute="class"
       defaultTheme="system"
       enableSystem
-      disableTransitionOnChange
+      // Not `disableTransitionOnChange`: next-themes also applies the theme on every page load, and
+      // that option adds and removes a global style each time (two full style recalculations, plus
+      // more for the device setting). useSetTheme() below turns transitions off for real changes only.
       nonce={nonce}
       scriptProps={scriptProps}
       {...props}
     >
       {children}
     </NextThemesProvider>
+  );
+}
+
+/**
+ * `setTheme` from next-themes, with CSS transitions switched off while the colors change, so the
+ * page switches at once instead of animating every border and background.
+ */
+export function useSetTheme() {
+  const { setTheme } = useTheme();
+  return useCallback(
+    (theme: string) => {
+      const style = document.createElement("style");
+      style.textContent = "*,*::before,*::after{transition:none!important}";
+      document.head.appendChild(style);
+      setTheme(theme);
+      // next-themes applies the class in an effect: wait for it, then for the restyle.
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          void window.getComputedStyle(document.body).opacity;
+          style.remove();
+        }),
+      );
+    },
+    [setTheme],
   );
 }

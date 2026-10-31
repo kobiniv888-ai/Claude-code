@@ -238,6 +238,9 @@ export function CityForm({ id, initial }: { id: string | null; initial?: CityFor
               accept="image/jpeg,image/png,image/webp"
               className="sr-only"
               id="city-photo-file"
+              // The button below opens it; keep it out of the tab order but give it a name.
+              tabIndex={-1}
+              aria-label={t("uploadPhoto")}
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (file) void upload(file);

@@ -3,6 +3,7 @@
 import * as React from "react"
 import { cn } from "cn"
 import {
+  DateLib,
   DayPicker,
   getDefaultClassNames,
   type DayButton,
@@ -19,6 +20,7 @@ function Calendar({
   buttonVariant = "ghost",
   locale,
   formatters,
+  labels,
   components,
   ...props
 }: React.ComponentProps<typeof DayPicker> & {
@@ -41,6 +43,13 @@ function Calendar({
         formatMonthDropdown: (date) =>
           date.toLocaleString(locale?.code, { month: "short" }),
         ...formatters,
+      }}
+      labels={{
+        // Name each day the way it is shown ("1", not "1st"), so the visible number is part of
+        // the name (WCAG 2.5.3). The selected state is already on the grid cell (aria-selected).
+        labelDayButton: (date, _modifiers, options, dateLib) =>
+          (dateLib ?? new DateLib(options)).format(date, "EEEE, d MMMM yyyy"),
+        ...labels,
       }}
       classNames={{
         root: cn("w-fit", defaultClassNames.root),

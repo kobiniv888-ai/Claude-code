@@ -94,6 +94,11 @@ docs/
   layout) holds generic words (Save, Cancel, Back, Next, Close, Loading, Show more…) that anyone may
   *read*.
 * All five language files of a namespace must have the same keys (`npm run i18n:check`).
+* The browser only receives the namespaces its client components read: public pages get every
+  namespace except `SECTION_ONLY_NAMESPACES` in `src/i18n/client-messages.ts` (admin, wizard,
+  dashboard, legal, emails…); `/admin`, `/account` and `/post` mount a provider with all of them.
+  If a client component on a public page starts reading one of those namespaces, remove it from
+  that list.
 * Write real translations in all five languages (Hebrew, English, Russian, Arabic, Georgian).
   Native speakers will review before launch, so prefer clear, simple wording.
 * Database content that is translated (city names, FAQ, scam alerts…) is a JSON object

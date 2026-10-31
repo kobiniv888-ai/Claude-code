@@ -64,7 +64,7 @@ export function TranslationSwitch({ auto, originalLanguage }: { auto: boolean; o
         type="button"
         onClick={toggle}
         aria-pressed={showOriginal}
-        className="rounded font-semibold text-primary underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="inline-flex min-h-6 items-center rounded font-semibold text-primary underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         {showOriginal ? t("showTranslation") : t("showOriginal")}
       </button>

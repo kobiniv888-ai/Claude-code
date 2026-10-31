@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import { siteConfig } from "@/config/site";
 import type { LatLng } from "@/lib/geo";
+import { prefersReducedMotion } from "@/lib/motion";
 
 /**
  * Map with one draggable pin for choosing a listing's exact location (client-only — load it
@@ -60,7 +61,7 @@ function FlyTo({ point, zoom, focusKey }: { point: LatLng; zoom: number; focusKe
       first.current = false;
       return;
     }
-    map.flyTo([point.lat, point.lng], Math.max(map.getZoom(), zoom), { duration: 0.8 });
+    map.flyTo([point.lat, point.lng], Math.max(map.getZoom(), zoom), { duration: 0.8, animate: !prefersReducedMotion() });
     // Only when the key changes (a new search result, a new city), not on every drag.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusKey]);

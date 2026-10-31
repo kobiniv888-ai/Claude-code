@@ -34,6 +34,7 @@ import { CHANNEL_ICONS } from "../icons";
 import { useOptionLabel } from "../labels";
 import { displayPrice, PreviewCard } from "../preview-card";
 import type { StepProps } from "../step-props";
+import { scrollBehavior } from "@/lib/motion";
 
 function MissingList({
   missing,
@@ -292,7 +293,7 @@ function TranslationsPanel({ listing, context, values, translations, setTranslat
                 {isOriginal ? (
                   <span className="text-[0.65rem] text-muted-foreground">{t("originalShort")}</span>
                 ) : !tr ? (
-                  <span className="size-1.5 rounded-full bg-warning" aria-label={t("notTranslated")} />
+                  <span className="size-1.5 rounded-full bg-warning" role="img" aria-label={t("notTranslated")} />
                 ) : null}
               </TabsTrigger>
             );
@@ -482,7 +483,7 @@ export function PublishStep(props: StepProps) {
                   size="sm"
                   onClick={() => {
                     const list = document.getElementById("missing-title");
-                    list?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    list?.scrollIntoView({ behavior: scrollBehavior(), block: "center" });
                     list?.focus();
                   }}
                 >

@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { FiltersDialogButton, FiltersSidebar } from "./filters-controls";
 import { MapToggleButton, SortSelect, ViewSwitcher } from "./results-toolbar";
 import { useSearch } from "./search-context";
+import { scrollBehavior } from "@/lib/motion";
 
 const MOVE_DELAY_MS = 600;
 
@@ -100,7 +101,10 @@ export function SearchResults({ items, mapPoints, fitKey, header, chips, notice,
         <FiltersSidebar className="sticky top-[calc(var(--header-height)+1rem)] hidden max-h-[calc(100dvh-var(--header-height)-2rem)] overflow-y-auto overscroll-contain pe-2 pb-6 lg:block" />
         <div className="min-w-0 py-1">{body}</div>
       </div>
-      <div className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--bottom-nav-height)+2rem)] z-30 flex justify-center lg:hidden">
+      <div
+        data-floating-map-toggle
+        className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--bottom-nav-height)+2rem)] z-30 flex justify-center lg:hidden"
+      >
         <MapToggleButton className="pointer-events-auto" />
       </div>
     </>
@@ -207,7 +211,7 @@ function MapPanel({
   function onSelect(publicId: number) {
     onHighlight(publicId);
     const card = carousel.current?.querySelector<HTMLElement>(`[data-public-id="${publicId}"]`);
-    card?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    card?.scrollIntoView({ behavior: scrollBehavior(), inline: "center", block: "nearest" });
   }
 
   // Phones: the card in the middle of the carousel lights up its marker.

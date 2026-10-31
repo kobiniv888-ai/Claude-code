@@ -38,7 +38,7 @@ export function SectionHeading({
       (action as ReactNode)
     );
   return (
-    <div className={cn("mb-6 flex items-end justify-between gap-4", className)}>
+    <div className={cn("mb-6 flex flex-wrap items-end justify-between gap-x-4 gap-y-2", className)}>
       <div className="grid min-w-0 gap-1.5">
         {eyebrow ? <p className="text-sm font-semibold text-accent-foreground">{eyebrow}</p> : null}
         <Heading id={id} className="scroll-mt-(--header-height) text-xl font-bold tracking-tight text-balance sm:text-2xl">

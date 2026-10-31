@@ -14,7 +14,9 @@ import { TwoFactorSettings } from "@/components/auth/two-factor-settings";
 import { Ltr } from "@/components/common/ltr";
 import { PageHeader } from "@/components/common/page-header";
 import { getAccountSettings } from "@/lib/account/queries";
+import { SPOKEN_LANGUAGE_OPTIONS } from "@/lib/account/settings-schema";
 import { requireUser } from "@/lib/auth/session";
+import { languageName } from "@/lib/listing-page/helpers";
 import { pageMetadata } from "@/lib/seo";
 
 type Props = { params: Promise<{ locale: string }> };
@@ -32,13 +34,17 @@ export default async function SettingsPage({ params }: Props) {
   const user = await requireUser({ next: "/account/settings" });
   const t = await getTranslations("account.settings");
   const data = await getAccountSettings(user.id);
+  // Named here: browsers without Georgian Intl data would name them in English and break hydration.
+  const languageNames = Object.fromEntries(
+    [...new Set([...SPOKEN_LANGUAGE_OPTIONS, ...data.spokenLanguages])].map((code) => [code, languageName(code, locale)]),
+  );
 
   return (
     <div className="grid gap-4 sm:gap-6">
       <PageHeader title={t("title")} description={t("lead")} className="pb-0 sm:pb-0" />
 
       <SettingsSection id="profile" title={t("profile.title")} lead={t("profile.lead")}>
-        <ProfileForm data={data} />
+        <ProfileForm data={data} languageNames={languageNames} />
       </SettingsSection>
 
       <SettingsSection

@@ -101,6 +101,7 @@ const TILES: { filter: ListingFilter; tone: string }[] = [
 export function ListingCountTiles({ counts }: { counts: AccountOverview["counts"] }) {
   const t = useTranslations("account.overview.listings");
   const tf = useTranslations("account.listings.filters");
+  const tl = useTranslations("account.listings");
   const locale = useLocale();
   return (
     <section aria-labelledby="listing-counts" className={sectionCard}>
@@ -108,26 +109,45 @@ export function ListingCountTiles({ counts }: { counts: AccountOverview["counts"
         <h2 id="listing-counts" className="text-lg font-semibold">
           {t("title")}
         </h2>
-        <Link href="/account/listings" className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
-          {t("all", { count: counts.all, countText: formatNumber(counts.all, locale) })}
-          <ChevronEnd className="size-4" aria-hidden="true" />
-        </Link>
+        {counts.all > 0 ? (
+          <Link
+            href="/account/listings"
+            className="inline-flex min-h-11 items-center gap-1 text-sm font-medium text-primary hover:underline"
+          >
+            {t("all", { count: counts.all, countText: formatNumber(counts.all, locale) })}
+            <ChevronEnd className="size-4" aria-hidden="true" />
+          </Link>
+        ) : null}
       </div>
-      <ul className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
-        {TILES.map(({ filter, tone }) => (
-          <li key={filter}>
-            <Link
-              href={{ pathname: "/account/listings", query: { status: filter } }}
-              className="flex h-full flex-col gap-1 rounded-xl border bg-background px-3 py-3 outline-none hover:border-primary/40 focus-visible:ring-3 focus-visible:ring-ring/50"
-            >
-              <span className={cn("text-2xl font-bold tabular-nums", counts[filter] === 0 ? "text-muted-foreground/60" : tone)}>
-                {formatNumber(counts[filter], locale)}
-              </span>
-              <span className="text-xs font-medium text-muted-foreground">{tf(filter)}</span>
-            </Link>
-          </li>
-        ))}
-      </ul>
+      {counts.all === 0 ? (
+        // No listings yet: a clear next step instead of a row of zeros.
+        <div className="mt-3 grid gap-3">
+          <p className="text-sm text-muted-foreground">{tl("emptyTitle")}</p>
+          <Link
+            href="/post"
+            className="inline-flex min-h-11 w-fit items-center gap-1 rounded-lg px-1 text-sm font-medium text-primary hover:underline"
+          >
+            {tl("post")}
+            <ChevronEnd className="size-4" aria-hidden="true" />
+          </Link>
+        </div>
+      ) : (
+        <ul className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
+          {TILES.map(({ filter, tone }) => (
+            <li key={filter}>
+              <Link
+                href={{ pathname: "/account/listings", query: { status: filter } }}
+                className="flex h-full flex-col gap-1 rounded-xl border bg-background px-3 py-3 outline-none hover:border-primary/40 focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                <span className={cn("text-2xl font-bold tabular-nums", counts[filter] === 0 ? "text-muted-foreground" : tone)}>
+                  {formatNumber(counts[filter], locale)}
+                </span>
+                <span className="text-xs font-medium text-muted-foreground">{tf(filter)}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }
