@@ -18,3 +18,11 @@ The most important rules:
 - Next.js 16: `src/proxy.ts` (not middleware), async `params`/`searchParams`/`cookies()`/`headers()`.
   Bundled docs in `node_modules/next/dist/docs/`.
 - Never invent real places, reviews or testimonials. Demo data has `isDemo: true`.
+
+## Design skill
+
+The `ui-ux-pro-max` skill (and its companion design skills) is installed in `.claude/skills/`. Use
+it for UI/UX decisions and reviews — e.g. `python3 .claude/skills/ui-ux-pro-max/scripts/search.py
+"<query>" --domain ux` and its checklists in `references/`. The brand (deep blue + terracotta,
+off-white, Noto fonts) is fixed by the brief and `src/config/site.ts`; when the skill suggests a
+different palette or style, keep the brand and apply only its UX/accessibility guidance.
