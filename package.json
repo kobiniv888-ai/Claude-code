@@ -20,7 +20,8 @@
     "db:seed": "tsx --conditions=react-server prisma/seed/index.ts",
     "db:reset": "prisma db push --force-reset && npm run db:seed",
     "db:studio": "prisma studio",
-    "demo:remove": "tsx --conditions=react-server scripts/demo-remove.ts"
+    "demo:remove": "tsx --conditions=react-server scripts/demo-remove.ts",
+    "vercel-build": "node scripts/vercel-build.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1161.0",

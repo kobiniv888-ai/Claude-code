@@ -88,7 +88,42 @@ All demo listings, users and places are marked **Demo**. Before launch, either:
 
 ---
 
-## 2. Going live (simple steps)
+## 2. See it on your phone (a free preview in about 20 minutes)
+
+You can do all of this from a phone browser.
+
+1. **Database:** sign up at [neon.tech](https://neon.tech) (free) → create a project → copy the
+   connection string (it starts with `postgresql://`).
+2. **Hosting:** sign up at [vercel.com](https://vercel.com) with your GitHub account → **Add New →
+   Project** → import this repository.
+3. Before you press Deploy, open **Environment Variables** and add:
+
+   | Name | Value |
+   |---|---|
+   | `DATABASE_URL` | the Neon connection string |
+   | `BETTER_AUTH_SECRET`, `APP_ENCRYPTION_KEY` | two different random strings of 32+ characters (any password generator) |
+   | `HASH_SALT` | another random string |
+   | `CRON_SECRET` | another random string |
+   | `DB_PUSH_ON_BUILD` | `true` (creates the tables) |
+   | `SEED_ON_BUILD` | `true` (loads the demo listings) |
+
+4. Deploy. Vercel gives you an address like `https://bayit-xyz.vercel.app`. Add two more
+   variables with that address, `NEXT_PUBLIC_SITE_URL` and `BETTER_AUTH_URL`, then redeploy
+   (**Deployments → ⋯ → Redeploy**).
+5. Open the address on your phone. In the browser menu choose **Add to Home Screen** to install it
+   like an app.
+6. Vercel deploys the repository's default branch. To preview this work branch, either merge it, or
+   set **Settings → Git → Production Branch** to `claude/website-build-jm62em`.
+
+In a preview, **browsing works right away**. Two things need one more service:
+* **Logging in:** phone codes need Twilio. A free [Twilio trial](https://www.twilio.com/try-twilio)
+  sends codes to your own verified phone. Create a Verify service and add `TWILIO_ACCOUNT_SID`,
+  `TWILIO_AUTH_TOKEN` and `TWILIO_VERIFY_SERVICE_SID`.
+* **Uploading photos** in the post wizard needs Cloudflare R2 storage (see step 2 of "Going live").
+
+Turn `DB_PUSH_ON_BUILD` and `SEED_ON_BUILD` off once the preview is set up.
+
+## 3. Going live (simple steps)
 
 1. **Database.** Create a Postgres database on [Supabase](https://supabase.com) or
    [Neon](https://neon.tech). Copy its connection string into `DATABASE_URL`. Turn on daily
@@ -129,7 +164,7 @@ All demo listings, users and places are marked **Demo**. Before launch, either:
 
 ---
 
-## 3. Environment variables
+## 4. Environment variables
 
 **Required** in every environment:
 
@@ -169,7 +204,7 @@ All demo listings, users and places are marked **Demo**. Before launch, either:
 
 ---
 
-## 4. How it is built
+## 5. How it is built
 
 Next.js 16 (App Router), TypeScript, Tailwind CSS v4 and shadcn/ui (RTL), next-intl (`/he /en /ru
 /ar /ka` URLs with hreflang), PostgreSQL with Prisma 7, Better Auth (phone code, Google, Apple) plus
