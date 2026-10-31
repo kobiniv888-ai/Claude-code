@@ -74,6 +74,28 @@ export const auth = betterAuth({
 
   // Password-free: Google, Apple and phone codes only.
   emailAndPassword: { enabled: false },
+  // Better Auth endpoints the site never uses. They answer 404 over HTTP (server code can still
+  // call auth.api.*). "/update-user" would let anyone set their own name and photo URL directly,
+  // skipping our checks (account settings and /api/account/avatar do that instead); the password
+  // and email endpoints do not apply to a password-free site.
+  disabledPaths: [
+    "/update-user",
+    "/update-session",
+    "/delete-user",
+    "/delete-user/callback",
+    "/change-email",
+    "/change-password",
+    "/verify-password",
+    "/sign-in/email",
+    "/sign-up/email",
+    "/request-password-reset",
+    "/reset-password",
+    "/send-verification-email",
+    "/verify-email",
+    "/sign-in/phone-number",
+    "/phone-number/request-password-reset",
+    "/phone-number/reset-password",
+  ],
   socialProviders,
   account: {
     accountLinking: {

@@ -5,7 +5,14 @@ import { db } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 import { assertRateLimit } from "@/lib/rate-limit";
 import { deletePublic, putPublic } from "@/lib/storage";
-import { assertContentLength, errorResponse, formFile, MULTIPART_OVERHEAD_BYTES, readForm } from "../../uploads/shared";
+import {
+  assertContentLength,
+  assertSameOrigin,
+  errorResponse,
+  formFile,
+  MULTIPART_OVERHEAD_BYTES,
+  readForm,
+} from "../../uploads/shared";
 
 /**
  * POST /api/account/avatar   (multipart/form-data: file)
@@ -18,6 +25,7 @@ export const maxDuration = 30;
 
 export async function POST(request: Request) {
   try {
+    assertSameOrigin(request);
     const user = await requireUserForAction();
     await assertRateLimit(`upload:avatar:${user.id}`, { limit: 10, windowSeconds: 3600 });
     assertContentLength(request, AVATAR_MAX_BYTES + MULTIPART_OVERHEAD_BYTES);

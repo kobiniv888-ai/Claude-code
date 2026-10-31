@@ -23,6 +23,8 @@ import { prepareListingDerivedFields, recordPriceChange, submitForPublication } 
 import { isOwnPrivateUpload } from "@/lib/media";
 import { getCityById, getNeighborhoods } from "@/lib/places";
 import { assertRateLimit } from "@/lib/rate-limit";
+import { detectContactInfo, hasContactInfo } from "@/lib/risk/contact-info";
+import { scanText } from "@/lib/risk/scan";
 import { assertNotShabbatMode } from "@/lib/settings";
 import { isTranslationEnabled, translateListing } from "@/lib/translate";
 import { normalizeRanges } from "./availability";
@@ -381,10 +383,31 @@ export async function updateDraft(
       const { oldPrice, newPrice, currency } = update.priceChange;
       await recordPriceChange(listing.id, oldPrice, newPrice, currency);
     }
+    if (listing.status === "LIVE" && (await needsImmediateRecheck(step, update, parsed.data))) {
+      // A live listing shows each auto-saved edit at once. New contact methods, or text with scam
+      // phrases or hidden contact details, go through the automatic checks now (as "Save changes"
+      // would), so they cannot stay public just because the owner never pressed that button.
+      try {
+        await submitForPublication(listing.id, user.id);
+      } catch (error) {
+        console.error(`[wizard] re-check of live listing ${listing.id} failed:`, error);
+      }
+    }
     return ok({ savedAt: now.toISOString() });
   } catch (error) {
     return toActionError(error);
   }
+}
+
+/** True when an auto-saved edit of a live listing must be checked right away (see updateDraft). */
+async function needsImmediateRecheck(step: SavableStepKey, update: StepUpdate, input: unknown): Promise<boolean> {
+  if (!update.contentChanged) return false;
+  if (step === "contact") return true;
+  if (step !== "details" || !update.textChanged) return false;
+  const { title, description } = input as ParsedStep<"details">;
+  const text = `${title}\n${description}`;
+  if (hasContactInfo(detectContactInfo(text))) return true;
+  return (await scanText(text)).hits.length > 0;
 }
 
 /** Remembers the step the owner is on (for steps without their own data: photos, rooms, preview). */

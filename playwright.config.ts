@@ -1,0 +1,70 @@
+import { defineConfig, devices } from "@playwright/test";
+import { BASE_URL, E2E_PORT, E2E_USER_AGENT_TAG } from "./tests/e2e/helpers/env";
+
+/**
+ * End-to-end tests (BRIEF section 15, "Definition of done"). See README → "End-to-end tests".
+ *
+ * The tests run against a development server on port 3601 with its own build folder, so they can
+ * run next to `npm run dev`. An already running server on that port is reused. The server needs
+ * the local database (with `npm run db:seed`) and the development login codes
+ * (no Twilio, `GET /api/dev/last-otp`), plus `DEV_SKIP_STAFF_2FA=true` in `.env` for the admin tests.
+ */
+const PORT = E2E_PORT;
+const baseURL = BASE_URL;
+
+export default defineConfig({
+  testDir: "tests/e2e",
+  globalSetup: "./tests/e2e/global-setup.ts",
+  // The dev server compiles each route on first use: be generous.
+  timeout: 120_000,
+  expect: { timeout: 20_000 },
+  fullyParallel: false,
+  workers: process.env.CI ? 1 : 2,
+  retries: process.env.CI ? 1 : 0,
+  forbidOnly: !!process.env.CI,
+  reporter: [["list"], ["html", { open: "never" }]],
+  use: {
+    baseURL,
+    locale: "en-US",
+    timezoneId: "Asia/Tbilisi",
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
+    actionTimeout: 20_000,
+    navigationTimeout: 90_000,
+  },
+  projects: [
+    {
+      name: "desktop",
+      testIgnore: /mobile\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        userAgent: `${devices["Desktop Chrome"].userAgent} ${E2E_USER_AGENT_TAG}`,
+        viewport: { width: 1280, height: 900 },
+      },
+    },
+    {
+      // Phones from 360 px: languages/RTL and the guest search flow.
+      name: "mobile",
+      testMatch: /(i18n|mobile)\.spec\.ts/,
+      use: {
+        ...devices["Pixel 7"],
+        userAgent: `${devices["Pixel 7"].userAgent} ${E2E_USER_AGENT_TAG}`,
+        viewport: { width: 360, height: 780 },
+      },
+    },
+  ],
+  webServer: {
+    command: `npx next dev -p ${PORT}`,
+    url: `${baseURL}/en`,
+    reuseExistingServer: true,
+    timeout: 300_000,
+    stdout: "ignore",
+    stderr: "pipe",
+    env: {
+      NEXT_DIST_DIR: `.next-${PORT}`,
+      // Better Auth only trusts its own origin: point it at this port.
+      BETTER_AUTH_URL: baseURL,
+      NEXT_PUBLIC_SITE_URL: baseURL,
+    },
+  },
+});

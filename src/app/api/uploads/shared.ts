@@ -1,6 +1,7 @@
 import "server-only";
 import { z } from "zod";
-import { AppError, RateLimitError, ValidationError } from "@/lib/errors";
+import { AppError, ForbiddenError, RateLimitError, ValidationError } from "@/lib/errors";
+import { isSameOriginRequest } from "@/lib/same-origin";
 
 /**
  * Helpers shared by the upload route handlers (not a route itself).
@@ -29,6 +30,14 @@ export function errorResponse(error: unknown, scope: string): Response {
   if (error instanceof AppError && error.code === "file_scan_failed") return jsonError(error.code, error.status);
   console.error(`[uploads:${scope}] failed:`, error);
   return jsonError("server_error", 500);
+}
+
+/**
+ * Refuses uploads sent from another site's page (CSRF). The session cookie is SameSite=Lax, which
+ * already blocks most of them; this also covers sibling subdomains and older browsers.
+ */
+export function assertSameOrigin(request: Request): void {
+  if (!isSameOriginRequest(request)) throw new ForbiddenError("Cross-site request refused");
 }
 
 /** Refuses bodies that announce more than `maxBytes` before reading them. */

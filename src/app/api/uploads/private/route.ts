@@ -10,6 +10,7 @@ import { assertNotShabbatMode } from "@/lib/settings";
 import { putPrivate } from "@/lib/storage";
 import {
   assertContentLength,
+  assertSameOrigin,
   errorResponse,
   formFile,
   MULTIPART_OVERHEAD_BYTES,
@@ -46,13 +47,15 @@ const fieldsSchema = z.object({ purpose: z.enum(PRIVATE_UPLOAD_PURPOSES) });
 
 export async function POST(request: Request) {
   try {
+    assertSameOrigin(request);
     const user = await requireUserForAction();
+    // Before the body is read: bigger requests are refused without parsing them.
+    assertContentLength(request, siteConfig.listings.maxPhotoBytes + MULTIPART_OVERHEAD_BYTES);
     const form = await readForm(request);
     const { purpose } = parseFields(fieldsSchema, { purpose: textField(form, "purpose") });
     // Support pauses for Shabbat (admin setting); verification documents can always be sent.
     if (purpose === "ticket") await assertNotShabbatMode();
     await assertRateLimit(`upload:private:${user.id}`, UPLOAD_LIMIT);
-    assertContentLength(request, siteConfig.listings.maxPhotoBytes + MULTIPART_OVERHEAD_BYTES);
 
     const file = formFile(form);
     if (file.size > siteConfig.listings.maxPhotoBytes) {

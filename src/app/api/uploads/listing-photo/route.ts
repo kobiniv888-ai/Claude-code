@@ -11,6 +11,7 @@ import { assertNotShabbatMode } from "@/lib/settings";
 import { putPublic } from "@/lib/storage";
 import {
   assertContentLength,
+  assertSameOrigin,
   errorResponse,
   formFile,
   MULTIPART_OVERHEAD_BYTES,
@@ -26,7 +27,7 @@ import {
  *   roomTypeId   optional — a hotel room type of that listing
  *
  * → 201 { id, url, thumbUrl, width, height, isCover, blurDataUrl }
- * → { error: code } with 400 invalid_input · 401 auth_required · 404 not_found ·
+ * → { error: code } with 400 invalid_input · 401 auth_required · 403 forbidden (cross-site) · 404 not_found ·
  *   409 too_many_photos · 413 file_too_large · 415 file_type_not_allowed ·
  *   422 image_too_small | image_corrupt | file_rejected · 423 shabbat_mode · 429 rate_limited
  *
@@ -50,6 +51,7 @@ const fieldsSchema = z.object({
 
 export async function POST(request: Request) {
   try {
+    assertSameOrigin(request);
     const user = await requireUserForAction();
     await assertNotShabbatMode();
     await assertRateLimit(`upload:photo:${user.id}`, UPLOAD_LIMIT);

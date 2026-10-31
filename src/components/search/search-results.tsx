@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
 import { useLocale, useTranslations } from "next-intl";
 import { ImageOff, LoaderCircle, MapPin } from "lucide-react";
@@ -66,14 +66,16 @@ export function SearchResults({ items, mapPoints, fitKey, header, chips, notice,
     </div>
   );
 
+  // The slots rendered by the server page are wrapped one by one: while they are still streaming
+  // in, React's development key check flags them as "a child in a list without a key".
   const body = (
     <div className={cn("grid gap-4 transition-opacity", isPending && "opacity-60 motion-reduce:opacity-80")} aria-busy={isPending}>
-      {header}
+      <Fragment key="header">{header}</Fragment>
       {toolbar}
-      {chips}
-      {notice}
+      <Fragment key="chips">{chips}</Fragment>
+      <Fragment key="notice">{notice}</Fragment>
       {list}
-      {pagination}
+      <Fragment key="pagination">{pagination}</Fragment>
     </div>
   );
 
