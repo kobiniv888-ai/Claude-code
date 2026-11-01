@@ -13,8 +13,5 @@
   },
   "postCreateCommand": "bash .devcontainer/setup.sh",
   "postStartCommand": "bash .devcontainer/start.sh",
-  "postAttachCommand": "bash .devcontainer/start.sh",
-  "customizations": {
-    "codespaces": { "openFiles": ["docs/CODESPACES.md"] }
-  }
+  "postAttachCommand": "bash .devcontainer/start.sh"
 }
