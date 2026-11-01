@@ -4,83 +4,6 @@ import type { ListingSeed } from "./types";
 
 export const KUTAISI_LISTINGS: ListingSeed[] = [
   {
-    n: 10,
-    owner: "natela",
-    status: "LIVE",
-    days: 27,
-    city: "kutaisi",
-    neighborhood: "center",
-    lat: 42.2712,
-    lng: 42.7063,
-    address: "Demo address — Kutaisi Center",
-    originalLocale: "ka",
-    text: {
-      ka: {
-        title: "სამოთახიანი ბინა ქუთაისის ცენტრში, თვიური ქირით",
-        description:
-          "ქირავდება მოვლილი სამოთახიანი ბინა მეორე სართულზე, ქუთაისის ცენტრში, კოლხეთის შადრევნიდან და ბულვარიდან რამდენიმე წუთის სავალზე. ორი საძინებელი, ნათელი მისაღები აივნით, სამზარეულო ყველა საჭირო ტექნიკით და სააბაზანო სარეცხი მანქანით. ბინა თბება გაზის ქვაბით, ზამთარშიც თბილა. ახლოს არის ბაზარი, აფთიაქები, სკოლა და ავტობუსის გაჩერება აეროპორტისკენ. ჩვეულებრივი გასაღები, შესასვლელში სენსორები არ არის. შესაფერისია ოჯახისთვის ან ორი მეგობრისთვის. მინიმუმ სამი თვე, კომუნალურები ცალკე, დაახლოებით 120 ლარი თვეში.",
-      },
-      he: {
-        title: "דירת 3 חדרים במרכז קוטאיסי להשכרה חודשית",
-        description:
-          "להשכרה דירת שלושה חדרים מטופחת בקומה השנייה, במרכז קוטאיסי, כמה דקות הליכה ממזרקת קולכיס ומהשדרה. שני חדרי שינה, סלון מואר עם מרפסת, מטבח עם כל המכשירים הדרושים וחדר רחצה עם מכונת כביסה. הדירה מחוממת בדוד גז וחמימה גם בחורף. בסביבה שוק, בתי מרקחת, בית ספר ותחנת אוטובוס לשדה התעופה. מפתח רגיל ובלי חיישנים בכניסה. מתאים למשפחה או לשני חברים. מינימום שלושה חודשים, החשבונות בנפרד – בערך 120 לארי בחודש.",
-      },
-      en: {
-        title: "3-room apartment in central Kutaisi for monthly rent",
-        description:
-          "A well-kept three-room apartment for rent on the second floor in the centre of Kutaisi, a few minutes' walk from the Colchis fountain and the boulevard. Two bedrooms, a bright living room with a balcony, a kitchen with all the appliances you need and a bathroom with a washing machine. The flat is heated by a gas boiler and stays warm in winter too. Nearby are the market, pharmacies, a school and a bus stop for the airport. A regular key and no sensors at the entrance. Suits a family or two friends. Minimum three months; utilities are separate, about 120 GEL a month.",
-      },
-      ru: {
-        title: "Трёхкомнатная квартира в центре Кутаиси помесячно",
-        description:
-          "Сдаётся ухоженная трёхкомнатная квартира на втором этаже в центре Кутаиси, в нескольких минутах пешком от фонтана Колхида и бульвара. Две спальни, светлая гостиная с балконом, кухня со всей нужной техникой и ванная со стиральной машиной. Квартира отапливается газовым котлом, зимой в ней тепло. Рядом рынок, аптеки, школа и остановка автобуса до аэропорта. Обычный ключ, у входа нет датчиков. Подойдёт семье или двум друзьям. Минимум три месяца, коммунальные услуги отдельно – примерно 120 лари в месяц.",
-      },
-      ar: {
-        title: "شقة من 3 غرف في وسط كوتايسي للإيجار الشهري",
-        description:
-          "للإيجار شقة من ثلاث غرف معتنى بها في الطابق الثاني في وسط كوتايسي، على بعد دقائق سيرًا من نافورة كولخيس والجادة. غرفتا نوم، وغرفة جلوس مشرقة مع شرفة، ومطبخ فيه كل الأجهزة اللازمة، وحمّام مع غسالة ملابس. تُدفّأ الشقة بسخّان غاز وتبقى دافئة في الشتاء أيضًا. في الجوار سوق وصيدليات ومدرسة وموقف حافلات إلى المطار. مفتاح عادي ولا حساسات عند المدخل. تناسب عائلة أو صديقين. الحد الأدنى ثلاثة أشهر، والفواتير منفصلة – نحو 120 لاري شهريًا.",
-      },
-    },
-    photos: ["ax7", "lv6", "lv45", "lv3", "bd4", "kt6"],
-    fields: {
-      dealType: "MONTHLY_RENT",
-      propertyType: "APARTMENT",
-      rooms: 3,
-      bedrooms: 2,
-      bathrooms: 1,
-      bedsDouble: 1,
-      bedsSingle: 2,
-      maxGuests: 4,
-      sizeSqm: 75,
-      floor: 2,
-      totalFloors: 5,
-      elevator: false,
-      yearBuilt: 1968,
-      buildingAge: "OLD",
-      furnished: true,
-      condition: "OLD_RENOVATION",
-      heating: ["GAS_BOILER"],
-      views: ["CITY"],
-      amenities: ["wifi", "heating", "washing_machine", "full_kitchen", "tv", "balcony_terrace"],
-      kitchenKosher: "CAN_KASHER",
-      shabbatFeatures: ["mechanical_key", "stairs_or_shabbat_elevator", "no_motion_sensors"],
-      jewishFeatures: ["mezuzot", "kosher_food_nearby", "host_speaks_hebrew"],
-      price: 1100,
-      currency: "GEL",
-      pricePeriod: "MONTH",
-      deposit: 1100,
-      utilitiesIncluded: false,
-      utilitiesEstimate: 120,
-      minStayNights: 90,
-      smokingAllowed: false,
-      petsAllowed: true,
-      partiesAllowed: false,
-      contactHoursFrom: "10:00",
-      contactHoursTo: "20:00",
-    },
-    contact: { viber: true, phone: true },
-  },
-  {
     n: 11,
     owner: "natela",
     status: "LIVE",
@@ -118,7 +41,7 @@ export const KUTAISI_LISTINGS: ListingSeed[] = [
           "ორსართულიანი სახლი დიდი ბაღით, ხეხილითა და ფანჩატურით, მშვიდ უბანში – ბალახვანში, ცენტრიდან მანქანით ათ წუთში. სამი საძინებელი, ორი სააბაზანო, ვრცელი მისაღები და სამზარეულო ტერასაზე გასასვლელით. ეზოში საკმარისი ადგილია სუქისთვის, არის მაყალი და ავტოსადგომი ორი მანქანისთვის. სამზარეულოში ფილაა, ჭურჭლის დაკაშერება მოთხოვნისამებრ შეიძლება. ზაფხულში კონდიციონერები მუშაობს, ზამთარში გაზის გათბობა. ქუთაისის აეროპორტამდე დაახლოებით 25 წუთია, სტუმრებს თავად ვხვდები. შესანიშნავი ადგილია მთელი ოჯახის დასასვენებლად და რეგიონის კანიონებისა და მღვიმეების სანახავად.",
       },
     },
-    photos: ["hx2", "hx21", "lv26", "lv27", "bd1", "bd23", "kt3"],
+    photos: ["hx2", "hx21", "lv26", "lv27", "bd23", "kt3"],
     fields: {
       dealType: "SHORT_STAY",
       propertyType: "HOUSE",
@@ -199,7 +122,7 @@ export const KUTAISI_LISTINGS: ListingSeed[] = [
           "بيت ضيافة عائلي نموذجي في بيت قديم من بيوت كوتايسي، مع فناء أخضر ومسبح صغير وشرفات ظليلة، على بعد دقائق سيرًا من الوسط والسوق. لدينا غرف مزدوجة وغرف عائلية، ولكل منها حمّام خاص ومكيّف. يمكن للضيوف استخدام المطبخ المشترك وفيه صفيحة تسخين وأوانٍ منفصلة. في الصباح نُحضر خبزًا طازجًا وفاكهة. نساعد في التوصيل من المطار وفي الرحلات إلى غيلاتي وكهف بروميثيوس. موقف السيارات للضيوف مجاني، والمطبخ المشترك مفتوح طوال اليوم. السعر لليلة حسب نوع الغرفة.",
       },
     },
-    photos: ["ht2", "hx11", "bd9", "bd24", "ht7", "kt12"],
+    photos: ["ht2", "hx11", "bd9", "bd24", "kt12"],
     fields: {
       dealType: "HOTEL_ROOM",
       propertyType: "GUESTHOUSE",

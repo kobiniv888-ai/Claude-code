@@ -23,6 +23,8 @@ function row(overrides: Partial<ListingCardRow> = {}): ListingCardRow {
     isShabbatFriendly: true,
     kitchenKosher: "KOSHER",
     synagogueWalkMin: 6,
+    jewishFeatures: [],
+    hotelJewishFeatures: [],
     publishedAt: daysAgo(2),
     priceDroppedAt: daysAgo(30),
     featuredUntil: null,
@@ -30,7 +32,7 @@ function row(overrides: Partial<ListingCardRow> = {}): ListingCardRow {
     ownerVerifiedAt: null,
     approxLat: 41.71,
     approxLng: 44.76,
-    owner: { accountType: "PRIVATE", idVerifiedAt: daysAgo(100) },
+    owner: { accountType: "PRIVATE", idVerifiedAt: daysAgo(100), welcomePledgeVersion: 1, keepsShabbat: false, spokenLanguages: ["en"] },
     city: { names: { he: "טביליסי", en: "Tbilisi", ru: "Тбилиси", ar: "تبليسي", ka: "თბილისი" } },
     neighborhood: { names: { he: "וואקה", en: "Vake", ru: "Ваке", ar: "فاكي", ka: "ვაკე" } },
     translations: [{ title: "Sunny flat in Vake", isAuto: true, isOriginal: false }],
@@ -38,6 +40,8 @@ function row(overrides: Partial<ListingCardRow> = {}): ListingCardRow {
       { url: "https://images.unsplash.com/photo-1?w=1600", storageKey: null, alt: null, blurDataUrl: null },
       { url: "/api/media/x-lg.webp", storageKey: "listings/lst_1/p2", alt: "Kitchen", blurDataUrl: "data:image/webp;base64,AA" },
     ],
+    _count: { photos: 7 },
+    floor: 3,
     roomTypes: [],
     ...overrides,
   };
@@ -66,6 +70,11 @@ describe("toListingCard", () => {
     expect(card).toMatchObject({ price: 120, currency: "GEL", priceUsd: 44.44, priceIsFrom: false });
   });
 
+  it("passes the total photo count and the floor (card v2)", () => {
+    expect(toListingCard(row(), { locale: "en", now })).toMatchObject({ photoCount: 7, floor: 3 });
+    expect(toListingCard(row({ floor: null, _count: { photos: 0 } }), { locale: "en", now })).toMatchObject({ photoCount: 0, floor: null });
+  });
+
   it("keeps the original title in the owner's language", () => {
     const card = toListingCard(row({ translations: [{ title: "דירה שמשית בוואקה", isAuto: false, isOriginal: true }] }), {
       locale: "he",
@@ -79,6 +88,10 @@ describe("toListingCard", () => {
   it("computes badges and labels", () => {
     const card = toListingCard(row(), { locale: "en", now, featuredIds: new Set(["lst_1"]), favoriteIds: new Set(["lst_1"]) });
     expect(card.badges).toEqual({
+      welcomes: true,
+      speaksHebrew: false,
+      keepsShabbat: false,
+      kosherMeals: false,
       verified: true,
       business: false,
       shabbatFriendly: true,
@@ -95,6 +108,24 @@ describe("toListingCard", () => {
       now,
     });
     expect(old.badges).toMatchObject({ isNew: false, priceDropped: true, promoted: true });
+  });
+
+  it("computes the Jewish-life badges and the welcome pledge per settings", () => {
+    const owner = { accountType: "PRIVATE" as const, idVerifiedAt: null, welcomePledgeVersion: 1, keepsShabbat: true, spokenLanguages: ["he", "en"] };
+    const card = toListingCard(row({ owner, hotelJewishFeatures: ["kosher_breakfast"] }), { locale: "en", now });
+    expect(card.badges).toMatchObject({ welcomes: true, speaksHebrew: true, keepsShabbat: true, kosherMeals: true });
+
+    const fromFeatures = toListingCard(
+      row({ jewishFeatures: ["host_speaks_hebrew", "host_keeps_shabbat"], hotelJewishFeatures: ["shabbat_meals"] }),
+      { locale: "en", now },
+    );
+    expect(fromFeatures.badges).toMatchObject({ speaksHebrew: true, keepsShabbat: true, kosherMeals: false });
+
+    // A host who never accepted, or whose version is below the required one, has no green badge.
+    const never = toListingCard(row({ owner: { ...owner, welcomePledgeVersion: null } }), { locale: "en", now });
+    expect(never.badges.welcomes).toBe(false);
+    const outdated = toListingCard(row({ owner: { ...owner, welcomePledgeVersion: 0 } }), { locale: "en", now, pledgeRequiredVersion: 1 });
+    expect(outdated.badges.welcomes).toBe(false);
   });
 
   it("shows hotels 'from' their cheapest room type", () => {

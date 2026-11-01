@@ -253,7 +253,7 @@ export function CityForm({ id, initial }: { id: string | null; initial?: CityFor
             <p className="text-xs text-muted-foreground">{t("photoHint")}</p>
             <FormField label={t("photoUrl")} error={errorAt(errors, "photoUrl")}>
               {(props) => (
-                <Input {...props} dir="ltr" value={values.photoUrl} maxLength={LIMITS.url} placeholder="/images/cities/tbilisi.webp" onChange={(e) => set("photoUrl", e.target.value)} />
+                <Input {...props} dir="ltr" value={values.photoUrl} maxLength={LIMITS.url} placeholder="/photos/cities/tbilisi.webp" onChange={(e) => set("photoUrl", e.target.value)} />
               )}
             </FormField>
           </div>

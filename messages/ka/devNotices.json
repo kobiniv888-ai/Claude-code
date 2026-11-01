@@ -1,0 +1,3 @@
+{
+  "demoDataMissing": "სადემონსტრაციო მონაცემები არ ჩაიტვირთა — გაუშვით <code>npm run db:seed</code>"
+}

@@ -6,15 +6,18 @@ import L from "leaflet";
 import Image from "next/image";
 import { useEffect, useMemo, useRef, type RefObject } from "react";
 import { useTranslations } from "next-intl";
-import { MapContainer, Marker, Popup, TileLayer, ZoomControl, useMap, useMapEvents } from "react-leaflet";
+import { MapContainer, Marker, Popup, ZoomControl, useMap, useMapEvents } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import { Price } from "@/components/listing/price";
 import { useCurrency } from "@/components/providers/currency-provider";
 import { siteConfig } from "@/config/site";
 import { Link } from "@/i18n/navigation";
 import type { Bounds } from "@/lib/geo";
+import { georgiaBounds, paddedGeorgiaBounds } from "@/lib/map-bounds";
+import { findGazetteerPlace } from "@/lib/places-match";
 import type { ListingMapPoint } from "@/lib/listing/types";
 import { cn } from "@/lib/utils";
+import { BaseTiles } from "./base-tiles";
 
 /**
  * The search results map (client-only — load it through ListingsMapLoader / next/dynamic with
@@ -36,6 +39,11 @@ export type ListingsMapProps = {
   initialBounds: Bounds | null;
   /** The visitor moved or zoomed the map (programmaticRef moves are not reported). */
   onBoundsChange?: (bounds: Bounds) => void;
+  /**
+   * The city / neighborhood in the search filters: with no results the map shows that place
+   * (otherwise all of Georgia — never the whole world).
+   */
+  focusPlace?: { citySlug: string | null; neighborhoodSlug?: string | null } | null;
   className?: string;
 };
 
@@ -89,11 +97,13 @@ function FitToResults({
   points,
   fitKey,
   initialBounds,
+  focusPlace,
   programmaticRef,
 }: {
   points: ListingMapPoint[];
   fitKey: string;
   initialBounds: Bounds | null;
+  focusPlace: ListingsMapProps["focusPlace"];
   programmaticRef: RefObject<boolean>;
 }) {
   const map = useMap();
@@ -116,14 +126,16 @@ function FitToResults({
     } else if (points.length > 0) {
       const bounds = L.latLngBounds(points.map((p) => [p.lat, p.lng] as [number, number]));
       map.fitBounds(bounds, { padding: [48, 48], maxZoom: 15, animate });
-    } else if (first) {
-      map.setView([siteConfig.map.defaultCenter.lat, siteConfig.map.defaultCenter.lng], siteConfig.map.defaultZoom - 5, {
-        animate: false,
-      });
     } else {
-      programmaticRef.current = false;
+      // No results: the searched city / neighborhood, else all of Georgia.
+      const place = findGazetteerPlace(focusPlace?.citySlug, focusPlace?.neighborhoodSlug);
+      if (place) {
+        map.setView([place.lat, place.lng], place.type === "neighborhood" ? 14 : siteConfig.map.defaultZoom, { animate });
+      } else {
+        map.fitBounds(georgiaBounds(), { animate });
+      }
     }
-  }, [map, points, fitKey, initialBounds, programmaticRef]);
+  }, [map, points, fitKey, initialBounds, focusPlace, programmaticRef]);
   return null;
 }
 
@@ -188,6 +200,7 @@ export default function ListingsMap({
   fitKey,
   initialBounds,
   onBoundsChange,
+  focusPlace = null,
   className,
 }: ListingsMapProps) {
   const t = useTranslations("search.map");
@@ -213,8 +226,11 @@ export default function ListingsMap({
       className={cn("relative isolate z-0 h-full w-full max-lg:[&_.leaflet-control-zoom]:hidden", className)}
     >
       <MapContainer
-        center={[siteConfig.map.defaultCenter.lat, siteConfig.map.defaultCenter.lng]}
-        zoom={siteConfig.map.defaultZoom}
+        bounds={georgiaBounds()}
+        minZoom={siteConfig.map.minZoom}
+        maxZoom={siteConfig.map.maxZoom}
+        maxBounds={paddedGeorgiaBounds()}
+        maxBoundsViscosity={0.9}
         scrollWheelZoom
         className="h-full w-full bg-muted"
         attributionControl
@@ -222,9 +238,16 @@ export default function ListingsMap({
       >
         {/* Bottom corner: the top of the map holds the search controls; phones pinch to zoom. */}
         <ZoomControl position="bottomright" />
-        <TileLayer url={siteConfig.map.tileUrl} attribution={siteConfig.map.tileAttribution} />
+        {/* Below the filter / count / "search as I move" controls at the top of the map. */}
+        <BaseTiles noticeClassName="top-28 lg:top-16" />
         <MoveEvents onBoundsChange={onBoundsChange} programmaticRef={programmaticRef} />
-        <FitToResults points={points} fitKey={fitKey} initialBounds={initialBounds} programmaticRef={programmaticRef} />
+        <FitToResults
+          points={points}
+          fitKey={fitKey}
+          initialBounds={initialBounds}
+          focusPlace={focusPlace}
+          programmaticRef={programmaticRef}
+        />
         <InvalidateOnResize />
         <MarkerClusterGroup
           chunkedLoading

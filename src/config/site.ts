@@ -65,6 +65,7 @@ export const siteConfig = {
     primary: "#1E3A6E", // deep, trustworthy blue
     primaryDark: "#93B4F0", // primary on dark backgrounds
     accent: "#B4533A", // terracotta — Georgian roofs
+    coral: "#E0654A", // brand coral fill (icons, large text only) — mirrors --coral in globals.css
     wine: "#7B2D3B", // Georgian wine
     background: "#FAF8F5", // off-white
     verified: "#13763A", // green "Verified" (AA as text on its soft tints)
@@ -262,7 +263,15 @@ export const siteConfig = {
 
   /** Phone numbers: SMS codes are only sent to these countries (anti SMS-pumping). */
   phone: {
+    /** Generic default (admin forms, admin search). */
     defaultCountry: "GE",
+    /**
+     * Country code pre-selected for guest login / verify-phone, by interface language: most
+     * guests have Israeli numbers. The visitor's last choice (localStorage) wins over this.
+     */
+    defaultCountryByLocale: { he: "IL", en: "IL", ru: "IL", ar: "IL", ka: "GE" } satisfies Localized,
+    /** The contact phone in "post a listing": most hosts have Georgian numbers. */
+    listingContactDefaultCountry: "GE",
     smsAllowedCountries: [
       "GE", "IL", "US", "CA", "GB", "FR", "DE", "NL", "BE", "IT", "ES", "UA",
       "RU", "BY", "KZ", "AZ", "AM", "TR", "AE", "AU",
@@ -279,17 +288,38 @@ export const siteConfig = {
     homeCities: ["tbilisi", "batumi"],
   },
 
-  /** Map tiles. OpenStreetMap's own tiles are fine for development; use a tile provider in production. */
+  /** Maps. The tile provider and its key live in src/config/map.ts (one place, easy to switch). */
   map: {
-    tileUrl: process.env.NEXT_PUBLIC_MAP_TILE_URL ?? "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-    tileAttribution:
-      process.env.NEXT_PUBLIC_MAP_TILE_ATTRIBUTION ??
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    /**
+     * Georgia's bounding box [[south, west], [north, east]]. With no city chosen and no results,
+     * maps show this; the search map, location picker and places map cannot be dragged far away.
+     */
+    georgiaBounds: [
+      [41.05, 40.0],
+      [43.6, 46.75],
+    ] as [[number, number], [number, number]],
+    /** How far (degrees) panning may go past georgiaBounds. */
+    boundsPadding: 1.5,
+    /** Zoomed out further than this, Georgia is a speck. */
+    minZoom: 6,
+    /** Street level. Maps need it set even without tiles (Leaflet cannot fit bounds otherwise). */
+    maxZoom: 19,
     defaultCenter: { lat: 41.7151, lng: 44.8271 },
     defaultZoom: 12,
     /** Walking speed for "x min walk" estimates (meters per minute) and a detour factor for street routes. */
     walkingMetersPerMinute: 80,
     walkingDetourFactor: 1.3,
+  },
+
+  /**
+   * The Bayit welcome pledge every host accepts before publishing. The wording of each version
+   * lives in messages/<locale>/pledge.json under "versions.v<N>". To change the wording: add
+   * "versions.v2" in all five languages and set currentVersion to 2 — hosts are then asked to
+   * accept the new text (they keep the green badge while their version is at least the admin
+   * setting "pledgeRequiredVersion").
+   */
+  pledge: {
+    currentVersion: 1,
   },
 
   /** Contact channels owners can offer, in default order. */

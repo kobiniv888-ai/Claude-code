@@ -3,10 +3,12 @@
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { useEffect, useMemo, useRef } from "react";
-import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
+import { MapContainer, Marker, useMap, useMapEvents } from "react-leaflet";
 import { siteConfig } from "@/config/site";
 import type { LatLng } from "@/lib/geo";
+import { georgiaBounds, paddedGeorgiaBounds } from "@/lib/map-bounds";
 import { prefersReducedMotion } from "@/lib/motion";
+import { BaseTiles } from "./base-tiles";
 
 /**
  * Map with one draggable pin for choosing a listing's exact location (client-only — load it
@@ -19,6 +21,7 @@ export type LocationPickerProps = {
   onChange: (point: LatLng) => void;
   /** Where to look when there is no pin yet (the chosen city). */
   center: LatLng;
+  /** 7 or less without a pin: the map shows all of Georgia instead. */
   zoom?: number;
   /** Bump to fly to `value` (after an address search or "Use my location"). */
   focusKey?: number;
@@ -109,17 +112,24 @@ export default function LocationPicker({
   const icon = useMemo(() => pinIcon(), []);
   const start = value ?? center;
   const target = value ?? center;
+  // No pin and no city yet: show the whole country rather than a corner of it.
+  const showGeorgia = !value && zoom <= 7;
 
   return (
     <div dir="ltr" className={className} role="region" aria-label={labels.map}>
       <MapContainer
-        center={[start.lat, start.lng]}
-        zoom={value ? Math.max(zoom, 15) : zoom}
+        {...(showGeorgia
+          ? { bounds: georgiaBounds() }
+          : { center: [start.lat, start.lng] as [number, number], zoom: value ? Math.max(zoom, 15) : zoom })}
+        minZoom={siteConfig.map.minZoom}
+        maxZoom={siteConfig.map.maxZoom}
+        maxBounds={paddedGeorgiaBounds()}
+        maxBoundsViscosity={0.9}
         scrollWheelZoom={false}
         className="size-full"
         attributionControl
       >
-        <TileLayer url={siteConfig.map.tileUrl} attribution={siteConfig.map.tileAttribution} />
+        <BaseTiles />
         <ClickToDrop onChange={onChange} />
         <KeyboardPin value={value} onChange={onChange} />
         <FlyTo point={target} zoom={value ? 16 : zoom} focusKey={`${focusKey}:${value ? "pin" : `${center.lat},${center.lng}`}`} />

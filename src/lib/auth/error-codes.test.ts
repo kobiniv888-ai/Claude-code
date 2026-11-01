@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { authErrorKey, oauthErrorKey } from "./error-codes";
+import { authErrorKey, oauthErrorKey, phoneOnlyErrorKey } from "./error-codes";
 
 describe("authErrorKey", () => {
   it("maps Better Auth phone-number codes", () => {
@@ -24,8 +24,28 @@ describe("authErrorKey", () => {
   it("falls back on the status", () => {
     expect(authErrorKey({ status: 429, message: "Too many requests" })).toBe("rate_limited");
     expect(authErrorKey({ status: 0 })).toBe("network");
-    expect(authErrorKey({ code: "SOMETHING_NEW", status: 500 })).toBe("unknown");
+    expect(authErrorKey({ code: "SOMETHING_NEW", status: 400 })).toBe("unknown");
     expect(authErrorKey(null)).toBe("unknown");
+  });
+
+  it("explains origin checks, server errors and proxy pages instead of 'something went wrong'", () => {
+    expect(authErrorKey({ code: "INVALID_ORIGIN", status: 403 })).toBe("origin_rejected");
+    expect(authErrorKey({ code: "MISSING_OR_NULL_ORIGIN", status: 403 })).toBe("origin_rejected");
+    expect(authErrorKey({ code: "SOMETHING_NEW", status: 500 })).toBe("server_unavailable");
+    // An HTML page from the Codespaces forwarder: no JSON code.
+    expect(authErrorKey({ status: 502, statusText: "Bad Gateway" })).toBe("server_unavailable");
+    expect(authErrorKey({ status: 401, statusText: "Unauthorized" })).toBe("proxy_blocked");
+    // better-fetch's catchAllError shape for a failed fetch.
+    expect(authErrorKey({ status: 500, statusText: "Fetch Error" })).toBe("network");
+  });
+});
+
+describe("phoneOnlyErrorKey", () => {
+  it("swaps keys that promise Google/Apple when they are not offered", () => {
+    expect(phoneOnlyErrorKey("country_not_supported", true)).toBe("country_not_supported_phone_only");
+    expect(phoneOnlyErrorKey("sms_unavailable", true)).toBe("sms_unavailable_phone_only");
+    expect(phoneOnlyErrorKey("sms_unavailable", false)).toBe("sms_unavailable");
+    expect(phoneOnlyErrorKey("invalid_code", true)).toBe("invalid_code");
   });
 });
 

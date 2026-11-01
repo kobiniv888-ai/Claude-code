@@ -39,6 +39,15 @@ export function publicListingWhere(ctx: Pick<ListingWhereContext, "demoVisible" 
   };
 }
 
+/**
+ * Listings whose owner holds a valid welcome pledge (green badge). Not needed in public search —
+ * every listing goes live only after its owner accepted the pledge — but useful for admin views
+ * and for re-checks after the pledge wording changes.
+ */
+export function welcomePledgeWhere(requiredVersion: number): Prisma.ListingWhereInput {
+  return { owner: { welcomePledgeVersion: { gte: requiredVersion } } };
+}
+
 /** "Calendar day" filters compare with @db.Date columns: midnight UTC of that day. */
 function day(value: string): Date {
   return new Date(`${value}T00:00:00.000Z`);

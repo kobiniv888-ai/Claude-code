@@ -1,0 +1,175 @@
+"use client";
+
+import { useSyncExternalStore } from "react";
+import { XIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { Dialog as DialogPrimitive } from "radix-ui";
+import { Drawer } from "vaul";
+import { useReturnFocus } from "@/components/ui/use-return-focus";
+import { cn } from "@/lib/utils";
+
+const DESKTOP_QUERY = "(min-width: 48rem)";
+
+function subscribe(onChange: () => void) {
+  const query = window.matchMedia(DESKTOP_QUERY);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+}
+
+/** True from 768px up (false while server rendering). */
+export function useIsDesktop(): boolean {
+  return useSyncExternalStore(
+    subscribe,
+    () => window.matchMedia(DESKTOP_QUERY).matches,
+    () => false,
+  );
+}
+
+export type BottomSheetProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: React.ReactNode;
+  description?: React.ReactNode;
+  /** Optional element that opens the sheet (rendered as is, e.g. a Chip). */
+  trigger?: React.ReactElement;
+  /** Shows a "Clear" text button in the header. */
+  onClear?: () => void;
+  clearLabel?: string;
+  /** Pinned under the scrolling body (e.g. "Clear all" + "Show 24 places"). */
+  footer?: React.ReactNode;
+  /** auto = as tall as the content (up to 90%); full = almost the whole screen (filters). */
+  size?: "auto" | "full";
+  /** Desktop: a centered dialog (default) or a panel on the end side. */
+  desktop?: "dialog" | "side";
+  className?: string;
+  children: React.ReactNode;
+};
+
+function SheetHeader({
+  title,
+  onClear,
+  clearLabel,
+  Title,
+  Close,
+}: {
+  title: React.ReactNode;
+  onClear?: () => void;
+  clearLabel?: string;
+  Title: typeof Drawer.Title | typeof DialogPrimitive.Title;
+  Close: typeof Drawer.Close | typeof DialogPrimitive.Close;
+}) {
+  const t = useTranslations("ds.sheet");
+  return (
+    <div className="grid shrink-0 grid-cols-[minmax(2.75rem,auto)_1fr_minmax(2.75rem,auto)] items-center gap-2 border-b border-border px-2 pb-2">
+      <Close asChild>
+        <button
+          type="button"
+          aria-label={t("close")}
+          className="inline-flex size-11 items-center justify-center rounded-full text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          <XIcon className="size-5" aria-hidden="true" />
+        </button>
+      </Close>
+      <Title className="truncate text-center text-h3 text-foreground">{title}</Title>
+      {onClear ? (
+        <button
+          type="button"
+          onClick={onClear}
+          className="inline-flex min-h-11 items-center justify-center rounded-full px-3 text-sm font-semibold text-primary underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          {clearLabel ?? t("clear")}
+        </button>
+      ) : (
+        <span aria-hidden="true" />
+      )}
+    </div>
+  );
+}
+
+const bodyClass = "min-h-0 flex-1 overflow-y-auto overscroll-contain px-gutter py-4";
+const footerClass = "shrink-0 border-t border-border bg-card px-gutter pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]";
+
+/**
+ * A bottom sheet on phones (slides up over a dimmed page, drag handle, swipe down to close) and
+ * a centered dialog — or an end-side panel — from 768px. Header: ×, title, optional "Clear";
+ * a scrolling body; an optional pinned footer. Focus moves in and returns to the opener.
+ *
+ *   <BottomSheet open={open} onOpenChange={setOpen} title="סינון" onClear={reset}
+ *     footer={<Button block onClick={apply}>הצגת 24 נכסים</Button>}>…</BottomSheet>
+ */
+export function BottomSheet({
+  open,
+  onOpenChange,
+  title,
+  description,
+  trigger,
+  onClear,
+  clearLabel,
+  footer,
+  size = "auto",
+  desktop = "dialog",
+  className,
+  children,
+}: BottomSheetProps) {
+  const isDesktop = useIsDesktop();
+  const returnFocus = useReturnFocus({});
+
+  if (isDesktop) {
+    return (
+      <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+        {trigger ? <DialogPrimitive.Trigger asChild>{trigger}</DialogPrimitive.Trigger> : null}
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Overlay className="fixed inset-0 z-(--z-sheet) bg-(--scrim) data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
+          <DialogPrimitive.Content
+            data-slot="bottom-sheet"
+            {...(description ? {} : { "aria-describedby": undefined })}
+            {...returnFocus}
+            className={cn(
+              "fixed z-(--z-sheet) flex flex-col bg-card pt-3 text-card-foreground shadow-float outline-none duration-(--motion-base)",
+              desktop === "side"
+                ? "inset-y-0 end-0 w-full max-w-md rounded-s-sheet data-open:animate-in data-open:fade-in-0 data-open:slide-in-from-end-8 data-closed:animate-out data-closed:fade-out-0"
+                : "start-1/2 top-1/2 max-h-[85vh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-sheet rtl:translate-x-1/2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+              desktop !== "side" && size === "full" && "h-[85vh]",
+              className,
+            )}
+          >
+            <SheetHeader title={title} onClear={onClear} clearLabel={clearLabel} Title={DialogPrimitive.Title} Close={DialogPrimitive.Close} />
+            {description ? (
+              <DialogPrimitive.Description className="px-gutter pt-3 text-small text-muted-foreground">{description}</DialogPrimitive.Description>
+            ) : null}
+            <div className={bodyClass}>{children}</div>
+            {footer ? <div className={cn(footerClass, desktop === "side" ? "" : "rounded-b-sheet")}>{footer}</div> : null}
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
+    );
+  }
+
+  return (
+    <Drawer.Root open={open} onOpenChange={onOpenChange} autoFocus>
+      {trigger ? <Drawer.Trigger asChild>{trigger}</Drawer.Trigger> : null}
+      <Drawer.Portal>
+        <Drawer.Overlay data-bayit-sheet="" className="fixed inset-0 z-(--z-sheet) bg-(--scrim)" />
+        <Drawer.Content
+          data-slot="bottom-sheet"
+          data-bayit-sheet=""
+          {...(description ? {} : { "aria-describedby": undefined })}
+          {...returnFocus}
+          className={cn(
+            "fixed inset-x-0 bottom-0 z-(--z-sheet) flex flex-col rounded-t-sheet bg-card text-card-foreground shadow-sheet outline-none",
+            size === "full" ? "h-[calc(100dvh-1rem)]" : "max-h-[90dvh]",
+            className,
+          )}
+        >
+          <div aria-hidden="true" className="mx-auto mt-2.5 mb-1.5 h-1.5 w-11 shrink-0 rounded-full bg-border" />
+          <SheetHeader title={title} onClear={onClear} clearLabel={clearLabel} Title={Drawer.Title} Close={Drawer.Close} />
+          {description ? (
+            <Drawer.Description className="px-gutter pt-3 text-small text-muted-foreground">{description}</Drawer.Description>
+          ) : null}
+          <div className={bodyClass}>{children}</div>
+          {footer ? <div className={footerClass}>{footer}</div> : null}
+        </Drawer.Content>
+      </Drawer.Portal>
+    </Drawer.Root>
+  );
+}

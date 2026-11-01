@@ -3,7 +3,7 @@
     "new": "חדש",
     "priceDropped": "ירד במחיר",
     "promoted": "מקודם",
-    "demo": "הדגמה"
+    "demo": "דמו"
   },
   "badges": {
     "verified": "מאומת",
@@ -15,9 +15,9 @@
   },
   "price": {
     "per": {
-      "NIGHT": "/ לילה",
-      "WEEK": "/ שבוע",
-      "MONTH": "/ חודש"
+      "NIGHT": "ללילה",
+      "WEEK": "לשבוע",
+      "MONTH": "לחודש"
     },
     "from": "החל מ־{price}",
     "onRequest": "מחיר לפי בקשה",

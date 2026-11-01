@@ -22,6 +22,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getDisplayCurrency, getRates } from "@/lib/currency";
 import { DEFAULT_OG_IMAGE, absoluteUrl, ogLocale, siteName } from "@/lib/seo";
 import { ZOD_JITLESS_SCRIPT } from "@/lib/zod-jitless";
+import { DemoDataBanner } from "@/components/dev/demo-data-banner";
 import "../globals.css";
 
 export function generateStaticParams() {
@@ -94,6 +95,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
                 <CurrencyProvider currency={currency} rates={rates}>
                   <LoginDialogProvider signedIn={!!user}>
                     <SkipLink />
+                    <DemoDataBanner />
                     {children}
                     <AppToaster dir={dir} />
                   </LoginDialogProvider>

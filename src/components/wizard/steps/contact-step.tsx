@@ -15,12 +15,14 @@ import {
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { ArrowDownIcon, ArrowUpIcon, ClockIcon, EyeOffIcon, GripVerticalIcon, MoonStarIcon, PlusIcon, XIcon } from "lucide-react";
-import { PhoneInput } from "@/components/forms/phone-input";
+import { PhoneInput, type PhoneCountry } from "@/components/forms/phone-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { CONTACT_CHANNELS, type ContactChannelKey, type ContactMethod } from "@/lib/listing/fields";
+import { listingContactDefaultCountry } from "@/lib/auth/phone-defaults";
 import { cn } from "@/lib/utils";
+import { parsePhoneNumber } from "react-phone-number-input";
 import { normalizeContactValue, PHONE_CHANNELS } from "@/lib/wizard/schemas";
 import { Field, FieldError, Section, TimeInput } from "../fields";
 import { CHANNEL_ICONS } from "../icons";
@@ -101,6 +103,9 @@ function MethodRow({
       {isPhone ? (
         <PhoneInput
           value={method.value || undefined}
+          // Most hosts have Georgian numbers: +995, unless their verified phone is from elsewhere.
+          defaultCountry={listingContactDefaultCountry(phoneCountry(defaultPhone)) as PhoneCountry}
+          rememberAs="listing-contact"
           onChange={(value) => onValue(value ?? "")}
           aria-label={t("valueLabel", { name })}
           error={error ?? null}
@@ -282,4 +287,14 @@ export function ContactStep({ listing, context, values, set, errors }: StepProps
       </Section>
     </div>
   );
+}
+
+/** "IL" for "+972…" (the owner's verified phone), or null. */
+function phoneCountry(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  try {
+    return parsePhoneNumber(phone)?.country ?? null;
+  } catch {
+    return null;
+  }
 }

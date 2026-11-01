@@ -8,8 +8,9 @@ import type { Prisma } from "@/generated/prisma/client";
 import type { Locale } from "@/generated/prisma/enums";
 import { pickLocalized } from "@/i18n/locale";
 import { photoUrl } from "@/lib/media";
-import type { ListingCardData, ListingMapPoint } from "@/lib/listing/types";
+import type { ListingCardBadges, ListingCardData, ListingMapPoint } from "@/lib/listing/types";
 import { listingPath } from "@/lib/listing/urls";
+import { hasWelcomePledge, PLEDGE_CURRENT_VERSION } from "@/lib/pledge";
 
 const DAY_MS = 86_400_000;
 const MAX_CARD_PHOTOS = 6;
@@ -20,6 +21,15 @@ const cheapestRoom = {
   take: 1,
   select: { price: true, currency: true, pricePeriod: true, priceUsd: true, maxGuests: true },
 } satisfies Prisma.Listing$roomTypesArgs;
+
+/** Owner columns a card reads: public badge facts only (no contact details, no private data). */
+export const CARD_OWNER_SELECT = {
+  accountType: true,
+  idVerifiedAt: true,
+  welcomePledgeVersion: true,
+  keepsShabbat: true,
+  spokenLanguages: true,
+} as const satisfies Prisma.UserSelect;
 
 /** Columns a listing card needs (with the title in `locale`). */
 export function listingCardSelect(locale: AppLocale) {
@@ -41,6 +51,8 @@ export function listingCardSelect(locale: AppLocale) {
     isShabbatFriendly: true,
     kitchenKosher: true,
     synagogueWalkMin: true,
+    jewishFeatures: true,
+    hotelJewishFeatures: true,
     publishedAt: true,
     priceDroppedAt: true,
     featuredUntil: true,
@@ -48,11 +60,14 @@ export function listingCardSelect(locale: AppLocale) {
     ownerVerifiedAt: true,
     approxLat: true,
     approxLng: true,
-    owner: { select: { accountType: true, idVerifiedAt: true } },
+    owner: { select: CARD_OWNER_SELECT },
     city: { select: { names: true } },
     neighborhood: { select: { names: true } },
     translations: { where: { locale: locale as Locale }, take: 1, select: { title: true, isAuto: true, isOriginal: true } },
     photos: { orderBy: photoOrder, take: MAX_CARD_PHOTOS, select: { url: true, storageKey: true, alt: true, blurDataUrl: true } },
+    // Card v2: the total for the "+N photos" slide, and the floor in the icon row.
+    _count: { select: { photos: true } },
+    floor: true,
     roomTypes: cheapestRoom,
   } satisfies Prisma.ListingSelect;
 }
@@ -86,6 +101,8 @@ export type CardMapContext = {
   featuredIds?: ReadonlySet<string> | readonly string[];
   /** The visitor's saved listing ids. */
   favoriteIds?: ReadonlySet<string>;
+  /** settings.pledgeRequiredVersion (default: the current pledge version). */
+  pledgeRequiredVersion?: number;
 };
 
 type DecimalLike = { toString(): string } | number | null;
@@ -136,6 +153,21 @@ export function isPromoted(
   return featuredIds instanceof Set ? featuredIds.has(row.id) : (featuredIds as readonly string[]).includes(row.id);
 }
 
+const KOSHER_MEAL_FEATURES = new Set(["kosher_meals", "kosher_breakfast"]);
+
+/** The Jewish-life badges of a card (pure; shared with the listing page). */
+export function jewishBadges(
+  row: Pick<ListingCardRow, "jewishFeatures" | "hotelJewishFeatures"> & { owner: Pick<ListingCardRow["owner"], "welcomePledgeVersion" | "keepsShabbat" | "spokenLanguages"> },
+  pledgeRequiredVersion: number = PLEDGE_CURRENT_VERSION,
+): Pick<ListingCardBadges, "welcomes" | "speaksHebrew" | "keepsShabbat" | "kosherMeals"> {
+  return {
+    welcomes: hasWelcomePledge(row.owner, { pledgeRequiredVersion }),
+    speaksHebrew: row.jewishFeatures.includes("host_speaks_hebrew") || row.owner.spokenLanguages.includes("he"),
+    keepsShabbat: row.owner.keepsShabbat || row.jewishFeatures.includes("host_keeps_shabbat"),
+    kosherMeals: row.hotelJewishFeatures.some((feature) => KOSHER_MEAL_FEATURES.has(feature)),
+  };
+}
+
 export function toListingCard(row: ListingCardRow, ctx: CardMapContext): ListingCardData {
   const now = ctx.now ?? new Date();
   const { title, isAuto } = localizedTitle(row, ctx.locale);
@@ -166,7 +198,10 @@ export function toListingCard(row: ListingCardRow, ctx: CardMapContext): Listing
     bathrooms: row.bathrooms,
     sizeSqm: row.sizeSqm,
     maxGuests: row.maxGuests ?? row.roomTypes[0]?.maxGuests ?? null,
+    photoCount: row._count.photos,
+    floor: row.floor,
     badges: {
+      ...jewishBadges(row, ctx.pledgeRequiredVersion),
       verified: !!row.owner.idVerifiedAt || !!row.ownerVerifiedAt,
       business: row.owner.accountType === "BUSINESS",
       shabbatFriendly: row.isShabbatFriendly,

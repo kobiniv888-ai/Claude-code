@@ -16,6 +16,7 @@ import { ListingThumb, PublicId, WhenText } from "@/components/admin/listing-bit
 import { AdminPageHeader, AdminSection, FactList } from "@/components/admin/page-header";
 import { RoleChanger, UserActions } from "@/components/admin/user-actions";
 import { Ltr } from "@/components/common/ltr";
+import { PledgeAdminFact } from "@/components/pledge/pledge-admin-fact";
 import { TicketStatusBadge } from "@/components/tickets";
 import { siteConfig } from "@/config/site";
 import { Link } from "@/i18n/navigation";
@@ -142,6 +143,7 @@ export default async function UserDetailPage({ params }: PageProps<"/[locale]/ad
                   ? t("idVerifiedOn", { date: formatDate(user.idVerifiedAt, locale), name: data.idVerifiedBy ?? "—" })
                   : t("idNotVerified")}
               </li>
+              <PledgeAdminFact userId={user.id} locale={locale} />
               {user.accountType === "BUSINESS" ? (
                 <li className="flex items-center gap-2">
                   <BadgeCheck aria-hidden className={user.businessVerifiedAt ? "size-4 text-verified" : "size-4 text-muted-foreground"} />

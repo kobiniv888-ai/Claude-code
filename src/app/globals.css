@@ -79,13 +79,86 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-warning-soft: var(--warning-soft);
   --color-destructive-foreground: var(--destructive-foreground);
+  /* Redesign tokens (see the "DESIGN TOKENS" block below and /dev/ui). */
+  --color-navy: var(--navy);
+  --color-navy-foreground: var(--navy-foreground);
+  --color-navy-soft: var(--navy-soft);
+  --color-coral: var(--coral);
+  --color-coral-foreground: var(--coral-foreground);
+  --color-coral-strong: var(--coral-strong);
+  --color-coral-soft: var(--coral-soft);
+  --color-surface: var(--surface);
+  --color-whatsapp: var(--whatsapp);
+  --color-whatsapp-foreground: var(--whatsapp-foreground);
   --shadow-card: var(--shadow-card);
   --shadow-card-hover: var(--shadow-card-hover);
+  --shadow-raised: var(--shadow-raised);
   --shadow-float: var(--shadow-float);
   --shadow-header: var(--shadow-header);
+  --shadow-sheet: var(--shadow-sheet);
+
+  /* Type scale: text-display / text-h1 / text-h2 / text-h3 / text-body / text-small / text-caption.
+     Each sets size, line height and weight (and tighter tracking for Latin/Cyrillic headings).
+     Sizes grow on desktop (--fs-* below). Noto is loaded as variable fonts (100–900), so the 800
+     headings cost no extra download. */
+  --text-display: var(--fs-display);
+  --text-display--line-height: 1.08;
+  --text-display--font-weight: 800;
+  --text-display--letter-spacing: var(--tracking-heading);
+  --text-h1: var(--fs-h1);
+  --text-h1--line-height: 1.15;
+  --text-h1--font-weight: 800;
+  --text-h1--letter-spacing: var(--tracking-heading);
+  --text-h2: var(--fs-h2);
+  --text-h2--line-height: 1.2;
+  --text-h2--font-weight: 800;
+  --text-h2--letter-spacing: var(--tracking-heading);
+  --text-h3: var(--fs-h3);
+  --text-h3--line-height: 1.3;
+  --text-h3--font-weight: 700;
+  --text-body: 1rem;
+  --text-body--line-height: var(--leading-body);
+  --text-small: 0.875rem;
+  --text-small--line-height: 1.5;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1.4;
+  --text-caption--font-weight: 500;
+
+  /* Shapes: rounded-card (20px), rounded-sheet (24px, top of bottom sheets), rounded-input (14px). Pills: rounded-full. */
+  --radius-card: 1.25rem;
+  --radius-sheet: 1.5rem;
+  --radius-input: 0.875rem;
+
+  /* Spacing rhythm: px-gutter (page side gutter), py-section / gap-section (between page sections). */
+  --spacing-gutter: var(--gutter);
+  --spacing-section: var(--section-space);
+
+  /* Motion. Durations as CSS variables: duration-(--motion-fast|base|slow). Animate transform and
+     opacity only; the reduced-motion rule at the end of this file turns everything off. */
   --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
   --animate-fade-up: fade-up 0.5s var(--ease-soft) both;
   --animate-sheet-up: sheet-up 0.35s var(--ease-soft) both;
+  --animate-fade-in: fade-in 0.3s var(--ease-standard) both;
+  --animate-heart-pop: heart-pop 0.4s var(--ease-pop);
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes heart-pop {
+    0% {
+      transform: scale(1);
+    }
+    40% {
+      transform: scale(1.25);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
 
   @keyframes fade-up {
     from {
@@ -117,23 +190,38 @@
 
 :root {
   /* ── BRAND COLORS (keep in sync with src/config/site.ts → colors) ── */
-  --brand-primary: #1e3a6e; /* deep trustworthy blue */
-  --brand-accent: #b4533a; /* terracotta — Georgian roofs */
+  --brand-primary: #1e3a6e; /* deep trustworthy blue (navy) */
+  --brand-accent: #b4533a; /* terracotta — Georgian roofs; the AA-safe "coral text" */
+  --brand-coral: #e0654a; /* coral fill: the "+" button, selected state, hearts (white icons on it) */
   --brand-wine: #7b2d3b; /* Georgian wine */
-  --brand-verified: #13763a; /* green "Verified" (AA as text on its soft tints) */
+  --brand-verified: #13763a; /* green "Verified" / "Welcomes Israelis" (AA as text on its soft tints) */
   --brand-warning: #b45309; /* amber warnings */
+  --brand-ink: #171c28; /* dark text on white in both themes (tags over photos) */
 
-  --background: #faf8f5; /* off-white */
-  --foreground: #1a1f2b;
+  /* ── DESIGN TOKENS: light (the default theme) ──
+     Contrast (WCAG AA): foreground 15.8:1 and muted-foreground 5.9:1 on the page; white on navy
+     11:1; white on coral-strong 4.9:1 (text buttons); white on coral 3.4:1 (icons and large text
+     only, e.g. the "+" button); verified 5.7:1 on white and 5.1:1 on verified-soft; navy 9.6:1
+     on navy-soft. Dark: muted-foreground 7.4:1 on cards, coral-strong 7.3:1 on cards. */
+  --background: #faf8f5; /* warm off-white page */
+  --foreground: #171c28;
+  --surface: #f4f1ec; /* bands and wells between white cards */
   --card: #ffffff;
-  --card-foreground: #1a1f2b;
+  --card-foreground: #171c28;
   --popover: #ffffff;
-  --popover-foreground: #1a1f2b;
+  --popover-foreground: #171c28;
   --primary: var(--brand-primary);
   --primary-foreground: #ffffff;
-  --secondary: #eef2f8;
+  --navy: var(--brand-primary);
+  --navy-foreground: #ffffff;
+  --navy-soft: #e9eff9;
+  --coral: var(--brand-coral);
+  --coral-foreground: #ffffff;
+  --coral-strong: var(--brand-accent);
+  --coral-soft: #fef2ee; /* coral-strong text on it: 4.5:1 */
+  --secondary: #edf1f8;
   --secondary-foreground: #1e3a6e;
-  --muted: #f1efeb;
+  --muted: #f2efea;
   --muted-foreground: #5b6270; /* 5.9:1 on --background */
   --accent: #f6ece8;
   --accent-foreground: #7a3423;
@@ -147,45 +235,61 @@
   --warning: var(--brand-warning);
   --warning-foreground: #ffffff;
   --warning-soft: #fdf3e2;
+  --whatsapp: #0f7b43; /* a deeper WhatsApp green: white text passes AA (5.3:1) */
+  --whatsapp-foreground: #ffffff;
   --destructive: #b42318;
   --destructive-foreground: #ffffff;
-  --border: #e4e0d9;
-  --input: #d9d4cc;
+  --border: #e5e1da;
+  --input: #d6d1c8;
   --ring: #3b5ea8;
   --chart-1: #1e3a6e;
-  --chart-2: #b4533a;
+  --chart-2: #e0654a;
   --chart-3: #13763a;
   --chart-4: #7b2d3b;
   --chart-5: #b45309;
-  --radius: 0.75rem; /* 12px cards; xl = 16px */
-  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 4px 16px rgb(16 24 40 / 0.06);
-  --shadow-card-hover: 0 2px 4px rgb(16 24 40 / 0.06), 0 12px 32px rgb(16 24 40 / 0.1);
-  --shadow-float: 0 4px 12px rgb(16 24 40 / 0.08), 0 16px 48px rgb(16 24 40 / 0.14);
-  --shadow-header: 0 1px 0 rgb(16 24 40 / 0.04), 0 6px 24px rgb(16 24 40 / 0.06);
+  --radius: 0.75rem; /* 12px: shadcn primitives (rounded-lg); cards use rounded-card */
+  /* Soft, slightly navy-tinted shadows: rest → hover → raised (sheets, floating bars). */
+  --shadow-card: 0 1px 2px rgb(23 36 66 / 0.05), 0 2px 10px rgb(23 36 66 / 0.06);
+  --shadow-card-hover: 0 2px 6px rgb(23 36 66 / 0.07), 0 14px 32px rgb(23 36 66 / 0.12);
+  --shadow-raised: 0 2px 6px rgb(23 36 66 / 0.06), 0 10px 28px rgb(23 36 66 / 0.14);
+  --shadow-float: 0 4px 12px rgb(23 36 66 / 0.08), 0 16px 48px rgb(23 36 66 / 0.16);
+  --shadow-header: 0 1px 0 rgb(23 36 66 / 0.04), 0 6px 24px rgb(23 36 66 / 0.06);
+  --shadow-sheet: 0 -6px 32px rgb(23 36 66 / 0.16);
   --shimmer-highlight: rgb(255 255 255 / 0.65);
+  --scrim: rgb(10 15 28 / 0.45); /* dimmed page behind sheets and dialogs */
   --sidebar: #ffffff;
-  --sidebar-foreground: #1a1f2b;
+  --sidebar-foreground: #171c28;
   --sidebar-primary: var(--brand-primary);
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #eef2f8;
+  --sidebar-accent: #edf1f8;
   --sidebar-accent-foreground: #1e3a6e;
-  --sidebar-border: #e4e0d9;
+  --sidebar-border: #e5e1da;
   --sidebar-ring: #3b5ea8;
 }
 
+/* ── DESIGN TOKENS: dark ── a deep navy night, not an inverted light theme. Cards sit one step
+   lighter than the page; navy turns into a light navy and coral keeps its warmth. */
 .dark {
   --background: #0f1420;
   --foreground: #eef1f6;
-  --card: #171d2b;
+  --surface: #131a28;
+  --card: #182033;
   --card-foreground: #eef1f6;
-  --popover: #171d2b;
+  --popover: #1a2235;
   --popover-foreground: #eef1f6;
   --primary: #93b4f0;
   --primary-foreground: #0f1a33;
+  --navy: #93b4f0;
+  --navy-foreground: #0f1a33;
+  --navy-soft: #1c2944;
+  --coral: #e0654a;
+  --coral-foreground: #ffffff;
+  --coral-strong: #f0977d; /* 8:1 on the page */
+  --coral-soft: #3a221c;
   --secondary: #1f2940;
   --secondary-foreground: #dbe5f8;
-  --muted: #1c2333;
-  --muted-foreground: #a3abba;
+  --muted: #1d2436;
+  --muted-foreground: #a8b0bf;
   --accent: #2a1f1c;
   --accent-foreground: #f2c3b4;
   --terracotta: #e08a6f;
@@ -198,29 +302,81 @@
   --warning: #fbbf24;
   --warning-foreground: #2b1a00;
   --warning-soft: #33260b;
+  --whatsapp: #0f7b43;
+  --whatsapp-foreground: #ffffff;
   --destructive: #f87171;
   --destructive-foreground: #2b0707;
-  --border: #2a3245;
-  --input: #343d52;
+  --border: #283147;
+  --input: #364057;
   --ring: #93b4f0;
   --chart-1: #93b4f0;
-  --chart-2: #e08a6f;
+  --chart-2: #f0977d;
   --chart-3: #4ade80;
   --chart-4: #d98a97;
   --chart-5: #fbbf24;
-  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 16px rgb(0 0 0 / 0.25);
-  --shadow-card-hover: 0 2px 4px rgb(0 0 0 / 0.35), 0 12px 32px rgb(0 0 0 / 0.35);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 16px rgb(0 0 0 / 0.22), inset 0 1px 0 rgb(255 255 255 / 0.03);
+  --shadow-card-hover: 0 2px 4px rgb(0 0 0 / 0.35), 0 14px 32px rgb(0 0 0 / 0.38), inset 0 1px 0 rgb(255 255 255 / 0.04);
+  --shadow-raised: 0 2px 6px rgb(0 0 0 / 0.35), 0 12px 32px rgb(0 0 0 / 0.42);
   --shadow-float: 0 4px 12px rgb(0 0 0 / 0.35), 0 16px 48px rgb(0 0 0 / 0.45);
   --shadow-header: 0 1px 0 rgb(255 255 255 / 0.04), 0 6px 24px rgb(0 0 0 / 0.35);
+  --shadow-sheet: 0 -8px 32px rgb(0 0 0 / 0.5);
   --shimmer-highlight: rgb(255 255 255 / 0.06);
-  --sidebar: #171d2b;
+  --scrim: rgb(0 0 0 / 0.6);
+  --sidebar: #182033;
   --sidebar-foreground: #eef1f6;
   --sidebar-primary: #93b4f0;
   --sidebar-primary-foreground: #0f1a33;
   --sidebar-accent: #1f2940;
   --sidebar-accent-foreground: #dbe5f8;
-  --sidebar-border: #2a3245;
+  --sidebar-border: #283147;
   --sidebar-ring: #93b4f0;
+}
+
+/* ── TYPE, SPACING, MOTION AND LAYER TOKENS ── (same in both themes) */
+:root {
+  --fs-display: 2.25rem;
+  --fs-h1: 1.875rem;
+  --fs-h2: 1.5rem;
+  --fs-h3: 1.125rem;
+  /* Tighter headings for Latin and Cyrillic only: Hebrew, Arabic and Georgian keep their spacing. */
+  --tracking-heading: 0;
+  --leading-body: 1.6;
+  --gutter: 1rem;
+  --section-space: 2.5rem;
+  --motion-fast: 150ms;
+  --motion-base: 250ms;
+  --motion-slow: 350ms;
+  /* Layers: z-(--z-raised) … z-(--z-toast). */
+  --z-raised: 10;
+  --z-sticky: 30;
+  --z-header: 40;
+  --z-nav: 40;
+  --z-overlay: 50;
+  --z-sheet: 50;
+  --z-toast: 100;
+}
+:lang(en),
+:lang(ru) {
+  --tracking-heading: -0.015em;
+}
+:lang(he),
+:lang(ar) {
+  --leading-body: 1.7;
+}
+@media (width >= 48rem) {
+  :root {
+    --gutter: 1.5rem;
+    --section-space: 3.5rem;
+  }
+}
+@media (width >= 64rem) {
+  :root {
+    --fs-display: 3.25rem;
+    --fs-h1: 2.5rem;
+    --fs-h2: 1.875rem;
+    --fs-h3: 1.25rem;
+    --section-space: 4.5rem;
+  }
 }
 
 /* ── LAYOUT TOKENS ──
@@ -274,8 +430,10 @@ body:has([data-hide-bottom-nav]) [data-bottom-nav] {
   display: none;
 }
 
-/* Skeleton shimmer: a soft light sweep in the reading direction (no spinners). */
-@utility shimmer {
+/* Skeleton shimmer: a soft light sweep in the reading direction (no spinners).
+   Not named "shimmer": shadcn/tailwind.css has a text-shimmer utility of that name (background
+   clipped to the text), which made every skeleton invisible. */
+@utility skeleton-shimmer {
   position: relative;
   isolation: isolate;
   overflow: hidden;
@@ -304,6 +462,43 @@ body:has([data-hide-bottom-nav]) [data-bottom-nav] {
   to {
     transform: translateX(-100%);
   }
+}
+
+/* Reveal on scroll (src/components/ds/reveal.tsx). Only the script hides things — and only those
+   that start below the fold — so without JavaScript, or with reduced motion, all stays visible. */
+[data-reveal="hidden"] {
+  opacity: 0;
+  transform: translateY(14px);
+}
+[data-reveal="shown"] {
+  transition:
+    opacity 400ms var(--ease-soft) var(--reveal-delay, 0ms),
+    transform 400ms var(--ease-soft) var(--reveal-delay, 0ms);
+}
+
+/* Bottom bars (ds/sticky-contact-bar) keep clear of the home indicator, unless they sit on top of
+   the mobile bottom nav, which already does. */
+[data-sticky-bar] {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (width < 64rem) {
+  body:has([data-bottom-nav]):not(:has([data-hide-bottom-nav])) [data-sticky-bar] {
+    padding-bottom: 0;
+  }
+}
+
+/* Horizontal scrollers (carousels, chip rows) without a visible scrollbar. */
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Bottom sheets (src/components/ds/bottom-sheet.tsx): vaul slides in 300ms instead of 500ms. */
+[data-vaul-drawer][data-bayit-sheet],
+[data-vaul-overlay][data-bayit-sheet] {
+  animation-duration: 300ms;
 }
 
 /* Space for the iPhone home indicator / Android gesture bar. */

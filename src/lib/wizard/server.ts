@@ -11,6 +11,7 @@ import { NotFoundError } from "@/lib/errors";
 import { CONTACT_CHANNELS, DEFAULT_PRICE_PERIOD, type ContactMethod } from "@/lib/listing/fields";
 import { photoUrl } from "@/lib/media";
 import { getCities, getNeighborhoods } from "@/lib/places";
+import { getPledgeStatus } from "@/lib/pledge/server";
 import { getSettings } from "@/lib/settings";
 import { isTranslationEnabled } from "@/lib/translate";
 import type { WizardValues } from "./schemas";
@@ -245,7 +246,7 @@ export async function loadWizard(
   const listing = await findOwnedListing(listingId, user.id);
   if (!listing) return null;
 
-  const [photos, roomTypes, blocks, translations, cities, settings, translationEnabled] = await Promise.all([
+  const [photos, roomTypes, blocks, translations, cities, settings, translationEnabled, pledge] = await Promise.all([
     db.listingPhoto.findMany({
       where: { listingId: listing.id },
       select: photoSelect,
@@ -261,6 +262,7 @@ export async function loadWizard(
     loadCities(locale),
     getSettings(),
     Promise.resolve(isTranslationEnabled()),
+    getPledgeStatus(user.id),
   ]);
 
   const mainPhotos = photos.filter((p) => !p.roomTypeId).map(toWizardPhoto);
@@ -320,6 +322,7 @@ export async function loadWizard(
         phoneNumber: user.phoneNumber,
         phoneVerified: user.phoneNumberVerified,
         email: user.emailIsPlaceholder ? null : user.email,
+        pledge,
       },
       listingExpiryDays: settings.listingExpiryDays,
       translationEnabled,

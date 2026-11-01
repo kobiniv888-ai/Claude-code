@@ -252,6 +252,7 @@ function MapPanel({
         fitKey={fitKey}
         initialBounds={filters.bounds}
         onBoundsChange={onBoundsChange}
+        focusPlace={{ citySlug: filters.city, neighborhoodSlug: filters.neighborhood }}
       />
 
       {/* Controls over the map. */}

@@ -350,7 +350,7 @@ function TranslationsPanel({ listing, context, values, translations, setTranslat
 
 /** Step 10 — preview, languages, listing rules and Publish (or "Save changes" when editing). */
 export function PublishStep(props: StepProps) {
-  const { listing, context, values, kind, photos, roomTypes, goTo, flush, onPublished, track } = props;
+  const { listing, context, values, kind, photos, roomTypes, goTo, flush, onPublished, track, pledge } = props;
   const t = useTranslations("wizard.publish");
   const tw = useTranslations("wizard");
   const locale = useLocale();
@@ -368,6 +368,7 @@ export function PublishStep(props: StepProps) {
     roomPhotoCount: roomTypes.reduce((n, r) => n + r.photos.length, 0),
     pricedRoomTypes: roomTypes.filter((r) => r.price > 0).length,
     phoneVerified: context.user.phoneVerified,
+    pledgeAccepted: pledge.isCurrent,
   });
   const price = displayPrice(values, roomTypes);
   const verifyHref = `/verify-phone?next=${encodeURIComponent(`/post/${listing.id}?step=${steps.length}`)}`;

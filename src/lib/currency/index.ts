@@ -1,10 +1,12 @@
 import "server-only";
 import { cookies } from "next/headers";
+import { getLocale } from "next-intl/server";
 import { siteConfig, type CurrencyCode } from "@/config/site";
 import { db } from "@/lib/db";
 import { getCountryCode } from "@/lib/request";
 import { getSettings } from "@/lib/settings";
 import { CURRENCY_COOKIE_NAME } from "./cookie";
+import { defaultCurrencyForLocale } from "./defaults";
 import { FALLBACK_RATES, enabledCurrencies, isEnabledCurrency, normalizeRates, type Rates } from "./convert";
 
 /**
@@ -101,10 +103,12 @@ export async function refreshExchangeRates(): Promise<Rates> {
 
 /**
  * The currency prices are shown in for this visitor:
- * their choice (cookie) → their account setting → their country → the admin default → USD.
- * Only enabled currencies are returned. Pass the signed-in user's `User.currency`.
+ * their choice (cookie) → their account setting → the interface language (Hebrew → ILS)
+ * → their country → the admin default → USD.
+ * Only enabled currencies are returned. Pass the signed-in user's `User.currency`; `locale`
+ * defaults to the request's locale (next-intl).
  */
-export async function getDisplayCurrency(userCurrency?: string | null): Promise<CurrencyCode> {
+export async function getDisplayCurrency(userCurrency?: string | null, locale?: string): Promise<CurrencyCode> {
   try {
     const fromCookie = (await cookies()).get(CURRENCY_COOKIE_NAME)?.value;
     if (isEnabledCurrency(fromCookie)) return fromCookie;
@@ -113,6 +117,17 @@ export async function getDisplayCurrency(userCurrency?: string | null): Promise<
   }
 
   if (isEnabledCurrency(userCurrency)) return userCurrency;
+
+  let pageLocale = locale;
+  if (!pageLocale) {
+    try {
+      pageLocale = await getLocale();
+    } catch {
+      // Outside a request: no locale.
+    }
+  }
+  const byLocale = defaultCurrencyForLocale(pageLocale);
+  if (isEnabledCurrency(byLocale)) return byLocale;
 
   try {
     const country = await getCountryCode();

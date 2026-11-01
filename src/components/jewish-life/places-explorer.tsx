@@ -4,7 +4,7 @@ import { List, Map as MapIcon, MapPinned, SearchX } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useLocale, useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -63,7 +63,7 @@ export function PlacesExplorer({
   cities: ExplorerCity[];
   initialTypes: JewishPlaceType[];
   initialCity: string | null;
-  map: { tileUrl: string; tileAttribution: string; center: { lat: number; lng: number }; zoom: number };
+  map: { center: { lat: number; lng: number }; zoom: number };
 }) {
   const t = useTranslations("jewishLife.places");
   const locale = useLocale();
@@ -155,7 +155,10 @@ export function PlacesExplorer({
     });
   }
 
-  const showMap = isDesktop || view === "map";
+  // Leaflet (~150 KB) loads only when the map area comes near the screen.
+  const mapArea = useRef<HTMLDivElement>(null);
+  const mapNear = useNearViewport(mapArea);
+  const showMap = (isDesktop || view === "map") && mapNear;
 
   return (
     <div className="space-y-5">
@@ -313,7 +316,10 @@ export function PlacesExplorer({
 
         {/* Map */}
         <div className={cn(view === "list" && "hidden", "lg:block")}>
-          <div className="relative h-[28rem] overflow-hidden rounded-2xl border bg-muted shadow-card sm:h-[32rem] lg:sticky lg:top-32 lg:h-[38rem]">
+          <div
+            ref={mapArea}
+            className="relative h-[28rem] overflow-hidden rounded-2xl border bg-muted shadow-card sm:h-[32rem] lg:sticky lg:top-32 lg:h-[38rem]"
+          >
             {showMap ? (
               <PlacesMap
                 places={filtered}
@@ -321,8 +327,6 @@ export function PlacesExplorer({
                 onSelect={selectFromMap}
                 onShowInList={showInList}
                 focusRequest={focusRequest}
-                tileUrl={map.tileUrl}
-                tileAttribution={map.tileAttribution}
                 center={map.center}
                 zoom={map.zoom}
                 className="size-full"
@@ -341,4 +345,26 @@ export function PlacesExplorer({
       </div>
     </div>
   );
+}
+
+/** True once the element is within ~600 px of the viewport (and stays true). */
+function useNearViewport(ref: RefObject<HTMLElement | null>): boolean {
+  const [near, setNear] = useState(false);
+  useEffect(() => {
+    const element = ref.current;
+    // Every browser we support has IntersectionObserver; without it the map simply stays off.
+    if (near || !element || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setNear(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "600px 0px" },
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [ref, near]);
+  return near;
 }

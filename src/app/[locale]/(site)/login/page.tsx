@@ -42,7 +42,7 @@ export default async function LoginPage({ params, searchParams }: Props) {
       title={t("title", { name: siteConfig.localizedName[locale as AppLocale] ?? siteConfig.name })}
       description={t("subtitle")}
     >
-      <LoginPanel config={getLoginConfig()} next={next} initialError={error} />
+      <LoginPanel config={getLoginConfig(locale)} next={next} initialError={error} />
     </AuthShell>
   );
 }

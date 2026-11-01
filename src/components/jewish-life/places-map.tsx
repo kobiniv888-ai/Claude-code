@@ -5,10 +5,13 @@ import L from "leaflet";
 import { ExternalLink, List } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useMemo, useRef } from "react";
-import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
+import { MapContainer, Marker, Popup, useMap } from "react-leaflet";
+import { BaseTiles } from "@/components/maps/base-tiles";
+import { siteConfig } from "@/config/site";
 import { dirFor } from "@/i18n/locale";
 import { JEWISH_PLACE_TYPES, type JewishPlaceType, type PublicJewishPlace } from "@/lib/jewish-life/places";
 import { PLACE_TYPE_STYLE } from "./place-type-style";
+import { georgiaBounds, paddedGeorgiaBounds } from "@/lib/map-bounds";
 import { prefersReducedMotion } from "@/lib/motion";
 
 /**
@@ -27,8 +30,6 @@ export type PlacesMapProps = {
   onShowInList: (id: string) => void;
   /** Fly to a place and open its popup (set when a place is picked in the list). */
   focusRequest: MapFocusRequest;
-  tileUrl: string;
-  tileAttribution: string;
   center: { lat: number; lng: number };
   zoom: number;
   className?: string;
@@ -64,11 +65,12 @@ function pinIcon(type: JewishPlaceType, selected: boolean): L.DivIcon {
   return divIcon;
 }
 
-function FitToPlaces({ places, center, zoom }: { places: PublicJewishPlace[]; center: L.LatLngExpression; zoom: number }) {
+function FitToPlaces({ places }: { places: PublicJewishPlace[] }) {
   const map = useMap();
   useEffect(() => {
     if (places.length === 0) {
-      map.setView(center, Math.min(zoom, 7));
+      // Nothing matches the filters: show all of Georgia, never the whole world.
+      map.fitBounds(georgiaBounds());
     } else if (places.length === 1) {
       map.setView([places[0].lat, places[0].lng], 15);
     } else {
@@ -77,7 +79,7 @@ function FitToPlaces({ places, center, zoom }: { places: PublicJewishPlace[]; ce
         maxZoom: 15,
       });
     }
-  }, [map, places, center, zoom]);
+  }, [map, places]);
   return null;
 }
 
@@ -120,8 +122,6 @@ export default function PlacesMap({
   onSelect,
   onShowInList,
   focusRequest,
-  tileUrl,
-  tileAttribution,
   center,
   zoom,
   className,
@@ -144,12 +144,17 @@ export default function PlacesMap({
       <MapContainer
         center={centerLatLng}
         zoom={zoom}
+        minZoom={siteConfig.map.minZoom}
+        maxZoom={siteConfig.map.maxZoom}
+        maxBounds={paddedGeorgiaBounds()}
+        maxBoundsViscosity={0.9}
         scrollWheelZoom={false}
         className="z-0 size-full rounded-2xl"
       >
-        <TileLayer url={tileUrl} attribution={tileAttribution} />
+        {/* Below the "no places match" pill. */}
+        <BaseTiles noticeClassName="top-16" />
         <ResizeWatcher />
-        <FitToPlaces places={places} center={centerLatLng} zoom={zoom} />
+        <FitToPlaces places={places} />
         <FocusOnRequest request={focusRequest} places={places} markers={markers} />
         {places.map((place) => {
           const style = PLACE_TYPE_STYLE[place.type];

@@ -48,7 +48,7 @@ export function CompareToggle({
         aria-label={label}
         title={label}
         className={cn(
-          "inline-flex size-10 items-center justify-center rounded-full bg-card/90 text-foreground shadow-sm backdrop-blur transition outline-none",
+          "inline-flex size-11 items-center justify-center rounded-full bg-card/90 text-foreground shadow-sm backdrop-blur transition outline-none",
           "hover:bg-card focus-visible:ring-3 focus-visible:ring-ring/60 active:scale-90",
           active && "bg-primary text-primary-foreground hover:bg-primary/90",
           className,

@@ -1,10 +1,10 @@
 import { useLocale, useTranslations } from "next-intl";
-import { BathIcon, BedDoubleIcon, LanguagesIcon, MapPinIcon, RulerIcon, UsersIcon, type LucideIcon } from "lucide-react";
+import { BathIcon, BedDoubleIcon, Building2Icon, LanguagesIcon, MapPinIcon, RulerIcon, UsersIcon, type LucideIcon } from "lucide-react";
+import { BadgeRow, BayitBadge, listingBadgeItems, listingPhotoTags } from "@/components/ds/badges";
 import { Link } from "@/i18n/navigation";
 import { formatArea, formatNumber } from "@/lib/format";
 import type { ListingCardData } from "@/lib/listing/types";
 import { cn } from "@/lib/utils";
-import { BusinessLabel, ListingBadges, ListingLabels, VerifiedBadge } from "./badges";
 import { CompareToggle } from "./compare-toggle";
 import { FavoriteButton } from "./favorite-button";
 import { PhotoCarousel } from "./photo-carousel";
@@ -12,12 +12,13 @@ import { Price } from "./price";
 
 export type ListingCardVariant = "grid" | "list";
 
-/** next/image sizes for the card photo (matches ListingGrid's columns). */
-const GRID_SIZES = "(min-width: 1280px) 25vw, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw";
+/** next/image sizes for the card photo (matches ListingGrid's columns and CardCarousel's widths). */
+const GRID_SIZES = "(min-width: 1280px) 25vw, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 90vw";
 const LIST_SIZES = "(min-width: 640px) 320px, 100vw";
 
 type Fact = { key: string; icon: LucideIcon; value: string; label: string };
 
+/** The icon row: bedrooms (or studio), guests, m², floor — then bathrooms if there is room. */
 function useFacts(listing: ListingCardData): Fact[] {
   const t = useTranslations("listingFields.facts");
   const locale = useLocale();
@@ -34,18 +35,6 @@ function useFacts(listing: ListingCardData): Fact[] {
           },
     );
   }
-  if (listing.bathrooms !== null && listing.bathrooms > 0) {
-    facts.push({
-      key: "bathrooms",
-      icon: BathIcon,
-      value: formatNumber(listing.bathrooms, locale),
-      label: t("bathrooms", { count: listing.bathrooms }),
-    });
-  }
-  if (listing.sizeSqm !== null && listing.sizeSqm > 0) {
-    const area = formatArea(listing.sizeSqm, locale);
-    facts.push({ key: "size", icon: RulerIcon, value: area, label: area });
-  }
   if (listing.maxGuests !== null && listing.maxGuests > 0 && listing.dealType !== "SALE") {
     facts.push({
       key: "guests",
@@ -54,13 +43,37 @@ function useFacts(listing: ListingCardData): Fact[] {
       label: t("upToGuests", { count: listing.maxGuests }),
     });
   }
+  if (listing.sizeSqm !== null && listing.sizeSqm > 0) {
+    const area = formatArea(listing.sizeSqm, locale);
+    facts.push({ key: "size", icon: RulerIcon, value: area, label: area });
+  }
+  if (listing.floor != null) {
+    const floor = formatNumber(listing.floor, locale);
+    facts.push({ key: "floor", icon: Building2Icon, value: floor, label: t("floor", { floor }) });
+  }
+  if (facts.length < 4 && listing.bathrooms !== null && listing.bathrooms > 0) {
+    facts.push({
+      key: "bathrooms",
+      icon: BathIcon,
+      value: formatNumber(listing.bathrooms, locale),
+      label: t("bathrooms", { count: listing.bathrooms }),
+    });
+  }
   return facts;
 }
 
 /**
- * The listing card used in search results, the home page, favorites, owner profiles and
- * similar listings. The title link covers the whole card; the heart, compare and photo
- * buttons sit above it and are separate controls.
+ * The one listing card (v2), used everywhere: home rows, search grid/list, favorites, similar
+ * listings, owner profiles and map popups. Photo first (16:10 carousel with dots), up to two tags
+ * on the photo, the heart in the other corner, then a big price with its unit, the title, the
+ * place, an icon row and the Bayit badge row (3 + "+N").
+ *
+ * The title link covers the whole card (and is prefetched); the heart, compare and photo
+ * buttons sit above it as separate controls. Pressing the card shrinks it slightly; on desktop
+ * the photo zooms a little on hover.
+ *
+ * The card takes its width from its container (grid cell, carousel slide); it never grows to
+ * fit its title, so give it a width where the parent sizes by content (e.g. a map popup).
  *
  * Not a client component: from a server component it renders on the server and only the
  * photos, heart, compare toggle and price hydrate. Pass `onHover` only from a client component.
@@ -88,6 +101,9 @@ export function ListingCard({
   const place = [listing.neighborhoodName, listing.cityName].filter(Boolean).join(" · ");
   const isList = variant === "list";
   const titleId = `listing-${listing.publicId}-title`;
+  const photoTags = listingPhotoTags(listing.badges, 2);
+  const welcomesOnPhoto = photoTags.some((tag) => tag.kind === "welcomes");
+  const badgeItems = listingBadgeItems(listing.badges, { exclude: welcomesOnPhoto ? ["welcomes"] : [] });
 
   return (
     <article
@@ -97,47 +113,71 @@ export function ListingCard({
       onFocus={onHover ? () => onHover(listing.publicId) : undefined}
       onBlur={onHover ? () => onHover(null) : undefined}
       className={cn(
-        "group/card relative flex overflow-hidden rounded-2xl bg-card text-card-foreground shadow-card ring-1 ring-foreground/5",
-        "transition duration-200 hover:-translate-y-0.5 hover:shadow-card-hover focus-within:ring-2 focus-within:ring-ring/60",
-        "motion-reduce:transition-none motion-reduce:hover:translate-y-0",
+        "group/card relative isolate flex rounded-card bg-card text-card-foreground shadow-card ring-1 ring-foreground/5",
+        // Width comes from the container only: the one-line title must never widen a grid track.
+        "[contain:inline-size]",
+        // Hover: a deeper shadow fades in (opacity only). Press: the card shrinks a little.
+        "before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:rounded-card before:opacity-0 before:shadow-card-hover before:transition-opacity before:duration-(--motion-base) hover:before:opacity-100",
+        "transition-transform duration-(--motion-fast) ease-standard has-[[data-card-link]:active]:scale-[0.98] motion-reduce:transition-none motion-reduce:has-[[data-card-link]:active]:scale-100",
+        "focus-within:ring-2 focus-within:ring-ring/60",
         isList ? "flex-col sm:flex-row" : "h-full flex-col",
         className,
       )}
     >
-      <div className={cn("relative z-10 shrink-0", isList && "sm:w-72 md:w-80")}>
+      <div
+        className={cn(
+          "relative z-10 shrink-0 overflow-hidden",
+          isList ? "rounded-t-card sm:w-72 sm:rounded-e-none sm:rounded-s-card md:w-80" : "rounded-t-card",
+        )}
+      >
         <PhotoCarousel
           photos={listing.photos}
           title={listing.title}
           href={listing.href}
           sizes={isList ? LIST_SIZES : GRID_SIZES}
           priority={priority}
-          aspect={isList ? "aspect-[4/3] sm:aspect-auto sm:h-full sm:min-h-52" : "aspect-[4/3]"}
+          totalCount={listing.photoCount}
+          aspect={isList ? "aspect-[16/10] sm:aspect-auto sm:h-full sm:min-h-56" : "aspect-[16/10]"}
         />
-        <ListingLabels badges={listing.badges} className="pointer-events-none absolute start-3 top-3 z-10 max-w-[70%]" />
-        <div className="absolute end-2 top-2 z-20 flex flex-col gap-2">
-          <FavoriteButton listingId={listing.id} title={listing.title} isFavorite={listing.isFavorite} />
-          {showCompare && <CompareToggle publicId={listing.publicId} variant="icon" />}
-        </div>
+        {photoTags.length > 0 && (
+          <ul className="pointer-events-none absolute start-3 top-3 z-10 flex max-w-[calc(100%-4.5rem)] flex-col items-start gap-1.5">
+            {photoTags.map((tag) => (
+              <BayitBadge key={tag.kind} {...tag} as="li" variant="solid" />
+            ))}
+          </ul>
+        )}
+        <FavoriteButton
+          listingId={listing.id}
+          title={listing.title}
+          isFavorite={listing.isFavorite}
+          className="absolute end-2 top-2 z-20"
+        />
+        {/* Bottom corner, so it never covers the photo tags or the arrow buttons on narrow cards. */}
+        {showCompare && <CompareToggle publicId={listing.publicId} variant="icon" className="absolute end-2 bottom-2 z-20" />}
       </div>
 
-      <div className={cn("flex min-w-0 flex-1 flex-col gap-2 p-4", isList && "sm:p-5")}>
-        <div className="flex items-start justify-between gap-2">
-          {place ? (
-            <p className="flex min-w-0 items-center gap-1 text-sm text-muted-foreground">
-              <MapPinIcon className="size-3.5 shrink-0" aria-hidden="true" />
-              <span className="truncate">{place}</span>
-            </p>
-          ) : (
-            <span />
-          )}
-          {listing.badges.verified && <VerifiedBadge className="relative z-10 shrink-0" />}
+      <div className={cn("flex min-w-0 flex-1 flex-col gap-1.5 px-4 pt-3 pb-4", isList && "sm:px-5 sm:pt-4")}>
+        <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
+          <Price
+            amount={listing.price}
+            currency={listing.currency}
+            period={listing.pricePeriod}
+            from={listing.priceIsFrom}
+            size={isList ? "lg" : "card"}
+            compact="auto"
+          />
+          {listing.badges.business && <BayitBadge kind="business" className="relative z-10" />}
         </div>
 
-        <h3 id={titleId} className={cn("font-semibold leading-snug", isList ? "text-lg" : "text-base")}>
+        <h3 id={titleId} className={cn("min-w-0 font-semibold leading-snug", isList ? "text-lg" : "text-base")}>
           <Link
             href={listing.href}
             dir="auto"
-            className="line-clamp-2 outline-none after:absolute after:inset-0 after:content-[''] focus-visible:underline"
+            data-card-link=""
+            className={cn(
+              "block outline-none after:absolute after:inset-0 after:z-0 after:rounded-card after:content-[''] focus-visible:underline",
+              isList ? "line-clamp-2" : "truncate",
+            )}
           >
             {listing.title}
           </Link>
@@ -149,11 +189,18 @@ export function ListingCard({
           </p>
         )}
 
+        {place ? (
+          <p className="flex min-w-0 items-center gap-1 text-sm text-muted-foreground">
+            <MapPinIcon className="size-4 shrink-0" aria-hidden="true" />
+            <span className="truncate">{place}</span>
+          </p>
+        ) : null}
+
         {facts.length > 0 && (
-          <ul className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+          <ul className="flex flex-wrap items-center gap-x-3.5 gap-y-1 text-sm text-foreground/80">
             {facts.map(({ key, icon: Icon, value, label }) => (
-              <li key={key} className="inline-flex items-center gap-1" title={label}>
-                <Icon className="size-4 shrink-0" aria-hidden="true" />
+              <li key={key} className="inline-flex items-center gap-1.5" title={label}>
+                <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <span aria-hidden="true">{value}</span>
                 <span className="sr-only">{label}</span>
               </li>
@@ -161,19 +208,7 @@ export function ListingCard({
           </ul>
         )}
 
-        <ListingBadges badges={listing.badges} kinds={["synagogue", "kosher", "shabbat"]} />
-
-        <div className="mt-auto flex flex-wrap items-end justify-between gap-2 pt-1">
-          <Price
-            amount={listing.price}
-            currency={listing.currency}
-            period={listing.pricePeriod}
-            from={listing.priceIsFrom}
-            size={isList ? "lg" : "md"}
-            stacked={isList}
-          />
-          {listing.badges.business && <BusinessLabel />}
-        </div>
+        {badgeItems.length > 0 && <BadgeRow items={badgeItems} max={3} className="mt-auto pt-1.5" />}
       </div>
     </article>
   );

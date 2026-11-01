@@ -1,0 +1,3 @@
+{
+  "demoDataMissing": "נתוני הדמו לא נטענו — הריצו <code>npm run db:seed</code>"
+}

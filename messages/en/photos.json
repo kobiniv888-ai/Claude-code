@@ -1,0 +1,64 @@
+{
+  "comingSoon": "Photo coming soon",
+  "alt": {
+    "hero": {
+      "tbilisi": "Narikala fortress above the roofs of Old Tbilisi",
+      "batumi": "Batumi bay, the city and the mountains",
+      "kazbegi": "Gergeti Trinity Church below snowy Mount Kazbek",
+      "gudauri": "Chalets in Gudauri in winter",
+      "sighnaghi": "Terracotta roofs and a bell tower in Sighnaghi",
+      "mestia": "Svan towers in Mestia at sunset",
+      "borjomi": "The Borjomi valley at sunset"
+    },
+    "city": {
+      "tbilisi": "Old Tbilisi",
+      "batumi": "Batumi bay and skyline",
+      "kutaisi": "The Rioni river in Kutaisi",
+      "kobuleti": "Kobuleti beach",
+      "gudauri": "Snowy peaks in Gudauri",
+      "bakuriani": "Bakuriani in winter",
+      "borjomi": "Borjomi spa buildings on the river",
+      "kazbegi": "Mount Kazbek and Gergeti church",
+      "sighnaghi": "Sighnaghi on its ridge above the Alazani valley",
+      "mestia": "Svan towers near Mestia"
+    },
+    "category": {
+      "apartments": "A bright apartment living room",
+      "houses": "A house with a pool and a garden",
+      "rooms": "A cosy bedroom",
+      "hotels": "A hotel room",
+      "sale": "A new apartment building with balconies",
+      "shabbat": "A Shabbat table with candlesticks, a challah cover and a kiddush cup"
+    },
+    "cta": {
+      "listYourProperty": "An old wooden balcony with a table"
+    },
+    "jewish": {
+      "tbilisiSynagogue": "The Great Synagogue of Tbilisi",
+      "batumiSynagogue": "The Batumi synagogue",
+      "synagogueInterior": "Inside a synagogue in Georgia",
+      "challah": "A braided challah for Shabbat",
+      "kosherFood": "Kosher food in Georgia",
+      "community": "Jewish community life in Georgia"
+    }
+  },
+  "credits": {
+    "footerLink": "Photo credits",
+    "metaTitle": "Photo credits",
+    "metaDescription": "Who took the photos on this site and the licenses we use them under.",
+    "title": "Photo credits",
+    "lead": "Thank you to the photographers who share their work for free. Here are the photos on this site, who took them and their licenses.",
+    "groups": {
+      "hero": "Home page hero",
+      "cities": "Cities",
+      "categories": "Categories",
+      "cta": "List your property",
+      "jewish": "Jewish life"
+    },
+    "photoBy": "Photo: {author}",
+    "source": "Photo page",
+    "listings": "{count, plural, one {The photo in the demo listings is a stock photo} other {The {count} photos in the demo listings are stock photos}} from Unsplash, under the Unsplash License. They do not show the properties themselves.",
+    "shareAlike": "Photos under a CC BY-SA license are shared under the same license.",
+    "empty": "No photos here yet."
+  }
+}

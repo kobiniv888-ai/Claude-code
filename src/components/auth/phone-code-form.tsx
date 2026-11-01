@@ -13,7 +13,7 @@ import type { LoginConfig } from "@/lib/auth/config";
 import { authErrorKey, type AuthErrorKey } from "@/lib/auth/error-codes";
 import { cn } from "@/lib/utils";
 import { CodeInput } from "./code-input";
-import { formatCountdown, useAuthErrorMessage } from "./use-auth-messages";
+import { formatCountdown, useAuthDevHint, useAuthErrorMessage } from "./use-auth-messages";
 
 /**
  * Phone number → 6-digit code. Used to log in (creates the account on first use) and to add
@@ -38,7 +38,9 @@ export function PhoneCodeForm({
   initialPhone?: string;
 }) {
   const t = useTranslations("auth.phone");
-  const errorMessage = useAuthErrorMessage();
+  // Signed-in users adding a phone, or no Google/Apple configured: never suggest Google/Apple.
+  const errorMessage = useAuthErrorMessage({ phoneOnly: mode === "add-phone" || !config.socialLogin });
+  const devHint = useAuthDevHint();
   const formId = useId();
   const codeId = `${formId}-code`;
   const codeHelpId = `${formId}-code-help`;
@@ -48,6 +50,8 @@ export function PhoneCodeForm({
   const [phone, setPhone] = useState<string | undefined>(initialPhone);
   const [country, setCountry] = useState<Country | undefined>(config.defaultCountry as Country);
   const [phoneError, setPhoneError] = useState<string | null>(null);
+  /** The error key behind phoneError, for the development-only hint. */
+  const [phoneErrorKey, setPhoneErrorKey] = useState<AuthErrorKey | null>(null);
   const [code, setCode] = useState("");
   const [codeError, setCodeError] = useState<AuthErrorKey | null>(null);
   const [pending, setPending] = useState<"send" | "verify" | "resend" | null>(null);
@@ -114,6 +118,7 @@ export function PhoneCodeForm({
     if (pending) return;
     const problem = validatePhone(phone);
     setPhoneError(problem);
+    setPhoneErrorKey(null);
     if (problem || !phone) return;
 
     setPending("send");
@@ -121,6 +126,7 @@ export function PhoneCodeForm({
     setPending(null);
     if (error) {
       setPhoneError(errorMessage(error));
+      setPhoneErrorKey(error);
       return;
     }
     setStep("code");
@@ -206,14 +212,17 @@ export function PhoneCodeForm({
             onChange={(value) => {
               setPhone(value);
               if (phoneError) setPhoneError(null);
+              if (phoneErrorKey) setPhoneErrorKey(null);
             }}
             onCountryChange={setCountry}
             defaultCountry={config.defaultCountry as Country}
+            rememberAs="login"
             error={phoneError}
             autoFocus={autoFocus}
             required
             size="lg"
           />
+          <DevHint text={devHint(phoneErrorKey)} />
           <Button
             type="submit"
             size="lg"
@@ -262,6 +271,7 @@ export function PhoneCodeForm({
               {errorMessage(codeError)}
             </p>
           )}
+          <DevHint text={devHint(codeError)} />
           {notice && !codeError && (
             <p role="status" className="text-center text-sm text-verified">
               {notice}
@@ -347,5 +357,16 @@ export function PhoneCodeForm({
         </p>
       )}
     </div>
+  );
+}
+
+/** Development only: what to fix when sending a code fails (origin, proxy, server, SMS). */
+function DevHint({ text }: { text: string | null }) {
+  if (!text) return null;
+  return (
+    <p className="flex items-start gap-2 rounded-lg border border-dashed border-warning/50 bg-warning-soft px-3 py-2 text-xs text-foreground">
+      <TerminalIcon className="mt-0.5 size-3.5 shrink-0 text-warning" aria-hidden />
+      <span>{text}</span>
+    </p>
   );
 }

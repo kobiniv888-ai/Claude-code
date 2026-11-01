@@ -21,6 +21,7 @@ import {
 } from "@/lib/wizard/steps";
 import type { PublishOutcome, WizardContext, WizardListing } from "@/lib/wizard/types";
 import { siteConfig } from "@/config/site";
+import { ReacceptBanner } from "@/components/pledge/reaccept-banner";
 import { useIssueText } from "./fields";
 import { PublishResult } from "./publish-result";
 import type { StepProps } from "./step-props";
@@ -31,6 +32,7 @@ import { DetailsStep } from "./steps/details-step";
 import { JewishStep } from "./steps/jewish-step";
 import { LocationStep } from "./steps/location-step";
 import { PhotosStep } from "./steps/photos-step";
+import { PledgeStep } from "./steps/pledge-step";
 import { PriceStep } from "./steps/price-step";
 import { PropertyStep } from "./steps/property-step";
 import { PublishStep } from "./steps/publish-step";
@@ -50,6 +52,7 @@ const STEP_COMPONENTS: Record<WizardStepKey, ComponentType<StepProps>> = {
   rooms: RoomsStep,
   price: PriceStep,
   contact: ContactStep,
+  pledge: PledgeStep,
   publish: PublishStep,
 };
 
@@ -90,6 +93,7 @@ export function WizardShell({
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<PublishOutcome | null>(null);
   const [editResult, setEditResult] = useState<{ resubmitted: boolean; outcome: PublishOutcome | null } | null>(null);
+  const [pledge, setPledge] = useState(context.user.pledge);
 
   const autosave = useAutosave(listing.id, listing.values);
   const kind: ListingKind = useMemo(
@@ -136,10 +140,11 @@ export function WizardShell({
       const issues: StepIssues = isSavableStep(s) ? stepIssues(s, v, { dealType: v.dealType, propertyType: v.propertyType }) : {};
       if (s === "deal" && !chosen.deal) issues.dealType = "pickOne";
       if (s === "property" && !chosen.property) issues.propertyType = "pickOne";
+      if (s === "pledge" && !pledge.isCurrent) issues.pledge = "required";
       const server = isSavableStep(s) ? autosave.serverIssues[s] : undefined;
       return { ...server, ...issues };
     },
-    [values, chosen, autosave.serverIssues],
+    [values, chosen, autosave.serverIssues, pledge.isCurrent],
   );
 
   const currentIssues = rawIssues(step);
@@ -157,9 +162,10 @@ export function WizardShell({
       if (s === "photos") return photoCount >= siteConfig.listings.minPhotos;
       if (s === "rooms") return roomTypes.length > 0;
       if (s === "publish") return listing.status !== "DRAFT";
+      if (s === "pledge") return pledge.isCurrent;
       return Object.keys(rawIssues(s)).length === 0;
     },
-    [photoCount, roomTypes.length, rawIssues, listing.status],
+    [photoCount, roomTypes.length, rawIssues, listing.status, pledge.isCurrent],
   );
 
   const canJump = useCallback(
@@ -321,6 +327,8 @@ export function WizardShell({
     chosen,
     setChosen: (patch) => setChosenState((current) => ({ ...current, ...patch })),
     track: autosave.track,
+    pledge,
+    setPledge,
   };
 
   if (result) {
@@ -344,7 +352,12 @@ export function WizardShell({
   const StepComponent = STEP_COMPONENTS[step];
   const isLast = step === "publish";
   const exitHref = isEdit ? "/account/listings" : "/post";
-  const missing = missingRequirements({ values, photoCount, phoneVerified: context.user.phoneVerified });
+  const missing = missingRequirements({
+    values,
+    photoCount,
+    phoneVerified: context.user.phoneVerified,
+    pledgeAccepted: pledge.isCurrent,
+  });
 
   return (
     <div className="mx-auto w-full max-w-4xl px-4 pt-4 pb-6 sm:pt-8">
@@ -378,6 +391,10 @@ export function WizardShell({
           </Button>
         </div>
       </header>
+
+      {pledge.mustReaccept && step !== "pledge" && (
+        <ReacceptBanner status={pledge} onReview={() => void goTo("pledge")} className="mb-5" />
+      )}
 
       <WizardProgress
         steps={steps}

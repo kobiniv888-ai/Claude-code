@@ -51,6 +51,7 @@
     "rooms": "Room types",
     "price": "Price & availability",
     "contact": "Contact",
+    "pledge": "Bayit pledge",
     "publish": "Preview & publish"
   },
   "chrome": {
@@ -101,7 +102,9 @@
     "already_published": "This listing is already published. Use \"Save changes\" instead.",
     "not_published_yet": "This listing isn't published yet. Please publish it first.",
     "invalid_status": "This listing can't be changed in its current state.",
-    "captcha_failed": "We couldn't confirm you're not a robot. Please refresh the page and try again."
+    "captcha_failed": "We couldn't confirm you're not a robot. Please refresh the page and try again.",
+    "pledge_required": "To publish, please accept the Bayit pledge first.",
+    "pledge_outdated": "The pledge wording was updated. Reload the page and read the new wording."
   },
   "uploadErrors": {
     "file_too_large": "This photo is too large. Please choose a smaller one (up to 15 MB).",
@@ -655,6 +658,10 @@
     "noShabbat": "I don't answer on Shabbat and holidays",
     "noShabbatHelp": "During Shabbat and Jewish holidays guests see \"Replies after Shabbat\"."
   },
+  "pledge": {
+    "title": "The Bayit pledge",
+    "subtitle": "One last step before the preview: a short commitment every Bayit host accepts."
+  },
   "publish": {
     "title": "Preview and publish",
     "subtitle": "Check how guests will see your listing, then publish it.",
@@ -666,7 +673,8 @@
       "details": "Fill in the title, description and required details",
       "photos": "Add at least {count} photos",
       "price": "Enter the price",
-      "contact": "Add a contact method"
+      "contact": "Add a contact method",
+      "pledge": "Accept the Bayit pledge"
     },
     "goToStep": "Step {step}: {name}",
     "verifyPhone": "Verify phone",

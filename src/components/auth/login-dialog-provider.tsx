@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { getLocale } from "next-intl/server";
 import { getLoginConfig } from "@/lib/auth/config";
 import { LoginDialogProviderClient } from "./login-dialog";
 
@@ -8,9 +9,10 @@ import { LoginDialogProviderClient } from "./login-dialog";
  *
  *   <LoginDialogProvider signedIn={!!user}>{children}</LoginDialogProvider>
  */
-export function LoginDialogProvider({ signedIn, children }: { signedIn: boolean; children: ReactNode }) {
+export async function LoginDialogProvider({ signedIn, children }: { signedIn: boolean; children: ReactNode }) {
+  const locale = await getLocale();
   return (
-    <LoginDialogProviderClient config={getLoginConfig()} signedIn={signedIn}>
+    <LoginDialogProviderClient config={getLoginConfig(locale)} signedIn={signedIn}>
       {children}
     </LoginDialogProviderClient>
   );

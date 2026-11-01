@@ -35,7 +35,7 @@ async function expectStep(page: Page, step: number, heading: string) {
 }
 
 test("a new user signs up, posts a listing with photos and it goes into review", async ({ page, context, consoleErrors }) => {
-  // The longest flow: sign-up, 10 wizard steps, 6 uploads, publish.
+  // The longest flow: sign-up, 11 wizard steps (incl. the pledge), 6 uploads, publish.
   test.slow();
   // Sign up with a fresh phone number.
   ownerPhone = await freshPhone();
@@ -102,9 +102,15 @@ test("a new user signs up, posts a listing with photos and it goes into review",
   // 9 Contact: the verified phone is already filled in for WhatsApp
   await expectStep(page, 9, "How should guests contact you?");
   await expect(page.getByRole("textbox", { name: "WhatsApp number" })).not.toHaveValue("");
+  await next(page);
+  // 10 The Bayit pledge (required; saved on the account)
+  await expectStep(page, 10, "The Bayit pledge");
+  await page.getByRole("checkbox", { name: "I have read this and I commit to it" }).check();
+  await page.getByRole("button", { name: "Accept the pledge" }).click();
+  await expect(page.getByText("You accepted the Bayit pledge")).toBeVisible();
   await page.getByRole("button", { name: "Preview", exact: true }).click();
-  // 10 Preview and publish
-  await expectStep(page, 10, "Preview and publish");
+  // 11 Preview and publish
+  await expectStep(page, 11, "Preview and publish");
   await expect(page.getByRole("region", { name: "Before you can publish" })).toHaveCount(0);
   await page.getByRole("checkbox", { name: /I accept the listing rules/ }).check();
   await page.getByRole("button", { name: "Publish listing" }).click();

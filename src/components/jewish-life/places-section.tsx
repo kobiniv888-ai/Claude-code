@@ -49,8 +49,6 @@ export async function PlacesSection({
         initialTypes={initialTypes}
         initialCity={initialCity}
         map={{
-          tileUrl: siteConfig.map.tileUrl,
-          tileAttribution: siteConfig.map.tileAttribution,
           center: siteConfig.map.defaultCenter,
           zoom: siteConfig.map.defaultZoom,
         }}

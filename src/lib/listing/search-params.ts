@@ -23,6 +23,7 @@ import type {
   ViewType,
 } from "@/generated/prisma/enums";
 import { parseBounds, serializeBounds, type Bounds } from "@/lib/geo";
+import { clampBoundsToGeorgia } from "@/lib/map-bounds";
 import {
   AMENITIES,
   CONDITIONS,
@@ -461,10 +462,11 @@ export function parseSearchParams(input: SearchParamsInput | null | undefined): 
   filters.view = pickOne(one("view"), VIEW_MODES, exactKey) ?? DEFAULT_VIEW;
 
   const bounds = parseBounds(one("bounds"));
+  // Clamped to Georgia: a saved world-sized area (zoomed far out) must not open on the world.
   filters.bounds =
     bounds && [bounds.north, bounds.south].every((lat) => Math.abs(lat) <= 90) &&
     [bounds.east, bounds.west].every((lng) => Math.abs(lng) <= 180)
-      ? bounds
+      ? clampBoundsToGeorgia(bounds)
       : null;
 
   filters.page = numberIn(one("page"), 1, LIMITS.page) ?? 1;

@@ -17,7 +17,12 @@ const sizes = {
   sm: { main: "text-sm font-semibold", extra: "text-xs" },
   md: { main: "text-base font-semibold", extra: "text-xs" },
   lg: { main: "text-2xl font-bold tracking-tight", extra: "text-sm" },
+  /** Listing card v2: big and heavy, the unit beside it. */
+  card: { main: "text-xl font-extrabold tracking-tight", extra: "text-sm font-medium" },
 } as const;
+
+/** Sale prices from this amount are shortened on cards ("₪1.2M"). */
+const COMPACT_FROM = 100_000;
 
 export type PriceProps = {
   /** In the owner's currency; null shows "Price on request". */
@@ -31,6 +36,8 @@ export type PriceProps = {
   size?: keyof typeof sizes;
   /** Put the original price on its own line instead of after a dot. */
   stacked?: boolean;
+  /** Short form for big numbers ("₪1.2M"); "auto" = only for totals (sales) from 100,000. */
+  compact?: boolean | "auto";
   className?: string;
 };
 
@@ -46,6 +53,7 @@ export function Price({
   showOriginal = true,
   size = "md",
   stacked = false,
+  compact = false,
   className,
 }: PriceProps) {
   const t = useTranslations("listingCard.price");
@@ -58,8 +66,9 @@ export function Price({
   }
 
   const converted = display !== currency;
-  const original = formatMoney(amount, currency, locale);
-  const shown = converted ? format(amount, currency, { maximumFractionDigits: 0 }) : original;
+  const short = compact === true || (compact === "auto" && period === "TOTAL" && amount >= COMPACT_FROM);
+  const original = formatMoney(amount, currency, locale, short ? { compact: true } : undefined);
+  const shown = converted ? format(amount, currency, short ? { compact: true } : { maximumFractionDigits: 0 }) : original;
   const value = converted ? t("approx", { price: isolate(shown) }) : shown;
   const main = from ? t("from", { price: isolate(value) }) : value;
   const suffix = (PERIODS_WITH_SUFFIX as readonly string[]).includes(period)

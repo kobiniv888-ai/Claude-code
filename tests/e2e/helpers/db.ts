@@ -152,7 +152,7 @@ export async function createTestListing(opts: TestListingOptions): Promise<{ id:
     await sql(
       `INSERT INTO "ListingPhoto" (id, "listingId", url, width, height, "sortOrder", "isCover", alt)
        VALUES ($1, $2, $3, 1200, 800, $4, $5, $6)`,
-      [newId(), id, `/images/cities/${citySlug}.webp`, i, i === 0, `E2E photo ${i + 1}`],
+      [newId(), id, `/photos/cities/${citySlug}.webp`, i, i === 0, `E2E photo ${i + 1}`],
     );
   }
   const [row] = await sql<{ publicId: number }>(`SELECT "publicId" FROM "Listing" WHERE id = $1`, [id]);

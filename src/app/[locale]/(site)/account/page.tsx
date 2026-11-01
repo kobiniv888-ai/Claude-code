@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { PageHeader } from "@/components/common/page-header";
+import { AccountPledgeBanner } from "@/components/pledge/account-pledge-banner";
 import { AttentionList, ListingCountTiles, QuickActions, VerificationProgressCard } from "@/components/account/overview";
 import { siteConfig, type AppLocale } from "@/config/site";
 import { getAccountOverview } from "@/lib/account/queries";
@@ -35,6 +36,7 @@ export default async function AccountOverviewPage({ params }: Props) {
         description={t("lead", { siteName: siteConfig.localizedName[locale as AppLocale] ?? siteConfig.name })}
       />
       <div className="grid gap-4 sm:gap-6">
+        <AccountPledgeBanner userId={user.id} />
         <QuickActions idVerified={!!user.idVerifiedAt} favorites={overview.favorites} openTickets={overview.openTickets} />
         <div className="grid gap-4 sm:gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
           <AttentionList items={overview.attention} />

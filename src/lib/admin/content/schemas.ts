@@ -129,7 +129,7 @@ export function isHttpUrl(value: string): boolean {
   }
 }
 
-/** A site path ("/images/cities/tbilisi.webp", "/api/media/…") or an http(s) URL. */
+/** A site path ("/photos/cities/tbilisi.webp", "/api/media/…") or an http(s) URL. */
 export function isImageUrl(value: string): boolean {
   if (value.startsWith("/")) return !value.startsWith("//") && !/\s/.test(value) && !value.includes("..");
   return isHttpUrl(value);

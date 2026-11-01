@@ -51,6 +51,7 @@ const SOCIAL = ["facebook", "instagram", "telegram", "whatsapp"] as const;
 
 export async function Footer() {
   const t = await getTranslations("footer");
+  const tPhotos = await getTranslations("photos.credits");
   const locale = await getLocale();
   const name = siteName(locale);
   const social = SOCIAL.filter((key) => siteConfig.social[key]);
@@ -114,6 +115,15 @@ export async function Footer() {
           <div className="grid gap-1 text-xs text-muted-foreground">
             <p>{t("copyright", { year: String(new Date().getFullYear()), name })}</p>
             <p>{t("madeFor")}</p>
+            <p>
+              {/* Required by the CC BY / CC BY-SA photo licenses. */}
+              <Link
+                href="/photo-credits"
+                className="-mx-1 inline-flex min-h-9 items-center rounded-md px-1 underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                {tPhotos("footerLink")}
+              </Link>
+            </p>
           </div>
           <div role="group" aria-label={t("preferences")} className="flex flex-wrap items-center gap-2">
             <LanguageSwitcher variant="footer" align="end" />

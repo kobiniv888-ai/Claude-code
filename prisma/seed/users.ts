@@ -6,6 +6,7 @@
 import type { AppLocale } from "@/config/site";
 import type { AccountType, PrismaClient, UserRole } from "@/generated/prisma/client";
 import { DEMO_EMAIL_DOMAIN } from "@/lib/demo";
+import { PLEDGE_CURRENT_VERSION } from "@/lib/pledge";
 import { daysFromNow } from "./lib";
 
 export type DemoUserKey =
@@ -145,12 +146,17 @@ export function demoUser(key: DemoUserKey): DemoUserSeed {
   return user;
 }
 
+/** Demo accounts that post listings. */
+const DEMO_HOSTS: ReadonlySet<DemoUserKey> = new Set(["yossi", "natela", "michael", "rivka", "hotel", "guesthouse"]);
+
 export async function seedUsers(db: PrismaClient, now: Date): Promise<number> {
   const adminId = demoUserId("admin");
   // The admin first, so idVerifiedById can point at it.
   for (const user of DEMO_USERS) {
     const id = demoUserId(user.key);
     const joined = daysFromNow(-user.joinedDaysAgo, now, 9);
+    // Every demo host accepted the current Bayit welcome pledge (the green badge on their listings).
+    const isHost = DEMO_HOSTS.has(user.key);
     const data = {
       name: user.name,
       email: demoUserEmail(user.key),
@@ -170,8 +176,11 @@ export async function seedUsers(db: PrismaClient, now: Date): Promise<number> {
       idVerifiedAt: user.idVerified ? daysFromNow(-user.joinedDaysAgo + 5, now, 11) : null,
       idVerifiedById: user.idVerified ? adminId : null,
       businessVerifiedAt: user.businessVerified ? daysFromNow(-user.joinedDaysAgo + 3, now, 11) : null,
-      avgReplyMinutes: user.avgReplyMinutes ?? null,
-      replyRate: user.replyRate ?? null,
+      // No invented response times or reply rates on the site, not even for demo hosts.
+      avgReplyMinutes: null,
+      replyRate: null,
+      welcomePledgeVersion: isHost ? PLEDGE_CURRENT_VERSION : null,
+      welcomePledgeAcceptedAt: isHost ? daysFromNow(-user.joinedDaysAgo + 1, now, 10) : null,
       lastSeenAt: daysFromNow(-(user.joinedDaysAgo % 3), now, 8),
       isDemo: true,
       createdAt: joined,

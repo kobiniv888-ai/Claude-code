@@ -10,16 +10,14 @@ import { BANNED_WORDS as BANNED, DEMO_SCAM_ALERT } from "../../prisma/seed/conte
 import { FAQ as FAQ_ITEMS } from "../../prisma/seed/faq";
 import { DEMO_PLACES as PLACES } from "../../prisma/seed/jewish-places";
 import { DAY_MS, generateDailyStats, georgiaDate, seededRandom, unsplashPhotoUrl, wordCount } from "../../prisma/seed/lib";
-import { BATUMI_LISTINGS } from "../../prisma/seed/listings/batumi";
-import { KUTAISI_LISTINGS } from "../../prisma/seed/listings/kutaisi";
-import { MOUNTAIN_LISTINGS } from "../../prisma/seed/listings/mountains";
+import { ALL_LISTINGS, demoPhotoPath, REMOVED_LISTING_NUMBERS } from "../../prisma/seed/listings/all";
+import photoManifest from "../../prisma/seed/listings/photo-manifest.json";
 import { PHOTOS } from "../../prisma/seed/listings/photos";
-import { TBILISI_LISTINGS } from "../../prisma/seed/listings/tbilisi";
 import { contactMethodsFor, listingTimeline, priceChangesFor } from "../../prisma/seed/listings/timeline";
 import { NEIGHBORHOODS as NEIGHBORHOOD_DATA } from "../../prisma/seed/places";
 import { DEMO_USERS as USERS } from "../../prisma/seed/users";
 
-const LISTINGS = [...TBILISI_LISTINGS, ...KUTAISI_LISTINGS, ...BATUMI_LISTINGS, ...MOUNTAIN_LISTINGS];
+const LISTINGS = ALL_LISTINGS;
 const JEWISH_PLACE_TYPES_FOR_TEST = ["SYNAGOGUE", "CHABAD_HOUSE", "KOSHER_RESTAURANT", "KOSHER_SHOP", "MIKVEH", "HERITAGE_SITE"];
 
 vi.mock("server-only", () => ({}));
@@ -119,22 +117,34 @@ describe("listing timeline", () => {
 });
 
 describe("demo listings data", () => {
-  it("has 25 listings with the required mix", () => {
-    expect(LISTINGS).toHaveLength(25);
-    expect(new Set(LISTINGS.map((l) => l.n)).size).toBe(25);
+  it("has 20 listings with the required mix", () => {
+    expect(LISTINGS).toHaveLength(20);
+    expect(new Set(LISTINGS.map((l) => l.n)).size).toBe(20);
+    for (const n of REMOVED_LISTING_NUMBERS) expect(LISTINGS.some((l) => l.n === n), `listing ${n} was removed`).toBe(false);
     const sales = LISTINGS.filter((l) => l.fields.dealType === "SALE");
-    expect(sales.length).toBeGreaterThanOrEqual(4);
+    expect(sales.length).toBeGreaterThanOrEqual(3);
     expect(sales.length).toBeLessThanOrEqual(5);
-    expect(sales.map((l) => l.fields.condition)).toEqual(expect.arrayContaining(["WHITE_FRAME", "BLACK_FRAME"]));
+    expect(sales.map((l) => l.fields.condition)).toEqual(expect.arrayContaining(["WHITE_FRAME"]));
+    for (const deal of ["SHORT_STAY", "MONTHLY_RENT", "SALE", "HOTEL_ROOM"]) {
+      expect(LISTINGS.some((l) => l.status === "LIVE" && l.fields.dealType === deal), deal).toBe(true);
+    }
+    // Every Jewish-life badge appears on at least one live listing.
+    const live = LISTINGS.filter((l) => l.status === "LIVE");
+    expect(live.some((l) => l.fields.kitchenKosher === "KOSHER")).toBe(true);
+    expect(live.some((l) => (l.fields.hotelJewishFeatures as string[] | undefined)?.includes("kosher_breakfast"))).toBe(true);
+    expect(live.some((l) => (l.fields.jewishFeatures as string[] | undefined)?.includes("host_keeps_shabbat"))).toBe(true);
+    expect(live.some((l) => (l.fields.jewishFeatures as string[] | undefined)?.includes("host_speaks_hebrew"))).toBe(true);
     expect(LISTINGS.filter((l) => l.fields.dealType === "HOTEL_ROOM")).toHaveLength(2);
     expect(LISTINGS.some((l) => l.fields.propertyType === "ROOM" && l.fields.sharedRoomFor)).toBe(true);
     expect(LISTINGS.some((l) => (l.fields.maxGuests ?? 0) >= 10)).toBe(true);
     expect(LISTINGS.filter((l) => l.featured && l.status === "LIVE")).toHaveLength(2);
     expect(LISTINGS.some((l) => (l.priceHistory?.length ?? 0) > 0)).toBe(true);
     const ownerOneStatuses = LISTINGS.filter((l) => l.owner === "yossi").map((l) => l.status);
-    expect(ownerOneStatuses).toEqual(expect.arrayContaining(["IN_REVIEW", "NEEDS_CHANGES", "PAUSED", "DRAFT", "EXPIRED", "RENTED", "LIVE"]));
+    expect(ownerOneStatuses).toEqual(expect.arrayContaining(["IN_REVIEW", "NEEDS_CHANGES", "PAUSED", "LIVE"]));
     const cities = new Set(LISTINGS.map((l) => l.city));
-    for (const city of ["tbilisi", "batumi", "kutaisi", "gudauri", "bakuriani"]) expect(cities.has(city)).toBe(true);
+    for (const city of ["tbilisi", "batumi", "kutaisi", "kobuleti", "gudauri", "bakuriani", "kazbegi", "sighnaghi"]) {
+      expect(cities.has(city), city).toBe(true);
+    }
   });
 
   it("uses known vocabulary keys", () => {
@@ -166,16 +176,21 @@ describe("demo listings data", () => {
     }
   });
 
-  it("has 6–10 photos per published listing, none shared between listings, room photos inside the listing", () => {
+  it("has 4–6 local photos per published listing, none shared between listings, room photos inside the listing", () => {
     const seen = new Map<string, number>();
+    const manifest = photoManifest as Record<string, { width: number; blurDataURL: string }>;
     for (const l of LISTINGS) {
       if (l.status === "DRAFT") expect(l.photos).toHaveLength(0);
       else {
-        expect(l.photos.length, `listing ${l.n}`).toBeGreaterThanOrEqual(6);
-        expect(l.photos.length, `listing ${l.n}`).toBeLessThanOrEqual(10);
+        expect(l.photos.length, `listing ${l.n}`).toBeGreaterThanOrEqual(4);
+        expect(l.photos.length, `listing ${l.n}`).toBeLessThanOrEqual(6);
       }
       for (const key of l.photos) {
         expect(PHOTOS[key], key).toBeDefined();
+        const file = manifest[demoPhotoPath(l, key)];
+        expect(file, `${demoPhotoPath(l, key)} is downloaded`).toBeDefined();
+        expect(file.width).toBeLessThanOrEqual(1600);
+        expect(file.blurDataURL).toMatch(/^data:image\/webp;base64,/);
         const id = PHOTOS[key];
         expect(seen.get(id), `${key} used by listings ${seen.get(id)} and ${l.n}`).toBeUndefined();
         seen.set(id, l.n);

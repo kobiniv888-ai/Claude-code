@@ -84,9 +84,10 @@ const kind = { dealType: "SHORT_STAY", propertyType: "APARTMENT" } as const;
 describe("steps", () => {
   it("adds the room types step only for hotels", () => {
     expect(stepsFor(kind)).not.toContain("rooms");
-    expect(stepsFor(kind)).toHaveLength(10);
+    expect(stepsFor(kind)).toHaveLength(11);
+    expect(stepsFor(kind).slice(-2)).toEqual(["pledge", "publish"]);
     const hotel = { dealType: "HOTEL_ROOM", propertyType: "HOTEL" } as const;
-    expect(stepsFor(hotel)).toHaveLength(11);
+    expect(stepsFor(hotel)).toHaveLength(12);
     expect(stepNumber("rooms", hotel)).toBe(8);
     expect(stepNumber("price", hotel)).toBe(9);
     expect(stepNumber("price", kind)).toBe(8);
@@ -244,19 +245,21 @@ describe("missingRequirements", () => {
       values: { ...base, price: null, contactMethods: [] },
       photoCount: 3,
       phoneVerified: false,
+      pledgeAccepted: false,
     });
-    expect(missing.map((m) => m.key)).toEqual(["phoneVerified", "photos", "price", "contact"]);
+    expect(missing.map((m) => m.key)).toEqual(["phoneVerified", "photos", "price", "contact", "pledge"]);
     expect(missing.find((m) => m.key === "photos")?.step).toBe("photos");
+    expect(missing.find((m) => m.key === "pledge")?.step).toBe("pledge");
   });
 
   it("is empty for a complete listing", () => {
-    expect(missingRequirements({ values: base, photoCount: 5, phoneVerified: true })).toEqual([]);
+    expect(missingRequirements({ values: base, photoCount: 5, phoneVerified: true, pledgeAccepted: true })).toEqual([]);
   });
 
   it("lets hotels use room-type photos and prices", () => {
     const hotel = { ...base, dealType: "HOTEL_ROOM" as const, propertyType: "HOTEL" as const, price: null, maxGuests: null };
-    expect(missingRequirements({ values: hotel, photoCount: 2, roomPhotoCount: 3, pricedRoomTypes: 1, phoneVerified: true })).toEqual([]);
-    expect(missingRequirements({ values: hotel, photoCount: 5, pricedRoomTypes: 0, phoneVerified: true })).toEqual([
+    expect(missingRequirements({ values: hotel, photoCount: 2, roomPhotoCount: 3, pricedRoomTypes: 1, phoneVerified: true, pledgeAccepted: true })).toEqual([]);
+    expect(missingRequirements({ values: hotel, photoCount: 5, pricedRoomTypes: 0, phoneVerified: true, pledgeAccepted: true })).toEqual([
       { key: "price", step: "rooms" },
     ]);
   });

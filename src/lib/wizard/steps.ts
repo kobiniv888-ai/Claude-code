@@ -19,11 +19,13 @@ export const WIZARD_STEP_KEYS = [
   "rooms",
   "price",
   "contact",
+  // The Bayit welcome pledge (required; saved on the user, not the listing).
+  "pledge",
   "publish",
 ] as const;
 export type WizardStepKey = (typeof WIZARD_STEP_KEYS)[number];
 
-/** Steps saved with updateDraft(listingId, step, data). Photos, rooms and publish have their own actions. */
+/** Steps saved with updateDraft(listingId, step, data). Photos, rooms, pledge and publish have their own actions. */
 export const SAVABLE_STEPS = ["deal", "property", "location", "details", "amenities", "jewish", "price", "contact"] as const;
 export type SavableStepKey = (typeof SAVABLE_STEPS)[number];
 

@@ -141,7 +141,9 @@ export function LoginDialogProviderClient({
         >
           <DialogHeader className="pe-8 text-start">
             <DialogTitle className="text-xl font-semibold">{t("dialogTitle")}</DialogTitle>
-            <DialogDescription className="text-sm">{t("dialogSubtitle")}</DialogDescription>
+            <DialogDescription className="text-sm">
+              {t(config.providers.google || config.providers.apple ? "dialogSubtitle" : "dialogSubtitlePhoneOnly")}
+            </DialogDescription>
           </DialogHeader>
           <DialogClose asChild>
             <Button variant="ghost" size="icon" className="absolute end-3 top-3" aria-label={t("close")}>
