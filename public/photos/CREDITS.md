@@ -37,7 +37,10 @@ Every photo in `public/photos/`, where it comes from and its license. Generated 
 | `/photos/hero/mestia.webp` | Svan towers in Mestia at sunset | Marek Piwnicki | [Unsplash License](https://unsplash.com/license) | [link](https://unsplash.com/photos/akB2NtavKfA) |
 | `/photos/hero/sighnaghi.webp` | Terracotta roofs and a bell tower in Sighnaghi | NOMAD GULL | [Unsplash License](https://unsplash.com/license) | [link](https://unsplash.com/photos/vn-KT5CsLOY) |
 | `/photos/hero/tbilisi.webp` | Narikala fortress above the roofs of Old Tbilisi | Khrystyna Miskevych | [Unsplash License](https://unsplash.com/license) | [link](https://unsplash.com/photos/W6PQKa74oME) |
+| `/photos/jewish/batumi-synagogue.webp` | The Batumi synagogue | IgorTurzh | [Public domain](https://commons.wikimedia.org/wiki/Commons:Licensing) | [link](https://commons.wikimedia.org/wiki/File:%D0%91%D0%B0%D1%82%D1%83%D0%BC%D1%81%D1%8C%D0%BA%D0%B0_%D1%81%D0%B8%D0%BD%D0%B0%D0%B3%D0%BE%D0%B3%D0%B0_%D0%BB%D0%B8%D0%BF%D0%B5%D0%BD%D1%8C_2019.JPG) |
 | `/photos/jewish/challah.webp` | A braided challah for Shabbat | Jing Wang | [Unsplash License](https://unsplash.com/license) | [link](https://unsplash.com/photos/LDXu5N0W82k) |
+| `/photos/jewish/synagogue-interior.webp` | Inside the Great Synagogue of Tbilisi | יעקב | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | [link](https://commons.wikimedia.org/wiki/File:Interior_of_Tbilisi_great_synagogue_1274.jpg) |
+| `/photos/jewish/tbilisi-great-synagogue.webp` | The Great Synagogue of Tbilisi | Александр Сигачёв | [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) | [link](https://commons.wikimedia.org/wiki/File:Tbilisi_-_Great_Synagogue_of_Tbilisi_-_2025-10_-_p1.jpg) |
 
 ## Demo listing photos
 

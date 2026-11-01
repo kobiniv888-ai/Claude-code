@@ -63,9 +63,9 @@ The synagogue photos come from Wikimedia Commons: run `bash scripts/fetch-wikime
 
 | Path | What it should show | Aspect ratio | Minimum size | Where it appears | Now |
 |---|---|---|---|---|---|
-| `public/photos/jewish/tbilisi-great-synagogue.webp` | The Great Synagogue of Tbilisi (outside), no police cars or flags | 3:2 | 1920×1280 | Jewish life page hero and the home page "Jewish life in Georgia" band | **missing** — shows the “photo coming soon” placeholder |
-| `public/photos/jewish/batumi-synagogue.webp` | The Batumi synagogue (outside) | 3:2 | 1920×1280 | Home page "Jewish life in Georgia" band and the Jewish life page | **missing** — shows the “photo coming soon” placeholder |
-| `public/photos/jewish/synagogue-interior.webp` | Inside a Georgian synagogue (the ark, the bimah), without congregants | 3:2 | 1920×1280 | Jewish life page (synagogues section) | **missing** — shows `jewish.challah` meanwhile |
+| `public/photos/jewish/tbilisi-great-synagogue.webp` | The Great Synagogue of Tbilisi (outside), no police cars or flags | 3:2 | 1920×1280 | Jewish life page hero and the home page "Jewish life in Georgia" band | Wikimedia Commons (CC0 1.0) |
+| `public/photos/jewish/batumi-synagogue.webp` | The Batumi synagogue (outside) | 3:2 | 1920×1280 | Home page "Jewish life in Georgia" band and the Jewish life page | Wikimedia Commons (Public domain) |
+| `public/photos/jewish/synagogue-interior.webp` | Inside a Georgian synagogue (the ark, the bimah), without congregants | 3:2 | 1920×1280 | Jewish life page (synagogues section) | Wikimedia Commons (CC0 1.0) |
 | `public/photos/jewish/challah.webp` | Challah for Shabbat (stock photo, shown until the synagogue interior photo arrives) | 3:2 | 1600×1067 | Fallback for the synagogue interior | stock (Unsplash License) |
 | `public/photos/jewish/kosher-food.webp` | Kosher food in Georgia: a kosher shop shelf or a dish — no restaurant names or logos | 3:2 | 1600×1067 | Jewish life page (kosher food section) | **missing** — shows the “photo coming soon” placeholder |
 | `public/photos/jewish/community.webp` | Jewish community life in Georgia (a Shabbat table, a Chabad house building) — no faces as the subject | 3:2 | 1600×1067 | Jewish life page (community section) | **missing** — shows the “photo coming soon” placeholder |
