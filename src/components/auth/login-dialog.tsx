@@ -12,30 +12,29 @@ import {
   type ReactNode,
 } from "react";
 import dynamic from "next/dynamic";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { LogInIcon, XIcon } from "lucide-react";
+import { Dialog as DialogPrimitive } from "radix-ui";
+import { Drawer } from "vaul";
+import { useIsDesktop } from "@/components/ds/bottom-sheet";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import { siteConfig, type AppLocale } from "@/config/site";
 import { Link, useRouter } from "@/i18n/navigation";
 import type { LoginConfig } from "@/lib/auth/config";
 import { safeNextPath, withNext } from "@/lib/auth/next-path";
-import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import type { LoginStage } from "./login-panel";
+import { LoginWelcome } from "./login-welcome";
 
 // The login form (phone input with the country list and number rules) loads when the dialog
-// opens, not with every page.
+// opens, not with every page. The welcome block above it (door, headline, benefits) is light and
+// shows at once.
 const LoginPanel = dynamic(() => import("./login-panel").then((m) => m.LoginPanel), {
   loading: () => (
     <div aria-hidden className="grid gap-3">
-      <Skeleton className="h-11 rounded-xl" />
-      <Skeleton className="h-11 rounded-xl" />
+      <Skeleton className="h-12 rounded-input" />
+      <Skeleton className="h-12 rounded-full" />
     </div>
   ),
 });
@@ -85,8 +84,13 @@ export function LoginDialogProviderClient({
     signedInRef.current = signedIn;
   }, [signedIn]);
 
+  const locale = useLocale();
+  const isDesktop = useIsDesktop();
   const [open, setOpen] = useState(false);
   const [next, setNext] = useState("/");
+  const [stage, setStage] = useState<LoginStage>("start");
+  /** Opened for an action ("Show contact"…): the headline says "Log in to continue". */
+  const [forAction, setForAction] = useState(false);
   const pending = useRef<PendingAction | null>(null);
   // The button or link that opened the dialog. The phone field takes focus as soon as the dialog
   // mounts, so the dialog cannot tell on its own where to give focus back when it closes.
@@ -96,6 +100,8 @@ export function LoginDialogProviderClient({
     const active = document.activeElement;
     opener.current = active instanceof HTMLElement && active !== document.body ? active : null;
     pending.current = afterLogin ?? null;
+    setForAction(!!afterLogin);
+    setStage("start");
     setNext(currentPath());
     setOpen(true);
   }, []);
@@ -117,42 +123,97 @@ export function LoginDialogProviderClient({
     if (action) await action();
   }
 
+  const hasSocial = config.providers.google || config.providers.apple;
+  const title = forAction
+    ? t("dialogTitle")
+    : t("title", { name: siteConfig.localizedName[locale as AppLocale] ?? siteConfig.name });
+  const description = t(hasSocial ? "dialogSubtitle" : "dialogSubtitlePhoneOnly");
+
+  const onOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (!nextOpen) pending.current = null;
+  };
+  const onCloseAutoFocus = (event: Event) => {
+    const target = opener.current;
+    opener.current = null;
+    if (target?.isConnected) {
+      event.preventDefault();
+      target.focus({ preventScroll: true });
+    }
+  };
+  const content = (
+    Title: typeof Drawer.Title | typeof DialogPrimitive.Title,
+    Description: typeof Drawer.Description | typeof DialogPrimitive.Description,
+    Close: typeof Drawer.Close | typeof DialogPrimitive.Close,
+  ) => (
+    <>
+      {/* First in the dialog, so it takes the initial focus on phones (no keyboard pops up). */}
+      <Close asChild>
+        <button
+          type="button"
+          aria-label={t("close")}
+          className="absolute end-2 top-2 z-10 inline-flex size-11 items-center justify-center rounded-full text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          <XIcon className="size-5" aria-hidden />
+        </button>
+      </Close>
+      <LoginWelcome
+        title={title}
+        description={description}
+        compact={stage !== "start"}
+        Title={Title}
+        Description={Description}
+      />
+      <div className="mt-5">
+        {open && (
+          <LoginPanel
+            variant="dialog"
+            config={config}
+            next={next}
+            onSuccess={onSuccess}
+            onStageChange={setStage}
+            // Desktop: straight into the phone field. Phones: no keyboard over the sheet at once.
+            autoFocus={isDesktop && !hasSocial}
+          />
+        )}
+      </div>
+    </>
+  );
+
   return (
     <LoginDialogContext.Provider value={value}>
       {children}
-      <Dialog
-        open={open}
-        onOpenChange={(nextOpen) => {
-          setOpen(nextOpen);
-          if (!nextOpen) pending.current = null;
-        }}
-      >
-        <DialogContent
-          showCloseButton={false}
-          className="max-h-[calc(100dvh-2rem)] gap-5 overflow-y-auto rounded-2xl p-5 sm:max-w-md sm:p-7"
-          onCloseAutoFocus={(event) => {
-            const target = opener.current;
-            opener.current = null;
-            if (target?.isConnected) {
-              event.preventDefault();
-              target.focus({ preventScroll: true });
-            }
-          }}
-        >
-          <DialogHeader className="pe-8 text-start">
-            <DialogTitle className="text-xl font-semibold">{t("dialogTitle")}</DialogTitle>
-            <DialogDescription className="text-sm">
-              {t(config.providers.google || config.providers.apple ? "dialogSubtitle" : "dialogSubtitlePhoneOnly")}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogClose asChild>
-            <Button variant="ghost" size="icon" className="absolute end-3 top-3" aria-label={t("close")}>
-              <XIcon aria-hidden />
-            </Button>
-          </DialogClose>
-          {open && <LoginPanel variant="dialog" config={config} next={next} onSuccess={onSuccess} />}
-        </DialogContent>
-      </Dialog>
+      {isDesktop ? (
+        <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+          <DialogPrimitive.Portal>
+            <DialogPrimitive.Overlay className="fixed inset-0 z-(--z-sheet) bg-(--scrim) data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
+            <DialogPrimitive.Content
+              data-slot="login-dialog"
+              onCloseAutoFocus={onCloseAutoFocus}
+              className="fixed start-1/2 top-1/2 z-(--z-sheet) max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto overscroll-contain rounded-sheet bg-card p-6 pt-5 text-card-foreground shadow-float outline-none duration-(--motion-base) rtl:translate-x-1/2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 sm:p-7 sm:pt-6"
+            >
+              {content(DialogPrimitive.Title, DialogPrimitive.Description, DialogPrimitive.Close)}
+            </DialogPrimitive.Content>
+          </DialogPrimitive.Portal>
+        </DialogPrimitive.Root>
+      ) : (
+        <Drawer.Root open={open} onOpenChange={onOpenChange} autoFocus>
+          <Drawer.Portal>
+            <Drawer.Overlay data-bayit-sheet="" className="fixed inset-0 z-(--z-sheet) bg-(--scrim)" />
+            <Drawer.Content
+              data-slot="login-dialog"
+              data-bayit-sheet=""
+              onCloseAutoFocus={onCloseAutoFocus}
+              className="fixed inset-x-0 bottom-0 z-(--z-sheet) flex max-h-[94dvh] flex-col rounded-t-sheet bg-card text-card-foreground shadow-sheet outline-none"
+            >
+              <div aria-hidden className="mx-auto mt-2.5 h-1.5 w-11 shrink-0 rounded-full bg-border" />
+              <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-gutter pt-1 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+                {content(Drawer.Title, Drawer.Description, Drawer.Close)}
+              </div>
+            </Drawer.Content>
+          </Drawer.Portal>
+        </Drawer.Root>
+      )}
     </LoginDialogContext.Provider>
   );
 }

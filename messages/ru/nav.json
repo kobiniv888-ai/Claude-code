@@ -25,7 +25,27 @@
     "browse": "Разделы",
     "settings": "Настройки",
     "account": "Мой аккаунт",
-    "more": "Ещё"
+    "more": "Ещё",
+    "groups": {
+      "search": "Поиск",
+      "jewish": "Еврейская жизнь",
+      "help": "Помощь и безопасность",
+      "settings": "Настройки",
+      "legal": "Правовая информация"
+    },
+    "links": {
+      "jewishLifeHome": "Еврейская жизнь в Грузии",
+      "shabbatTimes": "Время Шаббата",
+      "calendar": "Еврейский календарь",
+      "communityMap": "Карта общины",
+      "emergency": "Экстренные номера",
+      "howItWorks": "Как это работает",
+      "listingRules": "Правила размещения",
+      "terms": "Условия использования",
+      "privacy": "Политика конфиденциальности",
+      "cookies": "Политика cookie",
+      "accessibility": "Доступность"
+    }
   },
   "language": {
     "label": "Язык",

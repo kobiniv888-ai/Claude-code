@@ -16,7 +16,8 @@
   "header": {
     "listingId": "ID <ltr>{id}</ltr>",
     "updated": "Updated {date}",
-    "views": "{count, plural, one {{formatted} view} other {{formatted} views}}"
+    "views": "{count, plural, one {{formatted} view} other {{formatted} views}}",
+    "posted": "Posted {date}"
   },
   "status": {
     "title": "Not public: {status}",
@@ -65,7 +66,7 @@
   "gallery": {
     "label": "Photos of {title}",
     "open": "Open photo {index} of {total}",
-    "showAll": "{count, plural, one {Show the photo} other {Show all {formatted} photos}}",
+    "showAll": "{count, plural, one {1 photo} other {All {formatted} photos}}",
     "counter": "{index} / {total}",
     "slide": "Photo {index} of {total}",
     "previous": "Previous photo",
@@ -78,7 +79,9 @@
     "videoTitle": "Video of {title}",
     "videoHint": "The video plays from YouTube or Vimeo.",
     "tour": "360° tour",
-    "opensNewTab": "(opens in a new tab)"
+    "opensNewTab": "(opens in a new tab)",
+    "back": "Back",
+    "allPhotos": "All photos"
   },
   "share": {
     "button": "Share",
@@ -94,7 +97,7 @@
   },
   "contactBox": {
     "label": "Contact the owner",
-    "hostedBy": "Listed by",
+    "hostedBy": "Hosted by",
     "hostedByBusiness": "Business",
     "languages": "Speaks",
     "memberSince": "Member since",
@@ -134,14 +137,14 @@
   "description": {
     "title": "About this place",
     "empty": "The owner has not written a description yet.",
-    "showMore": "Show more",
+    "showMore": "Read more",
     "showLess": "Show less"
   },
   "amenities": {
     "title": "Amenities"
   },
   "jewish": {
-    "title": "Jewish-friendly",
+    "title": "For those who keep tradition",
     "kitchen": "Kitchen",
     "synagogue": "Nearest synagogue",
     "chabad": "Chabad house",
@@ -153,7 +156,12 @@
     "hasNot": "No",
     "jewishFeatures": "More for Jewish guests",
     "hotelKosher": "Kosher food",
-    "supervision": "Kosher supervision"
+    "supervision": "Kosher supervision",
+    "subtitle": "Kosher, Shabbat and synagogue at a glance",
+    "host": "The host",
+    "keepsShabbat": "Keeps Shabbat",
+    "keepsShabbatHint": "Does not reply on Shabbat and holidays",
+    "sukkah": "Space for a sukkah"
   },
   "rules": {
     "title": "House rules",
@@ -219,7 +227,8 @@
     "views": "View",
     "condition": "Condition",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "showAll": "{count, plural, one {Show 1 detail} other {Show all {count} details}}"
   },
   "rooms": {
     "title": "Rooms",
@@ -273,7 +282,7 @@
     "reportHint": "Something wrong with this listing? Tell us."
   },
   "similar": {
-    "title": "Similar places",
+    "title": "Similar homes",
     "viewAll": "See more in this city"
   },
   "notFound": {
@@ -281,5 +290,18 @@
     "description": "It may have been rented, sold or removed by the owner. There are many more places to see.",
     "search": "Browse listings",
     "home": "Back to home"
+  },
+  "facts": {
+    "title": "Key facts",
+    "elevator": "Elevator",
+    "furnished": "Furnished"
+  },
+  "price": {
+    "perSqm": "{price} per m²",
+    "dropped": "Price recently dropped"
+  },
+  "host": {
+    "title": "Your host",
+    "profile": "Profile and all listings"
   }
 }

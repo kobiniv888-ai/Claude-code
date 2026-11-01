@@ -6,6 +6,7 @@ import { CopyIcon, Share2Icon } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { FacebookIcon, TelegramIcon, WhatsAppIcon, brandColors } from "@/components/common/brand-icons";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,7 +19,18 @@ import {
  * Share: the phone's own share sheet when there is one, otherwise WhatsApp, Telegram,
  * Facebook and "Copy link".
  */
-export function ShareMenu({ url, title }: { url: string; title: string }) {
+export function ShareMenu({
+  url,
+  title,
+  variant = "outline",
+  className,
+}: {
+  url: string;
+  title: string;
+  /** outline = labeled pill on the page; round = a white 44px circle over the photo. */
+  variant?: "outline" | "round";
+  className?: string;
+}) {
   const t = useTranslations("listing.share");
   const [native, setNative] = useState(false);
 
@@ -45,28 +57,30 @@ export function ShareMenu({ url, title }: { url: string; title: string }) {
     }
   };
 
-  const button = (
-    <Button type="button" variant="outline" className="h-10 rounded-full">
+  const round = variant === "round";
+  const shareNative = () => {
+    navigator.share({ title, text, url }).catch(() => undefined);
+  };
+  const button = round ? (
+    <button
+      type="button"
+      aria-label={t("button")}
+      onClick={native ? shareNative : undefined}
+      className={cn(
+        "inline-flex size-11 items-center justify-center rounded-full bg-card/95 text-foreground shadow-raised outline-none backdrop-blur transition-transform duration-(--motion-fast) ease-standard hover:bg-card focus-visible:ring-3 focus-visible:ring-ring/60 active:scale-95 motion-reduce:active:scale-100",
+        className,
+      )}
+    >
+      <Share2Icon className="size-5" aria-hidden />
+    </button>
+  ) : (
+    <Button type="button" variant="outline" className={cn("h-11 rounded-full px-4", className)} onClick={native ? shareNative : undefined}>
       <Share2Icon aria-hidden />
       {t("button")}
     </Button>
   );
 
-  if (native) {
-    return (
-      <Button
-        type="button"
-        variant="outline"
-        className="h-10 rounded-full"
-        onClick={() => {
-          navigator.share({ title, text, url }).catch(() => undefined);
-        }}
-      >
-        <Share2Icon aria-hidden />
-        {t("button")}
-      </Button>
-    );
-  }
+  if (native) return button;
 
   return (
     <DropdownMenu>

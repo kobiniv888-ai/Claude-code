@@ -19,6 +19,10 @@ const sizes = {
   lg: { main: "text-2xl font-bold tracking-tight", extra: "text-sm" },
   /** Listing card v2: big and heavy, the unit beside it. */
   card: { main: "text-xl font-extrabold tracking-tight", extra: "text-sm font-medium" },
+  /** Listing page contact bar: compact but heavy. */
+  bar: { main: "text-lg leading-tight font-extrabold tracking-tight", extra: "text-caption font-medium" },
+  /** Listing page: the biggest, the unit beside it. */
+  hero: { main: "text-[1.75rem] leading-tight font-extrabold tracking-tight sm:text-3xl", extra: "text-base font-medium" },
 } as const;
 
 /** Sale prices from this amount are shortened on cards ("₪1.2M"). */

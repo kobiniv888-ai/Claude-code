@@ -1,12 +1,29 @@
 "use client";
 
-import { Suspense, useState, type ReactNode } from "react";
+import { Suspense, useId, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
-import { Heart, Mail, Menu, Plus, ShieldCheck, UserRound, X } from "lucide-react";
+import {
+  CalendarDays,
+  Compass,
+  Heart,
+  Info,
+  LifeBuoy,
+  Mail,
+  MapPinned,
+  Menu,
+  Phone,
+  Plus,
+  ShieldCheck,
+  UserRound,
+  X,
+} from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { LoginButton } from "@/components/auth/login-dialog";
 import { LogoLink } from "@/components/common/logo";
 import { ChevronEnd } from "@/components/common/directional-icon";
+import { buttonStyles } from "@/components/ds/button";
+import { IconCircle, type IconCircleProps } from "@/components/ds/icon-circle";
+import { ShabbatCandlesIcon, SynagogueIcon, type IconComponent } from "@/components/ds/jewish-icons";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -22,65 +39,125 @@ import { isRtl } from "@/i18n/locale";
 import { cn } from "@/lib/utils";
 import { CurrencyChips } from "./currency-switcher";
 import { LanguageList } from "./language-switcher";
-import { activeNavKey, NAV_ITEMS, type NavKey } from "./nav-items";
+import { activeNavKey, NAV_ITEMS, normalizePath, type NavKey } from "./nav-items";
 import { ThemeSegmented } from "./theme-toggle";
 
-function NavList({ active, onNavigate }: { active: NavKey | null; onNavigate: () => void }) {
-  const t = useTranslations("nav");
+type Tone = NonNullable<IconCircleProps["tone"]>;
+type Row = { id: string; href: string; label: string; icon: IconComponent; tone: Tone; current?: boolean };
+
+/** One livo-style row: an icon in a tinted circle, the label and a chevron. */
+function MenuRow({ row, onNavigate }: { row: Row; onNavigate: () => void }) {
   return (
-    <nav aria-label={t("mainNav")}>
-      <ul className="grid gap-0.5">
-        {NAV_ITEMS.map(({ key, href, icon: Icon }) => {
-          const current = key === active;
-          return (
-            <li key={key}>
-              <Link
-                href={href}
-                onClick={onNavigate}
-                aria-current={current ? "page" : undefined}
-                className={cn(
-                  "flex min-h-12 items-center gap-3 rounded-xl px-3 text-[15px] font-medium outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50",
-                  current && "bg-secondary text-primary hover:bg-secondary",
-                )}
-              >
-                <Icon aria-hidden className={cn("size-5", current ? "text-primary" : "text-muted-foreground")} />
-                <span className="flex-1">{t(`tabs.${key}`)}</span>
-                <ChevronEnd aria-hidden className="size-4 text-muted-foreground/60" />
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </nav>
+    <li>
+      <Link
+        href={row.href}
+        onClick={onNavigate}
+        aria-current={row.current ? "page" : undefined}
+        className={cn(
+          "group flex min-h-12 items-center gap-3 rounded-input px-2 py-1 text-body font-medium text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50",
+          row.current && "bg-navy-soft font-semibold hover:bg-navy-soft",
+        )}
+      >
+        <IconCircle icon={row.icon} tone={row.tone} size="sm" />
+        <span className="min-w-0 flex-1 truncate">{row.label}</span>
+        <ChevronEnd
+          aria-hidden
+          className="size-4 shrink-0 text-muted-foreground/70 transition-transform duration-(--motion-fast) group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5 motion-reduce:transition-none"
+        />
+      </Link>
+    </li>
   );
 }
 
-function NavListWithQuery(props: { onNavigate: () => void }) {
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  return <NavList active={activeNavKey(pathname, searchParams)} {...props} />;
-}
-
-function NavListWithoutQuery(props: { onNavigate: () => void }) {
-  return <NavList active={activeNavKey(usePathname())} {...props} />;
-}
-
-function MenuSection({ title, children }: { title: string; children: ReactNode }) {
+function MenuGroup({ title, children, className }: { title: string; children: ReactNode; className?: string }) {
+  const id = useId();
   return (
-    <section className="grid gap-2.5">
-      <h3 className="px-1 text-xs font-semibold text-muted-foreground">{title}</h3>
+    <section aria-labelledby={id} className={cn("grid gap-1.5", className)}>
+      <h3 id={id} className="px-2 text-caption font-semibold tracking-wide text-muted-foreground">
+        {title}
+      </h3>
       {children}
     </section>
   );
 }
 
-/** Phone header: a menu sheet with every tab, the switchers and account shortcuts. */
-export function MobileMenu({ isSignedIn, postLabel }: { isSignedIn: boolean; postLabel: string }) {
+const SEARCH_TONES: Partial<Record<NavKey, Tone>> = { rent: "navy", buy: "navy", hotels: "navy", map: "green" };
+
+/** "Find a place": rent, buy, hotels, map (matched with the query, like the desktop tabs) and saved. */
+function SearchRows({ active, onNavigate }: { active: NavKey | null; onNavigate: () => void }) {
+  const t = useTranslations("nav");
+  const path = normalizePath(usePathname());
+  const rows: Row[] = [
+    ...NAV_ITEMS.filter((item) => item.key in SEARCH_TONES).map((item) => ({
+      id: item.key,
+      href: item.href,
+      label: t(`tabs.${item.key}`),
+      icon: item.icon,
+      tone: SEARCH_TONES[item.key] ?? "navy",
+      current: item.key === active,
+    })),
+    {
+      id: "saved",
+      href: "/account/favorites",
+      label: t("saved"),
+      icon: Heart,
+      tone: "coral",
+      current: path === "/account/favorites",
+    },
+  ];
+  return (
+    <ul className="grid gap-0.5">
+      {rows.map((row) => (
+        <MenuRow key={row.id} row={row} onNavigate={onNavigate} />
+      ))}
+    </ul>
+  );
+}
+
+function SearchRowsWithQuery(props: { onNavigate: () => void }) {
+  return <SearchRows active={activeNavKey(usePathname(), useSearchParams())} {...props} />;
+}
+
+function SearchRowsWithoutQuery(props: { onNavigate: () => void }) {
+  return <SearchRows active={activeNavKey(usePathname())} {...props} />;
+}
+
+const legalLinks = [
+  { key: "listingRules", href: "/legal/listing-rules" },
+  { key: "terms", href: "/legal/terms" },
+  { key: "privacy", href: "/legal/privacy" },
+  { key: "cookies", href: "/legal/cookies" },
+  { key: "accessibility", href: "/legal/accessibility" },
+] as const;
+
+/**
+ * Phone header: the side menu. Post and log in (or My account) on top, then grouped rows with an
+ * icon in a tinted circle — find a place, Jewish life, help & safety — the language, currency and
+ * theme pickers, and the legal pages.
+ */
+// `postLabel` is kept for callers; the menu uses the short "Post" label next to "Log in".
+export function MobileMenu({ isSignedIn }: { isSignedIn: boolean; postLabel?: string }) {
   const t = useTranslations("nav");
   const tc = useTranslations("common");
   const locale = useLocale();
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
+  const path = normalizePath(usePathname());
+
+  const jewishRows: Row[] = [
+    { id: "home", href: "/jewish-life", label: t("menu.links.jewishLifeHome"), icon: SynagogueIcon, tone: "navy", current: path === "/jewish-life" },
+    { id: "times", href: "/jewish-life#shabbat-times", label: t("menu.links.shabbatTimes"), icon: ShabbatCandlesIcon, tone: "coral" },
+    { id: "calendar", href: "/jewish-life#calendar", label: t("menu.links.calendar"), icon: CalendarDays, tone: "green" },
+    { id: "places", href: "/jewish-life#places", label: t("menu.links.communityMap"), icon: MapPinned, tone: "navy" },
+    { id: "emergency", href: "/jewish-life#emergency", label: t("menu.links.emergency"), icon: Phone, tone: "amber" },
+  ];
+  const helpRows: Row[] = [
+    { id: "help", href: "/help", label: t("tabs.help"), icon: LifeBuoy, tone: "navy" },
+    { id: "safety", href: "/safety", label: t("safety"), icon: ShieldCheck, tone: "green" },
+    { id: "contact", href: "/contact", label: t("contact"), icon: Mail, tone: "navy" },
+    { id: "about", href: "/about", label: t("tabs.about"), icon: Info, tone: "neutral" },
+    { id: "how", href: "/how-it-works", label: t("menu.links.howItWorks"), icon: Compass, tone: "neutral" },
+  ].map((row) => ({ ...row, tone: row.tone as Tone, current: path === row.href }));
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -114,67 +191,75 @@ export function MobileMenu({ isSignedIn, postLabel }: { isSignedIn: boolean; pos
           </SheetClose>
         </SheetHeader>
 
-        <div className="flex-1 overflow-y-auto overscroll-contain px-4 pt-4 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]">
-          <div className="grid gap-2">
-            <Button
-              asChild
-              className="h-12 rounded-xl bg-terracotta text-base font-semibold text-terracotta-foreground hover:bg-terracotta/90"
-            >
-              <Link href="/post" onClick={close}>
-                <Plus aria-hidden className="size-5" strokeWidth={2.5} />
-                {postLabel}
-              </Link>
-            </Button>
+        <div className="flex-1 overflow-y-auto overscroll-contain px-3 pt-4 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]">
+          <div className="grid grid-cols-2 gap-2 px-1">
+            <Link href="/post" onClick={close} className={buttonStyles({ variant: "accent", size: "md", block: true })}>
+              <Plus aria-hidden className="size-5" strokeWidth={2.5} />
+              <span className="truncate">{t("bottomNav.post")}</span>
+            </Link>
             {isSignedIn ? (
-              <Button asChild variant="outline" className="h-12 rounded-xl bg-card text-base">
-                <Link href="/account" onClick={close}>
-                  <UserRound aria-hidden className="size-5" />
-                  {t("menu.account")}
-                </Link>
-              </Button>
+              <Link href="/account" onClick={close} className={buttonStyles({ variant: "outline", size: "md", block: true })}>
+                <UserRound aria-hidden className="size-5" />
+                <span className="truncate">{t("menu.account")}</span>
+              </Link>
             ) : (
-              <div onClickCapture={close}>
-                <LoginButton className="h-12 w-full rounded-xl bg-card text-base" />
+              <div onClickCapture={close} className="grid">
+                <LoginButton className="h-11 w-full rounded-full bg-card text-base font-semibold" />
               </div>
             )}
           </div>
 
-          <div className="mt-5">
-            <Suspense fallback={<NavListWithoutQuery onNavigate={close} />}>
-              <NavListWithQuery onNavigate={close} />
-            </Suspense>
-          </div>
+          <nav aria-label={t("mainNav")} className="mt-5 grid gap-5">
+            <MenuGroup title={t("menu.groups.search")}>
+              <Suspense fallback={<SearchRowsWithoutQuery onNavigate={close} />}>
+                <SearchRowsWithQuery onNavigate={close} />
+              </Suspense>
+            </MenuGroup>
 
-          <div className="mt-6 grid gap-6 border-t pt-5">
-            <MenuSection title={t("language.label")}>
+            <MenuGroup title={t("menu.groups.jewish")}>
+              <ul className="grid gap-0.5">
+                {jewishRows.map((row) => (
+                  <MenuRow key={row.id} row={row} onNavigate={close} />
+                ))}
+              </ul>
+            </MenuGroup>
+
+            <MenuGroup title={t("menu.groups.help")}>
+              <ul className="grid gap-0.5">
+                {helpRows.map((row) => (
+                  <MenuRow key={row.id} row={row} onNavigate={close} />
+                ))}
+              </ul>
+            </MenuGroup>
+          </nav>
+
+          <div className="mt-6 grid gap-5 border-t px-2 pt-5">
+            <MenuGroup title={t("language.label")} className="px-0 [&>h3]:px-0">
               <LanguageList onNavigate={close} />
-            </MenuSection>
-            <MenuSection title={t("currency.label")}>
+            </MenuGroup>
+            <MenuGroup title={t("currency.label")} className="[&>h3]:px-0">
               <CurrencyChips />
-            </MenuSection>
-            <MenuSection title={t("theme.label")}>
+            </MenuGroup>
+            <MenuGroup title={t("theme.label")} className="[&>h3]:px-0">
               <ThemeSegmented />
-            </MenuSection>
+            </MenuGroup>
           </div>
 
-          <ul className="mt-6 grid gap-0.5 border-t pt-4 text-sm">
-            {[
-              { href: "/account/favorites", label: t("saved"), icon: Heart },
-              { href: "/safety", label: t("safety"), icon: ShieldCheck },
-              { href: "/contact", label: t("contact"), icon: Mail },
-            ].map(({ href, label, icon: Icon }) => (
-              <li key={href}>
-                <Link
-                  href={href}
-                  onClick={close}
-                  className="flex min-h-11 items-center gap-3 rounded-xl px-3 font-medium text-foreground/85 outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
-                >
-                  <Icon aria-hidden className="size-[18px] text-muted-foreground" />
-                  {label}
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <MenuGroup title={t("menu.groups.legal")} className="mt-6 border-t px-0 pt-5">
+            <ul className="grid grid-cols-2 gap-x-2">
+              {legalLinks.map(({ href, key }) => (
+                <li key={key}>
+                  <Link
+                    href={href}
+                    onClick={close}
+                    className="flex min-h-11 items-center rounded-lg px-2 text-small text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+                  >
+                    {t(`menu.links.${key}`)}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </MenuGroup>
         </div>
       </SheetContent>
     </Sheet>

@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Check, ChevronDown, Globe } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
+import { chipStyles } from "@/components/ds/chip";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -96,12 +97,12 @@ export function LanguageSwitcher(props: Props) {
   );
 }
 
-/** The five languages as a list of links (mobile menu, settings). */
+/** The five languages as a row of pill links (side menu). */
 function LanguageListInner({ href, onNavigate }: { href: string; onNavigate?: () => void }) {
   const t = useTranslations("nav.language");
   const locale = useLocale();
   return (
-    <ul aria-label={t("label")} className="grid grid-cols-2 gap-1.5">
+    <ul aria-label={t("label")} className="flex flex-wrap gap-2">
       {locales.map((l) => {
         const current = l === locale;
         return (
@@ -114,13 +115,10 @@ function LanguageListInner({ href, onNavigate }: { href: string; onNavigate?: ()
               dir={dirFor(l)}
               onClick={onNavigate}
               aria-current={current ? "true" : undefined}
-              className={cn(
-                "flex min-h-11 items-center justify-between gap-2 rounded-xl border bg-card px-3 text-sm font-medium outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50",
-                current && "border-primary/40 bg-secondary text-primary hover:bg-secondary",
-              )}
+              className={chipStyles({ size: "sm", active: current })}
             >
-              {nativeNames[l]}
               {current ? <Check aria-hidden className="size-4 shrink-0" /> : null}
+              {nativeNames[l]}
             </Link>
           </li>
         );

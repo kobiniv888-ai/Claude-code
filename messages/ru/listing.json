@@ -16,7 +16,8 @@
   "header": {
     "listingId": "ID <ltr>{id}</ltr>",
     "updated": "Обновлено {date}",
-    "views": "{count, plural, one {{formatted} просмотр} few {{formatted} просмотра} many {{formatted} просмотров} other {{formatted} просмотра}}"
+    "views": "{count, plural, one {{formatted} просмотр} few {{formatted} просмотра} many {{formatted} просмотров} other {{formatted} просмотра}}",
+    "posted": "Опубликовано {date}"
   },
   "status": {
     "title": "Не опубликовано: {status}",
@@ -65,7 +66,7 @@
   "gallery": {
     "label": "Фото: {title}",
     "open": "Открыть фото {index} из {total}",
-    "showAll": "{count, plural, one {Показать фото} other {Все фото ({formatted})}}",
+    "showAll": "{count, plural, one {{formatted} фото} few {Все {formatted} фото} many {Все {formatted} фото} other {Все {formatted} фото}}",
     "counter": "{index} / {total}",
     "slide": "Фото {index} из {total}",
     "previous": "Предыдущее фото",
@@ -78,7 +79,9 @@
     "videoTitle": "Видео: {title}",
     "videoHint": "Видео воспроизводится с YouTube или Vimeo.",
     "tour": "Тур 360°",
-    "opensNewTab": "(откроется в новой вкладке)"
+    "opensNewTab": "(откроется в новой вкладке)",
+    "back": "Назад",
+    "allPhotos": "Все фото"
   },
   "share": {
     "button": "Поделиться",
@@ -94,7 +97,7 @@
   },
   "contactBox": {
     "label": "Связаться с владельцем",
-    "hostedBy": "Владелец",
+    "hostedBy": "Хозяин",
     "hostedByBusiness": "Компания",
     "languages": "Языки",
     "memberSince": "На сайте с",
@@ -141,7 +144,7 @@
     "title": "Удобства"
   },
   "jewish": {
-    "title": "Для еврейских гостей",
+    "title": "Для соблюдающих традицию",
     "kitchen": "Кухня",
     "synagogue": "Ближайшая синагога",
     "chabad": "Бейт Хабад",
@@ -153,7 +156,12 @@
     "hasNot": "Нет",
     "jewishFeatures": "Ещё для еврейских гостей",
     "hotelKosher": "Кошерное питание",
-    "supervision": "Кошерный надзор"
+    "supervision": "Кошерный надзор",
+    "subtitle": "Кашрут, шабат и синагога — с первого взгляда",
+    "host": "Хозяин",
+    "keepsShabbat": "Соблюдает шабат",
+    "keepsShabbatHint": "Не отвечает в шабат и праздники",
+    "sukkah": "Место для сукки"
   },
   "rules": {
     "title": "Правила дома",
@@ -219,7 +227,8 @@
     "views": "Вид",
     "condition": "Состояние",
     "yes": "Да",
-    "no": "Нет"
+    "no": "Нет",
+    "showAll": "{count, plural, one {Показать {count} параметр} few {Показать все {count} параметра} many {Показать все {count} параметров} other {Показать все {count} параметра}}"
   },
   "rooms": {
     "title": "Номера",
@@ -273,7 +282,7 @@
     "reportHint": "Что-то не так с объявлением? Сообщите нам."
   },
   "similar": {
-    "title": "Похожие варианты",
+    "title": "Похожие объекты",
     "viewAll": "Ещё в этом городе"
   },
   "notFound": {
@@ -281,5 +290,18 @@
     "description": "Возможно, жильё уже сдано или продано, или владелец удалил объявление. Есть много других вариантов.",
     "search": "Смотреть объявления",
     "home": "На главную"
+  },
+  "facts": {
+    "title": "Главное",
+    "elevator": "Лифт",
+    "furnished": "С мебелью"
+  },
+  "price": {
+    "perSqm": "{price} за м²",
+    "dropped": "Цена недавно снижена"
+  },
+  "host": {
+    "title": "Хозяин",
+    "profile": "Профиль и все объявления"
   }
 }

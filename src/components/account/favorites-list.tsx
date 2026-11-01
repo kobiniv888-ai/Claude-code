@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, useTransition } from "react";
-import { useTranslations } from "next-intl";
-import { CheckIcon, CloudOffIcon, HeartOffIcon, LoaderIcon, SearchIcon } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import { CheckIcon, CloudOffIcon, HeartIcon, HeartOffIcon, LoaderIcon, MapPinIcon, SearchIcon } from "lucide-react";
 import { toast } from "@/lib/toast";
-import { EmptyState } from "@/components/common/states";
+import { EmptyState } from "@/components/ds/empty-state";
+import { siteConfig, type AppLocale } from "@/config/site";
 import { CompareToggle } from "@/components/listing/compare-toggle";
 import { ListingCard } from "@/components/listing/listing-card";
 import { Button } from "@/components/ui/button";
@@ -44,7 +45,7 @@ function NoteEditor({ listingId, initial }: { listingId: string; initial: string
 
   return (
     <div className="grid gap-1.5">
-      <label htmlFor={id} className="text-sm font-medium">
+      <label htmlFor={id} className="text-small font-semibold">
         {t("label")}
       </label>
       <Textarea
@@ -55,7 +56,7 @@ function NoteEditor({ listingId, initial }: { listingId: string; initial: string
         rows={2}
         placeholder={t("placeholder")}
         onChange={(event) => setValue(event.target.value)}
-        className="min-h-16 resize-y bg-background"
+        className="min-h-16 resize-y rounded-input bg-card"
       />
       <p aria-live="polite" className="flex min-h-5 items-center gap-1 text-xs text-muted-foreground">
         {state === "saving" ? (
@@ -88,7 +89,7 @@ function RemoveButton({ listingId, onRemoved }: { listingId: string; onRemoved: 
   return (
     <Button
       variant="ghost"
-      className="h-10 rounded-xl px-3 text-muted-foreground"
+      className="h-11 rounded-full px-3 text-muted-foreground"
       disabled={pending}
       onClick={() =>
         startTransition(async () => {
@@ -120,36 +121,30 @@ export function FavoritesList({ items }: { items: FavoriteItem[] }) {
   };
 
   if (visible.length === 0) {
-    return (
-      <EmptyState
-        bordered
-        icon={HeartOffIcon}
-        title={t("emptyTitle")}
-        description={t("emptyBody")}
-        action={{ label: t("search"), href: "/search", icon: SearchIcon }}
-      />
-    );
+    return <FavoritesEmpty />;
   }
 
   return (
-    <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <ul className="grid gap-x-4 gap-y-8 sm:grid-cols-2 xl:grid-cols-3">
       {visible.map((item) =>
         item.available ? (
-          <li key={item.listingId} className="flex flex-col gap-3 rounded-2xl border bg-card p-3 shadow-xs">
+          <li key={item.listingId} className="flex min-w-0 flex-col gap-3">
             <ListingCard listing={item.card} />
-            <NoteEditor listingId={item.listingId} initial={item.note} />
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <CompareToggle publicId={item.card.publicId} />
-              <RemoveButton listingId={item.listingId} onRemoved={() => onRemoved(item.listingId)} />
+            <div className="grid gap-2 rounded-card bg-muted/60 p-3">
+              <NoteEditor listingId={item.listingId} initial={item.note} />
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <CompareToggle publicId={item.card.publicId} />
+                <RemoveButton listingId={item.listingId} onRemoved={() => onRemoved(item.listingId)} />
+              </div>
             </div>
           </li>
         ) : (
-          <li key={item.listingId} className="flex flex-col gap-3 rounded-2xl border border-dashed bg-muted/40 p-4">
-            <p className="text-xs font-semibold text-muted-foreground uppercase">{t("unavailable")}</p>
-            <p className="font-semibold break-words" dir="auto">
+          <li key={item.listingId} className="flex min-w-0 flex-col gap-3 rounded-card border border-dashed bg-muted/40 p-4">
+            <p className="text-caption font-semibold text-muted-foreground">{t("unavailable")}</p>
+            <p className="text-h3 break-words" dir="auto">
               {item.title || t("untitled")}
             </p>
-            <p className="text-sm text-muted-foreground">{t("unavailableBody")}</p>
+            <p className="text-small text-muted-foreground">{t("unavailableBody")}</p>
             <NoteEditor listingId={item.listingId} initial={item.note} />
             <div className="mt-auto flex justify-end">
               <RemoveButton listingId={item.listingId} onRemoved={() => onRemoved(item.listingId)} />
@@ -158,5 +153,25 @@ export function FavoritesList({ items }: { items: FavoriteItem[] }) {
         ),
       )}
     </ul>
+  );
+}
+
+/** Nothing saved yet: a coral heart, one line, "Start searching" and the first four popular cities. */
+export function FavoritesEmpty() {
+  const t = useTranslations("account.favorites");
+  const locale = useLocale() as AppLocale;
+  return (
+    <EmptyState
+      icon={HeartIcon}
+      tone="coral"
+      title={t("emptyTitle")}
+      description={t("emptyBody")}
+      action={{ label: t("startSearching"), href: "/search", icon: SearchIcon }}
+      quickFixes={siteConfig.cities
+        .filter((city) => city.popular)
+        .slice(0, 4)
+        .map((city) => ({ label: city.names[locale], href: `/search?city=${city.slug}`, icon: MapPinIcon }))}
+      className="rounded-card bg-card px-6 shadow-raised ring-1 ring-foreground/5"
+    />
   );
 }

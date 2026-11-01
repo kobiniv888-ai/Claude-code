@@ -32,7 +32,8 @@ export function EmptyState({
 }: {
   icon: IconComponent;
   tone?: IconCircleProps["tone"];
-  title: string;
+  /** Plain text, or rich text (e.g. t.rich with a <bdi> around a search query). */
+  title: React.ReactNode;
   description?: string;
   action?: EmptyStateAction;
   quickFixes?: ({ label: string; href: Href; icon?: IconComponent } | React.ReactElement)[];

@@ -1,26 +1,27 @@
 import { useLocale, useTranslations } from "next-intl";
-import { BusIcon, DropletsIcon, HouseHeartIcon, LandmarkIcon, MapPinnedIcon, PlaneIcon, ShoppingCartIcon, TrainFrontIcon, UtensilsIcon, type LucideIcon } from "lucide-react";
+import { BusIcon, DropletsIcon, PlaneIcon, ShoppingCartIcon, TrainFrontIcon } from "lucide-react";
 import { Ltr } from "@/components/common/ltr";
+import { IconCircle } from "@/components/ds/icon-circle";
+import { KosherStampIcon, SynagogueIcon, WelcomeHomeIcon, type IconComponent } from "@/components/ds/jewish-icons";
 import { pickLocalized } from "@/i18n/locale";
 import { formatNumber } from "@/lib/format";
 import type { NearbyInfo } from "@/lib/nearby";
-import { Section } from "./section";
 
-type Row = { key: string; icon: LucideIcon; label: string; name: string | null; value: string };
+type Row = { key: string; icon: IconComponent; label: string; name: string | null; value: string };
 
-/** Nearby places with walking times, and the distance to the airport. */
-export function NearbySection({ nearby }: { nearby: NearbyInfo }) {
+/** Nearby places with walking times, and the distance to the airport (under the location map). */
+export function NearbyList({ nearby }: { nearby: NearbyInfo }) {
   const t = useTranslations("listing.nearby");
   const locale = useLocale();
   const rows: Row[] = [];
-  const place = (key: "synagogue" | "chabad" | "kosherFood" | "mikveh", icon: LucideIcon) => {
+  const place = (key: "synagogue" | "chabad" | "kosherFood" | "mikveh", icon: IconComponent) => {
     const p = nearby[key];
     if (!p) return;
     rows.push({ key, icon, label: t(key), name: pickLocalized(p.name, locale) || null, value: t("walk", { count: p.minutes }) });
   };
-  place("synagogue", LandmarkIcon);
-  place("chabad", HouseHeartIcon);
-  place("kosherFood", UtensilsIcon);
+  place("synagogue", SynagogueIcon);
+  place("chabad", WelcomeHomeIcon);
+  place("kosherFood", KosherStampIcon);
   place("mikveh", DropletsIcon);
   if (nearby.supermarket) {
     const s = nearby.supermarket;
@@ -54,27 +55,24 @@ export function NearbySection({ nearby }: { nearby: NearbyInfo }) {
   if (rows.length === 0) return null;
 
   return (
-    <Section id="nearby" title={t("title")} description={t("note")} icon={MapPinnedIcon}>
+    <div className="grid gap-2">
       <ul className="grid gap-2 sm:grid-cols-2">
-        {rows.map(({ key, icon: Icon, label, name, value }) => (
-          <li key={key} className="flex items-center gap-3 rounded-xl border p-3">
-            <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-primary">
-              <Icon className="size-4.5" aria-hidden />
-            </span>
+        {rows.map(({ key, icon, label, name, value }) => (
+          <li key={key} className="flex items-center gap-3 rounded-2xl border bg-card p-2.5">
+            <IconCircle icon={icon} tone="navy" size="sm" />
             <span className="grid min-w-0 flex-1">
-              <span className="font-medium">{label}</span>
+              <span className="text-small font-semibold">{label}</span>
               {name ? (
-                <span dir="auto" className="truncate text-xs text-muted-foreground">
+                <span dir="auto" className="truncate text-caption text-muted-foreground">
                   {name}
                 </span>
               ) : null}
             </span>
-            <span className="shrink-0 text-sm font-semibold text-primary">
-              {key === "airport" ? <Ltr>{value}</Ltr> : value}
-            </span>
+            <span className="shrink-0 text-small font-bold text-navy">{key === "airport" ? <Ltr>{value}</Ltr> : value}</span>
           </li>
         ))}
       </ul>
-    </Section>
+      <p className="text-caption text-muted-foreground">{t("note")}</p>
+    </div>
   );
 }

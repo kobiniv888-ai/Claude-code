@@ -119,12 +119,12 @@ export function ContactForm({
 
   if (sent) {
     return (
-      <div role="status" className="flex flex-col items-start gap-4 rounded-3xl border border-verified/30 bg-verified-soft p-6 sm:p-8">
+      <div role="status" className="flex flex-col items-start gap-4 rounded-card border border-verified/30 bg-verified-soft p-6 sm:p-8">
         <span aria-hidden="true" className="flex size-12 items-center justify-center rounded-full bg-card text-verified shadow-card">
           <CircleCheck className="size-6" />
         </span>
         <div>
-          <h2 ref={sentHeading} tabIndex={-1} className="text-xl font-bold tracking-tight outline-none sm:text-2xl">
+          <h2 ref={sentHeading} tabIndex={-1} className="text-h2 outline-none">
             {t("sent.title", { name: sent.name.split(/\s+/)[0] ?? "" })}
           </h2>
           <p className="mt-2 text-base text-pretty">
@@ -138,14 +138,14 @@ export function ContactForm({
         <div className="flex flex-col gap-2 sm:flex-row">
           <Link
             href="/help"
-            className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            className="inline-flex h-11 items-center justify-center rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             {t("sent.help")}
           </Link>
           <Button
             type="button"
             variant="outline"
-            className="h-11 rounded-xl px-5"
+            className="h-11 rounded-full px-5"
             onClick={() => {
               setSent(null);
               setValues((v) => ({ ...v, message: "", category: "", website: "" }));
@@ -317,7 +317,7 @@ export function ContactForm({
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs text-muted-foreground">{t("privacy")}</p>
-        <Button type="submit" disabled={pending} className="h-12 rounded-xl px-6 text-base sm:min-w-40">
+        <Button type="submit" disabled={pending} className="h-12 rounded-full px-6 text-base font-semibold sm:min-w-40">
           <Send aria-hidden="true" className="size-5 rtl:-scale-x-100" />
           {pending ? t("sending") : t("submit")}
         </Button>

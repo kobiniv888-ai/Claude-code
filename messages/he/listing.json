@@ -16,7 +16,8 @@
   "header": {
     "listingId": "מס׳ <ltr>{id}</ltr>",
     "updated": "עודכן ב-{date}",
-    "views": "{count, plural, one {צפייה אחת} other {{formatted} צפיות}}"
+    "views": "{count, plural, one {צפייה אחת} other {{formatted} צפיות}}",
+    "posted": "פורסם ב-{date}"
   },
   "status": {
     "title": "לא מוצגת לציבור: {status}",
@@ -35,7 +36,7 @@
       "HIDDEN": "הוסתרה בעקבות דיווחים",
       "DELETED": "נמחקה",
       "EXPIRED_DATE": "פג תוקף",
-      "DEMO_HIDDEN": "נתוני ההדגמה מוסתרים",
+      "DEMO_HIDDEN": "נתוני הדמו מוסתרים",
       "OWNER_INACTIVE": "חשבון המפרסם אינו פעיל"
     },
     "text": {
@@ -51,21 +52,21 @@
       "HIDDEN": "כמה אנשים דיווחו על המודעה. היא תישאר מוסתרת עד שמנהל תוכן יבדוק אותה.",
       "DELETED": "המודעה נמחקה.",
       "EXPIRED_DATE": "המודעה עברה את תאריך התפוגה. חדשו אותה כדי להציג אותה שוב.",
-      "DEMO_HIDDEN": "זהו תוכן הדגמה, ונתוני ההדגמה כבויים עבור המבקרים.",
+      "DEMO_HIDDEN": "זהו תוכן דמו, ונתוני הדמו כבויים עבור המבקרים.",
       "OWNER_INACTIVE": "חשבון המפרסם מושעה, ולכן המודעה לא מוצגת."
     }
   },
   "translation": {
     "auto": "תורגם אוטומטית",
     "byOwner": "תורגם על ידי המפרסם",
-    "showOriginal": "להצגת המקור",
-    "showTranslation": "להצגת התרגום",
+    "showOriginal": "הצגת המקור",
+    "showTranslation": "הצגת התרגום",
     "showingOriginal": "מקור ({language})"
   },
   "gallery": {
     "label": "תמונות של {title}",
     "open": "פתיחת תמונה {index} מתוך {total}",
-    "showAll": "{count, plural, one {להצגת התמונה} other {להצגת כל {formatted} התמונות}}",
+    "showAll": "{count, plural, one {תמונה אחת} other {כל {formatted} התמונות}}",
     "counter": "{index} / {total}",
     "slide": "תמונה {index} מתוך {total}",
     "previous": "התמונה הקודמת",
@@ -78,7 +79,9 @@
     "videoTitle": "סרטון של {title}",
     "videoHint": "הסרטון מוצג מ-YouTube או מ-Vimeo.",
     "tour": "סיור 360°",
-    "opensNewTab": "(נפתח בכרטיסייה חדשה)"
+    "opensNewTab": "(נפתח בכרטיסייה חדשה)",
+    "back": "חזרה",
+    "allPhotos": "כל התמונות"
   },
   "share": {
     "button": "שיתוף",
@@ -94,7 +97,7 @@
   },
   "contactBox": {
     "label": "יצירת קשר עם המפרסם",
-    "hostedBy": "מפרסם",
+    "hostedBy": "מארח/ת",
     "hostedByBusiness": "עסק",
     "languages": "שפות",
     "memberSince": "חבר/ה מאז",
@@ -120,7 +123,7 @@
     "businessVerified": "עסק מאומת",
     "business": "עסק",
     "keepsShabbat": "שומר/ת שבת",
-    "demo": "הדגמה",
+    "demo": "דמו",
     "hints": {
       "phoneVerified": "מספר הטלפון אומת בקוד",
       "idVerified": "הצוות שלנו בדק תעודה מזהה ותמונת סלפי",
@@ -134,14 +137,14 @@
   "description": {
     "title": "על המקום",
     "empty": "המפרסם עדיין לא כתב תיאור.",
-    "showMore": "עוד",
-    "showLess": "פחות"
+    "showMore": "קראו עוד",
+    "showLess": "הצגת פחות"
   },
   "amenities": {
     "title": "מה יש במקום"
   },
   "jewish": {
-    "title": "מתאים לשומרי מסורת",
+    "title": "לשומרי מסורת",
     "kitchen": "מטבח",
     "synagogue": "בית הכנסת הקרוב",
     "chabad": "בית חב״ד",
@@ -153,7 +156,12 @@
     "hasNot": "אין",
     "jewishFeatures": "עוד לאורחים יהודים",
     "hotelKosher": "אוכל כשר",
-    "supervision": "השגחת כשרות"
+    "supervision": "השגחת כשרות",
+    "subtitle": "כשרות, שבת ובית כנסת — במבט אחד",
+    "host": "המארח",
+    "keepsShabbat": "שומר שבת",
+    "keepsShabbatHint": "לא עונה בשבתות ובחגים",
+    "sukkah": "מקום לסוכה"
   },
   "rules": {
     "title": "כללי הבית",
@@ -219,7 +227,8 @@
     "views": "נוף",
     "condition": "מצב הנכס",
     "yes": "כן",
-    "no": "לא"
+    "no": "לא",
+    "showAll": "{count, plural, one {הצגת פרט אחד} other {הצגת כל {count} הפרטים}}"
   },
   "rooms": {
     "title": "חדרים",
@@ -273,7 +282,7 @@
     "reportHint": "משהו לא תקין במודעה? ספרו לנו."
   },
   "similar": {
-    "title": "מקומות דומים",
+    "title": "נכסים דומים",
     "viewAll": "עוד בעיר הזו"
   },
   "notFound": {
@@ -281,5 +290,18 @@
     "description": "ייתכן שהנכס הושכר, נמכר או שהמפרסם הסיר את המודעה. יש עוד הרבה מקומות לראות.",
     "search": "לכל המודעות",
     "home": "חזרה לדף הבית"
+  },
+  "facts": {
+    "title": "פרטים עיקריים",
+    "elevator": "מעלית",
+    "furnished": "מרוהט"
+  },
+  "price": {
+    "perSqm": "{price} למ״ר",
+    "dropped": "המחיר ירד לאחרונה"
+  },
+  "host": {
+    "title": "המארח",
+    "profile": "לפרופיל ולכל המודעות"
   }
 }

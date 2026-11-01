@@ -33,6 +33,8 @@ export type ContactListing = {
   publicId: number;
   /** In the guest's language. */
   title: string;
+  /** The listing's full address (https://…/he/listing/1234-…), put into the ready message. */
+  url: string;
   dealType: DealType;
   /** Channel types in the owner's order (no values). */
   channels: ContactChannelKey[];
@@ -45,8 +47,8 @@ type ContactContextValue = {
   availability: ContactAvailability;
   methods: RevealedContact[] | null;
   revealing: boolean;
-  /** Login if needed, then load the contact methods. */
-  reveal: () => void;
+  /** Login if needed, then load the contact methods (then `onDone` with them, e.g. open a sheet). */
+  reveal: (onDone?: (methods: RevealedContact[]) => void) => void;
   /** Tap on a channel button: login → reveal → safety tip (first time) → count → open the app. */
   contact: (channel: ContactChannelKey) => void;
   message: string;
@@ -166,10 +168,11 @@ export function ContactProvider({
       title: listing.title,
       id: listing.publicId,
       siteName: siteName(locale),
+      url: listing.url,
       dates,
       guests: stay.guests ?? 0,
     });
-  }, [listing.dealType, listing.title, listing.publicId, stay, locale, t]);
+  }, [listing.dealType, listing.title, listing.publicId, listing.url, stay, locale, t]);
 
   const showError = useCallback(
     (code: string) => {
@@ -256,10 +259,20 @@ export function ContactProvider({
 
   const enabled = availability === "ok" && !blocked;
 
-  const reveal = useCallback(() => {
-    if (!enabled || methods) return;
-    void requireLogin(() => load());
-  }, [enabled, methods, requireLogin, load]);
+  const reveal = useCallback(
+    (onDone?: (list: RevealedContact[]) => void) => {
+      if (!enabled) return;
+      if (methods) {
+        onDone?.(methods);
+        return;
+      }
+      void requireLogin(async () => {
+        const list = await load();
+        if (list) onDone?.(list);
+      });
+    },
+    [enabled, methods, requireLogin, load],
+  );
 
   const contact = useCallback(
     (channel: ContactChannelKey) => {

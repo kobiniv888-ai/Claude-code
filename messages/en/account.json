@@ -226,7 +226,8 @@
     "search": "Find a place",
     "unavailable": "No longer available",
     "unavailableBody": "This listing is no longer on the site — it may be rented, paused or removed.",
-    "untitled": "Listing"
+    "untitled": "Listing",
+    "startSearching": "Start searching"
   },
   "compare": {
     "title": "Compare listings",

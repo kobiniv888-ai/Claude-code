@@ -1,15 +1,17 @@
 "use client";
 
-import { Check, ChevronDown, Link2, LifeBuoy, Search, SearchX, X } from "lucide-react";
+import { Check, ChevronDown, Link2, LifeBuoy, MessageSquarePlus, Search, SearchX, X } from "lucide-react";
 import { Accordion as AccordionPrimitive } from "radix-ui";
 import { useLocale, useTranslations } from "next-intl";
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { Chip } from "@/components/ds/chip";
+import { EmptyState } from "@/components/ds/empty-state";
+import { IconCircle } from "@/components/ds/icon-circle";
 import { Button } from "@/components/ui/button";
 import type { FaqCategory } from "@/generated/prisma/enums";
-import { Link } from "@/i18n/navigation";
 import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { FAQ_CATEGORIES, faqCategoryIcons } from "./faq-icons";
+import { FAQ_CATEGORIES, faqCategoryIcons, faqCategoryTones } from "./faq-icons";
 import { highlightParts, searchFaq, searchTokens, type FaqEntry } from "./faq-search";
 
 export type HelpFaqItem = FaqEntry & { category: FaqCategory };
@@ -90,11 +92,11 @@ function FaqAccordion({
             key={item.id}
             value={item.id}
             id={`faq-${item.id}`}
-            className="scroll-mt-28 rounded-2xl border bg-card shadow-card transition-shadow data-[state=open]:shadow-card-hover"
+            className="scroll-mt-28 rounded-card border bg-card"
           >
             <AccordionPrimitive.Header asChild>
               <Heading className="m-0">
-                <AccordionPrimitive.Trigger className="group flex w-full items-start gap-3 rounded-2xl px-4 py-4 text-start text-base font-semibold outline-none focus-visible:ring-3 focus-visible:ring-ring/50 sm:px-5">
+                <AccordionPrimitive.Trigger className="group flex min-h-14 w-full items-center gap-3 rounded-card px-4 py-3.5 text-start text-body font-semibold outline-none focus-visible:ring-3 focus-visible:ring-ring/50 sm:px-5">
                   <span className="min-w-0 flex-1">
                     {showCategory ? (
                       <span className="mb-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
@@ -106,10 +108,12 @@ function FaqAccordion({
                       <Highlighted text={item.question} tokens={tokens} />
                     </span>
                   </span>
-                  <ChevronDown
+                  <span
                     aria-hidden="true"
-                    className="mt-0.5 size-5 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180"
-                  />
+                    className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground group-data-[state=open]:bg-navy-soft group-data-[state=open]:text-navy"
+                  >
+                    <ChevronDown className="size-4.5 transition-transform duration-(--motion-base) group-data-[state=open]:rotate-180 motion-reduce:transition-none" />
+                  </span>
                 </AccordionPrimitive.Trigger>
               </Heading>
             </AccordionPrimitive.Header>
@@ -133,34 +137,7 @@ function FaqAccordion({
   );
 }
 
-function EmptyBlock({
-  icon,
-  title,
-  body,
-  children,
-}: {
-  icon: ReactNode;
-  title: ReactNode;
-  body: ReactNode;
-  children?: ReactNode;
-}) {
-  return (
-    <div className="flex flex-col items-center gap-3 rounded-3xl border border-dashed bg-card/60 px-6 py-10 text-center">
-      <span
-        aria-hidden="true"
-        className="flex size-14 items-center justify-center rounded-full bg-secondary text-primary [&_svg]:size-7"
-      >
-        {icon}
-      </span>
-      <p className="max-w-md text-lg font-semibold text-balance">{title}</p>
-      <p className="max-w-md text-sm text-pretty text-muted-foreground">{body}</p>
-      {children ? <div className="mt-2 flex flex-col gap-2 sm:flex-row">{children}</div> : null}
-    </div>
-  );
-}
-
-const primaryLink =
-  "inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-card transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring [&_svg]:size-4";
+const emptyCard = "rounded-card border border-dashed bg-card/60 px-6";
 
 /**
  * The help center: big instant search, six topics and the FAQ accordion.
@@ -244,81 +221,72 @@ export function HelpCenter({ items }: { items: HelpFaqItem[] }) {
   return (
     <>
       {/* Hero with the search box */}
-      <section className="relative isolate overflow-hidden border-b bg-linear-to-b from-secondary/80 via-secondary/30 to-background">
+      <section className="relative isolate overflow-hidden bg-linear-to-b from-navy-soft to-background">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -top-24 -end-24 -z-10 size-72 rounded-full bg-terracotta/10 blur-3xl sm:size-96"
+          className="pointer-events-none absolute -top-24 -end-24 -z-10 size-72 rounded-full bg-coral/10 blur-3xl sm:size-96"
         />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -bottom-32 -start-16 -z-10 size-64 rounded-full bg-primary/10 blur-3xl"
-        />
-        <div className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8 lg:py-20">
-          <div className="mx-auto max-w-3xl text-center">
-            <span
+        <div className="mx-auto w-full max-w-3xl px-gutter pt-8 pb-8 text-center sm:pt-14 sm:pb-12">
+          <IconCircle icon={LifeBuoy} tone="navy" size="lg" className="mx-auto mb-4 bg-card shadow-raised" />
+          <h1 className="text-h1 text-balance text-foreground">{t("hero.title")}</h1>
+          <p className="mx-auto mt-2 max-w-xl text-body text-pretty text-muted-foreground">{t("hero.lead")}</p>
+          <form role="search" onSubmit={(e) => e.preventDefault()} className="relative mx-auto mt-6 max-w-2xl">
+            <label htmlFor={searchId} className="sr-only">
+              {t("search.label")}
+            </label>
+            <Search
               aria-hidden="true"
-              className="mx-auto mb-5 flex size-14 items-center justify-center rounded-full bg-card text-primary shadow-card"
-            >
-              <LifeBuoy className="size-7" />
-            </span>
-            <h1 className="text-3xl font-bold tracking-tight text-balance sm:text-4xl lg:text-5xl">{t("hero.title")}</h1>
-            <p className="mt-4 text-base leading-relaxed text-pretty text-muted-foreground sm:text-lg">{t("hero.lead")}</p>
-            <form role="search" onSubmit={(e) => e.preventDefault()} className="relative mx-auto mt-8 max-w-2xl">
-              <label htmlFor={searchId} className="sr-only">
-                {t("search.label")}
-              </label>
-              <Search
-                aria-hidden="true"
-                className="pointer-events-none absolute top-1/2 start-4 size-5 -translate-y-1/2 text-muted-foreground sm:start-5 sm:size-6"
-              />
-              <input
-                id={searchId}
-                type="search"
-                dir={query ? "auto" : undefined}
-                value={query}
-                onChange={(e) => onQueryChange(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape" && query) {
-                    e.preventDefault();
-                    onQueryChange("");
-                  }
-                }}
-                placeholder={t("search.placeholder")}
-                autoComplete="off"
-                enterKeyHint="search"
-                aria-describedby={`${searchId}-status`}
-                className="h-14 w-full rounded-2xl border border-input bg-card ps-12 pe-12 text-base shadow-card-hover outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-4 focus-visible:ring-ring/30 sm:h-16 sm:ps-14 sm:text-lg [&::-webkit-search-cancel-button]:hidden"
-              />
-              {query ? (
-                <button
-                  type="button"
-                  onClick={() => onQueryChange("")}
-                  aria-label={t("search.clear")}
-                  className="absolute top-1/2 end-3 flex size-9 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
-                >
-                  <X aria-hidden="true" className="size-5" />
-                </button>
-              ) : null}
-            </form>
-            <p id={`${searchId}-status`} aria-live="polite" className="mt-3 min-h-5 text-sm text-muted-foreground">
-              {searching
-                ? t("search.results", { count: results.length, countText: n(results.length) })
-                : t("search.hint")}
-            </p>
-          </div>
+              className="pointer-events-none absolute top-1/2 start-5 size-5 -translate-y-1/2 text-muted-foreground"
+            />
+            <input
+              id={searchId}
+              type="search"
+              dir={query ? "auto" : undefined}
+              value={query}
+              onChange={(e) => onQueryChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape" && query) {
+                  e.preventDefault();
+                  onQueryChange("");
+                }
+              }}
+              placeholder={t("search.placeholder")}
+              autoComplete="off"
+              enterKeyHint="search"
+              aria-describedby={`${searchId}-status`}
+              className="h-14 w-full rounded-full border border-input bg-card ps-13 pe-13 text-body shadow-raised outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-4 focus-visible:ring-ring/30 sm:h-16 sm:text-lg [&::-webkit-search-cancel-button]:hidden"
+            />
+            {query ? (
+              <button
+                type="button"
+                onClick={() => onQueryChange("")}
+                aria-label={t("search.clear")}
+                className="absolute top-1/2 end-2 flex size-11 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+              >
+                <X aria-hidden="true" className="size-5" />
+              </button>
+            ) : null}
+          </form>
+          <p id={`${searchId}-status`} aria-live="polite" className="mt-3 min-h-5 text-small text-muted-foreground">
+            {searching
+              ? t("search.results", { count: results.length, countText: n(results.length) })
+              : t("search.hint")}
+          </p>
         </div>
       </section>
 
-      <div className="mx-auto w-full max-w-6xl px-4 pt-10 sm:px-6 sm:pt-12 lg:px-8">
+      <div className="mx-auto w-full max-w-6xl px-gutter pt-6 sm:pt-10">
         {items.length === 0 ? (
-          <EmptyBlock icon={<LifeBuoy />} title={t("empty.title")} body={t("empty.body")}>
-            <Link href="/help/new-ticket" className={primaryLink}>
-              {t("empty.ticket")}
-            </Link>
-          </EmptyBlock>
+          <EmptyState
+            icon={LifeBuoy}
+            title={t("empty.title")}
+            description={t("empty.body")}
+            action={{ label: t("empty.ticket"), href: "/help/new-ticket", icon: MessageSquarePlus }}
+            className={emptyCard}
+          />
         ) : searching ? (
           <section aria-labelledby="faq-results-title">
-            <h2 id="faq-results-title" className="mb-4 text-xl font-bold tracking-tight sm:text-2xl">
+            <h2 id="faq-results-title" className="mb-4 text-h2 text-balance">
               {t.rich("search.resultsTitle", {
                 query: query.trim(),
                 q: (chunks) => <bdi dir="auto">{chunks}</bdi>,
@@ -334,31 +302,34 @@ export function HelpCenter({ items }: { items: HelpFaqItem[] }) {
                 showCategory
               />
             ) : (
-              <EmptyBlock
-                icon={<SearchX />}
+              <EmptyState
+                icon={SearchX}
+                tone="neutral"
+                headingLevel={3}
                 title={t.rich("search.noResultsTitle", {
                   query: query.trim(),
                   q: (chunks) => <bdi dir="auto">{chunks}</bdi>,
                 })}
-                body={t("search.noResultsBody")}
-              >
-                <Link href="/help/new-ticket" className={primaryLink}>
-                  {t("search.openTicket")}
-                </Link>
-                <Button type="button" variant="outline" className="h-11 rounded-xl px-5" onClick={() => onQueryChange("")}>
-                  {t("search.clear")}
-                </Button>
-              </EmptyBlock>
+                description={t("search.noResultsBody")}
+                action={{ label: t("search.openTicket"), href: "/help/new-ticket", icon: MessageSquarePlus }}
+                quickFixes={[
+                  <Button key="clear" type="button" variant="outline" className="h-11 rounded-full px-5" onClick={() => onQueryChange("")}>
+                    <X aria-hidden="true" />
+                    {t("search.clear")}
+                  </Button>,
+                ]}
+                className={emptyCard}
+              />
             )}
           </section>
         ) : (
           <>
             {/* Topics */}
             <section aria-labelledby="faq-topics-title">
-              <h2 id="faq-topics-title" className="text-xl font-bold tracking-tight sm:text-2xl">
+              <h2 id="faq-topics-title" className="text-h2 text-balance">
                 {t("topics.title")}
               </h2>
-              <ul className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-3">
+              <ul className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
                 {FAQ_CATEGORIES.map((c) => {
                   const Icon = faqCategoryIcons[c];
                   const count = counts.get(c) ?? 0;
@@ -370,27 +341,14 @@ export function HelpCenter({ items }: { items: HelpFaqItem[] }) {
                         aria-pressed={active}
                         onClick={() => chooseTopic(active ? "ALL" : c, !active)}
                         className={cn(
-                          "flex w-full flex-col items-start gap-3 rounded-2xl border bg-card p-4 text-start shadow-card transition-all hover:-translate-y-0.5 hover:shadow-card-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:flex-row sm:items-center sm:p-5",
-                          active && "border-primary bg-secondary ring-1 ring-primary",
+                          "flex w-full flex-col items-center gap-2 rounded-card border bg-card px-3 py-4 text-center transition-transform duration-(--motion-fast) hover:-translate-y-0.5 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none",
+                          active && "border-navy bg-navy-soft",
                         )}
                       >
-                        <span
-                          aria-hidden="true"
-                          className={cn(
-                            "flex size-11 shrink-0 items-center justify-center rounded-xl",
-                            c === "SAFETY" ? "bg-verified-soft text-verified" : "bg-secondary text-primary",
-                            active && "bg-primary text-primary-foreground",
-                          )}
-                        >
-                          <Icon className="size-5" />
-                        </span>
-                        <span className="min-w-0">
-                          <span className="block text-sm leading-snug font-semibold text-balance sm:text-base">
-                            {tCat(`${c}.title`)}
-                          </span>
-                          <span className="mt-0.5 block text-xs text-muted-foreground sm:text-sm">
-                            {t("topics.count", { count, countText: n(count) })}
-                          </span>
+                        <IconCircle icon={Icon} tone={active ? "navy-solid" : faqCategoryTones[c]} size="lg" />
+                        <span className="text-small leading-snug font-semibold text-balance">{tCat(`${c}.title`)}</span>
+                        <span className="text-caption text-muted-foreground">
+                          {t("topics.count", { count, countText: n(count) })}
                         </span>
                       </button>
                     </li>
@@ -400,9 +358,9 @@ export function HelpCenter({ items }: { items: HelpFaqItem[] }) {
             </section>
 
             {/* Questions */}
-            <section ref={questionsRef} aria-labelledby="faq-questions-title" className="mt-12 scroll-mt-24">
+            <section ref={questionsRef} aria-labelledby="faq-questions-title" className="mt-10 scroll-mt-24 sm:mt-12">
               <div className="flex flex-col gap-4">
-                <h2 id="faq-questions-title" className="text-xl font-bold tracking-tight sm:text-2xl">
+                <h2 id="faq-questions-title" className="text-h2 text-balance">
                   {filter === "ALL" ? t("faq.title") : tCat(`${filter}.title`)}
                 </h2>
                 <div
@@ -414,23 +372,15 @@ export function HelpCenter({ items }: { items: HelpFaqItem[] }) {
                     const active = filter === value;
                     const count = value === "ALL" ? items.length : (counts.get(value) ?? 0);
                     return (
-                      <button
+                      <Chip
                         key={value}
-                        type="button"
-                        aria-pressed={active}
+                        size="sm"
+                        pressed={active}
+                        count={count}
                         onClick={() => chooseTopic(value, false)}
-                        className={cn(
-                          "inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border px-4 text-sm font-medium whitespace-nowrap transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-                          active
-                            ? "border-primary bg-primary text-primary-foreground"
-                            : "bg-card text-foreground hover:bg-muted",
-                        )}
                       >
                         {value === "ALL" ? t("faq.all") : tCat(`${value}.title`)}
-                        <span className={cn("text-xs", active ? "text-primary-foreground/80" : "text-muted-foreground")}>
-                          {n(count)}
-                        </span>
-                      </button>
+                      </Chip>
                     );
                   })}
                 </div>
@@ -438,13 +388,13 @@ export function HelpCenter({ items }: { items: HelpFaqItem[] }) {
 
               <div className="mt-6">
                 {filter === "ALL" ? (
-                  <div className="flex flex-col gap-10">
+                  <div className="flex flex-col gap-8">
                     {groups.map((group) => {
                       const Icon = faqCategoryIcons[group.category];
                       return (
                         <div key={group.category}>
-                          <h3 className="mb-3 flex items-center gap-2 text-base font-semibold text-muted-foreground">
-                            <Icon aria-hidden="true" className="size-4" />
+                          <h3 className="mb-3 flex items-center gap-2 text-h3 text-foreground">
+                            <IconCircle icon={Icon} tone={faqCategoryTones[group.category]} size="xs" />
                             {tCat(`${group.category}.title`)}
                           </h3>
                           <FaqAccordion
@@ -469,11 +419,15 @@ export function HelpCenter({ items }: { items: HelpFaqItem[] }) {
                     showCategory={false}
                   />
                 ) : (
-                  <EmptyBlock icon={<SearchX />} title={t("faq.emptyTopic")} body={t("faq.emptyTopicBody")}>
-                    <Link href="/help/new-ticket" className={primaryLink}>
-                      {t("search.openTicket")}
-                    </Link>
-                  </EmptyBlock>
+                  <EmptyState
+                    icon={SearchX}
+                    tone="neutral"
+                    headingLevel={3}
+                    title={t("faq.emptyTopic")}
+                    description={t("faq.emptyTopicBody")}
+                    action={{ label: t("search.openTicket"), href: "/help/new-ticket", icon: MessageSquarePlus }}
+                    className={emptyCard}
+                  />
                 )}
               </div>
             </section>

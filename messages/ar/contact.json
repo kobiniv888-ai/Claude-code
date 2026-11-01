@@ -4,7 +4,7 @@
   "showContactHint": "تظهر بيانات التواصل للمستخدمين المسجّلين فقط. تسجيل الدخول يتم بلمسة واحدة.",
   "availableChannels": "طرق التواصل",
   "contactOwner": "التواصل مع المعلِن",
-  "allOptions": "تواصل",
+  "allOptions": "كل طرق التواصل",
   "sheetDescription": "طرق التواصل مع المعلِن",
   "noChannels": "لم يُضف المعلِن طرق تواصل بعد.",
   "manageListings": "إدارة إعلاناتي",
@@ -34,11 +34,11 @@
   "copied": "تم نسخ الرسالة — الصقها في {app}",
   "copyFailed": "تعذّر نسخ الرسالة. اكتب للمعلِن في {app}.",
   "message": {
-    "datesGuests": "مرحبًا! رأيت إعلانك ‘{title}’ (رقم {id}) على {siteName}. هل المكان متاح في {dates} لـ{guests, plural, one {ضيف واحد} two {ضيفين} few {{guests} ضيوف} other {{guests} ضيفًا}}؟",
-    "dates": "مرحبًا! رأيت إعلانك ‘{title}’ (رقم {id}) على {siteName}. هل المكان متاح في {dates}؟",
-    "guests": "مرحبًا! رأيت إعلانك ‘{title}’ (رقم {id}) على {siteName}. هل يناسب {guests, plural, one {ضيفًا واحدًا} two {ضيفين} few {{guests} ضيوف} other {{guests} ضيفًا}}؟ ما التواريخ المتاحة؟",
-    "plain": "مرحبًا! رأيت إعلانك ‘{title}’ (رقم {id}) على {siteName}. هل ما زال متاحًا؟ أودّ معرفة المزيد.",
-    "sale": "مرحبًا! رأيت عقارك ‘{title}’ (رقم {id}) على {siteName}. هل ما زال معروضًا للبيع؟ أودّ معرفة المزيد وترتيب موعد للمعاينة."
+    "datesGuests": "مرحبًا! رأيت إعلانك ‘{title}’ (رقم {id}) على {siteName}. هل المكان متاح في {dates} لـ{guests, plural, one {ضيف واحد} two {ضيفين} few {{guests} ضيوف} other {{guests} ضيفًا}}؟\n{url}",
+    "dates": "مرحبًا! رأيت إعلانك ‘{title}’ (رقم {id}) على {siteName}. هل المكان متاح في {dates}؟\n{url}",
+    "guests": "مرحبًا! رأيت إعلانك ‘{title}’ (رقم {id}) على {siteName}. هل يناسب {guests, plural, one {ضيفًا واحدًا} two {ضيفين} few {{guests} ضيوف} other {{guests} ضيفًا}}؟ ما التواريخ المتاحة؟\n{url}",
+    "plain": "مرحبًا! رأيت إعلانك ‘{title}’ (رقم {id}) على {siteName}. هل ما زال متاحًا؟ أودّ معرفة المزيد.\n{url}",
+    "sale": "مرحبًا! رأيت عقارك ‘{title}’ (رقم {id}) على {siteName}. هل ما زال معروضًا للبيع؟ أودّ معرفة المزيد وترتيب موعد للمعاينة.\n{url}"
   },
   "safety": {
     "title": "قبل أن تتواصل مع المعلِن",
@@ -77,5 +77,8 @@
     "send_failed": "تعذّر إرسال الرسالة. حاول مرة أخرى بعد بضع دقائق.",
     "unavailable": "طريقة التواصل هذه غير متاحة. جرّب طريقة أخرى.",
     "not_found": "هذا الإعلان لم يعد متاحًا."
-  }
+  },
+  "showPhone": "عرض الهاتف",
+  "moreChannels": "طرق تواصل أخرى",
+  "otherChannels": "تطبيقات أخرى"
 }

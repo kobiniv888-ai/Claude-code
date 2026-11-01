@@ -16,7 +16,8 @@
   "header": {
     "listingId": "رقم <ltr>{id}</ltr>",
     "updated": "آخر تحديث {date}",
-    "views": "{count, plural, zero {لا مشاهدات} one {مشاهدة واحدة} two {مشاهدتان} few {{formatted} مشاهدات} many {{formatted} مشاهدة} other {{formatted} مشاهدة}}"
+    "views": "{count, plural, zero {لا مشاهدات} one {مشاهدة واحدة} two {مشاهدتان} few {{formatted} مشاهدات} many {{formatted} مشاهدة} other {{formatted} مشاهدة}}",
+    "posted": "نُشر في {date}"
   },
   "status": {
     "title": "غير منشور: {status}",
@@ -65,7 +66,7 @@
   "gallery": {
     "label": "صور {title}",
     "open": "فتح الصورة {index} من {total}",
-    "showAll": "{count, plural, one {عرض الصورة} other {عرض كل الصور ({formatted})}}",
+    "showAll": "{count, plural, one {صورة واحدة} other {كل الصور ({formatted})}}",
     "counter": "{index} / {total}",
     "slide": "الصورة {index} من {total}",
     "previous": "الصورة السابقة",
@@ -78,7 +79,9 @@
     "videoTitle": "فيديو {title}",
     "videoHint": "يُعرض الفيديو من YouTube أو Vimeo.",
     "tour": "جولة 360°",
-    "opensNewTab": "(يفتح في علامة تبويب جديدة)"
+    "opensNewTab": "(يفتح في علامة تبويب جديدة)",
+    "back": "رجوع",
+    "allPhotos": "كل الصور"
   },
   "share": {
     "button": "مشاركة",
@@ -94,7 +97,7 @@
   },
   "contactBox": {
     "label": "التواصل مع المعلِن",
-    "hostedBy": "المعلِن",
+    "hostedBy": "المضيف",
     "hostedByBusiness": "منشأة تجارية",
     "languages": "اللغات",
     "memberSince": "عضو منذ",
@@ -134,14 +137,14 @@
   "description": {
     "title": "عن هذا المكان",
     "empty": "لم يكتب المعلِن وصفًا بعد.",
-    "showMore": "عرض المزيد",
+    "showMore": "اقرأ المزيد",
     "showLess": "عرض أقل"
   },
   "amenities": {
     "title": "المرافق"
   },
   "jewish": {
-    "title": "مناسب للضيوف اليهود",
+    "title": "للمحافظين على التقاليد",
     "kitchen": "المطبخ",
     "synagogue": "أقرب كنيس",
     "chabad": "بيت حاباد",
@@ -153,7 +156,12 @@
     "hasNot": "غير متوفر",
     "jewishFeatures": "المزيد للضيوف اليهود",
     "hotelKosher": "طعام كوشير",
-    "supervision": "إشراف الكشروت"
+    "supervision": "إشراف الكشروت",
+    "subtitle": "الكشروت والسبت والكنيس بنظرة واحدة",
+    "host": "المضيف",
+    "keepsShabbat": "يحافظ على السبت",
+    "keepsShabbatHint": "لا يرد أيام السبت والأعياد",
+    "sukkah": "مساحة لعرزال السوكا"
   },
   "rules": {
     "title": "قواعد المكان",
@@ -219,7 +227,8 @@
     "views": "الإطلالة",
     "condition": "الحالة",
     "yes": "نعم",
-    "no": "لا"
+    "no": "لا",
+    "showAll": "{count, plural, one {عرض تفصيل واحد} other {عرض كل التفاصيل ({count})}}"
   },
   "rooms": {
     "title": "الغرف",
@@ -273,7 +282,7 @@
     "reportHint": "هل هناك مشكلة في هذا الإعلان؟ أخبرنا."
   },
   "similar": {
-    "title": "أماكن مشابهة",
+    "title": "عقارات مشابهة",
     "viewAll": "المزيد في هذه المدينة"
   },
   "notFound": {
@@ -281,5 +290,18 @@
     "description": "ربما تم تأجيره أو بيعه أو حذفه من قِبل المعلِن. هناك أماكن كثيرة أخرى لتراها.",
     "search": "تصفّح الإعلانات",
     "home": "العودة إلى الرئيسية"
+  },
+  "facts": {
+    "title": "أهم التفاصيل",
+    "elevator": "مصعد",
+    "furnished": "مفروش"
+  },
+  "price": {
+    "perSqm": "{price} للمتر المربع",
+    "dropped": "انخفض السعر مؤخرًا"
+  },
+  "host": {
+    "title": "المضيف",
+    "profile": "الملف الشخصي وكل الإعلانات"
   }
 }

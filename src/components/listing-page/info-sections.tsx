@@ -1,10 +1,11 @@
 import { useLocale, useTranslations } from "next-intl";
 import {
   BadgePercentIcon,
+  CheckIcon,
+  ChevronDownIcon,
   BuildingIcon,
   CalendarClockIcon,
   CigaretteIcon,
-  ClipboardListIcon,
   CoinsIcon,
   DoorClosedIcon,
   DoorOpenIcon,
@@ -14,7 +15,6 @@ import {
   PawPrintIcon,
   PiggyBankIcon,
   PlugZapIcon,
-  ReceiptTextIcon,
   RulerIcon,
   SofaIcon,
   SparklesIcon,
@@ -25,11 +25,13 @@ import {
 } from "lucide-react";
 import { ArrowEnd } from "@/components/common/directional-icon";
 import { Ltr } from "@/components/common/ltr";
-import { CONDITION_ICONS } from "@/components/listing/field-icons";
+import { AMENITY_ICONS, CONDITION_ICONS } from "@/components/listing/field-icons";
+import type { Amenity } from "@/lib/listing/fields";
 import { formatArea, formatDate, formatMoney, formatNumber, formatTime } from "@/lib/format";
 import { clockDate, priceChangePercent, pricePerSqm } from "@/lib/listing-page/helpers";
 import type { ListingPageData } from "@/lib/listing-page/types";
-import { CheckItem, InfoRow, Section } from "./section";
+import { cn } from "@/lib/utils";
+import { InfoRow, Section } from "./section";
 
 function useClock() {
   const locale = useLocale();
@@ -55,10 +57,10 @@ export function RulesSection({ data }: { data: ListingPageData }) {
   const anyBool = bools.some((b) => b.value !== null);
   if (!checkIn && !checkOut && !anyBool && !(quietFrom && quietTo)) return null;
   return (
-    <Section id="rules" title={t("title")} icon={ClipboardListIcon}>
-      <div className="grid gap-6 sm:grid-cols-2">
+    <Section id="rules" title={t("title")}>
+      <div className="grid gap-5 sm:grid-cols-2">
         {checkIn || checkOut || (quietFrom && quietTo) ? (
-          <dl className="divide-y">
+          <dl className="divide-y rounded-2xl bg-muted/60 px-4 dark:bg-muted">
             {checkIn ? (
               <InfoRow icon={DoorOpenIcon} label={t("checkIn")}>
                 {t("from", { time: checkIn })}
@@ -77,12 +79,20 @@ export function RulesSection({ data }: { data: ListingPageData }) {
           </dl>
         ) : null}
         {anyBool ? (
-          <ul className="grid content-start gap-3">
-            {bools.map(({ key, value, icon }) =>
+          <ul className="flex flex-wrap content-start gap-2">
+            {bools.map(({ key, value, icon: Icon }) =>
               value === null ? null : (
-                <CheckItem key={key} ok={value} icon={icon} state={value ? t("allowed") : t("notAllowed")}>
+                <li
+                  key={key}
+                  className={cn(
+                    "inline-flex min-h-10 items-center gap-2 rounded-full px-3.5 text-small font-medium",
+                    value ? "bg-verified-soft text-verified" : "bg-muted/80 text-foreground dark:bg-muted",
+                  )}
+                >
+                  <Icon className="size-4.5 shrink-0" aria-hidden />
+                  <span className="sr-only">{value ? t("allowed") : t("notAllowed")}: </span>
                   {t(`${key}.${value ? "yes" : "no"}`)}
-                </CheckItem>
+                </li>
               ),
             )}
           </ul>
@@ -125,9 +135,9 @@ export function CostsSection({ data }: { data: ListingPageData }) {
   if (rows.length === 0 && history.length === 0) return null;
 
   return (
-    <Section id="costs" title={isSale ? t("titleSale") : t("title")} icon={ReceiptTextIcon}>
+    <Section id="costs" title={isSale ? t("titleSale") : t("title")}>
       {rows.length ? (
-        <dl className="divide-y">
+        <dl className="divide-y rounded-2xl bg-muted/60 px-4 dark:bg-muted">
           {rows.map(({ key, icon, label, value }) => (
             <InfoRow key={key} icon={icon} label={label}>
               {value}
@@ -208,7 +218,7 @@ export function DetailsSection({ data }: { data: ListingPageData }) {
 
   const ConditionIcon = data.condition ? CONDITION_ICONS[data.condition] : WrenchIcon;
   return (
-    <Section id="details" title={t("title")} icon={BuildingIcon}>
+    <Section id="details" title={t("title")}>
       {data.condition ? (
         <div className="mb-4 flex gap-3 rounded-xl border bg-muted/40 p-4">
           <ConditionIcon className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
@@ -220,13 +230,42 @@ export function DetailsSection({ data }: { data: ListingPageData }) {
           </div>
         </div>
       ) : null}
-      <dl className="grid divide-y sm:grid-cols-2 sm:gap-x-8 sm:divide-y-0 [&>div]:sm:border-b">
-        {rows.map(({ key, icon, label, value }) => (
-          <InfoRow key={key} icon={icon} label={label}>
-            {value}
-          </InfoRow>
-        ))}
-      </dl>
+      <details className="group rounded-2xl border bg-card">
+        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-4 font-semibold outline-none select-none focus-visible:ring-3 focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden">
+          {t("showAll", { count: rows.length })}
+          <ChevronDownIcon className="size-5 shrink-0 transition-transform duration-(--motion-fast) group-open:rotate-180 motion-reduce:transition-none" aria-hidden />
+        </summary>
+        <dl className="grid divide-y border-t px-4 sm:grid-cols-2 sm:gap-x-8 sm:divide-y-0 [&>div]:sm:border-b [&>div:nth-last-child(-n+2)]:sm:border-b-0">
+          {rows.map(({ key, icon, label, value }) => (
+            <InfoRow key={key} icon={icon} label={label}>
+              {value}
+            </InfoRow>
+          ))}
+        </dl>
+      </details>
+    </Section>
+  );
+}
+
+/** What the place has, as chips with icons. */
+export function AmenitiesSection({ amenities }: { amenities: string[] }) {
+  const t = useTranslations("listing.amenities");
+  const f = useTranslations("listingFields");
+  const known = amenities.filter((key): key is Amenity => key in AMENITY_ICONS);
+  if (known.length === 0) return null;
+  return (
+    <Section id="amenities" title={t("title")}>
+      <ul className="flex flex-wrap gap-2">
+        {known.map((key) => {
+          const Icon = AMENITY_ICONS[key] ?? CheckIcon;
+          return (
+            <li key={key} className="inline-flex min-h-10 items-center gap-2 rounded-full bg-muted/80 px-3.5 text-small font-medium dark:bg-muted">
+              <Icon className="size-4.5 shrink-0 text-navy" aria-hidden />
+              {f(`amenity.${key}`)}
+            </li>
+          );
+        })}
+      </ul>
     </Section>
   );
 }

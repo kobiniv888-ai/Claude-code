@@ -226,7 +226,8 @@
     "search": "חיפוש מקום",
     "unavailable": "כבר לא זמינה",
     "unavailableBody": "המודעה כבר לא באתר — ייתכן שהנכס הושכר, שהמודעה הושהתה או הוסרה.",
-    "untitled": "מודעה"
+    "untitled": "מודעה",
+    "startSearching": "התחילו לחפש"
   },
   "compare": {
     "title": "השוואת מודעות",

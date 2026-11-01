@@ -35,6 +35,8 @@ function markLoaded(event: SyntheticEvent<HTMLImageElement>) {
  *
  *   <PhotoCarousel photos={photos} label="תמונות של דירה בוואקה" href={href} sizes="100vw" />
  *   <PhotoCarousel … peek />   // the next photo peeks in at the edge (galleries, rows)
+ *   <PhotoCarousel … counter dots={false} onPhotoClick={(i) => openViewer(i)} photoLabel={(i, n) => …} />
+ *                              // listing gallery: "1 / 12" chip, each photo opens the viewer
  */
 export function PhotoCarousel({
   photos,
@@ -45,6 +47,10 @@ export function PhotoCarousel({
   aspect = "aspect-[16/10]",
   totalCount,
   peek = false,
+  counter = false,
+  dots = true,
+  onPhotoClick,
+  photoLabel,
   className,
 }: {
   photos: CarouselPhoto[];
@@ -62,6 +68,14 @@ export function PhotoCarousel({
   totalCount?: number;
   /** Slides 88% wide with a gap, so the next one peeks in. */
   peek?: boolean;
+  /** A "1 / 12" chip on the bottom end corner. */
+  counter?: boolean;
+  /** The dots under the photos (turn off when there are many photos and a counter). */
+  dots?: boolean;
+  /** Each photo becomes a button (e.g. opens a full-screen viewer). Ignored with `href`. */
+  onPhotoClick?: (index: number) => void;
+  /** Accessible name of each photo button ("Open photo 2 of 12"). */
+  photoLabel?: (index: number, total: number) => string;
   className?: string;
 }) {
   const t = useTranslations("ds.carousel");
@@ -199,6 +213,16 @@ export function PhotoCarousel({
                 <Link href={href} tabIndex={-1} aria-hidden="true" prefetch={false} data-card-link="" className="relative block size-full" draggable={false}>
                   {image}
                 </Link>
+              ) : onPhotoClick ? (
+                <button
+                  type="button"
+                  tabIndex={index === selected ? 0 : -1}
+                  aria-label={photoLabel ? photoLabel(index, total) : t("slide", { index: index + 1, total })}
+                  onClick={() => onPhotoClick(index)}
+                  className="relative block size-full cursor-zoom-in outline-none focus-visible:ring-3 focus-visible:ring-ring/60 focus-visible:ring-inset"
+                >
+                  {image}
+                </button>
               ) : (
                 image
               )}
@@ -242,9 +266,19 @@ export function PhotoCarousel({
           >
             <ChevronEnd className="size-5" aria-hidden="true" />
           </button>
+          {counter ? (
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute end-3 bottom-3 z-10 rounded-full bg-black/65 px-2.5 py-1 text-caption font-semibold text-white tabular-nums backdrop-blur-sm"
+            >
+              <span dir="ltr">
+                {formatNumber(selected + 1, locale)} / {formatNumber(total, locale)}
+              </span>
+            </span>
+          ) : null}
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 bottom-2.5 z-10 flex justify-center gap-2.5"
+            className={cn("pointer-events-none absolute inset-x-0 bottom-2.5 z-10 flex justify-center gap-2.5", !dots && "hidden")}
           >
             {photos.map((photo, index) => (
               <span

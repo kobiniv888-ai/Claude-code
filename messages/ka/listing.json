@@ -16,7 +16,8 @@
   "header": {
     "listingId": "ID <ltr>{id}</ltr>",
     "updated": "განახლდა {date}",
-    "views": "{count, plural, one {{formatted} ნახვა} other {{formatted} ნახვა}}"
+    "views": "{count, plural, one {{formatted} ნახვა} other {{formatted} ნახვა}}",
+    "posted": "გამოქვეყნდა {date}"
   },
   "status": {
     "title": "არ არის საჯარო: {status}",
@@ -65,7 +66,7 @@
   "gallery": {
     "label": "ფოტოები: {title}",
     "open": "ფოტო {index} / {total}-ის გახსნა",
-    "showAll": "{count, plural, one {ფოტოს ნახვა} other {ყველა ფოტო ({formatted})}}",
+    "showAll": "{count, plural, one {1 ფოტო} other {ყველა ფოტო ({formatted})}}",
     "counter": "{index} / {total}",
     "slide": "ფოტო {index} / {total}",
     "previous": "წინა ფოტო",
@@ -78,7 +79,9 @@
     "videoTitle": "ვიდეო: {title}",
     "videoHint": "ვიდეო იტვირთება YouTube-დან ან Vimeo-დან.",
     "tour": "360° ტური",
-    "opensNewTab": "(გაიხსნება ახალ ჩანართში)"
+    "opensNewTab": "(გაიხსნება ახალ ჩანართში)",
+    "back": "უკან",
+    "allPhotos": "ყველა ფოტო"
   },
   "share": {
     "button": "გაზიარება",
@@ -94,7 +97,7 @@
   },
   "contactBox": {
     "label": "მესაკუთრესთან დაკავშირება",
-    "hostedBy": "განმთავსებელი",
+    "hostedBy": "მასპინძელი",
     "hostedByBusiness": "ბიზნესი",
     "languages": "ენები",
     "memberSince": "საიტზეა",
@@ -134,14 +137,14 @@
   "description": {
     "title": "ამ ადგილის შესახებ",
     "empty": "მესაკუთრეს აღწერა ჯერ არ დაუწერია.",
-    "showMore": "მეტის ნახვა",
-    "showLess": "ნაკლების ნახვა"
+    "showMore": "მეტის წაკითხვა",
+    "showLess": "ნაკლების ჩვენება"
   },
   "amenities": {
     "title": "კომფორტი"
   },
   "jewish": {
-    "title": "ებრაელი სტუმრებისთვის",
+    "title": "ტრადიციის დამცველებისთვის",
     "kitchen": "სამზარეულო",
     "synagogue": "უახლოესი სინაგოგა",
     "chabad": "ხაბადის სახლი",
@@ -153,7 +156,12 @@
     "hasNot": "არ არის",
     "jewishFeatures": "მეტი ებრაელი სტუმრებისთვის",
     "hotelKosher": "კოშერული კვება",
-    "supervision": "კოშერული ზედამხედველობა"
+    "supervision": "კოშერული ზედამხედველობა",
+    "subtitle": "კაშრუთი, შაბათი და სინაგოგა — ერთი შეხედვით",
+    "host": "მასპინძელი",
+    "keepsShabbat": "იცავს შაბათს",
+    "keepsShabbatHint": "შაბათს და დღესასწაულებზე არ პასუხობს",
+    "sukkah": "ადგილი სუკასთვის"
   },
   "rules": {
     "title": "სახლის წესები",
@@ -219,7 +227,8 @@
     "views": "ხედი",
     "condition": "მდგომარეობა",
     "yes": "კი",
-    "no": "არა"
+    "no": "არა",
+    "showAll": "{count, plural, one {1 დეტალის ჩვენება} other {ყველა დეტალის ჩვენება ({count})}}"
   },
   "rooms": {
     "title": "ოთახები",
@@ -273,7 +282,7 @@
     "reportHint": "რამე არასწორია ამ განცხადებაში? შეგვატყობინეთ."
   },
   "similar": {
-    "title": "მსგავსი ადგილები",
+    "title": "მსგავსი ობიექტები",
     "viewAll": "მეტი ამ ქალაქში"
   },
   "notFound": {
@@ -281,5 +290,18 @@
     "description": "შესაძლოა უკვე გაქირავდა, გაიყიდა ან მესაკუთრემ წაშალა. კიდევ ბევრი სხვა ადგილია სანახავი.",
     "search": "განცხადებების ნახვა",
     "home": "მთავარ გვერდზე"
+  },
+  "facts": {
+    "title": "მთავარი ფაქტები",
+    "elevator": "ლიფტი",
+    "furnished": "ავეჯით"
+  },
+  "price": {
+    "perSqm": "{price} მ²-ზე",
+    "dropped": "ფასი ახლახან დაიკლო"
+  },
+  "host": {
+    "title": "მასპინძელი",
+    "profile": "პროფილი და ყველა განცხადება"
   }
 }

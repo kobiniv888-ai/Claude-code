@@ -21,6 +21,7 @@ export function StickyContactBar({
   menu,
   label,
   mobileOnly = true,
+  spacer = true,
   className,
 }: {
   price?: React.ReactNode;
@@ -32,12 +33,15 @@ export function StickyContactBar({
   label?: string;
   /** Hide on large screens (where the page shows a contact card instead). */
   mobileOnly?: boolean;
+  /** Leave an empty block of the bar's height at the end of the page. Turn off when the page
+   * makes room itself (e.g. by setting --bottom-nav-height to the bar's height). */
+  spacer?: boolean;
   className?: string;
 }) {
   const t = useTranslations("ds.contactBar");
   return (
     <>
-      <div aria-hidden="true" className={cn("h-24", mobileOnly && "lg:hidden")} />
+      {spacer ? <div aria-hidden="true" className={cn("h-24", mobileOnly && "lg:hidden")} /> : null}
       <div
         role="region"
         aria-label={label ?? t("label")}

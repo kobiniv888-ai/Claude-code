@@ -25,7 +25,27 @@
     "browse": "עיון",
     "settings": "הגדרות",
     "account": "החשבון שלי",
-    "more": "עוד"
+    "more": "עוד",
+    "groups": {
+      "search": "חיפוש",
+      "jewish": "חיים יהודיים",
+      "help": "עזרה ובטיחות",
+      "settings": "הגדרות",
+      "legal": "מידע משפטי"
+    },
+    "links": {
+      "jewishLifeHome": "חיים יהודיים בגאורגיה",
+      "shabbatTimes": "זמני שבת",
+      "calendar": "לוח שנה עברי",
+      "communityMap": "מפת הקהילה",
+      "emergency": "מספרי חירום",
+      "howItWorks": "איך זה עובד",
+      "listingRules": "כללי פרסום",
+      "terms": "תנאי שימוש",
+      "privacy": "מדיניות פרטיות",
+      "cookies": "מדיניות עוגיות",
+      "accessibility": "הצהרת נגישות"
+    }
   },
   "language": {
     "label": "שפה",

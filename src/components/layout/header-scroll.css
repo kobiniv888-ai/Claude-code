@@ -1,0 +1,18 @@
+/*
+ * Phones and tablets (< 1024px): the site header slides up out of view while scrolling down and
+ * comes back on the way up (header-shell.tsx sets html[data-header-hidden]). Bars that stick under
+ * the header follow it, so no gap opens above them: the search chip row ([data-search-top-bar])
+ * and anything marked [data-follow-header].
+ *
+ * `translate` only (no layout change). The script never hides the header with reduced motion.
+ */
+@media (width < 64rem) {
+  [data-search-top-bar],
+  [data-follow-header] {
+    transition: translate var(--motion-base) var(--ease-standard);
+  }
+  html[data-header-hidden] [data-search-top-bar],
+  html[data-header-hidden] [data-follow-header] {
+    translate: 0 calc(-1 * var(--header-height));
+  }
+}

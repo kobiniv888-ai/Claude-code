@@ -30,12 +30,15 @@ export function PhoneCodeForm({
   onVerified,
   autoFocus,
   initialPhone,
+  onStepChange,
 }: {
   mode: "sign-in" | "add-phone";
   config: LoginConfig["phone"];
   onVerified: (phoneNumber: string) => void | Promise<void>;
   autoFocus?: boolean;
   initialPhone?: string;
+  /** Told when the form moves between the phone number and the 6-digit code. */
+  onStepChange?: (step: Step) => void;
 }) {
   const t = useTranslations("auth.phone");
   // Signed-in users adding a phone, or no Google/Apple configured: never suggest Google/Apple.
@@ -46,7 +49,11 @@ export function PhoneCodeForm({
   const codeHelpId = `${formId}-code-help`;
   const codeErrorId = `${formId}-code-error`;
 
-  const [step, setStep] = useState<Step>("phone");
+  const [step, setStepState] = useState<Step>("phone");
+  const setStep = (next: Step) => {
+    setStepState(next);
+    onStepChange?.(next);
+  };
   const [phone, setPhone] = useState<string | undefined>(initialPhone);
   const [country, setCountry] = useState<Country | undefined>(config.defaultCountry as Country);
   const [phoneError, setPhoneError] = useState<string | null>(null);
@@ -226,7 +233,7 @@ export function PhoneCodeForm({
           <Button
             type="submit"
             size="lg"
-            className="h-12 w-full rounded-xl text-base"
+            className="h-12 w-full rounded-full text-base font-semibold"
             disabled={pending !== null || !captchaReady}
             aria-busy={pending === "send" || undefined}
           >
@@ -305,7 +312,7 @@ export function PhoneCodeForm({
           <Button
             type="submit"
             size="lg"
-            className="h-12 w-full rounded-xl text-base"
+            className="h-12 w-full rounded-full text-base font-semibold"
             disabled={pending !== null || code.length !== 6}
             aria-busy={pending === "verify" || undefined}
           >
