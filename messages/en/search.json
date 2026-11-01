@@ -122,7 +122,9 @@
     "buildingAge": "Building",
     "verifiedHint": "Our team checked the owner's ID or proof of ownership.",
     "ownerType": "Posted by",
-    "postedWithin": "Posted within"
+    "postedWithin": "Posted within",
+    "noMin": "No min",
+    "noMax": "No max"
   },
   "chips": {
     "heading": "Active filters",
@@ -143,7 +145,8 @@
     "sortLabel": "Sort by",
     "viewLabel": "View",
     "showMap": "Map",
-    "showList": "List"
+    "showList": "List",
+    "pillLabel": "Map and sort"
   },
   "results": {
     "listLabel": "Search results",
@@ -166,7 +169,8 @@
     "noPrice": "Price on request",
     "openListing": "View listing",
     "carouselLabel": "Homes on the map",
-    "noResultsHere": "No homes in this area. Zoom out or move the map."
+    "noResultsHere": "No homes in this area. Zoom out or move the map.",
+    "fetching": "Loading…"
   },
   "pagination": {
     "label": "Pages of results",
@@ -181,12 +185,62 @@
     "titleNoListings": "No homes here yet",
     "descriptionNoListings": "New homes are added every day. Try another city in the meantime.",
     "clear": "Clear all filters",
-    "tryCities": "Popular cities"
+    "tryCities": "Popular cities",
+    "descriptionFixes": "One small change brings results — pick one:"
   },
   "error": {
     "title": "We couldn't load the results",
     "description": "Something went wrong on our side. Please try again in a moment.",
     "retry": "Try again",
     "startOver": "Start a new search"
+  },
+  "top": {
+    "chipsLabel": "Quick filters",
+    "deal": "Deal type",
+    "price": "Price",
+    "rooms": "Rooms",
+    "quick": {
+      "kosher": "Kosher",
+      "shabbat": "Shabbat-friendly",
+      "synagogue": "Near a synagogue",
+      "hebrew": "Hebrew-speaking"
+    },
+    "anywhere": "All of Georgia",
+    "anyDates": "Add dates",
+    "moveIn": "Move in {date}",
+    "summaryLabel": "Change search: {summary}"
+  },
+  "sort": {
+    "title": "Sort by",
+    "open": "Sort: {sort}. Change sorting",
+    "short": "Sort"
+  },
+  "sheet": {
+    "dealShort": {
+      "any": "All",
+      "rent": "Rent",
+      "short-stay": "Short",
+      "monthly": "Monthly",
+      "buy": "Buy",
+      "hotels": "Hotels"
+    },
+    "showCount": "{count, plural, =0 {No matching homes} one {Show 1 home} other {Show <n></n> homes}}",
+    "clearAll": "Clear all",
+    "noneTitle": "No homes match all these filters",
+    "noneHint": "One change brings results:",
+    "noneGeneric": "Try a wider price range or fewer filters.",
+    "removeChip": "Remove filter {label}",
+    "synagogueNear": "Synagogue within walking distance",
+    "bigFamily": "Big families 8+",
+    "jewishTitle": "Kashrut & Shabbat",
+    "jewishMore": "More Jewish-friendly details",
+    "noPrices": "No prices to show"
+  },
+  "fixes": {
+    "remove": "Remove the “{label}” filter",
+    "dates": "Clear the dates",
+    "widerArea": "Wider area",
+    "allGeorgia": "Search all of Georgia",
+    "count": "{count, plural, one {1 home} other {{formatted} homes}}"
   }
 }

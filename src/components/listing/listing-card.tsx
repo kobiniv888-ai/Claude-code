@@ -10,11 +10,17 @@ import { FavoriteButton } from "./favorite-button";
 import { PhotoCarousel } from "./photo-carousel";
 import { Price } from "./price";
 
-export type ListingCardVariant = "grid" | "list";
+/**
+ * grid: photo on top (rows, grids). list: photo beside the text from 640px.
+ * compact: a short horizontal row, photo at the start, without its own shadow or outline (the map's
+ * slide-up card puts it in a sheet that has them).
+ */
+export type ListingCardVariant = "grid" | "list" | "compact";
 
 /** next/image sizes for the card photo (matches ListingGrid's columns and CardCarousel's widths). */
 const GRID_SIZES = "(min-width: 1280px) 25vw, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 90vw";
 const LIST_SIZES = "(min-width: 640px) 320px, 100vw";
+const COMPACT_SIZES = "176px";
 
 type Fact = { key: string; icon: LucideIcon; value: string; label: string };
 
@@ -100,8 +106,10 @@ export function ListingCard({
   const facts = useFacts(listing);
   const place = [listing.neighborhoodName, listing.cityName].filter(Boolean).join(" · ");
   const isList = variant === "list";
+  const isCompact = variant === "compact";
   const titleId = `listing-${listing.publicId}-title`;
-  const photoTags = listingPhotoTags(listing.badges, 2);
+  // Compact photos are too narrow for tags: every badge goes in the badge row.
+  const photoTags = isCompact ? [] : listingPhotoTags(listing.badges, 2);
   const welcomesOnPhoto = photoTags.some((tag) => tag.kind === "welcomes");
   const badgeItems = listingBadgeItems(listing.badges, { exclude: welcomesOnPhoto ? ["welcomes"] : [] });
 
@@ -113,31 +121,39 @@ export function ListingCard({
       onFocus={onHover ? () => onHover(listing.publicId) : undefined}
       onBlur={onHover ? () => onHover(null) : undefined}
       className={cn(
-        "group/card relative isolate flex rounded-card bg-card text-card-foreground shadow-card ring-1 ring-foreground/5",
+        "group/card relative isolate flex rounded-card bg-card text-card-foreground",
+        !isCompact && "shadow-card ring-1 ring-foreground/5",
         // Width comes from the container only: the one-line title must never widen a grid track.
         "[contain:inline-size]",
         // Hover: a deeper shadow fades in (opacity only). Press: the card shrinks a little.
-        "before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:rounded-card before:opacity-0 before:shadow-card-hover before:transition-opacity before:duration-(--motion-base) hover:before:opacity-100",
+        !isCompact &&
+          "before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:rounded-card before:opacity-0 before:shadow-card-hover before:transition-opacity before:duration-(--motion-base) hover:before:opacity-100",
         "transition-transform duration-(--motion-fast) ease-standard has-[[data-card-link]:active]:scale-[0.98] motion-reduce:transition-none motion-reduce:has-[[data-card-link]:active]:scale-100",
         "focus-within:ring-2 focus-within:ring-ring/60",
-        isList ? "flex-col sm:flex-row" : "h-full flex-col",
+        isCompact ? "flex-row" : isList ? "flex-col sm:flex-row" : "h-full flex-col",
         className,
       )}
     >
       <div
         className={cn(
           "relative z-10 shrink-0 overflow-hidden",
-          isList ? "rounded-t-card sm:w-72 sm:rounded-e-none sm:rounded-s-card md:w-80" : "rounded-t-card",
+          isCompact
+            ? "w-[38%] max-w-44 rounded-s-card"
+            : isList
+              ? "rounded-t-card sm:w-72 sm:rounded-e-none sm:rounded-s-card md:w-80"
+              : "rounded-t-card",
         )}
       >
         <PhotoCarousel
           photos={listing.photos}
           title={listing.title}
           href={listing.href}
-          sizes={isList ? LIST_SIZES : GRID_SIZES}
+          sizes={isCompact ? COMPACT_SIZES : isList ? LIST_SIZES : GRID_SIZES}
           priority={priority}
           totalCount={listing.photoCount}
-          aspect={isList ? "aspect-[16/10] sm:aspect-auto sm:h-full sm:min-h-56" : "aspect-[16/10]"}
+          aspect={
+            isCompact ? "h-full min-h-36" : isList ? "aspect-[16/10] sm:aspect-auto sm:h-full sm:min-h-56" : "aspect-[16/10]"
+          }
         />
         {photoTags.length > 0 && (
           <ul className="pointer-events-none absolute start-3 top-3 z-10 flex max-w-[calc(100%-4.5rem)] flex-col items-start gap-1.5">
@@ -156,7 +172,13 @@ export function ListingCard({
         {showCompare && <CompareToggle publicId={listing.publicId} variant="icon" className="absolute end-2 bottom-2 z-20" />}
       </div>
 
-      <div className={cn("flex min-w-0 flex-1 flex-col gap-1.5 px-4 pt-3 pb-4", isList && "sm:px-5 sm:pt-4")}>
+      <div
+        className={cn(
+          "flex min-w-0 flex-1 flex-col",
+          isCompact ? "gap-1 px-3 py-2.5" : "gap-1.5 px-4 pt-3 pb-4",
+          isList && "sm:px-5 sm:pt-4",
+        )}
+      >
         <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
           <Price
             amount={listing.price}
@@ -169,7 +191,7 @@ export function ListingCard({
           {listing.badges.business && <BayitBadge kind="business" className="relative z-10" />}
         </div>
 
-        <h3 id={titleId} className={cn("min-w-0 font-semibold leading-snug", isList ? "text-lg" : "text-base")}>
+        <h3 id={titleId} className={cn("min-w-0 font-semibold leading-snug", isList ? "text-lg" : isCompact ? "text-sm" : "text-base")}>
           <Link
             href={listing.href}
             dir="auto"
@@ -182,7 +204,7 @@ export function ListingCard({
             {listing.title}
           </Link>
         </h3>
-        {listing.titleIsAutoTranslated && (
+        {listing.titleIsAutoTranslated && !isCompact && (
           <p className="-mt-1 flex items-center gap-1 text-xs text-muted-foreground">
             <LanguagesIcon className="size-3" aria-hidden="true" />
             {t("autoTranslated")}
@@ -190,15 +212,20 @@ export function ListingCard({
         )}
 
         {place ? (
-          <p className="flex min-w-0 items-center gap-1 text-sm text-muted-foreground">
-            <MapPinIcon className="size-4 shrink-0" aria-hidden="true" />
+          <p className={cn("flex min-w-0 items-center gap-1 text-muted-foreground", isCompact ? "text-xs" : "text-sm")}>
+            <MapPinIcon className={cn("shrink-0", isCompact ? "size-3.5" : "size-4")} aria-hidden="true" />
             <span className="truncate">{place}</span>
           </p>
         ) : null}
 
         {facts.length > 0 && (
-          <ul className="flex flex-wrap items-center gap-x-3.5 gap-y-1 text-sm text-foreground/80">
-            {facts.map(({ key, icon: Icon, value, label }) => (
+          <ul
+            className={cn(
+              "flex flex-wrap items-center gap-x-3.5 gap-y-1 text-foreground/80",
+              isCompact ? "max-h-5 gap-x-3 overflow-hidden text-xs" : "text-sm",
+            )}
+          >
+            {(isCompact ? facts.slice(0, 3) : facts).map(({ key, icon: Icon, value, label }) => (
               <li key={key} className="inline-flex items-center gap-1.5" title={label}>
                 <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                 <span aria-hidden="true">{value}</span>
@@ -208,7 +235,7 @@ export function ListingCard({
           </ul>
         )}
 
-        {badgeItems.length > 0 && <BadgeRow items={badgeItems} max={3} className="mt-auto pt-1.5" />}
+        {badgeItems.length > 0 && <BadgeRow items={badgeItems} max={isCompact ? 2 : 3} className={cn("mt-auto", isCompact ? "pt-1" : "pt-1.5")} />}
       </div>
     </article>
   );

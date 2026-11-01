@@ -35,6 +35,8 @@ export const SECTION_ONLY_NAMESPACES = [
   "owner",
   "safety",
   "shabbat",
+  // Read on the server; its client part gets the strings as props (createTranslator).
+  "shabbatCountdown",
 ] as const;
 
 /** All messages minus the section-only namespaces: what public pages send to the browser. */

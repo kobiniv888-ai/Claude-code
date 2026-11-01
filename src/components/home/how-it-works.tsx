@@ -1,29 +1,31 @@
 import { getTranslations } from "next-intl/server";
-import { Container } from "@/components/common/container";
-import { SectionHeading } from "@/components/common/section-heading";
 import type { AppLocale } from "@/config/site";
-import { HowItWorksTabs } from "./how-it-works-tabs";
+import { formatNumber } from "@/lib/format";
+import { HomeSection } from "./home-section";
+import { HowItWorksTabs, type StepIcon } from "./how-it-works-tabs";
 
 const STEPS = ["one", "two", "three"] as const;
+const ICONS: Record<"guests" | "owners", readonly StepIcon[]> = {
+  guests: ["search", "check", "chat"],
+  owners: ["post", "pledge", "chat"],
+};
 
-/** "How it works" in three steps, for guests and for owners (tabs), with a link to the full page. */
+/** "How it works": three numbered step cards for guests and for owners (tabs), with a link to the full page. */
 export async function HowItWorks({ locale }: { locale: AppLocale }) {
   const t = await getTranslations({ locale, namespace: "home.howItWorks" });
   const track = (audience: "guests" | "owners") => ({
     label: t(`tabs.${audience}`),
-    steps: STEPS.map((step) => ({ title: t(`${audience}.${step}.title`), text: t(`${audience}.${step}.text`) })),
+    steps: STEPS.map((step, index) => ({
+      number: formatNumber(index + 1, locale, { minimumIntegerDigits: 2 }),
+      stepLabel: t("step", { number: formatNumber(index + 1, locale) }),
+      icon: ICONS[audience][index],
+      title: t(`${audience}.${step}.title`),
+      text: t(`${audience}.${step}.text`),
+    })),
   });
   return (
-    <section aria-labelledby="home-how-title" className="py-12 sm:py-16">
-      <Container>
-        <SectionHeading
-          id="home-how-title"
-          title={t("title")}
-          description={t("lead")}
-          action={{ label: t("more"), href: "/how-it-works" }}
-        />
-        <HowItWorksTabs guests={track("guests")} owners={track("owners")} label={t("tabsLabel")} />
-      </Container>
-    </section>
+    <HomeSection id="home-how-title" title={t("title")} subtitle={t("lead")} href="/how-it-works" linkLabel={t("more")}>
+      <HowItWorksTabs guests={track("guests")} owners={track("owners")} label={t("tabsLabel")} />
+    </HomeSection>
   );
 }

@@ -122,7 +122,9 @@
     "buildingAge": "المبنى",
     "verifiedHint": "تحقّق فريقنا من هوية المالك أو من إثبات الملكية.",
     "ownerType": "المعلِن",
-    "postedWithin": "نُشر خلال"
+    "postedWithin": "نُشر خلال",
+    "noMin": "بلا حد أدنى",
+    "noMax": "بلا حد أقصى"
   },
   "chips": {
     "heading": "الفلاتر المفعّلة",
@@ -143,7 +145,8 @@
     "sortLabel": "الترتيب حسب",
     "viewLabel": "طريقة العرض",
     "showMap": "الخريطة",
-    "showList": "القائمة"
+    "showList": "القائمة",
+    "pillLabel": "الخريطة والترتيب"
   },
   "results": {
     "listLabel": "نتائج البحث",
@@ -166,7 +169,8 @@
     "noPrice": "السعر عند الطلب",
     "openListing": "عرض الإعلان",
     "carouselLabel": "عقارات على الخريطة",
-    "noResultsHere": "لا توجد عقارات في هذه المنطقة. صغّر الخريطة أو حرّكها."
+    "noResultsHere": "لا توجد عقارات في هذه المنطقة. صغّر الخريطة أو حرّكها.",
+    "fetching": "جارٍ التحميل…"
   },
   "pagination": {
     "label": "صفحات النتائج",
@@ -181,12 +185,62 @@
     "titleNoListings": "لا توجد عقارات هنا بعد",
     "descriptionNoListings": "تُضاف عقارات جديدة كل يوم. جرّب مدينة أخرى في الأثناء.",
     "clear": "مسح كل الفلاتر",
-    "tryCities": "مدن شائعة"
+    "tryCities": "مدن شائعة",
+    "descriptionFixes": "تغيير صغير واحد يعيد النتائج — اختاروا أحدها:"
   },
   "error": {
     "title": "تعذّر تحميل النتائج",
     "description": "حدث خطأ من جهتنا. يُرجى المحاولة مرة أخرى بعد قليل.",
     "retry": "حاول مرة أخرى",
     "startOver": "بحث جديد"
+  },
+  "top": {
+    "chipsLabel": "تصفية سريعة",
+    "deal": "نوع الصفقة",
+    "price": "السعر",
+    "rooms": "الغرف",
+    "quick": {
+      "kosher": "كوشير",
+      "shabbat": "مناسب للسبت",
+      "synagogue": "قرب كنيس",
+      "hebrew": "يتحدث العبرية"
+    },
+    "anywhere": "كل جورجيا",
+    "anyDates": "إضافة تواريخ",
+    "moveIn": "الانتقال في {date}",
+    "summaryLabel": "تغيير البحث: {summary}"
+  },
+  "sort": {
+    "title": "الترتيب حسب",
+    "open": "الترتيب: {sort}. تغيير الترتيب",
+    "short": "ترتيب"
+  },
+  "sheet": {
+    "dealShort": {
+      "any": "الكل",
+      "rent": "إيجار",
+      "short-stay": "قصير",
+      "monthly": "شهري",
+      "buy": "شراء",
+      "hotels": "فنادق"
+    },
+    "showCount": "{count, plural, =0 {لا توجد عقارات مطابقة} one {عرض عقار واحد} two {عرض عقارين} few {عرض <n></n> عقارات} many {عرض <n></n> عقارًا} other {عرض <n></n> عقار}}",
+    "clearAll": "مسح الكل",
+    "noneTitle": "لا توجد عقارات تطابق كل عوامل التصفية",
+    "noneHint": "تغيير واحد يعيد النتائج:",
+    "noneGeneric": "جرّبوا نطاق أسعار أوسع أو عوامل تصفية أقل.",
+    "removeChip": "إزالة عامل التصفية {label}",
+    "synagogueNear": "كنيس على مسافة مشي",
+    "bigFamily": "عائلات كبيرة 8+",
+    "jewishTitle": "الكشروت والسبت",
+    "jewishMore": "تفاصيل أخرى للملتزمين بالتقاليد",
+    "noPrices": "لا توجد أسعار للعرض"
+  },
+  "fixes": {
+    "remove": "إزالة عامل التصفية «{label}»",
+    "dates": "مسح التواريخ",
+    "widerArea": "توسيع المنطقة",
+    "allGeorgia": "البحث في كل جورجيا",
+    "count": "{count, plural, one {عقار واحد} two {عقاران} few {{formatted} عقارات} many {{formatted} عقارًا} other {{formatted} عقار}}"
   }
 }

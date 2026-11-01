@@ -1,6 +1,6 @@
 import { expect, openAs, settle, test } from "./fixtures";
 import { DEMO } from "./helpers/auth";
-import { createReport, createTestListing, createTestUser, listingByPublicId } from "./helpers/db";
+import { createReport, createTestListing, createTestUser, listingByPublicId, sql } from "./helpers/db";
 
 /** Definition of done: report buttons, safety tips and the automatic scam checks all work. */
 
@@ -44,6 +44,8 @@ test("the Report dialog sends a report, and enough reports hide the listing", as
 
 test("scam phrases and a phone number in the description send a listing to review with those reasons", async ({ browser }) => {
   const owner = await createTestUser({ name: "E2E Risky Owner" });
+  // Publishing needs the Bayit pledge (redesign phase 1); this owner accepted version 1 earlier.
+  await sql(`UPDATE "User" SET "welcomePledgeVersion" = 1, "welcomePledgeAcceptedAt" = now() WHERE id = $1`, [owner.id]);
   // Not the owner's first listing, so the review is caused by the checks themselves.
   await createTestListing({ ownerId: owner.id, title: `E2E Earlier flat ${Date.now().toString(36)}` });
   const title = `E2E Risky flat ${Date.now().toString(36)}`;
@@ -56,7 +58,8 @@ test("scam phrases and a phone number in the description send a listing to revie
   });
 
   const { context, page, consoleErrors } = await openAs(browser, owner.phone);
-  await page.goto(`/en/post/${draft.id}?step=10`);
+  // Step 11 since the pledge step (10) was added before the preview.
+  await page.goto(`/en/post/${draft.id}?step=11`);
   await expect(page.getByRole("heading", { level: 1, name: "Preview and publish" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Before you can publish" })).toHaveCount(0);
   await settle(page);

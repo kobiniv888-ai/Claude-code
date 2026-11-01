@@ -1,0 +1,49 @@
+{
+  "label": "Map of homes",
+  "loading": "Loading the map…",
+  "status": {
+    "loading": "Loading…",
+    "inArea": "{count, plural, =0 {No homes in this area} one {{formatted} home in this area} other {{formatted} homes in this area}}"
+  },
+  "controls": {
+    "label": "Map controls",
+    "searchAsMove": "Search as I move the map",
+    "recenter": "Re-center",
+    "recenterLabel": "Back to the search area",
+    "list": "List",
+    "listLabel": "Back to the list of results",
+    "community": "Jewish community",
+    "communityHint": "Synagogues, Chabad houses and kosher places on the map",
+    "communityLoading": "Loading community places…",
+    "communityError": "We couldn't load the community places. Please try again.",
+    "communityEmpty": "No community places on the map yet."
+  },
+  "pill": {
+    "noPrice": "On request"
+  },
+  "cluster": "{count, plural, one {{formatted} home here} other {{formatted} homes here}} — tap to zoom in",
+  "card": {
+    "label": "Home selected on the map",
+    "close": "Close the card",
+    "loading": "Loading the home…",
+    "open": "View listing"
+  },
+  "community": {
+    "types": {
+      "SYNAGOGUE": "Synagogue",
+      "CHABAD_HOUSE": "Chabad house",
+      "KOSHER_RESTAURANT": "Kosher restaurant",
+      "KOSHER_SHOP": "Kosher shop"
+    },
+    "legend": {
+      "label": "Legend: community places",
+      "synagogue": "Synagogue",
+      "chabad": "Chabad",
+      "kosher": "Kosher"
+    },
+    "walk": "Walking directions",
+    "walkLabel": "Walking directions to {name} (opens in a new window)",
+    "demo": "Demo",
+    "demoNote": "Sample point, not a real place"
+  }
+}

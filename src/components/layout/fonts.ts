@@ -12,6 +12,11 @@ import localFont from "next/font/local";
  * - ₾ (lari): of our files only Noto Sans latin-ext (164 KB) and Noto Sans Georgian latin-ext
  *   (13 KB) have it, and the stack reached the big one first. `lariSign` is the 13 KB file
  *   (a copy of Noto Sans Georgian latin-ext, SIL Open Font License) limited to U+20BE.
+ * - ₪ (shekel, in every Hebrew price: ILS is the Hebrew default): "Noto Sans" lists U+20AA in
+ *   its latin-ext face (168 KB), so the browser fetched that whole file for one sign on every
+ *   Hebrew page, inside the first-paint window. `shekelSign` is the 12 KB Noto Sans Hebrew
+ *   "hebrew" subset (a copy of the file next/font downloads, SIL Open Font License) limited to
+ *   U+20AA; the same glyph as Noto Sans Hebrew.
  * - ≈ (converted prices): none of the Noto files has it, so the browser downloaded the Arabic
  *   and Georgian maths faces (~40 KB) and then used a system font anyway. "Bayit Symbols" in
  *   globals.css takes it from a system font straight away (local() only, nothing to download).
@@ -57,16 +62,25 @@ const lariSign = localFont({
   declarations: [{ prop: "unicode-range", value: "U+20BE" }],
 });
 
-const fonts = [lariSign, notoSans, notoSansHebrew, notoSansArabic, notoSansGeorgian];
+const shekelSign = localFont({
+  src: "./font-files/noto-sans-hebrew-hebrew.woff2",
+  weight: "100 900",
+  display: "swap",
+  preload: false,
+  adjustFontFallback: false,
+  declarations: [{ prop: "unicode-range", value: "U+20AA" }],
+});
+
+const fonts = [lariSign, shekelSign, notoSans, notoSansHebrew, notoSansArabic, notoSansGeorgian];
 
 /** Defined in globals.css (≈ from a local system font). */
 const SYMBOLS_FAMILY = '"Bayit Symbols"';
 
-/** "<lari>, 'Bayit Symbols', 'Noto Sans', 'Noto Sans Hebrew', …, system-ui, sans-serif" (hashed names in production). */
+/** "<lari>, <shekel>, 'Bayit Symbols', 'Noto Sans', 'Noto Sans Hebrew', …, system-ui, sans-serif" (hashed names in production). */
 export const fontFamilyStack = [
-  fonts[0].style.fontFamily.split(",")[0].trim(),
+  ...fonts.slice(0, 2).map((font) => font.style.fontFamily.split(",")[0].trim()),
   SYMBOLS_FAMILY,
-  ...fonts.slice(1).map((font) => font.style.fontFamily.split(",")[0].trim()),
+  ...fonts.slice(2).map((font) => font.style.fontFamily.split(",")[0].trim()),
   "ui-sans-serif",
   "system-ui",
   "sans-serif",

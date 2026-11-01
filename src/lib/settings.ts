@@ -17,15 +17,19 @@ import { isShabbatOrHolidayNow } from "@/lib/hebcal";
  *   await updateSettings({ listingExpiryDays: 90 }, staff.id);   // validated + audited
  */
 
+/**
+ * Home page sections, in their default order (the redesigned home kept these keys: shabbatTimes is
+ * the "Jewish life in Georgia" band, whyUs is "The Bayit pledge" — see app/[locale]/(site)/page.tsx).
+ */
 export const HOME_SECTION_KEYS = [
-  "categories",
   "cities",
+  "categories",
   "featured",
   "newest",
   "recentlyViewed",
+  "shabbatTimes",
   "whyUs",
   "howItWorks",
-  "shabbatTimes",
   "safetyStrip",
   "listCta",
 ] as const;

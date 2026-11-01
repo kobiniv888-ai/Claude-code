@@ -1,0 +1,19 @@
+{
+  "title": "السبت القادم",
+  "cities": "اختيار مدينة",
+  "before": "يبدأ السبت بعد {time}",
+  "during": "سبت شالوم · ينتهي الساعة {time}",
+  "duringNoEnd": "سبت شالوم",
+  "after": "شافوع توف — أسبوعًا طيبًا",
+  "unknown": "ستظهر مواعيد السبت هنا قريبًا",
+  "candleLighting": "إضاءة الشموع",
+  "havdalah": "الهفدالا",
+  "localTime": "التوقيت المحلي",
+  "more": "كل مواعيد السبت",
+  "units": {
+    "day": "{count, plural, zero {{count} يوم} one {يوم واحد} two {يومين} few {{count} أيام} many {{count} يومًا} other {{count} يوم}}",
+    "hour": "{count, plural, zero {{count} ساعة} one {ساعة} two {ساعتين} few {{count} ساعات} many {{count} ساعة} other {{count} ساعة}}",
+    "minute": "{count, plural, zero {{count} دقيقة} one {دقيقة} two {دقيقتين} few {{count} دقائق} many {{count} دقيقة} other {{count} دقيقة}}"
+  },
+  "pair": "{first} و{second}"
+}

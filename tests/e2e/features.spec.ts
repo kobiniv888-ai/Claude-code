@@ -47,6 +47,8 @@ test("Jewish Life shows the map of places and this week's Shabbat times", async 
   await expect(shabbat.locator("time").first()).toHaveText(/\d{1,2}:\d{2}/);
   await expect(page.getByRole("region", { name: "Shabbat times in every city" })).toContainText("Batumi");
 
+  // The map mounts only when its area comes near the screen (redesign phase 1): scroll there first.
+  await page.getByRole("list", { name: "Places" }).scrollIntoViewIfNeeded();
   const map = page.getByRole("region", { name: "Map of Jewish places" });
   await map.scrollIntoViewIfNeeded();
   await expect(map.locator(".leaflet-container")).toBeVisible();

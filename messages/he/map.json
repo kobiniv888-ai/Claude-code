@@ -1,0 +1,49 @@
+{
+  "label": "מפת הנכסים",
+  "loading": "טוענים את המפה…",
+  "status": {
+    "loading": "טוען…",
+    "inArea": "{count, plural, =0 {אין נכסים באזור} one {נכס אחד באזור} other {{formatted} נכסים באזור}}"
+  },
+  "controls": {
+    "label": "פקדי המפה",
+    "searchAsMove": "חיפוש בזמן הזזת המפה",
+    "recenter": "מרכז מחדש",
+    "recenterLabel": "חזרה לאזור החיפוש",
+    "list": "רשימה",
+    "listLabel": "חזרה לרשימת התוצאות",
+    "community": "קהילה יהודית",
+    "communityHint": "בתי כנסת, בתי חב״ד ומקומות כשרים במפה",
+    "communityLoading": "טוענים את מקומות הקהילה…",
+    "communityError": "לא הצלחנו לטעון את מקומות הקהילה. נסו שוב.",
+    "communityEmpty": "עדיין אין מקומות קהילה במפה."
+  },
+  "pill": {
+    "noPrice": "לפי בקשה"
+  },
+  "cluster": "{count, plural, one {נכס אחד כאן} other {{formatted} נכסים כאן}} — הקישו להגדלה",
+  "card": {
+    "label": "הנכס שנבחר במפה",
+    "close": "סגירת הכרטיס",
+    "loading": "טוענים את הנכס…",
+    "open": "למודעה"
+  },
+  "community": {
+    "types": {
+      "SYNAGOGUE": "בית כנסת",
+      "CHABAD_HOUSE": "בית חב״ד",
+      "KOSHER_RESTAURANT": "מסעדה כשרה",
+      "KOSHER_SHOP": "חנות כשרה"
+    },
+    "legend": {
+      "label": "מקרא: מקומות הקהילה",
+      "synagogue": "בית כנסת",
+      "chabad": "חב״ד",
+      "kosher": "כשר"
+    },
+    "walk": "מסלול הליכה",
+    "walkLabel": "מסלול הליכה אל {name} (נפתח בחלון חדש)",
+    "demo": "דמו",
+    "demoNote": "נקודה לדוגמה, לא מקום אמיתי"
+  }
+}
