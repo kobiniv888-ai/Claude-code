@@ -7,39 +7,50 @@
   "hero": {
     "eyebrow": "Jewish Life",
     "title": "Jewish life in Georgia",
-    "lead": "Synagogues, kosher food and Shabbat times for your trip to Tbilisi, Batumi and beyond — all in one place.",
-    "jumpLabel": "On this page",
-    "jump": {
-      "places": "Map of places",
+    "lead": "Synagogues, kosher food and Shabbat times — everything for your trip to Georgia, in one place.",
+    "actionsLabel": "Quick links",
+    "actions": {
+      "map": "Community map",
       "times": "Shabbat times",
-      "calendar": "Jewish calendar",
-      "guides": "Guides",
+      "calendar": "Hebrew calendar",
       "emergency": "Emergency numbers"
     }
+  },
+  "welcome": {
+    "title": "Every host here welcomes Israelis and Jews",
+    "body": "Every host pledged never to turn anyone away over religion or country of origin. Find a place near a synagogue, with a kosher kitchen or ready for Shabbat.",
+    "searchLabel": "Find a place",
+    "search": {
+      "synagogue": "Near a synagogue",
+      "kosher": "Kosher kitchen",
+      "shabbat": "Shabbat-friendly"
+    }
+  },
+  "explore": {
+    "title": "Synagogues, kosher food and community",
+    "synagogues": {
+      "title": "Synagogues",
+      "body": "Prayer and Shabbat together"
+    },
+    "kosher": {
+      "title": "Kosher food",
+      "body": "Restaurants and shops"
+    },
+    "community": {
+      "title": "Community",
+      "body": "Chabad houses, mikvaot and heritage"
+    },
+    "count": "{count, plural, one {1 place on the map} other {{count} places on the map}}",
+    "soon": "Coming soon to the map"
   },
   "intro": {
     "title": "A warm welcome for Jewish travelers",
     "p1": "Georgia is home to one of the oldest Jewish communities in the world, and Jewish life has been part of the country for many centuries. Georgians are known for their hospitality, and Israeli and Jewish visitors are a familiar sight in Tbilisi, Batumi and beyond.",
     "p2": "In the larger cities you can find synagogues, Chabad houses and kosher food. Opening hours, prayer times and kashrut supervision can change, so it's always worth checking with the place directly before you go.",
-    "p3": "On this page you'll find a map of Jewish places added by our team, this week's Shabbat times for every city, a Jewish calendar with holidays and candle-lighting times, and emergency numbers to keep at hand.",
-    "highlights": {
-      "pray": {
-        "title": "Pray and connect",
-        "body": "Find synagogues and Chabad houses on the map. Listings show the walking time to the nearest synagogue."
-      },
-      "kosher": {
-        "title": "Eat kosher",
-        "body": "Kosher restaurants and shops are marked on the map. Ask about the supervision when you arrive."
-      },
-      "shabbat": {
-        "title": "Keep Shabbat comfortably",
-        "body": "Filter for Shabbat-friendly homes — a regular key, no motion sensors, a hot plate — close to a synagogue."
-      }
-    }
+    "p3": "On this page you'll find a map of Jewish places added by our team, this week's Shabbat times for every city, a Jewish calendar with holidays and candle-lighting times, and emergency numbers to keep at hand."
   },
   "places": {
-    "eyebrow": "Map",
-    "title": "Synagogues, kosher food and Jewish sites",
+    "title": "Jewish community map",
     "lead": "Places are checked and added by our team. Choose a type or a city to narrow the map.",
     "mapLabel": "Map of Jewish places",
     "types": {
@@ -90,7 +101,6 @@
     "suggestCta": "Suggest a place"
   },
   "times": {
-    "eyebrow": "Shabbat",
     "title": "Shabbat times in every city",
     "lead": "This week's candle lighting and Havdalah, in each city's local time. Choose a city to see it in the calendar.",
     "caption": "Candle lighting and Havdalah times this week, by city",
@@ -106,7 +116,6 @@
     "unavailable": "Shabbat times aren't available right now. Please try again later."
   },
   "calendar": {
-    "eyebrow": "Calendar",
     "title": "Jewish calendar",
     "lead": "Hebrew dates, holidays and candle-lighting times. Choose a city and move between months.",
     "cityLabel": "Times for",
@@ -142,7 +151,6 @@
     "showInCalendar": "Show in calendar"
   },
   "guides": {
-    "eyebrow": "Guides",
     "title": "Guides for Jewish travelers",
     "lead": "Practical guides to Jewish life in Georgia.",
     "read": "Read",
@@ -179,16 +187,15 @@
     "reviewedByLawyer": "Checked by a local lawyer"
   },
   "emergency": {
-    "eyebrow": "Emergency",
     "title": "Emergency and embassy contacts",
-    "lead": "In an emergency anywhere in Georgia, call 112 — police, ambulance and fire.",
+    "lead": "Tap a card to call.",
     "general": {
       "title": "Emergency services in Georgia",
-      "body": "One number for police, ambulance and fire, free from any phone, 24 hours a day."
+      "body": "Police, ambulance and fire · free from any phone, 24/7"
     },
-    "call": "Call",
     "opensInNewTab": "(opens in a new tab)",
-    "moreSoon": "Embassy and community contacts will be added here by our team."
+    "moreSoon": "Embassy and community contacts will be added here by our team.",
+    "callLabel": "{name}: call {number}"
   },
   "error": {
     "title": "We couldn't load Jewish Life",

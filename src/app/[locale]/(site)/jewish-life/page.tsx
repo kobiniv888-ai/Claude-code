@@ -1,17 +1,19 @@
-import { BookOpen, CalendarDays, Flame, MapPinned, Phone } from "lucide-react";
+import { BookOpen, CalendarDays, MapPinned, Phone } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
+import { ShabbatCandlesIcon } from "@/components/ds/jewish-icons";
 import { EmergencyContacts } from "@/components/jewish-life/emergency-contacts";
+import { ExploreSection } from "@/components/jewish-life/explore-section";
 import { GuidesSection } from "@/components/jewish-life/guides-section";
-import { IntroSection } from "@/components/jewish-life/intro-section";
 import { JewishCalendar } from "@/components/jewish-life/jewish-calendar";
 import { JewishLifeHero } from "@/components/jewish-life/jewish-life-hero";
 import { PlacesSection } from "@/components/jewish-life/places-section";
-import { JlSection } from "@/components/jewish-life/section";
+import { JlContainer, JlSection } from "@/components/jewish-life/section";
 import { ShabbatTimesTable } from "@/components/jewish-life/shabbat-times-table";
 import { UpcomingHolidays } from "@/components/jewish-life/upcoming-holidays";
-import { ShabbatTimesCard } from "@/components/shabbat";
+import { IntroDetails, WelcomeStrip } from "@/components/jewish-life/welcome-strip";
+import { ShabbatCountdownCard } from "@/components/shabbat/shabbat-countdown-card";
 import { userWantsHebrewDates } from "@/components/shabbat/shared";
 import { siteConfig } from "@/config/site";
 import { isAppLocale } from "@/i18n/locale";
@@ -39,6 +41,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   });
 }
 
+/**
+ * Jewish life in Georgia (brief §5.8): a synagogue photo hero with the 4 quick actions, the
+ * promise (every host welcomes you) with one-tap searches, photo cards for synagogues, kosher
+ * food and community, the places map and list, this week's Shabbat (live countdown with city chips
+ * + the per-city table with the parasha), the Hebrew calendar with upcoming holidays, guides
+ * ("coming soon") and emergency numbers you tap to call.
+ */
 export default async function JewishLifePage({ params, searchParams }: Props) {
   const { locale } = await params;
   if (!isAppLocale(locale)) notFound();
@@ -57,36 +66,18 @@ export default async function JewishLifePage({ params, searchParams }: Props) {
   const city =
     cities.find((c) => c.slug === pageParams.city) ?? cities.find((c) => c.slug === defaultSlug) ?? cities[0];
   const showHebrewDates = await userWantsHebrewDates();
-  const showGuides = siteConfig.features.articles;
 
   return (
     <div className="pb-8">
-      <JewishLifeHero
-        locale={locale}
-        showGuidesLink={showGuides}
-        aside={
-          city ? (
-            <ShabbatTimesCard
-              city={city}
-              locale={locale}
-              hebrewDates={showHebrewDates}
-              headingLevel="h2"
-              showMoreLink={false}
-            />
-          ) : null
-        }
-      />
+      <JewishLifeHero locale={locale} />
 
-      <IntroSection locale={locale} />
+      <JlContainer>
+        <WelcomeStrip locale={locale} />
+        <ExploreSection locale={locale} />
+        <IntroDetails locale={locale} />
+      </JlContainer>
 
-      <JlSection
-        id="places"
-        icon={MapPinned}
-        eyebrow={t("places.eyebrow")}
-        title={t("places.title")}
-        lead={t("places.lead")}
-        className="border-y bg-secondary/30"
-      >
+      <JlSection id="places" icon={MapPinned} title={t("places.title")} lead={t("places.lead")}>
         <PlacesSection
           locale={locale}
           initialTypes={parsePlaceTypes(query.type)}
@@ -97,30 +88,34 @@ export default async function JewishLifePage({ params, searchParams }: Props) {
       {city ? (
         <JlSection
           id="shabbat-times"
-          icon={Flame}
-          eyebrow={t("times.eyebrow")}
+          icon={ShabbatCandlesIcon}
+          tone="coral"
           title={t("times.title")}
           lead={t("times.lead")}
+          className="bg-navy-soft/50"
         >
-          <ShabbatTimesTable
-            cities={cities}
-            selectedSlug={city.slug}
-            params={pageParams}
-            showHebrewDate={showHebrewDates}
-            locale={locale}
-          />
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] lg:items-start lg:gap-6">
+            <ShabbatCountdownCard
+              cities={cities.map((c) => c.slug)}
+              initialCity={city.slug}
+              headingLevel="h3"
+              moreHref={null}
+              locale={locale}
+              className="lg:sticky lg:top-24"
+            />
+            <ShabbatTimesTable
+              cities={cities}
+              selectedSlug={city.slug}
+              params={pageParams}
+              showHebrewDate={showHebrewDates}
+              locale={locale}
+            />
+          </div>
         </JlSection>
       ) : null}
 
       {city ? (
-        <JlSection
-          id="calendar"
-          icon={CalendarDays}
-          eyebrow={t("calendar.eyebrow")}
-          title={t("calendar.title")}
-          lead={t("calendar.lead")}
-          className="border-y bg-secondary/30"
-        >
+        <JlSection id="calendar" icon={CalendarDays} tone="green" title={t("calendar.title")} lead={t("calendar.lead")}>
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
             <JewishCalendar
               month={month}
@@ -142,24 +137,18 @@ export default async function JewishLifePage({ params, searchParams }: Props) {
       ) : null}
 
       <JlSection
-        id="guides"
-        icon={BookOpen}
-        eyebrow={t("guides.eyebrow")}
-        title={t("guides.title")}
-        lead={t("guides.lead")}
-      >
-        <GuidesSection locale={locale} />
-      </JlSection>
-
-      <JlSection
         id="emergency"
         icon={Phone}
-        eyebrow={t("emergency.eyebrow")}
+        tone="amber"
         title={t("emergency.title")}
         lead={t("emergency.lead")}
-        className="border-t bg-secondary/30"
+        className="bg-navy-soft/50"
       >
         <EmergencyContacts locale={locale} />
+      </JlSection>
+
+      <JlSection id="guides" icon={BookOpen} title={t("guides.title")} lead={t("guides.lead")}>
+        <GuidesSection locale={locale} />
       </JlSection>
     </div>
   );

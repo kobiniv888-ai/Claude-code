@@ -2,12 +2,8 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { usePathname } from "@/i18n/navigation";
+import { headerScrollStep } from "./header-scroll";
 import "./header-scroll.css";
-
-/** Scrolled at least this far before the header may hide (it always shows near the top). */
-const HIDE_AFTER_PX = 96;
-/** Ignore tiny scroll jitters (momentum, address-bar resizes). */
-const MIN_DELTA_PX = 6;
 
 /**
  * The sticky header frame: solid at the top of the page, translucent with a soft shadow once
@@ -35,22 +31,17 @@ export function HeaderShell({ children }: { children: ReactNode }) {
 
     const update = () => {
       frame = 0;
-      const y = Math.max(0, window.scrollY);
-      setScrolled(y > 4);
-      // Radix/vaul lock the page while a dialog, sheet or the menu is open: freeze the header.
-      if (document.body.hasAttribute("data-scroll-locked")) {
-        lastY = y;
-        return;
-      }
-      if (!compact.matches || reduce.matches || y < HIDE_AFTER_PX) {
-        setHidden(false);
-        lastY = y;
-        return;
-      }
-      const delta = y - lastY;
-      if (Math.abs(delta) < MIN_DELTA_PX) return;
-      setHidden(delta > 0);
-      lastY = y;
+      setScrolled(window.scrollY > 4);
+      const step = headerScrollStep({
+        y: window.scrollY,
+        lastY,
+        compact: compact.matches,
+        reducedMotion: reduce.matches,
+        // Radix/vaul lock the page while a dialog, sheet or the menu is open.
+        locked: document.body.hasAttribute("data-scroll-locked"),
+      });
+      lastY = step.lastY;
+      if (step.hidden !== null) setHidden(step.hidden);
     };
     const onScroll = () => {
       if (!frame) frame = window.requestAnimationFrame(update);

@@ -67,7 +67,7 @@ export function Field({
   return (
     <div className={cn("grid content-start gap-2", className)} data-invalid={error ? true : undefined}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <label htmlFor={id} className="text-sm font-medium">
+        <label htmlFor={id} className="text-small font-semibold">
           {label}
           {optional && <span className="ms-1.5 text-xs font-normal text-muted-foreground">{t("optional")}</span>}
         </label>
@@ -114,7 +114,7 @@ export function FieldGroup({
       aria-describedby={[errorId, descriptionId].filter(Boolean).join(" ") || undefined}
       aria-invalid={error ? true : undefined}
     >
-      <legend className={cn("mb-1 text-base font-semibold", legendClassName)}>
+      <legend className={cn("mb-1 text-body font-bold", legendClassName)}>
         {legend}
         {optional && <span className="ms-1.5 text-xs font-normal text-muted-foreground">{t("optional")}</span>}
       </legend>
@@ -129,7 +129,7 @@ export function FieldGroup({
   );
 }
 
-/** A section card inside a step. */
+/** A section card inside a step: white card, an icon in a tinted circle, a bold title. */
 export function Section({
   title,
   description,
@@ -144,17 +144,18 @@ export function Section({
   className?: string;
 }) {
   return (
-    <section className={cn("grid gap-5 rounded-2xl bg-card p-4 shadow-card ring-1 ring-foreground/5 sm:p-6", className)}>
+    // min-w-0 on the card and its children: long words (Georgian, Russian) wrap instead of widening the page.
+    <section className={cn("grid min-w-0 gap-5 rounded-card bg-card p-4 shadow-card ring-1 ring-foreground/5 sm:p-6 [&>*]:min-w-0", className)}>
       {(title || description) && (
         <header className="flex items-start gap-3">
           {Icon && (
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-secondary-foreground">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-navy-soft text-navy">
               <Icon className="size-5" aria-hidden />
             </span>
           )}
-          <div className="grid gap-1">
-            {title && <h3 className="text-base font-semibold sm:text-lg">{title}</h3>}
-            {description && <p className="text-sm text-pretty text-muted-foreground">{description}</p>}
+          <div className="grid gap-0.5 pt-1">
+            {title && <h2 className="text-h3 text-foreground">{title}</h2>}
+            {description && <p className="text-small text-pretty text-muted-foreground">{description}</p>}
           </div>
         </header>
       )}
@@ -163,8 +164,25 @@ export function Section({
   );
 }
 
+/** The round "selected" mark in the corner of a tile. */
+function CheckMark({ checked, shape = "round" }: { checked: boolean; shape?: "round" | "square" }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "flex size-6 shrink-0 items-center justify-center border-2 transition-[background-color,border-color,transform] duration-(--motion-fast) ease-standard",
+        shape === "round" ? "rounded-full" : "rounded-md",
+        checked ? "scale-100 border-navy bg-navy text-navy-foreground" : "border-input bg-card",
+      )}
+    >
+      <CheckIcon className={cn("size-4 transition-opacity", checked ? "opacity-100" : "opacity-0")} strokeWidth={3} />
+    </span>
+  );
+}
+
 // ─── Choice cards (radio) ─────────────────────────────────────
 
+/** Big tappable tiles for one choice (radio). Selected = navy ring, a filled icon circle and a check. */
 export function ChoiceCards<T extends string>({
   legend,
   legendHidden,
@@ -196,10 +214,11 @@ export function ChoiceCards<T extends string>({
             <label
               key={option.value}
               className={cn(
-                "group relative flex cursor-pointer items-start gap-4 rounded-2xl border bg-card text-start transition-all",
-                "hover:border-primary/40 hover:shadow-card-hover has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50",
+                "group relative flex min-h-16 cursor-pointer items-center gap-4 rounded-card border-2 bg-card text-start",
+                "transition-[border-color,background-color,transform] duration-(--motion-fast) ease-standard active:scale-[0.98] motion-reduce:active:scale-100",
+                "hover:border-navy/40 has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50",
                 size === "lg" ? "p-4 sm:p-5" : "p-3.5",
-                checked ? "border-primary bg-primary/5 shadow-card ring-1 ring-primary" : "border-border",
+                checked ? "border-navy bg-navy-soft/50" : "border-border",
               )}
             >
               <input
@@ -213,32 +232,24 @@ export function ChoiceCards<T extends string>({
               {Icon && (
                 <span
                   className={cn(
-                    "flex shrink-0 items-center justify-center rounded-xl transition-colors",
-                    size === "lg" ? "size-12 sm:size-14" : "size-10",
-                    checked ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground",
+                    "flex shrink-0 items-center justify-center rounded-full transition-colors duration-(--motion-fast)",
+                    size === "lg" ? "size-14" : "size-12",
+                    checked ? "bg-navy text-navy-foreground" : "bg-navy-soft text-navy",
                   )}
                 >
-                  <Icon className={size === "lg" ? "size-6 sm:size-7" : "size-5"} aria-hidden />
+                  <Icon className={size === "lg" ? "size-7" : "size-6"} aria-hidden />
                 </span>
               )}
-              <span className="grid min-w-0 flex-1 gap-1">
-                <span className="flex flex-wrap items-center gap-2 font-semibold">
+              <span className="grid min-w-0 flex-1 gap-0.5">
+                <span className="flex flex-wrap items-center gap-2 text-body font-bold">
                   {option.title}
                   {option.badge}
                 </span>
                 {option.description && (
-                  <span className="text-sm text-pretty text-muted-foreground">{option.description}</span>
+                  <span className="text-small text-pretty text-muted-foreground">{option.description}</span>
                 )}
               </span>
-              <span
-                aria-hidden
-                className={cn(
-                  "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border transition-colors",
-                  checked ? "border-primary bg-primary text-primary-foreground" : "border-input",
-                )}
-              >
-                {checked && <CheckIcon className="size-3.5" />}
-              </span>
+              <CheckMark checked={checked} />
             </label>
           );
         })}
@@ -247,17 +258,22 @@ export function ChoiceCards<T extends string>({
   );
 }
 
-// ─── Check cards (checkbox list) ──────────────────────────────
+// ─── Check cards (checkbox list or icon tiles) ────────────────
 
+/**
+ * Several choices (checkboxes). `layout="tiles"`: square-ish icon tiles in a grid (amenities,
+ * Jewish features); `layout="list"`: rows with a checkbox (long help texts).
+ */
 export function CheckCards<T extends string>({
   legend,
   description,
   values,
   options,
   onChange,
-  columns = "grid-cols-1 sm:grid-cols-2",
+  columns,
   error,
   optional,
+  layout = "list",
 }: {
   legend: ReactNode;
   description?: ReactNode;
@@ -267,6 +283,7 @@ export function CheckCards<T extends string>({
   columns?: string;
   error?: string | null;
   optional?: boolean;
+  layout?: "list" | "tiles";
 }) {
   const toggle = (value: T, on: boolean) => {
     const next = new Set(values as T[]);
@@ -275,39 +292,72 @@ export function CheckCards<T extends string>({
     // Keep the vocabulary's order.
     onChange(options.map((o) => o.value).filter((v) => next.has(v)));
   };
+  const tiles = layout === "tiles";
   return (
     <FieldGroup legend={legend} description={description} error={error} optional={optional}>
-      <div className={cn("grid gap-2.5", columns)}>
+      <div
+        className={cn(
+          "grid",
+          tiles ? "gap-2.5 sm:gap-3" : "gap-2.5",
+          columns ?? (tiles ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2"),
+        )}
+      >
         {options.map((option) => {
           const Icon = option.icon;
           const checked = values.includes(option.value);
+          const input = (
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={(e) => toggle(option.value, e.target.checked)}
+              className="sr-only"
+            />
+          );
+          if (tiles) {
+            return (
+              <label
+                key={option.value}
+                className={cn(
+                  "relative flex min-h-28 cursor-pointer flex-col items-start gap-2.5 rounded-card border-2 p-3 text-start sm:p-4",
+                  "transition-[border-color,background-color,transform] duration-(--motion-fast) ease-standard active:scale-[0.97] motion-reduce:active:scale-100",
+                  "has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50",
+                  checked ? "border-navy bg-navy-soft/50" : "border-border bg-card hover:border-navy/40",
+                )}
+              >
+                {input}
+                <span className="flex w-full items-start justify-between gap-2">
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "flex size-11 shrink-0 items-center justify-center rounded-full transition-colors duration-(--motion-fast)",
+                      checked ? "bg-navy text-navy-foreground" : "bg-navy-soft text-navy",
+                    )}
+                  >
+                    {Icon ? <Icon className="size-5.5" aria-hidden /> : <CheckIcon className="size-5" />}
+                  </span>
+                  <CheckMark checked={checked} shape="square" />
+                </span>
+                <span className="grid min-w-0 gap-0.5">
+                  <span className="text-small leading-snug font-semibold text-balance">{option.label}</span>
+                  {option.help && <span className="text-caption text-pretty text-muted-foreground">{option.help}</span>}
+                </span>
+              </label>
+            );
+          }
           return (
             <label
               key={option.value}
               className={cn(
-                "flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50",
-                checked ? "border-primary bg-primary/5" : "border-border bg-card hover:bg-muted/60",
+                "flex min-h-12 cursor-pointer items-start gap-3 rounded-card border-2 p-3 transition-colors has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50",
+                checked ? "border-navy bg-navy-soft/50" : "border-border bg-card hover:border-navy/40",
               )}
             >
-              <input
-                type="checkbox"
-                checked={checked}
-                onChange={(e) => toggle(option.value, e.target.checked)}
-                className="sr-only"
-              />
-              <span
-                aria-hidden
-                className={cn(
-                  "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border transition-colors",
-                  checked ? "border-primary bg-primary text-primary-foreground" : "border-input bg-background",
-                )}
-              >
-                {checked && <CheckIcon className="size-3.5" />}
-              </span>
-              {Icon && <Icon className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden />}
+              {input}
+              <CheckMark checked={checked} shape="square" />
+              {Icon && <Icon className="mt-0.5 size-5 shrink-0 text-navy" aria-hidden />}
               <span className="grid min-w-0 gap-0.5">
-                <span className="text-sm font-medium">{option.label}</span>
-                {option.help && <span className="text-xs text-pretty text-muted-foreground">{option.help}</span>}
+                <span className="text-small font-semibold">{option.label}</span>
+                {option.help && <span className="text-caption text-pretty text-muted-foreground">{option.help}</span>}
               </span>
             </label>
           );
@@ -339,22 +389,26 @@ export function YesNo({
     { key: "no", value: false },
   ];
   return (
-    <fieldset className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-xl border border-border bg-card px-3 py-2.5">
+    <fieldset className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-card border border-border bg-card px-3 py-2.5">
       <legend className="sr-only">{legend}</legend>
-      <span className="flex min-w-0 items-center gap-2.5 text-sm font-medium" aria-hidden>
-        {Icon && <Icon className="size-5 shrink-0 text-muted-foreground" aria-hidden />}
+      <span className="flex min-w-0 items-center gap-2.5 text-small font-semibold" aria-hidden>
+        {Icon && (
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-navy-soft text-navy">
+            <Icon className="size-4.5" aria-hidden />
+          </span>
+        )}
         <span className="grid">
           <span>{legend}</span>
-          {description && <span className="text-xs font-normal text-muted-foreground">{description}</span>}
+          {description && <span className="text-caption font-normal text-muted-foreground">{description}</span>}
         </span>
       </span>
-      <div className="flex gap-1 rounded-lg bg-muted p-0.5">
+      <div className="flex gap-1 rounded-full bg-muted p-1">
         {options.map((option) => (
           <label
             key={option.key}
             className={cn(
-              "cursor-pointer rounded-md px-3 py-1.5 text-sm font-medium transition-colors has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50",
-              value === option.value ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+              "flex min-h-9 min-w-14 cursor-pointer items-center justify-center rounded-full px-3.5 text-small font-semibold transition-colors has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50",
+              value === option.value ? "bg-navy text-navy-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
             )}
           >
             <input
@@ -468,16 +522,20 @@ export function Stepper({
   const current = value ?? null;
   const set = (n: number) => onChange(Math.min(max, Math.max(min, Math.round(n / step) * step)));
   return (
-    <div className="grid gap-1.5">
+    <div className="grid min-w-0 gap-1.5">
       <div
         className={cn(
-          "flex items-center justify-between gap-3 rounded-xl border bg-card px-3 py-2.5",
+          "flex min-h-14 min-w-0 items-center justify-between gap-3 rounded-card border bg-card px-3 py-2",
           error ? "border-destructive" : "border-border",
         )}
       >
         <span className="flex min-w-0 items-center gap-2.5">
-          {Icon && <Icon className="size-5 shrink-0 text-muted-foreground" aria-hidden />}
-          <span id={`${id}-label`} className="text-sm font-medium">
+          {Icon && (
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-navy-soft text-navy">
+              <Icon className="size-4.5" aria-hidden />
+            </span>
+          )}
+          <span id={`${id}-label`} className="text-small font-semibold">
             {label}
             {optional && <span className="ms-1.5 text-xs font-normal text-muted-foreground">{t("optional")}</span>}
           </span>
@@ -493,13 +551,13 @@ export function Stepper({
             onClick={() => (current === null ? onChange(null) : current - step < min ? onChange(null) : set(current - step))}
             disabled={current === null}
             aria-label={t("decrease", { label })}
-            className="flex size-9 items-center justify-center rounded-full border border-input text-foreground transition-colors outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-40"
+            className="flex size-11 items-center justify-center rounded-full border-2 border-input text-foreground transition-[background-color,transform] duration-(--motion-fast) outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-95 disabled:opacity-40 motion-reduce:active:scale-100"
           >
             <MinusIcon className="size-4" aria-hidden />
           </button>
           <output
             aria-live="polite"
-            className={cn("w-10 text-center text-base font-semibold tabular-nums", current === null && "text-muted-foreground")}
+            className={cn("w-9 text-center text-h3 tabular-nums", current === null && "text-muted-foreground")}
           >
             {current === null ? "–" : formatNumber(current, locale, { maximumFractionDigits: 1 })}
           </output>
@@ -508,7 +566,7 @@ export function Stepper({
             onClick={() => set(current === null ? Math.max(min, step >= 1 ? Math.max(min, 1) : min) : current + step)}
             disabled={current !== null && current >= max}
             aria-label={t("increase", { label })}
-            className="flex size-9 items-center justify-center rounded-full border border-input text-foreground transition-colors outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-40"
+            className="flex size-11 items-center justify-center rounded-full border-2 border-input text-foreground transition-[background-color,transform] duration-(--motion-fast) outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-95 disabled:opacity-40 motion-reduce:active:scale-100"
           >
             <PlusIcon className="size-4" aria-hidden />
           </button>

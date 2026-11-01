@@ -11,6 +11,7 @@ import { JsonLd } from "@/components/common/json-ld";
 import { SafetyTip } from "@/components/common/safety-tip";
 import { CardCarousel } from "@/components/ds/card-carousel";
 import { listingBadgeItems, type BadgeItem } from "@/components/ds/badges";
+import { Reveal } from "@/components/ds/reveal";
 import { SectionHeader } from "@/components/ds/section-header";
 import { HideBottomNav } from "@/components/layout/hide-bottom-nav";
 import { CompareToggle } from "@/components/listing/compare-toggle";
@@ -183,7 +184,13 @@ export default async function ListingPage({ params, searchParams }: Props) {
   const barShown = availability === "ok" && data.contactChannels.length > 0;
   const ownerHeader = (
     <div className="grid gap-3">
-      <OwnerHeader owner={data.owner} ownerVerified={data.ownerVerified} propertyVerified={data.propertyVerified} welcomes={welcomes} />
+      <OwnerHeader
+        owner={data.owner}
+        ownerVerified={data.ownerVerified}
+        propertyVerified={data.propertyVerified}
+        welcomes={welcomes}
+        sale={data.dealType === "SALE"}
+      />
       <ShabbatReplyNotice now={shabbatNow} />
     </div>
   );
@@ -238,7 +245,7 @@ export default async function ListingPage({ params, searchParams }: Props) {
 
         <Container className="pt-5 pb-12 lg:pt-8">
           <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_24rem] lg:gap-x-12">
-            <div className="grid min-w-0 content-start gap-8">
+            <div className="grid min-w-0 content-start gap-8 [&>:empty]:hidden">
               <div className="grid gap-5">
                 <TitleBlock
                   data={data}
@@ -259,29 +266,52 @@ export default async function ListingPage({ params, searchParams }: Props) {
                 <KeyFacts data={data} />
               </div>
 
-              <TraditionCard data={data} locale={locale} />
+              {/* Each block fades up the first time it scrolls into view (not what is on screen at load). */}
+              <Reveal>
+                <TraditionCard data={data} locale={locale} />
+              </Reveal>
 
-              <Section id="description" title={t("description.title")}>
-                <div className="grid gap-3">
-                  <TranslationSwitch auto={data.isAutoTranslated} originalLanguage={originalLanguage} />
-                  <ListingDescription />
-                </div>
-              </Section>
+              <Reveal>
+                <Section id="description" title={t("description.title")}>
+                  <div className="grid gap-3">
+                    <TranslationSwitch auto={data.isAutoTranslated} originalLanguage={originalLanguage} />
+                    <ListingDescription />
+                  </div>
+                </Section>
+              </Reveal>
 
-              <RoomTypesSection rooms={data.roomTypes} />
-              <AmenitiesSection amenities={data.amenities} />
-              <RulesSection data={data} />
-              <CostsSection data={data} />
-              {data.dealType !== "SALE" ? <AvailabilityCalendar blocks={data.blocks} nowIso={nowIso} /> : null}
+              <Reveal>
+                <RoomTypesSection rooms={data.roomTypes} />
+              </Reveal>
+              <Reveal>
+                <AmenitiesSection amenities={data.amenities} />
+              </Reveal>
+              <Reveal>
+                <RulesSection data={data} />
+              </Reveal>
+              <Reveal>
+                <CostsSection data={data} />
+              </Reveal>
+              {data.dealType !== "SALE" ? (
+                <Reveal>
+                  <AvailabilityCalendar blocks={data.blocks} nowIso={nowIso} />
+                </Reveal>
+              ) : null}
               {isStay && stay.checkIn && stay.checkOut ? (
                 <HolidaysInRange start={stay.checkIn} end={stay.checkOut} locale={locale} headingLevel="h3" showHints={false} />
               ) : null}
-              <LocationSection data={data} place={place} places={communityPlaces} />
-              <DetailsSection data={data} />
+              <Reveal>
+                <LocationSection data={data} place={place} places={communityPlaces} />
+              </Reveal>
+              <Reveal>
+                <DetailsSection data={data} />
+              </Reveal>
 
-              <Section id="host" title={t("host.title")}>
-                <HostCard data={data} welcomes={welcomes} nowIso={nowIso} shabbatNow={shabbatNow} showContact={!barShown} />
-              </Section>
+              <Reveal>
+                <Section id="host" title={data.dealType === "SALE" ? t("host.titleSale") : t("host.title")}>
+                  <HostCard data={data} welcomes={welcomes} nowIso={nowIso} shabbatNow={shabbatNow} showContact={!barShown} />
+                </Section>
+              </Reveal>
 
               {siteConfig.features.reviews ? (
                 <Section id="reviews" title={t("reviews.title")}>
@@ -319,7 +349,7 @@ export default async function ListingPage({ params, searchParams }: Props) {
         </Container>
 
         <MobileContactBar
-          price={<Price amount={data.price} currency={data.currency} period={data.pricePeriod} from={data.priceIsFrom} size="bar" stacked showOriginal={false} />}
+          price={<Price amount={data.price} currency={data.currency} period={data.pricePeriod} from={data.priceIsFrom} size="bar" stacked showOriginal={false} className="whitespace-normal" />}
           owner={ownerHeader}
         />
         <ViewTracker listingId={data.id} publicId={data.publicId} isPublic={isPublic} />

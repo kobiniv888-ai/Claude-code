@@ -117,7 +117,7 @@ test.describe("guest search", () => {
 });
 
 test.describe("guest contact", () => {
-  test("open a listing → Show contact asks to log in → safety tip → WhatsApp with a ready message", async ({ page, context, consoleErrors }) => {
+  test("open a listing → WhatsApp asks to log in → safety tip → WhatsApp with a ready message", async ({ page, context, consoleErrors }) => {
     // Never leave the test machine: answer wa.me ourselves.
     await context.route(/https:\/\/(api\.)?(wa\.me|whatsapp\.com)\//, (route) => route.fulfill({ status: 200, contentType: "text/plain", body: "WhatsApp" }));
 
@@ -129,8 +129,9 @@ test.describe("guest contact", () => {
     expect(title).toContain("Kosher apartment");
     await settle(page);
 
-    // Signed out: "Show contact" opens the login dialog.
-    await page.getByRole("button", { name: "Show contact" }).first().click();
+    // Signed out: the WhatsApp button (redesign phase 3) opens the login dialog first.
+    const whatsapp = page.getByRole("button", { name: /Message on WhatsApp/ }).first();
+    await whatsapp.click();
     const dialog = page.getByRole("dialog", { name: "Log in to continue" });
     await expect(dialog).toBeVisible();
 
@@ -140,10 +141,7 @@ test.describe("guest contact", () => {
     await loginThroughForm(page, phone, dialog);
     await expect(dialog).toBeHidden({ timeout: 30_000 });
 
-    // The contact buttons appear; the first tap shows the safety tip.
-    const whatsapp = page.getByRole("button", { name: /Message on WhatsApp/ }).first();
-    await expect(whatsapp).toBeVisible();
-    await whatsapp.click();
+    // After logging in the tap goes on by itself; the first contact shows the safety tip.
     const tip = page.getByRole("dialog", { name: "Before you contact the owner" });
     await expect(tip).toBeVisible();
     await expect(tip).toContainText("Never pay before");

@@ -178,7 +178,7 @@ export function MobileMenu({ isSignedIn }: { isSignedIn: boolean; postLabel?: st
       <SheetContent
         side={isRtl(locale) ? "left" : "right"}
         showCloseButton={false}
-        className="w-[min(88vw,24rem)] gap-0 p-0 data-[side=left]:sm:max-w-sm data-[side=right]:sm:max-w-sm"
+        className="gap-0 p-0 data-[side=left]:w-[min(88vw,24rem)] data-[side=right]:w-[min(88vw,24rem)] data-[side=left]:sm:max-w-sm data-[side=right]:sm:max-w-sm"
       >
         <SheetHeader className="flex-row items-center justify-between border-b py-3 ps-5 pe-3">
           <SheetTitle className="sr-only">{t("menu.title")}</SheetTitle>
@@ -192,19 +192,20 @@ export function MobileMenu({ isSignedIn }: { isSignedIn: boolean; postLabel?: st
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto overscroll-contain px-3 pt-4 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]">
-          <div className="grid grid-cols-2 gap-2 px-1">
-            <Link href="/post" onClick={close} className={buttonStyles({ variant: "accent", size: "md", block: true })}>
+          {/* Side by side when both labels fit, stacked otherwise (long Arabic or Russian labels). */}
+          <div className="flex flex-wrap gap-2 px-1">
+            <Link href="/post" onClick={close} className={buttonStyles({ variant: "accent", size: "md", className: "min-w-fit flex-1 px-4" })}>
               <Plus aria-hidden className="size-5" strokeWidth={2.5} />
-              <span className="truncate">{t("bottomNav.post")}</span>
+              {t("bottomNav.post")}
             </Link>
             {isSignedIn ? (
-              <Link href="/account" onClick={close} className={buttonStyles({ variant: "outline", size: "md", block: true })}>
+              <Link href="/account" onClick={close} className={buttonStyles({ variant: "outline", size: "md", className: "min-w-fit flex-1 px-4" })}>
                 <UserRound aria-hidden className="size-5" />
-                <span className="truncate">{t("menu.account")}</span>
+                {t("menu.account")}
               </Link>
             ) : (
-              <div onClickCapture={close} className="grid">
-                <LoginButton className="h-11 w-full rounded-full bg-card text-base font-semibold" />
+              <div onClickCapture={close} className="flex min-w-fit flex-1">
+                <LoginButton className="h-11 flex-1 rounded-full bg-card px-4 text-base font-semibold" />
               </div>
             )}
           </div>

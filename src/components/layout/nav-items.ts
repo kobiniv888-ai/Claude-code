@@ -109,3 +109,12 @@ export function pathWithQuery(pathname: string, search: URLSearchParams | string
   const path = normalizePath(pathname);
   return query ? `${path}?${query}` : path;
 }
+
+/**
+ * Where the bottom bar's sliding pill sits: the column of the active tab (0–4, in reading order),
+ * hidden on the Post tab (it has its own raised button) and on pages without a tab.
+ */
+export function bottomNavIndicator(active: BottomNavKey | null): { index: number; visible: boolean } {
+  const index = active ? BOTTOM_NAV_ITEMS.findIndex((item) => item.key === active) : -1;
+  return { index: Math.max(index, 0), visible: index >= 0 && active !== "post" };
+}

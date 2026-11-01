@@ -24,6 +24,7 @@ export function OwnerHeader({
   ownerVerified = false,
   propertyVerified = false,
   welcomes = false,
+  sale = false,
   compact = false,
 }: {
   owner: OwnerSummary;
@@ -31,10 +32,13 @@ export function OwnerHeader({
   propertyVerified?: boolean;
   /** The owner's welcome pledge is valid (green badge). */
   welcomes?: boolean;
+  /** A sale listing: "Listed by" instead of "Hosted by". */
+  sale?: boolean;
   /** One line: avatar and name only (the desktop side box). */
   compact?: boolean;
 }) {
   const t = useTranslations("listing.contactBox");
+  const role = owner.badges.business ? t("hostedByBusiness") : sale ? t("listedBy") : t("hostedBy");
   const name = (
     <Link
       href={ownerPath(owner.id)}
@@ -52,18 +56,19 @@ export function OwnerHeader({
       <div className="flex items-center gap-3">
         <OwnerAvatar name={owner.name} image={owner.image} size={40} />
         <div className="grid min-w-0">
-          <span className="text-caption text-muted-foreground">{owner.badges.business ? t("hostedByBusiness") : t("hostedBy")}</span>
+          <span className="text-caption text-muted-foreground">{role}</span>
           {name}
         </div>
       </div>
     );
   }
   return (
-    <div className="grid gap-3">
+    // grid-cols-1 = minmax(0, 1fr): a long badge (Georgian "welcomes") truncates instead of widening the page.
+    <div className="grid grid-cols-1 gap-3">
       <div className="flex items-center gap-3">
         <OwnerAvatar name={owner.name} image={owner.image} size={60} className="ring-4 ring-navy-soft" />
         <div className="grid min-w-0 gap-0.5">
-          <span className="text-small text-muted-foreground">{owner.badges.business ? t("hostedByBusiness") : t("hostedBy")}</span>
+          <span className="text-small text-muted-foreground">{role}</span>
           {name}
         </div>
       </div>
@@ -107,12 +112,13 @@ export function OwnerFacts({ owner, contactHours, nowIso }: { owner: OwnerSummar
   return (
     <dl className="grid gap-2 sm:grid-cols-2">
       {rows.map(({ icon: Icon, label, value }) => (
-        <div key={label} className="flex items-center gap-3 rounded-2xl bg-muted/70 px-3 py-2.5">
-          <Icon className="size-5 shrink-0 text-navy" aria-hidden />
-          <div className="grid min-w-0">
-            <dt className="text-caption text-muted-foreground">{label}</dt>
-            <dd className="text-small font-semibold">{value}</dd>
-          </div>
+        // dt/dd must be direct children of the row (WCAG "definition-list"): the icon sits inside the dt.
+        <div key={label} className="relative grid min-w-0 content-center rounded-2xl bg-muted/70 py-2.5 ps-11 pe-3">
+          <dt className="text-caption text-muted-foreground">
+            <Icon className="absolute start-3 top-1/2 size-5 -translate-y-1/2 text-navy" aria-hidden />
+            {label}
+          </dt>
+          <dd className="text-small font-semibold">{value}</dd>
         </div>
       ))}
     </dl>
@@ -150,7 +156,7 @@ export function ContactBox({ data, shabbatNow }: { data: ListingPageData; shabba
         <Price amount={data.price} currency={data.currency} period={data.pricePeriod} from={data.priceIsFrom} size="hero" />
         {data.price ? <CurrencySwitcher align="end" className="h-9 bg-muted px-2.5 hover:bg-muted/70" /> : null}
       </div>
-      <OwnerHeader owner={data.owner} compact />
+      <OwnerHeader owner={data.owner} sale={data.dealType === "SALE"} compact />
       <ShabbatReplyNotice now={shabbatNow} />
       <ContactPanel />
       <VideoTip publicId={data.publicId} />
@@ -176,7 +182,13 @@ export function HostCard({
   const t = useTranslations("listing.host");
   return (
     <div className="grid gap-4 rounded-card border bg-card p-4 shadow-card sm:p-5">
-      <OwnerHeader owner={data.owner} ownerVerified={data.ownerVerified} propertyVerified={data.propertyVerified} welcomes={welcomes} />
+      <OwnerHeader
+        owner={data.owner}
+        ownerVerified={data.ownerVerified}
+        propertyVerified={data.propertyVerified}
+        welcomes={welcomes}
+        sale={data.dealType === "SALE"}
+      />
       <OwnerFacts owner={data.owner} contactHours={{ from: data.contactHoursFrom, to: data.contactHoursTo }} nowIso={nowIso} />
       <ShabbatReplyNotice now={shabbatNow} className="lg:hidden" />
       {showContact ? <ContactPanel className="lg:hidden" /> : null}

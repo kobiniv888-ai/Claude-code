@@ -32,7 +32,8 @@
     "deleteDraftDescription": "The draft and everything in it will be removed. This can't be undone.",
     "deleteDraftConfirm": "Delete draft",
     "cancel": "Cancel",
-    "deleted": "Draft deleted"
+    "deleted": "Draft deleted",
+    "pledgeNote": "Every host here promises to welcome Israeli and Jewish guests. You confirm it in the step before publishing, and get the green badge."
   },
   "shabbat": {
     "title": "Shabbat Shalom",
@@ -78,7 +79,8 @@
     "decrease": "Fewer: {label}",
     "increase": "More: {label}",
     "charCount": "{count} of {max} characters",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "allSteps": "All steps"
   },
   "errors": {
     "rate_limited": "You're going a bit fast. Please wait a minute and try again.",
@@ -660,7 +662,15 @@
   },
   "pledge": {
     "title": "The Bayit pledge",
-    "subtitle": "One last step before the preview: a short commitment every Bayit host accepts."
+    "subtitle": "One last step before the preview: a short commitment every Bayit host accepts.",
+    "moment": {
+      "whyTitle": "Why it matters",
+      "reasons": {
+        "guests": "Israeli and Jewish guests know they are welcome at your place, and contact you with peace of mind.",
+        "everyone": "Every host here makes the same promise.",
+        "badge": "Your listings get the green badge:"
+      }
+    }
   },
   "publish": {
     "title": "Preview and publish",

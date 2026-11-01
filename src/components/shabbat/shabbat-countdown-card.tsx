@@ -8,6 +8,8 @@ import { resolveLocale } from "./shared";
 export type ShabbatCountdownCardProps = {
   /** City slugs to switch between (chips). Default: siteConfig.shabbat.homeCities (Tbilisi, Batumi). */
   cities?: readonly string[];
+  /** City shown first (one of `cities`). Default: the first of `cities`. */
+  initialCity?: string;
   /** Heading element of the card title. Default "h3". */
   headingLevel?: "h2" | "h3";
   /** "All Shabbat times →" target; pass null to hide it. Default: the Jewish life page's times. */
@@ -24,9 +26,11 @@ export type ShabbatCountdownCardProps = {
  *
  *   <ShabbatCountdownCard />                              // home page
  *   <ShabbatCountdownCard cities={["tbilisi", "batumi", "kutaisi"]} headingLevel="h2" moreHref={null} />
+ *   // More than 3 cities: the chips become one row that scrolls sideways.
  */
 export async function ShabbatCountdownCard({
   cities = siteConfig.shabbat.homeCities,
+  initialCity,
   headingLevel = "h3",
   moreHref = "/jewish-life#shabbat-times",
   locale: localeProp,
@@ -68,6 +72,7 @@ export async function ShabbatCountdownCard({
   return (
     <ShabbatCountdown
       cities={list}
+      initialSlug={initialCity}
       serverNow={now.toISOString()}
       messages={(messages as unknown as { shabbatCountdown: CountdownMessages }).shabbatCountdown}
       headingLevel={headingLevel}

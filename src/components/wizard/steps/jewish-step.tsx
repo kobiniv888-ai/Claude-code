@@ -15,6 +15,7 @@ import {
   UsersIcon,
   UtensilsCrossedIcon,
 } from "lucide-react";
+import { BayitBadge } from "@/components/ds/badges";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -46,22 +47,15 @@ function ShabbatBadgePreview({ features }: { features: string[] }) {
   return (
     <div
       className={cn(
-        "grid gap-3 rounded-xl border p-4 transition-colors",
+        "grid gap-3 rounded-card border p-4 transition-colors",
         on ? "border-verified/30 bg-verified-soft dark:bg-verified/15" : "border-dashed border-border bg-muted/40",
       )}
       aria-live="polite"
     >
       <div className="flex flex-wrap items-center gap-3">
-        <span className="text-sm font-medium">{t("badgePreview")}</span>
-        <span
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold",
-            on ? "bg-verified text-verified-foreground" : "bg-card text-muted-foreground ring-1 ring-border",
-          )}
-        >
-          <MoonStarIcon className="size-4" aria-hidden />
-          {t("badge")}
-        </span>
+        <span className="text-small font-semibold">{t("badgePreview")}</span>
+        {/* The real badge guests will see on the card (ds/badges), greyed out until earned. */}
+        <BayitBadge kind="shabbatFriendly" size="md" variant={on ? "solid" : "soft"} className={on ? undefined : "grayscale"} />
       </div>
       <p className="text-sm text-pretty">{on ? t("badgeOn") : t("badgeOff")}</p>
       <ul className="grid gap-1.5 text-sm">
@@ -203,7 +197,8 @@ export function JewishStep({ values, set, errors, kind }: StepProps) {
             legend={t("shabbatLegend")}
             values={values.shabbatFeatures}
             onChange={(shabbatFeatures) => set({ shabbatFeatures })}
-            columns="grid-cols-1 md:grid-cols-2"
+            layout="tiles"
+            columns="grid-cols-2 lg:grid-cols-3"
             options={SHABBAT_FEATURES.map((f) => ({
               value: f,
               label: label("shabbat", f),
@@ -220,7 +215,8 @@ export function JewishStep({ values, set, errors, kind }: StepProps) {
           legend={t("moreLegend")}
           values={values.jewishFeatures}
           onChange={(jewishFeatures) => set({ jewishFeatures })}
-          columns="grid-cols-1 min-[420px]:grid-cols-2"
+          layout="tiles"
+          columns="grid-cols-2 lg:grid-cols-3"
           options={jewishOptions.map((f) => ({
             value: f,
             label: label("jewish", f),
@@ -229,11 +225,11 @@ export function JewishStep({ values, set, errors, kind }: StepProps) {
           }))}
         />
         <div className="grid gap-2 sm:grid-cols-2">
-          <p className="flex items-start gap-2.5 rounded-xl bg-secondary/70 p-3 text-sm">
+          <p className="flex items-start gap-2.5 rounded-card bg-navy-soft/60 p-3 text-small">
             <FootprintsIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
             <span>{t("walkingNote")}</span>
           </p>
-          <p className="flex items-start gap-2.5 rounded-xl bg-secondary/70 p-3 text-sm">
+          <p className="flex items-start gap-2.5 rounded-card bg-navy-soft/60 p-3 text-small">
             <UsersIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
             <span>{bigFamily ? t("bigFamilyOn") : t("bigFamilyNote", { count: BIG_FAMILY_MIN_GUESTS })}</span>
           </p>
@@ -246,7 +242,8 @@ export function JewishStep({ values, set, errors, kind }: StepProps) {
             legend={t("hotelLegend")}
             values={values.hotelJewishFeatures}
             onChange={(hotelJewishFeatures) => set({ hotelJewishFeatures })}
-            columns="grid-cols-1 min-[420px]:grid-cols-2"
+            layout="tiles"
+            columns="grid-cols-2 lg:grid-cols-4"
             options={HOTEL_JEWISH_FEATURES.map((f) => ({
               value: f,
               label: label("hotelJewish", f),

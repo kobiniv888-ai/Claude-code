@@ -296,24 +296,24 @@ export function PhotoDropZone({
         if (!disabled && e.dataTransfer.files.length > 0) onFiles(e.dataTransfer.files);
       }}
       className={cn(
-        "flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed text-center transition-colors",
+        "flex flex-col items-center justify-center gap-3 rounded-card border-2 border-dashed text-center transition-colors",
         compact ? "p-4" : "p-6 sm:p-10",
-        over ? "border-primary bg-primary/5" : "border-input bg-muted/30",
+        over ? "border-navy bg-navy-soft" : "border-navy/25 bg-navy-soft/40",
         disabled && "opacity-60",
       )}
     >
       {!compact && (
-        <span className="flex size-14 items-center justify-center rounded-2xl bg-secondary text-secondary-foreground">
-          <ImagePlusIcon className="size-7" aria-hidden />
+        <span className="flex size-16 items-center justify-center rounded-full bg-card text-navy shadow-card">
+          <ImagePlusIcon className="size-8" aria-hidden />
         </span>
       )}
       {!compact && (
         <div className="grid gap-1">
-          <p className="font-semibold">{t("dropTitle")}</p>
-          <p className="text-sm text-muted-foreground">{t("dropHelp")}</p>
+          <p className="text-h3">{t("dropTitle")}</p>
+          <p className="text-small text-muted-foreground">{t("dropHelp")}</p>
         </div>
       )}
-      <Button type="button" onClick={() => input.current?.click()} disabled={disabled} className="h-11 px-5 text-base">
+      <Button type="button" onClick={() => input.current?.click()} disabled={disabled} className="h-12 rounded-full px-6 text-base">
         <UploadIcon aria-hidden />
         {t("choose")}
       </Button>

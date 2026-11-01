@@ -48,7 +48,7 @@ export function MobileContactBar({ price, owner }: { price: ReactNode; owner: Re
       <StickyContactBar
         label={t("contactOwner")}
         spacer={false}
-        className="bottom-0 pb-[env(safe-area-inset-bottom,0px)]"
+        className="bottom-0 animate-sheet-up pb-[env(safe-area-inset-bottom,0px)] motion-reduce:animate-none"
         price={price}
         primary={
           <Button

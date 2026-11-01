@@ -156,7 +156,7 @@ export function FavoritesList({ items }: { items: FavoriteItem[] }) {
   );
 }
 
-/** Nothing saved yet: a coral heart, one line, "Start searching" and the first four popular cities. */
+/** Nothing saved yet: a coral heart, one line, "Start searching" and the first three popular cities. */
 export function FavoritesEmpty() {
   const t = useTranslations("account.favorites");
   const locale = useLocale() as AppLocale;
@@ -169,7 +169,7 @@ export function FavoritesEmpty() {
       action={{ label: t("startSearching"), href: "/search", icon: SearchIcon }}
       quickFixes={siteConfig.cities
         .filter((city) => city.popular)
-        .slice(0, 4)
+        .slice(0, 3)
         .map((city) => ({ label: city.names[locale], href: `/search?city=${city.slug}`, icon: MapPinIcon }))}
       className="rounded-card bg-card px-6 shadow-raised ring-1 ring-foreground/5"
     />

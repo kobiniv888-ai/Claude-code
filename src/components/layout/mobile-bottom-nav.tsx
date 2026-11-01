@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { useLoginDialog } from "@/components/auth/login-dialog";
 import { Link, usePathname } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
-import { activeBottomNavKey, BOTTOM_NAV_ITEMS, isBottomNavHidden, type BottomNavKey } from "./nav-items";
+import { activeBottomNavKey, BOTTOM_NAV_ITEMS, bottomNavIndicator, isBottomNavHidden, type BottomNavKey } from "./nav-items";
 
 const isPlainClick = (event: React.MouseEvent) =>
   !(event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0);
@@ -27,9 +27,7 @@ export function MobileBottomNav({ isSignedIn }: { isSignedIn: boolean }) {
 
   if (isBottomNavHidden(pathname)) return null;
   const active = tapped?.key ?? activeBottomNavKey(pathname);
-  const index = active ? BOTTOM_NAV_ITEMS.findIndex((item) => item.key === active) : -1;
-  // The post tab has its own raised button, so the pill only marks the other four.
-  const showPill = index >= 0 && active !== "post";
+  const pill = bottomNavIndicator(active);
 
   return (
     <nav
@@ -41,12 +39,12 @@ export function MobileBottomNav({ isSignedIn }: { isSignedIn: boolean }) {
         {/* The sliding pill behind the active icon (one column wide; mirrored in RTL). */}
         <span
           aria-hidden="true"
-          style={{ "--i": Math.max(index, 0) } as CSSProperties}
+          style={{ "--i": pill.index } as CSSProperties}
           className={cn(
             "pointer-events-none absolute start-0 top-2 flex w-1/5 justify-center",
             "translate-x-[calc(var(--i)*100%)] rtl:translate-x-[calc(var(--i)*-100%)]",
             "transition-[translate,opacity] duration-(--motion-slow) ease-(--ease-soft) motion-reduce:transition-none",
-            showPill ? "opacity-100" : "opacity-0",
+            pill.visible ? "opacity-100" : "opacity-0",
           )}
         >
           <span className="h-8 w-14 rounded-full bg-navy-soft" />

@@ -101,18 +101,12 @@
     "hostedByBusiness": "Business",
     "languages": "Speaks",
     "memberSince": "Member since",
-    "replyTime": "Usually replies",
-    "replyTimes": {
-      "hour": "within an hour",
-      "fewHours": "within a few hours",
-      "day": "within a day",
-      "days": "in a few days"
-    },
     "localTime": "Owner's local time",
     "contactHours": "Best time to call",
     "repliesAfterShabbat": "It's Shabbat now — the owner replies after Shabbat.",
     "repliesAfterHoliday": "It's a Jewish holiday now — the owner replies after the holiday.",
-    "videoTip": "Before paying anything, ask for a live video call: the owner should show the place and a paper with today's date and the listing ID (<ltr>{id}</ltr>)."
+    "videoTip": "Before paying anything, ask for a live video call: the owner should show the place and a paper with today's date and the listing ID (<ltr>{id}</ltr>).",
+    "listedBy": "Listed by"
   },
   "badges": {
     "label": "Trust badges",
@@ -253,7 +247,6 @@
     "loading": "Loading the map…"
   },
   "nearby": {
-    "title": "Nearby",
     "note": "Walking times are estimates from the map.",
     "synagogue": "Synagogue",
     "chabad": "Chabad house",
@@ -269,9 +262,6 @@
       "tram": "Tram stop",
       "bus": "Bus stop"
     }
-  },
-  "shabbat": {
-    "label": "Shabbat and holidays"
   },
   "reviews": {
     "title": "Reviews",
@@ -302,6 +292,7 @@
   },
   "host": {
     "title": "Your host",
-    "profile": "Profile and all listings"
+    "profile": "Profile and all listings",
+    "titleSale": "Listed by"
   }
 }

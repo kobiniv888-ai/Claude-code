@@ -85,6 +85,7 @@ const SHABBAT_MOTION_CSS = `
  */
 export function ShabbatCountdown({
   cities,
+  initialSlug,
   serverNow,
   messages,
   headingLevel: Heading = "h3",
@@ -92,6 +93,8 @@ export function ShabbatCountdown({
   className,
 }: {
   cities: CountdownCity[];
+  /** City shown first (default: the first one). */
+  initialSlug?: string;
   serverNow: string;
   /** messages/<locale>/shabbatCountdown.json (this namespace is not sent to every page). */
   messages: CountdownMessages;
@@ -106,7 +109,9 @@ export function ShabbatCountdown({
     [locale, messages],
   );
   const [now, setNow] = useState(() => new Date(serverNow));
-  const [slug, setSlug] = useState(cities[0]?.slug ?? "");
+  const [slug, setSlug] = useState(
+    (initialSlug && cities.some((c) => c.slug === initialSlug) ? initialSlug : cities[0]?.slug) ?? "",
+  );
 
   useEffect(() => {
     const tick = () => setNow(new Date());
@@ -144,6 +149,7 @@ export function ShabbatCountdown({
           : t("unknown");
 
   const headingId = `shabbat-countdown-${city.slug}`;
+  const scrollChips = cities.length > 3;
 
   return (
     <article
@@ -195,9 +201,19 @@ export function ShabbatCountdown({
         </div>
       </dl>
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+      <div className={cn("mt-4 flex items-center justify-between gap-3", scrollChips ? "flex-col items-stretch" : "flex-wrap")}>
         {cities.length > 1 ? (
-          <div role="group" aria-label={t("cities")} className="flex flex-wrap gap-2">
+          <div
+            role="group"
+            aria-label={t("cities")}
+            className={cn(
+              "flex gap-2",
+              // Many cities: one row that scrolls sideways (the card's padding stays visible as a gutter).
+              scrollChips
+                ? "-mx-5 snap-x scroll-px-5 overflow-x-auto px-5 pb-1 scrollbar-none sm:-mx-6 sm:scroll-px-6 sm:px-6"
+                : "flex-wrap",
+            )}
+          >
             {cities.map((option) => {
               const pressed = option.slug === city.slug;
               return (
@@ -207,7 +223,7 @@ export function ShabbatCountdown({
                   aria-pressed={pressed}
                   onClick={() => setSlug(option.slug)}
                   // Plain string: cn() would drop text-small next to a text color (custom size names).
-                  className={`inline-flex min-h-11 items-center rounded-full px-4 text-small font-semibold outline-none transition-colors focus-visible:ring-3 focus-visible:ring-white/60 ${
+                  className={`inline-flex min-h-11 shrink-0 snap-start items-center rounded-full px-4 text-small font-semibold whitespace-nowrap outline-none transition-colors focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-white/60 ${
                     pressed ? "bg-white text-(--brand-primary)" : "bg-white/10 text-white ring-1 ring-white/25 hover:bg-white/20"
                   }`}
                 >

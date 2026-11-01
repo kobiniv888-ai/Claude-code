@@ -12,6 +12,7 @@ import { dirFor } from "@/i18n/locale";
 import { formatNumber } from "@/lib/format";
 import {
   JEWISH_PLACE_TYPES,
+  parsePlaceTypes,
   serializePlaceTypes,
   type JewishPlaceType,
   type PublicJewishPlace,
@@ -81,6 +82,19 @@ export function PlacesExplorer({
   // Keep the filters in the URL (shareable links) without a server round trip. Runs again after
   // other navigations on the page (calendar month or city), which bring their own query string.
   const searchParams = useSearchParams();
+
+  // Follow the URL when something else on the page changes `?type=` (the photo cards above use
+  // history.pushState). Our own replaceState below brings back the same value, so this is a no-op then.
+  const typeInUrl = searchParams.get("type");
+  const [syncedType, setSyncedType] = useState(typeInUrl);
+  if (typeInUrl !== syncedType) {
+    setSyncedType(typeInUrl);
+    const fromUrl = parsePlaceTypes(typeInUrl ?? undefined);
+    if (serializePlaceTypes(fromUrl) !== serializePlaceTypes(types)) {
+      setTypes(fromUrl);
+      if (searchParams.get("placeCity") === null) setCity(null);
+    }
+  }
   useEffect(() => {
     const url = new URL(window.location.href);
     const typeParam = serializePlaceTypes(types);

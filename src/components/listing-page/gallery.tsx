@@ -201,11 +201,12 @@ const TILE =
   "group relative block overflow-hidden bg-muted outline-none focus-visible:z-10 focus-visible:ring-3 focus-visible:ring-ring focus-visible:ring-offset-2";
 const ZOOM = "transition-transform duration-500 ease-soft group-hover:scale-[1.03] motion-reduce:transition-none motion-reduce:group-hover:scale-100";
 
-/** 1 large + 4 (or 1 + 2, or 1) photos; each opens the viewer. */
+/** 1 large + 4 (or 1 + 2, 2 side by side, or 1) photos; each opens the viewer. */
 function Mosaic({ photos, onOpen }: { photos: PagePhoto[]; onOpen: (index: number) => void }) {
   const t = useTranslations("listing.gallery");
-  const shown = photos.slice(0, photos.length >= 5 ? 5 : photos.length >= 3 ? 3 : 1);
-  const layout = shown.length === 5 ? "grid-cols-4 grid-rows-2" : shown.length === 3 ? "grid-cols-2 grid-rows-2" : "grid-cols-1";
+  const shown = photos.slice(0, photos.length >= 5 ? 5 : photos.length >= 3 ? 3 : photos.length);
+  const layout =
+    shown.length === 5 ? "grid-cols-4 grid-rows-2" : shown.length === 3 ? "grid-cols-2 grid-rows-2" : shown.length === 2 ? "grid-cols-2" : "grid-cols-1";
   return (
     <div className={cn("grid h-[min(60vh,500px)] gap-2 overflow-hidden rounded-card", layout)}>
       {shown.map((photo, index) => {
@@ -221,7 +222,7 @@ function Mosaic({ photos, onOpen }: { photos: PagePhoto[]; onOpen: (index: numbe
             <GalleryImage
               photo={photo}
               src={main ? photo.large : photo.medium}
-              sizes={main ? MAIN_SIZES : "25vw"}
+              sizes={main ? MAIN_SIZES : shown.length === 5 ? "25vw" : "50vw"}
               eager={main}
               className={ZOOM}
             />

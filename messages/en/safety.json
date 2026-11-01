@@ -158,5 +158,14 @@
     },
     "cta": "Report a scam now",
     "helpCenter": "Help center"
+  },
+  "jump": {
+    "label": "On this page",
+    "alerts": "Alerts",
+    "spot": "Warning signs",
+    "guests": "For guests",
+    "owners": "For owners",
+    "verification": "Verification",
+    "help": "What to do"
   }
 }

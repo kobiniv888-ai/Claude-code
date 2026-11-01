@@ -69,7 +69,8 @@ function MethodRow({
         isDragging ? "z-10 border-primary shadow-card-hover" : error ? "border-destructive/50" : "border-border",
       )}
     >
-      <div className="flex items-center gap-2">
+      {/* Wraps on narrow phones (long channel names in ru/ka): the move/remove buttons go to a second line. */}
+      <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           ref={setActivatorNodeRef}
@@ -84,11 +85,11 @@ function MethodRow({
         <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
           <Icon className="size-4" aria-hidden />
         </span>
-        <span className="min-w-0 flex-1 font-medium">
+        <span className="min-w-0 flex-[1_1_8rem] font-medium">
           {name}
-          {index === 0 && <span className="ms-2 rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">{t("first")}</span>}
+          {index === 0 && <span className="ms-2 inline-block rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">{t("first")}</span>}
         </span>
-        <div className="flex shrink-0 items-center">
+        <div className="ms-auto flex shrink-0 items-center">
           <Button type="button" size="icon-sm" variant="ghost" onClick={() => onMove(-1)} disabled={index === 0} aria-label={t("moveUp", { name })}>
             <ArrowUpIcon aria-hidden />
           </Button>

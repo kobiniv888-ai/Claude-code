@@ -117,7 +117,7 @@ function FaqAccordion({
                 </AccordionPrimitive.Trigger>
               </Heading>
             </AccordionPrimitive.Header>
-            <AccordionPrimitive.Content className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
+            <AccordionPrimitive.Content className="data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-top-1 data-[state=open]:duration-(--motion-base)">
               <div className="border-t px-4 pt-3 pb-3 sm:px-5">
                 <div
                   dir="auto"
