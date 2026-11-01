@@ -27,4 +27,5 @@ sleep 2
 
 npx prisma db push
 npm run db:seed
+touch .devcontainer/.setup-done
 echo "Setup finished."

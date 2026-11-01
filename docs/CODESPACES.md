@@ -58,11 +58,22 @@ git pull && npm ci && npx prisma db push && npm run db:seed
 
 Then reload the page.
 
-## If something goes wrong
+## If the page says "502" or "This page isn't working"
 
-* **"Setup finished" never appears:** in the terminal run `bash .devcontainer/setup.sh` again.
-* **The page doesn't load:** run `bash .devcontainer/start.sh`, wait a minute, and look at the
-  log with `tail -50 /tmp/bayit-dev.log`.
+The website isn't running yet. Open a terminal in the codespace (the **☰ menu** at the top left →
+**Terminal → New Terminal**), type this and press Enter:
+
+```bash
+git pull; bash .devcontainer/start.sh
+```
+
+It waits for the first-run setup (or runs it), starts the website, and prints **"Bayit is ready:
+https://…/he"** when the site answers. Then open that address, or reload the page.
+
+## If something else goes wrong
+
+* **Setup failed:** run `bash .devcontainer/setup.sh` and read the last lines it prints.
+* **See what the website is doing:** `tail -50 /tmp/bayit-dev.log`.
 * **Login fails with an origin error:** the codespace was renamed or created another way. Delete
   `.env`, then run `bash .devcontainer/setup.sh` and `bash .devcontainer/start.sh`.
 
