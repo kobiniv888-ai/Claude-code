@@ -149,7 +149,7 @@ export function Section({
       {(title || description) && (
         <header className="flex items-start gap-3">
           {Icon && (
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-navy-soft text-navy">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-tint text-primary-text">
               <Icon className="size-5" aria-hidden />
             </span>
           )}
@@ -172,7 +172,7 @@ function CheckMark({ checked, shape = "round" }: { checked: boolean; shape?: "ro
       className={cn(
         "flex size-6 shrink-0 items-center justify-center border-2 transition-[background-color,border-color,transform] duration-(--motion-fast) ease-standard",
         shape === "round" ? "rounded-full" : "rounded-md",
-        checked ? "scale-100 border-navy bg-navy text-navy-foreground" : "border-input bg-card",
+        checked ? "scale-100 border-primary bg-primary text-primary-foreground" : "border-input bg-card",
       )}
     >
       <CheckIcon className={cn("size-4 transition-opacity", checked ? "opacity-100" : "opacity-0")} strokeWidth={3} />
@@ -216,9 +216,9 @@ export function ChoiceCards<T extends string>({
               className={cn(
                 "group relative flex min-h-16 cursor-pointer items-center gap-4 rounded-card border-2 bg-card text-start",
                 "transition-[border-color,background-color,transform] duration-(--motion-fast) ease-standard active:scale-[0.98] motion-reduce:active:scale-100",
-                "hover:border-navy/40 has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50",
+                "hover:border-primary/40 has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50",
                 size === "lg" ? "p-4 sm:p-5" : "p-3.5",
-                checked ? "border-navy bg-navy-soft/50" : "border-border",
+                checked ? "border-primary bg-primary-tint/50" : "border-border",
               )}
             >
               <input
@@ -234,7 +234,7 @@ export function ChoiceCards<T extends string>({
                   className={cn(
                     "flex shrink-0 items-center justify-center rounded-full transition-colors duration-(--motion-fast)",
                     size === "lg" ? "size-14" : "size-12",
-                    checked ? "bg-navy text-navy-foreground" : "bg-navy-soft text-navy",
+                    checked ? "bg-primary text-primary-foreground" : "bg-primary-tint text-primary-text",
                   )}
                 >
                   <Icon className={size === "lg" ? "size-7" : "size-6"} aria-hidden />
@@ -321,7 +321,7 @@ export function CheckCards<T extends string>({
                   "relative flex min-h-28 cursor-pointer flex-col items-start gap-2.5 rounded-card border-2 p-3 text-start sm:p-4",
                   "transition-[border-color,background-color,transform] duration-(--motion-fast) ease-standard active:scale-[0.97] motion-reduce:active:scale-100",
                   "has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50",
-                  checked ? "border-navy bg-navy-soft/50" : "border-border bg-card hover:border-navy/40",
+                  checked ? "border-primary bg-primary-tint/50" : "border-border bg-card hover:border-primary/40",
                 )}
               >
                 {input}
@@ -330,7 +330,7 @@ export function CheckCards<T extends string>({
                     aria-hidden
                     className={cn(
                       "flex size-11 shrink-0 items-center justify-center rounded-full transition-colors duration-(--motion-fast)",
-                      checked ? "bg-navy text-navy-foreground" : "bg-navy-soft text-navy",
+                      checked ? "bg-primary text-primary-foreground" : "bg-primary-tint text-primary-text",
                     )}
                   >
                     {Icon ? <Icon className="size-5.5" aria-hidden /> : <CheckIcon className="size-5" />}
@@ -349,12 +349,12 @@ export function CheckCards<T extends string>({
               key={option.value}
               className={cn(
                 "flex min-h-12 cursor-pointer items-start gap-3 rounded-card border-2 p-3 transition-colors has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50",
-                checked ? "border-navy bg-navy-soft/50" : "border-border bg-card hover:border-navy/40",
+                checked ? "border-primary bg-primary-tint/50" : "border-border bg-card hover:border-primary/40",
               )}
             >
               {input}
               <CheckMark checked={checked} shape="square" />
-              {Icon && <Icon className="mt-0.5 size-5 shrink-0 text-navy" aria-hidden />}
+              {Icon && <Icon className="mt-0.5 size-5 shrink-0 text-primary-text" aria-hidden />}
               <span className="grid min-w-0 gap-0.5">
                 <span className="text-small font-semibold">{option.label}</span>
                 {option.help && <span className="text-caption text-pretty text-muted-foreground">{option.help}</span>}
@@ -393,7 +393,7 @@ export function YesNo({
       <legend className="sr-only">{legend}</legend>
       <span className="flex min-w-0 items-center gap-2.5 text-small font-semibold" aria-hidden>
         {Icon && (
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-navy-soft text-navy">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-tint text-primary-text">
             <Icon className="size-4.5" aria-hidden />
           </span>
         )}
@@ -408,7 +408,7 @@ export function YesNo({
             key={option.key}
             className={cn(
               "flex min-h-9 min-w-14 cursor-pointer items-center justify-center rounded-full px-3.5 text-small font-semibold transition-colors has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50",
-              value === option.value ? "bg-navy text-navy-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+              value === option.value ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
             )}
           >
             <input
@@ -531,7 +531,7 @@ export function Stepper({
       >
         <span className="flex min-w-0 items-center gap-2.5">
           {Icon && (
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-navy-soft text-navy">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-tint text-primary-text">
               <Icon className="size-4.5" aria-hidden />
             </span>
           )}
@@ -609,7 +609,7 @@ export function CharCount({ value, max, id }: { value: string; max: number; id?:
   return (
     <span
       id={id}
-      className={cn("text-xs tabular-nums", length > max * 0.95 ? "text-warning" : "text-muted-foreground")}
+      className={cn("text-xs tabular-nums", length > max * 0.95 ? "text-foreground" : "text-muted-foreground")}
       aria-label={t("charCount", { count: length, max })}
     >
       <bdi dir="ltr">

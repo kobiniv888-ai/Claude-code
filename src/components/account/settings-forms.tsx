@@ -529,7 +529,7 @@ export function NotificationsForm({ prefs, emailAvailable }: { prefs: Notificati
       }}
     >
       {!emailAvailable ? (
-        <p className="rounded-xl bg-warning-soft px-3 py-2 text-sm">
+        <p className="rounded-xl bg-surface-muted px-3 py-2 text-sm">
           {t("noEmail")}{" "}
           <a href="#email" className="font-medium text-primary underline-offset-4 hover:underline">
             {t("addEmail")}

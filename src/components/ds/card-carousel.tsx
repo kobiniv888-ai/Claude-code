@@ -59,7 +59,7 @@ export function CardCarousel({
   );
 
   const arrow =
-    "absolute top-[30%] z-10 hidden size-11 -translate-y-1/2 items-center justify-center rounded-full bg-card text-foreground shadow-raised outline-none transition-opacity duration-(--motion-fast) hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 pointer-fine:inline-flex disabled:pointer-events-none disabled:opacity-0";
+    "absolute top-[30%] z-10 hidden size-11 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card text-foreground outline-none transition-opacity duration-(--motion-fast) hover:bg-surface-muted focus-visible:ring-3 focus-visible:ring-ring/50 pointer-fine:inline-flex disabled:pointer-events-none disabled:opacity-0";
 
   return (
     <div className={cn("relative", className)}>

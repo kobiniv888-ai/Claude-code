@@ -11,9 +11,10 @@ const isPlainClick = (event: React.MouseEvent) =>
   !(event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0);
 
 /**
- * Phone bottom bar (hidden from 1024px): Home · Search · Post (the raised coral button) · Saved ·
- * Log in / Profile. A soft navy pill slides between the tabs (translate only) and moves the moment
- * a tab is tapped, before the next page arrives. Signed-out visitors tapping Profile get the login
+ * Phone bottom bar (hidden from 1024px): Home · Search · Post (the raised purple "+" with a white
+ * border) · Saved · Log in / Profile. The active tab is purple (lavender in dark mode); a soft
+ * purple-tint pill slides between the tabs (translate only) and moves the moment a tab is
+ * tapped, before the next page arrives. Signed-out visitors tapping Profile get the login
  * sheet. The bar mirrors itself in RTL and leaves room for the iPhone home indicator.
  * Pages can hide it with <HideBottomNav />; it never shows in /admin.
  */
@@ -33,7 +34,7 @@ export function MobileBottomNav({ isSignedIn }: { isSignedIn: boolean }) {
     <nav
       data-bottom-nav
       aria-label={t("label")}
-      className="fixed inset-x-0 bottom-0 z-(--z-nav) border-t border-border/70 bg-background/90 pb-safe shadow-[0_-4px_24px_rgb(16_24_40/0.06)] backdrop-blur-xl backdrop-saturate-150 lg:hidden dark:shadow-[0_-4px_24px_rgb(0_0_0/0.35)]"
+      className="fixed inset-x-0 bottom-0 z-(--z-nav) border-t border-border bg-bottom-nav pb-safe lg:hidden"
     >
       <div className="relative mx-auto h-16 max-w-lg">
         {/* The sliding pill behind the active icon (one column wide; mirrored in RTL). */}
@@ -47,7 +48,7 @@ export function MobileBottomNav({ isSignedIn }: { isSignedIn: boolean }) {
             pill.visible ? "opacity-100" : "opacity-0",
           )}
         >
-          <span className="h-8 w-14 rounded-full bg-navy-soft" />
+          <span className="h-8 w-14 rounded-full bg-primary-tint" />
         </span>
 
         <ul className="relative grid h-16 grid-cols-5">
@@ -62,16 +63,20 @@ export function MobileBottomNav({ isSignedIn }: { isSignedIn: boolean }) {
                     aria-label={t("postLabel")}
                     aria-current={current ? "page" : undefined}
                     onClick={(event) => isPlainClick(event) && setTapped({ key, from: pathname })}
-                    className="group flex flex-col items-center justify-end gap-1 pb-1.5 text-[11px] font-semibold text-foreground outline-none"
+                    className={cn(
+                      "group flex flex-col items-center justify-end gap-1 pb-1.5 text-xs font-medium text-muted-foreground outline-none",
+                      current && "text-primary-text",
+                    )}
                   >
                     <span
                       className={cn(
-                        "-mt-6 flex size-14 items-center justify-center rounded-full bg-coral-strong text-coral-foreground shadow-raised ring-4 ring-background dark:bg-(--brand-accent)",
+                        // Raised 16px above the bar (no shadow); the white border sets it off the page.
+                        "-mt-4 flex size-12 items-center justify-center rounded-full border-[3px] border-white bg-primary text-primary-foreground",
                         "transition-transform duration-(--motion-fast) ease-(--ease-pop) group-hover:scale-105 group-active:scale-90 motion-reduce:transition-none",
                         "group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-ring",
                       )}
                     >
-                      <Icon aria-hidden className="size-7" strokeWidth={2.4} />
+                      <Icon aria-hidden className="size-6" strokeWidth={2.4} />
                     </span>
                     {t("post")}
                   </Link>
@@ -96,14 +101,14 @@ export function MobileBottomNav({ isSignedIn }: { isSignedIn: boolean }) {
                     setTapped({ key, from: pathname });
                   }}
                   className={cn(
-                    "group flex flex-1 flex-col items-center justify-start gap-0.5 pt-2 text-[11px] font-medium text-muted-foreground outline-none",
-                    current && "font-semibold text-primary",
+                    "group flex flex-1 flex-col items-center justify-start gap-0.5 pt-2 text-xs font-medium text-muted-foreground outline-none",
+                    current && "text-primary-text",
                   )}
                 >
                   <span
                     className={cn(
                       "flex h-8 w-14 items-center justify-center rounded-full transition-[scale] duration-(--motion-fast) group-focus-visible:ring-3 group-focus-visible:ring-ring/50 group-active:scale-95 motion-reduce:transition-none",
-                      !current && "group-hover:bg-muted",
+                      !current && "group-hover:bg-surface-muted",
                     )}
                   >
                     <Icon

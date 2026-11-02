@@ -1,50 +1,44 @@
 import type { CSSProperties } from "react";
-import { Noto_Sans, Noto_Sans_Arabic, Noto_Sans_Georgian } from "next/font/google";
+import { Noto_Sans_Georgian, Rubik } from "next/font/google";
 import localFont from "next/font/local";
+import type { AppLocale } from "@/config/site";
 
 /**
- * Self-hosted Noto fonts (one family per script), combined into one font stack:
- * Noto Sans (Latin, Cyrillic) → Noto Sans Hebrew → Noto Sans Arabic → Noto Sans Georgian.
- * Only the Latin face is preloaded; the Cyrillic, Hebrew, Arabic and Georgian files load on
- * demand through unicode-range, so each page downloads only the scripts it shows.
+ * Round 2 type: Rubik (400/500/600) for every script, Noto Sans Georgian (400/500/600) for
+ * Georgian, which Rubik does not cover. One font stack:
  *
- * Two small faces go first, for signs that are in every price:
- * - ₾ (lari): of our files only Noto Sans latin-ext (164 KB) and Noto Sans Georgian latin-ext
- *   (13 KB) have it, and the stack reached the big one first. `lariSign` is the 13 KB file
- *   (a copy of Noto Sans Georgian latin-ext, SIL Open Font License) limited to U+20BE.
- * - ₪ (shekel, in every Hebrew price: ILS is the Hebrew default): "Noto Sans" lists U+20AA in
- *   its latin-ext face (168 KB), so the browser fetched that whole file for one sign. The Hebrew
- *   face ("Bayit Hebrew", below) has it and goes first in the stack.
- * - ≈ (converted prices): none of the Noto files has it, so the browser downloaded the Arabic
- *   and Georgian maths faces (~40 KB) and then used a system font anyway. "Bayit Symbols" in
- *   globals.css takes it from a system font straight away (local() only, nothing to download).
+ *   lari sign → Bayit Hebrew → Bayit Cyrillic → Bayit Arabic → Bayit Symbols → Rubik → Noto Sans Georgian → system
  *
- * Hebrew: "Bayit Hebrew" (globals.css → src/app/styles/bayit.css) is the 12 KB "hebrew" subset of
- * Noto Sans Hebrew (variable 100–900, SIL Open Font License) served from public/fonts with a fixed
- * name, so the root layout can preload it on Hebrew pages (next/font preloads a face on every
- * locale or on none). It covers the Hebrew block and ₪ only, so it can sit first in the stack:
- * Latin text still reaches Noto Sans. It replaces next/font's Noto_Sans_Hebrew plus a second copy
- * of the same file for ₪ (the browser downloaded the 12 KB twice under two names).
+ * - Rubik (next/font/google) is variable (300–900), so the three weights are one file per script.
+ *   next/font's `subsets` only chooses what it preloads; its CSS still lists every Rubik subset
+ *   (latin-ext, cyrillic-ext… for rare letters). Latin is preloaded on every page: digits, prices
+ *   and the name "Bayit" are in every language.
+ * - Hebrew, Cyrillic and Arabic: "Bayit Hebrew/Cyrillic/Arabic" (src/app/styles/bayit.css) are
+ *   the same Rubik subsets served from public/fonts under fixed names, so the root layout preloads
+ *   the one the page's language needs (`scriptFontUrl`). They come first in the stack, so next/font's
+ *   copies of those subsets are never fetched. Sizes: Latin 35 KB, Hebrew 9 KB, Cyrillic 15 KB,
+ *   Arabic 32 KB; Noto Sans Georgian 41 KB (loads on Georgian text only).
+ * - ₾ (lari): Rubik has no ₾, and Rubik's latin-ext face (19 KB) lists it in its range anyway.
+ *   `lariSign` is a 13 KB copy of Noto Sans Georgian latin-ext (SIL Open Font License) limited to
+ *   U+20BE, first in the stack.
+ * - ₪ (shekel): in "Bayit Hebrew" (Rubik lists it in latin-ext too, a 19 KB detour).
+ * - ≈ (converted prices): no Rubik subset lists it; "Bayit Symbols" takes it from a system font.
+ * - U+2011 (non-breaking hyphen) is only in the range of Rubik's Arabic face (32 KB): do not use it.
  *
  * The stack uses each font's own family name only. next/font also defines a metric-adjusted
  * "<name> Fallback" face built on the local Arial — Arial has Hebrew and Arabic letters, so in
- * the middle of the stack it would win over the Noto Hebrew/Arabic faces that follow it.
+ * the middle of the stack it would win over the faces that follow it.
  */
 
-const notoSans = Noto_Sans({
+const rubik = Rubik({
+  weight: ["400", "500", "600"],
   subsets: ["latin"],
   display: "swap",
   adjustFontFallback: false,
 });
 
-const notoSansArabic = Noto_Sans_Arabic({
-  subsets: ["arabic"],
-  display: "swap",
-  preload: false,
-  adjustFontFallback: false,
-});
-
 const notoSansGeorgian = Noto_Sans_Georgian({
+  weight: ["400", "500", "600"],
   subsets: ["georgian"],
   display: "swap",
   preload: false,
@@ -60,25 +54,36 @@ const lariSign = localFont({
   declarations: [{ prop: "unicode-range", value: "U+20BE" }],
 });
 
-const fonts = [lariSign, notoSans, notoSansArabic, notoSansGeorgian];
+const familyName = (font: { style: { fontFamily: string } }) => font.style.fontFamily.split(",")[0].trim();
 
-/** Defined in src/app/styles/bayit.css: ≈ from a local system font; Hebrew and ₪ from public/fonts. */
-const SYMBOLS_FAMILY = '"Bayit Symbols"';
-const HEBREW_FAMILY = '"Bayit Hebrew"';
+/** Defined in src/app/styles/bayit.css: Hebrew, Cyrillic and Arabic from public/fonts; ≈ from a local system font. */
+const SCRIPT_FAMILIES = ['"Bayit Hebrew"', '"Bayit Cyrillic"', '"Bayit Arabic"', '"Bayit Symbols"'];
 
-/** The Hebrew face's file (see above). Versioned name: change it when the file changes (cached a year). */
-export const HEBREW_FONT_URL = "/fonts/noto-sans-hebrew-v1.woff2";
+/**
+ * The script face a language needs for its first paint (src/app/styles/bayit.css). Versioned names:
+ * change the version when a file changes (cached for a year, next.config.ts).
+ */
+const SCRIPT_FONT_URLS: Partial<Record<AppLocale, string>> = {
+  he: "/fonts/rubik-hebrew-v1.woff2",
+  ru: "/fonts/rubik-cyrillic-v1.woff2",
+  ar: "/fonts/rubik-arabic-v1.woff2",
+};
 
-/** "<lari>, 'Bayit Hebrew', 'Bayit Symbols', 'Noto Sans', 'Noto Sans Arabic', …, system-ui, sans-serif" (hashed names in production). */
+/** The public/fonts file to preload for `locale` (none for English and Georgian). */
+export function scriptFontUrl(locale: string): string | undefined {
+  return SCRIPT_FONT_URLS[locale as AppLocale];
+}
+
+/** "<lari>, 'Bayit Hebrew', …, 'Rubik', 'Noto Sans Georgian', system-ui, sans-serif" (hashed names in production). */
 export const fontFamilyStack = [
-  ...fonts.slice(0, 1).map((font) => font.style.fontFamily.split(",")[0].trim()),
-  HEBREW_FAMILY,
-  SYMBOLS_FAMILY,
-  ...fonts.slice(1).map((font) => font.style.fontFamily.split(",")[0].trim()),
+  familyName(lariSign),
+  ...SCRIPT_FAMILIES,
+  familyName(rubik),
+  familyName(notoSansGeorgian),
   "ui-sans-serif",
   "system-ui",
   "sans-serif",
 ].join(", ");
 
-/** Put on <html>: defines --font-site, which globals.css uses for font-sans. */
+/** Put on <html>: defines --font-site, which src/app/styles/bayit.css uses for font-sans. */
 export const fontStyle = { "--font-site": fontFamilyStack } as CSSProperties;

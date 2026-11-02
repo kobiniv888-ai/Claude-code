@@ -84,8 +84,8 @@ export function RolesManager({ staff, currentUserId }: { staff: StaffRow[]; curr
 
   return (
     <div className="flex flex-col gap-5">
-      <p className="flex items-start gap-2 rounded-xl border border-warning/40 bg-warning-soft p-3 text-sm">
-        <KeyRound aria-hidden className="mt-0.5 size-4 shrink-0 text-warning" />
+      <p className="flex items-start gap-2 rounded-xl border border-border-strong/40 bg-surface-muted p-3 text-sm">
+        <KeyRound aria-hidden className="mt-0.5 size-4 shrink-0 text-foreground" />
         {t("twoFactorWarning")}
       </p>
 

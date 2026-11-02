@@ -36,7 +36,7 @@ function pinIcon(): L.DivIcon {
   // A Lucide "map-pin" drawn inline (Leaflet's default PNG icons do not survive bundling).
   const html =
     `<span class="flex items-center justify-center drop-shadow-[0_3px_4px_rgb(0_0_0/0.35)]" style="width:${PIN_SIZE}px;height:${PIN_SIZE}px">` +
-    `<svg width="${PIN_SIZE}" height="${PIN_SIZE}" viewBox="0 0 24 24" fill="var(--terracotta, #b4533a)" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">` +
+    `<svg width="${PIN_SIZE}" height="${PIN_SIZE}" viewBox="0 0 24 24" fill="var(--primary, #4b2a8c)" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">` +
     `<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/>` +
     `<circle cx="12" cy="10" r="3" fill="white"/></svg></span>`;
   return L.divIcon({

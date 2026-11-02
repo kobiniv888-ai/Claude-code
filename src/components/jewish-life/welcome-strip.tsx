@@ -22,9 +22,9 @@ export async function WelcomeStrip({ locale }: { locale: AppLocale }) {
 
   return (
     <section aria-labelledby="jl-welcome-title" className="pt-section">
-      <div className="overflow-hidden rounded-card bg-verified-soft ring-1 ring-verified/20">
+      <div className="overflow-hidden rounded-card bg-primary-tint ring-1 ring-success/20">
         <div className="flex items-start gap-3 p-4 sm:items-center sm:gap-5 sm:p-6">
-          <IconCircle icon={WelcomeHomeIcon} tone="green" size="md" className="bg-card ring-1 ring-verified/20 sm:size-14 sm:[&_svg]:size-6" />
+          <IconCircle icon={WelcomeHomeIcon} tone="green" size="md" className="bg-card ring-1 ring-success/20 sm:size-14 sm:[&_svg]:size-6" />
           <div className="grid min-w-0 flex-1 gap-1">
             <h2 id="jl-welcome-title" className="text-h3 text-balance text-foreground">
               {t("welcome.title")}
@@ -32,12 +32,12 @@ export async function WelcomeStrip({ locale }: { locale: AppLocale }) {
             <p className="text-small text-pretty text-muted-foreground sm:text-body">{t("welcome.body")}</p>
           </div>
         </div>
-        <nav aria-label={t("welcome.searchLabel")} className="border-t border-verified/15 px-4 py-3 sm:px-6">
+        <nav aria-label={t("welcome.searchLabel")} className="border-t border-success/15 px-4 py-3 sm:px-6">
           <ul className="flex flex-wrap gap-2">
             {SEARCHES.map(({ key, icon: Icon, filters }) => (
               <li key={key}>
                 <Link href={`/search?${serializeSearchQuery(filters)}`} className={chipStyles({ size: "md", active: false })}>
-                  <Icon aria-hidden="true" className="text-verified" />
+                  <Icon aria-hidden="true" className="text-success" />
                   {t(`welcome.search.${key}`)}
                 </Link>
               </li>

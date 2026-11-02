@@ -27,7 +27,7 @@ export async function ShabbatModeBanner() {
     <div role="status" className="relative overflow-hidden bg-primary text-primary-foreground">
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-y-0 start-0 w-1/3 bg-linear-to-r from-terracotta/25 to-transparent rtl:bg-linear-to-l"
+        className="pointer-events-none absolute inset-y-0 start-0 w-1/3 bg-linear-to-r from-primary/25 to-transparent rtl:bg-linear-to-l"
       />
       <Container className="relative flex items-start justify-center gap-3 py-2.5 text-sm sm:items-center">
         <Sunset aria-hidden className="mt-0.5 size-[18px] shrink-0 opacity-90 sm:mt-0" />

@@ -18,7 +18,7 @@ export function riskLevel(score: number | null | undefined, reviewThreshold = 30
 /** Tailwind classes for the risk chip of each level (AA contrast in light and dark themes). */
 export const RISK_LEVEL_STYLES: Record<RiskLevel, string> = {
   none: "bg-muted text-muted-foreground ring-border",
-  low: "bg-verified-soft text-foreground ring-verified/30",
-  medium: "bg-warning-soft text-foreground ring-warning/40",
+  low: "bg-primary-tint text-foreground ring-success/30",
+  medium: "bg-surface-muted text-foreground ring-border-strong/40",
   high: "bg-destructive/10 text-destructive ring-destructive/30",
 };

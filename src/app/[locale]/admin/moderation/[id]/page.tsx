@@ -512,7 +512,7 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
                 ]}
               />
               {data.devices.length > 0 ? (
-                <div className="rounded-lg border border-warning/50 bg-warning-soft p-2.5 text-xs">
+                <div className="rounded-lg border border-border-strong/50 bg-surface-muted p-2.5 text-xs">
                   <p className="flex items-center gap-1.5 font-medium">
                     <MonitorSmartphone aria-hidden className="size-4" />
                     {t("sharedDevices", { count: data.devices.length })}
@@ -560,7 +560,7 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
               ) : (
                 <ul className="flex flex-col gap-2">
                   {data.notes.map((note) => (
-                    <li key={note.id} className="rounded-lg bg-warning-soft p-2 text-xs">
+                    <li key={note.id} className="rounded-lg bg-surface-muted p-2 text-xs">
                       <p className="whitespace-pre-wrap" dir="auto">
                         {note.body}
                       </p>
@@ -575,7 +575,7 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
           </AdminSection>
 
           {listing.status === "HIDDEN" ? (
-            <p className="flex items-start gap-2 rounded-xl border border-warning/50 bg-warning-soft p-3 text-xs">
+            <p className="flex items-start gap-2 rounded-xl border border-border-strong/50 bg-surface-muted p-3 text-xs">
               <AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0" />
               {t("hiddenHint")}
             </p>

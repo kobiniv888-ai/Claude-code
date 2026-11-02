@@ -100,24 +100,24 @@ export function PledgeStep({ pledge, setPledge, errors }: StepProps) {
       </style>
 
       {!accepted && pledge.mustReaccept && (
-        <p className="rounded-card border border-warning/40 bg-warning-soft p-3.5 text-small font-semibold dark:bg-warning/10">
+        <p className="rounded-card border border-border-strong/40 bg-surface-muted p-3.5 text-small font-semibold dark:bg-surface-muted/10">
           {tp("reaccept.updatedBody")}
         </p>
       )}
 
       {/* The promise itself. */}
-      <figure className="relative isolate grid justify-items-center gap-4 overflow-hidden rounded-card bg-linear-to-b from-verified-soft to-card px-5 pt-7 pb-6 text-center shadow-card ring-1 ring-verified/20 sm:px-10 sm:pt-9 sm:pb-8">
+      <figure className="relative isolate grid justify-items-center gap-4 overflow-hidden rounded-card bg-linear-to-b from-primary-tint to-card px-5 pt-7 pb-6 text-center shadow-card ring-1 ring-success/20 sm:px-10 sm:pt-9 sm:pb-8">
         <span
           aria-hidden
-          className="bw-glow pointer-events-none absolute -top-20 start-1/2 -z-10 size-64 -translate-x-1/2 rounded-full bg-verified/15 blur-3xl rtl:translate-x-1/2"
+          className="bw-glow pointer-events-none absolute -top-20 start-1/2 -z-10 size-64 -translate-x-1/2 rounded-full bg-success/15 blur-3xl rtl:translate-x-1/2"
         />
         <span
           aria-hidden
-          className="bw-pop flex size-20 items-center justify-center rounded-full bg-card text-verified shadow-raised ring-1 ring-verified/20"
+          className="bw-pop flex size-20 items-center justify-center rounded-full bg-card text-success shadow-raised ring-1 ring-success/20"
         >
           {accepted ? <CheckIcon className="size-10" strokeWidth={2.5} /> : <WelcomeHomeIcon className="size-10" />}
         </span>
-        <figcaption className="text-small font-bold text-verified">{tp("form.statementLabel")}</figcaption>
+        <figcaption className="text-small font-bold text-success">{tp("form.statementLabel")}</figcaption>
         <blockquote className="max-w-xl min-w-0 text-h3 leading-snug text-balance break-words text-foreground sm:text-h2">
           {tp(`${pledgeVersionKey(pledge.currentVersion)}.statement`)}
         </blockquote>
@@ -132,14 +132,14 @@ export function PledgeStep({ pledge, setPledge, errors }: StepProps) {
         <ul className="grid grid-cols-[minmax(0,1fr)] gap-3">
           {reasons.map(({ key, icon: Icon }) => (
             <li key={key} className="flex items-start gap-3">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-verified-soft text-verified">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-tint text-success">
                 <Icon className="size-5" aria-hidden />
               </span>
               <span className="min-w-0 pt-2 text-small font-semibold text-pretty">{t(`reasons.${key}`)}</span>
             </li>
           ))}
           <li className="flex items-start gap-3">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-verified-soft text-verified">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-tint text-success">
               <WelcomeHomeIcon className="size-5" aria-hidden />
             </span>
             <span className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2 pt-2">
@@ -159,7 +159,7 @@ export function PledgeStep({ pledge, setPledge, errors }: StepProps) {
             htmlFor={checkboxId}
             className={cn(
               "flex min-h-14 cursor-pointer items-center gap-3 rounded-card border-2 bg-card p-4 transition-colors has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50 has-[:focus-visible]:outline-none",
-              invalid ? "border-destructive" : checked ? "border-verified bg-verified-soft/60" : "border-border hover:border-verified/50",
+              invalid ? "border-destructive" : checked ? "border-success bg-primary-tint/60" : "border-border hover:border-success/50",
             )}
           >
             {/* A real, visible checkbox drawn as a big box (appearance-none), with the check on top. */}
@@ -174,12 +174,12 @@ export function PledgeStep({ pledge, setPledge, errors }: StepProps) {
                 }}
                 aria-invalid={invalid ? true : undefined}
                 aria-describedby={invalid ? errorId : undefined}
-                className="peer size-7 cursor-pointer appearance-none rounded-lg border-2 border-input bg-card transition-colors outline-none checked:border-verified checked:bg-verified"
+                className="peer size-7 cursor-pointer appearance-none rounded-lg border-2 border-input bg-card transition-colors outline-none checked:border-success checked:bg-success"
               />
               <CheckIcon
                 aria-hidden
                 strokeWidth={3}
-                className="pointer-events-none absolute inset-1 size-5 text-verified-foreground opacity-0 transition-opacity peer-checked:opacity-100"
+                className="pointer-events-none absolute inset-1 size-5 text-success-foreground opacity-0 transition-opacity peer-checked:opacity-100"
               />
             </span>
             <span className="text-body font-semibold">{tp("form.checkbox")}</span>
@@ -192,7 +192,7 @@ export function PledgeStep({ pledge, setPledge, errors }: StepProps) {
           <Button
             type="button"
             size="lg"
-            className="w-full bg-verified text-verified-foreground hover:bg-verified/90 sm:w-auto sm:justify-self-center sm:px-10"
+            className="w-full bg-success text-success-foreground hover:bg-success/90 sm:w-auto sm:justify-self-center sm:px-10"
             onClick={() => void submit()}
             disabled={saving}
           >

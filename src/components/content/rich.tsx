@@ -50,7 +50,7 @@ export const contentTags = {
   ),
   /** Marks text a founder or lawyer still has to fill in, e.g. <todo>Company name</todo>. */
   todo: (chunks: ReactNode) => (
-    <mark className="rounded-md bg-warning-soft box-decoration-clone px-1 py-0.5 text-foreground ring-1 ring-warning/30">
+    <mark className="rounded-md bg-surface-muted box-decoration-clone px-1 py-0.5 text-foreground ring-1 ring-border-strong/30">
       [{chunks}]
     </mark>
   ),

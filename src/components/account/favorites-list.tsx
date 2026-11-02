@@ -66,7 +66,7 @@ function NoteEditor({ listingId, initial }: { listingId: string; initial: string
           </>
         ) : state === "saved" ? (
           <>
-            <CheckIcon className="size-3.5 text-verified" aria-hidden="true" />
+            <CheckIcon className="size-3.5 text-success" aria-hidden="true" />
             {t("saved")}
           </>
         ) : state === "error" ? (

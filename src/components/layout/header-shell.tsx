@@ -6,8 +6,7 @@ import { headerScrollStep } from "./header-scroll";
 import "./header-scroll.css";
 
 /**
- * The sticky header frame: solid at the top of the page, translucent with a soft shadow once
- * scrolled. On phones and tablets (< 1024px) it slides out of view while scrolling down and comes
+ * The sticky header frame: a solid purple bar (dark mode: near-black). On phones and tablets (< 1024px) it slides out of view while scrolling down and comes
  * back when scrolling up, near the top, on keyboard focus and on every new page. It stays put
  * while a sheet, dialog or the menu is open (the page is scroll-locked then) and with reduced
  * motion. Only `translate` and `opacity` animate.
@@ -73,11 +72,10 @@ export function HeaderShell({ children }: { children: ReactNode }) {
       data-hidden={hidden || undefined}
       onFocus={() => setHidden(false)}
       className={
-        "sticky top-0 z-(--z-header) border-b border-border/70 bg-background transition-[translate] duration-(--motion-base) ease-standard motion-reduce:transition-none " +
-        "data-hidden:-translate-y-full " +
-        "data-scrolled:border-border/50 data-scrolled:bg-background/85 data-scrolled:backdrop-blur-xl data-scrolled:backdrop-saturate-150 " +
-        // The shadow fades in on its own layer (opacity only).
-        "after:pointer-events-none after:absolute after:inset-0 after:-z-10 after:opacity-0 after:shadow-header after:transition-opacity after:duration-(--motion-slow) data-scrolled:after:opacity-100"
+        // Round 2: purple (--header-bg) with white text in light mode, #0F0D14 in dark mode. Solid,
+        // no shadow; in dark mode a hairline appears once the page scrolls under it.
+        "sticky top-0 z-(--z-header) border-b border-transparent bg-header text-header-fg [--ring:var(--header-fg)] transition-[translate] duration-(--motion-base) ease-standard motion-reduce:transition-none " +
+        "data-hidden:-translate-y-full dark:data-scrolled:border-border"
       }
     >
       {children}

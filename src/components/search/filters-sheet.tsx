@@ -159,8 +159,8 @@ export function FiltersSheet({
       footer={
         <div className="grid gap-3">
           {none ? (
-            <div role="status" className="flex animate-fade-in items-start gap-3 rounded-card bg-coral-soft p-3 text-small text-foreground">
-              <SearchXIcon className="mt-0.5 size-5 shrink-0 text-coral-strong" aria-hidden="true" />
+            <div role="status" className="flex animate-fade-in items-start gap-3 rounded-card bg-primary-tint p-3 text-small text-foreground">
+              <SearchXIcon className="mt-0.5 size-5 shrink-0 text-primary-text" aria-hidden="true" />
               <div className="grid min-w-0 gap-2">
                 <p className="font-semibold">{s("noneTitle")}</p>
                 {fixList && fixList.length > 0 ? (

@@ -155,7 +155,7 @@ export function ShabbatCountdown({
     <article
       aria-labelledby={headingId}
       className={cn(
-        "relative isolate overflow-hidden rounded-card bg-(--brand-primary) p-5 text-white shadow-raised sm:p-6",
+        "relative isolate overflow-hidden rounded-card bg-primary p-5 text-white shadow-raised sm:p-6",
         className,
       )}
     >
@@ -166,7 +166,7 @@ export function ShabbatCountdown({
       <span
         aria-hidden="true"
         className={cn(
-          "pointer-events-none absolute -top-16 -end-12 -z-10 size-56 rounded-full bg-amber-300/25 blur-3xl",
+          "pointer-events-none absolute -top-16 -end-12 -z-10 size-56 rounded-full bg-white/10 blur-3xl",
           "bs-glow",
         )}
       />
@@ -224,7 +224,7 @@ export function ShabbatCountdown({
                   onClick={() => setSlug(option.slug)}
                   // Plain string: cn() would drop text-small next to a text color (custom size names).
                   className={`inline-flex min-h-11 shrink-0 snap-start items-center rounded-full px-4 text-small font-semibold whitespace-nowrap outline-none transition-colors focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-white/60 ${
-                    pressed ? "bg-white text-(--brand-primary)" : "bg-white/10 text-white ring-1 ring-white/25 hover:bg-white/20"
+                    pressed ? "bg-white text-primary" : "bg-white/10 text-white ring-1 ring-white/25 hover:bg-white/20"
                   }`}
                 >
                   {option.name}

@@ -27,7 +27,7 @@ export async function FeaturedListings({ locale, listings }: { locale: AppLocale
     <HomeSection
       id="home-featured-title"
       eyebrow={
-        <p className="mb-1 inline-flex items-center gap-1.5 text-small font-semibold text-coral-strong">
+        <p className="mb-1 inline-flex items-center gap-1.5 text-small font-semibold text-primary-text">
           <Megaphone className="size-4" aria-hidden="true" />
           {t("eyebrow")}
         </p>

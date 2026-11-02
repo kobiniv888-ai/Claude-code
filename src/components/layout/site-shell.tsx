@@ -29,7 +29,9 @@ export async function SiteShell({ children }: { children: ReactNode }) {
   ]);
 
   return (
-    <div className="flex min-h-dvh flex-col pb-(--bottom-nav-height)">
+    // Never under the phone bottom bar (bug 8.7): every page ends with the bar's height (it includes
+    // the safe-area inset), plus 1rem for the raised "+" — min() makes that 0 when there is no bar.
+    <div className="flex min-h-dvh flex-col pb-[calc(var(--bottom-nav-height)+min(var(--bottom-nav-height),1rem))]">
       <ShabbatModeBanner />
       <ScamAlertBanner />
       {settings.demoDataVisible ? <DemoDataBanner /> : null}

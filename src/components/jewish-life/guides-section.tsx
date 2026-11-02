@@ -56,7 +56,7 @@ export async function GuidesSection({ locale }: { locale: AppLocale }) {
               <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-4 text-xs text-muted-foreground">
                 {guide.publishedAt ? <span>{formatDate(guide.publishedAt, locale)}</span> : null}
                 {guide.reviewedByLawyer ? (
-                  <span className="inline-flex items-center gap-1 font-medium text-verified">
+                  <span className="inline-flex items-center gap-1 font-medium text-success">
                     <Scale aria-hidden="true" className="size-3.5" />
                     {t("reviewedByLawyer")}
                   </span>
@@ -77,7 +77,7 @@ export async function GuidesSection({ locale }: { locale: AppLocale }) {
     <div className="relative isolate overflow-hidden rounded-3xl border bg-card p-6 shadow-card sm:p-8">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -top-16 -end-16 -z-10 size-56 rounded-full bg-terracotta/10 blur-3xl"
+        className="pointer-events-none absolute -top-16 -end-16 -z-10 size-56 rounded-full bg-primary/10 blur-3xl"
       />
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-12">
         <div className="max-w-sm">

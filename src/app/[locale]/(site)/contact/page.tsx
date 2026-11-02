@@ -43,10 +43,10 @@ export default async function ContactPage({ params }: Props) {
 
   return (
     <div className="pb-16">
-      <section className="relative isolate overflow-hidden bg-linear-to-b from-navy-soft to-background">
+      <section className="relative isolate overflow-hidden bg-linear-to-b from-primary-tint to-background">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -top-24 -end-24 -z-10 size-72 rounded-full bg-coral/10 blur-3xl sm:size-96"
+          className="pointer-events-none absolute -top-24 -end-24 -z-10 size-72 rounded-full bg-primary/10 blur-3xl sm:size-96"
         />
         <Container className="flex max-w-6xl items-start gap-4 pt-8 pb-6 sm:pt-12 sm:pb-8">
           <IconCircle icon={Mail} tone="navy" size="lg" className="bg-card shadow-raised" />
@@ -62,14 +62,14 @@ export default async function ContactPage({ params }: Props) {
       <Container className="mt-2 grid max-w-6xl gap-6 lg:grid-cols-[minmax(0,1fr)_21rem] lg:gap-8">
         <div className="grid min-w-0 content-start gap-4">
           {/* The urgent path first: scam reports are handled before anything else. */}
-          <p className="flex items-start gap-3 rounded-card border border-coral/40 bg-coral-soft p-4 text-small text-pretty text-foreground">
+          <p className="flex items-start gap-3 rounded-card border border-primary/40 bg-primary-tint p-4 text-small text-pretty text-foreground">
             <IconCircle icon={ShieldAlert} tone="coral-solid" size="sm" />
             <span className="min-w-0 self-center">
               {t.rich("aside.scam", {
                 link: (chunks) => (
                   <Link
                     href="/help/new-ticket?category=SCAM_REPORT"
-                    className="font-semibold text-coral-strong underline underline-offset-4 hover:no-underline"
+                    className="font-semibold text-primary-text underline underline-offset-4 hover:no-underline"
                   >
                     {chunks}
                   </Link>
@@ -98,7 +98,7 @@ export default async function ContactPage({ params }: Props) {
 
         <aside className="grid content-start gap-4" aria-label={t("aside.label")}>
           {viewer ? (
-            <section className="rounded-card bg-navy-soft p-5 text-foreground">
+            <section className="rounded-card bg-primary-tint p-5 text-foreground">
               <h2 className="flex items-center gap-2.5 text-body font-semibold">
                 <IconCircle icon={MessageSquarePlus} tone="navy-solid" size="sm" />
                 {t("aside.signedInTitle")}

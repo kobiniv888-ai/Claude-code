@@ -10,9 +10,9 @@ import { Section } from "./section";
 
 /** The map's place markers, for the legend (same colors as the markers in listings-map.css). */
 const LEGEND = [
-  { key: "synagogue", types: ["SYNAGOGUE"], icon: SynagogueIcon, color: "bg-[#1e3a6e]" },
-  { key: "chabad", types: ["CHABAD_HOUSE"], icon: WelcomeHomeIcon, color: "bg-[#7b2d3b]" },
-  { key: "kosher", types: ["KOSHER_RESTAURANT", "KOSHER_SHOP"], icon: KosherStampIcon, color: "bg-[#13763a]" },
+  { key: "synagogue", types: ["SYNAGOGUE"], icon: SynagogueIcon, color: "bg-primary" },
+  { key: "chabad", types: ["CHABAD_HOUSE"], icon: WelcomeHomeIcon, color: "bg-primary" },
+  { key: "kosher", types: ["KOSHER_RESTAURANT", "KOSHER_SHOP"], icon: KosherStampIcon, color: "bg-primary" },
 ] as const satisfies readonly { key: string; types: readonly CommunityPlaceType[]; icon: unknown; color: string }[];
 
 /**
@@ -32,7 +32,7 @@ export function LocationSection({ data, place, places }: { data: ListingPageData
       <div className="grid gap-4">
         {place ? (
           <p className="-mt-2 flex items-center gap-1.5 text-small text-muted-foreground">
-            <MapPinIcon className="size-4 shrink-0 text-coral-strong" aria-hidden />
+            <MapPinIcon className="size-4 shrink-0 text-primary-text" aria-hidden />
             <span>{place}</span>
           </p>
         ) : null}

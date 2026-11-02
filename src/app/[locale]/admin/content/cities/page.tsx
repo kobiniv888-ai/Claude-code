@@ -63,7 +63,7 @@ export default async function CitiesPage({ params }: PageProps<"/[locale]/admin/
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
                   <p className="flex items-center gap-1.5 font-semibold">
                     <span className="truncate">{city.name}</span>
-                    {city.isPopular ? <Star aria-label={t("popular")} className="size-4 shrink-0 fill-current text-warning" /> : null}
+                    {city.isPopular ? <Star aria-label={t("popular")} className="size-4 shrink-0 fill-current text-foreground" /> : null}
                   </p>
                   <p className="text-xs text-muted-foreground" dir="ltr">
                     {city.slug}

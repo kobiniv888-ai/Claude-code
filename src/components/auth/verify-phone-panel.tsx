@@ -37,7 +37,7 @@ export function VerifyPhonePanel({
     return (
       <div className="grid gap-5">
         <div role="status" className="flex flex-col items-center gap-3 text-center">
-          <span className="flex size-14 items-center justify-center rounded-full bg-verified-soft text-verified">
+          <span className="flex size-14 items-center justify-center rounded-full bg-primary-tint text-success">
             <CircleCheckBigIcon className="size-7" aria-hidden />
           </span>
           <p className="text-lg font-semibold">{t("doneTitle")}</p>
@@ -64,7 +64,7 @@ export function VerifyPhonePanel({
     <div className="grid gap-6">
       <ul className="grid gap-3 text-sm">
         <li className="flex items-start gap-3">
-          <BadgeCheckIcon className="mt-0.5 size-4 shrink-0 text-verified" aria-hidden />
+          <BadgeCheckIcon className="mt-0.5 size-4 shrink-0 text-success" aria-hidden />
           <span>{t("reasonTrust")}</span>
         </li>
         <li className="flex items-start gap-3">

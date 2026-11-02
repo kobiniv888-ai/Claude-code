@@ -33,7 +33,7 @@ export function SaveIndicator({ state, onRetry }: { state: SaveState; onRetry: (
       )}
       {state.status === "saved" && (
         <>
-          <CloudCheckIcon className="size-4 text-verified" aria-hidden />
+          <CloudCheckIcon className="size-4 text-success" aria-hidden />
           <span className="text-muted-foreground">
             {t("savedAt", { time: formatTime(new Date(state.at), locale, Intl.DateTimeFormat().resolvedOptions().timeZone) })}
           </span>
@@ -93,7 +93,7 @@ export function WizardProgress({
           onClick={() => setOpen(true)}
           aria-haspopup="dialog"
           aria-label={`${stepOf} · ${t("chrome.allSteps")}`}
-          className="-ms-2 inline-flex min-h-11 items-center gap-1.5 rounded-full px-2 text-small font-bold text-primary outline-none transition-colors hover:bg-navy-soft focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="-ms-2 inline-flex min-h-11 items-center gap-1.5 rounded-full px-2 text-small font-bold text-primary outline-none transition-colors hover:bg-primary-tint focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           <ListChecksIcon className="size-4.5" aria-hidden />
           {stepOf}
@@ -116,7 +116,7 @@ export function WizardProgress({
             <span
               className={cn(
                 "absolute inset-0 origin-left rounded-full transition-transform duration-(--motion-slow) ease-soft rtl:origin-right motion-reduce:transition-none",
-                i === index ? "bg-coral" : "bg-navy",
+                i === index ? "bg-primary" : "bg-primary",
                 i <= index ? "scale-x-100" : "scale-x-0",
               )}
             />
@@ -142,7 +142,7 @@ export function WizardProgress({
                   aria-current={isCurrent ? "step" : undefined}
                   className={cn(
                     "flex min-h-12 w-full items-center gap-3 rounded-card px-3 py-2 text-start text-body outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
-                    isCurrent && "bg-navy-soft font-bold text-navy",
+                    isCurrent && "bg-primary-tint font-bold text-primary-text",
                     !isCurrent && enabled && "hover:bg-muted",
                     !isCurrent && !enabled && "cursor-not-allowed text-muted-foreground",
                   )}
@@ -151,7 +151,7 @@ export function WizardProgress({
                     aria-hidden
                     className={cn(
                       "flex size-8 shrink-0 items-center justify-center rounded-full text-small font-bold tabular-nums",
-                      isCurrent ? "bg-coral-strong text-coral-foreground dark:bg-(--brand-accent)" : done ? "bg-verified text-verified-foreground" : "bg-muted",
+                      isCurrent ? "bg-primary text-primary-foreground" : done ? "bg-success text-success-foreground" : "bg-muted",
                     )}
                   >
                     {done ? <CheckIcon className="size-4" strokeWidth={3} /> : formatNumber(i + 1, locale)}

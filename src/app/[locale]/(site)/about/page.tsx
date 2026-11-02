@@ -188,7 +188,7 @@ export default async function AboutPage({ params }: Props) {
                   icon={icon}
                   tone={tone}
                   title={t(`values.${key}.title`)}
-                  className={index === 0 ? "bg-linear-to-br from-verified-soft/70 to-card" : undefined}
+                  className={index === 0 ? "bg-linear-to-br from-primary-tint/70 to-card" : undefined}
                 >
                   {t(`values.${key}.body`)}
                 </InfoCard>

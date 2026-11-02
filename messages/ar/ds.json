@@ -51,6 +51,20 @@
     "sectionSubtitle": "أُضيفت هذا الأسبوع",
     "post": "نشر إعلان",
     "showPhone": "إظهار الهاتف",
-    "sheetBody": "هنا تظهر الفلاتر."
+    "sheetBody": "هنا تظهر الفلاتر.",
+    "currentTheme": "المظهر الحالي",
+    "darkTheme": "الوضع الداكن",
+    "accordionTitle": "الكشروت والسبت",
+    "accordionBody": "مطبخ كوشير، وصفيحة تسخين وسخّان ماء. مواعيد السبت حسب المدينة في صفحة الحياة اليهودية.",
+    "accordionTitle2": "معلومات مهمة",
+    "accordionBody2": "تسجيل الوصول من 15:00، والمغادرة حتى 11:00.",
+    "calendarLabel": "التوفر",
+    "booked": "محجوز",
+    "inputLabel": "إلى أين؟",
+    "inputPlaceholder": "مدينة أو حي أو عنوان",
+    "notesLabel": "رسالة إلى المضيف",
+    "tabsShort": "إقامة قصيرة",
+    "tabsMonthly": "شهري",
+    "tabsBuy": "شراء"
   }
 }

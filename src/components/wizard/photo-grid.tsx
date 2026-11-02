@@ -159,8 +159,8 @@ function SortablePhoto({
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
         "group relative overflow-hidden rounded-card bg-muted shadow-card ring-1 ring-foreground/5",
-        isDragging && "z-10 scale-[1.03] opacity-90 shadow-raised ring-2 ring-navy",
-        isCover && "ring-3 ring-coral",
+        isDragging && "z-10 scale-[1.03] opacity-90 shadow-raised ring-2 ring-primary",
+        isCover && "ring-3 ring-primary",
       )}
     >
       <div className="relative aspect-[4/3] touch-manipulation" {...listeners}>
@@ -175,7 +175,7 @@ function SortablePhoto({
       </div>
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-1 p-2">
         {isCover ? (
-          <span className="flex h-7 items-center gap-1 rounded-full bg-coral-strong px-2.5 text-caption font-bold text-coral-foreground shadow-sm dark:bg-(--brand-accent)">
+          <span className="flex h-7 items-center gap-1 rounded-full bg-primary px-2.5 text-caption font-bold text-primary-foreground shadow-sm">
             <StarIcon className="size-3.5 fill-current" aria-hidden />
             {t("cover")}
           </span>

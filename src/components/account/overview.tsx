@@ -26,8 +26,8 @@ import { formatDate, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const STATE_STYLE: Record<BadgeState, { icon: LucideIcon; className: string }> = {
-  verified: { icon: BadgeCheckIcon, className: "bg-verified-soft text-verified" },
-  pending: { icon: ClockIcon, className: "bg-warning-soft text-warning" },
+  verified: { icon: BadgeCheckIcon, className: "bg-primary-tint text-success" },
+  pending: { icon: ClockIcon, className: "bg-surface-muted text-foreground" },
   actionNeeded: { icon: AlertTriangleIcon, className: "bg-destructive/10 text-destructive" },
   notStarted: { icon: CircleDashedIcon, className: "bg-muted text-muted-foreground" },
 };
@@ -89,9 +89,9 @@ export function VerificationProgressCard({ progress }: { progress: AccountOvervi
 }
 
 const TILES: { filter: ListingFilter; tone: string }[] = [
-  { filter: "live", tone: "text-verified" },
+  { filter: "live", tone: "text-success" },
   { filter: "review", tone: "text-primary" },
-  { filter: "changes", tone: "text-warning" },
+  { filter: "changes", tone: "text-foreground" },
   { filter: "paused", tone: "text-muted-foreground" },
   { filter: "expired", tone: "text-destructive" },
   { filter: "drafts", tone: "text-muted-foreground" },
@@ -159,7 +159,7 @@ function AttentionRow({ item }: { item: AttentionItem }) {
   const untitled = useTranslations("account.listings")("untitled");
 
   let icon: LucideIcon = AlertTriangleIcon;
-  let tone = "bg-warning-soft text-warning";
+  let tone = "bg-surface-muted text-foreground";
   let title: React.ReactNode;
   let body: React.ReactNode = null;
   let href: string;
@@ -262,7 +262,7 @@ export function AttentionList({ items }: { items: AttentionItem[] }) {
         {t("title")}
       </h2>
       {items.length === 0 ? (
-        <p className="mt-3 flex items-center gap-2 rounded-xl bg-verified/10 px-3 py-3 text-sm font-medium text-verified">
+        <p className="mt-3 flex items-center gap-2 rounded-xl bg-success/10 px-3 py-3 text-sm font-medium text-success">
           <BadgeCheckIcon className="size-5 shrink-0" aria-hidden="true" />
           {t("allGood")}
         </p>

@@ -3,36 +3,45 @@ import { cn } from "@/lib/utils";
 import type { IconComponent } from "./jewish-icons";
 
 /**
- * An icon inside a tinted circle (like round category buttons). Decorative by default.
+ * An icon in a quiet grey circle (round 2: no multicolored circles). Every old tone name still
+ * works and draws the same neutral circle; `primary` is the purple tint, `*-solid` a purple fill.
+ * Decorative by default.
  *
- *   <IconCircle icon={SynagogueIcon} tone="navy" size="lg" />
- *   <IconCircle tone="green"><CheckIcon /></IconCircle>
+ *   <IconCircle icon={SynagogueIcon} size="lg" />
+ *   <IconCircle tone="primary"><CheckIcon /></IconCircle>
  */
+const NEUTRAL = "bg-surface-muted text-muted-foreground";
+const SOLID = "bg-primary text-primary-foreground";
+
 const iconCircleVariants = cva(
   "inline-flex shrink-0 items-center justify-center rounded-full [&_svg]:shrink-0",
   {
     variants: {
       tone: {
-        navy: "bg-navy-soft text-navy",
-        coral: "bg-coral-soft text-coral-strong",
-        green: "bg-verified-soft text-verified",
-        amber: "bg-warning-soft text-warning",
-        neutral: "bg-muted text-muted-foreground",
-        /** Solid fills, for strong accents (white icon). */
-        "navy-solid": "bg-navy text-navy-foreground",
-        "coral-solid": "bg-coral text-coral-foreground",
+        neutral: NEUTRAL,
+        /** The purple tint, for the rare icon that should stand out. */
+        primary: "bg-primary-tint text-primary-text",
+        // Round-1 tone names: all neutral now.
+        navy: NEUTRAL,
+        coral: NEUTRAL,
+        green: NEUTRAL,
+        amber: NEUTRAL,
+        /** A purple fill (white icon). */
+        "primary-solid": SOLID,
+        "navy-solid": SOLID,
+        "coral-solid": SOLID,
         /** Over photos. */
-        glass: "bg-card/90 text-foreground shadow-sm backdrop-blur",
+        glass: "border border-border bg-card/95 text-foreground",
       },
       size: {
         xs: "size-7 [&_svg]:size-3.5",
         sm: "size-9 [&_svg]:size-4.5",
         md: "size-11 [&_svg]:size-5",
         lg: "size-14 [&_svg]:size-6",
-        xl: "size-18 [&_svg]:size-8",
+        xl: "size-16 [&_svg]:size-7",
       },
     },
-    defaultVariants: { tone: "navy", size: "md" },
+    defaultVariants: { tone: "neutral", size: "md" },
   },
 );
 

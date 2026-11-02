@@ -35,7 +35,7 @@ function FeatureChips({ items }: { items: { key: string; icon: IconComponent; la
     <ul className="flex flex-wrap gap-2">
       {items.map(({ key, icon: Icon, label }) => (
         <li key={key} className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-card px-3 text-small font-medium shadow-card">
-          <Icon className="size-4 shrink-0 text-navy" aria-hidden="true" />
+          <Icon className="size-4 shrink-0 text-primary-text" aria-hidden="true" />
           {label}
         </li>
       ))}
@@ -71,8 +71,8 @@ export function TraditionCard({ data, locale }: { data: ListingPageData; locale:
   if (!hasAnything && !data.city) return null;
 
   return (
-    <section id="tradition" aria-labelledby="tradition-title" className="scroll-mt-(--header-height) overflow-hidden rounded-card bg-navy-soft ring-1 ring-navy/10">
-      <div className="flex items-center gap-3 bg-(--brand-primary) px-4 py-3.5 text-white sm:px-5">
+    <section id="tradition" aria-labelledby="tradition-title" className="scroll-mt-(--header-height) overflow-hidden rounded-card bg-primary-tint ring-1 ring-primary/10">
+      <div className="flex items-center gap-3 bg-primary px-4 py-3.5 text-white sm:px-5">
         <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-full bg-white/15" aria-hidden="true">
           <ShabbatCandlesIcon className="size-6" />
         </span>
@@ -108,7 +108,7 @@ export function TraditionCard({ data, locale }: { data: ListingPageData; locale:
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-body font-bold">{t("shabbatChecklist")}</h3>
               {data.isShabbatFriendly ? (
-                <span className="inline-flex h-7 items-center gap-1.5 rounded-full bg-verified-soft px-3 text-small font-semibold text-verified ring-1 ring-verified/20">
+                <span className="inline-flex h-7 items-center gap-1.5 rounded-full bg-primary-tint px-3 text-small font-semibold text-success ring-1 ring-success/20">
                   <ShabbatCandlesIcon className="size-4" aria-hidden="true" />
                   {t("shabbatFriendly")}
                 </span>
@@ -135,17 +135,17 @@ export function TraditionCard({ data, locale }: { data: ListingPageData; locale:
 
         {otherFeatures.length ? (
           <div className="grid gap-2.5">
-            <h3 className="text-small font-bold text-navy">{t("jewishFeatures")}</h3>
+            <h3 className="text-small font-bold text-primary-text">{t("jewishFeatures")}</h3>
             <FeatureChips items={otherFeatures.map((key) => ({ key, icon: JEWISH_FEATURE_ICONS[key], label: f(`jewishFeature.${key}`) }))} />
           </div>
         ) : null}
 
         {isHotel && (data.kosherCertName || hotelFeatures.length) ? (
           <div className="grid gap-2.5">
-            <h3 className="text-small font-bold text-navy">{t("hotelKosher")}</h3>
+            <h3 className="text-small font-bold text-primary-text">{t("hotelKosher")}</h3>
             {data.kosherCertName ? (
               <p className="flex items-center gap-2 text-small">
-                <BadgeCheckIcon className="size-5 shrink-0 text-verified" aria-hidden="true" />
+                <BadgeCheckIcon className="size-5 shrink-0 text-success" aria-hidden="true" />
                 <span>
                   {t("supervision")}: <span dir="auto" className="font-semibold">{data.kosherCertName}</span>
                 </span>

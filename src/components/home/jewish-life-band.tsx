@@ -30,7 +30,7 @@ const LINKS: readonly { key: string; icon: LucideIcon; href: string; tone: "navy
 export async function JewishLifeBand({ locale }: { locale: AppLocale }) {
   const t = await getTranslations({ locale, namespace: "home.jewishLife" });
   return (
-    <section aria-labelledby="home-jewish-title" className="my-[calc(var(--section-space)*0.55)] bg-navy-soft/60 py-section">
+    <section aria-labelledby="home-jewish-title" className="my-[calc(var(--section-space)*0.55)] bg-primary-tint/60 py-section">
       <Container>
         <SectionHeader id="home-jewish-title" title={t("title")} subtitle={t("lead")} href="/jewish-life" linkLabel={t("all")} className="mb-5 sm:mb-7" />
         <Reveal className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:gap-6">

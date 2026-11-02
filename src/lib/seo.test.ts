@@ -65,7 +65,8 @@ describe("pageMetadata", () => {
     expect(og.locale).toBe("ru_RU");
     expect(og.url).toBe(`${origin}/ru/safety`);
     expect(og.alternateLocale).toEqual(["he_IL", "en_US", "ar_AR", "ka_GE"]);
-    expect(og.images).toEqual([{ url: `${origin}/brand/og-default.png`, width: 1200, height: 630, alt: "Safety" }]);
+    expect(og.images).toEqual([{ url: `${origin}/ru/opengraph-image`, width: 1200, height: 630, alt: "Safety" }]);
+    expect((meta.twitter as Record<string, unknown>).images).toEqual([`${origin}/ru/opengraph-image`]);
     expect((meta.twitter as Record<string, unknown>).card).toBe("summary_large_image");
     expect(meta.robots).toBeUndefined();
   });

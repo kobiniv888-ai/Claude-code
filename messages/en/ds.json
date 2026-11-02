@@ -51,6 +51,20 @@
     "sectionSubtitle": "Added this week",
     "post": "Post a listing",
     "showPhone": "Show phone",
-    "sheetBody": "Filters go here."
+    "sheetBody": "Filters go here.",
+    "currentTheme": "Current theme",
+    "darkTheme": "Dark mode",
+    "accordionTitle": "Kosher & Shabbat",
+    "accordionBody": "Kosher kitchen, a hot plate and an urn. Shabbat times by city are on the Jewish life page.",
+    "accordionTitle2": "Good to know",
+    "accordionBody2": "Check-in from 15:00, check-out by 11:00.",
+    "calendarLabel": "Availability",
+    "booked": "Booked",
+    "inputLabel": "Where to?",
+    "inputPlaceholder": "City, neighborhood or address",
+    "notesLabel": "Message to the host",
+    "tabsShort": "Short stay",
+    "tabsMonthly": "Monthly",
+    "tabsBuy": "Buy"
   }
 }

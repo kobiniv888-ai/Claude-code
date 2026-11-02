@@ -127,7 +127,7 @@ export default async function VerificationDetailPage({ params }: PageProps<"/[lo
                   <div
                     className={cn(
                       "rounded-lg border p-3 text-sm",
-                      data.cadastral === "match" && "border-verified/40 bg-verified-soft",
+                      data.cadastral === "match" && "border-success/40 bg-primary-tint",
                       data.cadastral === "mismatch" && "border-destructive/40 bg-destructive/5",
                     )}
                   >
@@ -135,7 +135,7 @@ export default async function VerificationDetailPage({ params }: PageProps<"/[lo
                       {data.cadastral === "mismatch" ? (
                         <AlertTriangle aria-hidden className="size-4 text-destructive" />
                       ) : data.cadastral === "match" ? (
-                        <CheckCircle2 aria-hidden className="size-4 text-verified" />
+                        <CheckCircle2 aria-hidden className="size-4 text-success" />
                       ) : (
                         <Info aria-hidden className="size-4 text-muted-foreground" />
                       )}

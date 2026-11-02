@@ -298,12 +298,12 @@ export function PhotoDropZone({
       className={cn(
         "flex flex-col items-center justify-center gap-3 rounded-card border-2 border-dashed text-center transition-colors",
         compact ? "p-4" : "p-6 sm:p-10",
-        over ? "border-navy bg-navy-soft" : "border-navy/25 bg-navy-soft/40",
+        over ? "border-primary bg-primary-tint" : "border-primary/25 bg-primary-tint/40",
         disabled && "opacity-60",
       )}
     >
       {!compact && (
-        <span className="flex size-16 items-center justify-center rounded-full bg-card text-navy shadow-card">
+        <span className="flex size-16 items-center justify-center rounded-full bg-card text-primary-text shadow-card">
           <ImagePlusIcon className="size-8" aria-hidden />
         </span>
       )}
@@ -392,7 +392,7 @@ export function UploadQueue({
                 <div
                   className={cn(
                     "h-full rounded-full transition-[width]",
-                    item.status === "done" ? "bg-verified" : "bg-primary",
+                    item.status === "done" ? "bg-success" : "bg-primary",
                     item.status === "compressing" && "w-1/5 animate-pulse",
                   )}
                   style={item.status === "compressing" ? undefined : { width: `${Math.max(4, item.progress * 100)}%` }}

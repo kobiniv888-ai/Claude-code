@@ -86,13 +86,13 @@ export default async function PostPage({ params }: Props) {
               ))}
             </ul>
           </div>
-          <p className="flex items-start gap-3 rounded-card bg-verified-soft p-3.5 text-small font-semibold text-pretty ring-1 ring-verified/20">
+          <p className="flex items-start gap-3 rounded-card bg-primary-tint p-3.5 text-small font-semibold text-pretty ring-1 ring-success/20">
             <IconCircle icon={WelcomeHomeIcon} tone="green" size="sm" className="bg-card" />
             <span className="pt-1.5">{t("pledgeNote")}</span>
           </p>
           <div className="grid gap-2 border-t border-border pt-4 text-small text-muted-foreground sm:grid-cols-2">
             <p className="flex items-start gap-2">
-              <ShieldCheckIcon className="mt-0.5 size-4 shrink-0 text-verified" aria-hidden />
+              <ShieldCheckIcon className="mt-0.5 size-4 shrink-0 text-success" aria-hidden />
               {t("trust")}
             </p>
             <p className="flex items-start gap-2">

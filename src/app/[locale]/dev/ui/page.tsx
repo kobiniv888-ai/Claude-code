@@ -1,36 +1,43 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { CompassIcon, HeartIcon, MapPinIcon, PlusIcon, SearchIcon, SearchXIcon, ShareIcon } from "lucide-react";
+import { BadgeCheckIcon, CompassIcon, HeartIcon, MapPinIcon, PlusIcon, SearchIcon, SearchXIcon, ShareIcon } from "lucide-react";
+import { Logo } from "@/components/brand/logo";
 import { WhatsAppIcon } from "@/components/common/brand-icons";
 import {
   BadgeRow,
   BayitBadge,
   Button,
+  Card,
   CardCarousel,
   EmptyState,
   IconCircle,
   ListingCardSkeleton,
   PhotoCarousel,
-  Reveal,
   SectionHeader,
   Skeleton,
+  Tag,
   jewishIcons,
   type BayitBadgeKind,
 } from "@/components/ds";
 import { ThemeSegmented } from "@/components/layout/theme-toggle";
 import { ListingCard } from "@/components/listing/listing-card";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { Link } from "@/i18n/navigation";
 import { isAppLocale } from "@/i18n/locale";
 import { getDisplayCurrency, getRates } from "@/lib/currency";
 import { getNewestListings } from "@/lib/listing/queries";
 import type { ListingCardData } from "@/lib/listing/types";
 import { locales } from "@/config/site";
-import { ChipsDemo, ContactBarDemo, HeartDemo, NumberRollDemo, SegmentedDemo, SheetDemo } from "./interactive";
+import { CalendarDemo, ChipsDemo, ContactBarDemo, HeartDemo, NumberRollDemo, SegmentedDemo, SheetDemo } from "./interactive";
 
 /**
- * /dev/ui — hidden showcase of the design system (tokens and components). Only in development
- * or with NEXT_PUBLIC_SHOW_DEV_UI=true; 404 otherwise. Never linked, never indexed.
+ * /dev/ui — hidden showcase of the design system (round 2: tokens in both themes, the type scale,
+ * the logo and every component). Only in development or with NEXT_PUBLIC_SHOW_DEV_UI=true; 404
+ * otherwise. Never linked, never indexed.
  */
 const enabled = () => process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_SHOW_DEV_UI === "true";
 
@@ -41,28 +48,34 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   return { title: t("title"), robots: { index: false, follow: false } };
 }
 
-const COLORS = [
+/** The token contract (src/app/styles/bayit.css). Swatches read the live CSS variables. */
+const TOKENS = [
+  "primary",
+  "primary-foreground",
+  "primary-pressed",
+  "primary-text",
+  "primary-tint",
+  "primary-tint-border",
   "background",
-  "surface",
   "card",
+  "surface",
+  "surface-muted",
+  "raised",
   "foreground",
-  "muted",
   "muted-foreground",
+  "placeholder",
   "border",
-  "navy",
-  "navy-soft",
-  "coral",
-  "coral-strong",
-  "coral-soft",
-  "verified",
-  "verified-soft",
-  "warning",
-  "warning-soft",
-  "whatsapp",
-  "destructive",
+  "border-strong",
+  "input",
+  "error",
+  "success",
+  "header-bg",
+  "header-fg",
+  "hero-band",
+  "bottom-nav",
 ] as const;
 
-const TYPE = ["display", "h1", "h2", "h3", "body", "small", "caption"] as const;
+const TYPE = ["display", "h1", "h2", "h3", "body", "small", "caption", "price"] as const;
 /** Written out in full so Tailwind finds the classes. */
 const TYPE_CLASS: Record<(typeof TYPE)[number], string> = {
   display: "text-display",
@@ -72,20 +85,27 @@ const TYPE_CLASS: Record<(typeof TYPE)[number], string> = {
   body: "text-body",
   small: "text-small",
   caption: "text-caption",
+  price: "text-price",
 };
-const SHADOWS = ["shadow-card", "shadow-card-hover", "shadow-raised", "shadow-float"] as const;
+const SHAPES = [
+  { name: "rounded-card · border", className: "rounded-card border border-border bg-card" },
+  { name: "rounded-input · border-strong", className: "rounded-input border border-border-strong bg-card" },
+  { name: "rounded-button · primary", className: "rounded-button bg-primary text-primary-foreground" },
+  { name: "rounded-full · primary-tint", className: "rounded-full border border-primary-tint-border bg-primary-tint text-primary-text" },
+  { name: "shadow-raised (search card)", className: "rounded-card bg-card shadow-raised" },
+  { name: "shadow-sheet · rounded-t-sheet", className: "rounded-t-sheet bg-card shadow-sheet" },
+] as const;
 const BADGES: BayitBadgeKind[] = [
-  "welcomes",
   "verified",
-  "hebrew",
+  "new",
+  "demo",
   "kosherKitchen",
-  "kosherMeals",
   "shabbatFriendly",
   "synagogueWalk",
+  "hebrew",
   "keepsShabbat",
   "business",
 ];
-const TAGS: BayitBadgeKind[] = ["welcomes", "demo", "new", "priceDropped", "promoted"];
 
 function Section({ name, children }: { name: string; children: React.ReactNode }) {
   return (
@@ -95,6 +115,24 @@ function Section({ name, children }: { name: string; children: React.ReactNode }
       </h2>
       {children}
     </section>
+  );
+}
+
+function Swatches({ label }: { label: string }) {
+  return (
+    <div className="flex flex-col gap-3 rounded-card border border-border bg-background p-3 text-foreground">
+      <p className="text-small font-medium">{label}</p>
+      <ul className="grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-3">
+        {TOKENS.map((name) => (
+          <li key={name} className="flex items-center gap-2">
+            <span className="size-8 shrink-0 rounded-input border border-border" style={{ background: `var(--${name})` }} />
+            <code className="min-w-0 truncate text-caption text-muted-foreground" dir="ltr">
+              {name}
+            </code>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -197,17 +235,18 @@ export default async function DevUiPage({ params }: { params: Promise<{ locale: 
   const photos = cards.flatMap((card) => card.photos).slice(0, 6);
 
   const typeSample: Record<(typeof TYPE)[number], string> = {
-    display: t("badges.welcomes"),
-    h1: t("devUi.title"),
+    display: t("devUi.title"),
+    h1: t("devUi.sectionTitle"),
     h2: t("devUi.sectionTitle"),
     h3: t("devUi.emptyTitle"),
     body: t("devUi.intro"),
     small: t("devUi.emptyText"),
     caption: t("badges.verifiedHint"),
+    price: "₪420",
   };
 
   return (
-    <main id="main" className="mx-auto flex max-w-6xl flex-col gap-10 px-gutter py-8">
+    <main id="main" className="mx-auto flex max-w-content flex-col gap-10 px-gutter py-8">
       <header className="flex flex-col gap-4">
         <h1 className="text-h1">{t("devUi.title")}</h1>
         <p className="text-body text-muted-foreground">{t("devUi.intro")}</p>
@@ -215,7 +254,13 @@ export default async function DevUiPage({ params }: { params: Promise<{ locale: 
           <ThemeSegmented className="w-72" />
           <nav className="flex flex-wrap gap-1" dir="ltr">
             {locales.map((l) => (
-              <Link key={l} href="/dev/ui" locale={l} className="rounded-full px-3 py-2 font-mono text-sm hover:bg-muted" aria-current={l === locale ? "page" : undefined}>
+              <Link
+                key={l}
+                href="/dev/ui"
+                locale={l}
+                className="inline-flex min-h-11 items-center rounded-full px-3 font-mono text-sm hover:bg-surface-muted aria-[current=page]:bg-primary-tint aria-[current=page]:text-primary-text"
+                aria-current={l === locale ? "page" : undefined}
+              >
                 {l}
               </Link>
             ))}
@@ -223,17 +268,13 @@ export default async function DevUiPage({ params }: { params: Promise<{ locale: 
         </div>
       </header>
 
-      <Section name="colors">
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {COLORS.map((name) => (
-            <li key={name} className="flex flex-col gap-1.5">
-              <span className="h-14 rounded-input ring-1 ring-foreground/10" style={{ background: `var(--${name})` }} />
-              <code className="text-caption text-muted-foreground" dir="ltr">
-                {name}
-              </code>
-            </li>
-          ))}
-        </ul>
+      <Section name="tokens">
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Swatches label={t("devUi.currentTheme")} />
+          <div className="dark">
+            <Swatches label={t("devUi.darkTheme")} />
+          </div>
+        </div>
       </Section>
 
       <Section name="type">
@@ -246,27 +287,50 @@ export default async function DevUiPage({ params }: { params: Promise<{ locale: 
               <p className={`${TYPE_CLASS[size]} min-w-0`}>{typeSample[size]}</p>
             </div>
           ))}
+          <div className="flex items-baseline gap-4">
+            <code className="w-16 shrink-0 text-caption text-muted-foreground" dir="ltr">
+              title ×3
+            </code>
+            <p className="line-clamp-3 min-w-0 text-h1">{`${t("devUi.intro")} ${t("devUi.emptyText")} ${t("devUi.intro")}`}</p>
+          </div>
         </div>
       </Section>
 
-      <Section name="radius · shadow">
-        <div className="grid grid-cols-2 gap-5 sm:grid-cols-4">
-          {SHADOWS.map((shadow) => (
-            <div key={shadow} className={`flex h-24 items-end rounded-card bg-card p-3 ${shadow}`}>
-              <code className="text-caption text-muted-foreground" dir="ltr">
-                {shadow}
+      <Section name="Logo">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="flex h-24 items-center justify-center rounded-card border border-border bg-card">
+            <Logo href={null} />
+          </div>
+          <div className="flex h-24 items-center justify-center rounded-card bg-primary-tint">
+            <Logo href={null} />
+          </div>
+          <div className="flex h-24 items-center justify-center rounded-card bg-header">
+            <Logo href={null} color="white" />
+          </div>
+          <div className="dark">
+            <div className="flex h-24 items-center justify-center rounded-card border border-border bg-background">
+              <Logo href={null} color="white" />
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-end gap-6">
+          <Logo href={null} size={18} />
+          <Logo href={null} size={22} />
+          <Logo href={null} size={28} />
+          <Logo href={null} size={40} />
+          <Logo href={null} size={28} showName={false} />
+        </div>
+      </Section>
+
+      <Section name="radius · border · shadow">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+          {SHAPES.map((shape) => (
+            <div key={shape.name} className={`flex h-24 items-end p-3 ${shape.className}`}>
+              <code className="text-caption" dir="ltr">
+                {shape.name}
               </code>
             </div>
           ))}
-          <div className="flex h-24 items-end rounded-input border border-input bg-card p-3">
-            <code className="text-caption text-muted-foreground" dir="ltr">rounded-input</code>
-          </div>
-          <div className="flex h-24 items-end rounded-t-sheet bg-card p-3 shadow-sheet">
-            <code className="text-caption text-muted-foreground" dir="ltr">rounded-t-sheet</code>
-          </div>
-          <div className="flex h-24 items-end rounded-full bg-navy-soft px-5 py-3">
-            <code className="text-caption text-navy" dir="ltr">rounded-full</code>
-          </div>
         </div>
       </Section>
 
@@ -276,13 +340,10 @@ export default async function DevUiPage({ params }: { params: Promise<{ locale: 
             <SearchIcon />
             {tc("search")}
           </Button>
-          <Button variant="accent">
-            <PlusIcon />
-            {t("devUi.post")}
-          </Button>
+          <Button variant="secondary">{tc("cancel")}</Button>
           <Button variant="outline">{tc("seeAll")}</Button>
           <Button variant="soft">{tc("filter")}</Button>
-          <Button variant="ghost">{tc("cancel")}</Button>
+          <Button variant="ghost">{tc("reset")}</Button>
           <Button variant="whatsapp">
             <WhatsAppIcon />
             WhatsApp
@@ -292,17 +353,19 @@ export default async function DevUiPage({ params }: { params: Promise<{ locale: 
         <div className="flex flex-wrap items-center gap-3">
           <Button size="sm">{tc("apply")}</Button>
           <Button size="md">{tc("apply")}</Button>
-          <Button size="lg">{tc("apply")}</Button>
           <Button variant="round" size="icon" aria-label={tc("share")}>
             <ShareIcon />
           </Button>
           <Button variant="round" size="icon" aria-label={tc("save")}>
             <HeartIcon />
           </Button>
-          <Button variant="accent" size="icon" className="size-14 bg-coral shadow-float dark:bg-coral [&_svg]:size-7" aria-label={t("devUi.post")}>
+          <Button size="icon" className="size-12 border-[3px] border-white [&_svg]:size-6" aria-label={t("devUi.post")}>
             <PlusIcon />
           </Button>
           <Button disabled>{tc("apply")}</Button>
+          <Button variant="secondary" disabled>
+            {tc("cancel")}
+          </Button>
         </div>
       </Section>
 
@@ -310,55 +373,120 @@ export default async function DevUiPage({ params }: { params: Promise<{ locale: 
         <ChipsDemo />
       </Section>
 
-      <Section name="SegmentedControl">
-        <SegmentedDemo />
-      </Section>
-
-      <Section name="IconCircle · JewishIcons">
-        <div className="flex flex-wrap items-center gap-3">
-          {(["navy", "coral", "green", "amber", "neutral", "navy-solid", "coral-solid"] as const).map((tone, i) => {
-            const icons = Object.values(jewishIcons);
-            return <IconCircle key={tone} tone={tone} size="lg" icon={icons[i % icons.length]} />;
-          })}
+      <Section name="Tag · BayitBadge · BadgeRow">
+        <div className="flex flex-wrap items-center gap-2">
+          <Tag>{tc("demo")}</Tag>
+          <Tag variant="primary">{tc("new")}</Tag>
+          <Tag variant="success" icon={BadgeCheckIcon}>
+            {t("badges.verified")}
+          </Tag>
+          <Tag size="sm">{t("badges.kosherKitchen")}</Tag>
         </div>
-        <div className="flex flex-wrap items-end gap-5 text-foreground">
-          {Object.entries(jewishIcons).map(([name, Icon]) => (
-            <div key={name} className="flex flex-col items-center gap-2">
-              <div className="flex items-end gap-3">
-                <Icon size={16} />
-                <Icon size={24} />
-                <Icon size={48} />
-              </div>
-              <code className="text-caption text-muted-foreground" dir="ltr">
-                {name}
-              </code>
-            </div>
-          ))}
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          {(["xs", "sm", "md", "lg", "xl"] as const).map((size) => (
-            <IconCircle key={size} size={size} tone="navy" icon={jewishIcons.synagogue} />
-          ))}
-        </div>
-      </Section>
-
-      <Section name="BayitBadge · BadgeRow">
         <div className="flex flex-wrap gap-2">
           {BADGES.map((kind) => (
             <BayitBadge key={kind} kind={kind} minutes={6} />
           ))}
         </div>
-        <div className="flex flex-wrap gap-2">
-          {BADGES.slice(0, 4).map((kind) => (
-            <BayitBadge key={kind} kind={kind} size="md" />
+        <div className="relative flex h-28 items-start justify-between rounded-card bg-surface-muted p-3">
+          <BayitBadge kind="demo" variant="solid" />
+          <BayitBadge kind="new" variant="solid" />
+        </div>
+        <BadgeRow items={BADGES.slice(3, 8).map((kind) => ({ kind, minutes: 6 }))} />
+      </Section>
+
+      <Section name="Card">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Card>
+            <p className="text-h3">{t("devUi.sectionTitle")}</p>
+            <p className="text-small text-muted-foreground">{t("devUi.sectionSubtitle")}</p>
+          </Card>
+          <Card interactive>
+            <Link href="/search" className="text-h3 outline-none after:absolute after:inset-0">
+              {t("devUi.emptyAction")}
+            </Link>
+            <p className="text-small text-muted-foreground">{t("devUi.emptyText")}</p>
+          </Card>
+          <Card muted>
+            <p className="text-h3">{t("devUi.accordionTitle2")}</p>
+            <p className="text-small text-muted-foreground">{t("devUi.accordionBody2")}</p>
+          </Card>
+        </div>
+      </Section>
+
+      <Section name="SegmentedControl · Tabs">
+        <SegmentedDemo />
+        <Tabs defaultValue="short">
+          <TabsList>
+            <TabsTrigger value="short">{t("devUi.tabsShort")}</TabsTrigger>
+            <TabsTrigger value="monthly">{t("devUi.tabsMonthly")}</TabsTrigger>
+            <TabsTrigger value="buy">{t("devUi.tabsBuy")}</TabsTrigger>
+          </TabsList>
+          <TabsContent value="short" className="text-body text-muted-foreground">
+            {t("devUi.sectionSubtitle")}
+          </TabsContent>
+          <TabsContent value="monthly" className="text-body text-muted-foreground">
+            {t("devUi.emptyText")}
+          </TabsContent>
+          <TabsContent value="buy" className="text-body text-muted-foreground">
+            {t("devUi.intro")}
+          </TabsContent>
+        </Tabs>
+      </Section>
+
+      <Section name="Input · Textarea">
+        <div className="grid max-w-md gap-3">
+          <label className="grid gap-1.5 text-small font-medium">
+            {t("devUi.inputLabel")}
+            <Input placeholder={t("devUi.inputPlaceholder")} />
+          </label>
+          <label className="grid gap-1.5 text-small font-medium">
+            {t("devUi.notesLabel")}
+            <Textarea />
+          </label>
+          <Input disabled placeholder={t("devUi.inputPlaceholder")} aria-label={t("devUi.inputLabel")} />
+        </div>
+      </Section>
+
+      <Section name="Accordion">
+        <Accordion type="single" collapsible className="max-w-xl">
+          <AccordionItem value="kosher">
+            <AccordionTrigger>{t("devUi.accordionTitle")}</AccordionTrigger>
+            <AccordionContent>{t("devUi.accordionBody")}</AccordionContent>
+          </AccordionItem>
+          <AccordionItem value="know">
+            <AccordionTrigger>{t("devUi.accordionTitle2")}</AccordionTrigger>
+            <AccordionContent>{t("devUi.accordionBody2")}</AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      </Section>
+
+      <Section name="Calendar">
+        <CalendarDemo />
+      </Section>
+
+      <Section name="IconCircle · JewishIcons">
+        <div className="flex flex-wrap items-center gap-3">
+          {(["neutral", "primary", "primary-solid"] as const).map((tone, i) => {
+            const icons = Object.values(jewishIcons);
+            return <IconCircle key={tone} tone={tone} size="lg" icon={icons[i % icons.length]} />;
+          })}
+          {(["xs", "sm", "md", "lg", "xl"] as const).map((size) => (
+            <IconCircle key={size} size={size} icon={jewishIcons.synagogue} />
           ))}
         </div>
-        <div className="flex flex-wrap gap-2 rounded-card bg-navy p-3">
-          {TAGS.map((kind) => (
-            <BayitBadge key={kind} kind={kind} variant="solid" />
+        <div className="flex flex-wrap items-end gap-5 text-muted-foreground">
+          {Object.entries(jewishIcons).map(([name, Icon]) => (
+            <div key={name} className="flex flex-col items-center gap-2">
+              <div className="flex items-end gap-3">
+                <Icon size={20} />
+                <Icon size={24} className="text-primary-text" />
+              </div>
+              <code className="text-caption" dir="ltr">
+                {name}
+              </code>
+            </div>
           ))}
         </div>
-        <BadgeRow items={BADGES.slice(1, 6).map((kind) => ({ kind, minutes: 6 }))} max={3} />
       </Section>
 
       <Section name="ListingCard">
@@ -398,7 +526,7 @@ export default async function DevUiPage({ params }: { params: Promise<{ locale: 
       </Section>
 
       <Section name="EmptyState">
-        <div className="rounded-card bg-card shadow-card">
+        <Card padding="none">
           <EmptyState
             icon={SearchXIcon}
             title={t("devUi.emptyTitle")}
@@ -409,7 +537,7 @@ export default async function DevUiPage({ params }: { params: Promise<{ locale: 
               { label: t("devUi.fixArea"), href: "/search", icon: MapPinIcon },
             ]}
           />
-        </div>
+        </Card>
       </Section>
 
       <Section name="BottomSheet · NumberRoll · HeartButton">
@@ -422,16 +550,6 @@ export default async function DevUiPage({ params }: { params: Promise<{ locale: 
 
       <Section name="StickyContactBar">
         <ContactBarDemo />
-      </Section>
-
-      <Section name="Reveal">
-        <ul className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {BADGES.map((kind, i) => (
-            <Reveal as="li" key={kind} index={i} className="flex h-28 items-center justify-center rounded-card bg-card shadow-card">
-              <BayitBadge kind={kind} minutes={6} />
-            </Reveal>
-          ))}
-        </ul>
       </Section>
     </main>
   );

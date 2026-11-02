@@ -87,7 +87,7 @@ export function MapControls({
           onClick={community.onToggle}
           title={t("controls.communityHint")}
           aria-busy={community.loading || undefined}
-          className={cn(FLOATING, "ms-auto", community.on && "border-navy")}
+          className={cn(FLOATING, "ms-auto", community.on && "border-primary")}
         >
           {t("controls.community")}
         </Chip>
@@ -131,7 +131,7 @@ export function ListPill({ onClick }: { onClick: () => void }) {
       type="button"
       onClick={onClick}
       title={t("listLabel")}
-      className="pointer-events-auto inline-flex min-h-11 items-center gap-2 rounded-full bg-navy px-5 text-sm font-semibold text-navy-foreground shadow-raised outline-none transition-transform duration-(--motion-fast) ease-standard focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-[0.97] motion-reduce:active:scale-100"
+      className="pointer-events-auto inline-flex min-h-11 items-center gap-2 rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-raised outline-none transition-transform duration-(--motion-fast) ease-standard focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-[0.97] motion-reduce:active:scale-100"
     >
       <ListIcon className="size-4.5" aria-hidden="true" />
       {t("list")}

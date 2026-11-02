@@ -20,9 +20,9 @@ const ICONS: Record<StepIcon, LucideIcon | IconComponent> = {
 
 /** Soft card colors, one per step (livo-style numbered cards). */
 const TONES = [
-  "bg-navy-soft text-navy",
-  "bg-coral-soft text-coral-strong",
-  "bg-verified-soft text-verified",
+  "bg-primary-tint text-primary-text",
+  "bg-primary-tint text-primary-text",
+  "bg-primary-tint text-success",
 ] as const;
 
 /** Guests / owners tabs of the home "How it works" section: three numbered step cards. */

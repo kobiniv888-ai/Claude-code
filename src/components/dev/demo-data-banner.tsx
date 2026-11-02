@@ -20,9 +20,9 @@ export async function DemoDataBanner() {
   return (
     <p
       role="status"
-      className="flex items-center justify-center gap-2 bg-warning-soft px-4 py-1.5 text-center text-xs font-medium text-foreground"
+      className="flex items-center justify-center gap-2 bg-surface-muted px-4 py-1.5 text-center text-xs font-medium text-foreground"
     >
-      <DatabaseIcon className="size-3.5 shrink-0 text-warning" aria-hidden />
+      <DatabaseIcon className="size-3.5 shrink-0 text-foreground" aria-hidden />
       <span>
         {t.rich("demoDataMissing", {
           code: (chunks) => (

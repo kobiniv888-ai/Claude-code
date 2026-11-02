@@ -3,7 +3,8 @@ import { cn } from "@/lib/utils";
 
 /**
  * A bar fixed to the bottom of the screen (listing contact, booking): the price on the start
- * side, then the main action (WhatsApp), a secondary action and an overflow menu.
+ * side, then the main action (a 48px purple button), a secondary action and an overflow menu.
+ * A plain white (dark: surface) bar with a top border, no shadow or blur.
  * It sits above the mobile bottom nav when that is shown (--bottom-nav-height), keeps clear of
  * the home indicator (safe area) and leaves a spacer so it never covers the end of the page.
  *
@@ -48,7 +49,7 @@ export function StickyContactBar({
         data-listing-contact-bar=""
         data-sticky-bar=""
         className={cn(
-          "fixed inset-x-0 bottom-(--bottom-nav-height) z-(--z-sticky) border-t border-border/70 bg-card/95 shadow-sheet backdrop-blur-md supports-[backdrop-filter]:bg-card/85",
+          "fixed inset-x-0 bottom-(--bottom-nav-height) z-(--z-sticky) border-t border-border bg-card",
           mobileOnly && "lg:hidden",
           className,
         )}

@@ -10,7 +10,7 @@ type Href = ComponentProps<typeof Link>["href"];
 export type EmptyStateAction = { label: string; href: Href; icon?: IconComponent } | React.ReactElement;
 
 /**
- * A friendly dead-end replacement: an icon in a tinted circle, a title, one line of text,
+ * A friendly dead-end replacement: a grey icon in a quiet circle, a title, one line of text,
  * ONE primary action and optional one-tap fixes ("Remove 'Kosher'", "Wider area").
  *
  *   <EmptyState icon={SearchXIcon} title="לא מצאנו נכסים" description="נסו להסיר מסנן"
@@ -21,7 +21,7 @@ export type EmptyStateAction = { label: string; href: Href; icon?: IconComponent
  */
 export function EmptyState({
   icon,
-  tone = "navy",
+  tone = "neutral",
   title,
   description,
   action,
@@ -31,6 +31,7 @@ export function EmptyState({
   className,
 }: {
   icon: IconComponent;
+  /** Default neutral (grey). Every old tone name draws the same grey circle. */
   tone?: IconCircleProps["tone"];
   /** Plain text, or rich text (e.g. t.rich with a <bdi> around a search query). */
   title: React.ReactNode;
@@ -47,13 +48,13 @@ export function EmptyState({
     <div
       className={cn(
         "mx-auto flex max-w-md flex-col items-center text-center",
-        compact ? "gap-3 py-6" : "gap-4 py-12",
+        compact ? "gap-3 py-6" : "gap-4 py-10",
         className,
       )}
     >
-      <IconCircle icon={icon} tone={tone} size={compact ? "lg" : "xl"} />
+      <IconCircle icon={icon} tone={tone} size={compact ? "md" : "lg"} />
       <div className="flex flex-col gap-1.5">
-        <Heading className="text-h3 text-balance text-foreground">{title}</Heading>
+        <Heading className="text-h2 text-balance text-foreground">{title}</Heading>
         {description ? <p className="text-body text-pretty text-muted-foreground">{description}</p> : null}
       </div>
       {action ? (

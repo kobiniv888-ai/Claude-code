@@ -90,9 +90,9 @@ export default async function NewTicketPage({ params, searchParams }: Props) {
             </ul>
           </section>
 
-          <section className="rounded-2xl border border-terracotta/30 bg-accent p-5 text-accent-foreground">
+          <section className="rounded-2xl border border-primary/30 bg-accent p-5 text-accent-foreground">
             <h2 className="flex items-center gap-2 text-base font-semibold">
-              <ShieldAlert aria-hidden="true" className="size-4 text-terracotta" />
+              <ShieldAlert aria-hidden="true" className="size-4 text-primary-text" />
               {t("scamTitle")}
             </h2>
             <p className="mt-2 text-sm leading-relaxed text-pretty">{t("scamBody")}</p>
@@ -107,7 +107,7 @@ export default async function NewTicketPage({ params, searchParams }: Props) {
           <section className="rounded-2xl border bg-card p-5 shadow-card">
             <h2 className="flex items-center gap-2 text-base font-semibold">
               {user.emailIsPlaceholder ? (
-                <MailWarning aria-hidden="true" className="size-4 text-warning" />
+                <MailWarning aria-hidden="true" className="size-4 text-foreground" />
               ) : (
                 <BellRing aria-hidden="true" className="size-4 text-primary" />
               )}

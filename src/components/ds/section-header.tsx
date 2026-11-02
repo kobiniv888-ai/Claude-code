@@ -5,8 +5,8 @@ import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 
 /**
- * A section title in the Zillow style: a big bold heading, an optional one-line subtitle and a
- * "See all →" link (the arrow follows the reading direction).
+ * A section title (round 2): an 18px heading (22px on desktop), an optional one-line subtitle
+ * and a purple "הכל ←" link (the arrow follows the reading direction).
  *
  *   <SectionHeader id="new-title" title="נכסים חדשים" href="/search?sort=new" />
  *   <section aria-labelledby="new-title">…</section>
@@ -35,8 +35,8 @@ export function SectionHeader({
 }) {
   const t = useTranslations("ds.section");
   return (
-    <div className={cn("flex items-end justify-between gap-4", className)}>
-      <div className="flex min-w-0 flex-col gap-1">
+    <div className={cn("flex items-center justify-between gap-4", className)}>
+      <div className="flex min-w-0 flex-col gap-0.5">
         <Heading
           id={id}
           className={cn(
@@ -46,12 +46,12 @@ export function SectionHeader({
         >
           {title}
         </Heading>
-        {subtitle ? <p className="text-small text-pretty text-muted-foreground sm:text-body">{subtitle}</p> : null}
+        {subtitle ? <p className="text-small text-pretty text-muted-foreground">{subtitle}</p> : null}
       </div>
       {href ? (
         <Link
           href={href}
-          className="group/see-all -me-2 inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full px-2 text-sm font-semibold text-primary outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="group/see-all -me-2 inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full px-2 text-sm font-medium text-primary-text outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           {linkLabel ?? t("seeAll")}
           <ArrowEnd

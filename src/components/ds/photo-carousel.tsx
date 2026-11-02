@@ -142,7 +142,7 @@ export function PhotoCarousel({
 
   if (total === 0) {
     return (
-      <div className={cn("relative flex flex-col items-center justify-center gap-2 bg-muted text-muted-foreground", aspect, className)}>
+      <div className={cn("relative flex flex-col items-center justify-center gap-2 bg-surface-muted text-muted-foreground", aspect, className)}>
         <ImageOffIcon className="size-8" aria-hidden="true" />
         <span className="text-sm">{t("noPhotos")}</span>
       </div>
@@ -150,12 +150,12 @@ export function PhotoCarousel({
   }
 
   const navButton =
-    "absolute top-1/2 z-10 hidden size-9 -translate-y-1/2 items-center justify-center rounded-full bg-card/95 text-foreground shadow-raised outline-none transition-opacity duration-(--motion-fast) " +
+    "absolute top-1/2 z-10 hidden size-9 -translate-y-1/2 items-center justify-center rounded-full bg-card/95 text-foreground ring-1 ring-black/10 outline-none transition-opacity duration-(--motion-fast) " +
     "opacity-0 group-hover/carousel:opacity-100 focus-visible:opacity-100 focus-visible:ring-3 focus-visible:ring-ring/60 pointer-fine:inline-flex";
 
   return (
     <div
-      className={cn("group/carousel relative overflow-hidden", !peek && "bg-muted", aspect, className)}
+      className={cn("group/carousel relative overflow-hidden", !peek && "bg-surface-muted", aspect, className)}
       role="group"
       aria-roledescription="carousel"
       aria-label={label}
@@ -204,7 +204,7 @@ export function PhotoCarousel({
               aria-label={t("slide", { index: index + 1, total })}
               aria-hidden={index !== selected || undefined}
               className={cn(
-                "relative h-full shrink-0 snap-start snap-always overflow-hidden bg-muted bg-cover bg-center",
+                "relative h-full shrink-0 snap-start snap-always overflow-hidden bg-surface-muted bg-cover bg-center",
                 peek ? "basis-[88%] rounded-card" : "basis-full",
               )}
               style={photo.blurDataUrl && index > 0 ? { backgroundImage: `url("${photo.blurDataUrl}")` } : undefined}

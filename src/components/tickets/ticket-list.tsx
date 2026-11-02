@@ -39,12 +39,12 @@ export function TicketList({ items }: { items: TicketListEntry[] }) {
               href={ticketPath(ticket.number)}
               className={cn(
                 "group relative flex items-start gap-3 rounded-2xl border bg-card p-4 shadow-card transition-shadow hover:shadow-card-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:p-5",
-                waiting && "border-warning/50 bg-warning-soft/60",
+                waiting && "border-border-strong/50 bg-surface-muted/60",
                 closed && "bg-card/60",
               )}
             >
               {waiting ? (
-                <span aria-hidden="true" className="absolute inset-y-3 start-0 w-1 rounded-e-full bg-warning" />
+                <span aria-hidden="true" className="absolute inset-y-3 start-0 w-1 rounded-e-full bg-surface-muted" />
               ) : null}
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
@@ -81,7 +81,7 @@ export function TicketList({ items }: { items: TicketListEntry[] }) {
                   </time>
                   {waiting ? (
                     <span className="inline-flex items-center gap-1 text-sm font-semibold text-foreground">
-                      <MessageCircleReply aria-hidden="true" className="size-4 text-warning" />
+                      <MessageCircleReply aria-hidden="true" className="size-4 text-foreground" />
                       {t("replyNeeded")}
                     </span>
                   ) : null}

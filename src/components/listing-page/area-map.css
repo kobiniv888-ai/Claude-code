@@ -18,7 +18,7 @@
   height: 42px;
   border-radius: 50% 50% 50% 0;
   transform: rotate(-45deg);
-  background: #14213d;
+  background: #4b2a8c;
   color: #ffffff;
   box-shadow:
     0 0 0 3px #ffffff,
@@ -30,11 +30,12 @@
   height: 22px;
   transform: rotate(45deg);
 }
+/* Dark maps: the bright purple with the white border, so the pin stays clearly visible (bug 8.11). */
 .dark .bayit-home-pin {
-  background: #e8eefb;
-  color: #14213d;
+  background: #7b52e3;
+  color: #ffffff;
   box-shadow:
-    0 0 0 3px #14213d,
+    0 0 0 3px #ffffff,
     0 6px 16px rgb(0 0 0 / 0.5);
 }
 

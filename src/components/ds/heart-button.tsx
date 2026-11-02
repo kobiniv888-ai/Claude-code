@@ -5,7 +5,7 @@ import { HeartIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
- * The save heart: fills with coral and pops (1 → 1.25 → 1) when switched on. Presentational —
+ * The save heart: fills with purple and pops (1 → 1.25 → 1) when switched on. Presentational —
  * FavoriteButton (src/components/listing) adds saving, login and toasts.
  *
  *   <HeartButton pressed={saved} onClick={toggle} label="שמירת דירה בוואקה" />
@@ -42,9 +42,9 @@ export function HeartButton({
       className={cn(
         "inline-flex size-11 shrink-0 items-center justify-center rounded-full outline-none",
         "transition-[transform,background-color] duration-(--motion-fast) ease-standard focus-visible:ring-3 focus-visible:ring-ring/60 active:scale-90 motion-reduce:transition-none",
-        variant === "overlay" && "bg-card/90 text-foreground shadow-sm backdrop-blur hover:bg-card",
-        variant === "outline" && "border border-border bg-card text-foreground hover:bg-muted",
-        variant === "plain" && "text-foreground hover:bg-muted",
+        variant === "overlay" && "bg-card text-foreground ring-1 ring-black/5 hover:bg-surface-muted",
+        variant === "outline" && "border border-border-strong bg-card text-foreground hover:bg-surface-muted",
+        variant === "plain" && "text-foreground hover:bg-surface-muted",
         className,
       )}
     >
@@ -53,7 +53,7 @@ export function HeartButton({
         aria-hidden="true"
         className={cn(
           "size-5.5 transition-colors duration-(--motion-fast)",
-          pressed ? "fill-coral text-coral" : "fill-transparent",
+          pressed ? "fill-primary-text text-primary-text" : "fill-transparent",
           pressed && pops > 0 && "animate-heart-pop",
         )}
       />

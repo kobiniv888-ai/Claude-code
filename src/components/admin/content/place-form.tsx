@@ -99,8 +99,8 @@ export function PlaceForm({ id, initial, cities }: { id: string | null; initial?
         });
       }}
     >
-      <p className="flex items-start gap-2 rounded-xl border border-warning/40 bg-warning-soft p-3 text-sm">
-        <ShieldCheck aria-hidden className="mt-0.5 size-4 shrink-0 text-warning" />
+      <p className="flex items-start gap-2 rounded-xl border border-border-strong/40 bg-surface-muted p-3 text-sm">
+        <ShieldCheck aria-hidden className="mt-0.5 size-4 shrink-0 text-foreground" />
         {t("realOnly")}
       </p>
 
@@ -227,7 +227,7 @@ export function PlaceForm({ id, initial, cities }: { id: string | null; initial?
         <SwitchRow
           label={
             <span className="inline-flex items-center gap-1.5">
-              <FlaskConical aria-hidden className="size-4 text-terracotta" />
+              <FlaskConical aria-hidden className="size-4 text-primary-text" />
               {t("isDemo")}
             </span>
           }

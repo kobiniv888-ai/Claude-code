@@ -57,7 +57,7 @@ export async function Footer() {
   const social = SOCIAL.filter((key) => siteConfig.social[key]);
 
   return (
-    <footer data-site-footer="" className="mt-auto border-t bg-card/60">
+    <footer data-site-footer="" className="mt-auto border-t border-border bg-surface-muted">
       <Container className="py-10 sm:py-14">
         <div className="grid grid-cols-1 gap-6 sm:gap-10 lg:grid-cols-[minmax(0,1.3fr)_repeat(4,minmax(0,1fr))] lg:gap-8">
           <div className="grid content-start gap-4">
@@ -76,7 +76,7 @@ export async function Footer() {
                           target="_blank"
                           rel="noopener noreferrer"
                           aria-label={t(`social.${key}`, { name })}
-                          className="inline-flex size-11 items-center justify-center rounded-full border bg-background text-foreground/80 outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+                          className="inline-flex size-11 items-center justify-center rounded-full border border-border bg-card text-muted-foreground outline-none transition-colors hover:bg-card hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
                         >
                           <Icon size={18} />
                         </a>
@@ -89,7 +89,7 @@ export async function Footer() {
           </div>
 
           {/* Phones: one accordion per column (native <details>, no JavaScript). */}
-          <div className="divide-y rounded-card border bg-card sm:hidden">
+          <div className="divide-y divide-border rounded-card border border-border bg-card sm:hidden">
             {COLUMNS.map((column) => (
               <details key={column.key} name="footer-columns" className="group">
                 <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 text-sm font-semibold text-foreground outline-none select-none focus-visible:ring-3 focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden">

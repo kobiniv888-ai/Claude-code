@@ -45,10 +45,18 @@ export const siteConfig = {
   } satisfies Localized,
   url: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
   supportEmail: process.env.SUPPORT_EMAIL ?? "support@bayit.example",
-  /** Logo files in /public/brand. Replace the SVGs to rebrand. */
+  /**
+   * Logo files in /public/brand (docs/redesign-2/BRIEF.md 3.1): the ב mark drawn as a house.
+   * The site draws the mark inline (src/components/brand/logo.tsx); these files are for icons
+   * (scripts/generate-icons.mjs), the offline page and anything outside the app.
+   */
   logo: {
-    mark: "/brand/logo-mark.svg",
-    wordmark: "/brand/logo.svg",
+    /** The mark alone, currentColor, tight box (viewBox 126 109 294 304). */
+    mark: "/brand/bayit-mark.svg",
+    /** White mark on a purple rounded square: favicon and app icons. */
+    appIcon: "/brand/bayit-app-icon.svg",
+    /** Full-bleed square (no rounded corners): maskable app icons. */
+    appIconSquare: "/brand/bayit-app-icon-square.svg",
   },
   social: {
     facebook: "",
@@ -58,18 +66,25 @@ export const siteConfig = {
   },
 
   /**
-   * Brand colors. These are copied into CSS variables in src/app/globals.css
-   * (search for "BRAND COLORS"); keep both in sync when rebranding.
+   * Brand colors (round 2: purple and white, purple and black). The full token set is in
+   * src/app/styles/bayit.css (search for "BRAND COLORS"); keep both in sync when rebranding.
+   * Used where CSS cannot reach: theme-color, the manifest, emails, share images, map markers.
    */
   colors: {
-    primary: "#1E3A6E", // deep, trustworthy blue
-    primaryDark: "#93B4F0", // primary on dark backgrounds
-    accent: "#B4533A", // terracotta — Georgian roofs
-    coral: "#E0654A", // brand coral fill (icons, large text only) — mirrors --coral in globals.css
-    wine: "#7B2D3B", // Georgian wine
-    background: "#FAF8F5", // off-white
-    verified: "#13763A", // green "Verified" (AA as text on its soft tints)
-    warning: "#B45309", // amber warnings
+    primary: "#4B2A8C", // the brand purple: buttons, header, logo (white text 10.5:1)
+    primaryPressed: "#3B206F", // pressed / hover
+    primaryDark: "#B9A4FF", // purple text, icons and markers on dark backgrounds (lavender)
+    primaryButtonDark: "#7B52E3", // buttons on dark backgrounds (white text 5.1:1)
+    primaryTint: "#F4F0FB", // soft lavender blocks
+    primaryTintBorder: "#E4DAF5",
+    background: "#FFFFFF",
+    backgroundDark: "#0F0D14",
+    surfaceMuted: "#F4F2F7",
+    text: "#18161F",
+    textMuted: "#5E5A6B",
+    border: "#ECEAF1",
+    error: "#B42318",
+    success: "#1E7B4F", // "verified" and "booking confirmed" only
   },
 
   i18n: {

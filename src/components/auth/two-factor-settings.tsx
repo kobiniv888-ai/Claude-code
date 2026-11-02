@@ -80,7 +80,7 @@ export function TwoFactorSettings({
         <span
           className={cn(
             "flex size-11 shrink-0 items-center justify-center rounded-full",
-            enabled ? "bg-verified-soft text-verified" : "bg-muted text-muted-foreground",
+            enabled ? "bg-primary-tint text-success" : "bg-muted text-muted-foreground",
           )}
         >
           {enabled ? <ShieldCheckIcon className="size-5" aria-hidden /> : <ShieldIcon className="size-5" aria-hidden />}
@@ -92,7 +92,7 @@ export function TwoFactorSettings({
             </h2>
             <Badge
               variant="secondary"
-              className={cn(enabled ? "bg-verified-soft text-verified" : "bg-muted text-muted-foreground")}
+              className={cn(enabled ? "bg-primary-tint text-success" : "bg-muted text-muted-foreground")}
             >
               {enabled ? t("statusOn") : t("statusOff")}
             </Badge>
@@ -105,7 +105,7 @@ export function TwoFactorSettings({
             </p>
           )}
           {status && (
-            <p role="status" className="text-sm text-verified">
+            <p role="status" className="text-sm text-success">
               {status}
             </p>
           )}

@@ -127,7 +127,7 @@ export function TicketMessageList({
               className={cn(
                 "mt-1 flex size-8 shrink-0 items-center justify-center rounded-full sm:size-9",
                 m.internal
-                  ? "bg-warning-soft text-warning"
+                  ? "bg-surface-muted text-foreground"
                   : m.fromStaff
                     ? "bg-primary text-primary-foreground"
                     : "bg-secondary text-secondary-foreground",
@@ -139,7 +139,7 @@ export function TicketMessageList({
               className={cn(
                 "min-w-0 rounded-2xl border px-4 py-3 shadow-card",
                 m.internal
-                  ? "flex-1 border-dashed border-warning/50 bg-warning-soft"
+                  ? "flex-1 border-dashed border-border-strong/50 bg-surface-muted"
                   : mine
                     ? "max-w-[85%] rounded-se-md border-primary/15 bg-secondary sm:max-w-[75%]"
                     : "max-w-[85%] rounded-ss-md bg-card sm:max-w-[75%]",
@@ -151,7 +151,7 @@ export function TicketMessageList({
                 </span>
                 {m.internal ? (
                   <span className="inline-flex items-center gap-1 text-xs font-semibold text-foreground">
-                    <Lock aria-hidden="true" className="size-3 text-warning" />
+                    <Lock aria-hidden="true" className="size-3 text-foreground" />
                     {t("internalNote")}
                   </span>
                 ) : null}

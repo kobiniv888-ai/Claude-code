@@ -86,7 +86,7 @@ export function RulesSection({ data }: { data: ListingPageData }) {
                   key={key}
                   className={cn(
                     "inline-flex min-h-10 items-center gap-2 rounded-full px-3.5 text-small font-medium",
-                    value ? "bg-verified-soft text-verified" : "bg-muted/80 text-foreground dark:bg-muted",
+                    value ? "bg-primary-tint text-success" : "bg-muted/80 text-foreground dark:bg-muted",
                   )}
                 >
                   <Icon className="size-4.5 shrink-0" aria-hidden />
@@ -148,7 +148,7 @@ export function CostsSection({ data }: { data: ListingPageData }) {
       {history.length ? (
         <div className="mt-6 grid gap-3">
           <h3 className="flex items-center gap-2 font-semibold">
-            <TrendingDownIcon className="size-5 text-verified" aria-hidden />
+            <TrendingDownIcon className="size-5 text-success" aria-hidden />
             {t("priceHistory")}
           </h3>
           <ol className="grid gap-2">
@@ -165,7 +165,7 @@ export function CostsSection({ data }: { data: ListingPageData }) {
                     <bdi>{formatMoney(change.newPrice, change.currency, locale)}</bdi>
                   </span>
                   {pct !== null ? (
-                    <span className={pct < 0 ? "font-semibold text-verified" : "font-semibold text-warning"}>
+                    <span className={pct < 0 ? "font-semibold text-success" : "font-semibold text-foreground"}>
                       <Ltr>{`${pct > 0 ? "+" : ""}${formatNumber(pct, locale)}%`}</Ltr>
                     </span>
                   ) : null}
@@ -260,7 +260,7 @@ export function AmenitiesSection({ amenities }: { amenities: string[] }) {
           const Icon = AMENITY_ICONS[key] ?? CheckIcon;
           return (
             <li key={key} className="inline-flex min-h-10 items-center gap-2 rounded-full bg-muted/80 px-3.5 text-small font-medium dark:bg-muted">
-              <Icon className="size-4.5 shrink-0 text-navy" aria-hidden />
+              <Icon className="size-4.5 shrink-0 text-primary-text" aria-hidden />
               {f(`amenity.${key}`)}
             </li>
           );

@@ -27,7 +27,7 @@ export async function JewishLifeHero({ locale }: { locale: AppLocale }) {
   return (
     <section aria-labelledby="jewish-life-title" className="relative isolate">
       <HomeMotionStyles />
-      <div className="relative h-[min(30rem,58svh)] min-h-[21rem] overflow-hidden bg-navy sm:h-[26rem] lg:h-[30rem]">
+      <div className="relative h-[min(30rem,58svh)] min-h-[21rem] overflow-hidden bg-primary sm:h-[26rem] lg:h-[30rem]">
         <div className="bh-zoom absolute inset-0" data-zoom="a">
           <PhotoSlot
             slot="jewish.tbilisiSynagogue"

@@ -154,7 +154,7 @@ export default async function TicketPage({ params, searchParams }: Props) {
                           key={value}
                           className={cn(
                             "size-4",
-                            value <= (ticket.rating ?? 0) ? "fill-warning text-warning" : "text-muted-foreground/50",
+                            value <= (ticket.rating ?? 0) ? "fill-muted-foreground text-foreground" : "text-muted-foreground/50",
                           )}
                         />
                       ))}

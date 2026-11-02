@@ -31,7 +31,7 @@ function YesNo({ value }: { value: boolean | null }) {
   const t = useTranslations("account.compare");
   if (value === null) return <Dash />;
   return value ? (
-    <span className="inline-flex items-center gap-1 font-medium text-verified">
+    <span className="inline-flex items-center gap-1 font-medium text-success">
       <CheckIcon className="size-4" aria-hidden="true" />
       {t("yes")}
     </span>
@@ -46,7 +46,7 @@ function List({ items }: { items: string[] }) {
     <ul className="grid gap-1">
       {items.map((item) => (
         <li key={item} className="flex gap-1.5">
-          <CheckIcon className="mt-0.5 size-4 shrink-0 text-verified" aria-hidden="true" />
+          <CheckIcon className="mt-0.5 size-4 shrink-0 text-success" aria-hidden="true" />
           <span>{item}</span>
         </li>
       ))}
@@ -162,7 +162,7 @@ export function CompareView() {
           label: t("rows.verified"),
           cell: (i) =>
             i.verified ? (
-              <span className="inline-flex items-center gap-1 font-medium text-verified">
+              <span className="inline-flex items-center gap-1 font-medium text-success">
                 <BadgeCheckIcon className="size-4" aria-hidden="true" />
                 {t("verified")}
               </span>

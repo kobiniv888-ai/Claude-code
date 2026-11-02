@@ -280,14 +280,14 @@ export function PhoneCodeForm({
           )}
           <DevHint text={devHint(codeError)} />
           {notice && !codeError && (
-            <p role="status" className="text-center text-sm text-verified">
+            <p role="status" className="text-center text-sm text-success">
               {notice}
             </p>
           )}
 
           {devCode && (
-            <div className="flex items-center gap-2 rounded-lg border border-dashed border-warning/50 bg-warning-soft px-3 py-2 text-sm text-foreground">
-              <TerminalIcon className="size-4 shrink-0 text-warning" aria-hidden />
+            <div className="flex items-center gap-2 rounded-lg border border-dashed border-border-strong/50 bg-surface-muted px-3 py-2 text-sm text-foreground">
+              <TerminalIcon className="size-4 shrink-0 text-foreground" aria-hidden />
               <span>
                 {t.rich("devCode", {
                   code: devCode,
@@ -371,8 +371,8 @@ export function PhoneCodeForm({
 function DevHint({ text }: { text: string | null }) {
   if (!text) return null;
   return (
-    <p className="flex items-start gap-2 rounded-lg border border-dashed border-warning/50 bg-warning-soft px-3 py-2 text-xs text-foreground">
-      <TerminalIcon className="mt-0.5 size-3.5 shrink-0 text-warning" aria-hidden />
+    <p className="flex items-start gap-2 rounded-lg border border-dashed border-border-strong/50 bg-surface-muted px-3 py-2 text-xs text-foreground">
+      <TerminalIcon className="mt-0.5 size-3.5 shrink-0 text-foreground" aria-hidden />
       <span>{text}</span>
     </p>
   );

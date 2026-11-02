@@ -111,7 +111,7 @@ function PlacePopup({ place }: { place: CommunityPlace }) {
         target="_blank"
         rel="noopener noreferrer"
         aria-label={t("walkLabel", { name: place.name })}
-        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-navy px-4 text-sm font-semibold text-navy-foreground! no-underline! outline-none hover:bg-navy/90 focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground! no-underline! outline-none hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         <FootprintsIcon className="size-4" aria-hidden="true" />
         {t("walk")}

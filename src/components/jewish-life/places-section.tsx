@@ -53,7 +53,7 @@ export async function PlacesSection({
           zoom: siteConfig.map.defaultZoom,
         }}
       />
-      <div className="flex flex-col items-start gap-3 rounded-card bg-navy-soft/60 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+      <div className="flex flex-col items-start gap-3 rounded-card bg-primary-tint/60 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
         <p className="text-sm text-pretty">
           <span className="font-semibold">{t("suggestTitle")}</span> {t("suggestBody")}
         </p>

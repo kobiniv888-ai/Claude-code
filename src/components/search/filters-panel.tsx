@@ -431,7 +431,7 @@ function SmallToggle({ icon: Icon, label, pressed, onToggle }: { icon: IconCompo
       onClick={onToggle}
       className={cn(
         "inline-flex min-h-10 items-center gap-1.5 rounded-full border px-3.5 text-sm font-medium transition-colors duration-(--motion-fast) outline-none focus-visible:ring-3 focus-visible:ring-ring/50 [&_svg]:size-4 [&_svg]:shrink-0",
-        pressed ? "border-navy bg-navy text-navy-foreground" : "border-border bg-card hover:border-input hover:bg-muted",
+        pressed ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:border-input hover:bg-muted",
       )}
     >
       <Icon aria-hidden="true" />

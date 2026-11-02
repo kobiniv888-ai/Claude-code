@@ -83,7 +83,7 @@ export default async function JewishLifePage({ params, searchParams }: Props) {
           tone="coral"
           title={t("times.title")}
           lead={t("times.lead")}
-          className="bg-navy-soft/50"
+          className="bg-primary-tint/50"
         >
           <div className="grid gap-5 lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] lg:items-start lg:gap-6">
             <ShabbatCountdownCard
@@ -125,7 +125,7 @@ export default async function JewishLifePage({ params, searchParams }: Props) {
           tone="green"
           title={t("calendar.title")}
           lead={t("calendar.lead")}
-          className="bg-navy-soft/50"
+          className="bg-primary-tint/50"
         >
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
             <JewishCalendar
@@ -157,7 +157,7 @@ export default async function JewishLifePage({ params, searchParams }: Props) {
         <EmergencyContacts locale={locale} />
       </JlSection>
 
-      <JlSection id="guides" icon={BookOpen} title={t("guides.title")} lead={t("guides.lead")} className="bg-navy-soft/50">
+      <JlSection id="guides" icon={BookOpen} title={t("guides.title")} lead={t("guides.lead")} className="bg-primary-tint/50">
         <GuidesSection locale={locale} />
       </JlSection>
     </div>

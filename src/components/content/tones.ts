@@ -3,10 +3,10 @@ export type Tone = "primary" | "terracotta" | "verified" | "warning" | "wine" | 
 
 export const toneClasses: Record<Tone, string> = {
   primary: "bg-primary/10 text-primary",
-  terracotta: "bg-terracotta/10 text-terracotta",
-  verified: "bg-verified-soft text-verified",
-  warning: "bg-warning-soft text-warning",
-  wine: "bg-wine/10 text-wine",
+  terracotta: "bg-primary/10 text-primary-text",
+  verified: "bg-primary-tint text-success",
+  warning: "bg-surface-muted text-foreground",
+  wine: "bg-primary/10 text-primary-text",
   destructive: "bg-destructive/10 text-destructive",
   muted: "bg-muted text-muted-foreground",
 };

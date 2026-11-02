@@ -38,7 +38,7 @@ export function ContactOptions({ className }: { className?: string }) {
               href={href}
               className={cn(
                 "group flex w-full items-center gap-3.5 rounded-card border bg-card p-4 transition-transform duration-(--motion-fast) hover:-translate-y-0.5 active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none",
-                key === "scam" && "border-coral/40 bg-coral-soft",
+                key === "scam" && "border-primary/40 bg-primary-tint",
               )}
             >
               <IconCircle icon={icon} tone={tone} size="md" />

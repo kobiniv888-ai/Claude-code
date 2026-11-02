@@ -182,7 +182,7 @@ export default function PlacesMap({
                     {place.name}
                   </p>
                   {place.isDemo ? (
-                    <p className="rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-900">
+                    <p className="rounded-md bg-[#F4F2F7] px-2 py-1 text-xs font-medium text-[#18161F]">
                       {t("demoBadge")} · {t("demoNote")}
                     </p>
                   ) : null}
@@ -196,7 +196,7 @@ export default function PlacesMap({
                       href={place.directionsUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-[#1E3A6E]! underline-offset-2 hover:underline"
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-[#4B2A8C]! underline-offset-2 hover:underline"
                     >
                       {t("directions")}
                       <ExternalLink aria-hidden="true" className="size-3" />
@@ -205,7 +205,7 @@ export default function PlacesMap({
                     <button
                       type="button"
                       onClick={() => onShowInList(place.id)}
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-[#1E3A6E] underline-offset-2 hover:underline lg:hidden"
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-[#4B2A8C] underline-offset-2 hover:underline lg:hidden"
                     >
                       <List aria-hidden="true" className="size-3" />
                       {t("showInList")}

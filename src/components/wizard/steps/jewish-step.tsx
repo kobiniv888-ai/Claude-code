@@ -48,7 +48,7 @@ function ShabbatBadgePreview({ features }: { features: string[] }) {
     <div
       className={cn(
         "grid gap-3 rounded-card border p-4 transition-colors",
-        on ? "border-verified/30 bg-verified-soft dark:bg-verified/15" : "border-dashed border-border bg-muted/40",
+        on ? "border-success/30 bg-primary-tint dark:bg-success/15" : "border-dashed border-border bg-muted/40",
       )}
       aria-live="polite"
     >
@@ -62,7 +62,7 @@ function ShabbatBadgePreview({ features }: { features: string[] }) {
         {rules.map((rule) => (
           <li key={rule.key} className="flex items-center gap-2">
             {rule.met ? (
-              <CircleCheckIcon className="size-4 text-verified" aria-hidden />
+              <CircleCheckIcon className="size-4 text-success" aria-hidden />
             ) : (
               <CircleIcon className="size-4 text-muted-foreground" aria-hidden />
             )}
@@ -119,7 +119,7 @@ function KosherCertificateUpload({
       <span className="text-sm font-medium">{t("certPhoto")}</span>
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-dashed border-border bg-muted/30 p-3">
         {value ? (
-          <span className="flex min-w-0 items-center gap-2 text-sm font-medium text-verified">
+          <span className="flex min-w-0 items-center gap-2 text-sm font-medium text-success">
             <FileCheckIcon className="size-5 shrink-0" aria-hidden />
             <span className="truncate" dir="auto">
               {fileName ?? t("certUploaded")}
@@ -225,11 +225,11 @@ export function JewishStep({ values, set, errors, kind }: StepProps) {
           }))}
         />
         <div className="grid gap-2 sm:grid-cols-2">
-          <p className="flex items-start gap-2.5 rounded-card bg-navy-soft/60 p-3 text-small">
+          <p className="flex items-start gap-2.5 rounded-card bg-primary-tint/60 p-3 text-small">
             <FootprintsIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
             <span>{t("walkingNote")}</span>
           </p>
-          <p className="flex items-start gap-2.5 rounded-card bg-navy-soft/60 p-3 text-small">
+          <p className="flex items-start gap-2.5 rounded-card bg-primary-tint/60 p-3 text-small">
             <UsersIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
             <span>{bigFamily ? t("bigFamilyOn") : t("bigFamilyNote", { count: BIG_FAMILY_MIN_GUESTS })}</span>
           </p>

@@ -186,7 +186,7 @@ export function RoleChanger({ userId, role, twoFactorEnabled }: { userId: string
           {t("save")}
         </Button>
       </div>
-      {willBeStaff && !twoFactorEnabled ? <p className="rounded-md bg-warning-soft px-2 py-1 text-xs text-foreground">{t("twoFactorWarning")}</p> : null}
+      {willBeStaff && !twoFactorEnabled ? <p className="rounded-md bg-surface-muted px-2 py-1 text-xs text-foreground">{t("twoFactorWarning")}</p> : null}
       <p className="text-xs text-muted-foreground">{t("hint")}</p>
     </div>
   );

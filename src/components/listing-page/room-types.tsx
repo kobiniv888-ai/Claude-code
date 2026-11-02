@@ -32,7 +32,7 @@ export function RoomTypesSection({ rooms }: { rooms: RoomTypeData[] }) {
                   <ul className="flex flex-wrap gap-1.5">
                     {facts.map(({ key, icon: Icon, text }) => (
                       <li key={key} className="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-muted/80 px-2.5 text-small font-medium dark:bg-muted">
-                        <Icon className="size-4 text-navy" aria-hidden />
+                        <Icon className="size-4 text-primary-text" aria-hidden />
                         {text}
                       </li>
                     ))}

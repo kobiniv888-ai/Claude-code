@@ -151,7 +151,7 @@ export function MyListingCard({ listing }: { listing: MyListing }) {
         <div className="flex flex-wrap items-center gap-2">
           <ListingStatusBadge status={listing.status} />
           {listing.ownerVerified ? (
-            <span className="inline-flex h-7 items-center gap-1 rounded-full bg-verified-soft px-2.5 text-xs font-semibold text-verified">
+            <span className="inline-flex h-7 items-center gap-1 rounded-full bg-primary-tint px-2.5 text-xs font-semibold text-success">
               <CheckCircle2Icon className="size-3.5" aria-hidden="true" />
               {t("ownerVerified")}
             </span>
@@ -170,13 +170,13 @@ export function MyListingCard({ listing }: { listing: MyListing }) {
         </div>
 
         {showsReason ? (
-          <div className="rounded-xl border border-warning/30 bg-warning-soft p-3 text-sm">
+          <div className="rounded-xl border border-border-strong/30 bg-surface-muted p-3 text-sm">
             <p className="font-semibold">{reasonKey ? tm(`reasons.${reasonKey}.label`) : tm(`statuses.${listing.status}.label`)}</p>
             <p className="mt-1 text-muted-foreground">
               {reasonKey ? tm(`reasons.${reasonKey}.explanation`) : tm(`statuses.${listing.status}.description`)}
             </p>
             {listing.moderationNote ? (
-              <p className="mt-2 border-s-2 border-warning/50 ps-3">
+              <p className="mt-2 border-s-2 border-border-strong/50 ps-3">
                 <span className="block text-xs font-semibold text-muted-foreground">{t("moderatorNote")}</span>
                 <span dir="auto" className="whitespace-pre-line">
                   {listing.moderationNote}
@@ -211,7 +211,7 @@ export function MyListingCard({ listing }: { listing: MyListing }) {
             </>
           )}
           {(listing.status === "LIVE" || listing.status === "PAUSED") && left !== null ? (
-            <span className={cn(left <= 7 && "font-medium text-warning")}>
+            <span className={cn(left <= 7 && "font-medium text-foreground")}>
               {left === 0 ? t("expiresToday") : t("expiresIn", { count: left, countText: formatNumber(left, locale) })}
             </span>
           ) : null}

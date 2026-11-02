@@ -68,7 +68,7 @@ export function CollapsibleSection({
           <span className="flex items-center gap-2">
             {title}
             {count > 0 ? (
-              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-navy px-1.5 text-xs leading-none font-bold text-navy-foreground">
+              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs leading-none font-bold text-primary-foreground">
                 <span aria-hidden="true">{formatNumber(count, locale)}</span>
                 <span className="sr-only">{t("selectedCount", { count })}</span>
               </span>
@@ -122,7 +122,7 @@ export function ChoiceChips<T extends string | number | null>({
             onClick={() => onChange(option)}
             className={cn(
               "min-h-10 rounded-full border px-4 py-1.5 text-sm font-medium transition-colors duration-(--motion-fast) outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
-              active ? "border-navy bg-navy text-navy-foreground" : "border-border bg-card hover:border-input hover:bg-muted",
+              active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:border-input hover:bg-muted",
             )}
           >
             {label(option)}
@@ -159,7 +159,7 @@ export function IconTile({
         layout === "column"
           ? "min-h-20 flex-col items-center justify-center gap-1.5 px-2 py-3 text-center text-sm font-medium"
           : "min-h-16 items-center gap-3 p-3 text-start text-sm leading-snug font-semibold",
-        pressed ? "border-navy bg-navy-soft text-navy" : "border-border bg-card hover:border-input hover:bg-muted/60",
+        pressed ? "border-primary bg-primary-tint text-primary-text" : "border-border bg-card hover:border-input hover:bg-muted/60",
       )}
     >
       {layout === "row" ? (
@@ -167,7 +167,7 @@ export function IconTile({
           aria-hidden="true"
           className={cn(
             "inline-flex size-10 shrink-0 items-center justify-center rounded-full transition-colors duration-(--motion-fast) [&_svg]:size-5",
-            pressed ? "bg-navy text-navy-foreground" : "bg-navy-soft text-navy",
+            pressed ? "bg-primary text-primary-foreground" : "bg-primary-tint text-primary-text",
           )}
         >
           <Icon aria-hidden="true" />

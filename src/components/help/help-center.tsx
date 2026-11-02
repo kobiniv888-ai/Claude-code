@@ -26,7 +26,7 @@ function Highlighted({ text, tokens }: { text: string; tokens: string[] }) {
     <>
       {parts.map((part, i) =>
         part.match ? (
-          <mark key={i} className="rounded-sm bg-warning-soft px-0.5 text-foreground ring-1 ring-warning/30">
+          <mark key={i} className="rounded-sm bg-surface-muted px-0.5 text-foreground ring-1 ring-border-strong/30">
             {part.text}
           </mark>
         ) : (
@@ -60,7 +60,7 @@ function CopyLinkButton({ id }: { id: string }) {
 
   return (
     <Button type="button" variant="ghost" size="sm" onClick={copy} className="text-muted-foreground">
-      {copied ? <Check aria-hidden="true" className="text-verified" /> : <Link2 aria-hidden="true" />}
+      {copied ? <Check aria-hidden="true" className="text-success" /> : <Link2 aria-hidden="true" />}
       <span aria-live="polite">{copied ? t("copied") : t("copyLink")}</span>
     </Button>
   );
@@ -110,7 +110,7 @@ function FaqAccordion({
                   </span>
                   <span
                     aria-hidden="true"
-                    className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground group-data-[state=open]:bg-navy-soft group-data-[state=open]:text-navy"
+                    className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground group-data-[state=open]:bg-primary-tint group-data-[state=open]:text-primary-text"
                   >
                     <ChevronDown className="size-4.5 transition-transform duration-(--motion-base) group-data-[state=open]:rotate-180 motion-reduce:transition-none" />
                   </span>
@@ -221,10 +221,10 @@ export function HelpCenter({ items }: { items: HelpFaqItem[] }) {
   return (
     <>
       {/* Hero with the search box */}
-      <section className="relative isolate overflow-hidden bg-linear-to-b from-navy-soft to-background">
+      <section className="relative isolate overflow-hidden bg-linear-to-b from-primary-tint to-background">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -top-24 -end-24 -z-10 size-72 rounded-full bg-coral/10 blur-3xl sm:size-96"
+          className="pointer-events-none absolute -top-24 -end-24 -z-10 size-72 rounded-full bg-primary/10 blur-3xl sm:size-96"
         />
         <div className="mx-auto w-full max-w-3xl px-gutter pt-8 pb-8 text-center sm:pt-14 sm:pb-12">
           <IconCircle icon={LifeBuoy} tone="navy" size="lg" className="mx-auto mb-4 bg-card shadow-raised" />
@@ -342,7 +342,7 @@ export function HelpCenter({ items }: { items: HelpFaqItem[] }) {
                         onClick={() => chooseTopic(active ? "ALL" : c, !active)}
                         className={cn(
                           "flex w-full flex-col items-center gap-2 rounded-card border bg-card px-3 py-4 text-center transition-transform duration-(--motion-fast) hover:-translate-y-0.5 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none",
-                          active && "border-navy bg-navy-soft",
+                          active && "border-primary bg-primary-tint",
                         )}
                       >
                         <IconCircle icon={Icon} tone={active ? "navy-solid" : faqCategoryTones[c]} size="lg" />

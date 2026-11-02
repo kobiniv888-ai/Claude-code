@@ -1,22 +1,49 @@
-/* Bayit design system: fonts, theme tokens (light + dark), type scale, motion, custom utilities and
- * base styles. Shared by both stylesheets (src/app/globals.css for public pages and
- * src/app/sections.css for admin, account, post and dev); it has no @import or @source of its own. */
+/* Bayit design system (redesign round 2: purple and white, Rubik): fonts, theme tokens (light +
+ * dark), type scale, shapes, motion, custom utilities and base styles. Shared by both stylesheets
+ * (src/app/globals.css for public pages and src/app/sections.css for admin, account, post and dev);
+ * it has no @import or @source of its own. The token contract is in docs/redesign-2/BRIEF.md (3.2–3.6).
+ *
+ * Use the new names: bg-primary, bg-primary-pressed, text-primary-text (= text-primary),
+ * bg-primary-tint, border-primary-tint-border, bg-surface, bg-surface-muted, bg-raised,
+ * text-placeholder, border-border-strong, text-error, bg-error, text-success, bg-header,
+ * text-header-fg, bg-hero-band, bg-bottom-nav. The round-1 names (navy*, coral*, terracotta*, wine*,
+ * verified*, warning*) still compile but now resolve to the purple palette (see "OLD NAMES"). */
 
-/* Hebrew letters and "₪": the 12 KB "hebrew" subset of Noto Sans Hebrew (variable, SIL OFL), first in
-   the font stack (src/components/layout/fonts.ts). The root layout preloads it on Hebrew pages, so
-   Hebrew text paints in this face at once instead of swapping in after a fallback. The range leaves
-   punctuation and marks (U+2000-206F, U+0307-0308) to Noto Sans, as before. */
+/* Script faces, first in the font stack (src/components/layout/fonts.ts). Each is the matching
+   Google Fonts subset of Rubik (variable 300–900, SIL Open Font License) served from public/fonts
+   under a fixed, versioned name, so the root layout can preload the one the page's language needs
+   (next/font preloads a face on every locale or on none). Latin is next/font's Rubik (preloaded on
+   every page: digits, prices and the Latin name). next/font's own Rubik faces for these scripts
+   stay in its CSS but are never reached, so nothing downloads twice.
+   "Bayit Hebrew" also carries "₪": Rubik lists U+20AA in its latin-ext face (19 KB) too, and the
+   browser would fetch that file for the sign in every Hebrew price. */
 @font-face {
   font-family: "Bayit Hebrew";
-  src: url("/fonts/noto-sans-hebrew-v1.woff2") format("woff2");
-  font-weight: 100 900;
+  src: url("/fonts/rubik-hebrew-v1.woff2") format("woff2");
+  font-weight: 300 900;
   font-style: normal;
   font-display: swap;
   unicode-range: U+0590-05FF, U+20AA, U+25CC, U+FB1D-FB4F;
 }
+@font-face {
+  font-family: "Bayit Cyrillic";
+  src: url("/fonts/rubik-cyrillic-v1.woff2") format("woff2");
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: "Bayit Arabic";
+  src: url("/fonts/rubik-arabic-v1.woff2") format("woff2");
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-08FF, U+FB50-FDFF, U+FE70-FEFC;
+}
 
-/* "≈" in converted prices, from a system font (see src/components/layout/fonts.ts). Without a
-   matching local font the browser moves on to the next family in the stack, as before. */
+/* "≈" in converted prices, from a system font (see src/components/layout/fonts.ts). None of the
+   Rubik subsets lists it. Without a matching local font the browser moves on down the stack. */
 @font-face {
   font-family: "Bayit Symbols";
   src: local("Roboto"), local("Roboto-Regular"), local("Segoe UI"), local("SegoeUI"), local("Helvetica Neue"),
@@ -39,117 +66,176 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  /* --font-site is set on <html> (src/components/layout/fonts.ts): Noto Sans for Latin + Cyrillic,
-     then one Noto face per script. Each face only loads for the characters it covers
-     (unicode-range), so a Hebrew page downloads Latin + Hebrew only. */
+  /* --font-site is set on <html> (src/components/layout/fonts.ts): Rubik for every script, Noto Sans
+     Georgian for Georgian. Each face only loads for the characters it covers (unicode-range). */
   --font-sans: var(--font-site, ui-sans-serif, system-ui, sans-serif);
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-heading: var(--font-site, ui-sans-serif, system-ui, sans-serif);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
+
+  /* ── Colors (values below, per theme) ── */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
   --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --color-terracotta: var(--terracotta);
-  --color-terracotta-foreground: var(--terracotta-foreground);
-  --color-wine: var(--wine);
-  --color-wine-foreground: var(--wine-foreground);
-  --color-verified: var(--verified);
-  --color-verified-foreground: var(--verified-foreground);
-  --color-verified-soft: var(--verified-soft);
-  --color-warning: var(--warning);
-  --color-warning-foreground: var(--warning-foreground);
-  --color-warning-soft: var(--warning-soft);
-  --color-destructive-foreground: var(--destructive-foreground);
-  /* Redesign tokens (see the "DESIGN TOKENS" block below and /dev/ui). */
-  --color-navy: var(--navy);
-  --color-navy-foreground: var(--navy-foreground);
-  --color-navy-soft: var(--navy-soft);
-  --color-coral: var(--coral);
-  --color-coral-foreground: var(--coral-foreground);
-  --color-coral-strong: var(--coral-strong);
-  --color-coral-soft: var(--coral-soft);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-pressed: var(--primary-pressed);
+  --color-primary-text: var(--primary-text);
+  --color-primary-tint: var(--primary-tint);
+  --color-primary-tint-border: var(--primary-tint-border);
   --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-raised: var(--raised);
+  --color-placeholder: var(--placeholder);
+  --color-border-strong: var(--border-strong);
+  --color-error: var(--error);
+  --color-error-foreground: var(--error-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-header: var(--header-bg);
+  --color-header-fg: var(--header-fg);
+  --color-hero-band: var(--hero-band);
+  --color-bottom-nav: var(--bottom-nav);
+  /* "text-primary" is purple text: the text-safe shade in both themes (#4B2A8C light, #B9A4FF dark;
+     the dark button purple #7B52E3 is 3.8:1 on the page). bg/border/ring-primary keep --primary. */
+  --text-color-primary: var(--primary-text);
+
+  /* shadcn/ui names (src/components/ui) */
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  /* WhatsApp's own green, for the WhatsApp contact button only (white text 5.3:1). */
   --color-whatsapp: var(--whatsapp);
   --color-whatsapp-foreground: var(--whatsapp-foreground);
-  --shadow-card: var(--shadow-card);
-  --shadow-card-hover: var(--shadow-card-hover);
+
+  /* ── OLD NAMES (round 1) ── kept so old pages compile and turn purple; new code must not use
+     them. Fills (bg-*) → primary, text-* → the text-safe purple, *-soft → primary-tint.
+     verified* → success (text, fill) / primary-tint (soft); warning* → neutral (error is for real
+     problems only). */
+  --color-navy: var(--primary);
+  --color-navy-foreground: var(--primary-foreground);
+  --color-navy-soft: var(--primary-tint);
+  --text-color-navy: var(--primary-text);
+  --color-coral: var(--primary);
+  --color-coral-foreground: var(--primary-foreground);
+  --color-coral-strong: var(--primary);
+  --color-coral-soft: var(--primary-tint);
+  --text-color-coral: var(--primary-text);
+  --text-color-coral-strong: var(--primary-text);
+  --color-terracotta: var(--primary);
+  --color-terracotta-foreground: var(--primary-foreground);
+  --text-color-terracotta: var(--primary-text);
+  --color-wine: var(--primary);
+  --color-wine-foreground: var(--primary-foreground);
+  --text-color-wine: var(--primary-text);
+  --color-verified: var(--success);
+  --color-verified-foreground: var(--success-foreground);
+  --color-verified-soft: var(--primary-tint);
+  --color-warning: var(--muted-foreground);
+  --color-warning-foreground: var(--background);
+  --color-warning-soft: var(--surface-muted);
+  --text-color-warning: var(--foreground);
+
+  /* ── Shadows: only the floating search card (shadow-raised / shadow-float) and bottom sheets
+     (shadow-sheet). Cards get a 1px border instead: shadow-card and shadow-card-hover are none. ── */
+  --shadow-card: 0 0 #0000;
+  --shadow-card-hover: 0 0 #0000;
+  --shadow-header: 0 0 #0000;
   --shadow-raised: var(--shadow-raised);
-  --shadow-float: var(--shadow-float);
-  --shadow-header: var(--shadow-header);
+  --shadow-float: var(--shadow-raised);
   --shadow-sheet: var(--shadow-sheet);
 
-  /* Type scale: text-display / text-h1 / text-h2 / text-h3 / text-body / text-small / text-caption.
-     Each sets size, line height and weight (and tighter tracking for Latin/Cyrillic headings).
-     Sizes grow on desktop (--fs-* below). Noto is loaded as variable fonts (100–900), so the 800
-     headings cost no extra download. */
-  --text-display: var(--fs-display);
-  --text-display--line-height: 1.08;
-  --text-display--font-weight: 800;
+  /* ── Type scale: text-display / text-h1 / text-h2 / text-h3 / text-body / text-small / text-caption.
+     Each sets size, line height and weight (Rubik 400/500/600 only; nothing bolder is loaded).
+     Phone sizes; display, h1 and h2 grow on desktop (--fs-* below). ── */
+  --text-display: var(--fs-display); /* hero title: 26px / 600 / 1.2 (desktop 40px), max 2 lines */
+  --text-display--line-height: 1.2;
+  --text-display--font-weight: 600;
   --text-display--letter-spacing: var(--tracking-heading);
-  --text-h1: var(--fs-h1);
-  --text-h1--line-height: 1.15;
-  --text-h1--font-weight: 800;
+  --text-h1: var(--fs-h1); /* page title: 22px / 600 / 1.25 (desktop 30px); listing title: add line-clamp-3 */
+  --text-h1--line-height: 1.25;
+  --text-h1--font-weight: 600;
   --text-h1--letter-spacing: var(--tracking-heading);
-  --text-h2: var(--fs-h2);
-  --text-h2--line-height: 1.2;
-  --text-h2--font-weight: 800;
+  --text-h2: var(--fs-h2); /* section title: 18px / 600 (desktop 22px) */
+  --text-h2--line-height: 1.3;
+  --text-h2--font-weight: 600;
   --text-h2--letter-spacing: var(--tracking-heading);
-  --text-h3: var(--fs-h3);
-  --text-h3--line-height: 1.3;
-  --text-h3--font-weight: 700;
-  --text-body: 1rem;
+  --text-h3: 0.9375rem; /* card title: 15px / 500, one line */
+  --text-h3--line-height: 1.35;
+  --text-h3--font-weight: 500;
+  --text-body: 1rem; /* 16px / 400 / 1.5: never smaller for body text and form inputs */
   --text-body--line-height: var(--leading-body);
-  --text-small: 0.875rem;
-  --text-small--line-height: 1.5;
-  --text-caption: 0.75rem;
-  --text-caption--line-height: 1.4;
+  --text-small: 0.875rem; /* secondary text: 14px */
+  --text-small--line-height: 1.45;
+  --text-caption: 0.8125rem; /* labels and captions: 13px (tags: text-xs, 12px) */
+  --text-caption--line-height: 1.35;
   --text-caption--font-weight: 500;
+  --text-price: 1rem; /* price on cards: 16px / 600 */
+  --text-price--line-height: 1.35;
+  --text-price--font-weight: 600;
 
-  /* Shapes: rounded-card (20px), rounded-sheet (24px, top of bottom sheets), rounded-input (14px). Pills: rounded-full. */
-  --radius-card: 1.25rem;
+  /* ── Shapes (4px grid): rounded-card 16px (cards, photos), rounded-input 12px, rounded-button
+     14px, rounded-sheet 24px (top of bottom sheets). Chips, tags and pills: rounded-full. ── */
+  --radius-card: 1rem;
+  --radius-input: 0.75rem;
+  --radius-button: 0.875rem;
   --radius-sheet: 1.5rem;
-  --radius-input: 0.875rem;
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 
-  /* Spacing rhythm: px-gutter (page side gutter), py-section / gap-section (between page sections). */
+  /* ── Spacing and sizes: px-gutter (page side padding: 16px phone, 24px tablet), py-section /
+     gap-section (between page sections: 32px on phones), p-card (inside cards: 12px),
+     max-w-content (1200px). Heights: h-button 48px (main), h-button-sm 40px (secondary),
+     h-chip 34px, h-tag 24px (12px text), min-h-tap / size-tap 44px (every tap target). ── */
   --spacing-gutter: var(--gutter);
   --spacing-section: var(--section-space);
+  --spacing-card: 0.75rem;
+  --spacing-button: 3rem;
+  --spacing-button-sm: 2.5rem;
+  --spacing-chip: 2.125rem;
+  --spacing-tag: 1.5rem;
+  --spacing-tap: 2.75rem;
+  --container-content: 75rem;
 
-  /* Motion. Durations as CSS variables: duration-(--motion-fast|base|slow). Animate transform and
-     opacity only; the reduced-motion rule at the end of this file turns everything off. */
+  /* ── Motion: subtle and fast, transform and opacity only. Durations as CSS variables:
+     duration-(--motion-fast|base|slow). The reduced-motion rule at the end of this file turns
+     everything off. Kept: sheets slide up (~250ms), skeleton shimmer, photo fade-in, heart pop.
+     Gone: the zooming hero slideshow and staggered section reveals. ── */
   --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --animate-fade-up: fade-up 0.5s var(--ease-soft) both;
-  --animate-sheet-up: sheet-up 0.35s var(--ease-soft) both;
-  --animate-fade-in: fade-in 0.3s var(--ease-standard) both;
-  --animate-heart-pop: heart-pop 0.4s var(--ease-pop);
+  --animate-fade-up: fade-up 0.2s var(--ease-soft) both;
+  --animate-sheet-up: sheet-up 0.25s var(--ease-soft) both;
+  --animate-fade-in: fade-in 0.2s var(--ease-standard) both;
+  --animate-heart-pop: heart-pop 0.3s var(--ease-pop);
 
   @keyframes fade-in {
     from {
@@ -161,17 +247,16 @@
       transform: scale(1);
     }
     40% {
-      transform: scale(1.25);
+      transform: scale(1.2);
     }
     100% {
       transform: scale(1);
     }
   }
-
   @keyframes fade-up {
     from {
       opacity: 0;
-      transform: translateY(8px);
+      transform: translateY(4px);
     }
     to {
       opacity: 1;
@@ -187,173 +272,139 @@
       transform: none;
     }
   }
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* ── BRAND COLORS (keep in sync with src/config/site.ts → colors) ── */
 :root {
-  /* ── BRAND COLORS (keep in sync with src/config/site.ts → colors) ── */
-  --brand-primary: #1e3a6e; /* deep trustworthy blue (navy) */
-  --brand-accent: #b4533a; /* terracotta — Georgian roofs; the AA-safe "coral text" */
-  --brand-coral: #e0654a; /* coral fill: the "+" button, selected state, hearts (white icons on it) */
-  --brand-wine: #7b2d3b; /* Georgian wine */
-  --brand-verified: #13763a; /* green "Verified" / "Welcomes Israelis" (AA as text on its soft tints) */
-  --brand-warning: #b45309; /* amber warnings */
-  --brand-ink: #171c28; /* dark text on white in both themes (tags over photos) */
-
-  /* ── DESIGN TOKENS: light (the default theme) ──
-     Contrast (WCAG AA): foreground 15.8:1 and muted-foreground 5.9:1 on the page; white on navy
-     11:1; white on coral-strong 4.9:1 (text buttons); white on coral 3.4:1 (icons and large text
-     only, e.g. the "+" button); verified 5.7:1 on white and 5.1:1 on verified-soft; navy 9.6:1
-     on navy-soft. Dark: muted-foreground 7.4:1 on cards, coral-strong 7.3:1 on cards. */
-  --background: #faf8f5; /* warm off-white page */
-  --foreground: #171c28;
-  --surface: #f4f1ec; /* bands and wells between white cards */
-  --card: #ffffff;
-  --card-foreground: #171c28;
-  --popover: #ffffff;
-  --popover-foreground: #171c28;
-  --primary: var(--brand-primary);
-  --primary-foreground: #ffffff;
-  --navy: var(--brand-primary);
-  --navy-foreground: #ffffff;
-  --navy-soft: #e9eff9;
-  --coral: var(--brand-coral);
-  --coral-foreground: #ffffff;
-  --coral-strong: var(--brand-accent);
-  --coral-soft: #fef2ee; /* coral-strong text on it: 4.5:1 */
-  --secondary: #edf1f8;
-  --secondary-foreground: #1e3a6e;
-  --muted: #f2efea;
-  --muted-foreground: #5b6270; /* 5.9:1 on --background */
-  --accent: #f6ece8;
-  --accent-foreground: #7a3423;
-  --terracotta: var(--brand-accent);
-  --terracotta-foreground: #ffffff;
-  --wine: var(--brand-wine);
-  --wine-foreground: #ffffff;
-  --verified: var(--brand-verified);
-  --verified-foreground: #ffffff;
-  --verified-soft: #e7f5ec;
-  --warning: var(--brand-warning);
-  --warning-foreground: #ffffff;
-  --warning-soft: #fdf3e2;
-  --whatsapp: #0f7b43; /* a deeper WhatsApp green: white text passes AA (5.3:1) */
-  --whatsapp-foreground: #ffffff;
-  --destructive: #b42318;
-  --destructive-foreground: #ffffff;
-  --border: #e5e1da;
-  --input: #d6d1c8;
-  --ring: #3b5ea8;
-  --chart-1: #1e3a6e;
-  --chart-2: #e0654a;
-  --chart-3: #13763a;
-  --chart-4: #7b2d3b;
-  --chart-5: #b45309;
-  --radius: 0.75rem; /* 12px: shadcn primitives (rounded-lg); cards use rounded-card */
-  /* Soft, slightly navy-tinted shadows: rest → hover → raised (sheets, floating bars). */
-  --shadow-card: 0 1px 2px rgb(23 36 66 / 0.05), 0 2px 10px rgb(23 36 66 / 0.06);
-  --shadow-card-hover: 0 2px 6px rgb(23 36 66 / 0.07), 0 14px 32px rgb(23 36 66 / 0.12);
-  --shadow-raised: 0 2px 6px rgb(23 36 66 / 0.06), 0 10px 28px rgb(23 36 66 / 0.14);
-  --shadow-float: 0 4px 12px rgb(23 36 66 / 0.08), 0 16px 48px rgb(23 36 66 / 0.16);
-  --shadow-header: 0 1px 0 rgb(23 36 66 / 0.04), 0 6px 24px rgb(23 36 66 / 0.06);
-  --shadow-sheet: 0 -6px 32px rgb(23 36 66 / 0.16);
-  --shimmer-highlight: rgb(255 255 255 / 0.65);
-  --scrim: rgb(10 15 28 / 0.45); /* dimmed page behind sheets and dialogs */
-  --sidebar: #ffffff;
-  --sidebar-foreground: #171c28;
-  --sidebar-primary: var(--brand-primary);
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #edf1f8;
-  --sidebar-accent-foreground: #1e3a6e;
-  --sidebar-border: #e5e1da;
-  --sidebar-ring: #3b5ea8;
+  --brand-purple: #4b2a8c;
+  --brand-purple-dark: #7b52e3; /* the button purple on black: deep purple disappears there */
+  --brand-lavender: #b9a4ff; /* purple text, icons and links on black */
 }
 
-/* ── DESIGN TOKENS: dark ── a deep navy night, not an inverted light theme. Cards sit one step
-   lighter than the page; navy turns into a light navy and coral keeps its warmth. */
-.dark {
-  --background: #0f1420;
-  --foreground: #eef1f6;
-  --surface: #131a28;
-  --card: #182033;
-  --card-foreground: #eef1f6;
-  --popover: #1a2235;
-  --popover-foreground: #eef1f6;
-  --primary: #93b4f0;
-  --primary-foreground: #0f1a33;
-  --navy: #93b4f0;
-  --navy-foreground: #0f1a33;
-  --navy-soft: #1c2944;
-  --coral: #e0654a;
-  --coral-foreground: #ffffff;
-  --coral-strong: #f0977d; /* 8:1 on the page */
-  --coral-soft: #3a221c;
-  --secondary: #1f2940;
-  --secondary-foreground: #dbe5f8;
-  --muted: #1d2436;
-  --muted-foreground: #a8b0bf;
-  --accent: #2a1f1c;
-  --accent-foreground: #f2c3b4;
-  --terracotta: #e08a6f;
-  --terracotta-foreground: #1f0e08;
-  --wine: #d98a97;
-  --wine-foreground: #2a0c12;
-  --verified: #4ade80;
-  --verified-foreground: #052e13;
-  --verified-soft: #10301d;
-  --warning: #fbbf24;
-  --warning-foreground: #2b1a00;
-  --warning-soft: #33260b;
+/* ── DESIGN TOKENS: light (purple and white) ──
+   Contrast (WCAG AA, checked): text 17.9:1 on white; muted 6.7:1 on white, 6.0:1 on surface-muted;
+   placeholder 5.5:1; white on primary 10.5:1 (pressed 13:1); primary-text 10.5:1 on white,
+   9.3:1 on primary-tint; error 6.6:1; success 5.3:1 on white, 4.7:1 on primary-tint. */
+:root {
+  --primary: var(--brand-purple);
+  --primary-foreground: #ffffff;
+  --primary-pressed: #3b206f;
+  --primary-text: var(--brand-purple);
+  --primary-tint: #f4f0fb;
+  --primary-tint-border: #e4daf5;
+  --background: #ffffff;
+  --surface: #ffffff;
+  --surface-muted: #f4f2f7;
+  --raised: #f4f2f7;
+  --foreground: #18161f;
+  --muted-foreground: #5e5a6b;
+  --placeholder: #6b6778;
+  --border: #eceaf1;
+  --border-strong: #e4e1ea;
+  --error: #b42318;
+  --error-foreground: #ffffff;
+  --success: #1e7b4f;
+  --success-foreground: #ffffff;
+  --header-bg: var(--brand-purple);
+  --header-fg: #ffffff;
+  --hero-band: var(--brand-purple);
+  --bottom-nav: #ffffff;
+
   --whatsapp: #0f7b43;
   --whatsapp-foreground: #ffffff;
-  --destructive: #f87171;
-  --destructive-foreground: #2b0707;
-  --border: #283147;
-  --input: #364057;
-  --ring: #93b4f0;
-  --chart-1: #93b4f0;
-  --chart-2: #f0977d;
-  --chart-3: #4ade80;
-  --chart-4: #d98a97;
-  --chart-5: #fbbf24;
-  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 16px rgb(0 0 0 / 0.22), inset 0 1px 0 rgb(255 255 255 / 0.03);
-  --shadow-card-hover: 0 2px 4px rgb(0 0 0 / 0.35), 0 14px 32px rgb(0 0 0 / 0.38), inset 0 1px 0 rgb(255 255 255 / 0.04);
-  --shadow-raised: 0 2px 6px rgb(0 0 0 / 0.35), 0 12px 32px rgb(0 0 0 / 0.42);
-  --shadow-float: 0 4px 12px rgb(0 0 0 / 0.35), 0 16px 48px rgb(0 0 0 / 0.45);
-  --shadow-header: 0 1px 0 rgb(255 255 255 / 0.04), 0 6px 24px rgb(0 0 0 / 0.35);
+  --chart-1: #4b2a8c;
+  --chart-2: #7b52e3;
+  --chart-3: #b9a4ff;
+  --chart-4: #5e5a6b;
+  --chart-5: #1e7b4f;
+  --radius: 0.75rem; /* 12px: shadcn primitives (rounded-lg) */
+  /* The floating search card and bottom sheets only. */
+  --shadow-raised: 0 2px 6px rgb(24 22 31 / 0.04), 0 10px 28px rgb(24 22 31 / 0.1);
+  --shadow-sheet: 0 -6px 28px rgb(24 22 31 / 0.14);
+  --shimmer-highlight: rgb(255 255 255 / 0.65);
+  --scrim: rgb(15 13 20 / 0.45); /* dimmed page behind sheets and dialogs */
+}
+
+/* Names derived from the tokens above (shadcn/ui and the sidebar). Declared for .dark too, so a
+   nested .dark element resolves them with its own values. */
+:root,
+.dark {
+  --card: var(--surface);
+  --card-foreground: var(--foreground);
+  --popover: var(--surface);
+  --popover-foreground: var(--foreground);
+  --secondary: var(--surface-muted);
+  --secondary-foreground: var(--foreground);
+  --muted: var(--surface-muted);
+  --accent: var(--surface-muted);
+  --accent-foreground: var(--foreground);
+  --destructive: var(--error);
+  --destructive-foreground: var(--error-foreground);
+  --input: var(--border-strong);
+  --ring: var(--primary-text);
+  --sidebar: var(--surface);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--primary-tint);
+  --sidebar-accent-foreground: var(--primary-text);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+}
+
+/* ── DESIGN TOKENS: dark (purple and black) ── not an inverted light theme: no purple band, a
+   brighter purple for buttons (#7B52E3, white text 5.1:1) and lavender for purple text and icons
+   (#B9A4FF: 9.0:1 on the page, 8.4:1 on cards). Text 17.5:1, muted 6.9:1 on cards, placeholder
+   5.4:1 on cards; error 7.8:1 and success 9.8:1 on cards. */
+.dark {
+  --primary: var(--brand-purple-dark);
+  --primary-foreground: #ffffff;
+  --primary-pressed: #6a44d6;
+  --primary-text: var(--brand-lavender);
+  --primary-tint: #231c35;
+  --primary-tint-border: #3a2e58;
+  --background: #0f0d14;
+  --surface: #18161f;
+  --surface-muted: #221f2c;
+  --raised: #221f2c;
+  --foreground: #f4f3f7;
+  --muted-foreground: #a29fae;
+  --placeholder: #8f8b9c;
+  --border: #2a2733;
+  --border-strong: #3a3646;
+  --error: #ff8a80;
+  --error-foreground: #0f0d14;
+  --success: #6fd39a;
+  --success-foreground: #0f0d14;
+  --header-bg: #0f0d14;
+  --header-fg: #ffffff;
+  --hero-band: transparent;
+  --bottom-nav: #141219;
+
+  --chart-1: #b9a4ff;
+  --chart-2: #7b52e3;
+  --chart-3: #6fd39a;
+  --chart-4: #a29fae;
+  --chart-5: #e4daf5;
+  --shadow-raised: 0 2px 6px rgb(0 0 0 / 0.3), 0 10px 28px rgb(0 0 0 / 0.4);
   --shadow-sheet: 0 -8px 32px rgb(0 0 0 / 0.5);
   --shimmer-highlight: rgb(255 255 255 / 0.06);
   --scrim: rgb(0 0 0 / 0.6);
-  --sidebar: #182033;
-  --sidebar-foreground: #eef1f6;
-  --sidebar-primary: #93b4f0;
-  --sidebar-primary-foreground: #0f1a33;
-  --sidebar-accent: #1f2940;
-  --sidebar-accent-foreground: #dbe5f8;
-  --sidebar-border: #283147;
-  --sidebar-ring: #93b4f0;
 }
 
 /* ── TYPE, SPACING, MOTION AND LAYER TOKENS ── (same in both themes) */
 :root {
-  --fs-display: 2.25rem;
-  --fs-h1: 1.875rem;
-  --fs-h2: 1.5rem;
-  --fs-h3: 1.125rem;
-  /* Tighter headings for Latin and Cyrillic only: Hebrew, Arabic and Georgian keep their spacing. */
+  --fs-display: 1.625rem; /* 26px */
+  --fs-h1: 1.375rem; /* 22px */
+  --fs-h2: 1.125rem; /* 18px */
+  /* Slightly tighter headings for Latin and Cyrillic only: Hebrew, Arabic and Georgian keep theirs. */
   --tracking-heading: 0;
-  --leading-body: 1.6;
+  --leading-body: 1.5;
   --gutter: 1rem;
-  --section-space: 2.5rem;
-  --motion-fast: 150ms;
-  --motion-base: 250ms;
-  --motion-slow: 350ms;
+  --section-space: 2rem;
+  --motion-fast: 120ms;
+  --motion-base: 200ms;
+  --motion-slow: 250ms;
   /* Layers: z-(--z-raised) … z-(--z-toast). */
   --z-raised: 10;
   --z-sticky: 30;
@@ -365,25 +416,24 @@
 }
 :lang(en),
 :lang(ru) {
-  --tracking-heading: -0.015em;
+  --tracking-heading: -0.01em;
 }
-:lang(he),
+/* Arabic needs a little more room for its marks above and below the line. */
 :lang(ar) {
-  --leading-body: 1.7;
+  --leading-body: 1.6;
 }
 @media (width >= 48rem) {
   :root {
     --gutter: 1.5rem;
-    --section-space: 3.5rem;
+    --section-space: 2.5rem;
   }
 }
 @media (width >= 64rem) {
   :root {
-    --fs-display: 3.25rem;
-    --fs-h1: 2.5rem;
-    --fs-h2: 1.875rem;
-    --fs-h3: 1.25rem;
-    --section-space: 4.5rem;
+    --fs-display: 2.5rem; /* 40px */
+    --fs-h1: 1.875rem; /* 30px */
+    --fs-h2: 1.375rem; /* 22px */
+    --section-space: 3rem;
   }
 }
 
@@ -494,17 +544,8 @@ body:has([data-hide-bottom-nav]) [data-bottom-nav] {
   }
 }
 
-/* Reveal on scroll (src/components/ds/reveal.tsx). Only the script hides things — and only those
-   that start below the fold — so without JavaScript, or with reduced motion, all stays visible. */
-[data-reveal="hidden"] {
-  opacity: 0;
-  transform: translateY(14px);
-}
-[data-reveal="shown"] {
-  transition:
-    opacity 400ms var(--ease-soft) var(--reveal-delay, 0ms),
-    transform 400ms var(--ease-soft) var(--reveal-delay, 0ms);
-}
+/* Reveal on scroll is gone (round 2: no staggered section fade-ins). <Reveal> (src/components/ds/reveal.tsx)
+   may still mark sections data-reveal="hidden"; nothing hides them any more. */
 
 /* Bottom bars (ds/sticky-contact-bar) keep clear of the home indicator, unless they sit on top of
    the mobile bottom nav, which already does. */
@@ -517,6 +558,12 @@ body:has([data-hide-bottom-nav]) [data-bottom-nav] {
   }
 }
 
+/* The logo (src/components/brand/logo.tsx) is never purple on purple: white on the header, the hero
+   band and bg-primary blocks. Outside the layers, so it wins over the logo's own color class. */
+:where(.bg-header, .bg-hero-band, .bg-primary) [data-logo] {
+  color: var(--header-fg);
+}
+
 /* Horizontal scrollers (carousels, chip rows) without a visible scrollbar. */
 @utility scrollbar-none {
   scrollbar-width: none;
@@ -525,10 +572,10 @@ body:has([data-hide-bottom-nav]) [data-bottom-nav] {
   }
 }
 
-/* Bottom sheets (src/components/ds/bottom-sheet.tsx): vaul slides in 300ms instead of 500ms. */
+/* Bottom sheets (src/components/ds/bottom-sheet.tsx): vaul slides in 250ms instead of 500ms. */
 [data-vaul-drawer][data-bayit-sheet],
 [data-vaul-overlay][data-bayit-sheet] {
-  animation-duration: 300ms;
+  animation-duration: 250ms;
 }
 
 /* Space for the iPhone home indicator / Android gesture bar. */
@@ -554,6 +601,10 @@ body:has([data-hide-bottom-nav]) [data-bottom-nav] {
   ::selection {
     background-color: color-mix(in oklab, var(--primary) 22%, transparent);
   }
+  ::placeholder {
+    color: var(--placeholder);
+    opacity: 1;
+  }
   button:not(:disabled), [role="button"]:not(:disabled) {
     cursor: pointer;
   }
@@ -561,6 +612,10 @@ body:has([data-hide-bottom-nav]) [data-bottom-nav] {
   :where(a, button, summary, [tabindex], input, select, textarea):focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
+  }
+  /* On the purple header, hero band and purple buttons the purple ring would vanish: white there. */
+  :where(.bg-header, .bg-hero-band, .bg-primary) :where(a, button, summary, [tabindex], input, select, textarea):focus-visible {
+    outline-color: var(--header-fg);
   }
   /* Calm motion for people who ask for it: no sweeping, sliding or shimmering. */
   @media (prefers-reduced-motion: reduce) {

@@ -48,7 +48,7 @@ export async function Destinations({ locale, cities }: { locale: AppLocale; citi
               <span aria-hidden="true" className="absolute inset-0 -z-10 bg-linear-to-t from-black/80 via-black/25 to-black/10" />
               {city.shabbat ? (
                 <span className="absolute start-2.5 top-2.5 inline-flex max-w-[calc(100%-1.25rem)] items-center gap-1 rounded-full bg-black/45 px-2 py-1 text-caption font-semibold text-white ring-1 ring-white/20 backdrop-blur-sm">
-                  <ShabbatCandlesIcon className="size-3.5 shrink-0 text-amber-200" aria-hidden="true" />
+                  <ShabbatCandlesIcon className="size-3.5 shrink-0 text-white" aria-hidden="true" />
                   <span className="truncate">
                     {t(city.shabbat.kind === "in" ? "shabbatIn" : "shabbatOut", { time: city.shabbat.time })}
                   </span>

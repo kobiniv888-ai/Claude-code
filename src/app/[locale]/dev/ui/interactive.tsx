@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import type { DateRange } from "react-day-picker";
 import { HomeIcon, MinusIcon, PhoneIcon, PlusIcon, SlidersHorizontalIcon } from "lucide-react";
 import { WhatsAppIcon } from "@/components/common/brand-icons";
 import {
@@ -19,6 +20,8 @@ import {
   SynagogueIcon,
 } from "@/components/ds";
 import { Price } from "@/components/listing/price";
+import { Calendar } from "@/components/ui/calendar";
+import { dirFor } from "@/i18n/locale";
 
 /** Interactive demos for the /dev/ui showcase (client side). */
 
@@ -202,12 +205,50 @@ export function ContactBarDemo() {
             </Button>
           }
           secondary={
-            <Button variant="outline" size="icon" aria-label={t("showPhone")}>
+            <Button variant="secondary" size="icon" aria-label={t("showPhone")}>
               <PhoneIcon />
             </Button>
           }
         />
       )}
+    </div>
+  );
+}
+
+/** Day `offset` days from today, at local midnight. */
+function day(offset: number) {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + offset);
+  return d;
+}
+
+/** The calendar: a purple range, booked nights lightly crossed out, past days disabled. */
+export function CalendarDemo() {
+  const t = useTranslations("ds.devUi");
+  const locale = useLocale();
+  const [range, setRange] = useState<DateRange | undefined>({ from: day(3), to: day(6) });
+  const booked = [day(9), day(10), day(11), day(15)];
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="w-fit rounded-card border border-border bg-card p-2">
+        <Calendar
+          mode="range"
+          selected={range}
+          onSelect={setRange}
+          dir={dirFor(locale)}
+          numerals="latn"
+          disabled={[{ before: day(0) }, ...booked]}
+          modifiers={{ booked }}
+          aria-label={t("calendarLabel")}
+        />
+      </div>
+      <p className="flex items-center gap-2 text-caption text-muted-foreground">
+        <span aria-hidden className="text-muted-foreground line-through">
+          12
+        </span>
+        {t("booked")}
+      </p>
     </div>
   );
 }

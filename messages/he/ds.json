@@ -51,6 +51,20 @@
     "sectionSubtitle": "מקומות שנוספו השבוע",
     "post": "פרסום מודעה",
     "showPhone": "הצגת טלפון",
-    "sheetBody": "כאן יופיעו המסננים."
+    "sheetBody": "כאן יופיעו המסננים.",
+    "currentTheme": "ערכת הנושא הנוכחית",
+    "darkTheme": "מצב כהה",
+    "accordionTitle": "כשרות ושבת",
+    "accordionBody": "מטבח כשר, פלטה ומיחם. זמני שבת לפי העיר נמצאים בעמוד החיים היהודיים.",
+    "accordionTitle2": "חשוב לדעת",
+    "accordionBody2": "צ׳ק-אין מ-15:00, צ׳ק-אאוט עד 11:00.",
+    "calendarLabel": "זמינות",
+    "booked": "תפוס",
+    "inputLabel": "לאן?",
+    "inputPlaceholder": "עיר, שכונה או כתובת",
+    "notesLabel": "הודעה למארח",
+    "tabsShort": "לטווח קצר",
+    "tabsMonthly": "חודשי",
+    "tabsBuy": "קנייה"
   }
 }

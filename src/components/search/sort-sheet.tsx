@@ -31,7 +31,7 @@ export function SortSheet({ open, onOpenChange }: { open: boolean; onOpenChange:
               className={cn(
                 "flex min-h-12 w-full items-center justify-between gap-3 rounded-input px-4 text-start text-body outline-none transition-colors duration-(--motion-fast)",
                 "focus-visible:ring-3 focus-visible:ring-ring/50",
-                selected ? "bg-navy-soft font-semibold text-navy" : "text-foreground hover:bg-muted",
+                selected ? "bg-primary-tint font-semibold text-primary-text" : "text-foreground hover:bg-muted",
               )}
             >
               {f(sort)}

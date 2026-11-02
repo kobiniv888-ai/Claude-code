@@ -51,17 +51,17 @@ function SheetHeader({
         <button
           type="button"
           aria-label={t("close")}
-          className="inline-flex size-11 items-center justify-center rounded-full text-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="inline-flex size-11 items-center justify-center rounded-full text-foreground outline-none transition-colors hover:bg-surface-muted focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           <XIcon className="size-5" aria-hidden="true" />
         </button>
       </Close>
-      <Title className="truncate text-center text-h3 text-foreground">{title}</Title>
+      <Title className="truncate text-center text-body font-semibold text-foreground">{title}</Title>
       {onClear ? (
         <button
           type="button"
           onClick={onClear}
-          className="inline-flex min-h-11 items-center justify-center rounded-full px-3 text-sm font-semibold text-primary underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+          className="inline-flex min-h-11 items-center justify-center rounded-full px-3 text-sm font-medium text-primary-text underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           {clearLabel ?? t("clear")}
         </button>
@@ -76,7 +76,7 @@ const bodyClass = "min-h-0 flex-1 overflow-y-auto overscroll-contain px-gutter p
 const footerClass = "shrink-0 border-t border-border bg-card px-gutter pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]";
 
 /**
- * A bottom sheet on phones (slides up over a dimmed page, drag handle, swipe down to close) and
+ * A bottom sheet on phones (slides up in 250ms over a dimmed page, drag handle, swipe down to close) and
  * a centered dialog — or an end-side panel — from 768px. Header: ×, title, optional "Clear";
  * a scrolling body; an optional pinned footer. Focus moves in and returns to the opener.
  *
@@ -111,7 +111,7 @@ export function BottomSheet({
             {...(description ? {} : { "aria-describedby": undefined })}
             {...returnFocus}
             className={cn(
-              "fixed z-(--z-sheet) flex flex-col bg-card pt-3 text-card-foreground shadow-float outline-none duration-(--motion-base)",
+              "fixed z-(--z-sheet) flex flex-col border border-border bg-card pt-3 text-card-foreground shadow-raised outline-none duration-(--motion-base)",
               desktop === "side"
                 ? "inset-y-0 end-0 w-full max-w-md rounded-s-sheet data-open:animate-in data-open:fade-in-0 data-open:slide-in-from-end-8 data-closed:animate-out data-closed:fade-out-0"
                 : "start-1/2 top-1/2 max-h-[85vh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-sheet rtl:translate-x-1/2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
@@ -147,7 +147,7 @@ export function BottomSheet({
             className,
           )}
         >
-          <div aria-hidden="true" className="mx-auto mt-2.5 mb-1.5 h-1.5 w-11 shrink-0 rounded-full bg-border" />
+          <div aria-hidden="true" className="mx-auto mt-2 mb-1.5 h-1 w-10 shrink-0 rounded-full bg-border-strong" />
           <SheetHeader title={title} onClear={onClear} clearLabel={clearLabel} Title={Drawer.Title} Close={Drawer.Close} />
           {description ? (
             <Drawer.Description className="px-gutter pt-3 text-small text-muted-foreground">{description}</Drawer.Description>

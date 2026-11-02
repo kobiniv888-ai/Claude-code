@@ -15,10 +15,10 @@ const DEMO_BANNER_KEY = "demo-data";
 export async function DemoDataBanner() {
   const [t, tc] = await Promise.all([getTranslations("banners.demo"), getTranslations("common")]);
   return (
-    <div data-demo-banner className="border-b bg-warning-soft/60 text-foreground">
+    <div data-demo-banner className="border-b border-border bg-surface-muted text-foreground">
       <style>{`html[${DISMISSED_ALERTS_ATTR}~="${DEMO_BANNER_KEY}"] [data-demo-banner]{display:none}`}</style>
       <Container className="flex min-h-9 items-center justify-center gap-2 py-1 pe-0 text-caption leading-snug sm:pe-2 lg:pe-4">
-        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-card px-2 py-0.5 font-bold text-warning ring-1 ring-warning/25">
+        <span className="inline-flex h-5.5 shrink-0 items-center gap-1 rounded-full border border-border bg-card px-2 font-medium text-muted-foreground">
           <FlaskConical aria-hidden className="size-3" />
           {tc("demo")}
         </span>

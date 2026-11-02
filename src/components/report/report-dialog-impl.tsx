@@ -110,7 +110,7 @@ export function ReportButton({ targetType, targetId, variant = "link", className
           </DialogHeader>
           {done ? (
             <div role="status" className="flex flex-col items-center gap-3 py-4 text-center">
-              <CheckCircle2Icon className="size-12 text-verified" aria-hidden />
+              <CheckCircle2Icon className="size-12 text-success" aria-hidden />
               <p className="font-semibold">{t("thanksTitle")}</p>
               <p className="text-sm text-muted-foreground">{t("thanks")}</p>
               <Button type="button" variant="outline" className="mt-2 h-11 rounded-xl" onClick={() => setOpen(false)}>

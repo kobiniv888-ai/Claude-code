@@ -49,7 +49,7 @@ function Count({ value, label }: { value: number; label: string }) {
   const locale = useLocale();
   if (value <= 0) return null;
   return (
-    <span className="ms-auto inline-flex min-w-5 items-center justify-center rounded-full bg-terracotta px-1.5 text-xs font-semibold text-terracotta-foreground">
+    <span className="ms-auto inline-flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
       <span aria-hidden="true">{shortCount(value, locale)}</span>
       <span className="sr-only">{label}</span>
     </span>
@@ -163,7 +163,7 @@ export function AccountShell({
                     <span
                       className={cn(
                         "inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-semibold",
-                        current ? "bg-primary-foreground/20" : "bg-terracotta text-terracotta-foreground",
+                        current ? "bg-primary-foreground/20" : "bg-primary text-primary-foreground",
                       )}
                     >
                       <span aria-hidden="true">{shortCount(count.value, locale)}</span>

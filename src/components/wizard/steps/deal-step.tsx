@@ -41,7 +41,7 @@ export function DealStep({ values, set, errors, chosen, setChosen, context }: St
                 "group relative isolate flex cursor-pointer flex-col overflow-hidden rounded-card border-2 bg-card text-start shadow-card",
                 "transition-[border-color,transform] duration-(--motion-fast) ease-standard active:scale-[0.98] motion-reduce:active:scale-100",
                 "has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50",
-                checked ? "border-navy" : "border-transparent hover:border-navy/30",
+                checked ? "border-primary" : "border-transparent hover:border-primary/30",
               )}
             >
               <input
@@ -66,7 +66,7 @@ export function DealStep({ values, set, errors, chosen, setChosen, context }: St
                   aria-hidden
                   className={cn(
                     "absolute start-2.5 bottom-2.5 flex size-10 items-center justify-center rounded-full shadow-sm transition-colors sm:size-11",
-                    checked ? "bg-navy text-navy-foreground" : "bg-card/95 text-navy",
+                    checked ? "bg-primary text-primary-foreground" : "bg-card/95 text-primary-text",
                   )}
                 >
                   <Icon className="size-5" />
@@ -75,13 +75,13 @@ export function DealStep({ values, set, errors, chosen, setChosen, context }: St
                   aria-hidden
                   className={cn(
                     "absolute end-2.5 top-2.5 flex size-7 items-center justify-center rounded-full border-2 shadow-sm transition-colors",
-                    checked ? "border-white bg-navy text-navy-foreground" : "border-white/90 bg-black/20",
+                    checked ? "border-white bg-primary text-primary-foreground" : "border-white/90 bg-black/20",
                   )}
                 >
                   {checked && <CheckIcon className="size-4" strokeWidth={3} />}
                 </span>
               </div>
-              <div className={cn("grid gap-0.5 p-3 transition-colors sm:p-4", checked && "bg-navy-soft/50")}>
+              <div className={cn("grid gap-0.5 p-3 transition-colors sm:p-4", checked && "bg-primary-tint/50")}>
                 <span className="text-body leading-snug font-bold">{label("dealType", deal)}</span>
                 <span className="text-caption text-pretty text-muted-foreground sm:text-small">{t(`descriptions.${deal}`)}</span>
               </div>

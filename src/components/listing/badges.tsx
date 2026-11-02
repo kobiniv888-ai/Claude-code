@@ -20,8 +20,8 @@ const chip: Record<BadgeSize, string> = {
 };
 
 const tones = {
-  verified: "bg-verified-soft text-verified ring-1 ring-verified/20",
-  jewish: "bg-navy-soft text-navy ring-1 ring-navy/10",
+  verified: "bg-primary-tint text-success ring-1 ring-success/20",
+  jewish: "bg-primary-tint text-primary-text ring-1 ring-primary/10",
   neutral: "bg-muted text-muted-foreground ring-1 ring-foreground/5",
 } as const;
 
@@ -135,9 +135,9 @@ export function ListingLabels({
   const t = useTranslations("listingCard.labels");
   const labels: { key: string; icon: LucideIcon; text: string; className: string }[] = [];
   if (badges.promoted) labels.push({ key: "promoted", icon: MegaphoneIcon, text: t("promoted"), className: "bg-primary text-primary-foreground" });
-  if (badges.priceDropped) labels.push({ key: "drop", icon: TrendingDownIcon, text: t("priceDropped"), className: "bg-verified text-verified-foreground" });
+  if (badges.priceDropped) labels.push({ key: "drop", icon: TrendingDownIcon, text: t("priceDropped"), className: "bg-success text-success-foreground" });
   if (badges.isNew) labels.push({ key: "new", icon: SparklesIcon, text: t("new"), className: "bg-card text-foreground ring-1 ring-foreground/10" });
-  if (badges.demo) labels.push({ key: "demo", icon: FlaskConicalIcon, text: t("demo"), className: "bg-warning text-warning-foreground" });
+  if (badges.demo) labels.push({ key: "demo", icon: FlaskConicalIcon, text: t("demo"), className: "bg-surface-muted text-foreground" });
   if (labels.length === 0) return null;
   return (
     <ul className={cn("flex flex-wrap gap-1.5", className)}>

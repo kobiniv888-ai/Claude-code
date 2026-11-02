@@ -9,10 +9,10 @@ import type { PreviewReason } from "@/lib/listing-page/access";
 export function StatusBanner({ reason, isOwner }: { reason: PreviewReason; isOwner: boolean }) {
   const t = useTranslations("listing.status");
   return (
-    <div className="border-b border-warning/30 bg-warning-soft" role="status">
+    <div className="border-b border-border-strong/30 bg-surface-muted" role="status">
       <Container className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex gap-3">
-          <EyeOffIcon className="mt-0.5 size-5 shrink-0 text-warning" aria-hidden />
+          <EyeOffIcon className="mt-0.5 size-5 shrink-0 text-foreground" aria-hidden />
           <div className="grid gap-0.5">
             <p className="font-semibold text-foreground">{t("title", { status: t(`labels.${reason}`) })}</p>
             <p className="text-sm text-foreground/80">{t(`text.${reason}`)}</p>

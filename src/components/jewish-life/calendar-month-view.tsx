@@ -13,15 +13,15 @@ import { cn } from "@/lib/utils";
 type DayHoliday = JewishCalendarDay["holidays"][number];
 
 function chipClass(holiday: DayHoliday): string {
-  if (holiday.isYomTov) return "bg-terracotta text-terracotta-foreground";
+  if (holiday.isYomTov) return "bg-primary text-primary-foreground";
   const category: HolidayCategory = HOLIDAY_CATEGORY[holiday.key];
   switch (category) {
     case "major":
-      return "bg-terracotta/15 text-accent-foreground";
+      return "bg-primary/15 text-accent-foreground";
     case "fast":
       return "border border-foreground/20 bg-muted text-foreground";
     case "modern":
-      return "bg-wine/10 text-wine";
+      return "bg-primary/10 text-primary-text";
     default:
       return "bg-primary/10 text-primary";
   }
@@ -47,7 +47,7 @@ function DayTimes({
     <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-[0.6875rem] leading-tight font-medium tabular-nums">
       {day.candleLighting ? (
         <span className="inline-flex items-center gap-1">
-          <Flame aria-hidden="true" className="size-3 shrink-0 text-terracotta" />
+          <Flame aria-hidden="true" className="size-3 shrink-0 text-primary-text" />
           <span className="sr-only">{labels.candleLighting}</span>
           <time dateTime={day.candleLighting}>{formatTime(day.candleLighting, locale, timeZone)}</time>
         </span>
@@ -131,7 +131,7 @@ export function CalendarMonthView({ data, today }: { data: CalendarMonthData; to
                     className={cn(
                       "h-28 border border-border/60 p-1.5 align-top lg:h-32",
                       day.weekday === 6 && "bg-secondary/50",
-                      yomTov && "bg-terracotta/10",
+                      yomTov && "bg-primary/10",
                       isToday && "outline-2 -outline-offset-2 outline-primary",
                     )}
                   >
@@ -179,7 +179,7 @@ export function CalendarMonthView({ data, today }: { data: CalendarMonthData; to
             className={cn(
               "px-4 py-2",
               day.weekday === 6 && "bg-secondary/50",
-              yomTov && "bg-terracotta/10",
+              yomTov && "bg-primary/10",
             )}
           >
             <div className="flex items-center gap-3">
@@ -211,7 +211,7 @@ export function CalendarMonthView({ data, today }: { data: CalendarMonthData; to
     {/* Legend */}
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t px-4 py-3 text-xs text-muted-foreground sm:px-5">
       <span className="inline-flex items-center gap-1.5">
-        <span aria-hidden="true" className="size-3 rounded-sm bg-terracotta" />
+        <span aria-hidden="true" className="size-3 rounded-sm bg-primary" />
         {t("legend.yomTov")}
       </span>
       <span className="inline-flex items-center gap-1.5">
@@ -223,11 +223,11 @@ export function CalendarMonthView({ data, today }: { data: CalendarMonthData; to
         {t("legend.fast")}
       </span>
       <span className="inline-flex items-center gap-1.5">
-        <span aria-hidden="true" className="size-3 rounded-sm bg-wine/40" />
+        <span aria-hidden="true" className="size-3 rounded-sm bg-primary/40" />
         {t("legend.modern")}
       </span>
       <span className="inline-flex items-center gap-1.5">
-        <Flame aria-hidden="true" className="size-3.5 text-terracotta" />
+        <Flame aria-hidden="true" className="size-3.5 text-primary-text" />
         {t("candleLighting")}
       </span>
       <span className="inline-flex items-center gap-1.5">

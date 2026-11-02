@@ -66,7 +66,7 @@ export function OwnerHeader({
     // grid-cols-1 = minmax(0, 1fr): a long badge (Georgian "welcomes") truncates instead of widening the page.
     <div className="grid grid-cols-1 gap-3">
       <div className="flex items-center gap-3">
-        <OwnerAvatar name={owner.name} image={owner.image} size={60} className="ring-4 ring-navy-soft" />
+        <OwnerAvatar name={owner.name} image={owner.image} size={60} className="ring-4 ring-primary-tint-border" />
         <div className="grid min-w-0 gap-0.5">
           <span className="text-small text-muted-foreground">{role}</span>
           {name}
@@ -115,7 +115,7 @@ export function OwnerFacts({ owner, contactHours, nowIso }: { owner: OwnerSummar
         // dt/dd must be direct children of the row (WCAG "definition-list"): the icon sits inside the dt.
         <div key={label} className="relative grid min-w-0 content-center rounded-2xl bg-muted/70 py-2.5 ps-11 pe-3">
           <dt className="text-caption text-muted-foreground">
-            <Icon className="absolute start-3 top-1/2 size-5 -translate-y-1/2 text-navy" aria-hidden />
+            <Icon className="absolute start-3 top-1/2 size-5 -translate-y-1/2 text-primary-text" aria-hidden />
             {label}
           </dt>
           <dd className="text-small font-semibold">{value}</dd>
@@ -130,7 +130,7 @@ export function ShabbatReplyNotice({ now, className }: { now: ShabbatNow; classN
   const t = useTranslations("listing.contactBox");
   if (!now.active) return null;
   return (
-    <p className={cn("flex gap-2 rounded-xl bg-navy-soft p-3 text-small text-navy", className)} role="status">
+    <p className={cn("flex gap-2 rounded-xl bg-primary-tint p-3 text-small text-primary-text", className)} role="status">
       <MoonStarIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
       {now.kind === "holiday" ? t("repliesAfterHoliday") : t("repliesAfterShabbat")}
     </p>

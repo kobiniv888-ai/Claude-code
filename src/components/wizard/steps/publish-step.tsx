@@ -51,9 +51,9 @@ function MissingList({
   const t = useTranslations("wizard.publish");
   const tSteps = useTranslations("wizard.steps");
   return (
-    <section className="grid gap-3 rounded-2xl border border-warning/40 bg-warning-soft p-4 sm:p-5 dark:bg-warning/10" aria-labelledby="missing-title">
+    <section className="grid gap-3 rounded-2xl border border-border-strong/40 bg-surface-muted p-4 sm:p-5 dark:bg-surface-muted/10" aria-labelledby="missing-title">
       <h3 id="missing-title" tabIndex={-1} className="flex items-center gap-2 font-semibold outline-none">
-        <CircleAlertIcon className="size-5 text-warning" aria-hidden />
+        <CircleAlertIcon className="size-5 text-foreground" aria-hidden />
         {t("missingTitle")}
       </h3>
       <ul className="grid gap-2">
@@ -295,7 +295,7 @@ function TranslationsPanel({ listing, context, values, translations, setTranslat
                 {isOriginal ? (
                   <span className="text-[0.65rem] text-muted-foreground">{t("originalShort")}</span>
                 ) : !tr ? (
-                  <span className="size-1.5 rounded-full bg-warning" role="img" aria-label={t("notTranslated")} />
+                  <span className="size-1.5 rounded-full bg-surface-muted" role="img" aria-label={t("notTranslated")} />
                 ) : null}
               </TabsTrigger>
             );
@@ -486,7 +486,7 @@ export function PublishStep(props: StepProps) {
                 {publishing ? t("publishing") : t("publish")}
               </Button>
             ) : (
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-warning/40 bg-warning-soft p-3.5 dark:bg-warning/10">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border-strong/40 bg-surface-muted p-3.5 dark:bg-surface-muted/10">
                 <p className="text-sm font-medium">{t("publishBlocked", { count: missing.length })}</p>
                 <Button
                   type="button"

@@ -97,7 +97,7 @@ export default async function VerificationPage({ params }: Props) {
     const request = latestId ? byId.get(latestId) : undefined;
     if (!request) return null;
     if (request.status === "PENDING") {
-      return <p className="rounded-xl bg-warning-soft px-3 py-3 text-sm">{t("pendingSince", { date: date(request.createdAt) })}</p>;
+      return <p className="rounded-xl bg-surface-muted px-3 py-3 text-sm">{t("pendingSince", { date: date(request.createdAt) })}</p>;
     }
     if (request.status === "REJECTED" || request.status === "NEEDS_MORE_INFO") {
       return (

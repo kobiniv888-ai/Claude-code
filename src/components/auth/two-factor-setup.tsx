@@ -108,7 +108,7 @@ export function TwoFactorSetup({ next }: { next: string }) {
   if (enabled) {
     return (
       <div role="status" className="flex flex-col items-center gap-4 py-4 text-center">
-        <span className="flex size-14 items-center justify-center rounded-full bg-verified-soft text-verified">
+        <span className="flex size-14 items-center justify-center rounded-full bg-primary-tint text-success">
           <CircleCheckBigIcon className="size-7" aria-hidden />
         </span>
         <div className="grid gap-1">
@@ -192,7 +192,7 @@ export function TwoFactorSetup({ next }: { next: string }) {
                 disabled={!enrollment}
                 aria-label={copied ? t("copied") : t("copy")}
               >
-                {copied ? <CheckIcon className="text-verified" aria-hidden /> : <CopyIcon aria-hidden />}
+                {copied ? <CheckIcon className="text-success" aria-hidden /> : <CopyIcon aria-hidden />}
               </Button>
             </div>
             <span className="sr-only" aria-live="polite">

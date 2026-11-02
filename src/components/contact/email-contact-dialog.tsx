@@ -149,7 +149,7 @@ function EmailForm({
       role="status"
       className="flex flex-col items-center gap-3 py-6 text-center"
     >
-      <CheckCircle2Icon className="size-12 text-verified" aria-hidden />
+      <CheckCircle2Icon className="size-12 text-success" aria-hidden />
       <p className="font-semibold">{t("sentTitle")}</p>
       <p className="text-sm text-muted-foreground">{t("sent")}</p>
       <Button
@@ -166,7 +166,7 @@ function EmailForm({
       {paused ? (
         <p
           role="status"
-          className="flex gap-2 rounded-xl bg-warning-soft p-3 text-sm text-warning"
+          className="flex gap-2 rounded-xl bg-surface-muted p-3 text-sm text-foreground"
         >
           <MoonStarIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
           {t("shabbat")}

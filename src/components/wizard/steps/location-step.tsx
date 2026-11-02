@@ -318,7 +318,7 @@ export function LocationStep({ values, set, errors, context, locale }: StepProps
             )}
           </Field>
         </div>
-        {cities.length === 0 && <p className="text-sm text-warning">{t("noCities")}</p>}
+        {cities.length === 0 && <p className="text-sm text-foreground">{t("noCities")}</p>}
 
         <AddressSearch
           locale={locale}
@@ -382,7 +382,7 @@ export function LocationStep({ values, set, errors, context, locale }: StepProps
             className="size-full"
           />
         </div>
-        {geoError && <p className="text-sm text-warning">{geoError}</p>}
+        {geoError && <p className="text-sm text-foreground">{geoError}</p>}
         {pinError && <FieldError id="pin-error">{pinError}</FieldError>}
         {pin && (
           <p className="text-xs text-muted-foreground">
@@ -392,8 +392,8 @@ export function LocationStep({ values, set, errors, context, locale }: StepProps
             </bdi>
           </p>
         )}
-        <div className="flex items-start gap-3 rounded-xl bg-verified-soft p-3.5 text-sm text-foreground dark:bg-verified/15">
-          <ShieldCheckIcon className="mt-0.5 size-5 shrink-0 text-verified" aria-hidden />
+        <div className="flex items-start gap-3 rounded-xl bg-primary-tint p-3.5 text-sm text-foreground dark:bg-success/15">
+          <ShieldCheckIcon className="mt-0.5 size-5 shrink-0 text-success" aria-hidden />
           <p className="text-pretty">{t("privacyNote", { meters: siteConfig.listings.approximateLocationMeters })}</p>
         </div>
       </Section>

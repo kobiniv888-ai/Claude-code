@@ -8,7 +8,8 @@ import { cn } from "@/lib/utils";
 import type { IconComponent } from "./jewish-icons";
 
 /**
- * Pill chips for filters and quick choices. Filled navy when active.
+ * Pill chips for filters and quick choices: 34px tall (a 44px touch area), a hairline border, and
+ * the purple tint with purple text when active.
  *
  *   <Chip pressed={kosher} onClick={() => setKosher(!kosher)} icon={KosherStampIcon}>כשר</Chip>
  *   <Chip active={count > 0} count={count} icon={SlidersHorizontalIcon} aria-haspopup="dialog">סינון</Chip>
@@ -20,22 +21,23 @@ import type { IconComponent } from "./jewish-icons";
  */
 const chipStyles = cva(
   [
-    "relative inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full border font-medium whitespace-nowrap select-none",
+    "relative inline-flex h-chip shrink-0 items-center justify-center gap-1.5 rounded-full border text-sm font-medium whitespace-nowrap select-none",
+    // A 44px touch area around the 34px pill.
+    "before:absolute before:inset-x-0 before:-inset-y-[5px] before:content-['']",
     "transition-[transform,background-color,border-color,color] duration-(--motion-fast) ease-standard outline-none",
     "focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-[0.97] motion-reduce:active:scale-100",
     "disabled:pointer-events-none disabled:opacity-50",
-    "[&_svg]:pointer-events-none [&_svg]:shrink-0",
+    "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg]:size-4",
   ],
   {
     variants: {
       size: {
-        // 36px chip with a 44px touch area.
-        sm: "h-9 px-3 text-sm [&_svg]:size-4 before:absolute before:inset-x-0 before:-inset-y-1 before:content-['']",
-        md: "h-11 px-4 text-sm [&_svg]:size-4.5",
+        sm: "px-3",
+        md: "px-3.5",
       },
       active: {
-        true: "border-navy bg-navy text-navy-foreground hover:bg-navy/90",
-        false: "border-border bg-card text-foreground hover:border-input hover:bg-muted",
+        true: "border-primary-tint-border bg-primary-tint text-primary-text",
+        false: "border-border-strong bg-card text-foreground hover:bg-surface-muted [&_svg]:text-muted-foreground",
       },
     },
     defaultVariants: { size: "md", active: false },
@@ -55,14 +57,9 @@ export type ChipProps = Omit<React.ComponentProps<"button">, "children"> &
     children: React.ReactNode;
   };
 
-function CountBadge({ count, inverted }: { count: number; inverted: boolean }) {
+function CountBadge({ count }: { count: number }) {
   return (
-    <span
-      className={cn(
-        "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs leading-none font-bold tabular-nums",
-        inverted ? "bg-card text-navy" : "bg-navy text-navy-foreground",
-      )}
-    >
+    <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs leading-none font-semibold text-primary-foreground tabular-nums">
       {formatNumber(count, "en")}
     </span>
   );
@@ -74,7 +71,7 @@ function Chip({ pressed, active, icon: Icon, count, size, asChild = false, class
     <>
       {Icon ? <Icon aria-hidden="true" /> : null}
       <span className="truncate">{children}</span>
-      {count ? <CountBadge count={count} inverted={filled} /> : null}
+      {count ? <CountBadge count={count} /> : null}
     </>
   );
   if (asChild) {
@@ -120,8 +117,8 @@ function RemovableChip({
     <span
       data-slot="removable-chip"
       className={cn(
-        "inline-flex shrink-0 items-center gap-1.5 rounded-full border border-navy bg-navy-soft ps-3 font-medium whitespace-nowrap text-navy",
-        size === "sm" ? "h-9 text-sm [&_svg]:size-4" : "h-11 text-sm [&_svg]:size-4.5",
+        "inline-flex h-chip shrink-0 items-center gap-1 rounded-full border border-primary-tint-border bg-primary-tint text-sm font-medium whitespace-nowrap text-primary-text [&_svg]:size-4",
+        size === "sm" ? "ps-3" : "ps-3.5",
         className,
       )}
     >
@@ -131,7 +128,7 @@ function RemovableChip({
         type="button"
         onClick={onRemove}
         aria-label={label}
-        className="me-0.5 inline-flex size-9 items-center justify-center rounded-full outline-none transition-colors hover:bg-navy/10 focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="relative me-0.5 inline-flex size-7.5 items-center justify-center rounded-full outline-none transition-colors before:absolute before:-inset-[7px] before:content-[''] hover:bg-primary/10 focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         <XIcon className="size-4" aria-hidden="true" />
       </button>

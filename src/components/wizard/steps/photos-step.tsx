@@ -122,8 +122,8 @@ export function PhotosStep({ listing, photos, setPhotos, roomTypes, track }: Ste
 
   return (
     <div className="grid gap-6">
-      <div className="flex items-start gap-3 rounded-xl bg-verified-soft p-3.5 text-sm dark:bg-verified/15">
-        <ShieldCheckIcon className="mt-0.5 size-5 shrink-0 text-verified" aria-hidden />
+      <div className="flex items-start gap-3 rounded-xl bg-primary-tint p-3.5 text-sm dark:bg-success/15">
+        <ShieldCheckIcon className="mt-0.5 size-5 shrink-0 text-success" aria-hidden />
         <p className="text-pretty">{t("privacyNote")}</p>
       </div>
 
@@ -133,7 +133,7 @@ export function PhotosStep({ listing, photos, setPhotos, roomTypes, track }: Ste
             <ImagesIcon className="size-5 text-muted-foreground" aria-hidden />
             {t("count", { count, formatted: formatNumber(count, locale), max: formatNumber(maxPhotos, locale) })}
           </p>
-          <p className={cn("text-sm font-medium", enough ? "text-verified" : "text-warning")}>
+          <p className={cn("text-sm font-medium", enough ? "text-success" : "text-foreground")}>
             {enough
               ? t("enough")
               : t("needMore", { count: minPhotos - count, formatted: formatNumber(minPhotos - count, locale) })}
@@ -141,13 +141,13 @@ export function PhotosStep({ listing, photos, setPhotos, roomTypes, track }: Ste
         </div>
         <div className="flex gap-1" aria-hidden>
           {Array.from({ length: minPhotos }, (_, i) => (
-            <span key={i} className={cn("h-1.5 flex-1 rounded-full", i < count ? "bg-verified" : "bg-muted")} />
+            <span key={i} className={cn("h-1.5 flex-1 rounded-full", i < count ? "bg-success" : "bg-muted")} />
           ))}
         </div>
 
         <PhotoDropZone onFiles={uploads.add} disabled={remaining === 0} remaining={remaining} compact={count > 0} />
         {uploads.rejected && (
-          <p className="text-sm font-medium text-warning" role="alert">
+          <p className="text-sm font-medium text-foreground" role="alert">
             {t(`rejected.${uploads.rejected}`, { count: remaining })}
           </p>
         )}

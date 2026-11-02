@@ -26,7 +26,7 @@ export function TitleBlock({ data, badges, actions }: { data: ListingPageData; b
       <ListingTitle />
       {place ? (
         <p className="flex items-center gap-1.5 text-body font-medium text-foreground/85">
-          <MapPinIcon className="size-5 shrink-0 text-coral-strong" aria-hidden />
+          <MapPinIcon className="size-5 shrink-0 text-primary-text" aria-hidden />
           <span>{place}</span>
         </p>
       ) : null}

@@ -1,4 +1,4 @@
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 
 /** Loading placeholder with a soft shimmer in the reading direction (static with reduced motion). */
 function Skeleton({ className, ...props }: React.ComponentProps<"div">) {

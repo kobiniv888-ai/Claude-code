@@ -103,7 +103,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     path,
     title: data.city ? t("meta.title", { title: data.title.shown, city: data.city.name }) : data.title.shown,
     description: [price, place].filter(Boolean).join(" · ") || data.description.shown.slice(0, 160),
-    image: data.ogImage ? { url: absoluteMediaUrl(data.ogImage), width: 1200, height: 630 } : undefined,
+    // The photo with the purple bar and logo: ./opengraph-image.tsx.
+    image: "route",
     noIndex: access !== "public",
   });
   const paths = await getListingPaths(data.id);

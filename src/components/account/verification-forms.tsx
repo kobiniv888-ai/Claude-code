@@ -85,8 +85,8 @@ function DocumentUpload({
         }}
       />
       {value ? (
-        <div className="flex items-center gap-3 rounded-xl border bg-verified-soft/60 px-3 py-2">
-          <FileCheck2Icon className="size-5 shrink-0 text-verified" aria-hidden="true" />
+        <div className="flex items-center gap-3 rounded-xl border bg-primary-tint/60 px-3 py-2">
+          <FileCheck2Icon className="size-5 shrink-0 text-success" aria-hidden="true" />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium" dir="auto">
               {value.name || t("uploaded")}

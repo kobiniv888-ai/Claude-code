@@ -249,7 +249,7 @@ export function PlacesExplorer({
               {t("resultCount", { count: filtered.length })}
             </p>
             {hasDemo ? (
-              <p className="rounded-full bg-warning-soft px-3 py-1 text-xs font-medium text-amber-900 dark:text-warning">
+              <p className="rounded-full bg-surface-muted px-3 py-1 text-xs font-medium text-foreground">
                 {t("demoLegend")}
               </p>
             ) : null}

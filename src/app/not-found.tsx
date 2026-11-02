@@ -4,6 +4,7 @@ import en from "../../messages/en/states.json";
 import he from "../../messages/he/states.json";
 import ka from "../../messages/ka/states.json";
 import ru from "../../messages/ru/states.json";
+import { BrandLockup } from "@/components/brand/mark";
 import { fontStyle } from "@/components/layout/fonts";
 import { locales, siteConfig, type AppLocale } from "@/config/site";
 import { dirFor } from "@/i18n/locale";
@@ -27,8 +28,9 @@ export default function GlobalNotFound() {
         <title>{`${en.global.notFoundTitle} · ${siteConfig.name}`}</title>
         <main className="flex min-h-dvh items-center justify-center px-4 py-10">
           <div className="w-full max-w-lg rounded-3xl border bg-card p-6 shadow-card sm:p-8">
-            {/* eslint-disable-next-line @next/next/no-img-element -- static brand mark, no layout here */}
-            <img src={siteConfig.logo.mark} alt={siteConfig.name} width={48} height={48} className="mx-auto" />
+            <div className="flex justify-center">
+              <BrandLockup locale={"en"} size={26} />
+            </div>
             <p className="mt-4 text-center text-sm font-semibold text-muted-foreground" dir="ltr">
               404
             </p>

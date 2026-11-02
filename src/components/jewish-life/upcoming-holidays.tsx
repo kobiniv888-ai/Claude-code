@@ -10,10 +10,10 @@ import { jewishLifeHref, type JewishLifeParams } from "@/lib/jewish-life/urls";
 import { cn } from "@/lib/utils";
 
 const CATEGORY_BADGE: Record<HolidayGroup["category"], string> = {
-  major: "bg-terracotta/15 text-accent-foreground",
+  major: "bg-primary/15 text-accent-foreground",
   minor: "bg-primary/10 text-primary",
   fast: "border border-foreground/20 bg-muted text-foreground",
-  modern: "bg-wine/10 text-wine",
+  modern: "bg-primary/10 text-primary-text",
 };
 
 /** The next Jewish holidays (one entry per holiday), each linking to its month in the calendar. */
@@ -51,7 +51,7 @@ export async function UpcomingHolidays({
   return (
     <div className="rounded-2xl border bg-card shadow-card">
       <h3 className="flex items-center gap-2 border-b px-4 py-4 text-lg font-semibold sm:px-5">
-        <CalendarHeart aria-hidden="true" className="size-5 text-terracotta" />
+        <CalendarHeart aria-hidden="true" className="size-5 text-primary-text" />
         {t("title")}
       </h3>
       <ul className="divide-y">
@@ -79,7 +79,7 @@ export async function UpcomingHolidays({
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">
                   {ongoing ? (
-                    <span className="rounded-full bg-verified-soft px-2 py-0.5 text-xs font-semibold text-verified">
+                    <span className="rounded-full bg-primary-tint px-2 py-0.5 text-xs font-semibold text-success">
                       {t("now")}
                     </span>
                   ) : null}

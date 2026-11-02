@@ -8,10 +8,10 @@
  *
  * Bump VERSION whenever offline.html, the icons or the brand files change.
  */
-const VERSION = "v1";
+const VERSION = "v2";
 const STATIC_CACHE = `bayit-static-${VERSION}`;
 const OFFLINE_URL = "/offline.html";
-const PRECACHE = [OFFLINE_URL, "/brand/logo-mark.svg", "/icons/icon-192.png"];
+const PRECACHE = [OFFLINE_URL, "/brand/bayit-app-icon.svg", "/icons/icon-192.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

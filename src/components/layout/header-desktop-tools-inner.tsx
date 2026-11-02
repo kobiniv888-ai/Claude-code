@@ -20,13 +20,14 @@ export type HeaderDesktopToolsProps = {
   user: UserMenuUser | null;
 };
 
-/** Primary call to action: "Post a listing" (terracotta, so it stands apart from the blue UI). */
+/** Primary call to action: "Post a listing". On the purple header it is the one white button
+ * (purple text); on the dark header the bright purple one. */
 export function PostListingButton({ label, className }: { label: string; className?: string }) {
   return (
     <Button
       asChild
       className={cn(
-        "h-10 gap-1.5 rounded-full bg-terracotta px-4 font-semibold text-terracotta-foreground shadow-xs hover:bg-terracotta/90 focus-visible:ring-terracotta/40",
+        "h-10 gap-1.5 rounded-button bg-white px-4 font-medium text-primary hover:bg-primary-tint dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary-pressed",
         className,
       )}
     >
@@ -60,7 +61,7 @@ export function HeaderDesktopTools({ labels, chat, user }: HeaderDesktopToolsPro
       <LanguageSwitcher />
       <CurrencySwitcher />
       <ThemeToggle />
-      <span aria-hidden className="mx-1.5 h-6 w-px bg-border" />
+      <span aria-hidden className="mx-1.5 h-6 w-px bg-white/25" />
       <IconLink href="/account/favorites" label={labels.saved}>
         <Heart aria-hidden className="size-[18px]" />
       </IconLink>

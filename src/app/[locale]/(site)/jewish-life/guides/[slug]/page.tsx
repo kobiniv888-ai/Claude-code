@@ -80,7 +80,7 @@ export default async function GuidePage({ params }: Props) {
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
             {guide.publishedAt ? <span>{t("published", { date: formatDate(guide.publishedAt, locale) })}</span> : null}
             {guide.reviewedByLawyer ? (
-              <span className="inline-flex items-center gap-1.5 font-medium text-verified">
+              <span className="inline-flex items-center gap-1.5 font-medium text-success">
                 <Scale aria-hidden="true" className="size-4" />
                 {t("reviewedByLawyer")}
               </span>

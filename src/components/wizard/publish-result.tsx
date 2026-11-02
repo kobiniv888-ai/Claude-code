@@ -100,10 +100,10 @@ export function PublishResult({
   };
 
   const tone = {
-    LIVE: { icon: CircleCheckBigIcon, ring: "bg-verified-soft text-verified dark:bg-verified/15" },
-    IN_REVIEW: { icon: HourglassIcon, ring: "bg-navy-soft text-navy" },
-    BLOCKED: { icon: ShieldAlertIcon, ring: "bg-warning-soft text-warning dark:bg-warning/15" },
-    SAVED: { icon: CircleCheckBigIcon, ring: "bg-verified-soft text-verified dark:bg-verified/15" },
+    LIVE: { icon: CircleCheckBigIcon, ring: "bg-primary-tint text-success dark:bg-success/15" },
+    IN_REVIEW: { icon: HourglassIcon, ring: "bg-primary-tint text-primary-text" },
+    BLOCKED: { icon: ShieldAlertIcon, ring: "bg-surface-muted text-foreground dark:bg-surface-muted/15" },
+    SAVED: { icon: CircleCheckBigIcon, ring: "bg-primary-tint text-success dark:bg-success/15" },
   }[status];
   const Icon = tone.icon;
   const titleKey = status === "SAVED" ? "savedTitle" : status === "LIVE" ? (edited ? "liveEditedTitle" : "liveTitle") : status === "IN_REVIEW" ? "reviewTitle" : "blockedTitle";
@@ -134,7 +134,7 @@ export function PublishResult({
           {fixable.map((code) => {
             const step = REASON_STEPS[code] ?? null;
             return (
-              <li key={code} className="grid gap-2 rounded-card border border-warning/40 bg-card p-4 shadow-card">
+              <li key={code} className="grid gap-2 rounded-card border border-border-strong/40 bg-card p-4 shadow-card">
                 <p className="font-semibold">{t.has(`reasons.${code}.title`) ? t(`reasons.${code}.title`) : t("reasons.other.title")}</p>
                 <p className="text-sm text-pretty text-muted-foreground">
                   {t.has(`reasons.${code}.fix`) ? t(`reasons.${code}.fix`) : t("reasons.other.fix")}
@@ -155,7 +155,7 @@ export function PublishResult({
         <ol className="grid gap-3 rounded-card bg-card p-5 text-small shadow-card ring-1 ring-foreground/5">
           {(["step1", "step2", "step3"] as const).map((key, index) => (
             <li key={key} className="flex items-start gap-3">
-              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-navy text-caption font-bold text-navy-foreground">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-caption font-bold text-primary-foreground">
                 {formatNumber(index + 1, locale)}
               </span>
               <span className="text-pretty">{t(`next.${key}`)}</span>

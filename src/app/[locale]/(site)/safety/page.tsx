@@ -138,14 +138,14 @@ export default async function SafetyPage({ params }: Props) {
   return (
     <div className="pb-16">
       {/* Hero: the promise and the urgent way out */}
-      <section className="relative isolate overflow-hidden bg-linear-to-b from-verified-soft to-background">
+      <section className="relative isolate overflow-hidden bg-linear-to-b from-primary-tint to-background">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -top-24 -end-24 -z-10 size-72 rounded-full bg-coral/10 blur-3xl sm:size-96"
+          className="pointer-events-none absolute -top-24 -end-24 -z-10 size-72 rounded-full bg-primary/10 blur-3xl sm:size-96"
         />
         <ContentContainer className="pt-8 pb-6 sm:pt-14 sm:pb-10">
           <IconCircle icon={ShieldCheck} tone="green" size="lg" className="mb-4 bg-card shadow-raised" />
-          <p className="text-small font-semibold text-verified">{t("hero.eyebrow")}</p>
+          <p className="text-small font-semibold text-success">{t("hero.eyebrow")}</p>
           <h1 className="mt-1 max-w-3xl text-h1 text-balance text-foreground">{t("hero.title")}</h1>
           <p className="mt-2 max-w-2xl text-body text-pretty text-muted-foreground">{t("hero.lead")}</p>
           <div className="mt-5 flex flex-col gap-2.5 sm:flex-row">
@@ -184,11 +184,11 @@ export default async function SafetyPage({ params }: Props) {
       <ContentContainer className="pt-6 sm:pt-10">
         <aside
           aria-labelledby="safety-golden"
-          className="flex flex-col gap-4 rounded-card bg-navy-soft p-5 sm:flex-row sm:items-center sm:gap-6 sm:p-7"
+          className="flex flex-col gap-4 rounded-card bg-primary-tint p-5 sm:flex-row sm:items-center sm:gap-6 sm:p-7"
         >
           <IconCircle icon={Hand} tone="navy-solid" size="lg" />
           <div className="min-w-0">
-            <h2 id="safety-golden" className="text-small font-semibold text-coral-strong">
+            <h2 id="safety-golden" className="text-small font-semibold text-primary-text">
               {t("goldenRule.title")}
             </h2>
             <p className="mt-1 text-h3 text-balance text-foreground">{t("goldenRule.body")}</p>
@@ -217,8 +217,8 @@ export default async function SafetyPage({ params }: Props) {
             body: t(`spot.${key}.body`, values),
           }))}
         />
-        <div className="mt-4 flex flex-col gap-4 rounded-card bg-navy p-5 text-navy-foreground sm:flex-row sm:items-center sm:p-6">
-          <IconCircle tone="glass" size="md" className="bg-navy-foreground/15 text-navy-foreground shadow-none">
+        <div className="mt-4 flex flex-col gap-4 rounded-card bg-primary p-5 text-primary-foreground sm:flex-row sm:items-center sm:p-6">
+          <IconCircle tone="glass" size="md" className="bg-primary-foreground/15 text-primary-foreground shadow-none">
             <Flag />
           </IconCircle>
           <div className="min-w-0 flex-1">
@@ -227,7 +227,7 @@ export default async function SafetyPage({ params }: Props) {
           </div>
           <Link
             href={SCAM_TICKET}
-            className={buttonStyles({ variant: "outline", size: "md", className: "border-transparent text-navy" })}
+            className={buttonStyles({ variant: "outline", size: "md", className: "border-transparent text-primary-text" })}
           >
             {t("spot.report.cta")}
           </Link>
@@ -241,7 +241,7 @@ export default async function SafetyPage({ params }: Props) {
             className="rounded-card border bg-card p-5 text-body sm:p-6"
             items={(["tip1", "tip2", "tip3", "tip4", "tip5", "tip6"] as const).map((k) => t(`guests.${k}`, values))}
           />
-          <aside aria-labelledby="safety-video" className="self-start rounded-card bg-coral-soft p-5 sm:p-6">
+          <aside aria-labelledby="safety-video" className="self-start rounded-card bg-primary-tint p-5 sm:p-6">
             <IconCircle icon={Video} tone="coral-solid" size="md" />
             <h3 id="safety-video" className="mt-3 text-h3">
               {t("guests.video.title")}
@@ -302,12 +302,12 @@ export default async function SafetyPage({ params }: Props) {
           {helpSteps.map(({ key, icon }, index) => (
             <li
               key={key}
-              className={cn("flex flex-col gap-3 rounded-card p-5", index < 4 ? "bg-navy-soft" : "bg-coral-soft")}
+              className={cn("flex flex-col gap-3 rounded-card p-5", index < 4 ? "bg-primary-tint" : "bg-primary-tint")}
             >
               <div className="flex items-center justify-between gap-3">
                 <span
                   aria-hidden="true"
-                  className="flex size-11 items-center justify-center rounded-xl bg-card text-h3 font-extrabold text-navy shadow-sm"
+                  className="flex size-11 items-center justify-center rounded-xl bg-card text-h3 font-extrabold text-primary-text shadow-sm"
                 >
                   {formatNumber(index + 1, locale)}
                 </span>

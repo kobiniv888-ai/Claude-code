@@ -45,7 +45,7 @@ export function PlaceCard({
             {place.isDemo ? (
               <span
                 title={t("demoNote")}
-                className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-warning-soft px-2 py-0.5 text-amber-900 dark:border-warning/40 dark:text-warning"
+                className="inline-flex items-center gap-1 rounded-full border border-border-strong bg-surface-muted px-2 py-0.5 text-foreground"
               >
                 <TriangleAlert aria-hidden="true" className="size-3" />
                 {t("demoBadge")}

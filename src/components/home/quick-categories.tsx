@@ -41,7 +41,7 @@ export async function QuickCategories({ locale }: { locale: AppLocale }) {
               <span aria-hidden="true" className="absolute inset-0 -z-10 bg-linear-to-t from-black/75 via-black/20 to-transparent" />
               {key === "shabbat" ? (
                 <span className="mb-1.5 inline-flex size-8 items-center justify-center rounded-full bg-white/20 ring-1 ring-white/30 backdrop-blur-sm">
-                  <ShabbatCandlesIcon className="size-4.5 text-amber-100" aria-hidden="true" />
+                  <ShabbatCandlesIcon className="size-4.5 text-white" aria-hidden="true" />
                 </span>
               ) : null}
               <span className="text-base leading-snug font-bold text-balance text-white [text-shadow:0_1px_8px_rgb(0_0_0/0.45)] sm:text-h3">

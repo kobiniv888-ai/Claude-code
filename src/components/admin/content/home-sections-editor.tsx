@@ -89,7 +89,7 @@ export function HomeSectionsEditor({ initial, defaults }: { initial: Section[]; 
           );
         })}
       </ol>
-      {enabledCount === 0 ? <p className="text-sm text-warning">{t("allHidden")}</p> : null}
+      {enabledCount === 0 ? <p className="text-sm text-foreground">{t("allHidden")}</p> : null}
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-card p-3">
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="outline" onClick={() => setSections(defaults)} disabled={pending}>

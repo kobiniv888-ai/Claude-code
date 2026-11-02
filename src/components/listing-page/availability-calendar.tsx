@@ -50,7 +50,7 @@ export function AvailabilityCalendar({ blocks, nowIso }: { blocks: DateBlock[]; 
                           "h-9 rounded-lg tabular-nums",
                           day.past && "text-muted-foreground",
                           !day.past && day.blocked && "bg-muted text-muted-foreground line-through decoration-muted-foreground/60",
-                          !day.past && !day.blocked && "bg-verified-soft/60 font-medium text-foreground",
+                          !day.past && !day.blocked && "bg-primary-tint/60 font-medium text-foreground",
                           day.today && "ring-2 ring-primary",
                         )}
                       >
@@ -72,7 +72,7 @@ export function AvailabilityCalendar({ blocks, nowIso }: { blocks: DateBlock[]; 
       </div>
       <ul className="mt-4 flex flex-wrap gap-4 text-xs text-muted-foreground">
         <li className="inline-flex items-center gap-2">
-          <span className="size-4 rounded bg-verified-soft ring-1 ring-verified/30" aria-hidden />
+          <span className="size-4 rounded bg-primary-tint ring-1 ring-success/30" aria-hidden />
           {t("available")}
         </li>
         <li className="inline-flex items-center gap-2">

@@ -43,7 +43,7 @@ export default async function LoginPage({ params, searchParams }: Props) {
       {/* Soft brand glow behind the card. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-80 bg-[radial-gradient(60%_100%_at_50%_0%,color-mix(in_oklab,var(--navy)_12%,transparent),transparent)]"
+        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-80 bg-[radial-gradient(60%_100%_at_50%_0%,color-mix(in_oklab,var(--primary)_12%,transparent),transparent)]"
       />
       <div className="w-full max-w-[27rem]">
         <LoginCard

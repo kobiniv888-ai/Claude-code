@@ -35,7 +35,7 @@ export function PageHero({
     >
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -top-24 -end-24 -z-10 size-72 rounded-full bg-terracotta/10 blur-3xl sm:size-96"
+        className="pointer-events-none absolute -top-24 -end-24 -z-10 size-72 rounded-full bg-primary/10 blur-3xl sm:size-96"
       />
       <div
         aria-hidden="true"

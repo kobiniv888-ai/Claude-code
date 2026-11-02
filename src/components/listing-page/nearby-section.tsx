@@ -68,7 +68,7 @@ export function NearbyList({ nearby }: { nearby: NearbyInfo }) {
                 </span>
               ) : null}
             </span>
-            <span className="shrink-0 text-small font-bold text-navy">{key === "airport" ? <Ltr>{value}</Ltr> : value}</span>
+            <span className="shrink-0 text-small font-bold text-primary-text">{key === "airport" ? <Ltr>{value}</Ltr> : value}</span>
           </li>
         ))}
       </ul>

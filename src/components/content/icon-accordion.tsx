@@ -42,7 +42,7 @@ export function IconAccordion({
                 <span className="min-w-0 flex-1 text-pretty">{item.title}</span>
                 <span
                   aria-hidden="true"
-                  className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground group-data-[state=open]:bg-navy-soft group-data-[state=open]:text-navy"
+                  className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground group-data-[state=open]:bg-primary-tint group-data-[state=open]:text-primary-text"
                 >
                   <ChevronDown className="size-4.5 transition-transform duration-(--motion-base) group-data-[state=open]:rotate-180 motion-reduce:transition-none" />
                 </span>

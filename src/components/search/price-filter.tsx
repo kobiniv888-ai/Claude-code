@@ -80,7 +80,7 @@ export function PriceFilter({
                 key={index}
                 className={cn(
                   "h-full flex-1 origin-bottom rounded-t-[3px] transition-[transform,background-color] duration-(--motion-slow) ease-soft motion-reduce:transition-none",
-                  barInRange(index, heights.length, histogram!.max, shown) ? "bg-navy" : "bg-border",
+                  barInRange(index, heights.length, histogram!.max, shown) ? "bg-primary" : "bg-border",
                 )}
                 style={{
                   transform: `scaleY(${grown ? height : 0})`,
@@ -118,19 +118,19 @@ export function PriceFilter({
         className="relative -mt-3 flex h-8 w-full touch-none items-center select-none"
       >
         <SliderPrimitive.Track className="relative h-1 grow overflow-hidden rounded-full bg-border">
-          <SliderPrimitive.Range className="absolute h-full bg-navy" />
+          <SliderPrimitive.Range className="absolute h-full bg-primary" />
         </SliderPrimitive.Track>
         {([0, 1] as const).map((index) => (
           <SliderPrimitive.Thumb
             key={index}
             aria-label={index === 0 ? t("priceMin") : t("priceMax")}
             aria-valuetext={index === 0 ? money(shown[0]) : topLabel(shown[1])}
-            className="relative block size-7 rounded-full border-2 border-navy bg-card shadow-raised outline-none transition-transform duration-(--motion-fast) focus-visible:ring-4 focus-visible:ring-ring/40 active:scale-110 motion-reduce:transition-none"
+            className="relative block size-7 rounded-full border-2 border-primary bg-card shadow-raised outline-none transition-transform duration-(--motion-fast) focus-visible:ring-4 focus-visible:ring-ring/40 active:scale-110 motion-reduce:transition-none"
           >
             {drag && moving === index ? (
               <span
                 aria-hidden="true"
-                className="pointer-events-none absolute bottom-full start-1/2 mb-2.5 -translate-x-1/2 animate-fade-in rounded-full bg-navy px-2.5 py-1 text-small font-bold whitespace-nowrap text-navy-foreground shadow-raised rtl:translate-x-1/2"
+                className="pointer-events-none absolute bottom-full start-1/2 mb-2.5 -translate-x-1/2 animate-fade-in rounded-full bg-primary px-2.5 py-1 text-small font-bold whitespace-nowrap text-primary-foreground shadow-raised rtl:translate-x-1/2"
               >
                 <bdi dir="ltr">{index === 0 ? money(shown[0]) : topLabel(shown[1])}</bdi>
               </span>

@@ -76,7 +76,7 @@ export default async function UserDetailPage({ params }: PageProps<"/[locale]/ad
       ) : null}
 
       {user.status !== "ACTIVE" && user.statusReason ? (
-        <p className="mb-5 flex items-start gap-2 rounded-xl border border-warning/50 bg-warning-soft p-3 text-sm">
+        <p className="mb-5 flex items-start gap-2 rounded-xl border border-border-strong/50 bg-surface-muted p-3 text-sm">
           <ShieldAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
           <span>
             {t("statusReason", {
@@ -138,7 +138,7 @@ export default async function UserDetailPage({ params }: PageProps<"/[locale]/ad
           <AdminSection title={t("verificationTitle")}>
             <ul className="flex flex-col gap-2 text-sm">
               <li className="flex items-center gap-2">
-                <BadgeCheck aria-hidden className={user.idVerifiedAt ? "size-4 text-verified" : "size-4 text-muted-foreground"} />
+                <BadgeCheck aria-hidden className={user.idVerifiedAt ? "size-4 text-success" : "size-4 text-muted-foreground"} />
                 {user.idVerifiedAt
                   ? t("idVerifiedOn", { date: formatDate(user.idVerifiedAt, locale), name: data.idVerifiedBy ?? "—" })
                   : t("idNotVerified")}
@@ -146,7 +146,7 @@ export default async function UserDetailPage({ params }: PageProps<"/[locale]/ad
               <PledgeAdminFact userId={user.id} locale={locale} />
               {user.accountType === "BUSINESS" ? (
                 <li className="flex items-center gap-2">
-                  <BadgeCheck aria-hidden className={user.businessVerifiedAt ? "size-4 text-verified" : "size-4 text-muted-foreground"} />
+                  <BadgeCheck aria-hidden className={user.businessVerifiedAt ? "size-4 text-success" : "size-4 text-muted-foreground"} />
                   {user.businessVerifiedAt
                     ? t("businessVerifiedOn", { date: formatDate(user.businessVerifiedAt, locale), name: data.businessVerifiedBy ?? "—" })
                     : t("businessNotVerified")}
@@ -279,7 +279,7 @@ export default async function UserDetailPage({ params }: PageProps<"/[locale]/ad
             {data.notes.length ? (
               <ul className="mt-4 flex flex-col gap-2">
                 {data.notes.map((note) => (
-                  <li key={note.id} className="rounded-lg border border-warning/40 bg-warning-soft p-2.5 text-sm">
+                  <li key={note.id} className="rounded-lg border border-border-strong/40 bg-surface-muted p-2.5 text-sm">
                     <p className="whitespace-pre-wrap" dir="auto">
                       {note.body}
                     </p>

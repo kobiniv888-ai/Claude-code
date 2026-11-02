@@ -115,7 +115,7 @@ function CardText({ card, icon: Icon }: { card: Card; icon: typeof Siren }) {
         aria-hidden="true"
         className={cn(
           "flex size-12 shrink-0 items-center justify-center rounded-full",
-          card.primary ? "bg-destructive/12 text-destructive" : "bg-navy-soft text-navy",
+          card.primary ? "bg-destructive/12 text-destructive" : "bg-primary-tint text-primary-text",
         )}
       >
         <Icon className="size-6" />

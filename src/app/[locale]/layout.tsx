@@ -7,7 +7,7 @@ import { getMessages, getTranslations, setRequestLocale } from "next-intl/server
 import { LoginDialogProvider } from "@/components/auth/login-dialog-provider";
 import { InlineScript } from "@/components/common/inline-script";
 import { DISMISSED_ALERTS_SCRIPT } from "@/components/layout/dismissed-alerts";
-import { HEBREW_FONT_URL, fontStyle } from "@/components/layout/fonts";
+import { fontStyle, scriptFontUrl } from "@/components/layout/fonts";
 import { SkipLink } from "@/components/layout/skip-link";
 import { CurrencyProvider } from "@/components/providers/currency-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
@@ -20,7 +20,7 @@ import { dirFor } from "@/i18n/locale";
 import { routing } from "@/i18n/routing";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getDisplayCurrency, getRates } from "@/lib/currency";
-import { DEFAULT_OG_IMAGE, absoluteUrl, ogLocale, siteName } from "@/lib/seo";
+import { absoluteUrl, defaultOgImage, ogLocale, siteName } from "@/lib/seo";
 import { ZOD_JITLESS_SCRIPT } from "@/lib/zod-jitless";
 import { DemoDataBanner } from "@/components/dev/demo-data-banner";
 import "../globals.css";
@@ -45,7 +45,7 @@ export async function generateMetadata({ params }: LayoutProps<"/[locale]">): Pr
       locale: ogLocale(locale),
       title: name,
       description,
-      images: [{ ...DEFAULT_OG_IMAGE, url: absoluteUrl(DEFAULT_OG_IMAGE.url), alt: name }],
+      images: [{ ...defaultOgImage(locale), url: absoluteUrl(defaultOgImage(locale).url), alt: name }],
     },
     twitter: { card: "summary_large_image" },
     robots: { index: true, follow: true },
@@ -60,9 +60,10 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   colorScheme: "light dark",
+  // The header's color: purple in light mode, near-black in dark mode.
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: siteConfig.colors.background },
-    { media: "(prefers-color-scheme: dark)", color: "#0F1420" },
+    { media: "(prefers-color-scheme: light)", color: siteConfig.colors.primary },
+    { media: "(prefers-color-scheme: dark)", color: siteConfig.colors.backgroundDark },
   ],
 };
 
@@ -79,9 +80,11 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
     getMessages(),
   ]);
   const currency = await getDisplayCurrency(user?.currency);
-  // Hebrew pages: the Hebrew face is needed for the first paint (headline, menus), so fetch it with
-  // the HTML instead of after the stylesheet (src/components/layout/fonts.ts).
-  if (locale === "he") preload(HEBREW_FONT_URL, { as: "font", type: "font/woff2", crossOrigin: "anonymous" });
+  // Hebrew, Russian and Arabic pages: the script's Rubik face is needed for the first paint
+  // (headline, menus), so fetch it with the HTML instead of after the stylesheet
+  // (src/components/layout/fonts.ts). Latin is preloaded by next/font on every page.
+  const scriptFont = scriptFontUrl(locale);
+  if (scriptFont) preload(scriptFont, { as: "font", type: "font/woff2", crossOrigin: "anonymous" });
 
   return (
     <html lang={locale} dir={dir} style={fontStyle} suppressHydrationWarning>

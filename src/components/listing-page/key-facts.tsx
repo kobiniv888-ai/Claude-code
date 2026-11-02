@@ -54,7 +54,7 @@ export function KeyFacts({ data }: { data: ListingPageData }) {
       <ul className="grid grid-cols-2 gap-2 sm:gap-3">
         {facts.map(({ key, icon, text }) => (
           <li key={key} className="flex min-h-14 items-center gap-2.5 rounded-2xl bg-muted/80 px-3 py-2.5 dark:bg-muted">
-            <IconCircle icon={icon} tone="navy" size="sm" className="bg-card dark:bg-navy-soft" />
+            <IconCircle icon={icon} tone="navy" size="sm" className="bg-card dark:bg-primary-tint" />
             <span className="min-w-0 text-small leading-snug font-semibold">{text}</span>
           </li>
         ))}

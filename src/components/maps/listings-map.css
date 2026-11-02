@@ -24,8 +24,8 @@
 }
 
 .bayit-pill {
-  --pill-bg: var(--navy);
-  --pill-fg: var(--navy-foreground);
+  --pill-bg: var(--primary);
+  --pill-fg: var(--primary-foreground);
   display: inline-flex;
   align-items: center;
   height: 30px;
@@ -54,18 +54,18 @@
   transform: scale(1.1);
 }
 
-/* The tapped pill: coral and bigger while its card is open. coral-strong keeps the text AA. */
+/* The tapped pill: darker purple and bigger while its card is open. */
 .bayit-pill-marker.is-selected .bayit-pill {
-  --pill-bg: var(--coral-strong);
+  --pill-bg: var(--primary-pressed);
   --pill-fg: #ffffff;
   transform: scale(1.2);
   box-shadow:
     0 0 0 2px var(--card),
-    0 6px 18px rgb(180 83 58 / 0.45);
+    0 6px 18px rgb(75 42 140 / 0.45);
 }
 
 .dark .bayit-pill-marker.is-selected .bayit-pill {
-  --pill-fg: var(--brand-ink);
+  --pill-fg: #ffffff;
 }
 
 .bayit-pill-marker:focus-visible .bayit-pill {
@@ -90,15 +90,15 @@
   width: 100%;
   height: 100%;
   border-radius: 9999px;
-  background: var(--navy);
-  color: var(--navy-foreground);
+  background: var(--primary);
+  color: var(--primary-foreground);
   font-size: 15px;
   font-weight: 800;
   line-height: 1;
   font-variant-numeric: tabular-nums;
   box-shadow:
     0 0 0 3px var(--card),
-    0 0 0 9px color-mix(in srgb, var(--navy) 22%, transparent),
+    0 0 0 9px color-mix(in srgb, var(--primary) 22%, transparent),
     0 4px 14px rgb(15 23 42 / 0.3);
   animation: bayit-marker-in 360ms var(--ease-pop) backwards;
   transition: transform var(--motion-fast) var(--ease-standard);
@@ -151,14 +151,14 @@
 
 /* Fixed colors (white icon on top, ≥ 4.5:1), the same in light and dark. */
 .bayit-place[data-type="SYNAGOGUE"] {
-  --place-color: #1e3a6e;
+  --place-color: #4b2a8c;
 }
 .bayit-place[data-type="CHABAD_HOUSE"] {
-  --place-color: #7b2d3b;
+  --place-color: #4b2a8c;
 }
 .bayit-place[data-type="KOSHER_RESTAURANT"],
 .bayit-place[data-type="KOSHER_SHOP"] {
-  --place-color: #13763a;
+  --place-color: #4b2a8c;
 }
 
 /* Community places grouped at low zoom (beside the listings' bubbles, see communityClusterIcon). */
@@ -177,15 +177,15 @@
   padding-inline: 3px 9px;
   border-radius: 9999px;
   /* White with the synagogue color, like the place markers (the same in light and dark), so it never
-     reads as a navy listings bubble. #1e3a6e on white: 11:1. */
+     reads as a listings bubble. #4b2a8c on white: 10:1. */
   background: #ffffff;
-  color: #1e3a6e;
+  color: #4b2a8c;
   font-size: 13px;
   font-weight: 800;
   line-height: 1;
   font-variant-numeric: tabular-nums;
   box-shadow:
-    0 0 0 1.5px #1e3a6e,
+    0 0 0 1.5px #4b2a8c,
     0 3px 10px rgb(15 23 42 / 0.3);
   animation: bayit-marker-in 320ms var(--ease-pop) backwards;
   transition: transform var(--motion-fast) var(--ease-standard);
@@ -199,7 +199,7 @@
   height: 24px;
   flex-shrink: 0;
   border-radius: 9999px;
-  background: #1e3a6e;
+  background: #4b2a8c;
   color: #ffffff;
 }
 

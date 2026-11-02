@@ -19,9 +19,9 @@ const severityStyle: Record<AlertSeverity, { icon: LucideIcon; card: string; chi
   },
   WARNING: {
     icon: TriangleAlert,
-    card: "border-warning/35 bg-warning-soft",
-    chip: "bg-warning text-warning-foreground",
-    iconWrap: "bg-card text-warning",
+    card: "border-border-strong/35 bg-surface-muted",
+    chip: "bg-surface-muted text-foreground",
+    iconWrap: "bg-card text-foreground",
   },
   CRITICAL: {
     icon: OctagonAlert,

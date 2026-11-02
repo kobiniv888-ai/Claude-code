@@ -39,7 +39,7 @@ export function SafetyTip({
       className={cn(
         "flex gap-3 rounded-2xl border p-4",
         variant === "info" && "border-primary/15 bg-secondary/70",
-        variant === "warning" && "border-warning/30 bg-warning-soft",
+        variant === "warning" && "border-border-strong/30 bg-surface-muted",
         compact ? "text-sm" : "sm:gap-4 sm:p-5",
         className,
       )}
@@ -48,7 +48,7 @@ export function SafetyTip({
         aria-hidden
         className={cn(
           "inline-flex size-9 shrink-0 items-center justify-center rounded-xl bg-card shadow-xs",
-          variant === "info" ? "text-primary" : "text-warning",
+          variant === "info" ? "text-primary" : "text-foreground",
           !compact && "sm:size-10",
         )}
       >

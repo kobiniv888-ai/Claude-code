@@ -119,8 +119,8 @@ export function ContactForm({
 
   if (sent) {
     return (
-      <div role="status" className="flex flex-col items-start gap-4 rounded-card border border-verified/30 bg-verified-soft p-6 sm:p-8">
-        <span aria-hidden="true" className="flex size-12 items-center justify-center rounded-full bg-card text-verified shadow-card">
+      <div role="status" className="flex flex-col items-start gap-4 rounded-card border border-success/30 bg-primary-tint p-6 sm:p-8">
+        <span aria-hidden="true" className="flex size-12 items-center justify-center rounded-full bg-card text-success shadow-card">
           <CircleCheck className="size-6" />
         </span>
         <div>

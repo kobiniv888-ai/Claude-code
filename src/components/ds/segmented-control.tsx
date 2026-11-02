@@ -14,7 +14,8 @@ export type SegmentedOption<V extends string> = {
 };
 
 /**
- * Equal-width segments with a sliding indicator (deal type, "Any | 1+ | 2+ …").
+ * Equal-width segments with a sliding indicator (deal type, "Any | 1+ | 2+ …"): a light-grey
+ * track, the selected one a purple pill with white text.
  * A radio group: one tab stop, arrow keys move the choice and follow the screen direction
  * (in RTL, ArrowLeft goes to the next option), Home/End jump to the ends.
  *
@@ -28,7 +29,7 @@ export function SegmentedControl<V extends string>({
   value,
   onValueChange,
   size = "md",
-  tone = "navy",
+  tone = "primary",
   className,
   name,
   ...aria
@@ -37,8 +38,9 @@ export function SegmentedControl<V extends string>({
   value: V;
   onValueChange: (value: V) => void;
   size?: "sm" | "md";
-  /** navy = filled navy indicator; card = white indicator on a muted track (quieter). */
-  tone?: "navy" | "card";
+  /** primary = purple pill with white text (default; "navy" is the old name); card = a white pill
+   * on the grey track (quieter). */
+  tone?: "primary" | "navy" | "card";
   className?: string;
   /** For forms: renders a hidden input with this name. */
   name?: string;
@@ -88,7 +90,7 @@ export function SegmentedControl<V extends string>({
       {...aria}
       onKeyDown={onKeyDown}
       className={cn(
-        "relative grid w-full rounded-full bg-muted p-1 ring-1 ring-foreground/5 ring-inset",
+        "relative grid w-full rounded-full bg-surface-muted p-1",
         className,
       )}
       style={{ gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` }}
@@ -97,8 +99,8 @@ export function SegmentedControl<V extends string>({
       <span
         aria-hidden="true"
         className={cn(
-          "pointer-events-none absolute inset-y-1 start-1 rounded-full shadow-sm transition-transform duration-(--motion-base) ease-soft motion-reduce:transition-none",
-          tone === "navy" ? "bg-navy" : "bg-card",
+          "pointer-events-none absolute inset-y-1 start-1 rounded-full transition-transform duration-(--motion-base) ease-soft motion-reduce:transition-none",
+          tone === "card" ? "border border-border bg-card" : "bg-primary",
         )}
         style={{
           width: `calc((100% - 0.5rem) / ${count})`,
@@ -122,13 +124,15 @@ export function SegmentedControl<V extends string>({
             disabled={option.disabled}
             onClick={() => select(i)}
             className={cn(
-              "relative z-10 inline-flex min-w-0 items-center justify-center gap-1.5 rounded-full px-2 text-center font-semibold leading-tight outline-none",
+              "relative z-10 inline-flex min-w-0 items-center justify-center gap-1.5 rounded-full px-2 text-center text-sm font-medium leading-tight outline-none",
+              // The touch area reaches into the track's padding (a 44px+ target for a 40px pill).
+              "before:absolute before:-inset-1 before:content-['']",
               "transition-colors duration-(--motion-base) focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-40",
-              size === "sm" ? "min-h-9 text-sm [&_svg]:size-4" : "min-h-11 text-sm sm:text-base [&_svg]:size-4.5",
+              size === "sm" ? "min-h-9 [&_svg]:size-4" : "min-h-10 [&_svg]:size-4.5",
               selected
-                ? tone === "navy"
-                  ? "text-navy-foreground"
-                  : "text-foreground"
+                ? tone === "card"
+                  ? "text-foreground"
+                  : "text-primary-foreground"
                 : "text-muted-foreground hover:text-foreground",
             )}
           >

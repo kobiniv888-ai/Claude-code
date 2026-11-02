@@ -38,7 +38,7 @@ export default async function TwoFactorSetupPage({ params, searchParams }: Props
     <span
       className={
         tone === "verified"
-          ? "flex size-12 items-center justify-center rounded-full bg-verified-soft text-verified"
+          ? "flex size-12 items-center justify-center rounded-full bg-primary-tint text-success"
           : "flex size-12 items-center justify-center rounded-full bg-secondary text-secondary-foreground"
       }
     >
@@ -69,8 +69,8 @@ export default async function TwoFactorSetupPage({ params, searchParams }: Props
       icon={iconCircle(<KeyRoundIcon className="size-6" aria-hidden />, "primary")}
     >
       {user.isStaff && (
-        <p className="mb-5 flex items-start gap-2.5 rounded-xl bg-warning-soft px-3.5 py-3 text-sm text-foreground">
-          <LockKeyholeIcon className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
+        <p className="mb-5 flex items-start gap-2.5 rounded-xl bg-surface-muted px-3.5 py-3 text-sm text-foreground">
+          <LockKeyholeIcon className="mt-0.5 size-4 shrink-0 text-foreground" aria-hidden />
           {t("staffRequired")}
         </p>
       )}
