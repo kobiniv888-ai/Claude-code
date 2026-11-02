@@ -49,7 +49,9 @@ if [ "$status" = "10" ] && [ "${BAYIT_SKIP_AUTO_SEED:-}" != "1" ]; then
     touch .devcontainer/.setup-done
     node scripts/db-status.mjs 2>&1 | tee -a "$LOG"
   else
-    log "Seeding failed — see $LOG"
+    log "Seeding failed — the error was:"
+    grep -v "^\s*at " "$LOG" | tail -n 25
+    log "(full log: $LOG)"
   fi
 fi
 
