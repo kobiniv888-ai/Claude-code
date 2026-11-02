@@ -3,7 +3,7 @@
 import { useTranslations } from "next-intl";
 import { ClockIcon, ListChecksIcon, PartyPopperIcon, PawPrintIcon, CigaretteIcon, MoonIcon } from "lucide-react";
 import { AMENITIES } from "@/lib/listing/fields";
-import { applies } from "@/lib/wizard/steps";
+import { applies, usesBookingStep } from "@/lib/wizard/steps";
 import { CheckCards, Field, Section, TimeInput, YesNo } from "../fields";
 import { AMENITY_ICONS } from "../icons";
 import { useOptionLabel } from "../labels";
@@ -52,7 +52,8 @@ export function AmenitiesStep({ values, set, errors, kind }: StepProps) {
             )}
           </div>
 
-          {applies("checkInOut", kind) && (
+          {/* Short stays and hotels set their check-in/out times in the "הזמנות ומחיר" step. */}
+          {applies("checkInOut", kind) && !usesBookingStep(kind) && (
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label={t("checkIn")} error={errors.checkInFrom} optional>
                 {(props) => (

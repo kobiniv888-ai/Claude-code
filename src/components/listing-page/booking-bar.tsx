@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { CalendarDaysIcon, CheckIcon, EllipsisIcon, GitCompareArrowsIcon, MessageCircleQuestionIcon, UsersRoundIcon } from "lucide-react";
+import { DatesGuestsSheet } from "@/components/booking/dates-guests-sheet";
+import { useGuestSummary } from "@/components/booking/guest-summary";
+import { PriceBreakdown } from "@/components/booking/price-breakdown";
 import { BottomSheet } from "@/components/ds/bottom-sheet";
 import { Button, buttonStyles } from "@/components/ds/button";
 import { StickyContactBar } from "@/components/ds/sticky-contact-bar";
@@ -24,35 +27,15 @@ import { contactLayout } from "@/lib/listing-page/helpers";
 import { COMPARE_PATH } from "@/lib/listing/urls";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
-import { AvailabilityPicker } from "./availability-picker";
 import { useStay, useStayMoney } from "./stay-dates";
 
 /** The phone bar's height goes to --bottom-nav-height, so the page end and toasts make room. */
 const BAR_SPACE_CSS =
   "@media (width < 64rem){body:has([data-listing-contact-bar]){--bottom-nav-height:calc(4.5rem + 1px + env(safe-area-inset-bottom, 0px))}}";
 
-/** "Choose dates": the calendar in a bottom sheet (a dialog on desktop). */
+/** "Choose dates": the dates and guests sheet (a dialog on desktop), on to the review page. */
 export function DatesSheet() {
-  const t = useTranslations("listing.booking");
-  const { sheetOpen, setSheetOpen, nights, dates, setDates } = useStay();
-  return (
-    <BottomSheet
-      open={sheetOpen}
-      onOpenChange={setSheetOpen}
-      title={t("datesTitle")}
-      onClear={dates.checkIn ? () => setDates({ checkIn: null, checkOut: null }) : undefined}
-      clearLabel={t("clear")}
-      footer={
-        <Button block onClick={() => setSheetOpen(false)} disabled={nights === 0}>
-          {t("done")}
-        </Button>
-      }
-    >
-      <div className="p-4">
-        <AvailabilityPicker />
-      </div>
-    </BottomSheet>
-  );
+  return <DatesGuestsSheet mode="continue" />;
 }
 
 /** "3 nights · Total ≈ ₪1,310" once both dates are chosen. */
@@ -70,11 +53,24 @@ function StaySummary({ className }: { className?: string }) {
   );
 }
 
-/** The main action: "Book" with dates (→ the booking step), else "Choose dates" (→ the sheet). */
+/**
+ * The main action: "Book" with dates (→ the review page), else "Choose dates" (→ the sheet).
+ * Listings without instant booking (the host has not saved booking settings) ask the host instead.
+ */
 function BookButton({ block = false }: { block?: boolean }) {
   const t = useTranslations("listing.booking");
-  const { bookHref, setSheetOpen } = useStay();
-  if (bookHref) {
+  const { bookHref, setSheetOpen, instant } = useStay();
+  const { listing, availability, contact, revealing } = useContact();
+  const { primary } = contactLayout(listing.channels);
+  if (!instant && availability === "ok" && primary) {
+    return (
+      <Button block={block} className="px-4" disabled={revealing} onClick={() => contact(primary)}>
+        {primary === "WHATSAPP" ? <ChannelIcon channel={primary} className="size-5" /> : <MessageCircleQuestionIcon aria-hidden />}
+        {t("ask")}
+      </Button>
+    );
+  }
+  if (bookHref && instant) {
     return (
       <Link href={bookHref} className={buttonStyles({ block, className: "px-5" })}>
         {t("book")}
@@ -210,14 +206,14 @@ function DateField({ label, value, onClick, className }: { label: string; value:
 export function BookingBox() {
   const t = useTranslations("listing.booking");
   const tc = useTranslations("listing.calendar");
-  const money = useStayMoney();
   const { listing, availability, contact, revealing } = useContact();
-  const { dates, nights, total, price, setSheetOpen, rules } = useStay();
+  const ts = useTranslations("booking.sheet");
+  const guestSummary = useGuestSummary();
+  const { dates, nights, quote, price, setSheetOpen, rules, guests } = useStay();
   const compareItem = useCompareItem(listing.publicId);
   const { primary } = contactLayout(listing.channels);
   const canContact = availability === "ok" && !!primary;
   const open = () => setSheetOpen(true);
-  const perNight = price.amount ?? 0;
 
   return (
     <div className="grid gap-4 rounded-card border border-border bg-card p-5">
@@ -225,29 +221,20 @@ export function BookingBox() {
       <div className="grid grid-cols-2 overflow-hidden rounded-input border border-border-strong">
         <DateField label={t("checkIn")} value={dates.checkIn} onClick={open} className="border-e border-border-strong" />
         <DateField label={t("checkOut")} value={dates.checkOut} onClick={open} />
+        <button
+          type="button"
+          onClick={open}
+          className="col-span-2 grid min-h-14 content-center border-t border-border-strong px-3 py-2 text-start outline-none hover:bg-surface-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          <span className="text-caption font-semibold text-foreground">{ts("guests")}</span>
+          <span className="text-small text-foreground">{guestSummary(guests)}</span>
+        </button>
       </div>
       <BookButton block />
       {rules.minNights && rules.minNights > 1 && nights === 0 ? (
         <p className="text-center text-caption text-muted-foreground">{tc("minStay", { count: rules.minNights })}</p>
       ) : null}
-      {nights > 0 && total !== null ? (
-        <dl className="grid gap-2 text-small">
-          <div className="flex justify-between gap-3">
-            <dt className="text-muted-foreground">{t("times", { price: money(perNight, price.currency), nights: tc("nights", { count: nights }) })}</dt>
-            <dd>{money(perNight * nights, price.currency)}</dd>
-          </div>
-          {price.cleaningFee ? (
-            <div className="flex justify-between gap-3">
-              <dt className="text-muted-foreground">{t("cleaningFee")}</dt>
-              <dd>{money(price.cleaningFee, price.currency)}</dd>
-            </div>
-          ) : null}
-          <div className="flex justify-between gap-3 border-t border-border pt-2 font-semibold">
-            <dt>{t("total")}</dt>
-            <dd>{money(total, price.currency)}</dd>
-          </div>
-        </dl>
-      ) : null}
+      {quote ? <PriceBreakdown quote={quote} /> : null}
       <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 border-t border-border pt-3">
         {canContact ? (
           <Button variant="ghost" size="sm" className="h-11" disabled={revealing} onClick={() => contact(primary)}>

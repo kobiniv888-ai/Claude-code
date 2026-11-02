@@ -3,7 +3,9 @@
   "crons": [
     { "path": "/api/cron/exchange-rates", "schedule": "13 3 * * *" },
     { "path": "/api/cron/expire-listings", "schedule": "7 * * * *" },
-    { "path": "/api/cron/ical-sync", "schedule": "23 */3 * * *" },
+    { "path": "/api/cron/ical-sync", "schedule": "23 * * * *" },
+    { "path": "/api/cron/booking-reminders", "schedule": "17 6 * * *" },
+    { "path": "/api/cron/complete-bookings", "schedule": "47 4 * * *" },
     { "path": "/api/cron/cleanup", "schedule": "41 2 * * *" }
   ]
 }

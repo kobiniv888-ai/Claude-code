@@ -37,7 +37,8 @@ const flags = { chat: false, savedSearchAlerts: false, reviews: false };
 describe("account nav", () => {
   it("hides Phase 2 sections until their flag is on", () => {
     const keys = accountNavItems(flags).map((i) => i.key);
-    expect(keys).toEqual(["overview", "listings", "favorites", "compare", "tickets", "verification", "settings"]);
+    expect(keys).toEqual(["overview", "trips", "listings", "favorites", "compare", "tickets", "verification", "settings"]);
+    expect(accountNavItems(flags, { host: true }).map((i) => i.key)).toContain("hostBookings");
     const withChat = accountNavItems({ ...flags, chat: true, reviews: true }).map((i) => i.key);
     expect(withChat).toContain("messages");
     expect(withChat).toContain("reviews");

@@ -8,6 +8,10 @@ import { execSync } from "node:child_process";
 
 const run = (cmd) => execSync(cmd, { stdio: "inherit" });
 
-if (process.env.DB_PUSH_ON_BUILD === "true") run("npx prisma db push");
+if (process.env.DB_PUSH_ON_BUILD === "true") {
+  // Lets the push add the booking index without a consent prompt (see the file; idempotent).
+  run("npx prisma db execute --file prisma/sql/before-push.sql");
+  run("npx prisma db push");
+}
 if (process.env.SEED_ON_BUILD === "true") run("npm run db:seed");
 run("npx next build");

@@ -38,13 +38,19 @@ export function maskPhone(phone: string): string {
 export async function sendSms(input: {
   to: string;
   body: string;
-  /** Logged instead of the body when it holds a secret (a login code). */
+  /** Logged instead of the body when it holds a secret (a login code) or personal details (a booking). */
   logAs?: string;
+  /**
+   * Only log, never send — e.g. demo accounts, whose numbers are made up (a real text to them would
+   * reach a stranger and cost money).
+   */
+  logOnly?: boolean;
 }): Promise<{ ok: boolean; delivered: boolean }> {
-  const config = messagingConfig();
+  const config = input.logOnly ? null : messagingConfig();
   if (!config) {
     const shown = process.env.NODE_ENV === "production" ? (input.logAs ?? input.body) : input.body;
-    console.info(`[sms] Twilio Messaging is not set up — not sent.\n  to: ${input.to}\n  ${shown}`);
+    const why = input.logOnly ? "log only (demo number)" : "Twilio Messaging is not set up";
+    console.info(`[sms] ${why} — not sent.\n  to: ${maskPhone(input.to)}\n  ${shown}`);
     return { ok: true, delivered: false };
   }
   const params = new URLSearchParams({ To: input.to, Body: input.body });

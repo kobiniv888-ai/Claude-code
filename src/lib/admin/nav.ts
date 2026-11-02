@@ -23,6 +23,7 @@ export type AdminNavKey =
   | "overview"
   | "moderation"
   | "reports"
+  | "bookings"
   | "users"
   | "verifications"
   | "tickets"
@@ -58,6 +59,8 @@ export const ADMIN_NAV: readonly AdminNavItem[] = [
   { key: "overview", href: "/admin", permission: null, group: "operations" },
   { key: "moderation", href: "/admin/moderation", permission: "moderation", group: "operations", countKey: "inReview" },
   { key: "reports", href: "/admin/reports", permission: "reports.view", group: "operations", countKey: "openReports" },
+  // Flagged host cancellations and no-shows (read-only; src/lib/booking/admin.ts).
+  { key: "bookings", href: "/admin/bookings", permission: "moderation", group: "operations" },
   { key: "users", href: "/admin/users", permission: "users.view", group: "operations" },
   {
     key: "verifications",

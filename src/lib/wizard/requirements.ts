@@ -5,7 +5,7 @@
  */
 import { siteConfig } from "@/config/site";
 import { stepIssues, type WizardValues } from "./schemas";
-import { stepsFor, type ListingKind, type SavableStepKey, type WizardStepKey } from "./steps";
+import { priceStepFor, stepsFor, type ListingKind, type SavableStepKey, type WizardStepKey } from "./steps";
 
 export const REQUIREMENT_KEYS = [
   "phoneVerified",
@@ -58,7 +58,10 @@ export function missingRequirements({
   const isHotel = kind.dealType === "HOTEL_ROOM";
   const missing: MissingRequirement[] = [];
   if (!phoneVerified) missing.push({ key: "phoneVerified", step: null });
-  for (const { key, step } of STEP_REQUIREMENTS) {
+  for (const requirement of STEP_REQUIREMENTS) {
+    const { key } = requirement;
+    // Short stays and hotels set their price in the "הזמנות ומחיר" step.
+    const step = key === "price" ? priceStepFor(kind) : requirement.step;
     if (key === "price") {
       // Photos come before the price in the wizard; keep the list in step order.
       const photos = photoCount + (isHotel ? roomPhotoCount : 0);

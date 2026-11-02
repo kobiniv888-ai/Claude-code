@@ -17,7 +17,9 @@ import {
  */
 export async function RouteMessages({ route, children }: { route: MessageRoute | "site"; children: ReactNode }) {
   const messages = await getMessages();
-  const covered: readonly string[] = route === "site" ? SHELL_MESSAGES : [...SHELL_MESSAGES, ...SITE_MESSAGES];
+  // A nested segment ("listing/[id]/book") is inside its parent's layout: skip what that sends.
+  const parent = route.includes("/") ? (ROUTE_MESSAGES as Record<string, readonly string[]>)[route.split("/")[0]] ?? [] : [];
+  const covered: readonly string[] = route === "site" ? SHELL_MESSAGES : [...SHELL_MESSAGES, ...SITE_MESSAGES, ...parent];
   const paths = withoutCovered(route === "site" ? SITE_MESSAGES : ROUTE_MESSAGES[route], covered);
   if (paths.length === 0) return children;
   return <MergeMessages messages={pickMessages(messages, paths)}>{children}</MergeMessages>;

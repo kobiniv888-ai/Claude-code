@@ -16,6 +16,7 @@ import { georgiaDate, randomInt, seededRandom } from "../lib";
 import type { PlaceIds } from "../places";
 import { demoUser, demoUserId } from "../users";
 import { ALL_LISTINGS, demoPhotoPath, REMOVED_LISTING_NUMBERS } from "./all";
+import { bookingSettingsFor } from "./booking-settings";
 import photoManifest from "./photo-manifest.json";
 import { contactMethodsFor, demoListingId, listingTimeline, priceChangesFor } from "./timeline";
 import type { ListingSeed } from "./types";
@@ -79,6 +80,7 @@ async function seedListing(db: PrismaClient, seed: ListingSeed, places: PlaceIds
 
   const data = {
     ...seed.fields,
+    ...bookingSettingsFor(seed),
     ...counters(seed),
     ownerId: demoUserId(seed.owner),
     status: seed.status,
@@ -137,7 +139,8 @@ async function seedListing(db: PrismaClient, seed: ListingSeed, places: PlaceIds
   await db.listingPhoto.deleteMany({ where: { listingId: id } });
   await db.roomType.deleteMany({ where: { listingId: id } });
   await db.priceChange.deleteMany({ where: { listingId: id } });
-  await db.availabilityBlock.deleteMany({ where: { listingId: id } });
+  // Booked nights (source BOOKING) belong to bookings: the bookings step rewrites the demo ones.
+  await db.availabilityBlock.deleteMany({ where: { listingId: id, source: { not: "BOOKING" } } });
 
   const roomOfPhoto = new Map<string, string>();
   for (const [i, room] of (seed.roomTypes ?? []).entries()) {

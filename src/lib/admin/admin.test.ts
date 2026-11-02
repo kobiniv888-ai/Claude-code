@@ -13,7 +13,7 @@ describe("admin navigation", () => {
   });
 
   it("filters sections by permission", () => {
-    expect(keys("MODERATOR")).toEqual(["overview", "moderation", "reports", "users", "verifications"]);
+    expect(keys("MODERATOR")).toEqual(["overview", "moderation", "reports", "bookings", "users", "verifications"]);
     expect(keys("SUPPORT")).toEqual(["overview", "reports", "users", "tickets"]);
     expect(keys("EDITOR")).toEqual(["overview", "content"]);
     expect(keys("USER")).toEqual(["overview"]);

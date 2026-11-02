@@ -40,7 +40,8 @@ sync_env | tee -a "$LOG"
 # The database: tables up to date, demo data present and not expired.
 log "── start $(date -u +%FT%TZ) ──"
 for _ in $(seq 1 30); do (echo > /dev/tcp/127.0.0.1/5432) 2>/dev/null && break; sleep 2; done
-npx prisma db push >> "$LOG" 2>&1 || log "prisma db push failed — see $LOG"
+# (before-push.sql: lets the push add the booking index without a consent prompt; idempotent.)
+{ npx prisma db execute --file prisma/sql/before-push.sql && npx prisma db push; } >> "$LOG" 2>&1 || log "prisma db push failed — see $LOG"
 node scripts/db-status.mjs 2>&1 | tee -a "$LOG"
 status=${PIPESTATUS[0]}
 if [ "$status" = "10" ] && [ "${BAYIT_SKIP_AUTO_SEED:-}" != "1" ]; then

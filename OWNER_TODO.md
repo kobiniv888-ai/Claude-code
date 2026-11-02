@@ -36,6 +36,10 @@ This list is kept up to date as the work goes on. It was last updated during red
       `[שם החברה, מספר הרישום והכתובת]`.
 - [ ] A lawyer's review of the Terms of use (booking rules) and the Privacy policy. Both are marked
       as drafts.
+- [ ] **Decide later: no-shows and late cancellations.** Guests pay at arrival, so today a "didn't
+      arrive" report from a host and a cancellation after the free period are only recorded (and
+      host cancellations within 48 hours of a booking are flagged for review). Tell us if you want
+      consequences (warnings, limits on booking) and how they should read in the Terms.
 
 ## Services and keys
 - [ ] **CARTO map key.** Confirm it is registered for commercial use (free up to 1 million tiles a
@@ -68,9 +72,17 @@ so look again before you pay.
       `Bayit <no-reply@your-domain>`). Without it, **email login does not work on the real site**
       (the login form says it isn't available yet) and emails only appear in Admin → Email outbox.
       The 100-a-day free limit is the first one you'd hit: move to Pro when sign-ups grow.
+      **Booking emails use the same keys** (nothing extra to set up): the guest's confirmation
+      (with the address and the host's phone), "new booking" to the host, a reminder to both 3
+      days before arrival, cancellation notices and a thank-you after the stay — about **5 emails
+      per booking**, so the free plan's 100 a day covers roughly 15–20 bookings a day next to the
+      login codes. Without Resend, guests and hosts get **no booking emails** on the real site
+      (they still see everything in "הנסיעות שלי" / "הזמנות לנכסים שלי", and texts go out if Twilio
+      Messaging is set up).
 - [ ] **An SMS service for booking and host phone checks (Twilio).** Without it, the real site says
-      "Phone verification isn't available yet" — so **hosts cannot post** and the booking phone
-      check (next phase) cannot run until it is set up. Costs:
+      "Phone verification isn't available yet" — so **hosts cannot post** and **guests cannot book
+      on the site** (a guest without a verified number sees "booking on the site isn't available
+      yet" on the "אישור הזמנה" page, with "שאלה למארח" — WhatsApp — instead). Costs:
       - Twilio Verify: **$0.05 per successful check** plus the SMS itself.
       - SMS to **Israel: $0.2575** per message; to **Georgia: $0.1684** per message (Twilio's price
         list; carrier fees may be added).
@@ -84,6 +96,24 @@ so look again before you pay.
       `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID`. In **Messaging → Settings → Geo
       permissions** allow only Israel and Georgia, and turn on **Fraud Guard** (protects against
       SMS-pumping fraud).
+- [ ] **Booking text messages (Twilio Messaging).** Booking texts need
+      `TWILIO_MESSAGING_SERVICE_SID` (or `TWILIO_FROM_NUMBER`) — Twilio Verify alone only sends codes,
+      so with Verify only the booking texts are just written to the server log (emails still go
+      out). The texts, each in the person's own language (wording in `messages/<lang>/emails.json`,
+      "sms"):
+      - to the guest: "booking confirmed" (with a link to the address and the host's contact), a
+        reminder 3 days before arrival, and "the host cancelled";
+      - to the host: "new booking" (guest, dates, number of guests), the reminder, and "the guest
+        cancelled".
+      A normal booking sends about **4 texts**. Hebrew, Russian, Arabic and Georgian texts are
+      Unicode (70 characters per SMS part), so each is usually **2–3 parts** — roughly **$0.50–0.80
+      per text to Israel** at the prices above, about $2–3 per booking. If that is too much, tell us
+      and we will send only the confirmation and the cancellation by text (emails cover the rest).
+- [ ] **Scheduled jobs need `CRON_SECRET` and a plan that allows hourly jobs.** Calendar sync now
+      runs every hour (Airbnb / Booking.com imports, to avoid double bookings); booking reminders
+      and "stay completed" run daily. Set `CRON_SECRET` on Vercel, and check that your Vercel plan
+      runs hourly cron jobs (if it only allows daily ones, a free external cron service can call
+      `/api/cron/ical-sync` every hour with the same secret).
 - [ ] **Apple sign-in (optional).** Needs the Apple Developer Program, **$99 a year**, and a real
       https domain. Google + email cover almost everyone, so this can wait.
 - [ ] **Never turn on `AUTH_TEST_MODE` on the real site.** It shows login codes on screen so
@@ -107,5 +137,24 @@ so look again before you pay.
       were kept because the brief doesn't mention them: a small "holidays in your dates" box above
       the search results (only when the chosen dates include a holiday), and holiday dots in the
       date pickers. Say if they should go.
+- [ ] **Guest booking choices (conservative, change any time).** Children are "ages 2 to 12",
+      adults "13+" (labels only; infants under 2 don't count toward the maximum). The booking
+      confirmation is the trip's own page in "הנסיעות שלי" (`/account/trips/BT-…`), so the link in
+      the confirmation email and the page after booking are the same. Short stays and hotels whose
+      host hasn't saved booking settings show "שאלה למארח" instead of "הזמנה". The guest's name
+      for the host is prefilled with the account's first name.
+- [ ] **Host booking choices (conservative, change any time).**
+      - **No weekly/monthly discounts on booked stays.** The booking total is nights × price (+ the
+        weekend price and the cleaning fee). A discount the total doesn't apply would be a broken
+        promise, so the "הזמנות ומחיר" step has no discount fields and saving it clears old ones
+        (demo listings still show theirs until the next seed run). Say if you want discounts back:
+        the booking engine would then apply them too.
+      - **The host sees the guest's phone and WhatsApp** for confirmed and completed bookings only
+        (not after a cancellation).
+      - **Imported calendars:** each link's last result (read OK / why it failed) is shown after
+        "סנכרון עכשיו", and the page re-checks by itself when the last sync is older than 30 minutes.
+        Errors from the hourly sync are not stored (that would need a new database field).
+      - **"How to connect" steps for Airbnb and Booking.com** describe their menus in general words;
+        please check them against the real sites once.
 - [ ] **Footer tagline.** It still says the site has "kosher and Shabbat details". Say if you want
       it to talk about the pledge or booking instead.

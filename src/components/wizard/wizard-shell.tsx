@@ -26,6 +26,7 @@ import { useIssueText } from "./fields";
 import { PublishResult } from "./publish-result";
 import type { StepProps } from "./step-props";
 import { AmenitiesStep } from "./steps/amenities-step";
+import { BookingStep } from "./steps/booking-step";
 import { ContactStep } from "./steps/contact-step";
 import { DealStep } from "./steps/deal-step";
 import { DetailsStep } from "./steps/details-step";
@@ -51,6 +52,7 @@ const STEP_COMPONENTS: Record<WizardStepKey, ComponentType<StepProps>> = {
   photos: PhotosStep,
   rooms: RoomsStep,
   price: PriceStep,
+  booking: BookingStep,
   contact: ContactStep,
   pledge: PledgeStep,
   publish: PublishStep,

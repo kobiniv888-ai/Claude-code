@@ -3,10 +3,13 @@
  * feature flag in siteConfig.features is on.
  */
 import { siteConfig } from "@/config/site";
+import { HOST_BOOKINGS_PATH, TRIPS_PATH } from "@/lib/booking/constants";
 
 export const ACCOUNT_NAV_KEYS = [
   "overview",
+  "trips",
   "listings",
+  "hostBookings",
   "favorites",
   "compare",
   "messages",
@@ -22,7 +25,9 @@ export type AccountNavItem = { key: AccountNavKey; href: string };
 
 const HREFS: Record<AccountNavKey, string> = {
   overview: "/account",
+  trips: TRIPS_PATH,
   listings: "/account/listings",
+  hostBookings: HOST_BOOKINGS_PATH,
   favorites: "/account/favorites",
   compare: "/account/compare",
   messages: "/account/messages",
@@ -42,8 +47,13 @@ const FLAG_FOR: Partial<Record<AccountNavKey, keyof FeatureFlags>> = {
   reviews: "reviews",
 };
 
-export function accountNavItems(features: FeatureFlags = siteConfig.features): AccountNavItem[] {
+/**
+ * `host`: the user has a place guests can book, or bookings of their places — only hosts see
+ * "הזמנות לנכסים שלי".
+ */
+export function accountNavItems(features: FeatureFlags = siteConfig.features, options: { host?: boolean } = {}): AccountNavItem[] {
   return ACCOUNT_NAV_KEYS.filter((key) => {
+    if (key === "hostBookings") return options.host === true;
     const flag = FLAG_FOR[key];
     return !flag || features[flag];
   }).map((key) => ({ key, href: HREFS[key] }));

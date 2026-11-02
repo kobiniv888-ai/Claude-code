@@ -74,8 +74,7 @@ test("a new user signs up, posts a listing with photos and it goes into review",
   await next(page);
   // 4 Details
   await expectStep(page, 4, "Tell guests about the place");
-  await page.getByRole("button", { name: "More: Maximum guests" }).click();
-  await page.getByRole("button", { name: "More: Maximum guests" }).click();
+  // (Short stays set the maximum number of guests in "Bookings and price", step 8.)
   const title = `E2E Mountain flat in Mestia ${Date.now().toString(36)}`;
   await page.getByRole("textbox", { name: "Title" }).fill(title);
   await page
@@ -95,9 +94,12 @@ test("a new user signs up, posts a listing with photos and it goes into review",
   await expect(page.getByText("Enough photos to publish")).toBeVisible({ timeout: 90_000 });
   await expect(page.getByText(/^6 photos/)).toBeVisible();
   await next(page);
-  // 8 Price
-  await expectStep(page, 8, "Price and availability");
-  await page.getByRole("textbox", { name: "Price", exact: true }).fill("95");
+  // 8 Bookings and price (short stays, round 2 phase 4): nightly price, guests, payment on arrival
+  await expectStep(page, 8, "Bookings and price");
+  await page.getByRole("textbox", { name: "Price per night", exact: true }).fill("95");
+  await page.getByRole("button", { name: "More: Maximum guests" }).click();
+  await page.getByRole("button", { name: "More: Maximum guests" }).click();
+  await choose(page.getByRole("checkbox", { name: "Cash" }));
   await next(page);
   // 9 Contact: the verified phone is already filled in for WhatsApp
   await expectStep(page, 9, "How should guests contact you?");

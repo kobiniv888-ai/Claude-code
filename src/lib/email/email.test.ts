@@ -23,6 +23,20 @@ vi.mock("@/lib/db", () => ({
 const { EMAIL_TEMPLATES, isPlaceholderEmail, notificationEmailFor, renderEmail, sendEmail } = await import("./index");
 type Data = import("./templates").EmailData;
 
+const bookingStay = {
+  code: "BT-7K3Q9",
+  listingTitle: "Sunny flat in Vake",
+  checkIn: "2026-11-12",
+  checkOut: "2026-11-15",
+  nights: 3,
+  adults: 2,
+  children: 1,
+  infants: 1,
+  total: 275,
+  currency: "USD" as const,
+  bookingUrl: "/account/bookings/BT-7K3Q9",
+};
+
 const samples: { [K in keyof Data]: Data[K] } = {
   login_code: { code: "482913", minutes: 5, name: "Dana" },
   welcome: { name: "Dana" },
@@ -59,6 +73,48 @@ const samples: { [K in keyof Data]: Data[K] } = {
   account_warning: { name: "Dana", reasonText: "Duplicate listings" },
   account_suspended: { name: "Dana", reasonText: "Repeated scam reports", until: "2026-12-01" },
   account_deleted: { name: "Dana" },
+  booking_confirmed_guest: {
+    ...bookingStay,
+    bookingUrl: "/account/trips/BT-7K3Q9",
+    guestName: "Noa",
+    checkInFrom: "14:00",
+    checkOutUntil: "11:00",
+    address: "12 Abashidze St, Tbilisi",
+    hostName: "Yossi",
+    hostPhone: "+995555000011",
+    hostWhatsapp: "+995555000011",
+    paymentMethods: ["cash", "card"],
+    cancellationPolicy: "MODERATE",
+    freeCancellationUntil: new Date("2026-11-07T10:00:00Z"),
+    displayTotal: { amount: 1012.5, currency: "ILS" },
+  },
+  booking_new_host: {
+    ...bookingStay,
+    roomTypeName: "Double room",
+    hostName: "Yossi",
+    guestName: "Noa",
+    guestPhone: "+995555000021",
+    messageToHost: "We land at 2 am.\nIs a late check-in OK?",
+  },
+  booking_reminder_guest: {
+    ...bookingStay,
+    bookingUrl: "/account/trips/BT-7K3Q9",
+    guestName: "Noa",
+    paymentMethods: [],
+    address: "12 Abashidze St, Tbilisi",
+    daysLeft: 3,
+  },
+  booking_reminder_host: { ...bookingStay, hostName: "Yossi", guestName: "Noa", guestPhone: "+995555000021", daysLeft: 1 },
+  booking_cancelled_by_guest: { ...bookingStay, hostName: "Yossi", guestName: "Noa", reasonCode: "OTHER", reasonText: "Family event", late: true },
+  booking_cancelled_by_host: {
+    ...bookingStay,
+    bookingUrl: "/account/trips/BT-7K3Q9",
+    guestName: "Noa",
+    reasonCode: "PROPERTY_ISSUE",
+    reasonText: null,
+    searchUrl: "/search?deal=short-stay&checkIn=2026-11-12&checkOut=2026-11-15",
+  },
+  booking_completed: { code: "BT-7K3Q9", listingTitle: "Sunny flat in Vake", checkIn: "2026-11-12", checkOut: "2026-11-15", bookingUrl: "/account/trips/BT-7K3Q9", guestName: "Noa" },
 };
 
 afterEach(() => {
@@ -111,6 +167,33 @@ describe("renderEmail", () => {
     expect(ar.subject).toContain("بانتظار ردك");
     const expiring = await renderEmail("listing_expiring", "ar", samples.listing_expiring);
     expect(expiring.subject).not.toMatch(/[٠-٩]/);
+  });
+});
+
+describe("booking emails", () => {
+  it("shows the stay, the pay-on-arrival line and the policy deadline in Hebrew", async () => {
+    const email = await renderEmail("booking_confirmed_guest", "he", samples.booking_confirmed_guest);
+    expect(email.subject).toContain("BT-7K3Q9");
+    expect(email.text).toContain("BT-7K3Q9");
+    expect(email.text).toContain("12 Abashidze St, Tbilisi");
+    expect(email.text).toContain("+995555000011");
+    expect(email.text).toContain("בדולרים");
+    expect(email.text).toContain("מזומן, כרטיס אשראי");
+    expect(email.text).toContain("בינונית");
+    expect(email.text).toMatch(/2 מבוגרים, ילד אחד, תינוק אחד/);
+    expect(email.text).toMatch(/\/he\/account\/trips\/BT-7K3Q9/);
+    expect(email.text).not.toMatch(/[٠-٩]/);
+  });
+
+  it("gives the host the guest's phone and message, and the guest a way to report a cancellation", async () => {
+    const host = await renderEmail("booking_new_host", "ru", samples.booking_new_host);
+    expect(host.text).toContain("+995555000021");
+    expect(host.text).toContain("Is a late check-in OK?");
+    const cancelled = await renderEmail("booking_cancelled_by_host", "en", samples.booking_cancelled_by_host);
+    expect(cancelled.text).toContain("A problem with the property");
+    expect(cancelled.html).toMatch(/\/en\/search\?deal=short-stay/);
+    const late = await renderEmail("booking_cancelled_by_guest", "ar", samples.booking_cancelled_by_guest);
+    expect(late.text).toContain("Family event");
   });
 });
 

@@ -97,14 +97,19 @@ export async function renderEmail<K extends EmailTemplate>(
   data: EmailData[K],
 ): Promise<RenderedEmail> {
   const locale: AppLocale = isAppLocale(localeInput) ? localeInput : siteConfig.i18n.fallbackLocale;
-  const translate = await getTranslations({ locale, namespace: "emails" });
+  const [translate, translateBooking] = await Promise.all([
+    getTranslations({ locale, namespace: "emails" }),
+    getTranslations({ locale, namespace: "booking" }),
+  ]);
   const t = (key: string, values?: Record<string, string | number>) => translate(key, values);
+  const tb = (key: string, values?: Record<string, string | number>) => translateBooking(key, values);
   const brand = siteConfig.localizedName[locale] ?? siteConfig.name;
   const page = (path: string) => pageUrl(locale, path);
 
   const templateContext: TemplateContext = {
     locale,
     t,
+    tb,
     url: (value) => safeUrl(locale, value),
     page,
     formatDate: (date) => formatDate(date, locale, { dateStyle: "long" }),

@@ -14,6 +14,7 @@ import { z } from "zod";
 import { locales, siteConfig, type AppLocale, type CurrencyCode } from "@/config/site";
 import type {
   BuildingAge,
+  CancellationPolicy,
   DealType,
   HeatingType,
   KitchenKosher,
@@ -23,6 +24,7 @@ import type {
   SharedRoomFor,
   ViewType,
 } from "@/generated/prisma/enums";
+import { CANCELLATION_POLICIES, MAX_STAY_NIGHTS, PAYMENT_METHODS, type PaymentMethod } from "@/lib/booking/constants";
 import { enabledCurrencies } from "@/lib/currency/convert";
 import {
   AMENITIES,
@@ -40,7 +42,7 @@ import {
   type ContactChannelKey,
   type ContactMethod,
 } from "@/lib/listing/fields";
-import { applies, isPropertyTypeAllowed, type ListingKind, type SavableStepKey } from "./steps";
+import { applies, isPropertyTypeAllowed, usesBookingStep, type ListingKind, type SavableStepKey } from "./steps";
 
 // ─── Values ───────────────────────────────────────────────────
 
@@ -109,6 +111,11 @@ export type WizardValues = {
   weeklyDiscountPct: number | null;
   monthlyDiscountPct: number | null;
   icalImportUrls: string[];
+  // "הזמנות ומחיר" (short stays and hotels; the step also edits price, currency, cleaning fee,
+  // deposit, minimum nights, maximum guests and the check-in/out times above)
+  weekendPrice: number | null;
+  cancellationPolicy: CancellationPolicy;
+  paymentMethodsAtCheckIn: PaymentMethod[];
   // 9
   contactMethods: ContactMethod[];
   contactHoursFrom: string;
@@ -135,6 +142,11 @@ export const STEP_FIELDS = {
   price: [
     "price", "currency", "pricePeriod", "deposit", "cleaningFee", "utilitiesIncluded", "utilitiesEstimate",
     "minStayNights", "weeklyDiscountPct", "monthlyDiscountPct", "icalImportUrls",
+  ],
+  // iCal links are not here: they are managed on the listing's calendar page.
+  booking: [
+    "price", "currency", "pricePeriod", "weekendPrice", "cleaningFee", "deposit", "minStayNights", "maxGuests",
+    "checkInFrom", "checkOutUntil", "cancellationPolicy", "paymentMethodsAtCheckIn",
   ],
   contact: ["contactMethods", "contactHoursFrom", "contactHoursTo", "noReplyOnShabbat"],
 } as const satisfies Record<SavableStepKey, readonly (keyof WizardValues)[]>;
@@ -365,6 +377,22 @@ export const priceStepSchema = z.object({
     .transform((list) => [...new Set(list.filter(Boolean))]),
 });
 
+/** "הזמנות ומחיר": prices per night, stay rules and booking terms (short stays and hotels). */
+export const bookingStepSchema = z.object({
+  price: money(LIMITS.priceMax),
+  currency: enabledCurrency,
+  pricePeriod: z.enum(["NIGHT", "WEEK", "MONTH", "TOTAL"]),
+  weekendPrice: money(LIMITS.priceMax),
+  cleaningFee: money(LIMITS.feeMax),
+  deposit: money(LIMITS.feeMax),
+  minStayNights: int(1, MAX_STAY_NIGHTS),
+  maxGuests: int(1, 100),
+  checkInFrom: time,
+  checkOutUntil: time,
+  cancellationPolicy: z.enum(CANCELLATION_POLICIES, "pickOne"),
+  paymentMethodsAtCheckIn: uniqueKeys(PAYMENT_METHODS),
+});
+
 export const contactMethodSchema = z.object({
   channel: z.enum(CONTACT_CHANNELS),
   value: z.string().trim().max(200, "tooLong"),
@@ -392,6 +420,7 @@ export const stepSaveSchemas = {
   amenities: amenitiesStepSchema,
   jewish: jewishStepSchema,
   price: priceStepSchema,
+  booking: bookingStepSchema,
   contact: contactStepSchema,
 } satisfies Record<SavableStepKey, z.ZodType>;
 
@@ -436,7 +465,8 @@ function requiredIssues(step: SavableStepKey, v: WizardValues, kind: ListingKind
       const description = v.description.trim();
       if (!into.title && title.length < LIMITS.titleMin) into.title = "titleTooShort";
       if (!into.description && description.length < LIMITS.descriptionMin) into.description = "descriptionTooShort";
-      if (kind.dealType === "SHORT_STAY") need("maxGuests");
+      // Short stays enter their maximum guests in the booking step.
+      if (kind.dealType === "SHORT_STAY" && !usesBookingStep(kind)) need("maxGuests");
       if (kind.dealType === "SALE") need("sizeSqm");
       if (kind.dealType === "SALE" || kind.dealType === "MONTHLY_RENT") need("rooms");
       if (applies("sharedRoomFor", kind)) need("sharedRoomFor");
@@ -456,6 +486,15 @@ function requiredIssues(step: SavableStepKey, v: WizardValues, kind: ListingKind
       // Hotels may leave their own price empty and show "from" the cheapest room type.
       if (kind.dealType !== "HOTEL_ROOM" && (blank(v.price) || v.price === 0)) into.price = into.price ?? "priceRequired";
       if (!PRICE_PERIODS_BY_DEAL[kind.dealType].includes(v.pricePeriod)) into.pricePeriod = "pickOne";
+      break;
+    case "booking":
+      // Booked stays are priced per night. Hotels may leave their own price empty and show
+      // "from" the cheapest room type (each room type then has its own nightly price).
+      if (kind.dealType !== "HOTEL_ROOM" && (blank(v.price) || v.price === 0 || v.pricePeriod !== "NIGHT")) {
+        into.price = into.price ?? "priceRequired";
+      }
+      if (kind.dealType === "SHORT_STAY") need("maxGuests");
+      if (v.paymentMethodsAtCheckIn.length === 0) into.paymentMethodsAtCheckIn = "paymentMethodRequired";
       break;
     case "contact": {
       if (v.contactMethods.length === 0) into.contactMethods = "contactRequired";
@@ -486,6 +525,7 @@ export const REQUIRED_CODES = new Set([
   "cityRequired",
   "pinRequired",
   "priceRequired",
+  "paymentMethodRequired",
   "contactRequired",
   "pickOne",
   "titleTooShort",

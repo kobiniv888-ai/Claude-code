@@ -6,13 +6,34 @@ import { useCurrency } from "@/components/providers/currency-provider";
 import type { CurrencyCode } from "@/config/site";
 import type { PricePeriod } from "@/generated/prisma/enums";
 import { formatMoney } from "@/lib/format";
+import { bookHref, clampGuests, withBookParams, type GuestCounts } from "@/lib/booking/guest";
+import { quoteStay, type Quote } from "@/lib/booking/pricing";
 import type { DateBlock } from "@/lib/listing-page/calendar";
-import { bookingPath, nightsBetween, stayTotal, withStayParams, type PickRules, type StayDates } from "@/lib/listing-page/stay";
+import { nightsBetween, withStayParams, type PickRules, type StayDates } from "@/lib/listing-page/stay";
 
 /** Left-to-right isolate for a price inside a translated sentence. */
 const isolate = (text: string) => `⁦${text}⁩`;
 
-export type StayPrice = { amount: number | null; currency: CurrencyCode; period: PricePeriod; from: boolean; cleaningFee: number | null };
+export type StayPrice = {
+  amount: number | null;
+  currency: CurrencyCode;
+  period: PricePeriod;
+  from: boolean;
+  cleaningFee: number | null;
+  /** Friday and Saturday nights (booking settings), else the nightly price. */
+  weekendPrice?: number | null;
+};
+
+/** Replaces the address in place (no server round trip), keeping the other parameters. */
+function replaceSearch(update: (search: string) => string) {
+  try {
+    const url = new URL(window.location.href);
+    const href = `${url.pathname}${update(url.search)}${url.hash}`;
+    if (href !== `${url.pathname}${url.search}${url.hash}`) window.history.replaceState(window.history.state, "", href);
+  } catch {
+    // The address could not be updated (old browser): the page still works with the state.
+  }
+}
 
 type StayState = {
   dates: StayDates;
@@ -22,9 +43,18 @@ type StayState = {
   /** How many months ahead the calendar can page (the loaded booked dates cover them). */
   maxMonths: number;
   price: StayPrice;
+  /** Adults, children, infants (the dates and guests sheet; in the address as adults/children/infants). */
+  guests: GuestCounts;
+  setGuests: (guests: GuestCounts) => void;
+  /** Adults + children the place takes (null = no limit set). */
+  maxGuests: number | null;
+  /** Guests book on the site (bookingMode INSTANT); otherwise "Book" becomes "Ask the host". */
+  instant: boolean;
+  /** The price of the chosen nights (weekday/weekend lines, cleaning fee), or null. */
+  quote: Quote | null;
   /** The total in the host's currency, or null (no dates yet, a "from" price, not per night). */
   total: number | null;
-  /** /listing/<id>/book?checkIn&checkOut&guests once both dates are chosen. */
+  /** /listing/<id>/book?checkIn&checkOut&adults… once both dates are chosen. */
   bookHref: string | null;
   sheetOpen: boolean;
   setSheetOpen: (open: boolean) => void;
@@ -46,7 +76,10 @@ export function useStay(): StayState {
  */
 export function StayProvider({
   initial,
-  guests,
+  guests: guestCount,
+  initialGuests,
+  maxGuests = null,
+  instant = true,
   blocks,
   today,
   minNights,
@@ -56,7 +89,11 @@ export function StayProvider({
   children,
 }: {
   initial: StayDates;
+  /** The search's single guest count (older links): becomes adults when `initialGuests` is not given. */
   guests: number | null;
+  initialGuests?: GuestCounts | null;
+  maxGuests?: number | null;
+  instant?: boolean;
   blocks: DateBlock[];
   /** "YYYY-MM-DD" in Georgia, from the server (so both render the same month). */
   today: string;
@@ -69,20 +106,30 @@ export function StayProvider({
 }) {
   const [dates, setState] = useState<StayDates>(initial);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [guests, setGuestState] = useState<GuestCounts>(() => clampGuests(initialGuests ?? { adults: guestCount ?? 1 }, maxGuests));
+  const { currency: displayCurrency, rates } = useCurrency();
   const setDates = useCallback((next: StayDates) => {
     setState(next);
-    try {
-      const url = new URL(window.location.href);
-      const href = `${url.pathname}${withStayParams(url.search, next)}${url.hash}`;
-      if (href !== `${url.pathname}${url.search}${url.hash}`) window.history.replaceState(window.history.state, "", href);
-    } catch {
-      // The address could not be updated (old browser): the page still works with the state.
-    }
+    replaceSearch((search) => withStayParams(search, next));
+  }, []);
+  const setGuests = useCallback((next: GuestCounts) => {
+    setGuestState(next);
+    replaceSearch((search) => withBookParams(search, { guests: next }));
   }, []);
 
   const value = useMemo<StayState>(() => {
     const nights = dates.checkIn && dates.checkOut ? nightsBetween(dates.checkIn, dates.checkOut) : 0;
     const perNight = price.amount && price.amount > 0 && price.period === "NIGHT" && !price.from ? price.amount : null;
+    // The same pure rules as the review page and the server (the picker already keeps the minimum).
+    const result =
+      nights > 0 && perNight && dates.checkIn && dates.checkOut
+        ? quoteStay(
+            { currency: price.currency, nightlyPrice: perNight, weekendPrice: price.weekendPrice, cleaningFee: price.cleaningFee },
+            { checkIn: dates.checkIn, checkOut: dates.checkOut, adults: 1 },
+            { today, displayCurrency, rates },
+          )
+        : null;
+    const quote = result?.ok ? result.quote : null;
     return {
       dates,
       setDates,
@@ -90,12 +137,17 @@ export function StayProvider({
       rules: { blocks, today, minNights },
       maxMonths,
       price,
-      total: nights > 0 && perNight ? stayTotal(perNight, nights, price.cleaningFee) : null,
-      bookHref: nights > 0 ? bookingPath(listingPath, dates, guests) : null,
+      guests,
+      setGuests,
+      maxGuests,
+      instant,
+      quote,
+      total: quote?.total ?? null,
+      bookHref: nights > 0 ? bookHref(listingPath, { checkIn: dates.checkIn, checkOut: dates.checkOut, guests }) : null,
       sheetOpen,
       setSheetOpen,
     };
-  }, [dates, setDates, blocks, today, minNights, maxMonths, price, listingPath, guests, sheetOpen]);
+  }, [dates, setDates, blocks, today, minNights, maxMonths, price, listingPath, guests, setGuests, maxGuests, instant, displayCurrency, rates, sheetOpen]);
 
   return <StayContext.Provider value={value}>{children}</StayContext.Provider>;
 }

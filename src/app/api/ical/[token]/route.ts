@@ -6,7 +6,9 @@ import { rateLimitByIp, rateLimitHeaders } from "@/lib/rate-limit";
  * GET /api/ical/<icalToken>   (also /api/ical/<icalToken>.ics)
  * The listing's blocked dates as an iCalendar feed for Airbnb, Booking.com or Google Calendar.
  * Works for every listing that is not deleted (owners often connect calendars before
- * publishing). The feed contains only dates — no names, notes or addresses.
+ * publishing). The feed contains only dates — no names, notes or addresses: bookings made on
+ * Bayit show as "Reserved", everything else (the host's own blocks, imported calendars) as
+ * "Not available".
  */
 
 export const runtime = "nodejs";
@@ -44,7 +46,7 @@ export async function GET(_request: Request, context: Context) {
         status: true,
         availability: {
           where: { endDate: { gte: since } },
-          select: { id: true, startDate: true, endDate: true },
+          select: { id: true, startDate: true, endDate: true, source: true },
           orderBy: { startDate: "asc" },
           take: 2000,
         },

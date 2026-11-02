@@ -186,6 +186,64 @@
       "body2": "شكرًا لكونك جزءًا من {brand}. يسعدنا عودتك في أي وقت.",
       "body3": "لم تطلب ذلك؟ تواصل معنا فورًا.",
       "cta": "تواصل معنا"
+    },
+    "booking_confirmed_guest": {
+      "subject": "تم تأكيد الحجز: {title} ({code})",
+      "preheader": "{dates}. العنوان وبيانات المضيف في الداخل.",
+      "heading": "تم تأكيد حجزك",
+      "body1": "تم تأكيد الحجز {code} في {title}، والتواريخ محجوزة لك.",
+      "body2": "في صفحة الحجز تجد كل التفاصيل، ويمكنك إضافة الرحلة إلى التقويم والإلغاء وفق سياسة الإلغاء.",
+      "cta": "عرض الحجز"
+    },
+    "booking_new_host": {
+      "subject": "حجز جديد: {title}، {dates}",
+      "preheader": "حجز جديد من {guest}.",
+      "heading": "لديك حجز جديد",
+      "body1": "وصل حجز من {guest} لـ{title} في التواريخ {dates}. الحجز مؤكد، وأُغلقت التواريخ في تقويمك على الموقع.",
+      "body2": "إذا كان المكان معروضًا أيضًا على Airbnb أو Booking.com، فتأكد من مزامنة التقويمات لتجنب الحجز المزدوج. يدفع الضيف لك عند الوصول.",
+      "pledge": "كما تعهدت على {brand}، كل ضيف مرحب به. لا يمكن إلغاء الحجز إلا لسبب حقيقي، ونراجع كل إلغاء.",
+      "cta": "عرض الحجز"
+    },
+    "booking_reminder_guest": {
+      "subject": "تذكير: الوصول إلى {title} {count, plural, =0 {اليوم} =1 {غدًا} =2 {بعد يومين} few {بعد {count} أيام} many {بعد {count} يومًا} other {بعد {count} يوم}}",
+      "preheader": "{dates}. العنوان ووقت الوصول وبيانات المضيف.",
+      "heading": "{count, plural, =0 {رحلتك تبدأ اليوم} =1 {رحلتك تبدأ غدًا} =2 {رحلتك تبدأ بعد يومين} few {رحلتك تبدأ بعد {count} أيام} many {رحلتك تبدأ بعد {count} يومًا} other {رحلتك تبدأ بعد {count} يوم}}",
+      "body1": "تذكير قصير قبل وصولك إلى {title}. إليك كل ما تحتاجه:",
+      "cta": "عرض الحجز"
+    },
+    "booking_reminder_host": {
+      "subject": "تذكير: يصل {guest} {count, plural, =0 {اليوم} =1 {غدًا} =2 {بعد يومين} few {بعد {count} أيام} many {بعد {count} يومًا} other {بعد {count} يوم}}",
+      "preheader": "{title}، {dates}.",
+      "heading": "{count, plural, =0 {يصل ضيف اليوم} =1 {يصل ضيف غدًا} =2 {يصل ضيف بعد يومين} few {يصل ضيف بعد {count} أيام} many {يصل ضيف بعد {count} يومًا} other {يصل ضيف بعد {count} يوم}}",
+      "body1": "تذكير: يصل {guest} إلى {title} {count, plural, =0 {اليوم} =1 {غدًا} =2 {بعد يومين} few {بعد {count} أيام} many {بعد {count} يومًا} other {بعد {count} يوم}}.",
+      "body2": "أرسل للضيف رسالة قصيرة بإرشادات الوصول، وتأكد من أن المكان جاهز.",
+      "cta": "عرض الحجز"
+    },
+    "booking_cancelled_by_guest": {
+      "subject": "أُلغي الحجز {code}: {title}",
+      "preheader": "أُلغي حجز {guest} لتواريخ {dates}.",
+      "heading": "تم إلغاء حجز",
+      "body1": "ألغى {guest} الحجز {code} في {title} ({dates}).",
+      "body2": "التواريخ متاحة للحجز من جديد على الموقع. لا حاجة لفعل أي شيء.",
+      "late": "جاء الإلغاء بعد انتهاء فترة الإلغاء المجاني في سياستك. يدفع الضيوف عند الوصول، لذلك لم يُخصم شيء، لكننا سجلناه كإلغاء متأخر.",
+      "cta": "عرض حجوزاتك"
+    },
+    "booking_cancelled_by_host": {
+      "subject": "ألغى المضيف الحجز {code}",
+      "preheader": "{dates}. لم يُخصم منك أي مبلغ.",
+      "heading": "ألغى المضيف حجزك",
+      "body1": "نأسف: ألغى مضيف {title} الحجز {code} لتواريخ {dates}.",
+      "body2": "لم تدفع شيئًا، لأن الدفع على {brand} يكون عند الوصول فقط. يمكنك البحث عن مكان آخر للتواريخ نفسها.",
+      "report": "نراجع كل إلغاء من المضيف. إذا كان لديك سبب للاعتقاد بأن الحجز أُلغي بسبب هوية الضيف، فأخبرنا عبر مركز المساعدة في {brand}.",
+      "cta": "البحث عن مكان آخر"
+    },
+    "booking_completed": {
+      "subject": "شكرًا لإقامتك في {title}",
+      "preheader": "انتهت إقامتك. يسعدنا أن نراك مجددًا على {brand}.",
+      "heading": "انتهت إقامتك",
+      "body1": "انتهت إقامتك في {title} ({dates}). نأمل أنك استمتعت بها.",
+      "body2": "يبقى الحجز في قائمة رحلاتك على {brand} مع كل تفاصيله.",
+      "cta": "رحلاتي"
     }
   },
   "ticketStatus": {
@@ -207,5 +265,40 @@
     "OWNERSHIP": "إثبات الملكية",
     "BUSINESS": "تسجيل النشاط التجاري",
     "PROPERTY": "فحص العقار"
+  },
+  "booking": {
+    "codeLabel": "رقم الحجز",
+    "placeLabel": "المكان",
+    "roomLabel": "نوع الغرفة",
+    "checkInLabel": "الوصول",
+    "checkOutLabel": "المغادرة",
+    "nightsLabel": "الليالي",
+    "guestsLabel": "الضيوف",
+    "totalLabel": "المجموع (عند الوصول)",
+    "arrivalLabel": "وقت الوصول",
+    "departureLabel": "وقت المغادرة",
+    "fromTime": "من الساعة {time}",
+    "untilTime": "حتى الساعة {time}",
+    "addressLabel": "العنوان",
+    "hostLabel": "المضيف",
+    "hostPhoneLabel": "هاتف المضيف",
+    "hostWhatsappLabel": "واتساب",
+    "guestLabel": "الضيف",
+    "guestPhoneLabel": "هاتف الضيف",
+    "messageLabel": "رسالة من الضيف",
+    "reasonLabel": "سبب الإلغاء",
+    "policyLabel": "سياسة الإلغاء",
+    "payLine": "تدفع للمضيف {amount} عند الوصول، {currency}.",
+    "payLineMethods": "تدفع للمضيف {amount} عند الوصول، {currency}. طرق الدفع: {methods}.",
+    "estimateLine": "تقدير بعملتك: {amount}.",
+    "listSeparator": "، "
+  },
+  "sms": {
+    "booking_confirmed_guest": "{brand}: تم تأكيد الحجز {code}. {title}، {dates}. العنوان وبيانات المضيف: {url}",
+    "booking_new_host": "{brand}: حجز جديد {code} من {guest}، {dates}، {guests}. التفاصيل: {url}",
+    "booking_reminder_guest": "{brand}: الوصول إلى {title} {count, plural, =0 {اليوم} =1 {غدًا} =2 {بعد يومين} few {بعد {count} أيام} many {بعد {count} يومًا} other {بعد {count} يوم}}. العنوان وبيانات المضيف: {url}",
+    "booking_reminder_host": "{brand}: يصل {guest} {count, plural, =0 {اليوم} =1 {غدًا} =2 {بعد يومين} few {بعد {count} أيام} many {بعد {count} يومًا} other {بعد {count} يوم}} (الحجز {code}). {url}",
+    "booking_cancelled_by_guest": "{brand}: ألغى الضيف الحجز {code} ({dates}). التواريخ متاحة من جديد. {url}",
+    "booking_cancelled_by_host": "{brand}: ألغى المضيف الحجز {code} ({dates}). لم يُخصم منك أي مبلغ. {url}"
   }
 }

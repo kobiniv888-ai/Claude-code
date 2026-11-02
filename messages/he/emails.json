@@ -186,6 +186,64 @@
       "body2": "תודה שהיית חלק מ-{brand}. תמיד אפשר לחזור.",
       "body3": "לא ביקשת את זה? נא לפנות אלינו מיד.",
       "cta": "צור קשר"
+    },
+    "booking_confirmed_guest": {
+      "subject": "ההזמנה אושרה: {title} ({code})",
+      "preheader": "{dates}. הכתובת ופרטי המארח בפנים.",
+      "heading": "ההזמנה שלך אושרה",
+      "body1": "ההזמנה {code} אושרה, והתאריכים שמורים לך. המקום: {title}.",
+      "body2": "בעמוד ההזמנה אפשר לראות את כל הפרטים, להוסיף את הנסיעה ליומן ולבטל לפי מדיניות הביטול.",
+      "cta": "לפרטי ההזמנה"
+    },
+    "booking_new_host": {
+      "subject": "הזמנה חדשה: {title}, {dates}",
+      "preheader": "הזמנה חדשה מאת {guest}.",
+      "heading": "יש לך הזמנה חדשה",
+      "body1": "התקבלה הזמנה חדשה מאת {guest} למקום {title}, בתאריכים {dates}. ההזמנה מאושרת, והתאריכים נחסמו ביומן שלך באתר.",
+      "body2": "אם המקום מפורסם גם ב-Airbnb או ב-Booking, כדאי לוודא שהיומנים מסונכרנים כדי למנוע הזמנה כפולה. האורח משלם לך בהגעה.",
+      "pledge": "כמו שהתחייבת באתר {brand}, כל אורח מתקבל בברכה. ביטול הזמנה אפשרי רק מסיבה מוצדקת, וכל ביטול נבדק.",
+      "cta": "לפרטי ההזמנה"
+    },
+    "booking_reminder_guest": {
+      "subject": "תזכורת: {title}, ההגעה {count, plural, =0 {היום} =1 {מחר} =2 {בעוד יומיים} other {בעוד {count} ימים}}",
+      "preheader": "{dates}. הכתובת, שעת ההגעה ופרטי המארח.",
+      "heading": "{count, plural, =0 {הנסיעה מתחילה היום} =1 {הנסיעה מתחילה מחר} =2 {הנסיעה מתחילה בעוד יומיים} other {הנסיעה מתחילה בעוד {count} ימים}}",
+      "body1": "תזכורת קצרה לפני ההגעה למקום {title}. הנה כל מה שצריך:",
+      "cta": "לפרטי ההזמנה"
+    },
+    "booking_reminder_host": {
+      "subject": "תזכורת: ההגעה של {guest} {count, plural, =0 {היום} =1 {מחר} =2 {בעוד יומיים} other {בעוד {count} ימים}}",
+      "preheader": "{title}, {dates}.",
+      "heading": "{count, plural, =0 {אורח מגיע היום} =1 {אורח מגיע מחר} =2 {אורח מגיע בעוד יומיים} other {אורח מגיע בעוד {count} ימים}}",
+      "body1": "תזכורת: ההגעה של {guest} למקום {title} {count, plural, =0 {היום} =1 {מחר} =2 {בעוד יומיים} other {בעוד {count} ימים}}.",
+      "body2": "כדאי לשלוח לאורח הודעה קצרה עם הוראות הגעה ולוודא שהמקום מוכן.",
+      "cta": "לפרטי ההזמנה"
+    },
+    "booking_cancelled_by_guest": {
+      "subject": "ההזמנה {code} בוטלה: {title}",
+      "preheader": "ההזמנה של {guest} ל-{dates} בוטלה.",
+      "heading": "הזמנה בוטלה",
+      "body1": "ההזמנה {code} של {guest} למקום {title} ({dates}) בוטלה על ידי האורח.",
+      "body2": "התאריכים פתוחים שוב להזמנה באתר. אין צורך לעשות דבר.",
+      "late": "הביטול נעשה אחרי תקופת הביטול החינמי לפי המדיניות שלך. התשלום הוא בהגעה, כך שלא נגבה דבר, אבל רשמנו את הביטול כביטול מאוחר.",
+      "cta": "לרשימת ההזמנות"
+    },
+    "booking_cancelled_by_host": {
+      "subject": "ההזמנה {code} בוטלה על ידי המארח",
+      "preheader": "{dates}. לא חויבת בכלום.",
+      "heading": "המארח ביטל את ההזמנה",
+      "body1": "מצטערים, המארח של {title} ביטל את ההזמנה {code} ל-{dates}.",
+      "body2": "לא שילמת דבר, כי באתר {brand} משלמים רק בהגעה. אפשר לחפש מקום אחר לאותם תאריכים.",
+      "report": "כל ביטול של מארח נבדק אצלנו. אם יש סיבה לחשוב שההזמנה בוטלה בגלל זהות האורח, נשמח לשמוע דרך מרכז העזרה של {brand}.",
+      "cta": "חיפוש מקום אחר"
+    },
+    "booking_completed": {
+      "subject": "תודה על השהייה: {title}",
+      "preheader": "השהייה הסתיימה. נשמח לראות אותך שוב באתר {brand}.",
+      "heading": "השהייה הסתיימה",
+      "body1": "השהייה במקום {title} ({dates}) הסתיימה. מקווים שנהנית.",
+      "body2": "ההזמנה נשארת ברשימת הנסיעות שלך באתר {brand}, עם כל הפרטים.",
+      "cta": "לנסיעות שלי"
     }
   },
   "ticketStatus": {
@@ -207,5 +265,40 @@
     "OWNERSHIP": "הוכחת בעלות",
     "BUSINESS": "רישום העסק",
     "PROPERTY": "בדיקת הנכס"
+  },
+  "booking": {
+    "codeLabel": "מספר הזמנה",
+    "placeLabel": "מקום",
+    "roomLabel": "סוג חדר",
+    "checkInLabel": "הגעה",
+    "checkOutLabel": "עזיבה",
+    "nightsLabel": "לילות",
+    "guestsLabel": "אורחים",
+    "totalLabel": "סה״כ לתשלום בהגעה",
+    "arrivalLabel": "שעת הגעה",
+    "departureLabel": "שעת עזיבה",
+    "fromTime": "מ-{time}",
+    "untilTime": "עד {time}",
+    "addressLabel": "כתובת",
+    "hostLabel": "מארח",
+    "hostPhoneLabel": "טלפון המארח",
+    "hostWhatsappLabel": "וואטסאפ",
+    "guestLabel": "אורח",
+    "guestPhoneLabel": "טלפון האורח",
+    "messageLabel": "הודעה מהאורח",
+    "reasonLabel": "סיבת הביטול",
+    "policyLabel": "מדיניות ביטול",
+    "payLine": "את הסכום, {amount}, משלמים למארח בהגעה, {currency}.",
+    "payLineMethods": "את הסכום, {amount}, משלמים למארח בהגעה, {currency}. אמצעי תשלום: {methods}.",
+    "estimateLine": "הערכה במטבע שלך: {amount}.",
+    "listSeparator": ", "
+  },
+  "sms": {
+    "booking_confirmed_guest": "{brand}: ההזמנה {code} אושרה. {title}, {dates}. כתובת ופרטי המארח: {url}",
+    "booking_new_host": "{brand}: הזמנה חדשה {code} מאת {guest}, {dates}, {guests}. פרטים: {url}",
+    "booking_reminder_guest": "{brand}: ההגעה למקום {title} {count, plural, =0 {היום} =1 {מחר} =2 {בעוד יומיים} other {בעוד {count} ימים}}. כתובת ופרטי המארח: {url}",
+    "booking_reminder_host": "{brand}: ההגעה של {guest} {count, plural, =0 {היום} =1 {מחר} =2 {בעוד יומיים} other {בעוד {count} ימים}} (הזמנה {code}). {url}",
+    "booking_cancelled_by_guest": "{brand}: ההזמנה {code} ({dates}) בוטלה על ידי האורח. התאריכים פנויים שוב. {url}",
+    "booking_cancelled_by_host": "{brand}: המארח ביטל את ההזמנה {code} ({dates}). לא חויבת בכלום. {url}"
   }
 }

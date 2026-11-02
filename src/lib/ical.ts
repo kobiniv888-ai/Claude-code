@@ -11,9 +11,12 @@ import { db } from "@/lib/db";
  * Availability calendars in iCalendar format (RFC 5545), to stay in sync with Airbnb,
  * Booking.com and Google Calendar.
  *
- * - Export: GET /api/ical/<Listing.icalToken>(.ics) → buildIcs() — every blocked date range.
- * - Import: Listing.icalImportUrls (https only) are read by syncIcalImports() every 3 hours
- *   (cron /api/cron/ical-sync) and replace the listing's AvailabilityBlock rows with source ICAL.
+ * - Export: GET /api/ical/<Listing.icalToken>(.ics) → buildIcs() — every blocked date range:
+ *   bookings made on Bayit as "Reserved", the rest as "Not available" (never a guest's details).
+ * - Import: Listing.icalImportUrls (https only) are read by syncIcalImports() every hour
+ *   (cron /api/cron/ical-sync) and replace the listing's AvailabilityBlock rows with source ICAL
+ *   (sourceRef = the event's UID). Imported nights block bookings on Bayit like any other block.
+ * - A guest's own booking as a calendar file: buildBookingIcs() (GET /api/ical/booking/<code>).
  *
  * Feed downloads are guarded against SSRF: https on port 443 only, no credentials in the URL,
  * every DNS answer must be a public address (checked again at connect time, so DNS rebinding
@@ -35,7 +38,7 @@ const FUTURE_DAYS = 730;
 
 // ─── Export ───────────────────────────────────────────────────
 
-export type IcsBlock = { id: string; startDate: Date; endDate: Date };
+export type IcsBlock = { id: string; startDate: Date; endDate: Date; source?: "OWNER" | "ICAL" | "BOOKING" };
 
 function siteHost(): string {
   try {
@@ -85,7 +88,7 @@ function icsTimestamp(date: Date): string {
 
 /**
  * The calendar of one listing: an all-day VEVENT per blocked range (DTEND exclusive, as stored).
- * It carries no personal data — only "Not available" and the dates.
+ * It carries no personal data — only "Reserved" (a booking on Bayit) or "Not available", and the dates.
  */
 export function buildIcs(listing: { id: string; publicId: number }, blocks: IcsBlock[], now: Date = new Date()): string {
   const host = siteHost();
@@ -106,12 +109,54 @@ export function buildIcs(listing: { id: string; publicId: number }, blocks: IcsB
       `DTSTAMP:${stamp}`,
       `DTSTART;VALUE=DATE:${icsDate(block.startDate)}`,
       `DTEND;VALUE=DATE:${icsDate(block.endDate)}`,
-      "SUMMARY:Not available",
+      `SUMMARY:${block.source === "BOOKING" ? "Reserved" : "Not available"}`,
       "TRANSP:OPAQUE",
       "END:VEVENT",
     );
   }
   lines.push("END:VCALENDAR");
+  return `${lines.map(foldIcsLine).join("\r\n")}\r\n`;
+}
+
+/** A guest's own booking, for "add to calendar" (texts already in the guest's language). */
+export type BookingIcsInput = {
+  code: string;
+  /** "YYYY-MM-DD" — the event spans the stay (all-day, DTEND = check-out day, exclusive). */
+  checkIn: string;
+  checkOut: string;
+  summary: string;
+  /** Lines of the description (arrival time, host, phone, amount, link). */
+  description: string[];
+  location?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  url?: string | null;
+};
+
+/** One VEVENT calendar file for the guest of a confirmed booking (it holds the address: never public). */
+export function buildBookingIcs(input: BookingIcsInput, now: Date = new Date()): string {
+  const host = siteHost();
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    `PRODID:-//${escapeIcsText(siteConfig.name)}//Booking//EN`,
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    `UID:${escapeIcsText(`booking-${input.code}@${host}`)}`,
+    `DTSTAMP:${icsTimestamp(now)}`,
+    `DTSTART;VALUE=DATE:${input.checkIn.replace(/-/g, "")}`,
+    `DTEND;VALUE=DATE:${input.checkOut.replace(/-/g, "")}`,
+    `SUMMARY:${escapeIcsText(input.summary)}`,
+  ];
+  const description = input.description.filter(Boolean).join("\n");
+  if (description) lines.push(`DESCRIPTION:${escapeIcsText(description)}`);
+  if (input.location?.trim()) lines.push(`LOCATION:${escapeIcsText(input.location.trim())}`);
+  if (typeof input.lat === "number" && typeof input.lng === "number" && Number.isFinite(input.lat) && Number.isFinite(input.lng)) {
+    lines.push(`GEO:${input.lat.toFixed(6)};${input.lng.toFixed(6)}`);
+  }
+  if (input.url) lines.push(`URL:${input.url}`);
+  lines.push("TRANSP:OPAQUE", "END:VEVENT", "END:VCALENDAR");
   return `${lines.map(foldIcsLine).join("\r\n")}\r\n`;
 }
 
@@ -393,17 +438,37 @@ function feedLabel(url: string): string {
   }
 }
 
-export type IcalSyncResult = { listings: number; feeds: number; failedFeeds: number; blocks: number };
+/** `conflicts`: confirmed Bayit bookings that an imported calendar now also blocks (logged for the host to sort out). */
+export type IcalSyncResult = { listings: number; feeds: number; failedFeeds: number; blocks: number; conflicts: number };
 
-async function syncListing(listing: { id: string; icalImportUrls: string[] }): Promise<Omit<IcalSyncResult, "listings">> {
+/** Why an import feed could not be read (shown to the host on the calendar page). */
+export const ICAL_FEED_ERRORS = ["unsafe_url", "feed_missing", "http_error", "not_calendar", "too_large", "unreachable"] as const;
+export type IcalFeedError = (typeof ICAL_FEED_ERRORS)[number];
+
+export function classifyFeedError(error: unknown): IcalFeedError {
+  if (error instanceof UnsafeFeedUrlError) return "unsafe_url";
+  const message = error instanceof Error ? error.message : String(error);
+  if (/^HTTP (404|410)\b/.test(message)) return "feed_missing";
+  if (/^HTTP \d+/.test(message) || /redirects/i.test(message)) return "http_error";
+  if (/iCalendar/i.test(message)) return "not_calendar";
+  if (/larger than/i.test(message)) return "too_large";
+  return "unreachable";
+}
+
+/** One import feed after a sync: how many events it gave, or why it failed. */
+export type IcalFeedReport = { url: string; label: string; events: number; error: IcalFeedError | null };
+
+async function syncListing(
+  listing: { id: string; icalImportUrls: string[] },
+): Promise<Omit<IcalSyncResult, "listings"> & { report: IcalFeedReport[] }> {
   const urls = [...new Set(listing.icalImportUrls)].slice(0, ICAL_MAX_FEEDS);
   const results = await Promise.all(
     urls.map(async (url) => {
       try {
-        return { url, label: feedLabel(url), events: await parseIcsFeed(url) };
+        return { url, label: feedLabel(url), events: await parseIcsFeed(url), error: null };
       } catch (error) {
         console.warn(`[ical] feed of listing ${listing.id} failed (${feedLabel(url)}):`, (error as Error).message);
-        return { url, label: feedLabel(url), events: null };
+        return { url, label: feedLabel(url), events: null, error: classifyFeedError(error) };
       }
     }),
   );
@@ -414,6 +479,7 @@ async function syncListing(listing: { id: string; icalImportUrls: string[] }): P
       startDate: new Date(`${event.start}T00:00:00Z`),
       endDate: new Date(`${event.end}T00:00:00Z`),
       source: "ICAL" as const,
+      sourceRef: event.uid,
       icalUid: event.uid,
       note: r.label,
     })),
@@ -427,11 +493,51 @@ async function syncListing(listing: { id: string; icalImportUrls: string[] }): P
     db.availabilityBlock.createMany({ data: rows }),
     db.listing.update({ where: { id: listing.id }, data: { icalSyncedAt: new Date() } }),
   ]);
-  return { feeds: urls.length, failedFeeds: failedLabels.length, blocks: rows.length };
+  return {
+    feeds: urls.length,
+    failedFeeds: failedLabels.length,
+    blocks: rows.length,
+    conflicts: await countConflicts(listing.id, rows),
+    report: results.map((r) => ({ url: r.url, label: r.label, events: r.events?.length ?? 0, error: r.error })),
+  };
 }
 
 /**
- * Re-imports the iCal feeds of one listing, or (cron) of up to 200 listings with import URLs,
+ * "Sync now" on the host's calendar page: re-imports one listing's feeds and reports each feed
+ * (events read, or why it failed) and the confirmed bookings that imported nights now overlap.
+ */
+export async function syncListingCalendars(
+  listingId: string,
+): Promise<{ syncedAt: Date; feeds: IcalFeedReport[]; conflicts: number }> {
+  const listing = await db.listing.findUnique({ where: { id: listingId }, select: { id: true, icalImportUrls: true } });
+  if (!listing || listing.icalImportUrls.length === 0) {
+    await db.availabilityBlock.deleteMany({ where: { listingId, source: "ICAL" } });
+    return { syncedAt: new Date(), feeds: [], conflicts: 0 };
+  }
+  const result = await syncListing(listing);
+  return { syncedAt: new Date(), feeds: result.report, conflicts: result.conflicts };
+}
+
+/**
+ * Confirmed Bayit bookings overlapping imported nights (a double booking made elsewhere, or a
+ * calendar that re-exports our own booking). Bookings are never changed here; they are logged.
+ */
+async function countConflicts(listingId: string, rows: { startDate: Date; endDate: Date }[]): Promise<number> {
+  if (rows.length === 0) return 0;
+  const bookings = await db.booking.findMany({
+    where: { listingId, status: "CONFIRMED", checkOut: { gt: new Date() } },
+    select: { code: true, checkIn: true, checkOut: true },
+    take: 200,
+  });
+  const clashing = bookings.filter((b) => rows.some((r) => r.startDate < b.checkOut && b.checkIn < r.endDate));
+  if (clashing.length) {
+    console.warn(`[ical] listing ${listingId}: imported dates overlap bookings ${clashing.map((b) => b.code).join(", ")}`);
+  }
+  return clashing.length;
+}
+
+/**
+ * Re-imports the iCal feeds of one listing, or (cron, hourly) of up to 200 listings with import URLs,
  * least recently synced first. Each successful feed replaces that listing's ICAL blocks.
  */
 export async function syncIcalImports(listingId?: string): Promise<IcalSyncResult> {
@@ -441,7 +547,7 @@ export async function syncIcalImports(listingId?: string): Promise<IcalSyncResul
     orderBy: { icalSyncedAt: { sort: "asc", nulls: "first" } },
     take: listingId ? 1 : SYNC_BATCH,
   });
-  const total: IcalSyncResult = { listings: 0, feeds: 0, failedFeeds: 0, blocks: 0 };
+  const total: IcalSyncResult = { listings: 0, feeds: 0, failedFeeds: 0, blocks: 0, conflicts: 0 };
   const queue = [...listings];
   const worker = async () => {
     for (let next = queue.shift(); next; next = queue.shift()) {
@@ -455,6 +561,7 @@ export async function syncIcalImports(listingId?: string): Promise<IcalSyncResul
         total.feeds += result.feeds;
         total.failedFeeds += result.failedFeeds;
         total.blocks += result.blocks;
+        total.conflicts += result.conflicts;
       } catch (error) {
         console.error(`[ical] sync of listing ${next.id} failed:`, error);
       }

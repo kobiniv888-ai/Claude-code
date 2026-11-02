@@ -149,6 +149,30 @@ enum ContactChannel {
 enum AvailabilitySource {
   OWNER
   ICAL
+  BOOKING // a booking made on Bayit (AvailabilityBlock.bookingId)
+}
+
+/// How guests take a place: INSTANT = they book on the site (short stays and hotel rooms, once the
+/// host saved the booking settings); CONTACT = they ask the host (monthly rentals and sales, always).
+enum BookingMode {
+  INSTANT
+  CONTACT
+}
+
+/// Free cancellation until 24 hours (FLEXIBLE), 5 days (MODERATE) or 14 days (STRICT) before
+/// check-in. Guests pay at check-in, so a "late" cancellation is informational (see src/lib/booking).
+enum CancellationPolicy {
+  FLEXIBLE
+  MODERATE
+  STRICT
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CANCELLED_BY_GUEST
+  CANCELLED_BY_HOST
+  COMPLETED
+  NO_SHOW
 }
 
 enum ReportTarget {
@@ -353,6 +377,9 @@ model User {
   devices               DeviceLink[]
   listingsReviewed      Listing[]             @relation("ListingReviewer")
   payments              Payment[]
+  bookingsAsGuest       Booking[]             @relation("BookingGuest")
+  bookingsAsHost        Booking[]             @relation("BookingHost")
+  bookingsCancelled     Booking[]             @relation("BookingCanceller")
 
   @@index([role])
   @@index([status])
@@ -553,6 +580,14 @@ model Listing {
   weeklyDiscountPct  Int?
   monthlyDiscountPct Int?
 
+  // Booking on the site (round 2). See docs/redesign-2/booking.md.
+  bookingMode             BookingMode        @default(CONTACT)
+  /// Price of Friday and Saturday nights, in `currency` (optional; `price` otherwise).
+  weekendPrice            Decimal?           @db.Decimal(14, 2)
+  cancellationPolicy      CancellationPolicy @default(MODERATE)
+  /// Accepted at check-in, in the host's currency: "cash" | "card" | "bank_transfer".
+  paymentMethodsAtCheckIn String[]           @default([])
+
   // House rules
   checkInFrom    String? // "14:00"
   checkOutUntil  String? // "11:00"
@@ -632,6 +667,7 @@ model Listing {
   verifications VerificationRequest[]
   tickets       Ticket[]
   promotions    Promotion[]
+  bookings      Booking[]
 
   @@index([status, cityId, dealType])
   @@index([status, bumpedAt])
@@ -705,6 +741,7 @@ model RoomType {
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
   photos      ListingPhoto[]
+  bookings    Booking[]
 }
 
 model PriceChange {
@@ -727,11 +764,94 @@ model AvailabilityBlock {
   startDate DateTime           @db.Date
   endDate   DateTime           @db.Date
   source    AvailabilitySource @default(OWNER)
+  /// Legacy copy of the iCal UID (source ICAL); new code reads `sourceRef`.
   icalUid   String?
+  /// The iCal UID (source ICAL) or the booking id (source BOOKING).
+  sourceRef String?
+  /// Source BOOKING: the booking that holds these nights. Cancelling the booking deletes the block.
+  bookingId String?            @unique
+  booking   Booking?           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   note      String?
   createdAt DateTime           @default(now())
 
   @@index([listingId, startDate])
+}
+
+/// A stay booked on Bayit (short stays and hotel rooms with bookingMode INSTANT). Guests pay the host
+/// at check-in: Bayit takes no money. Prices, policy and payment methods are copied when booked.
+/// Rules and statuses: docs/redesign-2/booking.md; code: src/lib/booking.
+model Booking {
+  id                 String             @id @default(cuid())
+  /// Short, unambiguous booking number: "BT-7K3Q9" (no 0/O/1/I).
+  code               String             @unique
+  listingId          String
+  listing            Listing            @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  guestUserId        String
+  guest              User               @relation("BookingGuest", fields: [guestUserId], references: [id], onDelete: Cascade)
+  hostUserId         String
+  host               User               @relation("BookingHost", fields: [hostUserId], references: [id], onDelete: Cascade)
+  /// Hotels: the room type the guest chose (the listing is still booked as one unit for now).
+  roomTypeId         String?
+  roomType           RoomType?          @relation(fields: [roomTypeId], references: [id], onDelete: SetNull)
+  /// { he, en, ru, ar, ka } — the room type's name when booked (kept if the room type changes).
+  roomTypeName       Json?
+
+  // Stay: calendar days in Asia/Tbilisi; checkOut is exclusive. nights = checkOut − checkIn.
+  checkIn            DateTime           @db.Date
+  checkOut           DateTime           @db.Date
+  nights             Int
+  adults             Int
+  children           Int                @default(0)
+  infants            Int                @default(0)
+
+  // Money in the host's currency, copied when booked. Paid to the host at check-in.
+  nightlyPrice       Decimal            @db.Decimal(14, 2)
+  weekendPrice       Decimal?           @db.Decimal(14, 2)
+  subtotal           Decimal            @db.Decimal(14, 2)
+  cleaningFee        Decimal            @default(0) @db.Decimal(14, 2)
+  total              Decimal            @db.Decimal(14, 2)
+  currency           Currency
+  /// Estimate shown to the guest in their display currency when booked.
+  displayCurrency    Currency?
+  displayTotal       Decimal?           @db.Decimal(14, 2)
+
+  // Terms copied when booked.
+  cancellationPolicy CancellationPolicy
+  paymentMethods     String[]           @default([])
+
+  status             BookingStatus      @default(CONFIRMED)
+  /// Host: DOUBLE_BOOKING | PROPERTY_ISSUE | OTHER. Guest: see GUEST_CANCEL_REASONS (src/lib/booking).
+  cancelReasonCode   String?
+  /// User-written; render with dir="auto".
+  cancelReason       String?
+  cancelledAt        DateTime?
+  cancelledById      String?
+  cancelledBy        User?              @relation("BookingCanceller", fields: [cancelledById], references: [id], onDelete: SetNull)
+  /// Host cancellations within 48 hours of the booking (and guests saying the host asked them to cancel).
+  flaggedForReview   Boolean            @default(false)
+  noShowReportedAt   DateTime?
+  /// User-written; render with dir="auto".
+  messageToHost      String?
+
+  // Guest snapshot (the host contacts the guest with these).
+  guestName          String
+  /// E.164, verified when booked.
+  guestPhone         String
+  /// The guest's language for messages about this booking.
+  locale             Locale
+
+  rulesAcceptedAt    DateTime
+  /// The 3-days-before reminder went out (cron /api/cron/booking-reminders).
+  reminderSentAt     DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  block              AvailabilityBlock?
+
+  @@index([listingId, checkIn])
+  @@index([guestUserId, checkIn])
+  @@index([hostUserId, checkIn])
+  @@index([status, checkIn])
+  @@index([flaggedForReview])
 }
 
 model Favorite {

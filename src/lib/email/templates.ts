@@ -3,8 +3,9 @@
  * Pure (no server imports) so it can be unit-tested and previewed.
  * Text lives in messages/<locale>/emails.json under templates.<template>.*
  */
-import type { AppLocale } from "@/config/site";
-import type { TicketStatus, VerificationType } from "@/generated/prisma/enums";
+import type { AppLocale, CurrencyCode } from "@/config/site";
+import type { CancellationPolicy, TicketStatus, VerificationType } from "@/generated/prisma/enums";
+import { formatDateRange, formatMoney, formatTime } from "@/lib/format";
 
 export const EMAIL_TEMPLATES = [
   "login_code",
@@ -26,12 +27,51 @@ export const EMAIL_TEMPLATES = [
   "account_warning",
   "account_suspended",
   "account_deleted",
+  "booking_confirmed_guest",
+  "booking_new_host",
+  "booking_reminder_guest",
+  "booking_reminder_host",
+  "booking_cancelled_by_guest",
+  "booking_cancelled_by_host",
+  "booking_completed",
 ] as const;
 export type EmailTemplate = (typeof EMAIL_TEMPLATES)[number];
 
 type DateValue = Date | string;
 /** An absolute URL, or a site path ("/account/listings" — the locale prefix is added). */
 type Url = string;
+
+/** What every booking email shows about the stay. Dates are "YYYY-MM-DD" (Georgia). */
+export type BookingEmailStay = {
+  /** "BT-7K3Q9" */
+  code: string;
+  listingTitle: string;
+  /** Hotels: the room type's name in the recipient's language. */
+  roomTypeName?: string | null;
+  checkIn: string;
+  checkOut: string;
+  nights: number;
+  adults: number;
+  children: number;
+  infants: number;
+  /** In the host's currency (paid at check-in). */
+  total: number;
+  currency: CurrencyCode;
+  /** The booking page for this recipient (the guest's trip or the host's booking). */
+  bookingUrl: Url;
+};
+
+/** What a confirmed guest gets: the exact place and how to reach the host. */
+export type BookingEmailArrival = {
+  checkInFrom?: string | null;
+  checkOutUntil?: string | null;
+  address?: string | null;
+  hostName?: string | null;
+  hostPhone?: string | null;
+  hostWhatsapp?: string | null;
+  /** "cash" | "card" | "bank_transfer" */
+  paymentMethods: string[];
+};
 
 /** The data each template needs. User-written values are escaped when rendered. */
 export type EmailData = {
@@ -88,6 +128,44 @@ export type EmailData = {
   account_warning: { name: string; reasonText: string };
   account_suspended: { name: string; reasonText: string; until?: DateValue | null };
   account_deleted: { name: string };
+  booking_confirmed_guest: BookingEmailStay &
+    BookingEmailArrival & {
+      guestName?: string | null;
+      cancellationPolicy: CancellationPolicy;
+      /** End of free cancellation (null when it has already passed). */
+      freeCancellationUntil?: DateValue | null;
+      /** The estimate in the guest's display currency, if it differs. */
+      displayTotal?: { amount: number; currency: CurrencyCode } | null;
+    };
+  booking_new_host: BookingEmailStay & {
+    hostName?: string | null;
+    guestName: string;
+    /** E.164, verified. */
+    guestPhone: string;
+    messageToHost?: string | null;
+  };
+  booking_reminder_guest: BookingEmailStay & BookingEmailArrival & { guestName?: string | null; daysLeft: number };
+  booking_reminder_host: BookingEmailStay & { hostName?: string | null; guestName: string; guestPhone: string; daysLeft: number };
+  booking_cancelled_by_guest: BookingEmailStay & {
+    hostName?: string | null;
+    guestName: string;
+    /** One of GUEST_CANCEL_REASONS. */
+    reasonCode: string;
+    reasonText?: string | null;
+    /** After the free-cancellation period (informational: nothing is charged). */
+    late: boolean;
+  };
+  booking_cancelled_by_host: BookingEmailStay & {
+    guestName?: string | null;
+    /** One of HOST_CANCEL_REASONS. */
+    reasonCode: string;
+    reasonText?: string | null;
+    /** Search for the same dates. */
+    searchUrl: Url;
+  };
+  booking_completed: Pick<BookingEmailStay, "code" | "listingTitle" | "checkIn" | "checkOut" | "bookingUrl"> & {
+    guestName?: string | null;
+  };
 };
 
 export type EmailBlock =
@@ -115,6 +193,8 @@ export type TemplateContext = {
   locale: AppLocale;
   /** Translator for the "emails" namespace. */
   t: (key: string, values?: Record<string, string | number>) => string;
+  /** Translator for the shared "booking" vocabulary (statuses, policies, payment methods, reasons). */
+  tb: (key: string, values?: Record<string, string | number>) => string;
   /** Turns a path or URL from the data into an absolute URL (null if it is not safe). */
   url: (pathOrUrl: string | null | undefined) => string | null;
   /** Site page in the recipient's language: page("/account/listings"). */
@@ -133,6 +213,79 @@ function clean(value: string | null | undefined): string {
  */
 export function isolate(value: string): string {
   return value ? `\u2068${value}\u2069` : value;
+}
+
+// ─── Booking helpers ──────────────────────────────────────────
+
+type DetailRow = { label: string; value: string; ltr?: boolean };
+
+/** Translation keys from data (reason codes) are limited to safe characters. */
+function safeKey(value: string): string {
+  return /^[A-Z_]{1,40}$/.test(value) ? value : "OTHER";
+}
+
+function datesOf(data: Pick<BookingEmailStay, "checkIn" | "checkOut">, ctx: TemplateContext): string {
+  return formatDateRange(data.checkIn, data.checkOut, ctx.locale, { day: "numeric", month: "short", year: "numeric" });
+}
+
+function guestsLine(data: Pick<BookingEmailStay, "adults" | "children" | "infants">, ctx: TemplateContext): string {
+  const parts = [ctx.tb("guests.adults", { count: data.adults })];
+  if (data.children > 0) parts.push(ctx.tb("guests.children", { count: data.children }));
+  if (data.infants > 0) parts.push(ctx.tb("guests.infants", { count: data.infants }));
+  return parts.join(ctx.t("booking.listSeparator"));
+}
+
+function stayRows(data: BookingEmailStay, ctx: TemplateContext): DetailRow[] {
+  const { t, tb, formatDate, locale } = ctx;
+  const rows: DetailRow[] = [
+    { label: t("booking.codeLabel"), value: data.code, ltr: true },
+    { label: t("booking.placeLabel"), value: clean(data.listingTitle) },
+  ];
+  if (clean(data.roomTypeName)) rows.push({ label: t("booking.roomLabel"), value: clean(data.roomTypeName) });
+  rows.push(
+    { label: t("booking.checkInLabel"), value: formatDate(data.checkIn) },
+    { label: t("booking.checkOutLabel"), value: formatDate(data.checkOut) },
+    { label: t("booking.nightsLabel"), value: tb("nights", { count: data.nights }) },
+    { label: t("booking.guestsLabel"), value: guestsLine(data, ctx) },
+    { label: t("booking.totalLabel"), value: formatMoney(data.total, data.currency, locale), ltr: true },
+  );
+  return rows;
+}
+
+function arrivalRows(data: BookingEmailArrival, ctx: TemplateContext): DetailRow[] {
+  const { t } = ctx;
+  const rows: DetailRow[] = [];
+  if (clean(data.checkInFrom)) rows.push({ label: t("booking.arrivalLabel"), value: t("booking.fromTime", { time: clean(data.checkInFrom) }) });
+  if (clean(data.checkOutUntil)) rows.push({ label: t("booking.departureLabel"), value: t("booking.untilTime", { time: clean(data.checkOutUntil) }) });
+  if (clean(data.address)) rows.push({ label: t("booking.addressLabel"), value: clean(data.address) });
+  if (clean(data.hostName)) rows.push({ label: t("booking.hostLabel"), value: clean(data.hostName) });
+  if (clean(data.hostPhone)) rows.push({ label: t("booking.hostPhoneLabel"), value: clean(data.hostPhone), ltr: true });
+  if (clean(data.hostWhatsapp) && clean(data.hostWhatsapp) !== clean(data.hostPhone)) {
+    rows.push({ label: t("booking.hostWhatsappLabel"), value: clean(data.hostWhatsapp), ltr: true });
+  }
+  return rows;
+}
+
+/** "Pay the host ₾540 at check-in, in lari. Accepted: cash, card." */
+function payLine(data: BookingEmailStay & BookingEmailArrival, ctx: TemplateContext): string {
+  const { t, tb, locale } = ctx;
+  const amount = formatMoney(data.total, data.currency, locale);
+  const currency = tb(`inCurrency.${data.currency}`);
+  const methods = data.paymentMethods.filter((m) => /^[a-z_]{1,30}$/.test(m)).map((m) => tb(`paymentMethod.${m}`));
+  return methods.length
+    ? t("booking.payLineMethods", { amount, currency, methods: methods.join(t("booking.listSeparator")) })
+    : t("booking.payLine", { amount, currency });
+}
+
+function policyLine(policy: CancellationPolicy, until: DateValue | null | undefined, ctx: TemplateContext): string {
+  const { tb, formatDate, locale } = ctx;
+  const name = tb(`policy.${policy}.name`);
+  if (!until) return `${name}: ${tb(`policy.${policy}.rule`)}`;
+  return `${name}: ${tb("policy.freeUntil", { date: formatDate(until), time: formatTime(until, locale) })}`;
+}
+
+function reasonText(label: string, text: string | null | undefined): string {
+  return clean(text) ? `${label}: ${clean(text)}` : label;
 }
 
 type Builder<K extends EmailTemplate> = (data: EmailData[K], ctx: TemplateContext) => EmailContent;
@@ -480,6 +633,175 @@ const builders: { [K in EmailTemplate]: Builder<K> } = {
     cta: { label: t("templates.account_deleted.cta"), url: page("/contact") },
     audience: "guest",
   }),
+  booking_confirmed_guest: (data, ctx) => {
+    const { t, tb, url, formatDate, brand, locale } = ctx;
+    const title = isolate(clean(data.listingTitle));
+    const rows = [
+      ...stayRows(data, ctx),
+      ...arrivalRows(data, ctx),
+      { label: t("booking.policyLabel"), value: policyLine(data.cancellationPolicy, data.freeCancellationUntil, ctx) },
+    ];
+    const blocks: EmailBlock[] = [
+      { type: "paragraph", text: t("templates.booking_confirmed_guest.body1", { title, code: data.code }) },
+      { type: "details", rows },
+      { type: "paragraph", text: payLine(data, ctx) },
+    ];
+    if (data.displayTotal && data.displayTotal.currency !== data.currency) {
+      blocks.push({
+        type: "paragraph",
+        text: t("booking.estimateLine", { amount: formatMoney(data.displayTotal.amount, data.displayTotal.currency, locale) }),
+      });
+    }
+    blocks.push(
+      { type: "paragraph", text: t("templates.booking_confirmed_guest.body2") },
+      { type: "notice", text: tb("noPrepayment", { brand }) },
+    );
+    return {
+      subject: t("templates.booking_confirmed_guest.subject", { title, code: data.code }),
+      preheader: t("templates.booking_confirmed_guest.preheader", { dates: datesOf(data, ctx), formattedDate: formatDate(data.checkIn) }),
+      heading: t("templates.booking_confirmed_guest.heading"),
+      greetingName: clean(data.guestName) || null,
+      blocks,
+      cta: { label: t("templates.booking_confirmed_guest.cta"), url: url(data.bookingUrl) ?? ctx.page("/account") },
+      audience: "account",
+    };
+  },
+
+  booking_new_host: (data, ctx) => {
+    const { t, url, brand } = ctx;
+    const title = isolate(clean(data.listingTitle));
+    const guest = isolate(clean(data.guestName));
+    const blocks: EmailBlock[] = [
+      { type: "paragraph", text: t("templates.booking_new_host.body1", { guest, title, dates: datesOf(data, ctx) }) },
+      {
+        type: "details",
+        rows: [
+          ...stayRows(data, ctx),
+          { label: t("booking.guestLabel"), value: clean(data.guestName) },
+          { label: t("booking.guestPhoneLabel"), value: clean(data.guestPhone), ltr: true },
+        ],
+      },
+    ];
+    if (clean(data.messageToHost)) {
+      blocks.push({ type: "quote", label: t("booking.messageLabel"), text: clean(data.messageToHost) });
+    }
+    blocks.push(
+      { type: "paragraph", text: t("templates.booking_new_host.body2") },
+      { type: "notice", text: t("templates.booking_new_host.pledge", { brand }) },
+    );
+    return {
+      subject: t("templates.booking_new_host.subject", { title, dates: datesOf(data, ctx), code: data.code }),
+      preheader: t("templates.booking_new_host.preheader", { guest }),
+      heading: t("templates.booking_new_host.heading"),
+      greetingName: clean(data.hostName) || null,
+      blocks,
+      cta: { label: t("templates.booking_new_host.cta"), url: url(data.bookingUrl) ?? ctx.page("/account") },
+      audience: "account",
+    };
+  },
+
+  booking_reminder_guest: (data, ctx) => {
+    const { t, tb, url, brand } = ctx;
+    const title = isolate(clean(data.listingTitle));
+    return {
+      subject: t("templates.booking_reminder_guest.subject", { title, count: data.daysLeft }),
+      preheader: t("templates.booking_reminder_guest.preheader", { dates: datesOf(data, ctx) }),
+      heading: t("templates.booking_reminder_guest.heading", { count: data.daysLeft }),
+      greetingName: clean(data.guestName) || null,
+      blocks: [
+        { type: "paragraph", text: t("templates.booking_reminder_guest.body1", { title, count: data.daysLeft }) },
+        { type: "details", rows: [...stayRows(data, ctx), ...arrivalRows(data, ctx)] },
+        { type: "paragraph", text: payLine(data, ctx) },
+        { type: "notice", text: tb("noPrepayment", { brand }) },
+      ],
+      cta: { label: t("templates.booking_reminder_guest.cta"), url: url(data.bookingUrl) ?? ctx.page("/account") },
+      audience: "account",
+    };
+  },
+
+  booking_reminder_host: (data, ctx) => {
+    const { t, url } = ctx;
+    const title = isolate(clean(data.listingTitle));
+    const guest = isolate(clean(data.guestName));
+    return {
+      subject: t("templates.booking_reminder_host.subject", { guest, count: data.daysLeft }),
+      preheader: t("templates.booking_reminder_host.preheader", { title, dates: datesOf(data, ctx) }),
+      heading: t("templates.booking_reminder_host.heading", { count: data.daysLeft }),
+      greetingName: clean(data.hostName) || null,
+      blocks: [
+        { type: "paragraph", text: t("templates.booking_reminder_host.body1", { guest, title, count: data.daysLeft }) },
+        {
+          type: "details",
+          rows: [
+            ...stayRows(data, ctx),
+            { label: t("booking.guestLabel"), value: clean(data.guestName) },
+            { label: t("booking.guestPhoneLabel"), value: clean(data.guestPhone), ltr: true },
+          ],
+        },
+        { type: "paragraph", text: t("templates.booking_reminder_host.body2") },
+      ],
+      cta: { label: t("templates.booking_reminder_host.cta"), url: url(data.bookingUrl) ?? ctx.page("/account") },
+      audience: "account",
+    };
+  },
+
+  booking_cancelled_by_guest: (data, ctx) => {
+    const { t, tb, url } = ctx;
+    const title = isolate(clean(data.listingTitle));
+    const guest = isolate(clean(data.guestName));
+    const blocks: EmailBlock[] = [
+      { type: "paragraph", text: t("templates.booking_cancelled_by_guest.body1", { guest, title, dates: datesOf(data, ctx), code: data.code }) },
+      { type: "details", rows: stayRows(data, ctx) },
+      { type: "quote", label: t("booking.reasonLabel"), text: reasonText(tb(`guestReason.${safeKey(data.reasonCode)}`), data.reasonText) },
+      { type: "paragraph", text: t("templates.booking_cancelled_by_guest.body2") },
+    ];
+    if (data.late) blocks.push({ type: "notice", text: t("templates.booking_cancelled_by_guest.late") });
+    return {
+      subject: t("templates.booking_cancelled_by_guest.subject", { code: data.code, title }),
+      preheader: t("templates.booking_cancelled_by_guest.preheader", { guest, dates: datesOf(data, ctx) }),
+      heading: t("templates.booking_cancelled_by_guest.heading"),
+      greetingName: clean(data.hostName) || null,
+      blocks,
+      cta: { label: t("templates.booking_cancelled_by_guest.cta"), url: url(data.bookingUrl) ?? ctx.page("/account") },
+      audience: "account",
+    };
+  },
+
+  booking_cancelled_by_host: (data, ctx) => {
+    const { t, tb, url, page, brand } = ctx;
+    const title = isolate(clean(data.listingTitle));
+    return {
+      subject: t("templates.booking_cancelled_by_host.subject", { code: data.code, title }),
+      preheader: t("templates.booking_cancelled_by_host.preheader", { dates: datesOf(data, ctx) }),
+      heading: t("templates.booking_cancelled_by_host.heading"),
+      greetingName: clean(data.guestName) || null,
+      blocks: [
+        { type: "paragraph", text: t("templates.booking_cancelled_by_host.body1", { title, dates: datesOf(data, ctx), code: data.code }) },
+        { type: "quote", label: t("booking.reasonLabel"), text: reasonText(tb(`hostReason.${safeKey(data.reasonCode)}`), data.reasonText) },
+        { type: "paragraph", text: t("templates.booking_cancelled_by_host.body2", { brand }) },
+        { type: "notice", text: t("templates.booking_cancelled_by_host.report", { brand }) },
+      ],
+      cta: { label: t("templates.booking_cancelled_by_host.cta"), url: url(data.searchUrl) ?? page("/search") },
+      audience: "account",
+    };
+  },
+
+  booking_completed: (data, ctx) => {
+    const { t, url, brand } = ctx;
+    const title = isolate(clean(data.listingTitle));
+    return {
+      subject: t("templates.booking_completed.subject", { title }),
+      preheader: t("templates.booking_completed.preheader", { brand }),
+      heading: t("templates.booking_completed.heading"),
+      greetingName: clean(data.guestName) || null,
+      blocks: [
+        { type: "paragraph", text: t("templates.booking_completed.body1", { title, dates: datesOf(data, ctx) }) },
+        { type: "paragraph", text: t("templates.booking_completed.body2", { brand }) },
+      ],
+      cta: { label: t("templates.booking_completed.cta"), url: url(data.bookingUrl) ?? ctx.page("/account") },
+      audience: "account",
+    };
+  },
 };
 
 export function buildEmailContent<K extends EmailTemplate>(

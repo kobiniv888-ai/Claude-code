@@ -27,6 +27,7 @@ echo "Waiting for the database…"
 until (echo > /dev/tcp/127.0.0.1/5432) 2>/dev/null; do sleep 1; done
 sleep 2
 
+npx prisma db execute --file prisma/sql/before-push.sql
 npx prisma db push
 npm run db:seed
 touch .devcontainer/.setup-done

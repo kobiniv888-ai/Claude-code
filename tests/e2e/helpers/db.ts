@@ -237,9 +237,23 @@ export async function cleanupTestData(opts: { since?: Date } = {}) {
     userIds,
     listingIds,
   ]);
-  const targetIds = [...userIds, ...listingIds, ...ticketIds, ...reports.map((r) => r.id)];
+  // Bookings the tests made (the demo guest's included: their message to the host starts with "E2E ").
+  const bookings = await sql<{ id: string; code: string }>(
+    `SELECT id, code FROM "Booking" WHERE "guestUserId" = ANY($1) OR "listingId" = ANY($2) OR "messageToHost" LIKE 'E2E %'`,
+    [userIds, listingIds],
+  );
+  const bookingIds = bookings.map((b) => b.id);
+  const targetIds = [...userIds, ...listingIds, ...ticketIds, ...reports.map((r) => r.id), ...bookingIds];
 
   await sql(`DELETE FROM "AuditLog" WHERE "targetId" = ANY($1) OR "actorId" = ANY($2)`, [targetIds, userIds]);
+  if (bookings.length > 0) {
+    // Their emails (confirmation, new booking, cancellation) name the booking code.
+    await sql(`DELETE FROM "EmailOutbox" WHERE template LIKE 'booking_%' AND EXISTS (SELECT 1 FROM unnest($1::text[]) c WHERE html LIKE '%' || c || '%')`, [
+      bookings.map((b) => b.code),
+    ]);
+    await sql(`DELETE FROM "AvailabilityBlock" WHERE "bookingId" = ANY($1)`, [bookingIds]);
+    await sql(`DELETE FROM "Booking" WHERE id = ANY($1)`, [bookingIds]);
+  }
   await sql(`DELETE FROM "Ticket" WHERE id = ANY($1)`, [ticketIds]);
   await sql(`DELETE FROM "Report" WHERE id = ANY($1)`, [reports.map((r) => r.id)]);
   await sql(`DELETE FROM "ContactClick" WHERE "userId" = ANY($1)`, [userIds]);
@@ -257,7 +271,7 @@ export async function cleanupTestData(opts: { since?: Date } = {}) {
   }
   // Rate-limit windows the tests filled (login codes, contact form, staff actions, per-user keys).
   await sql(
-    `DELETE FROM "RateLimit" WHERE key LIKE 'auth:otp-%' OR key LIKE 'ticket:contact%' OR key LIKE 'admin:%'
+    `DELETE FROM "RateLimit" WHERE key LIKE 'auth:otp-%' OR key LIKE 'ticket:contact%' OR key LIKE 'admin:%' OR key LIKE 'booking:%'
        OR key LIKE 'contact-reveal:listing:%' OR key LIKE 'auth:totp:%' OR EXISTS (SELECT 1 FROM unnest($1::text[]) u WHERE key LIKE '%' || u || '%')`,
     [userIds],
   );

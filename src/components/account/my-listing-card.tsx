@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useLocale, useTranslations } from "next-intl";
 import {
   BarChart3Icon,
+  CalendarDaysIcon,
   CheckCircle2Icon,
   EllipsisVerticalIcon,
   ExternalLinkIcon,
@@ -48,6 +49,7 @@ import { daysUntil, ownerActionsFor, type MutatingListingAction, type OwnerListi
 import type { MyListing } from "@/lib/account/queries";
 import { formatDate, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { hostCalendarPath } from "@/components/host-calendar/paths";
 import { ListingStatusBadge } from "./listing-status-badge";
 import { useActionError } from "./use-action-error";
 
@@ -77,6 +79,7 @@ function primaryAction(actions: OwnerListingAction[], status: MyListing["status"
 
 export function MyListingCard({ listing }: { listing: MyListing }) {
   const t = useTranslations("account.listings");
+  const tCalendar = useTranslations("hostBooking.listingCard");
   const tm = useTranslations("moderation");
   const locale = useLocale();
   const router = useRouter();
@@ -86,7 +89,11 @@ export function MyListingCard({ listing }: { listing: MyListing }) {
 
   const actions = ownerActionsFor(listing, { bumpEnabled: siteConfig.features.bump });
   const primary = primaryAction(actions, listing.status);
-  const secondary: OwnerListingAction | null = actions.includes("stats") && primary !== "stats" ? "stats" : null;
+  // Stays and rentals get their calendar (block dates, bookings, iCal) next to the main action;
+  // statistics then move into the "more" menu.
+  const calendarHref =
+    listing.status !== "DRAFT" && listing.status !== "DELETED" && listing.dealType !== "SALE" ? hostCalendarPath(listing.id) : null;
+  const secondary: OwnerListingAction | null = !calendarHref && actions.includes("stats") && primary !== "stats" ? "stats" : null;
   const menu = actions.filter((a) => a !== primary && a !== secondary);
   const title = listing.title || t("untitled");
   const titleId = `my-listing-${listing.id}`;
@@ -240,6 +247,14 @@ export function MyListingCard({ listing }: { listing: MyListing }) {
               </Button>
             );
           })}
+          {calendarHref ? (
+            <Button asChild variant="outline" className="h-10 rounded-xl px-4">
+              <Link href={calendarHref}>
+                <CalendarDaysIcon aria-hidden="true" />
+                {tCalendar("calendar")}
+              </Link>
+            </Button>
+          ) : null}
           {menu.length > 0 ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

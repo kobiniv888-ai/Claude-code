@@ -70,6 +70,9 @@ export const ROUTE_MESSAGES = {
   ],
   "jewish-life": ["jewishLife.calendar", "jewishLife.error", "jewishLife.places", "maps"],
   listing: [
+    "booking.guests",
+    "booking.price",
+    "booking.sheet",
     "contact",
     "listing.booking",
     "listing.calendar",
@@ -82,6 +85,8 @@ export const ROUTE_MESSAGES = {
     "maps",
     "report",
   ],
+  // The booking review page (/listing/<id>/book), on top of "listing": a nested segment.
+  "listing/[id]/book": ["auth.verifyPhone", "booking"],
   owner: ["report"],
   search: [
     "listingFields",

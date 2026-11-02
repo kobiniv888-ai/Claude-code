@@ -14,7 +14,7 @@ import {
   stepSaveSchemas,
   type WizardValues,
 } from "./schemas";
-import { applies, parseStepParam, stepAt, stepNumber, stepsFor } from "./steps";
+import { applies, parseStepParam, priceStepFor, stepAt, stepNumber, stepsFor } from "./steps";
 
 const base: WizardValues = {
   dealType: "SHORT_STAY",
@@ -74,6 +74,9 @@ const base: WizardValues = {
   weeklyDiscountPct: 10,
   monthlyDiscountPct: null,
   icalImportUrls: [],
+  weekendPrice: null,
+  cancellationPolicy: "MODERATE",
+  paymentMethodsAtCheckIn: ["cash"],
   contactMethods: [{ channel: "WHATSAPP", value: "+995555123456", order: 0 }],
   contactHoursFrom: "",
   contactHoursTo: "",
@@ -89,8 +92,23 @@ describe("steps", () => {
     const hotel = { dealType: "HOTEL_ROOM", propertyType: "HOTEL" } as const;
     expect(stepsFor(hotel)).toHaveLength(12);
     expect(stepNumber("rooms", hotel)).toBe(8);
-    expect(stepNumber("price", hotel)).toBe(9);
-    expect(stepNumber("price", kind)).toBe(8);
+    expect(stepNumber("booking", hotel)).toBe(9);
+    expect(stepNumber("booking", kind)).toBe(8);
+  });
+
+  it("uses the bookings-and-price step instead of the price step for short stays and hotels", () => {
+    const hotel = { dealType: "HOTEL_ROOM", propertyType: "HOTEL" } as const;
+    const rent = { dealType: "MONTHLY_RENT", propertyType: "APARTMENT" } as const;
+    expect(stepsFor(kind)).toContain("booking");
+    expect(stepsFor(kind)).not.toContain("price");
+    expect(stepsFor(hotel)).toContain("booking");
+    expect(stepsFor(rent)).toContain("price");
+    expect(stepsFor(rent)).not.toContain("booking");
+    expect(priceStepFor(rent)).toBe("price");
+    expect(priceStepFor(kind)).toBe("booking");
+    expect(applies("bookingTerms", rent)).toBe(false);
+    expect(applies("cleaningFee", hotel)).toBe(true);
+    expect(applies("discounts", kind)).toBe(false);
   });
 
   it("parses ?step= as a number or a key and clamps it", () => {
@@ -169,14 +187,25 @@ describe("step save schemas", () => {
 
 describe("stepIssues (Next is blocked)", () => {
   it("is empty for a complete step", () => {
-    for (const step of ["deal", "property", "location", "details", "amenities", "jewish", "price", "contact"] as const) {
+    for (const step of ["deal", "property", "location", "details", "amenities", "jewish", "price", "booking", "contact"] as const) {
       expect(stepIssues(step, base, kind)).toEqual({});
     }
   });
 
-  it("requires title, description and guests for a short stay", () => {
+  it("requires title and description (a short stay's guests are in the booking step)", () => {
     const issues = stepIssues("details", { ...base, title: "Short", description: "", maxGuests: null }, kind);
-    expect(issues).toMatchObject({ title: "titleTooShort", description: "required", maxGuests: "required" });
+    expect(issues).toMatchObject({ title: "titleTooShort", description: "required" });
+    expect(issues.maxGuests).toBeUndefined();
+    expect(stepIssues("booking", { ...base, maxGuests: null }, kind).maxGuests).toBe("required");
+  });
+
+  it("needs a nightly price, guests and a payment method to take bookings", () => {
+    expect(stepIssues("booking", { ...base, price: null }, kind).price).toBe("priceRequired");
+    expect(stepIssues("booking", { ...base, pricePeriod: "WEEK" }, kind).price).toBe("priceRequired");
+    expect(stepIssues("booking", { ...base, paymentMethodsAtCheckIn: [] }, kind).paymentMethodsAtCheckIn).toBe("paymentMethodRequired");
+    expect(stepIssues("booking", { ...base, minStayNights: 91 }, kind).minStayNights).toBe("tooLarge");
+    const hotel = { dealType: "HOTEL_ROOM", propertyType: "HOTEL" } as const;
+    expect(stepIssues("booking", { ...base, dealType: "HOTEL_ROOM", propertyType: "HOTEL", price: null, maxGuests: null }, hotel)).toEqual({});
   });
 
   it("checks cross-field rules", () => {

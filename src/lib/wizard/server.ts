@@ -6,6 +6,7 @@ import { siteConfig, type AppLocale, type CurrencyCode } from "@/config/site";
 import type { CurrentUser } from "@/lib/auth/session";
 import { hmacHash, safeEqual } from "@/lib/crypto";
 import { isEnabledCurrency } from "@/lib/currency/convert";
+import { cleanPaymentMethods } from "@/lib/booking/constants";
 import { db } from "@/lib/db";
 import { NotFoundError } from "@/lib/errors";
 import { CONTACT_CHANNELS, DEFAULT_PRICE_PERIOD, type ContactMethod } from "@/lib/listing/fields";
@@ -172,6 +173,9 @@ export function toWizardValues(listing: ListingRow, businessName: string | null)
     weeklyDiscountPct: listing.weeklyDiscountPct,
     monthlyDiscountPct: listing.monthlyDiscountPct,
     icalImportUrls: listing.icalImportUrls,
+    weekendPrice: num(listing.weekendPrice),
+    cancellationPolicy: listing.cancellationPolicy,
+    paymentMethodsAtCheckIn: cleanPaymentMethods(listing.paymentMethodsAtCheckIn),
     contactMethods: parseContactMethods(listing.contactMethods),
     contactHoursFrom: listing.contactHoursFrom ?? "",
     contactHoursTo: listing.contactHoursTo ?? "",
@@ -408,6 +412,8 @@ export function nonApplicableResets(kind: ListingKind): Prisma.ListingUpdateInpu
   if (off("minStay")) reset.minStayNights = null;
   if (off("discounts")) Object.assign(reset, { weeklyDiscountPct: null, monthlyDiscountPct: null });
   if (off("ical")) reset.icalImportUrls = [];
+  // Monthly rentals and sales are never booked on the site.
+  if (off("bookingTerms")) Object.assign(reset, { weekendPrice: null, bookingMode: "CONTACT" });
   return reset;
 }
 

@@ -26,6 +26,7 @@ import { RoomTypesSection } from "@/components/listing-page/room-types";
 import { Section } from "@/components/listing-page/section";
 import { StatusBanner } from "@/components/listing-page/status-banner";
 import { StayProvider } from "@/components/listing-page/stay-dates";
+import { bookRequestFrom } from "@/lib/booking/guest";
 import { ViewTracker } from "@/components/listing-page/view-tracker";
 import { ReportButton } from "@/components/report/report-dialog";
 import { siteConfig, type AppLocale } from "@/config/site";
@@ -298,10 +299,13 @@ export default async function ListingPage({ params, searchParams }: Props) {
           <StayProvider
             initial={initialDates}
             guests={stay.guests}
+            initialGuests={bookRequestFrom(query, data.maxGuests).guests}
+            maxGuests={data.maxGuests}
+            instant={data.bookingMode === "INSTANT"}
             blocks={data.blocks}
             today={today}
             minNights={data.minStayNights}
-            price={{ amount: data.price, currency: data.currency, period: data.pricePeriod, from: data.priceIsFrom, cleaningFee: data.cleaningFee }}
+            price={{ amount: data.price, currency: data.currency, period: data.pricePeriod, from: data.priceIsFrom, cleaningFee: data.cleaningFee, weekendPrice: data.weekendPrice }}
             listingPath={path}
           >
             {page}

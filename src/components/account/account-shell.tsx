@@ -4,11 +4,13 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
   BellRingIcon,
+  CalendarCheck2Icon,
   GitCompareArrowsIcon,
   HeartIcon,
   HouseIcon,
   LayoutDashboardIcon,
   LifeBuoyIcon,
+  LuggageIcon,
   MessagesSquareIcon,
   SettingsIcon,
   ShieldCheckIcon,
@@ -26,7 +28,9 @@ import { cn } from "@/lib/utils";
 
 const ICONS: Record<AccountNavKey, LucideIcon> = {
   overview: LayoutDashboardIcon,
+  trips: LuggageIcon,
   listings: HouseIcon,
+  hostBookings: CalendarCheck2Icon,
   favorites: HeartIcon,
   compare: GitCompareArrowsIcon,
   messages: MessagesSquareIcon,

@@ -20,7 +20,7 @@ import { Link } from "@/i18n/navigation";
 import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { WizardValues } from "@/lib/wizard/schemas";
-import type { WizardStepKey } from "@/lib/wizard/steps";
+import { priceStepFor, type WizardStepKey } from "@/lib/wizard/steps";
 import type { PublishOutcome } from "@/lib/wizard/types";
 
 /** Which step fixes an automatic-check reason (null = nothing to change in the listing). */
@@ -132,7 +132,9 @@ export function PublishResult({
       {status === "BLOCKED" && fixable.length > 0 && (
         <ul className="grid gap-3">
           {fixable.map((code) => {
-            const step = REASON_STEPS[code] ?? null;
+            const reasonStep = REASON_STEPS[code] ?? null;
+            // Short stays and hotels set their price in the "הזמנות ומחיר" step.
+            const step = reasonStep === "price" ? priceStepFor(values) : reasonStep;
             return (
               <li key={code} className="grid gap-2 rounded-card border border-border-strong/40 bg-card p-4 shadow-card">
                 <p className="font-semibold">{t.has(`reasons.${code}.title`) ? t(`reasons.${code}.title`) : t("reasons.other.title")}</p>

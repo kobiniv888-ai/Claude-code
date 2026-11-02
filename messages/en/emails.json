@@ -186,6 +186,64 @@
       "body2": "Thank you for being part of {brand}. You're welcome back any time.",
       "body3": "Didn't ask for this? Contact us right away.",
       "cta": "Contact us"
+    },
+    "booking_confirmed_guest": {
+      "subject": "Booking confirmed: {title} ({code})",
+      "preheader": "{dates}. The address and the host's details are inside.",
+      "heading": "Your booking is confirmed",
+      "body1": "Booking {code} at {title} is confirmed, and the dates are yours.",
+      "body2": "On the booking page you can see every detail, add the trip to your calendar and cancel under the cancellation policy.",
+      "cta": "See the booking"
+    },
+    "booking_new_host": {
+      "subject": "New booking: {title}, {dates}",
+      "preheader": "A new booking from {guest}.",
+      "heading": "You have a new booking",
+      "body1": "{guest} booked {title} for {dates}. The booking is confirmed, and the dates are blocked in your calendar on the site.",
+      "body2": "If the place is also listed on Airbnb or Booking.com, make sure the calendars are synced to avoid a double booking. The guest pays you on arrival.",
+      "pledge": "As you promised on {brand}, every guest is welcome. A booking may be cancelled only for a real reason, and every cancellation is reviewed.",
+      "cta": "See the booking"
+    },
+    "booking_reminder_guest": {
+      "subject": "Reminder: your stay at {title} starts {count, plural, =0 {today} =1 {tomorrow} other {in {count} days}}",
+      "preheader": "{dates}. The address, check-in time and the host's details.",
+      "heading": "{count, plural, =0 {Your trip starts today} =1 {Your trip starts tomorrow} other {Your trip starts in {count} days}}",
+      "body1": "A short reminder before you arrive at {title}. Here is everything you need:",
+      "cta": "See the booking"
+    },
+    "booking_reminder_host": {
+      "subject": "Reminder: {guest} arrives {count, plural, =0 {today} =1 {tomorrow} other {in {count} days}}",
+      "preheader": "{title}, {dates}.",
+      "heading": "{count, plural, =0 {A guest arrives today} =1 {A guest arrives tomorrow} other {A guest arrives in {count} days}}",
+      "body1": "Reminder: {guest} arrives at {title} {count, plural, =0 {today} =1 {tomorrow} other {in {count} days}}.",
+      "body2": "Send the guest a short message with directions, and make sure the place is ready.",
+      "cta": "See the booking"
+    },
+    "booking_cancelled_by_guest": {
+      "subject": "Booking {code} was cancelled: {title}",
+      "preheader": "{guest}'s booking for {dates} was cancelled.",
+      "heading": "A booking was cancelled",
+      "body1": "{guest} cancelled booking {code} at {title} ({dates}).",
+      "body2": "The dates are open for booking again on the site. You don't need to do anything.",
+      "late": "The cancellation came after the free cancellation period of your policy. Guests pay on arrival, so nothing was charged, but we recorded it as a late cancellation.",
+      "cta": "See your bookings"
+    },
+    "booking_cancelled_by_host": {
+      "subject": "The host cancelled booking {code}",
+      "preheader": "{dates}. You were not charged anything.",
+      "heading": "The host cancelled your booking",
+      "body1": "We're sorry: the host of {title} cancelled booking {code} for {dates}.",
+      "body2": "You haven't paid anything, because on {brand} you pay only on arrival. You can look for another place for the same dates.",
+      "report": "We review every host cancellation. If you have reason to think the booking was cancelled because of who the guest is, please tell us through the {brand} help center.",
+      "cta": "Find another place"
+    },
+    "booking_completed": {
+      "subject": "Thank you for staying at {title}",
+      "preheader": "Your stay has ended. We'd love to see you again on {brand}.",
+      "heading": "Your stay has ended",
+      "body1": "Your stay at {title} ({dates}) has ended. We hope you enjoyed it.",
+      "body2": "The booking stays in your trips on {brand}, with all its details.",
+      "cta": "My trips"
     }
   },
   "ticketStatus": {
@@ -207,5 +265,40 @@
     "OWNERSHIP": "proof of ownership",
     "BUSINESS": "business registration",
     "PROPERTY": "property check"
+  },
+  "booking": {
+    "codeLabel": "Booking number",
+    "placeLabel": "Place",
+    "roomLabel": "Room type",
+    "checkInLabel": "Arrival",
+    "checkOutLabel": "Departure",
+    "nightsLabel": "Nights",
+    "guestsLabel": "Guests",
+    "totalLabel": "Total, paid on arrival",
+    "arrivalLabel": "Check-in time",
+    "departureLabel": "Check-out time",
+    "fromTime": "from {time}",
+    "untilTime": "until {time}",
+    "addressLabel": "Address",
+    "hostLabel": "Host",
+    "hostPhoneLabel": "Host's phone",
+    "hostWhatsappLabel": "WhatsApp",
+    "guestLabel": "Guest",
+    "guestPhoneLabel": "Guest's phone",
+    "messageLabel": "Message from the guest",
+    "reasonLabel": "Reason for cancelling",
+    "policyLabel": "Cancellation policy",
+    "payLine": "You pay the host {amount} on arrival, {currency}.",
+    "payLineMethods": "You pay the host {amount} on arrival, {currency}. Accepted: {methods}.",
+    "estimateLine": "Estimate in your currency: {amount}.",
+    "listSeparator": ", "
+  },
+  "sms": {
+    "booking_confirmed_guest": "{brand}: booking {code} is confirmed. {title}, {dates}. Address and host details: {url}",
+    "booking_new_host": "{brand}: new booking {code} from {guest}, {dates}, {guests}. Details: {url}",
+    "booking_reminder_guest": "{brand}: your stay at {title} starts {count, plural, =0 {today} =1 {tomorrow} other {in {count} days}}. Address and host details: {url}",
+    "booking_reminder_host": "{brand}: {guest} arrives {count, plural, =0 {today} =1 {tomorrow} other {in {count} days}} (booking {code}). {url}",
+    "booking_cancelled_by_guest": "{brand}: booking {code} ({dates}) was cancelled by the guest. The dates are free again. {url}",
+    "booking_cancelled_by_host": "{brand}: the host cancelled booking {code} ({dates}). You were not charged anything. {url}"
   }
 }

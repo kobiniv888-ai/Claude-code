@@ -2,6 +2,7 @@
 
 import {
   BadgeCheck,
+  CalendarCheck2,
   ExternalLink,
   FileText,
   Flag,
@@ -40,6 +41,7 @@ const ICONS: Record<AdminNavKey, LucideIcon> = {
   overview: LayoutDashboard,
   moderation: Inbox,
   reports: Flag,
+  bookings: CalendarCheck2,
   users: Users,
   verifications: BadgeCheck,
   tickets: LifeBuoy,

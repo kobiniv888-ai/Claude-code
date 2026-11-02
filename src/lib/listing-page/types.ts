@@ -139,6 +139,10 @@ export type ListingPageData = {
 
   deposit: number | null;
   cleaningFee: number | null;
+  /** Friday and Saturday nights (booking settings), null = the nightly price. */
+  weekendPrice: number | null;
+  /** INSTANT: guests book on the site; CONTACT: they ask the host. */
+  bookingMode: "INSTANT" | "CONTACT";
   utilitiesIncluded: boolean | null;
   utilitiesEstimate: number | null;
   minStayNights: number | null;

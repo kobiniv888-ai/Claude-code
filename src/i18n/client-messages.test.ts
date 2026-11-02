@@ -46,15 +46,27 @@ describe("client messages per route", () => {
     .filter((entry) => entry.isDirectory() && !FULL_SECTIONS.has(entry.name))
     .map((entry) => entry.name);
 
+  const routes = ROUTE_MESSAGES as Record<string, readonly string[]>;
+  /** Nested segments with their own set ("listing/[id]/book"): checked on their own, below. */
+  const nested = Object.keys(routes).filter((route) => route.includes("/"));
+  const inNested = (file: string) => nested.some((route) => file.startsWith(path.join(SITE, route) + path.sep));
+
   it.each(segments)("/%s gets what its client components read", (segment) => {
-    const extra: readonly string[] = (ROUTE_MESSAGES as Record<string, readonly string[]>)[segment] ?? [];
-    const problems = missing(tsxFiles(path.join(SITE, segment)), [...SHELL_MESSAGES, ...SITE_MESSAGES, ...extra]);
+    const extra: readonly string[] = routes[segment] ?? [];
+    const files = tsxFiles(path.join(SITE, segment)).filter((file) => !inNested(file));
+    const problems = missing(files, [...SHELL_MESSAGES, ...SITE_MESSAGES, ...extra]);
     if (problems.length > 0) {
       throw new Error(
         `Add these to ROUTE_MESSAGES["${segment}"] in src/i18n/client-messages.ts` +
           `${extra.length === 0 ? ` and mount <RouteMessages route="${segment}"> in its layout` : ""}:\n  ${problems.join("\n  ")}`,
       );
     }
+  });
+
+  it.each(nested)("/%s (nested) gets what its client components read", (route) => {
+    const covered = [...SHELL_MESSAGES, ...SITE_MESSAGES, ...(routes[route.split("/")[0]] ?? []), ...routes[route]];
+    const problems = missing(tsxFiles(path.join(SITE, route)), covered);
+    if (problems.length > 0) throw new Error(`Add these to ROUTE_MESSAGES["${route}"]:\n  ${problems.join("\n  ")}`);
   });
 
   it("every route with extra messages mounts <RouteMessages> in its layout", () => {

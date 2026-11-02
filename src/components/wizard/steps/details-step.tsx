@@ -23,7 +23,7 @@ import { locales, siteConfig, type AppLocale } from "@/config/site";
 import { CONDITIONS, HEATING_TYPES, SHARED_ROOM_FOR, VIEW_TYPES } from "@/lib/listing/fields";
 import { cn } from "@/lib/utils";
 import { LIMITS } from "@/lib/wizard/schemas";
-import { applies } from "@/lib/wizard/steps";
+import { applies, usesBookingStep } from "@/lib/wizard/steps";
 import { CharCount, CheckCards, ChoiceCards, Field, FieldGroup, NumberInput, Section, Stepper, YesNo } from "../fields";
 import { HEATING_ICONS, VIEW_ICONS } from "../icons";
 import { useOptionLabel } from "../labels";
@@ -39,7 +39,7 @@ export function DetailsStep({ values, set, errors, kind }: StepProps) {
   return (
     <div className="grid gap-6">
       {/* Size and rooms */}
-      {(show("rooms") || show("beds") || show("maxGuests") || show("sizeSqm")) && (
+      {(show("rooms") || show("beds") || (show("maxGuests") && !usesBookingStep(kind)) || show("sizeSqm")) && (
         <Section title={t("sizeTitle")} icon={LayoutGridIcon}>
           <div className="grid gap-3 sm:grid-cols-2">
             {show("rooms") && (
@@ -79,7 +79,8 @@ export function DetailsStep({ values, set, errors, kind }: StepProps) {
                 optional
               />
             )}
-            {show("maxGuests") && (
+            {/* Short stays and hotels enter their maximum guests in the "הזמנות ומחיר" step. */}
+            {show("maxGuests") && !usesBookingStep(kind) && (
               <Stepper
                 label={kind.dealType === "MONTHLY_RENT" ? t("maxTenants") : t("maxGuests")}
                 icon={UsersIcon}

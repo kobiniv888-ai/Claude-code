@@ -15,6 +15,7 @@ import { db } from "@/lib/db";
 import { clearPlacesCache } from "@/lib/places";
 import { clearSettingsCache } from "@/lib/settings";
 import { seedActivity } from "./activity";
+import { seedBookings } from "./bookings";
 import { seedBannedWords, seedDemoScamAlert, seedSavedReplies, seedSettings } from "./content";
 import { seedFaq } from "./faq";
 import { seedJewishPlaces } from "./jewish-places";
@@ -54,6 +55,7 @@ async function main() {
   await step("demo Jewish places", () => seedJewishPlaces(db, places.cities));
   await step("demo listings", () => seedListings(db, places, now));
   await step("demo activity", () => seedActivity(db, now));
+  await step("demo bookings", () => seedBookings(db, now));
 
   clearPlacesCache();
   clearSettingsCache();

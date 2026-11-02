@@ -59,7 +59,7 @@ import {
   verifyEditToken,
   type ListingRow,
 } from "./server";
-import { isBusinessListing, isSavableStep, stepsFor, type ListingKind, type SavableStepKey } from "./steps";
+import { applies, isBusinessListing, isSavableStep, stepsFor, usesBookingStep, type ListingKind, type SavableStepKey } from "./steps";
 import type { DayRange, PublishOutcome, WizardRoomType, WizardTranslation } from "./types";
 
 /*
@@ -169,7 +169,9 @@ async function buildStepUpdate<S extends SavableStepKey>(
         ? listing.pricePeriod
         : DEFAULT_PRICE_PERIOD[dealType];
       return {
-        data: { dealType, propertyType, pricePeriod },
+        // Monthly rentals and sales are never booked on the site (short stays and hotels turn
+        // instant booking on when their "הזמנות ומחיר" step is saved).
+        data: { dealType, propertyType, pricePeriod, ...(usesBookingStep({ dealType }) ? {} : { bookingMode: "CONTACT" as const }) },
         contentChanged: dealType !== listing.dealType,
         textChanged: false,
       };
@@ -321,6 +323,55 @@ async function buildStepUpdate<S extends SavableStepKey>(
         !same(v.deposit, listing.deposit === null ? null : Number(listing.deposit)) ||
         !same(v.cleaningFee, listing.cleaningFee === null ? null : Number(listing.cleaningFee)) ||
         pricePeriod !== listing.pricePeriod;
+      return { data, contentChanged, textChanged: false, priceChange };
+    }
+    case "booking": {
+      // "הזמנות ומחיר" (short stays and hotels, brief 5.6). Prices are per night; saving the step
+      // with at least one payment method turns instant booking on.
+      const v = input as ParsedStep<"booking">;
+      const bookable = usesBookingStep(kind);
+      const rates = await getRates();
+      const priceUsd = v.price !== null && v.price > 0 ? Math.round(toUsd(v.price, v.currency, rates) * 100) / 100 : null;
+      const weekendPrice = v.weekendPrice !== null && v.weekendPrice > 0 ? v.weekendPrice : null;
+      // The step sends NIGHT once the host enters a nightly price; an older weekly price is kept as
+      // it was (never silently read as a nightly one) and the listing is not bookable until then.
+      const pricePeriod = PRICE_PERIODS_BY_DEAL[kind.dealType].includes(v.pricePeriod)
+        ? v.pricePeriod
+        : DEFAULT_PRICE_PERIOD[kind.dealType];
+      const data = {
+        price: v.price,
+        currency: v.currency,
+        pricePeriod,
+        priceUsd,
+        weekendPrice: bookable ? weekendPrice : null,
+        cleaningFee: applies("cleaningFee", kind) ? v.cleaningFee : null,
+        deposit: applies("deposit", kind) ? v.deposit : null,
+        minStayNights: v.minStayNights,
+        maxGuests: v.maxGuests,
+        checkInFrom: orNull(v.checkInFrom),
+        checkOutUntil: orNull(v.checkOutUntil),
+        cancellationPolicy: v.cancellationPolicy,
+        paymentMethodsAtCheckIn: v.paymentMethodsAtCheckIn,
+        // Not offered for booked stays (see FIELD_APPLIES.discounts).
+        weeklyDiscountPct: null,
+        monthlyDiscountPct: null,
+        bookingMode:
+          bookable && pricePeriod === "NIGHT" && v.paymentMethodsAtCheckIn.length > 0 ? ("INSTANT" as const) : ("CONTACT" as const),
+      } satisfies Prisma.ListingUpdateInput;
+      const oldPrice = listing.price === null ? null : Number(listing.price);
+      const priceChanged = oldPrice !== v.price || listing.currency !== v.currency;
+      const priceChange =
+        listing.status !== "DRAFT" && oldPrice !== null && v.price !== null && v.price > 0 && priceChanged
+          ? { oldPrice, newPrice: v.price, currency: v.currency }
+          : undefined;
+      // Money columns are Decimals in the row: compare them as numbers.
+      const money = new Set(["price", "weekendPrice", "cleaningFee", "deposit"]);
+      const before: Record<string, unknown> = listing;
+      const contentChanged = (Object.keys(data) as (keyof typeof data)[]).some((key) => {
+        if (key === "priceUsd") return false;
+        const old = before[key];
+        return !same(data[key], money.has(key) && old !== null && old !== undefined ? Number(old) : old);
+      });
       return { data, contentChanged, textChanged: false, priceChange };
     }
     case "contact": {
