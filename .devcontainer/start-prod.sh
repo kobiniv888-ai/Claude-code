@@ -13,18 +13,11 @@
 set -u
 cd "$(dirname "$0")/.."
 
-stop() { # stop <pattern>: ends matching processes, but never this script
-  local pids
-  pids=$(pgrep -f "$1" | grep -v "^$$\$" || true)
-  [ -n "$pids" ] && kill $pids 2>/dev/null
-  return 0
-}
-if pgrep -f "next dev|next start|next-server" > /dev/null; then
+# shellcheck source=site-procs.sh
+source .devcontainer/site-procs.sh
+if site_running any; then
   echo "Stopping the running website…"
-  stop "next dev"
-  stop "next start"
-  stop "next-server"
-  for _ in $(seq 1 15); do pgrep -f "next dev|next start|next-server" > /dev/null || break; sleep 1; done
+  stop_site any
 fi
 
 # start.sh --prod checks the setup and the database, builds (npm run build), starts `npm start`

@@ -78,7 +78,13 @@ When new work is pushed to the branch, open the codespace, open the terminal and
 git pull && bash .devcontainer/start-prod.sh
 ```
 
-(or `git pull && bash .devcontainer/start.sh` for the development version). Then reload the page.
+(or `git pull && bash .devcontainer/start.sh --dev` for the development version). Then reload the page.
+
+`git pull` may say **"Already up to date"**: that only means there was nothing new to download
+since your last pull. The site you see still has to be restarted to show new code, and a running
+**fast version never shows new code** until it is rebuilt: `start-prod.sh` rebuilds it, and
+`start.sh --dev` switches to the development version. Plain `bash .devcontainer/start.sh` (which
+also runs when the codespace opens) keeps whatever is running.
 
 ## Map key (so the maps show streets)
 
@@ -99,7 +105,7 @@ a plain background) and show **"Map key missing"**.
   is copied into `.env` automatically.
 * **Directly in `.env`:** open `.env` in the codespace editor, set
   `NEXT_PUBLIC_MAP_TILE_KEY="…"`, save, then restart the website:
-  `pkill -f "next dev"; bash .devcontainer/start.sh`.
+  `bash .devcontainer/start-prod.sh` (or `bash .devcontainer/start.sh --dev`).
 
 On Vercel, add the same variable under **Settings → Environment Variables** and redeploy.
 
@@ -123,7 +129,7 @@ A new listing waits "In review" until a moderator approves it:
    translation key is set, and the owner gets an email.
 
 **2-step login for staff.** The admin panel needs 2-step login (an authenticator app such as Google
-Authenticator), as on the real site. The **development version** (`bash .devcontainer/start.sh`)
+Authenticator), as on the real site. The **development version** (`bash .devcontainer/start.sh --dev`)
 skips it for the demo accounts, so approving there needs no app. In the **fast version**
 (`start-prod.sh`) the admin panel first asks you to set up the app once (scan the QR code, type the
 6-digit code).
@@ -153,7 +159,7 @@ background (2–3 minutes, log in `/tmp/bayit-warm.log`), so they are sharp at o
   visitors get (no codes on screen): `AUTH_TEST_MODE=false bash .devcontainer/start-prod.sh`.
 - Changed some code or switched branch? Run the command again: production mode does not reload
   by itself.
-- Back to development mode (hot reload): `bash .devcontainer/start.sh`.
+- Back to development mode (hot reload): `bash .devcontainer/start.sh --dev`.
 - The build log is in `/tmp/bayit-dev.log`.
 - On your own computer the same is `npm run preview` (build, then serve on port 3000).
 

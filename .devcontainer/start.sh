@@ -8,14 +8,20 @@
 #   when it was loaded by an older version of the demo data (prisma/seed/DEMO_DATA_VERSION)
 # - already running → just prints the address
 #
-#   bash .devcontainer/start.sh          development server (hot reload)
+#   bash .devcontainer/start.sh          development server (hot reload); keeps a running site as is
+#   bash .devcontainer/start.sh --dev    the same, but first stops the fast version if it runs
+#                                        (a production build never shows new code)
 #   bash .devcontainer/start.sh --prod   production build + server: the real speed, for phones
 #
 # Setup and seed output: /tmp/bayit-setup.log. Website log: /tmp/bayit-dev.log.
 cd "$(dirname "$0")/.."
 LOG=/tmp/bayit-setup.log
 MODE=dev
-[ "${1:-}" = "--prod" ] && MODE=prod
+SWITCH_TO_DEV=0
+case "${1:-}" in
+  --prod) MODE=prod ;;
+  --dev) SWITCH_TO_DEV=1 ;;
+esac
 
 url="http://localhost:3000"
 if [ -n "${CODESPACE_NAME:-}" ]; then
@@ -38,6 +44,8 @@ fi
 
 # shellcheck source=env-sync.sh
 source .devcontainer/env-sync.sh
+# shellcheck source=site-procs.sh
+source .devcontainer/site-procs.sh
 sync_env | tee -a "$LOG"
 log "── start $(date -u +%FT%TZ) ──"
 
@@ -48,7 +56,7 @@ if [ ! -f node_modules/.bayit-lock-hash ]; then
   echo "$lock_hash" > node_modules/.bayit-lock-hash
 elif [ "$(cat node_modules/.bayit-lock-hash)" != "$lock_hash" ]; then
   log "The package list changed — installing packages (a few minutes)…"
-  pkill -f "next dev" 2>/dev/null; pkill -f "next start" 2>/dev/null; sleep 1
+  stop_site any
   npm ci --no-audit --no-fund >> "$LOG" 2>&1 || { log "Installing packages failed — see $LOG"; exit 1; }
   echo "$lock_hash" > node_modules/.bayit-lock-hash
 fi
@@ -87,9 +95,9 @@ if grep -q '^GOOGLE_TRANSLATE_API_KEY="[^"]' .env 2>/dev/null; then
 fi
 
 if [ "$MODE" = "prod" ]; then
-  if answering; then
+  if site_running any; then
     echo "Stopping the running website…"
-    pkill -f "next dev" 2>/dev/null; pkill -f "next start" 2>/dev/null; sleep 2
+    stop_site any
   fi
   echo "Building for production (a few minutes)…"
   npm run build >> /tmp/bayit-dev.log 2>&1 || { echo "Build failed:"; tail -n 30 /tmp/bayit-dev.log; exit 1; }
@@ -99,8 +107,22 @@ if [ "$MODE" = "prod" ]; then
   echo "Login test mode: ${AUTH_TEST_MODE:-true} (codes shown on screen; set AUTH_TEST_MODE=false to turn off)"
   AUTH_TEST_MODE="${AUTH_TEST_MODE:-true}" setsid nohup npm start > /tmp/bayit-dev.log 2>&1 < /dev/null &
 else
+  # The fast version (a production build) never picks up new code. --dev switches to the
+  # development server, which does; without it (e.g. when the codespace opens) the running site
+  # is kept. A running development server is always kept: it reloads by itself.
+  fast_running=0
+  site_running prod && fast_running=1
+  if [ "$fast_running" = "1" ] && [ "$SWITCH_TO_DEV" = "1" ]; then
+    echo "Stopping the fast version (it does not show new code) to start the development version…"
+    stop_site prod
+    fast_running=0
+  fi
   if answering; then
     echo "Bayit is running: ${url}/he"
+    if [ "$fast_running" = "1" ]; then
+      echo "(This is the fast version, built earlier: it does not show new code. To see new code run"
+      echo " bash .devcontainer/start-prod.sh   (fast, rebuilds)   or   bash .devcontainer/start.sh --dev)"
+    fi
     exit 0
   fi
   echo "Starting the website…"

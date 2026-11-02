@@ -22,7 +22,7 @@ Viber, Messenger, phone or email. There are no bookings or payments in Phase 1.
 > 3000** (the same address you already open on your phone) and prepares the photos in the
 > background. No "Compiling…" or "Rendering…", and no "N" button: this is the speed visitors get.
 > Logging in still works (codes on screen). Changed code or switched branch? Run it again. Back to
-> development mode: `bash .devcontainer/start.sh`. On your own computer: `npm run preview`.
+> development mode: `bash .devcontainer/start.sh --dev`. On your own computer: `npm run preview`.
 > Details: [docs/CODESPACES.md](docs/CODESPACES.md#the-fast-version-production-mode).
 
 "Bayit" is a working name. The name, logo, colors, cities, currencies, limits and paid-feature
@@ -135,7 +135,7 @@ In a codespace:
   the development server, builds the site for production (3–5 minutes), serves it on the same port
   3000, prints the address to open and prepares the photos in the background. Development mode
   compiles every page on its first visit ("Compiling…", "Rendering…"), so only this mode shows how
-  fast the site really is. Back to development: `bash .devcontainer/start.sh`. On your own
+  fast the site really is. Back to development: `bash .devcontainer/start.sh --dev`. On your own
   computer: `npm run preview`.
 * Map key: add a Codespaces secret named `NEXT_PUBLIC_MAP_TILE_KEY` (or set it in `.env`); see
   [docs/CODESPACES.md](docs/CODESPACES.md#map-key-so-the-maps-show-streets).
