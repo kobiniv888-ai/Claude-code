@@ -56,6 +56,13 @@ export async function acceptCookies(page: Page) {
 /** Fills the phone form (login page or login dialog) and the development code. */
 export async function loginThroughForm(page: Page, phone: string, scope: Page | Locator = page) {
   const national = phone.replace(/^\+995/, "");
+  // English pages start on +972 (guests are mostly Israeli); the demo accounts are Georgian.
+  const country = scope.getByRole("button", { name: /^Country code/ });
+  if (!((await country.textContent()) ?? "").includes("+995")) {
+    await country.click();
+    await page.getByPlaceholder("Search country or code").fill("995");
+    await page.getByRole("option", { name: /\+995/ }).click();
+  }
   await scope.getByRole("textbox", { name: "Phone number" }).fill(national);
   await scope.getByRole("button", { name: "Send code" }).click();
   const code = await devOtp(page.context().request, phone);

@@ -1,0 +1,56 @@
+{
+  "badges": {
+    "welcomes": "Рады израильтянам",
+    "welcomesHint": "Хозяин обязался радушно принимать гостей из Израиля и евреев",
+    "verified": "Проверено",
+    "verifiedHint": "Наша команда проверила документ владельца или подтверждение права собственности",
+    "hebrew": "Говорит на иврите",
+    "kosherKitchen": "Кошерная кухня",
+    "kosherMeals": "Кошерное питание",
+    "shabbatFriendly": "Подходит для шабата",
+    "synagogueWalk": "{minutes} мин пешком до синагоги",
+    "keepsShabbat": "Соблюдает шабат",
+    "business": "Компания",
+    "demo": "Демо",
+    "new": "Новое",
+    "priceDropped": "Цена снижена",
+    "promoted": "Реклама",
+    "more": "+{count}",
+    "moreLabel": "{count, plural, one {и ещё {count} значок: {list}} few {и ещё {count} значка: {list}} many {и ещё {count} значков: {list}} other {и ещё {count} значка: {list}}}"
+  },
+  "chip": {
+    "remove": "Убрать {label}"
+  },
+  "sheet": {
+    "close": "Закрыть",
+    "clear": "Сбросить"
+  },
+  "section": {
+    "seeAll": "Все"
+  },
+  "carousel": {
+    "previous": "Назад",
+    "next": "Вперёд",
+    "slide": "Фото {index} из {total}",
+    "noPhotos": "Фото пока нет",
+    "morePhotos": "{count, plural, one {фото} few {фото} many {фото} other {фото}}"
+  },
+  "contactBar": {
+    "label": "Связаться с хозяином"
+  },
+  "devUi": {
+    "title": "Дизайн-система",
+    "intro": "Внутренняя страница для разработчиков: все цвета, стили текста и компоненты в одном месте.",
+    "showResults": "{count, plural, one {Показать {count} вариант} few {Показать <n>{count}</n> варианта} many {Показать <n>{count}</n> вариантов} other {Показать <n>{count}</n> варианта}}",
+    "emptyTitle": "Ничего не нашлось",
+    "emptyText": "Попробуйте убрать фильтр или расширить район.",
+    "emptyAction": "Начать поиск",
+    "fixKosher": "Убрать фильтр «Кошерно»",
+    "fixArea": "Расширить район",
+    "sectionTitle": "Новые объявления",
+    "sectionSubtitle": "Добавлены на этой неделе",
+    "post": "Разместить объявление",
+    "showPhone": "Показать телефон",
+    "sheetBody": "Здесь будут фильтры."
+  }
+}

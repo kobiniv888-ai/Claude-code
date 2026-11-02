@@ -6,6 +6,7 @@
 import type { AppLocale } from "@/config/site";
 import type { AccountType, PrismaClient, UserRole } from "@/generated/prisma/client";
 import { DEMO_EMAIL_DOMAIN } from "@/lib/demo";
+import { PLEDGE_CURRENT_VERSION } from "@/lib/pledge";
 import { daysFromNow } from "./lib";
 
 export type DemoUserKey =
@@ -145,12 +146,17 @@ export function demoUser(key: DemoUserKey): DemoUserSeed {
   return user;
 }
 
+/** Demo accounts that post listings. */
+const DEMO_HOSTS: ReadonlySet<DemoUserKey> = new Set(["yossi", "natela", "michael", "rivka", "hotel", "guesthouse"]);
+
 export async function seedUsers(db: PrismaClient, now: Date): Promise<number> {
   const adminId = demoUserId("admin");
   // The admin first, so idVerifiedById can point at it.
   for (const user of DEMO_USERS) {
     const id = demoUserId(user.key);
     const joined = daysFromNow(-user.joinedDaysAgo, now, 9);
+    // Every demo host accepted the current Bayit welcome pledge (the green badge on their listings).
+    const isHost = DEMO_HOSTS.has(user.key);
     const data = {
       name: user.name,
       email: demoUserEmail(user.key),
@@ -170,13 +176,38 @@ export async function seedUsers(db: PrismaClient, now: Date): Promise<number> {
       idVerifiedAt: user.idVerified ? daysFromNow(-user.joinedDaysAgo + 5, now, 11) : null,
       idVerifiedById: user.idVerified ? adminId : null,
       businessVerifiedAt: user.businessVerified ? daysFromNow(-user.joinedDaysAgo + 3, now, 11) : null,
-      avgReplyMinutes: user.avgReplyMinutes ?? null,
-      replyRate: user.replyRate ?? null,
+      // No invented response times or reply rates on the site, not even for demo hosts.
+      avgReplyMinutes: null,
+      replyRate: null,
+      welcomePledgeVersion: isHost ? PLEDGE_CURRENT_VERSION : null,
+      welcomePledgeAcceptedAt: isHost ? daysFromNow(-user.joinedDaysAgo + 1, now, 10) : null,
       lastSeenAt: daysFromNow(-(user.joinedDaysAgo % 3), now, 8),
       isDemo: true,
       createdAt: joined,
     };
+    await releaseDemoPhone(db, id, user.phone);
     await db.user.upsert({ where: { id }, create: { id, ...data }, update: data });
   }
   return DEMO_USERS.length;
+}
+
+/**
+ * Logging in with a demo phone number before the demo data exists creates an ordinary account
+ * that holds that number, and the demo user could then never be created (unique phone number).
+ * Such an account came from the phone login (placeholder e-mail), so it is removed; any other
+ * account keeps its data and only lets go of the number.
+ */
+async function releaseDemoPhone(db: PrismaClient, demoId: string, phone: string): Promise<void> {
+  const holder = await db.user.findUnique({
+    where: { phoneNumber: phone },
+    select: { id: true, email: true, isDemo: true },
+  });
+  if (!holder || holder.id === demoId) return;
+  if (!holder.isDemo && holder.email.endsWith("@phone.bayit.invalid")) {
+    await db.user.delete({ where: { id: holder.id } });
+    console.log(`  · removed an account created by logging in with the demo number ${phone}`);
+  } else {
+    await db.user.update({ where: { id: holder.id }, data: { phoneNumber: null, phoneNumberVerified: false } });
+    console.log(`  · detached the demo number ${phone} from another account`);
+  }
 }

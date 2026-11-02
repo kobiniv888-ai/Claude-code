@@ -72,6 +72,7 @@ Emails are not sent until Resend is configured. You can read them under **Admin 
 |---|---|
 | `npm run dev` | Development server |
 | `npm run build` / `npm start` | Production build / run it |
+| `npm run preview` | Production build, then serve it on port 3000 (the real speed) |
 | `npm run check` | Typecheck + lint + translation check + unit tests |
 | `npm run i18n:check` | Checks that all 5 languages have the same text keys |
 | `npm test` | Unit tests (Vitest) |
@@ -111,6 +112,16 @@ All demo listings, users and places are marked **Demo**. Before launch, either:
 database and the demo data, starts in a free cloud computer, and you open it in your phone's
 browser. Logging in works, because the code is shown on screen. Step-by-step guide:
 **[docs/CODESPACES.md](docs/CODESPACES.md)**.
+
+In a codespace:
+* `bash .devcontainer/start.sh` starts the site (and reloads missing or expired demo data).
+* **Feel the real speed on your phone:** `bash .devcontainer/start-prod.sh` stops the development
+  server, builds the site for production (a few minutes), serves it on the same port 3000 and
+  prints the address to open. Development mode compiles every page on its first visit
+  ("Compiling…", "Rendering…"), so only this mode shows how fast the site really is. Back to
+  development: `bash .devcontainer/start.sh`. On your own computer: `npm run preview`.
+* Map key: add a Codespaces secret named `NEXT_PUBLIC_MAP_TILE_KEY` (or set it in `.env`); see
+  [docs/CODESPACES.md](docs/CODESPACES.md#map-key-so-the-maps-show-streets).
 
 **A public preview on Vercel (about 20 minutes, free accounts):**
 
@@ -177,9 +188,12 @@ Turn `DB_PUSH_ON_BUILD` and `SEED_ON_BUILD` off once the preview is set up.
    restricted to it, and set `GOOGLE_TRANSLATE_API_KEY`.
 9. **Cloudflare.** Put the domain behind Cloudflare (CDN and attack protection). Create a
    **Turnstile** widget and fill in the two `TURNSTILE` keys.
-10. **Map tiles.** OpenStreetMap's own tile servers are for light use only. For production, get a
-    free key from MapTiler, Stadia Maps or Carto and set `NEXT_PUBLIC_MAP_TILE_URL` and
-    `NEXT_PUBLIC_MAP_TILE_ATTRIBUTION`.
+10. **Map tiles.** The maps use [CARTO basemaps](https://carto.com/basemaps) (light: Voyager,
+    dark: Dark Matter), free for commercial use up to 1M tile requests a month. Get a key at
+    https://carto.com/basemaps/apikey, set `NEXT_PUBLIC_MAP_TILE_KEY`, and in the CARTO dashboard
+    restrict the key to your production domain and `*.app.github.dev`. The provider and key live
+    in one file, `src/config/map.ts`: to switch providers later, add one entry there and set
+    `NEXT_PUBLIC_MAP_TILE_PROVIDER`. Never use `tile.openstreetmap.org` (its policy forbids apps).
 11. **First admin.** Log in once with your phone, then promote yourself in the database:
     `UPDATE "User" SET role = 'ADMIN' WHERE "phoneNumber" = '+972…';`. Open `/admin`. It asks you to
     set up 2-step login, and after that you can give roles to others in **Admin → Roles**.
@@ -219,7 +233,9 @@ Turn `DB_PUSH_ON_BUILD` and `SEED_ON_BUILD` off once the preview is set up.
 | `NEXT_PUBLIC_MEDIA_BASE_URL` | Public base URL of uploaded photos | `/api/media/` |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile CAPTCHA | CAPTCHA skipped |
 | `GOOGLE_TRANSLATE_API_KEY` | Auto-translating listings | Listings show in the original language |
-| `NEXT_PUBLIC_MAP_TILE_URL`, `NEXT_PUBLIC_MAP_TILE_ATTRIBUTION` | Map tile provider | OpenStreetMap tiles |
+| `NEXT_PUBLIC_MAP_TILE_KEY` | CARTO map tiles key (see "Going live", step 10) | Maps show pins on a plain background and "Map key missing" (dev) / "map unavailable" (production) |
+| `NEXT_PUBLIC_MAP_TILE_PROVIDER` | Tile provider in `src/config/map.ts` | `carto` |
+| `EXTRA_ALLOWED_ORIGINS` | Extra hosts/origins allowed to open the site and log in (e.g. a tunnel) | Codespaces and localhost are allowed automatically in development |
 | `OVERPASS_ENABLED`, `OVERPASS_URL` | Nearby supermarkets and transport from OpenStreetMap | On, public Overpass server |
 | `CRON_SECRET` | Protects the scheduled jobs (`/api/cron/*`) | Jobs refuse to run in production |
 | `CLIENT_IP_HEADER` | Trusted header with the visitor IP (e.g. `cf-connecting-ip`) | Standard proxy headers |

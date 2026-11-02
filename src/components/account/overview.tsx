@@ -77,7 +77,7 @@ export function VerificationProgressCard({ progress }: { progress: AccountOvervi
               className="flex min-h-12 items-center gap-3 rounded-xl px-2 py-2 outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
             >
               <Icon className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-              <span className="min-w-0 flex-1 text-sm font-medium">{t(`badges.${key}`)}</span>
+              <span className="min-w-0 flex-1 text-sm font-medium [overflow-wrap:anywhere]">{t(`badges.${key}`)}</span>
               <BadgeStateChip state={state} />
               <ChevronEnd className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
             </Link>

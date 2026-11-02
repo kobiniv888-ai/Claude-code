@@ -6,7 +6,7 @@ import { pickLocalized } from "@/i18n/locale";
 import { authProviders } from "@/lib/auth/config";
 import { db } from "@/lib/db";
 import { isPlaceholderEmail } from "@/lib/email";
-import { listingCardSelect, toListingCard } from "@/lib/listing/mappers";
+import { CARD_OWNER_SELECT, listingCardSelect, toListingCard } from "@/lib/listing/mappers";
 import type { ListingCardData } from "@/lib/listing/types";
 import { listingPath } from "@/lib/listing/urls";
 import { photoUrl } from "@/lib/media";
@@ -302,7 +302,7 @@ export async function getFavoriteItems(userId: string, locale: AppLocale): Promi
           status: true,
           deletedAt: true,
           expiresAt: true,
-          owner: { select: { accountType: true, idVerifiedAt: true, status: true, deletedAt: true } },
+          owner: { select: { ...CARD_OWNER_SELECT, status: true, deletedAt: true } },
         },
       },
     },
@@ -319,7 +319,13 @@ export async function getFavoriteItems(userId: string, locale: AppLocale): Promi
       (l.owner.status === "ACTIVE" || l.owner.status === "WARNED");
     const common = { listingId: l.id, note: row.note, savedAt: row.createdAt.toISOString() };
     if (!visible) return { ...common, available: false, title: l.title.trim(), publicId: l.publicId };
-    const card = toListingCard(l, { locale, now, featuredIds: featured, favoriteIds: new Set([l.id]) });
+    const card = toListingCard(l, {
+      locale,
+      now,
+      featuredIds: featured,
+      favoriteIds: new Set([l.id]),
+      pledgeRequiredVersion: settings.pledgeRequiredVersion,
+    });
     return { ...common, available: true, card };
   });
 }

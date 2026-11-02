@@ -48,7 +48,7 @@ export default async function VerifyPhonePage({ params, searchParams }: Props) {
         </span>
       }
     >
-      <VerifyPhonePanel config={getLoginConfig().phone} next={next} verifiedPhone={verifiedPhone} />
+      <VerifyPhonePanel config={getLoginConfig(locale).phone} next={next} verifiedPhone={verifiedPhone} />
     </AuthShell>
   );
 }

@@ -17,15 +17,19 @@ import { isShabbatOrHolidayNow } from "@/lib/hebcal";
  *   await updateSettings({ listingExpiryDays: 90 }, staff.id);   // validated + audited
  */
 
+/**
+ * Home page sections, in their default order (the redesigned home kept these keys: shabbatTimes is
+ * the "Jewish life in Georgia" band, whyUs is "The Bayit pledge" — see app/[locale]/(site)/page.tsx).
+ */
 export const HOME_SECTION_KEYS = [
-  "categories",
   "cities",
+  "categories",
   "featured",
   "newest",
   "recentlyViewed",
+  "shabbatTimes",
   "whyUs",
   "howItWorks",
-  "shabbatTimes",
   "safetyStrip",
   "listCta",
 ] as const;
@@ -55,6 +59,11 @@ export type SiteSettings = {
   featuredListingIds: string[];
   /** Prices of paid features in USD (Phase 2). */
   paidFeaturePrices: Record<PaidFeatureKey, number>;
+  /**
+   * Hosts whose accepted welcome-pledge version is below this lose the green "welcomes Israelis"
+   * badge until they accept again (1 … siteConfig.pledge.currentVersion).
+   */
+  pledgeRequiredVersion: number;
 };
 
 export const DEFAULT_SETTINGS: SiteSettings = {
@@ -70,6 +79,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   paidFeaturePrices: Object.fromEntries(
     PAID_FEATURE_KEYS.map((key) => [key, siteConfig.paidFeatures[key].priceUsd]),
   ) as Record<PaidFeatureKey, number>,
+  pledgeRequiredVersion: siteConfig.pledge.currentVersion,
 };
 
 // ─── Validation ───────────────────────────────────────────────
@@ -96,6 +106,7 @@ export const settingSchemas = {
       z.ZodNumber
     >,
   ),
+  pledgeRequiredVersion: z.number().int().min(1).max(siteConfig.pledge.currentVersion),
 } satisfies { [K in keyof SiteSettings]: z.ZodType };
 
 export const settingsPatchSchema = z.object(settingSchemas).partial().strict();

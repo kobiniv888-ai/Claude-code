@@ -17,6 +17,9 @@ import { useAuthErrorMessage } from "./use-auth-messages";
 
 type Provider = "google" | "apple";
 
+/** Where the visitor is in the login: the first screen, the 6-digit code, the 2-step code, or done. */
+export type LoginStage = "start" | "code" | "two-factor" | "done";
+
 /**
  * The login UI: Google, Apple (when configured) and a phone code — then the 2-step check
  * in place when the account has it on. Used by the /login page and the login dialog.
@@ -29,6 +32,8 @@ export function LoginPanel({
   variant = "page",
   initialError,
   onSuccess,
+  onStageChange,
+  autoFocus,
 }: {
   config: LoginConfig;
   /** Locale-less path to return to (validated again here). */
@@ -36,6 +41,10 @@ export function LoginPanel({
   variant?: "page" | "dialog";
   initialError?: AuthErrorKey | null;
   onSuccess?: () => void | Promise<void>;
+  /** Lets the sheet or page shrink its welcome block while a code is being entered. */
+  onStageChange?: (stage: LoginStage) => void;
+  /** Focus the phone field at once (default: in the dialog when there is no Google/Apple). */
+  autoFocus?: boolean;
 }) {
   const t = useTranslations("auth.login");
   const locale = useLocale();
@@ -43,7 +52,11 @@ export function LoginPanel({
   const errorMessage = useAuthErrorMessage();
   const target = safeNextPath(next);
 
-  const [step, setStep] = useState<"start" | "two-factor" | "done">("start");
+  const [step, setStepState] = useState<"start" | "two-factor" | "done">("start");
+  const setStep = (next: "start" | "two-factor" | "done") => {
+    setStepState(next);
+    onStageChange?.(next);
+  };
   const [redirecting, setRedirecting] = useState<Provider | null>(null);
   const [error, setError] = useState<AuthErrorKey | string | null>(initialError ?? null);
 
@@ -85,7 +98,7 @@ export function LoginPanel({
     return (
       <div className="grid gap-5">
         <div className="grid gap-1 text-center">
-          <p className="text-lg font-semibold">{t("twoFactorTitle")}</p>
+          <p className="text-h3">{t("twoFactorTitle")}</p>
         </div>
         <TwoFactorChallenge onVerified={finish} />
         <Button
@@ -132,7 +145,7 @@ export function LoginPanel({
       {error && (
         <div
           role="alert"
-          className="flex items-start gap-2.5 rounded-xl border border-destructive/30 bg-destructive/5 px-3.5 py-3 text-sm text-destructive"
+          className="flex items-start gap-2.5 rounded-input border border-destructive/30 bg-destructive/5 px-3.5 py-3 text-small font-medium text-destructive"
         >
           <CircleAlertIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
           <p>{errorMessage(error)}</p>
@@ -146,7 +159,7 @@ export function LoginPanel({
               type="button"
               variant="outline"
               size="lg"
-              className="relative h-12 w-full rounded-xl border-input text-base font-medium"
+              className="relative h-12 w-full rounded-full border-input bg-card text-base font-semibold"
               onClick={() => void continueWith("google")}
               disabled={redirecting !== null}
               aria-busy={redirecting === "google" || undefined}
@@ -163,7 +176,7 @@ export function LoginPanel({
             <Button
               type="button"
               size="lg"
-              className="relative h-12 w-full rounded-xl bg-foreground text-base font-medium text-background hover:bg-foreground/90"
+              className="relative h-12 w-full rounded-full bg-foreground text-base font-semibold text-background hover:bg-foreground/90"
               onClick={() => void continueWith("apple")}
               disabled={redirecting !== null}
               aria-busy={redirecting === "apple" || undefined}
@@ -191,7 +204,8 @@ export function LoginPanel({
         mode="sign-in"
         config={config.phone}
         onVerified={afterPhoneLogin}
-        autoFocus={variant === "dialog" && !hasSocial}
+        autoFocus={autoFocus ?? (variant === "dialog" && !hasSocial)}
+        onStepChange={(phoneStep) => onStageChange?.(phoneStep === "code" ? "code" : "start")}
       />
 
       <p className="text-center text-xs leading-relaxed text-muted-foreground">

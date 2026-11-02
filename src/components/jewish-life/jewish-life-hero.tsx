@@ -1,68 +1,91 @@
-import { BookOpen, CalendarDays, Flame, HeartHandshake, MapPinned, Phone } from "lucide-react";
+import { CalendarDays, HeartHandshake, MapPinned, Phone } from "lucide-react";
 import { getTranslations } from "next-intl/server";
-import type { ReactNode } from "react";
+import { IconCircle } from "@/components/ds/icon-circle";
+import { ShabbatCandlesIcon, type IconComponent } from "@/components/ds/jewish-icons";
+import { HomeMotionStyles } from "@/components/home/home-motion";
+import { PhotoSlot } from "@/components/photos/photo-slot";
 import type { AppLocale } from "@/config/site";
 import { JlContainer } from "./section";
 
-/** Top band of /jewish-life: title, lead, jump links and (as `aside`) this week's Shabbat card. */
-export async function JewishLifeHero({
-  locale,
-  aside,
-  showGuidesLink,
-}: {
-  locale: AppLocale;
-  aside?: ReactNode;
-  showGuidesLink: boolean;
-}) {
+type Tone = "navy" | "coral" | "green" | "amber";
+
+/** The 4 quick actions (brief §2 "keep": community map, Shabbat times, Hebrew calendar, emergency numbers). */
+const ACTIONS: readonly { key: "map" | "times" | "calendar" | "emergency"; href: string; icon: IconComponent; tone: Tone }[] = [
+  { key: "map", href: "#places", icon: MapPinned, tone: "navy" },
+  { key: "times", href: "#shabbat-times", icon: ShabbatCandlesIcon, tone: "coral" },
+  { key: "calendar", href: "#calendar", icon: CalendarDays, tone: "green" },
+  { key: "emergency", href: "#emergency", icon: Phone, tone: "amber" },
+];
+
+/**
+ * Top of /jewish-life: a photo of the Great Synagogue of Tbilisi with the title, and the four
+ * quick actions as big round icon buttons on a card that overlaps the photo.
+ */
+export async function JewishLifeHero({ locale }: { locale: AppLocale }) {
   const t = await getTranslations({ locale, namespace: "jewishLife.hero" });
-  const links = [
-    { href: "#places", icon: MapPinned, label: t("jump.places") },
-    { href: "#shabbat-times", icon: Flame, label: t("jump.times") },
-    { href: "#calendar", icon: CalendarDays, label: t("jump.calendar") },
-    ...(showGuidesLink ? [{ href: "#guides", icon: BookOpen, label: t("jump.guides") }] : []),
-    { href: "#emergency", icon: Phone, label: t("jump.emergency") },
-  ];
 
   return (
-    <section
-      aria-labelledby="jewish-life-title"
-      className="relative isolate overflow-hidden border-b bg-linear-to-b from-secondary/80 via-secondary/30 to-background"
-    >
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -top-24 -end-24 -z-10 size-72 rounded-full bg-terracotta/10 blur-3xl sm:size-96"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -bottom-32 -start-16 -z-10 size-64 rounded-full bg-primary/10 blur-3xl"
-      />
-      <JlContainer className="grid gap-8 py-10 sm:py-14 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-center lg:gap-12 lg:py-16">
-        <div className="max-w-3xl">
-          <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-card px-3 py-1 text-sm font-semibold text-accent-foreground shadow-card">
-            <HeartHandshake aria-hidden="true" className="size-4 text-terracotta" />
+    <section aria-labelledby="jewish-life-title" className="relative isolate">
+      <HomeMotionStyles />
+      <div className="relative h-[min(30rem,58svh)] min-h-[21rem] overflow-hidden bg-navy sm:h-[26rem] lg:h-[30rem]">
+        <div className="bh-zoom absolute inset-0" data-zoom="a">
+          <PhotoSlot
+            slot="jewish.tbilisiSynagogue"
+            sizes="100vw"
+            priority
+            className="size-full"
+            imageClassName="object-[50%_35%]"
+          />
+        </div>
+        {/* Darker at the bottom so the white title always reads (AA over any photo). */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 bg-linear-to-t from-black/85 via-black/45 to-black/5"
+        />
+        <JlContainer className="relative flex h-full flex-col justify-end pb-20 sm:pb-24">
+          <p
+            className="bh-rise mb-3 inline-flex w-fit items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-small font-semibold text-white ring-1 ring-white/25 backdrop-blur-sm"
+            style={{ "--rise-delay": "0ms" } as React.CSSProperties}
+          >
+            <HeartHandshake aria-hidden="true" className="size-4" />
             {t("eyebrow")}
           </p>
-          <h1 id="jewish-life-title" className="text-3xl font-bold tracking-tight text-balance sm:text-4xl lg:text-5xl">
+          <h1
+            id="jewish-life-title"
+            className="bh-rise max-w-2xl text-display text-balance text-white [text-shadow:0_2px_16px_rgb(0_0_0/0.35)]"
+            style={{ "--rise-delay": "60ms" } as React.CSSProperties}
+          >
             {t("title")}
           </h1>
-          <p className="mt-4 text-base leading-relaxed text-pretty text-muted-foreground sm:text-lg">{t("lead")}</p>
-          <nav aria-label={t("jumpLabel")} className="mt-6">
-            <ul className="flex flex-wrap gap-2">
-              {links.map(({ href, icon: Icon, label }) => (
-                <li key={href}>
-                  <a
-                    href={href}
-                    className="inline-flex h-10 items-center gap-2 rounded-full border bg-card px-4 text-sm font-medium shadow-card transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                  >
-                    <Icon aria-hidden="true" className="size-4 text-primary" />
-                    {label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </nav>
-        </div>
-        {aside ? <div className="w-full lg:max-w-sm lg:justify-self-end">{aside}</div> : null}
+          <p
+            className="bh-rise mt-2 max-w-xl text-body text-pretty text-white/90 sm:text-lg"
+            style={{ "--rise-delay": "120ms" } as React.CSSProperties}
+          >
+            {t("lead")}
+          </p>
+        </JlContainer>
+      </div>
+
+      <JlContainer className="relative z-(--z-raised) -mt-14 sm:-mt-16">
+        <nav
+          aria-label={t("actionsLabel")}
+          className="bh-rise rounded-card bg-card p-2 shadow-raised ring-1 ring-foreground/5 sm:p-3 lg:mx-auto lg:max-w-3xl"
+          style={{ "--rise-delay": "180ms" } as React.CSSProperties}
+        >
+          <ul className="grid grid-cols-4 gap-1 sm:gap-3">
+            {ACTIONS.map(({ key, href, icon, tone }) => (
+              <li key={key}>
+                <a
+                  href={href}
+                  className="bh-press flex h-full min-h-11 flex-col items-center gap-2 rounded-card px-1 py-2.5 text-center text-caption font-semibold text-foreground outline-none hover:bg-muted/70 focus-visible:ring-3 focus-visible:ring-ring/50 sm:py-3 sm:text-small"
+                >
+                  <IconCircle icon={icon} tone={tone} size="lg" className="ring-1 ring-foreground/5 sm:size-16 sm:[&_svg]:size-7" />
+                  <span className="text-balance">{t(`actions.${key}`)}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
       </JlContainer>
     </section>
   );

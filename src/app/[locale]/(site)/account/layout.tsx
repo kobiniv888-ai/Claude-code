@@ -6,6 +6,8 @@ import { AccountShell } from "@/components/account/account-shell";
 import { accountNavItems } from "@/lib/account/nav";
 import { requireUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
+// The dashboard's utilities are not in the public stylesheet (src/app/globals.css).
+import "../../../sections.css";
 
 /** Private pages: never indexed. */
 export const metadata: Metadata = { robots: { index: false, follow: false } };

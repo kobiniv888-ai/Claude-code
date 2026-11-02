@@ -25,7 +25,27 @@
     "browse": "تصفّح",
     "settings": "الإعدادات",
     "account": "حسابي",
-    "more": "المزيد"
+    "more": "المزيد",
+    "groups": {
+      "search": "البحث",
+      "jewish": "الحياة اليهودية",
+      "help": "المساعدة والأمان",
+      "settings": "الإعدادات",
+      "legal": "معلومات قانونية"
+    },
+    "links": {
+      "jewishLifeHome": "الحياة اليهودية في جورجيا",
+      "shabbatTimes": "أوقات السبت",
+      "calendar": "التقويم العبري",
+      "communityMap": "خريطة المجتمع",
+      "emergency": "أرقام الطوارئ",
+      "howItWorks": "كيف يعمل الموقع",
+      "listingRules": "قواعد الإعلانات",
+      "terms": "شروط الاستخدام",
+      "privacy": "سياسة الخصوصية",
+      "cookies": "سياسة ملفات تعريف الارتباط",
+      "accessibility": "إمكانية الوصول"
+    }
   },
   "language": {
     "label": "اللغة",

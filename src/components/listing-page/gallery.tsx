@@ -1,167 +1,231 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState, type MouseEvent } from "react";
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useLocale, useTranslations } from "next-intl";
-import useEmblaCarousel from "embla-carousel-react";
-import { GalleryHorizontalEndIcon, ImageOffIcon, PlayIcon, Rotate3dIcon } from "lucide-react";
-import { Ltr } from "@/components/common/ltr";
-import { Button } from "@/components/ui/button";
+import { ImageOffIcon, ImagesIcon, PlayIcon, Rotate3dIcon } from "lucide-react";
+import { ArrowStart } from "@/components/common/directional-icon";
+import { BottomSheet } from "@/components/ds/bottom-sheet";
+import { PhotoCarousel, isOptimizableImage } from "@/components/ds/photo-carousel";
+import { FavoriteButton } from "@/components/listing/favorite-button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { dirFor } from "@/i18n/locale";
+import { Link, useRouter } from "@/i18n/navigation";
 import { formatNumber } from "@/lib/format";
 import type { VideoEmbed } from "@/lib/listing-page/media";
 import type { PagePhoto } from "@/lib/listing-page/types";
 import { cn } from "@/lib/utils";
-import { Lightbox } from "./lightbox";
+import { ShareMenu } from "./share-menu";
+
+/** The full-screen viewer (embla + dialog) loads only when a photo is opened. */
+const Lightbox = dynamic(() => import("./lightbox").then((m) => m.Lightbox), { ssr: false });
 
 /**
- * Listing photos: a mosaic (1 large + 4) from tablet width, a swipe carousel on phones, and a
- * full-screen lightbox. The video (YouTube/Vimeo) loads only when the visitor asks for it.
+ * The same `sizes` for the phone carousel's first photo and the desktop mosaic's main photo, so
+ * the browser picks the same file for both (one download; CSS shows one of them).
  */
-export function Gallery({
-  photos,
-  title,
-  video,
-  tourUrl,
-}: {
+const MAIN_SIZES = "(min-width: 768px) 50vw, 100vw";
+
+/** Round buttons over the photo: white, with a shadow, 44px. */
+const ROUND = "inline-flex size-11 items-center justify-center rounded-full bg-card/95 text-foreground shadow-raised outline-none backdrop-blur transition-transform duration-(--motion-fast) ease-standard hover:bg-card focus-visible:ring-3 focus-visible:ring-ring/60 active:scale-95 motion-reduce:active:scale-100";
+/** Pill buttons over the photo ("All photos", "Video"). */
+const PILL = "inline-flex min-h-9 items-center gap-1.5 rounded-full bg-card/95 px-3 text-small font-semibold text-foreground shadow-raised outline-none backdrop-blur transition-transform duration-(--motion-fast) ease-standard hover:bg-card focus-visible:ring-3 focus-visible:ring-ring/60 active:scale-95 motion-reduce:active:scale-100 [&_svg]:size-4";
+
+export type GalleryProps = {
   photos: PagePhoto[];
   title: string;
   video: VideoEmbed | null;
   tourUrl: string | null;
-}) {
+  /** Where "Back" goes when the visitor did not come from our own site (the city's results). */
+  backHref: string;
+  shareUrl: string;
+  /** The heart (public listings only). */
+  favorite: { listingId: string; isFavorite: boolean } | null;
+};
+
+/**
+ * Listing photos.
+ * - Phones: a full-width swipe carousel (ds PhotoCarousel) with a "1 / 12" counter, round
+ *   back / share / save buttons over it, and "All photos" (a grid in a sheet).
+ * - From tablet width: a mosaic (1 large + 4) with "Show all photos".
+ * - Tapping a photo opens the full-screen viewer (lazy). The video loads only when asked for.
+ */
+export function Gallery({ photos, title, video, tourUrl, backHref, shareUrl, favorite }: GalleryProps) {
   const t = useTranslations("listing.gallery");
   const locale = useLocale();
-  const [lightbox, setLightbox] = useState<{ open: boolean; index: number }>({ open: false, index: 0 });
+  const [viewer, setViewer] = useState<{ mounted: boolean; open: boolean; index: number }>({ mounted: false, open: false, index: 0 });
+  const [gridOpen, setGridOpen] = useState(false);
   const [videoOpen, setVideoOpen] = useState(false);
-  const openAt = useCallback((index: number) => setLightbox({ open: true, index }), []);
   const total = photos.length;
+  const openAt = useCallback((index: number) => setViewer({ mounted: true, open: true, index }), []);
+  const allLabel = t("showAll", { count: total, formatted: formatNumber(total, locale) });
 
-  const media = (video || tourUrl) && (
-    <div className="flex flex-wrap gap-2">
-      {video ? (
-        <Button type="button" variant="outline" className="h-10 rounded-full bg-card/95 shadow-sm" onClick={() => setVideoOpen(true)}>
-          <PlayIcon aria-hidden />
-          {t("video")}
-        </Button>
-      ) : null}
-      {tourUrl ? (
-        <Button asChild variant="outline" className="h-10 rounded-full bg-card/95 shadow-sm">
-          <a href={tourUrl} target="_blank" rel="noopener noreferrer nofollow">
-            <Rotate3dIcon aria-hidden />
+  const mediaButtons = (className?: string) =>
+    video || tourUrl ? (
+      <>
+        {video ? (
+          <button type="button" className={cn(PILL, className)} onClick={() => setVideoOpen(true)}>
+            <PlayIcon aria-hidden="true" />
+            {t("video")}
+          </button>
+        ) : null}
+        {tourUrl ? (
+          <a href={tourUrl} target="_blank" rel="noopener noreferrer nofollow" className={cn(PILL, className)}>
+            <Rotate3dIcon aria-hidden="true" />
             {t("tour")}
             <span className="sr-only">{t("opensNewTab")}</span>
           </a>
-        </Button>
-      ) : null}
-    </div>
-  );
-
-  if (total === 0) {
-    return (
-      <div className="grid gap-3">
-        <div className="flex aspect-[16/9] flex-col items-center justify-center gap-2 rounded-2xl bg-muted text-muted-foreground md:aspect-[21/8]">
-          <ImageOffIcon className="size-10" aria-hidden />
-          <p>{t("noPhotos")}</p>
-        </div>
-        {media}
-        <VideoDialog video={video} open={videoOpen} onOpenChange={setVideoOpen} title={title} />
-      </div>
-    );
-  }
+        ) : null}
+      </>
+    ) : null;
 
   return (
-    <section aria-label={t("label", { title })} className="grid gap-3">
-      <MobileCarousel photos={photos} title={title} onOpen={openAt} />
-      <Mosaic photos={photos} onOpen={openAt} />
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        {media || <span />}
-        {total > 1 ? (
-          <Button type="button" variant="outline" className="hidden h-10 rounded-full md:inline-flex" onClick={() => openAt(0)}>
-            <GalleryHorizontalEndIcon aria-hidden />
-            {t("showAll", { count: total, formatted: formatNumber(total, locale) })}
-          </Button>
-        ) : null}
+    <section aria-label={t("label", { title })} className="relative">
+      {/* Phones: edge to edge under the header. */}
+      <div className="relative md:hidden">
+        {total > 0 ? (
+          <PhotoCarousel
+            photos={photos.map((p, i) => ({ url: i === 0 ? p.large : p.medium, alt: p.alt, blurDataUrl: p.blurDataUrl ?? undefined }))}
+            label={t("label", { title })}
+            sizes={MAIN_SIZES}
+            priority
+            aspect="aspect-[4/3]"
+            counter
+            dots={false}
+            onPhotoClick={openAt}
+            photoLabel={(index, count) => t("open", { index: index + 1, total: count })}
+          />
+        ) : (
+          <NoPhotos className="aspect-[4/3]" />
+        )}
+        <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 px-[max(0.75rem,env(safe-area-inset-left),env(safe-area-inset-right))] pt-3">
+          <BackButton href={backHref} className="pointer-events-auto" />
+          <div className="pointer-events-auto flex items-center gap-2">
+            <ShareMenu url={shareUrl} title={title} variant="round" />
+            {favorite ? <FavoriteButton listingId={favorite.listingId} title={title} isFavorite={favorite.isFavorite} variant="overlay" className="bg-card/95 shadow-raised" /> : null}
+          </div>
+        </div>
+        <div className="pointer-events-none absolute start-3 bottom-3 flex items-center gap-2">
+          {total > 1 ? (
+            <button type="button" className={cn(PILL, "pointer-events-auto")} onClick={() => setGridOpen(true)} aria-haspopup="dialog">
+              <ImagesIcon aria-hidden="true" />
+              {t("allPhotos")}
+            </button>
+          ) : null}
+          {mediaButtons("pointer-events-auto")}
+        </div>
       </div>
-      <Lightbox
-        photos={photos}
-        title={title}
-        open={lightbox.open}
-        startIndex={lightbox.index}
-        onOpenChange={(open) => setLightbox((s) => ({ ...s, open }))}
-      />
+
+      {/* Tablets and desktop: a mosaic. */}
+      <div className="hidden md:block">
+        {total > 0 ? <Mosaic photos={photos} onOpen={openAt} /> : <NoPhotos className="aspect-[21/8] rounded-card" />}
+        <div className="pointer-events-none absolute end-3 bottom-3 flex items-center gap-2">
+          {mediaButtons("pointer-events-auto")}
+          {total > 1 ? (
+            <button type="button" className={cn(PILL, "pointer-events-auto min-h-10")} onClick={() => setGridOpen(true)} aria-haspopup="dialog">
+              <ImagesIcon aria-hidden="true" />
+              {allLabel}
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      {total > 1 ? (
+        <BottomSheet open={gridOpen} onOpenChange={setGridOpen} title={allLabel} size="full" className="md:max-w-4xl">
+          <PhotoGrid photos={photos} onOpen={openAt} />
+        </BottomSheet>
+      ) : null}
+      {viewer.mounted ? (
+        <Lightbox
+          photos={photos}
+          title={title}
+          open={viewer.open}
+          startIndex={viewer.index}
+          onOpenChange={(open) => setViewer((s) => ({ ...s, open }))}
+        />
+      ) : null}
       <VideoDialog video={video} open={videoOpen} onOpenChange={setVideoOpen} title={title} />
     </section>
   );
 }
 
-/**
- * `first` marks the main photo (high fetch priority). Both the mosaic (wide screens) and the phone
- * carousel render it and CSS hides one of them, so it is not preloaded (that fetched both sizes
- * on every device): the carousel copy loads eagerly, the mosaic copy with `lazy` (a lazy image
- * that is hidden is never fetched; on wide screens it is on screen and loads at once).
- */
-function Photo({
-  photo,
-  sizes,
-  first = false,
-  lazy = false,
-  className,
-}: {
-  photo: PagePhoto;
-  sizes: string;
-  first?: boolean;
-  lazy?: boolean;
-  className?: string;
-}) {
-  const src = sizes === "large" ? photo.large : photo.medium;
+/** Back to where the visitor came from on our site, or to the city's results. */
+function BackButton({ href, className }: { href: string; className?: string }) {
+  const t = useTranslations("listing.gallery");
+  const router = useRouter();
+  const onClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    try {
+      if (document.referrer && new URL(document.referrer).origin === window.location.origin && window.history.length > 1) {
+        event.preventDefault();
+        router.back();
+      }
+    } catch {
+      // A malformed referrer: follow the link.
+    }
+  };
+  return (
+    <Link href={href} onClick={onClick} aria-label={t("back")} className={cn(ROUND, className)}>
+      <ArrowStart className="size-5" aria-hidden="true" />
+    </Link>
+  );
+}
+
+function NoPhotos({ className }: { className?: string }) {
+  const t = useTranslations("listing.gallery");
+  return (
+    <div className={cn("flex flex-col items-center justify-center gap-2 bg-muted text-muted-foreground", className)}>
+      <ImageOffIcon className="size-10" aria-hidden="true" />
+      <p>{t("noPhotos")}</p>
+    </div>
+  );
+}
+
+function GalleryImage({ photo, src, sizes, eager = false, className }: { photo: PagePhoto; src: string; sizes: string; eager?: boolean; className?: string }) {
   return (
     <Image
       src={src}
       alt={photo.alt}
       fill
-      sizes={sizes === "large" ? "(min-width: 768px) 50vw, 100vw" : "(min-width: 768px) 25vw, 100vw"}
-      loading={first && !lazy ? "eager" : "lazy"}
-      fetchPriority={first ? "high" : undefined}
-      unoptimized
+      sizes={sizes}
+      loading={eager ? "eager" : "lazy"}
+      unoptimized={!isOptimizableImage(src)}
       placeholder={photo.blurDataUrl ? "blur" : "empty"}
       blurDataURL={photo.blurDataUrl ?? undefined}
-      className={cn("object-cover transition duration-300", className)}
       draggable={false}
+      className={cn("object-cover", className)}
     />
   );
 }
 
-const tile =
+const TILE =
   "group relative block overflow-hidden bg-muted outline-none focus-visible:z-10 focus-visible:ring-3 focus-visible:ring-ring focus-visible:ring-offset-2";
+const ZOOM = "transition-transform duration-500 ease-soft group-hover:scale-[1.03] motion-reduce:transition-none motion-reduce:group-hover:scale-100";
 
+/** 1 large + 4 (or 1 + 2, 2 side by side, or 1) photos; each opens the viewer. */
 function Mosaic({ photos, onOpen }: { photos: PagePhoto[]; onOpen: (index: number) => void }) {
   const t = useTranslations("listing.gallery");
-  const shown = photos.slice(0, photos.length >= 5 ? 5 : 3);
+  const shown = photos.slice(0, photos.length >= 5 ? 5 : photos.length >= 3 ? 3 : photos.length);
   const layout =
-    shown.length >= 5 ? "grid-cols-4 grid-rows-2" : shown.length === 1 ? "grid-cols-1 grid-rows-1" : "grid-cols-2 grid-rows-2";
+    shown.length === 5 ? "grid-cols-4 grid-rows-2" : shown.length === 3 ? "grid-cols-2 grid-rows-2" : shown.length === 2 ? "grid-cols-2" : "grid-cols-1";
   return (
-    <div className={cn("hidden h-[min(56vh,480px)] gap-2 overflow-hidden rounded-2xl md:grid", layout)}>
+    <div className={cn("grid h-[min(60vh,500px)] gap-2 overflow-hidden rounded-card", layout)}>
       {shown.map((photo, index) => {
         const main = index === 0;
-        const span = main
-          ? shown.length >= 5
-            ? "col-span-2 row-span-2"
-            : shown.length === 1
-              ? ""
-              : "row-span-2"
-          : shown.length === 2
-            ? "row-span-2"
-            : "";
         return (
           <button
             key={photo.id}
             type="button"
-            className={cn(tile, span)}
+            className={cn(TILE, main && shown.length === 5 && "col-span-2 row-span-2", main && shown.length === 3 && "row-span-2")}
             onClick={() => onOpen(index)}
             aria-label={t("open", { index: index + 1, total: photos.length })}
           >
-            <Photo photo={photo} sizes={main ? "large" : "medium"} first={main} lazy className="group-hover:scale-[1.02] group-hover:brightness-95" />
+            <GalleryImage
+              photo={photo}
+              src={main ? photo.large : photo.medium}
+              sizes={main ? MAIN_SIZES : shown.length === 5 ? "25vw" : "50vw"}
+              eager={main}
+              className={ZOOM}
+            />
           </button>
         );
       })}
@@ -169,52 +233,24 @@ function Mosaic({ photos, onOpen }: { photos: PagePhoto[]; onOpen: (index: numbe
   );
 }
 
-function MobileCarousel({ photos, title, onOpen }: { photos: PagePhoto[]; title: string; onOpen: (index: number) => void }) {
+/** "All photos": the first one wide, then two per row; each opens the viewer. */
+function PhotoGrid({ photos, onOpen }: { photos: PagePhoto[]; onOpen: (index: number) => void }) {
   const t = useTranslations("listing.gallery");
-  const locale = useLocale();
-  const [viewportRef, api] = useEmblaCarousel({ direction: dirFor(locale), loop: false });
-  const [selected, setSelected] = useState(0);
-  const total = photos.length;
-
-  useEffect(() => {
-    if (!api) return;
-    const update = () => setSelected(api.selectedScrollSnap());
-    api.on("select", update).on("reInit", update);
-    return () => {
-      api.off("select", update).off("reInit", update);
-    };
-  }, [api]);
-
   return (
-    <div
-      className="relative -mx-4 aspect-[4/3] overflow-hidden bg-muted sm:mx-0 sm:rounded-2xl md:hidden"
-      role="group"
-      aria-roledescription="carousel"
-      aria-label={t("label", { title })}
-    >
-      <div ref={viewportRef} className="size-full overflow-hidden">
-        <div className="flex size-full touch-pan-y">
-          {photos.map((photo, index) => (
-            <div key={photo.id} className="relative size-full min-w-0 shrink-0 grow-0 basis-full" aria-hidden={index !== selected || undefined}>
-              <button
-                type="button"
-                className={cn(tile, "size-full")}
-                onClick={() => onOpen(index)}
-                tabIndex={index === selected ? 0 : -1}
-                aria-label={t("open", { index: index + 1, total })}
-              >
-                {Math.abs(index - selected) <= 1 ? <Photo photo={photo} sizes="medium" first={index === 0} /> : null}
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-      {total > 1 ? (
-        <span className="pointer-events-none absolute end-3 bottom-3 rounded-full bg-black/65 px-2.5 py-1 text-xs font-medium text-white tabular-nums" aria-hidden>
-          <Ltr>{t("counter", { index: formatNumber(selected + 1, locale), total: formatNumber(total, locale) })}</Ltr>
-        </span>
-      ) : null}
-    </div>
+    <ul className="grid grid-cols-2 gap-2 p-3 sm:gap-3 sm:p-4">
+      {photos.map((photo, index) => (
+        <li key={photo.id} className={cn(index % 3 === 0 ? "col-span-2 aspect-[16/10]" : "aspect-square sm:aspect-[4/3]")}>
+          <button
+            type="button"
+            className={cn(TILE, "size-full rounded-xl")}
+            onClick={() => onOpen(index)}
+            aria-label={t("open", { index: index + 1, total: photos.length })}
+          >
+            <GalleryImage photo={photo} src={photo.medium} sizes={index % 3 === 0 ? "(min-width: 768px) 56rem, 100vw" : "(min-width: 768px) 28rem, 50vw"} className={ZOOM} />
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }
 

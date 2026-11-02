@@ -29,7 +29,7 @@ export default async function HelpPage({ params }: Props) {
     <div className="pb-16">
       <FaqJsonLd items={items} url={absoluteUrl(localizedPath(locale, "/help"))} />
       <HelpCenter items={items} />
-      <Container size="default" className="max-w-6xl pt-14">
+      <Container size="default" className="max-w-6xl pt-12">
         <ContactOptions />
       </Container>
     </div>

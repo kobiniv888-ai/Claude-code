@@ -1,7 +1,10 @@
-import { ChevronRight, LifeBuoy, Mail, MessageSquarePlus, ShieldCheck } from "lucide-react";
+import { LifeBuoy, Mail, MessageSquarePlus, ShieldAlert, ShieldCheck } from "lucide-react";
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Container } from "@/components/common/container";
+import { ChevronEnd } from "@/components/common/directional-icon";
+import { buttonStyles } from "@/components/ds/button";
+import { IconCircle } from "@/components/ds/icon-circle";
 import { Ltr } from "@/components/common/ltr";
 import { ContactForm } from "@/components/help/contact-form";
 import { ShabbatPauseNotice } from "@/components/tickets/shabbat-pause-notice";
@@ -31,39 +34,58 @@ export default async function ContactPage({ params }: Props) {
   const [user, shabbat] = await Promise.all([getCurrentUser(), isShabbatModeActive()]);
   const viewer = user && user.twoFactorVerified ? user : null;
 
-  const links = [
-    { href: "/help", icon: LifeBuoy, key: "help" },
-    { href: "/safety", icon: ShieldCheck, key: "safety" },
+  const rows = [
+    { href: "/help", icon: LifeBuoy, tone: "navy", title: t("aside.help.title"), body: t("aside.help.body") },
+    { href: "/safety", icon: ShieldCheck, tone: "green", title: t("aside.safety.title"), body: t("aside.safety.body") },
   ] as const;
+  const rowClass =
+    "group flex min-h-16 items-center gap-3 rounded-input p-3 outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50";
 
   return (
     <div className="pb-16">
-      <section className="relative isolate overflow-hidden border-b bg-linear-to-b from-secondary/80 via-secondary/30 to-background">
+      <section className="relative isolate overflow-hidden bg-linear-to-b from-navy-soft to-background">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -top-24 -end-24 -z-10 size-72 rounded-full bg-terracotta/10 blur-3xl sm:size-96"
+          className="pointer-events-none absolute -top-24 -end-24 -z-10 size-72 rounded-full bg-coral/10 blur-3xl sm:size-96"
         />
-        <Container className="max-w-6xl py-10 sm:py-14">
-          <span
-            aria-hidden="true"
-            className="mb-5 flex size-14 items-center justify-center rounded-full bg-card text-primary shadow-card"
-          >
-            <Mail className="size-7" />
-          </span>
-          <h1 className="max-w-3xl text-3xl font-bold tracking-tight text-balance sm:text-4xl">{t("hero.title")}</h1>
-          <p className="mt-4 max-w-2xl text-base leading-relaxed text-pretty text-muted-foreground sm:text-lg">
-            {t("hero.lead", { siteName: siteName(locale) })}
-          </p>
+        <Container className="flex max-w-6xl items-start gap-4 pt-8 pb-6 sm:pt-12 sm:pb-8">
+          <IconCircle icon={Mail} tone="navy" size="lg" className="bg-card shadow-raised" />
+          <div className="min-w-0">
+            <h1 className="text-h1 text-balance text-foreground">{t("hero.title")}</h1>
+            <p className="mt-1.5 max-w-2xl text-body text-pretty text-muted-foreground">
+              {t("hero.lead", { siteName: siteName(locale) })}
+            </p>
+          </div>
         </Container>
       </section>
 
-      <Container className="mt-8 grid max-w-6xl gap-8 sm:mt-10 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <div className="min-w-0">
+      <Container className="mt-2 grid max-w-6xl gap-6 lg:grid-cols-[minmax(0,1fr)_21rem] lg:gap-8">
+        <div className="grid min-w-0 content-start gap-4">
+          {/* The urgent path first: scam reports are handled before anything else. */}
+          <p className="flex items-start gap-3 rounded-card border border-coral/40 bg-coral-soft p-4 text-small text-pretty text-foreground">
+            <IconCircle icon={ShieldAlert} tone="coral-solid" size="sm" />
+            <span className="min-w-0 self-center">
+              {t.rich("aside.scam", {
+                link: (chunks) => (
+                  <Link
+                    href="/help/new-ticket?category=SCAM_REPORT"
+                    className="font-semibold text-coral-strong underline underline-offset-4 hover:no-underline"
+                  >
+                    {chunks}
+                  </Link>
+                ),
+              })}
+            </span>
+          </p>
+
           {shabbat.active ? (
             <ShabbatPauseNotice endsAt={shabbat.endsAt} />
           ) : (
-            <section aria-labelledby="contact-form-title" className="rounded-3xl border bg-card p-4 shadow-card sm:p-8">
-              <h2 id="contact-form-title" className="mb-6 text-xl font-bold tracking-tight">
+            <section
+              aria-labelledby="contact-form-title"
+              className="rounded-card bg-card p-4 shadow-raised ring-1 ring-foreground/5 sm:p-8"
+            >
+              <h2 id="contact-form-title" className="mb-5 text-h3">
                 {t("form.title")}
               </h2>
               <ContactForm
@@ -74,67 +96,45 @@ export default async function ContactPage({ params }: Props) {
           )}
         </div>
 
-        <aside className="flex flex-col gap-4" aria-label={t("aside.label")}>
+        <aside className="grid content-start gap-4" aria-label={t("aside.label")}>
           {viewer ? (
-            <section className="rounded-2xl border border-primary/20 bg-secondary p-5 text-secondary-foreground">
-              <h2 className="flex items-center gap-2 text-base font-semibold">
-                <MessageSquarePlus aria-hidden="true" className="size-4" />
+            <section className="rounded-card bg-navy-soft p-5 text-foreground">
+              <h2 className="flex items-center gap-2.5 text-body font-semibold">
+                <IconCircle icon={MessageSquarePlus} tone="navy-solid" size="sm" />
                 {t("aside.signedInTitle")}
               </h2>
-              <p className="mt-2 text-sm leading-relaxed text-pretty">{t("aside.signedInBody")}</p>
-              <Link
-                href="/help/new-ticket"
-                className="mt-3 inline-flex h-10 items-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-              >
+              <p className="mt-2 text-small text-pretty text-muted-foreground">{t("aside.signedInBody")}</p>
+              <Link href="/help/new-ticket" className={buttonStyles({ variant: "primary", size: "sm", className: "mt-3" })}>
                 {t("aside.signedInCta")}
               </Link>
             </section>
           ) : null}
 
-          <section className="rounded-2xl border bg-card p-5 shadow-card">
-            <h2 className="text-base font-semibold">{t("aside.emailTitle")}</h2>
-            <p className="mt-2 text-sm leading-relaxed text-pretty text-muted-foreground">{t("aside.emailBody")}</p>
-            <a
-              href={`mailto:${siteConfig.supportEmail}`}
-              className="mt-3 inline-flex max-w-full items-center gap-2 rounded-xl border bg-background px-3 py-2 text-sm font-semibold text-primary hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-            >
-              <Mail aria-hidden="true" className="size-4 shrink-0" />
-              <Ltr className="truncate">{siteConfig.supportEmail}</Ltr>
-            </a>
-          </section>
-
-          <nav aria-label={t("aside.moreLabel")} className="rounded-2xl border bg-card p-2 shadow-card">
+          <nav aria-label={t("aside.moreLabel")} className="rounded-card border bg-card p-2">
             <ul>
-              {links.map(({ href, icon: Icon, key }) => (
-                <li key={key}>
-                  <Link
-                    href={href}
-                    className="group flex items-center gap-3 rounded-xl p-3 hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
-                  >
-                    <Icon aria-hidden="true" className="size-5 shrink-0 text-primary" />
+              <li>
+                <a href={`mailto:${siteConfig.supportEmail}`} className={rowClass}>
+                  <IconCircle icon={Mail} tone="coral" size="md" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-small font-semibold">{t("aside.emailTitle")}</span>
+                    <Ltr className="block truncate text-small text-primary">{siteConfig.supportEmail}</Ltr>
+                  </span>
+                </a>
+              </li>
+              {rows.map(({ href, icon, tone, title, body }) => (
+                <li key={href}>
+                  <Link href={href} className={rowClass}>
+                    <IconCircle icon={icon} tone={tone} size="md" />
                     <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-semibold">{t(`aside.${key}.title`)}</span>
-                      <span className="block text-xs text-muted-foreground">{t(`aside.${key}.body`)}</span>
+                      <span className="block text-small font-semibold">{title}</span>
+                      <span className="block text-caption text-muted-foreground">{body}</span>
                     </span>
-                    <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-muted-foreground rtl:-scale-x-100" />
+                    <ChevronEnd aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
                   </Link>
                 </li>
               ))}
             </ul>
           </nav>
-
-          <p className="rounded-2xl border border-terracotta/30 bg-accent p-4 text-sm leading-relaxed text-pretty text-accent-foreground">
-            {t.rich("aside.scam", {
-              link: (chunks) => (
-                <Link
-                  href="/help/new-ticket?category=SCAM_REPORT"
-                  className="font-semibold underline underline-offset-4 hover:no-underline"
-                >
-                  {chunks}
-                </Link>
-              ),
-            })}
-          </p>
         </aside>
       </Container>
     </div>

@@ -4,6 +4,7 @@ import { ChevronDown } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "@/lib/toast";
 import { useCurrency } from "@/components/providers/currency-provider";
+import { chipStyles } from "@/components/ds/chip";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -99,7 +100,7 @@ export function CurrencyChips({ className }: { className?: string }) {
   const { currency } = useCurrency();
   const change = useChangeCurrency();
   return (
-    <div role="radiogroup" aria-label={t("label")} className={cn("grid grid-cols-4 gap-1.5", className)}>
+    <div role="radiogroup" aria-label={t("label")} className={cn("grid grid-cols-4 gap-2", className)}>
       {DISPLAY_CURRENCIES.map((c) => {
         const selected = c.code === currency;
         return (
@@ -110,15 +111,14 @@ export function CurrencyChips({ className }: { className?: string }) {
             aria-checked={selected}
             aria-label={`${c.code} — ${t(`names.${c.code}`)}`}
             onClick={() => void change(c.code)}
-            className={cn(
-              "flex min-h-11 flex-col items-center justify-center rounded-xl border bg-card px-1 py-1.5 text-xs font-medium outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50",
-              selected && "border-primary/40 bg-secondary text-primary hover:bg-secondary",
-            )}
+            className={cn(chipStyles({ size: "sm", active: selected }), "w-full gap-1 px-1.5")}
           >
-            <span aria-hidden className="text-base leading-tight">
+            <span aria-hidden className="text-base leading-none">
               {c.symbol}
             </span>
-            <span dir="ltr">{c.code}</span>
+            <span dir="ltr" className="text-xs">
+              {c.code}
+            </span>
           </button>
         );
       })}

@@ -1,21 +1,23 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
   CheckIcon,
+  ChevronDownIcon,
   CloudCheckIcon,
   CloudOffIcon,
+  ListChecksIcon,
   LoaderCircleIcon,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ds/button";
+import { BottomSheet } from "@/components/ds/bottom-sheet";
 import { formatNumber, formatTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { WizardStepKey } from "@/lib/wizard/steps";
 import type { SaveState } from "./use-autosave";
-import { scrollBehavior } from "@/lib/motion";
 
 export function SaveIndicator({ state, onRetry }: { state: SaveState; onRetry: () => void }) {
   const t = useTranslations("wizard.chrome");
@@ -49,7 +51,7 @@ export function SaveIndicator({ state, onRetry }: { state: SaveState; onRetry: (
           <span className="text-destructive">
             {tErrors.has(state.code) ? tErrors(state.code) : t("saveFailed")}
           </span>
-          <Button type="button" variant="link" size="xs" className="h-auto px-1" onClick={onRetry}>
+          <Button type="button" variant="link" size="sm" className="h-auto px-1" onClick={onRetry}>
             {t("retry")}
           </Button>
         </>
@@ -77,80 +79,96 @@ export function WizardProgress({
 }) {
   const t = useTranslations("wizard");
   const locale = useLocale();
+  const [open, setOpen] = useState(false);
   const index = steps.indexOf(current);
   const position = index + 1;
-  const listRef = useRef<HTMLOListElement>(null);
-
-  useEffect(() => {
-    const chip = listRef.current?.querySelector<HTMLElement>('[aria-current="step"]');
-    chip?.scrollIntoView({ block: "nearest", inline: "center", behavior: scrollBehavior() });
-  }, [current]);
-
+  const stepOf = t("chrome.stepOf", { step: formatNumber(position, locale), total: formatNumber(steps.length, locale) });
   const percent = Math.round((position / steps.length) * 100);
+
   return (
-    <nav aria-label={t("chrome.progressLabel")} className="grid gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-        <p className="text-sm font-semibold text-primary">
-          {t("chrome.stepOf", { step: formatNumber(position, locale), total: formatNumber(steps.length, locale) })}
-        </p>
+    <nav aria-label={t("chrome.progressLabel")} className="grid gap-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-haspopup="dialog"
+          aria-label={`${stepOf} · ${t("chrome.allSteps")}`}
+          className="-ms-2 inline-flex min-h-11 items-center gap-1.5 rounded-full px-2 text-small font-bold text-primary outline-none transition-colors hover:bg-navy-soft focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          <ListChecksIcon className="size-4.5" aria-hidden />
+          {stepOf}
+          <ChevronDownIcon className="size-4 opacity-70" aria-hidden />
+        </button>
         <SaveIndicator state={saveState} onRetry={onRetry} />
       </div>
+      {/* One segment per step: done = navy, this step = coral (fills with a transform, not a width). */}
       <div
-        className="h-1.5 w-full overflow-hidden rounded-full bg-muted"
+        className="flex gap-1"
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={percent}
+        aria-valuetext={stepOf}
         aria-label={t("chrome.progressLabel")}
       >
-        <div
-          className="h-full rounded-full bg-primary transition-[width] duration-500 ease-out"
-          style={{ width: `${percent}%` }}
-        />
+        {steps.map((step, i) => (
+          <span key={step} aria-hidden className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+            <span
+              className={cn(
+                "absolute inset-0 origin-left rounded-full transition-transform duration-(--motion-slow) ease-soft rtl:origin-right motion-reduce:transition-none",
+                i === index ? "bg-coral" : "bg-navy",
+                i <= index ? "scale-x-100" : "scale-x-0",
+              )}
+            />
+          </span>
+        ))}
       </div>
-      <ol
-        ref={listRef}
-        className="relative -mx-4 flex snap-x scroll-px-4 gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:px-0 lg:flex-wrap [&::-webkit-scrollbar]:hidden"
-      >
-        {steps.map((step, i) => {
-          const isCurrent = step === current;
-          const done = !isCurrent && complete(step);
-          const enabled = canJump(step);
-          return (
-            <li key={step} className="shrink-0 snap-start">
-              <button
-                type="button"
-                onClick={() => onJump(step)}
-                disabled={!enabled || isCurrent}
-                aria-current={isCurrent ? "step" : undefined}
-                className={cn(
-                  "flex h-9 items-center gap-2 rounded-full border px-3 text-sm font-medium whitespace-nowrap transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
-                  isCurrent && "border-primary bg-primary text-primary-foreground",
-                  !isCurrent && enabled && "border-border bg-card hover:border-primary/40 hover:bg-secondary",
-                  !isCurrent && !enabled && "cursor-not-allowed border-dashed border-border text-muted-foreground",
-                )}
-              >
-                <span
-                  aria-hidden
+
+      <BottomSheet open={open} onOpenChange={setOpen} title={t("chrome.allSteps")}>
+        <ol className="grid gap-1 pb-2">
+          {steps.map((step, i) => {
+            const isCurrent = step === current;
+            const done = !isCurrent && complete(step);
+            const enabled = canJump(step) && !isCurrent;
+            return (
+              <li key={step}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    onJump(step);
+                  }}
+                  disabled={!enabled}
+                  aria-current={isCurrent ? "step" : undefined}
                   className={cn(
-                    "flex size-5 items-center justify-center rounded-full text-xs tabular-nums",
-                    isCurrent ? "bg-primary-foreground/20" : done ? "bg-verified text-verified-foreground" : "bg-muted",
+                    "flex min-h-12 w-full items-center gap-3 rounded-card px-3 py-2 text-start text-body outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
+                    isCurrent && "bg-navy-soft font-bold text-navy",
+                    !isCurrent && enabled && "hover:bg-muted",
+                    !isCurrent && !enabled && "cursor-not-allowed text-muted-foreground",
                   )}
                 >
-                  {done ? <CheckIcon className="size-3" /> : formatNumber(i + 1, locale)}
-                </span>
-                <span>{t(`steps.${step}`)}</span>
-                {done && <span className="sr-only">{t("chrome.completed")}</span>}
-              </button>
-            </li>
-          );
-        })}
-      </ol>
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "flex size-8 shrink-0 items-center justify-center rounded-full text-small font-bold tabular-nums",
+                      isCurrent ? "bg-coral-strong text-coral-foreground dark:bg-(--brand-accent)" : done ? "bg-verified text-verified-foreground" : "bg-muted",
+                    )}
+                  >
+                    {done ? <CheckIcon className="size-4" strokeWidth={3} /> : formatNumber(i + 1, locale)}
+                  </span>
+                  <span className="min-w-0 flex-1">{t(`steps.${step}`)}</span>
+                  {done && <span className="sr-only">{t("chrome.completed")}</span>}
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      </BottomSheet>
     </nav>
   );
 }
 
-/** Back / Next — sticky at the bottom of the screen on phones. */
+/** Back / Next — a bar stuck to the bottom of the screen (phones) or under the step (desktop). */
 export function WizardNav({
   onBack,
   onNext,
@@ -170,22 +188,22 @@ export function WizardNav({
 }) {
   const t = useTranslations("wizard.chrome");
   return (
-    <div className="sticky bottom-0 z-20 -mx-4 mt-8 border-t border-border bg-background/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:mx-0 sm:rounded-2xl sm:border sm:px-4 sm:shadow-card">
+    <div className="sticky bottom-0 z-(--z-sticky) -mx-4 mt-8 border-t border-border bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-sheet backdrop-blur supports-[backdrop-filter]:bg-background/85 sm:bottom-4 sm:mx-0 sm:rounded-full sm:border sm:p-2 sm:shadow-raised">
       <div className="flex items-center justify-between gap-3">
         <Button
           type="button"
           variant="outline"
-          className="h-11 min-w-24 px-4 text-base"
+          className="h-12 min-w-24 px-4 sm:h-11"
           onClick={onBack}
           disabled={backDisabled || busy}
         >
           <ArrowLeftIcon className="rtl:-scale-x-100" aria-hidden />
           {t("back")}
         </Button>
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
           {extra}
           {!hideNext && (
-            <Button type="button" className="h-11 min-w-28 px-5 text-base" onClick={onNext} disabled={busy}>
+            <Button type="button" className="h-12 min-w-0 flex-1 px-5 sm:h-11 sm:max-w-60 sm:min-w-36" onClick={onNext} disabled={busy}>
               {busy ? <LoaderCircleIcon className="animate-spin" aria-hidden /> : null}
               {nextLabel}
               {!busy && <ArrowRightIcon className="rtl:-scale-x-100" aria-hidden />}

@@ -9,6 +9,7 @@ import { siteConfig } from "@/config/site";
 import { db } from "@/lib/db";
 import { accountBlock } from "./account-status";
 import { authProviders } from "./config";
+import { extraTrustedOrigins } from "./dev-origins";
 import { AUTH_HOOK_ERRORS } from "./error-codes";
 import { linkDevice, sendWelcomeEmail } from "./hooks";
 import { limitLoginCodeChecks, limitLoginCodeRequests } from "./login-rate-limit";
@@ -68,7 +69,7 @@ export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET,
   database: prismaAdapter(db, { provider: "postgresql" }),
   trustedOrigins: [
-    ...new Set([siteUrl, baseURL]),
+    ...new Set([siteUrl, baseURL, ...extraTrustedOrigins()]),
     // Apple returns to /api/auth/callback/apple with a cross-site form POST.
     ...(authProviders.apple ? ["https://appleid.apple.com"] : []),
   ],

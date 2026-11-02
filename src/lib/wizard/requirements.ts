@@ -15,6 +15,7 @@ export const REQUIREMENT_KEYS = [
   "photos",
   "price",
   "contact",
+  "pledge",
 ] as const;
 export type RequirementKey = (typeof REQUIREMENT_KEYS)[number];
 
@@ -33,6 +34,8 @@ export type RequirementInput = {
   /** Hotel room types with a price (a hotel may show "from" its cheapest room instead of its own price). */
   pricedRoomTypes?: number;
   phoneVerified: boolean;
+  /** The owner accepted the CURRENT version of the Bayit welcome pledge. */
+  pledgeAccepted: boolean;
 };
 
 const STEP_REQUIREMENTS: { key: RequirementKey; step: SavableStepKey }[] = [
@@ -49,6 +52,7 @@ export function missingRequirements({
   roomPhotoCount = 0,
   pricedRoomTypes = 0,
   phoneVerified,
+  pledgeAccepted,
 }: RequirementInput): MissingRequirement[] {
   const kind: ListingKind = { dealType: values.dealType, propertyType: values.propertyType };
   const isHotel = kind.dealType === "HOTEL_ROOM";
@@ -66,5 +70,6 @@ export function missingRequirements({
       missing.push({ key, step: "rooms" });
     }
   }
+  if (!pledgeAccepted) missing.push({ key: "pledge", step: "pledge" });
   return missing.filter((m) => m.step === null || stepsFor(kind).includes(m.step));
 }

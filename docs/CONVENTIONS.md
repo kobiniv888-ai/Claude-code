@@ -41,6 +41,13 @@ dynamic as usual. Bundled docs: `node_modules/next/dist/docs/`.
    (it forces `-u-nu-latn`). Do not use `toLocaleString`, `Intl.*` directly, or next-intl's
    `useFormatter`. In ICU plural messages write `{count}` instead of `#`.
 6. **Icons:** Lucide only (plus the brand logos in `@/components/common/brand-icons`). Never emojis.
+   In server components on public pages, draw Lucide icons from the sprite
+   (`@/components/ds/sprite-icons`; add names in `scripts/generate-icon-sprite.mjs` and run it):
+   a lucide-react icon is a client component and costs HTML, RSC data and hydration. Interactive
+   parts that are hidden or far down on first paint can load later with `deferredIsland`
+   (`@/components/ds/deferred-island`). Until an island hydrates, React cannot commit any
+   client-side navigation, so every island also opens at the first click, key press or back/forward;
+   keep that, and test a link and a filter tap on a fresh page after adding one.
 7. **Links and navigation:** import `Link`, `redirect`, `useRouter`, `usePathname` from
    `@/i18n/navigation`, never from `next/link` / `next/navigation` (except `notFound`).
 8. **Server-only code** (`db`, auth, storage, email…) imports `"server-only"`. The Prisma client is
@@ -98,11 +105,15 @@ docs/
   layout) holds generic words (Save, Cancel, Back, Next, Close, Loading, Show more…) that anyone may
   *read*.
 * All five language files of a namespace must have the same keys (`npm run i18n:check`).
-* The browser only receives the namespaces its client components read: public pages get every
-  namespace except `SECTION_ONLY_NAMESPACES` in `src/i18n/client-messages.ts` (admin, wizard,
-  dashboard, legal, emails…); `/admin`, `/account` and `/post` mount a provider with all of them.
-  If a client component on a public page starts reading one of those namespaces, remove it from
-  that list.
+* The browser only receives the text its client components read, per route
+  (`src/i18n/client-messages.ts`): the root layout sends `SHELL_MESSAGES`, the (site) layout adds
+  `SITE_MESSAGES`, and a route segment's layout adds `ROUTE_MESSAGES[segment]` with
+  `<RouteMessages route="…">`. `/admin`, `/account`, `/post` and `/dev` mount a provider with all
+  of them. When a client component on a public page reads a new namespace (or part of one), add
+  it there; `npm test` (`src/i18n/client-messages.test.ts`) names what is missing.
+* Styles: public pages load `src/app/globals.css`, which skips the admin, account, wizard and dev
+  folders; their layouts add `src/app/sections.css`. A component used on a public page must not
+  live in those folders (`src/app/stylesheets.test.ts`).
 * Write real translations in all five languages (Hebrew, English, Russian, Arabic, Georgian).
   Native speakers will review before launch, so prefer clear, simple wording.
 * Do not put U+2011 (non-breaking hyphen) in messages: of our fonts only Noto Sans Arabic
@@ -204,6 +215,6 @@ npm run db:push && npm run db:seed
 npm run dev                     # http://localhost:3000
 ```
 Several dev servers can run side by side: `NEXT_DIST_DIR=.next-b npx next dev -p 3101`.
-Scripts that import server modules run with `tsx --conditions=react-server`.
+Scripts that import server modules run with `tsx --require ./scripts/server-script.cjs` (it makes `server-only` a no-op; avoid `--conditions=react-server`, which breaks tsx on some Node 22 versions).
 
 Checks before you finish: `npm run typecheck`, `npm run lint`, `npm run i18n:check`, `npm test`.

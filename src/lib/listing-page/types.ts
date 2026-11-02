@@ -48,6 +48,8 @@ export type OwnerSummary = {
   badges: OwnerBadges;
   /** ISO 639-1 codes. */
   languages: string[];
+  /** The Bayit welcome pledge version the owner accepted (null = never); see @/lib/pledge/pledge. */
+  welcomePledgeVersion: number | null;
   /** ISO date-time. */
   memberSince: string;
   avgReplyMinutes: number | null;

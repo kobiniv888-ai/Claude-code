@@ -34,7 +34,7 @@ export default async function FavoritesPage({ params }: Props) {
         description={items.length > 0 ? t("lead", { count: items.length, countText: formatNumber(items.length, locale) }) : t("leadEmpty")}
         actions={
           items.length > 1 ? (
-            <Button asChild variant="outline" className="h-10 rounded-xl px-4">
+            <Button asChild variant="outline" className="h-11 rounded-full px-4">
               <Link href="/account/compare">
                 <GitCompareArrowsIcon aria-hidden="true" />
                 {t("openCompare")}

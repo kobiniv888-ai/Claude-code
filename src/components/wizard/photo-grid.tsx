@@ -88,7 +88,7 @@ function AltEditor({ photo, onSave, label }: { photo: WizardPhoto; onSave: (alt:
       }}
     >
       <PopoverTrigger asChild>
-        <Button type="button" size="icon-sm" variant="secondary" aria-label={t("altEdit", { label })} className="bg-card/90 shadow-sm">
+        <Button type="button" size="icon-sm" variant="secondary" aria-label={t("altEdit", { label })} className="size-10 rounded-full bg-card/90 shadow-sm">
           <PencilIcon aria-hidden />
         </Button>
       </PopoverTrigger>
@@ -158,9 +158,9 @@ function SortablePhoto({
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        "group relative overflow-hidden rounded-xl bg-muted shadow-card ring-1 ring-foreground/5",
-        isDragging && "z-10 scale-[1.02] opacity-90 shadow-card-hover ring-2 ring-primary",
-        isCover && "ring-2 ring-primary",
+        "group relative overflow-hidden rounded-card bg-muted shadow-card ring-1 ring-foreground/5",
+        isDragging && "z-10 scale-[1.03] opacity-90 shadow-raised ring-2 ring-navy",
+        isCover && "ring-3 ring-coral",
       )}
     >
       <div className="relative aspect-[4/3] touch-manipulation" {...listeners}>
@@ -173,43 +173,45 @@ function SortablePhoto({
           loading="lazy"
         />
       </div>
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-1 p-1.5">
-        <span className="rounded-md bg-black/60 px-1.5 py-0.5 text-xs font-semibold text-white tabular-nums">
-          {formatNumber(index + 1, locale)}
-        </span>
-        {isCover && (
-          <span className="flex items-center gap-1 rounded-md bg-primary px-2 py-0.5 text-xs font-semibold text-primary-foreground">
-            <StarIcon className="size-3 fill-current" aria-hidden />
+      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-1 p-2">
+        {isCover ? (
+          <span className="flex h-7 items-center gap-1 rounded-full bg-coral-strong px-2.5 text-caption font-bold text-coral-foreground shadow-sm dark:bg-(--brand-accent)">
+            <StarIcon className="size-3.5 fill-current" aria-hidden />
             {t("cover")}
+          </span>
+        ) : (
+          <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-black/60 px-2 text-caption font-bold text-white tabular-nums">
+            {formatNumber(index + 1, locale)}
           </span>
         )}
       </div>
-      <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-gradient-to-t from-black/55 to-transparent p-1.5 pt-6">
-        <button
-          type="button"
-          ref={setActivatorNodeRef}
-          {...attributes}
-          {...listeners}
-          disabled={disabled}
-          aria-label={t("dragHandle", { label })}
-          aria-roledescription={t("sortable")}
-          className="flex size-8 cursor-grab touch-none items-center justify-center rounded-md bg-card/90 text-foreground shadow-sm outline-none focus-visible:ring-3 focus-visible:ring-ring active:cursor-grabbing disabled:opacity-50"
-        >
-          <GripVerticalIcon className="size-4" aria-hidden />
-        </button>
-        <div className="flex items-center gap-1">
-          {showCover && actions.onSetCover && (
+      {/* Drag handle: top corner (mouse, touch or keyboard). */}
+      <button
+        type="button"
+        ref={setActivatorNodeRef}
+        {...attributes}
+        {...listeners}
+        disabled={disabled}
+        aria-label={t("dragHandle", { label })}
+        aria-roledescription={t("sortable")}
+        className="absolute end-1.5 top-1.5 flex size-10 cursor-grab touch-none items-center justify-center rounded-full bg-card/90 text-foreground shadow-sm outline-none focus-visible:ring-3 focus-visible:ring-ring active:cursor-grabbing disabled:opacity-50"
+      >
+        <GripVerticalIcon className="size-4.5" aria-hidden />
+      </button>
+      <div className="absolute inset-x-0 bottom-0 flex items-center justify-end gap-1.5 bg-gradient-to-t from-black/60 to-transparent p-1.5 pt-8">
+        <div className="flex items-center gap-1.5">
+          {showCover && actions.onSetCover && !isCover && (
             <Button
               type="button"
               size="icon-sm"
               variant="secondary"
               onClick={() => actions.onSetCover?.(photo.id)}
-              disabled={isCover || disabled}
-              aria-label={isCover ? t("isCover") : t("setCover", { label })}
-              aria-pressed={isCover}
-              className="bg-card/90 shadow-sm"
+              disabled={disabled}
+              aria-label={t("setCover", { label })}
+              aria-pressed={false}
+              className="size-10 rounded-full bg-card/90 shadow-sm"
             >
-              <StarIcon className={cn(isCover && "fill-primary text-primary")} aria-hidden />
+              <StarIcon aria-hidden />
             </Button>
           )}
           <AltEditor photo={photo} label={label} onSave={(alt) => actions.onAlt(photo.id, alt)} />
@@ -221,7 +223,7 @@ function SortablePhoto({
                 variant="secondary"
                 disabled={disabled}
                 aria-label={t("delete", { label })}
-                className="bg-card/90 text-destructive shadow-sm"
+                className="size-10 rounded-full bg-card/90 text-destructive shadow-sm"
               >
                 <Trash2Icon aria-hidden />
               </Button>

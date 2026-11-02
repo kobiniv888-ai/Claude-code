@@ -9,6 +9,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { createTranslator } from "use-intl/core";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { PLEDGE_CURRENT_VERSION } from "@/lib/pledge";
 
 process.env.OVERPASS_ENABLED = "false";
 process.env.GOOGLE_TRANSLATE_API_KEY = "";
@@ -70,7 +71,10 @@ function nearHash(hash: string, bits: number): string {
   return value.map((v) => v.toString(16)).join("");
 }
 
-async function createUser(name: string, opts: { verified?: boolean; createdAt?: Date; locale?: "he" | "en" | "ru" | "ar" | "ka"; role?: "USER" | "MODERATOR" } = {}) {
+async function createUser(
+  name: string,
+  opts: { verified?: boolean; createdAt?: Date; locale?: "he" | "en" | "ru" | "ar" | "ka"; role?: "USER" | "MODERATOR"; pledgeVersion?: number | null } = {},
+) {
   const id = `${prefix}${name}`;
   const digits = String(Math.floor(Math.random() * 1e7)).padStart(7, "0");
   await db.user.create({
@@ -83,6 +87,8 @@ async function createUser(name: string, opts: { verified?: boolean; createdAt?: 
       locale: opts.locale ?? "en",
       role: opts.role ?? "USER",
       createdAt: opts.createdAt ?? new Date(Date.now() - 60 * DAY),
+      welcomePledgeVersion: opts.pledgeVersion === undefined ? PLEDGE_CURRENT_VERSION : opts.pledgeVersion,
+      welcomePledgeAcceptedAt: opts.pledgeVersion === null ? null : new Date(),
     },
   });
   ids.users.push(id);
@@ -189,6 +195,8 @@ describe("publishing", () => {
 
     const saved = await db.listing.findUniqueOrThrow({ where: { id: listing.id }, include: { translations: true } });
     expect(saved.status).toBe("IN_REVIEW");
+    expect(saved.welcomePledgeVersion).toBe(PLEDGE_CURRENT_VERSION);
+    expect(saved.welcomePledgeAt).toBeInstanceOf(Date);
     expect(saved.riskScore).toBe(0);
     expect(saved.approxLat).not.toBeNull();
     expect(Math.abs(saved.approxLat! - point.lat)).toBeLessThan(0.01);
@@ -236,6 +244,13 @@ describe("publishing", () => {
     const noRules = await createListing(ownerA, { rulesAccepted: false });
     await expect(lifecycle.submitForPublication(noRules.id, ownerA)).rejects.toMatchObject({ code: "rules_not_accepted" });
     await expect(lifecycle.submitForPublication(noRules.id, ownerB)).rejects.toBeInstanceOf(NotFoundError);
+
+    const noPledge = await createUser("np", { pledgeVersion: null });
+    const noPledgeListing = await createListing(noPledge);
+    await expect(lifecycle.submitForPublication(noPledgeListing.id, noPledge)).rejects.toMatchObject({ code: "pledge_required" });
+    const oldPledge = await createUser("op", { pledgeVersion: PLEDGE_CURRENT_VERSION - 1 });
+    const oldPledgeListing = await createListing(oldPledge);
+    await expect(lifecycle.submitForPublication(oldPledgeListing.id, oldPledge)).rejects.toMatchObject({ code: "pledge_required" });
 
     const unverified = await createUser("c", { verified: false });
     const listing = await createListing(unverified);

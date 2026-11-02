@@ -3,7 +3,8 @@
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { useMemo } from "react";
-import { Circle, MapContainer, Marker, TileLayer } from "react-leaflet";
+import { Circle, MapContainer, Marker } from "react-leaflet";
+import { BaseTiles } from "@/components/maps/base-tiles";
 import { siteConfig } from "@/config/site";
 
 /**
@@ -39,12 +40,13 @@ export default function ExactLocationMap({ lat, lng, approx, label }: ExactLocat
       <MapContainer
         center={[lat, lng]}
         zoom={16}
+        maxZoom={siteConfig.map.maxZoom}
         scrollWheelZoom={false}
         className="h-full w-full rounded-lg"
         attributionControl
         aria-label={label}
       >
-        <TileLayer url={siteConfig.map.tileUrl} attribution={siteConfig.map.tileAttribution} />
+        <BaseTiles />
         {approx ? (
           <Circle
             center={[approx.lat, approx.lng]}

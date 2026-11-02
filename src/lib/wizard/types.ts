@@ -4,6 +4,7 @@
 import type { AppLocale, CurrencyCode } from "@/config/site";
 import type { AccountType, ListingStatus, PricePeriod } from "@/generated/prisma/enums";
 import type { WizardValues } from "./schemas";
+import type { PledgeStatus } from "@/lib/pledge";
 
 export type WizardMode = "create" | "edit";
 
@@ -85,6 +86,8 @@ export type WizardUser = {
   phoneVerified: boolean;
   /** Real email (never the phone-only placeholder). */
   email: string | null;
+  /** The Bayit welcome pledge: accepted version, current or not (the pledge step and publishing need it). */
+  pledge: PledgeStatus;
 };
 
 export type WizardContext = {

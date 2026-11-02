@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activeBottomNavKey, activeNavKey, isBottomNavHidden, normalizePath, pathWithQuery } from "./nav-items";
+import { activeBottomNavKey, activeNavKey, bottomNavIndicator, isBottomNavHidden, normalizePath, pathWithQuery } from "./nav-items";
 
 describe("normalizePath", () => {
   it("drops trailing slashes, queries and hashes", () => {
@@ -68,5 +68,18 @@ describe("pathWithQuery", () => {
     expect(pathWithQuery("/search", "?deal=buy")).toBe("/search?deal=buy");
     expect(pathWithQuery("/about/", "")).toBe("/about");
     expect(pathWithQuery("/", new URLSearchParams())).toBe("/");
+  });
+});
+
+describe("bottomNavIndicator", () => {
+  it("sits under the active tab's column", () => {
+    expect(bottomNavIndicator("home")).toEqual({ index: 0, visible: true });
+    expect(bottomNavIndicator("saved")).toEqual({ index: 3, visible: true });
+    expect(bottomNavIndicator("profile")).toEqual({ index: 4, visible: true });
+  });
+
+  it("hides on the Post tab and on pages without a tab", () => {
+    expect(bottomNavIndicator("post")).toEqual({ index: 2, visible: false });
+    expect(bottomNavIndicator(null)).toEqual({ index: 0, visible: false });
   });
 });

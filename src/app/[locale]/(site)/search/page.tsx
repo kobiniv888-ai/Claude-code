@@ -9,6 +9,8 @@ import { SearchProvider } from "@/components/search/search-context";
 import { SearchEmpty } from "@/components/search/search-empty";
 import { ResultCards } from "@/components/search/result-cards";
 import { SearchResults } from "@/components/search/search-results";
+import { SearchSheets } from "@/components/search/search-sheets";
+import { SearchTopBar } from "@/components/search/search-top-bar";
 import { Container } from "@/components/common/container";
 import type { AppLocale } from "@/config/site";
 import { isAppLocale } from "@/i18n/locale";
@@ -20,7 +22,6 @@ import { getHolidayMarks, getPlaceNames, getPopularCities } from "@/lib/search/h
 import { searchBarStateFrom } from "@/lib/search/search-bar";
 import { canonicalSearchPath, dealTitleKey, searchNoIndex } from "@/lib/search/seo";
 import { pageMetadata } from "@/lib/seo";
-import { cn } from "@/lib/utils";
 
 type Props = {
   params: Promise<{ locale: string }>;
@@ -72,56 +73,57 @@ export default async function SearchPage({ params, searchParams }: Props) {
   ]);
 
   const place = placeLabel(names);
-  const dealKey = dealTitleKey(filters.deal);
   const count = { count: result.total, formatted: formatNumber(result.total, locale) };
   const barKey = [filters.deal, filters.city, filters.neighborhood, filters.q, filters.checkIn, filters.checkOut, filters.guests].join("|");
   const fitKey = serializeSearchQuery({ ...filters, bounds: null, page: 1, sort: "recommended", view: "grid" });
+  const popular = cities.map(({ slug, name }) => ({ slug, name }));
 
   return (
     <SearchProvider filters={filters} total={result.total} holidays={holidays}>
-      <Container size="wide" className={cn("py-4", isMap && "hidden lg:block")}>
-        <SearchBar
-          key={barKey}
-          variant="compact"
-          initial={searchBarStateFrom(filters, names)}
-          baseFilters={filters}
-          popular={cities.map(({ slug, name }) => ({ slug, name }))}
-          holidays={holidays}
-          className="mx-auto max-w-3xl"
-        />
-      </Container>
-      <SearchResults
-        items={result.items}
-        mapPoints={points}
-        fitKey={fitKey}
-        cards={
-          !isMap && result.items.length > 0 ? (
-            <ResultCards items={result.items} variant={filters.view === "list" ? "list" : "grid"} />
-          ) : null
-        }
-        header={
-          <header className="grid gap-1">
-            <p className="text-sm font-semibold text-accent-foreground">{t(`deal.${dealKey}`)}</p>
-            <h1 className="text-xl font-bold tracking-tight text-balance sm:text-2xl" aria-live="polite">
+      <SearchSheets popular={popular} placeNames={names}>
+        {/* Tablets and desktops: the full search bar (it scrolls away; the chip row below stays). */}
+        <Container size="wide" className="hidden pt-4 pb-1 md:block">
+          <SearchBar
+            key={barKey}
+            variant="compact"
+            initial={searchBarStateFrom(filters, names)}
+            baseFilters={filters}
+            popular={popular}
+            holidays={holidays}
+            className="mx-auto max-w-3xl"
+          />
+        </Container>
+        <SearchTopBar placeNames={names} />
+        <SearchResults
+          items={result.items}
+          mapPoints={points}
+          fitKey={fitKey}
+          cards={
+            !isMap && result.items.length > 0 ? (
+              <ResultCards items={result.items} variant={filters.view === "list" ? "list" : "grid"} />
+            ) : null
+          }
+          header={
+            <h1 className="truncate text-body font-bold text-foreground" aria-live="polite">
               {place ? t("countIn", { ...count, place }) : t("count", count)}
             </h1>
-          </header>
-        }
-        chips={<ActiveFilterChips placeNames={names} />}
-        notice={
-          filters.checkIn ? (
-            <HolidaysInRange
-              start={filters.checkIn}
-              end={filters.checkOut ?? filters.checkIn}
-              searchParams={serializeSearchParams(filters)}
-              locale={locale}
-              maxItems={4}
-            />
-          ) : null
-        }
-        pagination={<ResultsPagination filters={filters} page={result.page} pageCount={result.pageCount} locale={locale} />}
-        empty={<SearchEmpty filters={filters} cities={cities} locale={locale} />}
-      />
+          }
+          chips={<ActiveFilterChips placeNames={names} className="hidden lg:flex" />}
+          notice={
+            filters.checkIn ? (
+              <HolidaysInRange
+                start={filters.checkIn}
+                end={filters.checkOut ?? filters.checkIn}
+                searchParams={serializeSearchParams(filters)}
+                locale={locale}
+                maxItems={4}
+              />
+            ) : null
+          }
+          pagination={<ResultsPagination filters={filters} page={result.page} pageCount={result.pageCount} locale={locale} />}
+          empty={<SearchEmpty filters={filters} cities={cities} locale={locale} ctx={ctx} placeNames={names} />}
+        />
+      </SearchSheets>
     </SearchProvider>
   );
 }

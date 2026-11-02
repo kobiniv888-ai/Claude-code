@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
 # Runs once when the codespace is created: settings, packages, database and demo data.
+# Output also goes to /tmp/bayit-setup.log. start.sh re-checks the database on every start, so a
+# setup that was interrupted is finished there.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+exec > >(tee -a /tmp/bayit-setup.log) 2>&1
+echo "── setup $(date -u +%FT%TZ) ──"
 
 secret() { node -e "console.log(require('crypto').randomBytes(32).toString('$1'))"; }
+# shellcheck source=env-sync.sh
+source .devcontainer/env-sync.sh
 
 if [ ! -f .env ]; then
   cp .env.example .env
@@ -12,12 +18,8 @@ if [ ! -f .env ]; then
   sed -i "s|^HASH_SALT=.*|HASH_SALT=\"$(secret hex)\"|" .env
   # A preview has no authenticator app set up for the demo admin.
   sed -i "s|^DEV_SKIP_STAFF_2FA=.*|DEV_SKIP_STAFF_2FA=\"true\"|" .env
-  if [ -n "${CODESPACE_NAME:-}" ]; then
-    url="https://${CODESPACE_NAME}-3000.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}"
-    sed -i "s|^NEXT_PUBLIC_SITE_URL=.*|NEXT_PUBLIC_SITE_URL=\"${url}\"|" .env
-    sed -i "s|^BETTER_AUTH_URL=.*|BETTER_AUTH_URL=\"${url}\"|" .env
-  fi
 fi
+sync_env
 
 npm ci --no-audit --no-fund
 

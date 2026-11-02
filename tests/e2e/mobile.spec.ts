@@ -1,29 +1,45 @@
 import { expect, settle, test } from "./fixtures";
+import { BASE_URL } from "./helpers/env";
 
 /** Phones from 360 px and tablets: the guest flow and right-to-left pages without overflow. */
 
 test("search and filter on a phone", async ({ page, consoleErrors }) => {
   await page.goto("/en");
   await settle(page);
-  await page.getByRole("button", { name: /Where to\?/ }).click();
-  const sheet = page.getByRole("dialog", { name: "Search" });
-  await expect(sheet).toBeVisible();
-  await sheet.getByRole("combobox", { name: "Where" }).fill("Tbilisi");
+  // The home search card shows its fields right away on phones (no sheet).
+  const card = page.getByRole("search", { name: "Search homes" });
+  await card.getByRole("combobox", { name: "Where" }).fill("Tbilisi");
   await page.getByRole("option", { name: /^Tbilisi/ }).first().click();
-  await sheet.getByRole("button", { name: "Search", exact: true }).click();
+  await card.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page).toHaveURL(/\/en\/search\?.*city=tbilisi/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("3 homes in Tbilisi");
+  // Demo data since redesign phase 1: 2 short stays in Tbilisi, both Shabbat-friendly.
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("2 homes in Tbilisi");
   await settle(page);
 
   await page.getByRole("button", { name: /^Filters/ }).first().click();
   const dialog = page.getByRole("dialog", { name: "Filters" });
   await expect(dialog).toBeVisible();
-  await dialog.getByRole("checkbox", { name: "Shabbat-friendly" }).check();
+  await dialog.getByRole("button", { name: "Shabbat-friendly", exact: true }).click();
   await dialog.getByRole("button", { name: "Show 2 homes" }).click();
   await expect(dialog).toBeHidden();
   await expect(page).toHaveURL(/shabbatFriendly=/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("2 homes in Tbilisi");
   await expect(page.getByRole("list", { name: "Search results" }).getByRole("article")).toHaveCount(2);
+  expect(consoleErrors).toEqual([]);
+});
+
+test("the Map pill opens the map on a phone", async ({ page, consoleErrors }) => {
+  // Client-side navigation from a fresh page load, before any lazily hydrated part of the header or
+  // footer has loaded (redesign final check: these used to block every navigation on phones).
+  // The cookie banner sits over the floating pill on a first visit: answer it first.
+  const consent = encodeURIComponent(JSON.stringify({ necessary: true, preferences: false, analytics: false, v: 1 }));
+  await page.context().addCookies([{ name: "bayit_consent", value: consent, url: BASE_URL }]);
+  await page.goto("/en/search?city=tbilisi");
+  await settle(page);
+  await page.locator("[data-floating-map-toggle]").getByRole("button", { name: /^Map/ }).click();
+  // A cold development server compiles the map view and the header tools on this first tap.
+  await expect(page).toHaveURL(/view=map/, { timeout: 60_000 });
+  await expect(page.locator(".leaflet-container")).toBeVisible();
   expect(consoleErrors).toEqual([]);
 });
 

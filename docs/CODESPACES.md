@@ -48,15 +48,74 @@ uploads work, and the files are stored inside the codespace.
 * Free accounts include 120 core-hours a month, which is about 30 hours on this 4-core machine.
   Delete the codespace from github.com/codespaces when you no longer need it.
 
+## Switch the codespace to the redesign branch
+
+Open the terminal in the codespace (the **☰ menu** at the top left → **Terminal → New Terminal**)
+and run:
+
+```bash
+git fetch origin && git checkout redesign && bash .devcontainer/start.sh
+```
+
+`start.sh` updates the database tables, reloads the demo data when it is missing or expired, and
+starts the website. If it says a package is missing, run `npm ci` once and then the same
+`bash .devcontainer/start.sh` again.
+
 ## Getting the newest version
 
 When new work is pushed to the branch, open the codespace, open the terminal and run:
 
 ```bash
-git pull && npm ci && npx prisma db push && npm run db:seed
+git pull && npm ci && bash .devcontainer/start.sh
 ```
 
 Then reload the page.
+
+## Map key (so the maps show streets)
+
+The maps use CARTO's map pictures, which need a free key. Without it the maps still work (pins on
+a plain background) and show **"Map key missing"**.
+
+**Get the key (once, about 5 minutes):**
+1. Open **https://carto.com/basemaps/apikey** and fill in the short form. Choose commercial use —
+   it is free up to 1 million map tiles a month.
+2. Copy the key you receive.
+3. In the CARTO dashboard, limit the key to your addresses: your production domain (for example
+   `bayit.example`) and `*.app.github.dev` (codespaces). Then nobody else can use your key.
+
+**Give it to the codespace — either way works:**
+* **Codespaces secret (recommended, survives new codespaces):** github.com → your avatar →
+  **Settings → Codespaces → Secrets → New secret**. Name: `NEXT_PUBLIC_MAP_TILE_KEY`, value: the
+  key, repository: this one. Restart the codespace (or run `bash .devcontainer/start.sh`): the key
+  is copied into `.env` automatically.
+* **Directly in `.env`:** open `.env` in the codespace editor, set
+  `NEXT_PUBLIC_MAP_TILE_KEY="…"`, save, then restart the website:
+  `pkill -f "next dev"; bash .devcontainer/start.sh`.
+
+On Vercel, add the same variable under **Settings → Environment Variables** and redeploy.
+
+## Feel the real speed (production mode)
+
+Development mode compiles every page on first visit ("Compiling…", "Rendering…"), so it feels
+slow on a phone. To try the site the way visitors will get it, run this in the codespace terminal:
+
+```bash
+bash .devcontainer/start-prod.sh
+```
+
+It stops the development server, builds the site (a few minutes), starts it in production mode
+on the same port 3000 and prints the address. Open that address on your phone (the same one as
+before). Each page now arrives ready-made: no "Compiling…", and the first visit to a page is as
+fast as the second.
+
+- **Logging in does not work in production mode** until Twilio (SMS) is set up: the code is shown
+  on screen only in development mode. "שליחת קוד" then says the code can't be sent right now. Try
+  logging in, Saved and posting a listing in development mode (`bash .devcontainer/start.sh`).
+- Changed some code or switched branch? Run the command again: production mode does not reload
+  by itself.
+- Back to development mode (hot reload): `bash .devcontainer/start.sh`.
+- The build log is in `/tmp/bayit-dev.log`.
+- On your own computer the same is `npm run preview` (build, then serve on port 3000).
 
 ## If the page says "502" or "This page isn't working"
 
@@ -72,10 +131,17 @@ https://…/he"** when the site answers. Then open that address, or reload the p
 
 ## If something else goes wrong
 
-* **Setup failed:** run `bash .devcontainer/setup.sh` and read the last lines it prints.
+* **The site looks empty (no cities, "0 listings"), or a yellow strip says "Demo data not
+  loaded":** run `bash .devcontainer/start.sh` — it reloads the demo data when the database has
+  no cities or no public listings (demo listings expire after a few weeks). Or run
+  `npm run db:seed` yourself. `node scripts/db-status.mjs` shows what the database contains.
+* **Setup failed:** run `bash .devcontainer/setup.sh` and read the last lines it prints. Setup and
+  seed output is also kept in `/tmp/bayit-setup.log`.
 * **See what the website is doing:** `tail -50 /tmp/bayit-dev.log`.
-* **Login fails with an origin error:** the codespace was renamed or created another way. Delete
-  `.env`, then run `bash .devcontainer/setup.sh` and `bash .devcontainer/start.sh`.
+* **Login says the request was stopped for your safety, or that the connection was blocked:**
+  the codespace's port forwarder changed the request. Run `bash .devcontainer/start.sh` (it fixes
+  the address in `.env`), restart the website, and reload the page. In development the login form
+  also shows a yellow hint with the exact cause.
 
 This is a preview for you only. For a public website with a real address, follow "Going live" in
 the README.

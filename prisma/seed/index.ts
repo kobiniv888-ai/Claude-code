@@ -1,5 +1,5 @@
 /**
- * Bayit seed — `npm run db:seed` (tsx --conditions=react-server prisma/seed/index.ts).
+ * Bayit seed — `npm run db:seed` (tsx --require ./scripts/server-script.cjs prisma/seed/index.ts).
  *
  * Idempotent: every row has a stable id or unique key and is upserted, and child rows (photos,
  * room types, stats, ticket messages…) are rebuilt, so running it again never duplicates

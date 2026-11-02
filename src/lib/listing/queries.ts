@@ -44,7 +44,7 @@ const MAX_PAGE_SIZE = 60;
 const MAX_MAP_POINTS = 500;
 const MAX_CARDS_BY_ID = 100;
 
-type Runtime = { now: Date; demoVisible: boolean; featuredIds: string[]; featuredSet: Set<string> };
+type Runtime = { now: Date; demoVisible: boolean; featuredIds: string[]; featuredSet: Set<string>; pledgeRequiredVersion: number };
 
 async function runtime(): Promise<Runtime> {
   const settings = await getSettings();
@@ -53,6 +53,7 @@ async function runtime(): Promise<Runtime> {
     demoVisible: settings.demoDataVisible,
     featuredIds: settings.featuredListingIds,
     featuredSet: new Set(settings.featuredListingIds),
+    pledgeRequiredVersion: settings.pledgeRequiredVersion,
   };
 }
 
@@ -75,7 +76,7 @@ async function favoriteIdsFor(userId: string | null | undefined, listingIds: str
 
 async function toCards(rows: ListingCardRow[], ctx: ListingQueryContext, rt: Runtime): Promise<ListingCardData[]> {
   const favoriteIds = await favoriteIdsFor(ctx.userId, rows.map((r) => r.id));
-  return rows.map((row) => toListingCard(row, { locale: ctx.locale, now: rt.now, featuredIds: rt.featuredSet, favoriteIds }));
+  return rows.map((row) => toListingCard(row, { locale: ctx.locale, now: rt.now, featuredIds: rt.featuredSet, favoriteIds, pledgeRequiredVersion: rt.pledgeRequiredVersion }));
 }
 
 function findCardRows(

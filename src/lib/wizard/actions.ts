@@ -34,6 +34,7 @@ import { assertNotShabbatMode } from "@/lib/settings";
 import { isTranslationEnabled, translateListing } from "@/lib/translate";
 import { assertTurnstile } from "@/lib/turnstile";
 import { normalizeRanges } from "./availability";
+import { hasCurrentPledge } from "@/lib/pledge/server";
 import { missingRequirements } from "./requirements";
 import {
   availabilitySchema,
@@ -791,10 +792,11 @@ export async function deleteTranslation(listingId: string, locale: string): Prom
 // ─── Publish ──────────────────────────────────────────────────
 
 async function checkRequirements(listing: ListingRow, user: CurrentUser): Promise<ActionResult<never> | null> {
-  const [photoCount, roomPhotoCount, pricedRoomTypes] = await Promise.all([
+  const [photoCount, roomPhotoCount, pricedRoomTypes, pledgeAccepted] = await Promise.all([
     db.listingPhoto.count({ where: { listingId: listing.id, roomTypeId: null } }),
     db.listingPhoto.count({ where: { listingId: listing.id, roomTypeId: { not: null } } }),
     db.roomType.count({ where: { listingId: listing.id, price: { gt: 0 } } }),
+    hasCurrentPledge(user.id),
   ]);
   const missing = missingRequirements({
     values: toWizardValues(listing, user.businessName),
@@ -802,6 +804,7 @@ async function checkRequirements(listing: ListingRow, user: CurrentUser): Promis
     roomPhotoCount,
     pricedRoomTypes,
     phoneVerified: user.phoneNumberVerified,
+    pledgeAccepted,
   });
   if (missing.length === 0) return null;
   return fail("missing_requirements", { requirements: missing.map((m) => m.key) });

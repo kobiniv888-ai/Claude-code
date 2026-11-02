@@ -1,5 +1,4 @@
 import { useLocale, useTranslations } from "next-intl";
-import { CalendarDaysIcon } from "lucide-react";
 import { formatDate, formatNumber } from "@/lib/format";
 import { buildMonths, georgiaToday, weekStartFor, weekdaySamples, type DateBlock } from "@/lib/listing-page/calendar";
 import { cn } from "@/lib/utils";
@@ -22,7 +21,7 @@ export function AvailabilityCalendar({ blocks, nowIso }: { blocks: DateBlock[]; 
   const allFree = months.every((m) => m.blockedCount === 0);
 
   return (
-    <Section id="availability" title={t("title")} description={allFree ? t("allFree") : t("subtitle")} icon={CalendarDaysIcon}>
+    <Section id="availability" title={t("title")} description={allFree ? t("allFree") : t("subtitle")}>
       <div className="grid gap-8 sm:grid-cols-2">
         {months.map((month) => (
           <table key={month.first} className="w-full table-fixed border-separate border-spacing-1 text-center text-sm">

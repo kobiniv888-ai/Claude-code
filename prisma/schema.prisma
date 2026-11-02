@@ -293,38 +293,42 @@ model User {
   phoneNumber         String?  @unique
   phoneNumberVerified Boolean? @default(false)
 
-  role               UserRole    @default(USER)
-  status             UserStatus  @default(ACTIVE)
-  statusReason       String?
-  suspendedUntil     DateTime?
-  accountType        AccountType @default(PRIVATE)
-  businessName       String?
+  role                    UserRole    @default(USER)
+  status                  UserStatus  @default(ACTIVE)
+  statusReason            String?
+  suspendedUntil          DateTime?
+  accountType             AccountType @default(PRIVATE)
+  businessName            String?
   /// User-written; render with dir="auto".
-  bio                String?
+  bio                     String?
   /// Languages the user speaks (ISO 639-1 codes, e.g. "he", "en", "fr").
-  spokenLanguages    String[]    @default([])
-  locale             Locale      @default(en)
-  currency           Currency?
-  timezone           String      @default("Asia/Tbilisi")
-  keepsShabbat       Boolean     @default(false)
-  showHebrewDates    Boolean     @default(false)
+  spokenLanguages         String[]    @default([])
+  locale                  Locale      @default(en)
+  currency                Currency?
+  timezone                String      @default("Asia/Tbilisi")
+  keepsShabbat            Boolean     @default(false)
+  showHebrewDates         Boolean     @default(false)
   /// { email: { messages: true, listing: true, tickets: true, marketing: false } }
-  notificationPrefs  Json?
+  notificationPrefs       Json?
   /// 2-step login (TOTP). Required for staff.
-  twoFactorEnabled   Boolean     @default(false)
+  twoFactorEnabled        Boolean     @default(false)
   /// Encrypted with APP_ENCRYPTION_KEY.
-  totpSecret         String?
-  idVerifiedAt       DateTime?
-  idVerifiedById     String?
-  businessVerifiedAt DateTime?
-  safetyTipSeenAt    DateTime?
-  lastSeenAt         DateTime?
+  totpSecret              String?
+  idVerifiedAt            DateTime?
+  idVerifiedById          String?
+  businessVerifiedAt      DateTime?
+  /// The Bayit welcome pledge: which version of the text (siteConfig.pledge.currentVersion) the
+  /// host accepted, and when. Hosts must accept the current version before publishing.
+  welcomePledgeVersion    Int?
+  welcomePledgeAcceptedAt DateTime?
+  safetyTipSeenAt         DateTime?
+  lastSeenAt              DateTime?
   /// Typical reply time in minutes (computed; Phase 2 chat makes this precise).
-  avgReplyMinutes    Int?
+  avgReplyMinutes         Int?
   /// Reply rate percent (Phase 2).
-  replyRate          Int?
-  isDemo             Boolean     @default(false)
-  deletedAt          DateTime?
+  replyRate               Int?
+  isDemo                  Boolean     @default(false)
+  deletedAt               DateTime?
 
   sessions              Session[]
   accounts              Account[]
@@ -579,22 +583,25 @@ model Listing {
   reportCount  Int @default(0)
 
   // Moderation
-  riskScore          Int?
+  riskScore            Int?
   /// [{ code: "duplicate_photos", points: 40, detail: "…" }]
-  riskReasons        Json?
+  riskReasons          Json?
   /// When the automatic checks (assessListing) last ran. Unpause / renew / a price change on a
   /// live listing run them again when the content changed after this (see lifecycle.ts).
-  lastCheckedAt      DateTime?
+  lastCheckedAt        DateTime?
   /// Reason code shown to the owner (translated), e.g. "photos_low_quality".
-  moderationReason   String?
+  moderationReason     String?
   /// Free-text note from the moderator (auto-translated to the owner's language).
-  moderationNote     String?
-  reviewedAt         DateTime?
-  reviewedById       String?
-  reviewedBy         User?     @relation("ListingReviewer", fields: [reviewedById], references: [id])
-  ownerVerifiedAt    DateTime?
-  propertyVerifiedAt DateTime?
-  rulesAcceptedAt    DateTime?
+  moderationNote       String?
+  reviewedAt           DateTime?
+  reviewedById         String?
+  reviewedBy           User?     @relation("ListingReviewer", fields: [reviewedById], references: [id])
+  ownerVerifiedAt      DateTime?
+  propertyVerifiedAt   DateTime?
+  rulesAcceptedAt      DateTime?
+  /// Snapshot of the owner's welcome pledge at publish time (version + when).
+  welcomePledgeVersion Int?
+  welcomePledgeAt      DateTime?
 
   // Lifecycle
   publishedAt      DateTime?

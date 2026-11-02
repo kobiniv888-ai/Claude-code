@@ -50,7 +50,7 @@
     "sheetTitle": "חיפוש",
     "sheetDescription": "בחרו מקום, תאריכים ומספר אורחים.",
     "closeSheet": "סגירת החיפוש",
-    "clear": "ניקוי הכול"
+    "clear": "ניקוי הכל"
   },
   "dates": {
     "holidayLegend": "חג יהודי — העבירו את הסמן על היום כדי לראות איזה"
@@ -58,7 +58,7 @@
   "guests": {
     "label": "אורחים",
     "hint": "מבוגרים וילדים",
-    "any": "הכול",
+    "any": "הכל",
     "decrease": "פחות אורחים",
     "increase": "יותר אורחים"
   },
@@ -84,7 +84,7 @@
       "owner": "מפרסם",
       "listing": "המודעה"
     },
-    "any": "הכול",
+    "any": "הכל",
     "anyTime": "בכל זמן",
     "atLeast": "{value}+",
     "dealType": "עסקה",
@@ -122,12 +122,14 @@
     "buildingAge": "בניין",
     "verifiedHint": "הצוות שלנו בדק את תעודת הזהות של הבעלים או הוכחת בעלות.",
     "ownerType": "מפרסם",
-    "postedWithin": "פורסם ב"
+    "postedWithin": "פורסם ב",
+    "noMin": "ללא מינימום",
+    "noMax": "ללא מקסימום"
   },
   "chips": {
     "heading": "מסננים פעילים",
     "remove": "הסרת המסנן",
-    "clearAll": "ניקוי הכול",
+    "clearAll": "ניקוי הכל",
     "text": "„{q}”",
     "moveIn": "כניסה ב-{date}",
     "between": "{min} – {max}",
@@ -143,7 +145,8 @@
     "sortLabel": "מיון לפי",
     "viewLabel": "תצוגה",
     "showMap": "מפה",
-    "showList": "רשימה"
+    "showList": "רשימה",
+    "pillLabel": "מפה ומיון"
   },
   "results": {
     "listLabel": "תוצאות החיפוש",
@@ -166,7 +169,8 @@
     "noPrice": "מחיר לפי בקשה",
     "openListing": "למודעה",
     "carouselLabel": "נכסים במפה",
-    "noResultsHere": "אין נכסים באזור הזה. הקטינו את התצוגה או הזיזו את המפה."
+    "noResultsHere": "אין נכסים באזור הזה. הקטינו את התצוגה או הזיזו את המפה.",
+    "fetching": "טוענים…"
   },
   "pagination": {
     "label": "עמודי התוצאות",
@@ -181,12 +185,62 @@
     "titleNoListings": "עדיין אין כאן נכסים",
     "descriptionNoListings": "נכסים חדשים נוספים כל יום. בינתיים אפשר לחפש בעיר אחרת.",
     "clear": "ניקוי כל המסננים",
-    "tryCities": "ערים פופולריות"
+    "tryCities": "ערים פופולריות",
+    "descriptionFixes": "שינוי קטן אחד יחזיר תוצאות — בחרו אחד מאלה:"
   },
   "error": {
     "title": "לא הצלחנו לטעון את התוצאות",
     "description": "משהו השתבש אצלנו. נסו שוב בעוד רגע.",
     "retry": "ניסיון נוסף",
     "startOver": "חיפוש חדש"
+  },
+  "top": {
+    "chipsLabel": "סינון מהיר",
+    "deal": "סוג עסקה",
+    "price": "מחיר",
+    "rooms": "חדרים",
+    "quick": {
+      "kosher": "כשר",
+      "shabbat": "מתאים לשבת",
+      "synagogue": "ליד בית כנסת",
+      "hebrew": "דובר עברית"
+    },
+    "anywhere": "כל גאורגיה",
+    "anyDates": "הוספת תאריכים",
+    "moveIn": "כניסה ב-{date}",
+    "summaryLabel": "שינוי החיפוש: {summary}"
+  },
+  "sort": {
+    "title": "מיון לפי",
+    "open": "מיון: {sort}. לשינוי המיון",
+    "short": "מיון"
+  },
+  "sheet": {
+    "dealShort": {
+      "any": "הכל",
+      "rent": "השכרה",
+      "short-stay": "יומי",
+      "monthly": "חודשי",
+      "buy": "קנייה",
+      "hotels": "מלונות"
+    },
+    "showCount": "{count, plural, =0 {אין נכסים מתאימים} one {הצגת נכס אחד} other {הצגת <n></n> נכסים}}",
+    "clearAll": "ניקוי הכל",
+    "noneTitle": "אין נכסים שמתאימים לכל המסננים",
+    "noneHint": "שינוי אחד ויש תוצאות:",
+    "noneGeneric": "נסו טווח מחירים רחב יותר או פחות מסננים.",
+    "removeChip": "הסרת המסנן {label}",
+    "synagogueNear": "בית כנסת במרחק הליכה",
+    "bigFamily": "משפחות גדולות 8+",
+    "jewishTitle": "כשרות ושבת",
+    "jewishMore": "עוד פרטים לשומרי מסורת",
+    "noPrices": "אין מחירים להצגה"
+  },
+  "fixes": {
+    "remove": "הסרת הסינון „{label}”",
+    "dates": "ניקוי התאריכים",
+    "widerArea": "הרחבת האזור",
+    "allGeorgia": "חיפוש בכל גאורגיה",
+    "count": "{count, plural, one {נכס אחד} other {{formatted} נכסים}}"
   }
 }

@@ -1,5 +1,7 @@
-import { ChevronRight, Mail, MessageSquarePlus, ShieldAlert, ShieldCheck, type LucideIcon } from "lucide-react";
+import { Mail, MessageSquarePlus, ShieldAlert, ShieldCheck, type LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { ChevronEnd } from "@/components/common/directional-icon";
+import { IconCircle, type IconCircleProps } from "@/components/ds/icon-circle";
 import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 
@@ -7,51 +9,46 @@ type Option = {
   key: "ticket" | "contact" | "safety" | "scam";
   href: string;
   icon: LucideIcon;
-  tone: "primary" | "verified" | "urgent";
+  tone: NonNullable<IconCircleProps["tone"]>;
 };
 
 const OPTIONS: Option[] = [
-  { key: "ticket", href: "/help/new-ticket", icon: MessageSquarePlus, tone: "primary" },
-  { key: "contact", href: "/contact", icon: Mail, tone: "primary" },
-  { key: "safety", href: "/safety", icon: ShieldCheck, tone: "verified" },
-  { key: "scam", href: "/help/new-ticket?category=SCAM_REPORT", icon: ShieldAlert, tone: "urgent" },
+  { key: "scam", href: "/help/new-ticket?category=SCAM_REPORT", icon: ShieldAlert, tone: "coral-solid" },
+  { key: "ticket", href: "/help/new-ticket", icon: MessageSquarePlus, tone: "navy" },
+  { key: "contact", href: "/contact", icon: Mail, tone: "navy" },
+  { key: "safety", href: "/safety", icon: ShieldCheck, tone: "green" },
 ];
 
-const iconTone = {
-  primary: "bg-secondary text-primary",
-  verified: "bg-verified-soft text-verified",
-  urgent: "bg-terracotta text-terracotta-foreground",
-} as const;
-
-/** "Still need help?" — open a ticket, the contact form, the Safety Center, or an urgent scam report. */
+/**
+ * "Still need help?" as four icon cards: the urgent scam report first (coral), then a ticket, the
+ * contact form and the Safety Center.
+ */
 export function ContactOptions({ className }: { className?: string }) {
   const t = useTranslations("help.contactOptions");
   return (
-    <section aria-labelledby="help-contact-title" className={cn("rounded-3xl border bg-card p-5 shadow-card sm:p-8", className)}>
-      <h2 id="help-contact-title" className="text-xl font-bold tracking-tight sm:text-2xl">
+    <section aria-labelledby="help-contact-title" className={className}>
+      <h2 id="help-contact-title" className="text-h2 text-balance">
         {t("title")}
       </h2>
-      <p className="mt-2 max-w-2xl text-sm text-pretty text-muted-foreground sm:text-base">{t("lead")}</p>
-      <ul className="mt-6 grid gap-3 sm:grid-cols-2">
-        {OPTIONS.map(({ key, href, icon: Icon, tone }) => (
+      <p className="mt-1.5 max-w-2xl text-body text-pretty text-muted-foreground">{t("lead")}</p>
+      <ul className="mt-5 grid gap-3 sm:grid-cols-2">
+        {OPTIONS.map(({ key, href, icon, tone }) => (
           <li key={key} className="flex">
             <Link
               href={href}
               className={cn(
-                "group flex w-full items-center gap-4 rounded-2xl border bg-background p-4 transition-all hover:-translate-y-0.5 hover:shadow-card-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-                tone === "urgent" && "border-terracotta/40 bg-accent",
+                "group flex w-full items-center gap-3.5 rounded-card border bg-card p-4 transition-transform duration-(--motion-fast) hover:-translate-y-0.5 active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-reduce:transition-none",
+                key === "scam" && "border-coral/40 bg-coral-soft",
               )}
             >
-              <span aria-hidden="true" className={cn("flex size-12 shrink-0 items-center justify-center rounded-xl", iconTone[tone])}>
-                <Icon className="size-6" />
-              </span>
+              <IconCircle icon={icon} tone={tone} size="md" />
               <span className="min-w-0 flex-1">
-                <span className="block font-semibold">{t(`${key}.title`)}</span>
-                <span className="mt-0.5 block text-sm text-pretty text-muted-foreground">{t(`${key}.body`)}</span>
+                <span className="block text-body font-semibold">{t(`${key}.title`)}</span>
+                <span className="mt-0.5 block text-small text-pretty text-muted-foreground">{t(`${key}.body`)}</span>
               </span>
-              <ChevronRight
+              <ChevronEnd
                 aria-hidden="true"
-                className="size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 rtl:-scale-x-100 rtl:group-hover:-translate-x-0.5"
+                className="size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5"
               />
             </Link>
           </li>

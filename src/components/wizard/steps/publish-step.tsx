@@ -61,7 +61,7 @@ function MissingList({
           <li key={item.key} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-card px-3 py-2.5 text-sm shadow-sm">
             <span>{t(`missing.${item.key}`, { count: siteConfig.listings.minPhotos })}</span>
             {item.step ? (
-              <Button type="button" size="sm" variant="outline" onClick={() => goTo(item.step!)}>
+              <Button type="button" size="sm" variant="outline" onClick={() => goTo(item.step!)} className="h-auto min-h-8 max-w-full py-1 whitespace-normal">
                 {t("goToStep", { step: stepNumber(item.step), name: tSteps(item.step) })}
                 <ArrowRightIcon className="rtl:-scale-x-100" aria-hidden />
               </Button>
@@ -283,13 +283,14 @@ function TranslationsPanel({ listing, context, values, translations, setTranslat
           {!hasText && <p className="text-sm text-muted-foreground">{t("translateNeedsText")}</p>}
         </div>
       )}
-      <Tabs value={tab} onValueChange={(v) => setTab(v as AppLocale)} className="gap-4">
-        <TabsList className="h-auto w-full flex-wrap justify-start gap-1 bg-muted p-1">
+      <Tabs value={tab} onValueChange={(v) => setTab(v as AppLocale)} className="min-w-0 gap-4">
+        {/* Five languages never fit on a phone: one row that scrolls sideways. */}
+        <TabsList className="h-12 w-full justify-start gap-1 overflow-x-auto rounded-full bg-muted p-1 scrollbar-none">
           {locales.map((l) => {
             const tr = byLocale.get(l);
             const isOriginal = l === values.originalLocale;
             return (
-              <TabsTrigger key={l} value={l} lang={l} className="flex-none gap-1.5 px-3 py-1.5">
+              <TabsTrigger key={l} value={l} lang={l} className="h-10 flex-none gap-1.5 rounded-full px-4">
                 {siteConfig.i18n.nativeNames[l]}
                 {isOriginal ? (
                   <span className="text-[0.65rem] text-muted-foreground">{t("originalShort")}</span>
@@ -350,7 +351,7 @@ function TranslationsPanel({ listing, context, values, translations, setTranslat
 
 /** Step 10 — preview, languages, listing rules and Publish (or "Save changes" when editing). */
 export function PublishStep(props: StepProps) {
-  const { listing, context, values, kind, photos, roomTypes, goTo, flush, onPublished, track } = props;
+  const { listing, context, values, kind, photos, roomTypes, goTo, flush, onPublished, track, pledge } = props;
   const t = useTranslations("wizard.publish");
   const tw = useTranslations("wizard");
   const locale = useLocale();
@@ -368,6 +369,7 @@ export function PublishStep(props: StepProps) {
     roomPhotoCount: roomTypes.reduce((n, r) => n + r.photos.length, 0),
     pricedRoomTypes: roomTypes.filter((r) => r.price > 0).length,
     phoneVerified: context.user.phoneVerified,
+    pledgeAccepted: pledge.isCurrent,
   });
   const price = displayPrice(values, roomTypes);
   const verifyHref = `/verify-phone?next=${encodeURIComponent(`/post/${listing.id}?step=${steps.length}`)}`;
@@ -405,6 +407,9 @@ export function PublishStep(props: StepProps) {
       <Section title={t("previewTitle")} description={t("previewDescription")} icon={EyeIcon}>
         <div className="grid gap-6 md:grid-cols-[minmax(0,20rem)_1fr]">
           <PreviewCard
+            listingId={listing.id}
+            publicId={listing.publicId}
+            pledgeAccepted={pledge.isCurrent}
             values={values}
             title={values.title}
             photos={photos}

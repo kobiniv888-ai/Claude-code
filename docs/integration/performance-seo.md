@@ -123,6 +123,76 @@ open the login dialog when signed out, toasts appear, the listing map loads, sea
 views and the hover ring next to the map. axe (WCAG 2.0/2.1 A + AA) finds 0 violations on the five
 pages plus `/ar` and the map view at 360 px and 1280 px.
 
+## Redesign speed pass (2026-11-02, phase 4)
+
+Production build (`NEXT_DIST_DIR=.next-3931 next build` + `next start -p 3931`), Lighthouse 12.8
+mobile preset (simulated throttling), Chromium from `/opt/pw-browsers`, `--headless=new
+--no-sandbox`, HTTP/1.1 + gzip as `next start` serves it. Medians; the machine is shared, so the
+same build scores ±4 between runs (the "runs" column shows the spread).
+
+| Page | Before (median of 3) | After (median of 5) | Runs after |
+|---|---|---|---|
+| `/he` | 79 · LCP 4.54 s · FCP 1.96 s · TBT 266 ms · CLS 0.038 | **81** · LCP **3.83 s** · FCP 1.67 s · TBT 209 ms · CLS **0** | 80/85/84/81/81 |
+| `/he/search?city=tbilisi` | 78 · LCP 4.40 s · FCP 1.97 s · TBT 243 ms · CLS 0.040 | **80** · LCP **4.10 s** · FCP 1.71 s · TBT 282 ms · CLS **0** | 81/80/82/76/74 |
+| `/he/listing/89-…` | 73 · LCP 5.09 s · FCP 2.11 s · TBT 276 ms · CLS 0.045 | **78** · LCP **4.83 s** · FCP 1.67 s · TBT 204 ms · CLS **0** | 78/79/79/76/77 |
+| `/en/help` (3 runs) | — | 82 · LCP 3.85 s · CLS 0 | 85/82/81 |
+| `/he/jewish-life` (3 runs) | — | 84 · LCP 3.85 s · CLS 0 | 74/84/87 |
+
+Bytes Lighthouse counted on `/he` (transfer): document 102 → **78 KB**, CSS 45 → **42 KB**, JavaScript
+369 → **300 KB**, fonts 75 → **62 KB**. Search: JS 376 → 344 KB. Listing: JS 409 → 354 KB, document
+116 → 98 KB. The home HTML went from 677 KB to 546 KB raw (RSC data 320 → 240 KB, interface text
+in it 91 → 18 KB + the site set), 1,909 → 1,765 elements.
+
+**Same build behind HTTP/2 + brotli** (a local proxy, as a CDN host such as Vercel serves it; 3 runs;
+the proxy's on-the-fly compression shares the CPU, so TBT is inflated): `/he` **84** (84–88), LCP
+**2.88 s**; search 83, LCP 3.09 s; listing 82, LCP 3.46 s. Measure the deployed site with
+PageSpeed Insights for the real number.
+
+### What changed (each step built and measured)
+
+| Change | Files | Effect |
+|---|---|---|
+| **CSS split.** `globals.css` is now the public stylesheet: Tailwind scans only `src/` (`source(none)` + `@source "../"`; before it also scanned build folders such as `.next-*`) minus the admin, account, wizard, pledge and dev folders. Those sections' layouts load `src/app/sections.css`, the complete stylesheet, on top: a superset in Tailwind's order loaded after, so their cascade is exactly that of one file. Tokens and custom CSS moved to `src/app/styles/bayit.css`, shared by both. | `src/app/globals.css`, `src/app/sections.css`, `src/app/styles/bayit.css`, admin/account/post/dev layouts, `src/app/stylesheets.test.ts` | Public CSS 279 → 262 KB raw (45 → 42 KB transfer). Smaller than hoped: the section-only utilities are only ~7% of the file; 2,226 utilities are used on public pages. Checked: 16 public pages × 2 widths (menus open) use **no** class that only the section stylesheet has; admin, wizard and account screenshots unchanged. |
+| **Interface text per route.** The root layout sends `SHELL_MESSAGES` (header, menus, cookie banner, login dialog, errors), the (site) layout adds `SITE_MESSAGES` (listing card, search bar), each public route segment adds its own with `<RouteMessages route="…">` (merged in the browser by `<MergeMessages>`). A test follows each route's imports and fails with the missing namespace when a client component reads text the route does not send. | `src/i18n/client-messages.ts`, `route-messages.tsx`, `merge-messages.tsx`, 8 route `layout.tsx`, `client-messages.test.ts` | Text in the home RSC data 91 → 18 KB (+ site set); document −17 to −24 KB transfer. |
+| **Hebrew font: one file, preloaded on Hebrew pages.** Noto Sans Hebrew was downloaded twice (next/font's copy and the ₪ copy, same 12 KB). Now one face "Bayit Hebrew" (`public/fonts/noto-sans-hebrew-v1.woff2`, year-long cache) covers Hebrew + ₪ and is preloaded only on `he`. | `fonts.ts`, `bayit.css`, root layout, `next.config.ts` | −13 KB on Hebrew pages; Hebrew text paints in its face at once. |
+| **Code that is not needed for the first paint loads later.** Login dialog (Radix Dialog + vaul + illustration): after load/idle or at the first "Log in". Mobile menu sheet: idle, pointer/touch on the button, or the first tap (the button itself is a plain server-rendered button). Desktop header tools (language/currency/theme menus, tooltips, account menu): `deferredIsland` — rendered on the server as before, hydrated once the page is idle or the pointer reaches the header, never downloaded on phones. Footer pickers: when the footer comes near the screen. Recently viewed row (the client copy of the card): only for visitors with history. Listing page: report dialog (with zod) near the screen, e-mail and safety dialogs on first open. Each Tooltip brings its own provider, so the root layout has none. | `ds/deferred-island.tsx`, `lib/idle.ts`, `auth/login-dialog(-sheet).tsx`, `layout/mobile-menu(-sheet).tsx`, `layout/header-desktop-tools(-inner).tsx`, `layout/footer-pickers(-inner).tsx`, `listing/recently-viewed(-row).tsx`, `report/report-dialog(-impl).tsx`, `contact/contact-provider.tsx`, `ui/tooltip.tsx` | Home JS 369 → 300 KB, listing 409 → 354 KB; Radix Dialog, Menu, Popper and Tooltip are no longer in the home page's first load. |
+| **Sprite icons in server components.** A Lucide icon is a client component: in a server component it is a full `<svg>` in the HTML plus a reference in the RSC data, and it hydrates. The listing card, the badges and the home sections now draw `<svg class="bi"><use href="/icons/sprite-<hash>.svg#name"/></svg>` from one cached 6 KB sprite (2 KB gzip) built from Lucide by `scripts/generate-icon-sprite.mjs`. Same look (checked light and dark). | `ds/sprite-icons.tsx`, `ds/sprite-icons.generated.ts`, `public/icons/sprite-*.svg`, card, badges, home sections | Home: SVG markup 84 → 65 KB, −144 elements, ~100 fewer components to hydrate. (RSC data barely changes: React already sends each icon's path data once.) |
+| **Cookie banner CLS → 0.** It sits on `--bottom-nav-height`, which the bottom bar, `<HideBottomNav />` and the listing contact bar set through `:has()` — from markup that came after the banner, so it jumped by the bar's height (64–73 px) when that markup was parsed or streamed in. The banner is now last in the site shell; the listing contact bar's space rule moved to `bayit.css` and the listing skeleton carries its marker. | `site-shell.tsx`, `bayit.css`, `listing/[id]/loading.tsx` | CLS 0.038/0.040/0.045 → **0** on home, search and listing. On text-only pages (help) the banner paragraph can be the LCP element on a first visit; `/en/help` still scores 82. |
+| **Production preview.** `npm run preview` (build + `next start -p 3000`) and `bash .devcontainer/start-prod.sh` (stops the dev server, builds, serves on 3000, prints the address). | `package.json`, `.devcontainer/start-prod.sh`, `README.md`, `docs/CODESPACES.md` | — |
+
+### Why the targets (home ≥ 90 and LCP < 2.5 s; search and listing ≥ 85) are not met here
+
+Measured experiments on the final code (`/he`, a proxy that rewrote the HTML):
+
+- **Without any JavaScript** the home page scores **96 with LCP 2.53 s**: HTML + CSS + fonts + the
+  hero photo alone are at the 2.5 s line on simulated slow 4G.
+- **Without the RSC data** (−60 KB document) it scores 84 with LCP 4.3 s: the document is not the
+  main cost.
+- Lighthouse's simulation (Lantern) counts every request that finished before the LCP was
+  observed. On localhost the whole page, all ~25 scripts included, arrives in ~250 ms, before
+  the first frame (the main thread is also slowed by the other processes on this 4-core machine:
+  the first layout took 60–100 ms of wall time for 8 ms of CPU). So LCP ≈ the time to download the
+  document, CSS, fonts, **all first-load JavaScript** and the photos that started before that
+  frame. With ~300 KB of first-load JS (React DOM 71 KB, Next.js runtime 44 KB, tailwind-merge
+  21 KB for `cn()` in client components, Radix primitives, the page's islands) the floor on this
+  setup is ~3.5 s.
+- **Listing page:** `listing/[id]/loading.tsx` (re-added in phase 3 for the instant skeleton when a
+  card is tapped) makes a first visit stream: skeleton first, the page later, so its LCP comes
+  after all scripts. Without the file the listing LCP was 4.03 s instead of 4.83 s (perf 79). Kept,
+  because the skeleton is a brief requirement.
+
+What would move it further (not done; each needs a decision or touches another area):
+1. Measure on the real host (HTTP/2, brotli, CDN): the proxy test above already gives LCP 2.9 s.
+2. Fewer client islands on search and listing (share menu, search bar popovers, filter sheet:
+   load on first use like the menus above), and `cn()` without tailwind-merge in client components.
+3. A listing skeleton only for client navigations (e.g. a pending state on the card link) instead
+   of `loading.tsx`, if the founder prefers the faster first visit.
+
+How to measure: `npm run preview` (or the commands above), then
+`npx lighthouse http://localhost:3000/he --only-categories=performance --chrome-flags="--headless=new"`.
+The scratch scripts used (median of N runs, network timeline, Lantern graph dump, CLS recorder,
+class coverage check) are described here and were not committed.
+
 ## Link crawler (production)
 
 Playwright opens every internal `<a href>` in a new tab at 1280 px. It records the status, console
@@ -196,12 +266,12 @@ Now one load per language runs at a time, and only a missing folder counts as em
 
 | Severity | Issue |
 |---|---|
-| High | **Performance below 90 on mobile (71–85 after the second pass above).** What is left: (1) ~300 KB of JavaScript on every page, which Lighthouse counts into the LCP here — the biggest parts are react-dom (73 KB), the Next runtime (45 KB) and ~70 KB of Radix for the header menus, tooltips, sheet and dialogs that also hydrate on phones where they are hidden; loading those menus on first use is the next step. (2) Hydration: lucide-react 1.x icons are client components, so every icon in a server component is serialized into the RSC payload (up to 25 KB on the listing page) and hydrates; icons are ~45% of the DOM (svg + paths). (3) Interface text: every public page ships ~55 KB of messages (tickets, listing, jewishLife, search…) that most pages never read; per-route providers would cut it. (4) Page-specific client trees: the help center's Radix accordion, Jewish Life's places explorer. Measure again on the real host (HTTP/2, CDN): the lab result here depends on how fast localhost delivers the scripts. |
+| High | **Performance below 90 on mobile** — now 81 (home), 80 (search), 78 (listing) on localhost and 82–84 behind HTTP/2 + brotli; see "Redesign speed pass" for what changed and why the rest remains. Earlier notes: (71–85 after the second pass above). What is left: (1) ~300 KB of JavaScript on every page, which Lighthouse counts into the LCP here — the biggest parts are react-dom (73 KB), the Next runtime (45 KB) and ~70 KB of Radix for the header menus, tooltips, sheet and dialogs that also hydrate on phones where they are hidden; loading those menus on first use is the next step. (2) Hydration: lucide-react 1.x icons are client components, so every icon in a server component is serialized into the RSC payload (up to 25 KB on the listing page) and hydrates; icons are ~45% of the DOM (svg + paths). (3) Interface text: every public page ships ~55 KB of messages (tickets, listing, jewishLife, search…) that most pages never read; per-route providers would cut it. (4) Page-specific client trees: the help center's Radix accordion, Jewish Life's places explorer. Measure again on the real host (HTTP/2, CDN): the lab result here depends on how fast localhost delivers the scripts. |
 | ~~Medium~~ Fixed | ~~One "₾" downloads 168 KB of font.~~ A 13 KB face goes first in the stack for U+20BE (a copy of Noto Sans Georgian latin-ext, `src/components/layout/font-files/`, SIL OFL), and "≈" (U+2248, in none of our Noto files) comes from a system font through `local()` ("Bayit Symbols" in `globals.css`); without a matching local font the browser falls back as before. Avoid U+2011 (non-breaking hyphen) in interface text: only Noto Sans Arabic (162 KB) has it. The last three (`auth.json` he, "ה-QR" on the 2-step setup pages) were replaced in the final regression gate; `grep -rn $'‑' messages` is empty. |
 | Low | **Listing SEO 92 in Lighthouse.** Next 16 streams listing metadata after the shell for user agents that are not on its bot list, and Lighthouse 12 no longer sends "Chrome-Lighthouse". Real crawlers (Googlebot renders JS; WhatsApp, Facebook, Telegram, Twitter, Slack and Discord are on Next's bot list) get it in `<head>`. Viber is not on that list; add it with `htmlLimitedBots` if Viber previews matter. |
 | Low | Bare listing links (`/listing/113`) now get a real `308` to the canonical slug from `src/proxy.ts` (public listings only, query kept, `Cache-Control: no-store` because the slug follows the title). Old slugs (`/listing/113-old-title`) are redirected by the page itself; since the listing route has no `loading.tsx` any more (second performance pass) that is a real HTTP `307`. Internal links always use the canonical slug. |
 | Low | The zod `jitless` switch relies on zod's shared config global (`globalThis.__zod_globalConfig`). Check that it still exists when zod is upgraded. |
-| Low | **Cookie banner reflows when the script font arrives** (CLS ≈ 0.04 on `/he` and the listing page): it is fixed to the bottom and painted with the fallback font first, so its top edge moves when Noto Sans Hebrew swaps in. It was the same on slow connections before; Lighthouse sees it now that the banner paints with the first screen. Fix with fallback metric overrides (`size-adjust`, ascent) for the script faces. |
+| ~~Low~~ Fixed (phase 4) | ~~**Cookie banner reflows when the script font arrives**~~ The cause was `--bottom-nav-height` changing when later markup arrived; see "Redesign speed pass". (CLS ≈ 0.04 on `/he` and the listing page): it is fixed to the bottom and painted with the fallback font first, so its top edge moves when Noto Sans Hebrew swaps in. It was the same on slow connections before; Lighthouse sees it now that the banner paints with the first screen. Fix with fallback metric overrides (`size-adjust`, ascent) for the script faces. |
 | Low | Client navigations to the pages without `loading.tsx` keep the current page until the next one has loaded (no skeleton). A small navigation progress indicator (`useLinkStatus`) would give feedback on slow connections. |
 | Info | `/help/new-ticket` is `noindex` on purpose (it is a form). |
 | Info | When a cold server runs out of file handles, Turbopack keeps failing the chunks it could not load until restart. The message-loader fix lowers the load, but the server still needs a restart in that case. |

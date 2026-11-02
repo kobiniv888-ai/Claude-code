@@ -15,6 +15,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Button as DsButton } from "@/components/ds/button";
 import { Button } from "@/components/ui/button";
 import { Ltr } from "@/components/common/ltr";
 import { Link, useRouter } from "@/i18n/navigation";
@@ -43,10 +44,10 @@ export function StartListingButton() {
 
   const busy = creating || pending;
   return (
-    <Button type="button" onClick={() => void start()} disabled={busy} className="h-12 w-full px-6 text-base sm:w-auto">
+    <DsButton type="button" variant="accent" size="lg" onClick={() => void start()} disabled={busy} className="w-full sm:w-auto">
       {busy ? <LoaderCircleIcon className="animate-spin" aria-hidden /> : <PlusIcon aria-hidden />}
       {busy ? t("start.creating") : t("start.newButton")}
-    </Button>
+    </DsButton>
   );
 }
 
@@ -74,13 +75,13 @@ export function DraftCards({ drafts }: { drafts: DraftCardData[] }) {
   if (items.length === 0) return null;
   return (
     <section aria-labelledby="drafts-title" className="grid gap-4">
-      <h2 id="drafts-title" className="text-xl font-semibold">
+      <h2 id="drafts-title" className="text-h2">
         {t("draftsTitle")}
       </h2>
       <ul className="grid gap-3 sm:grid-cols-2">
         {items.map((draft) => (
-          <li key={draft.id} className="flex gap-3 rounded-2xl bg-card p-3 shadow-card ring-1 ring-foreground/5">
-            <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-muted sm:size-24">
+          <li key={draft.id} className="flex gap-3 rounded-card bg-card p-3 shadow-card ring-1 ring-foreground/5">
+            <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-input bg-muted sm:size-24">
               {draft.coverUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element -- small WebP thumbnail
                 <img src={draft.coverUrl} alt="" className="size-full object-cover" />

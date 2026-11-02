@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { CheckCheckIcon, LogOutIcon } from "lucide-react";
+import { CheckCheckIcon, CircleAlertIcon, LogOutIcon } from "lucide-react";
 import { toast } from "@/lib/toast";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ds/button";
 import { Ltr } from "@/components/common/ltr";
 import type { AppLocale } from "@/config/site";
 import { Link, useRouter } from "@/i18n/navigation";
@@ -21,6 +21,7 @@ import {
 } from "@/lib/wizard/steps";
 import type { PublishOutcome, WizardContext, WizardListing } from "@/lib/wizard/types";
 import { siteConfig } from "@/config/site";
+import { ReacceptBanner } from "@/components/pledge/reaccept-banner";
 import { useIssueText } from "./fields";
 import { PublishResult } from "./publish-result";
 import type { StepProps } from "./step-props";
@@ -31,6 +32,7 @@ import { DetailsStep } from "./steps/details-step";
 import { JewishStep } from "./steps/jewish-step";
 import { LocationStep } from "./steps/location-step";
 import { PhotosStep } from "./steps/photos-step";
+import { PledgeStep } from "./steps/pledge-step";
 import { PriceStep } from "./steps/price-step";
 import { PropertyStep } from "./steps/property-step";
 import { PublishStep } from "./steps/publish-step";
@@ -50,6 +52,7 @@ const STEP_COMPONENTS: Record<WizardStepKey, ComponentType<StepProps>> = {
   rooms: RoomsStep,
   price: PriceStep,
   contact: ContactStep,
+  pledge: PledgeStep,
   publish: PublishStep,
 };
 
@@ -90,6 +93,7 @@ export function WizardShell({
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<PublishOutcome | null>(null);
   const [editResult, setEditResult] = useState<{ resubmitted: boolean; outcome: PublishOutcome | null } | null>(null);
+  const [pledge, setPledge] = useState(context.user.pledge);
 
   const autosave = useAutosave(listing.id, listing.values);
   const kind: ListingKind = useMemo(
@@ -136,10 +140,11 @@ export function WizardShell({
       const issues: StepIssues = isSavableStep(s) ? stepIssues(s, v, { dealType: v.dealType, propertyType: v.propertyType }) : {};
       if (s === "deal" && !chosen.deal) issues.dealType = "pickOne";
       if (s === "property" && !chosen.property) issues.propertyType = "pickOne";
+      if (s === "pledge" && !pledge.isCurrent) issues.pledge = "required";
       const server = isSavableStep(s) ? autosave.serverIssues[s] : undefined;
       return { ...server, ...issues };
     },
-    [values, chosen, autosave.serverIssues],
+    [values, chosen, autosave.serverIssues, pledge.isCurrent],
   );
 
   const currentIssues = rawIssues(step);
@@ -157,9 +162,10 @@ export function WizardShell({
       if (s === "photos") return photoCount >= siteConfig.listings.minPhotos;
       if (s === "rooms") return roomTypes.length > 0;
       if (s === "publish") return listing.status !== "DRAFT";
+      if (s === "pledge") return pledge.isCurrent;
       return Object.keys(rawIssues(s)).length === 0;
     },
-    [photoCount, roomTypes.length, rawIssues, listing.status],
+    [photoCount, roomTypes.length, rawIssues, listing.status, pledge.isCurrent],
   );
 
   const canJump = useCallback(
@@ -321,6 +327,8 @@ export function WizardShell({
     chosen,
     setChosen: (patch) => setChosenState((current) => ({ ...current, ...patch })),
     track: autosave.track,
+    pledge,
+    setPledge,
   };
 
   if (result) {
@@ -344,27 +352,32 @@ export function WizardShell({
   const StepComponent = STEP_COMPONENTS[step];
   const isLast = step === "publish";
   const exitHref = isEdit ? "/account/listings" : "/post";
-  const missing = missingRequirements({ values, photoCount, phoneVerified: context.user.phoneVerified });
+  const missing = missingRequirements({
+    values,
+    photoCount,
+    phoneVerified: context.user.phoneVerified,
+    pledgeAccepted: pledge.isCurrent,
+  });
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 pt-4 pb-6 sm:pt-8">
-      <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div className="grid gap-0.5">
-          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+    <div className="mx-auto w-full max-w-3xl px-4 pt-3 pb-6 sm:pt-8">
+      <header className="mb-4 flex items-center justify-between gap-3">
+        <div className="grid min-w-0 gap-0.5">
+          <p className="truncate text-caption font-semibold tracking-wide text-muted-foreground uppercase">
             {isEdit ? t("chrome.editing") : t("chrome.newListing")}
           </p>
-          <p className="text-sm text-muted-foreground">
-            {t("chrome.listingId")} <Ltr className="font-medium text-foreground">{listing.publicId}</Ltr>
+          <p className="text-caption text-muted-foreground">
+            {t("chrome.listingId")} <Ltr className="font-semibold text-foreground">{listing.publicId}</Ltr>
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1.5">
           {isEdit && (
-            <Button type="button" variant="secondary" onClick={onSaveChanges} disabled={busy}>
+            <Button type="button" variant="soft" size="sm" onClick={onSaveChanges} disabled={busy}>
               <CheckCheckIcon aria-hidden />
-              {t("chrome.saveChanges")}
+              <span className="max-sm:sr-only">{t("chrome.saveChanges")}</span>
             </Button>
           )}
-          <Button asChild variant="ghost">
+          <Button asChild variant="ghost" size="sm" className="px-3">
             <Link
               href={exitHref}
               onClick={(event) => {
@@ -379,6 +392,10 @@ export function WizardShell({
         </div>
       </header>
 
+      {pledge.mustReaccept && step !== "pledge" && (
+        <ReacceptBanner status={pledge} onReview={() => void goTo("pledge")} className="mb-5" />
+      )}
+
       <WizardProgress
         steps={steps}
         current={step}
@@ -389,20 +406,21 @@ export function WizardShell({
         onRetry={() => void flush()}
       />
 
-      <div className="mt-6 grid gap-6" data-wizard-step={step}>
+      {/* key: each step fades up a little as it comes in (transform/opacity; off with reduced motion). */}
+      <div key={step} className="mt-6 grid animate-fade-up gap-6 [&>*]:min-w-0" data-wizard-step={step}>
         <div className="grid gap-1.5">
           {/* The step title is the page's main heading (the wizard has no other <h1>). */}
-          <h1
-            ref={headingRef}
-            tabIndex={-1}
-            className="text-2xl font-bold tracking-tight text-balance outline-none sm:text-3xl"
-          >
+          <h1 ref={headingRef} tabIndex={-1} className="text-h1 text-balance text-foreground outline-none">
             {t(`${step}.title`)}
           </h1>
-          <p className="text-pretty text-muted-foreground">{t(`${step}.subtitle`)}</p>
+          <p className="text-body text-pretty text-muted-foreground">{t(`${step}.subtitle`)}</p>
         </div>
         {attempted.has(step) && Object.keys(currentIssues).length > 0 && (
-          <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm font-medium text-destructive">
+          <div
+            role="alert"
+            className="flex items-start gap-2.5 rounded-card border border-destructive/30 bg-destructive/5 px-4 py-3 text-small font-semibold text-destructive"
+          >
+            <CircleAlertIcon className="mt-0.5 size-4.5 shrink-0" aria-hidden />
             {t("chrome.fixErrors")}
           </div>
         )}
@@ -418,7 +436,7 @@ export function WizardShell({
         hideNext={isLast}
         extra={
           isLast && isEdit ? (
-            <Button type="button" className="h-11 px-5 text-base" onClick={onSaveChanges} disabled={busy || missing.length > 0}>
+            <Button type="button" className="h-12 flex-1 px-5 sm:h-11 sm:max-w-60" onClick={onSaveChanges} disabled={busy || missing.length > 0}>
               {t("chrome.saveChanges")}
             </Button>
           ) : null

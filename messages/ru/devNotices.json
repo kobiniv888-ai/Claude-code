@@ -1,0 +1,3 @@
+{
+  "demoDataMissing": "Демо-данные не загружены — выполните <code>npm run db:seed</code>"
+}

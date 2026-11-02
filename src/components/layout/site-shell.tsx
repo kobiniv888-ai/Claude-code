@@ -34,15 +34,16 @@ export async function SiteShell({ children }: { children: ReactNode }) {
       <ScamAlertBanner />
       {settings.demoDataVisible ? <DemoDataBanner /> : null}
       <Header user={user} />
-      {/* Fixed to the bottom of the screen, but early in the document: the browser parses and
-          paints it with the first screen instead of after the whole page (it was the largest
-          contentful paint on most first visits). Keyboard order: header, then this banner. */}
-      <CookieConsent initialOpen={!consent} />
       <main id="main" tabIndex={-1} className="flex-1 outline-none">
         {children}
       </main>
       <Footer />
       <MobileBottomNav isSignedIn={!!user} />
+      {/* Last in the document: its place above the bottom bar comes from --bottom-nav-height,
+          which the bottom bar, <HideBottomNav /> and the listing contact bar set from the markup
+          above. Painted before them, it jumped by the bar's height when they arrived (CLS 0.04).
+          The photo heroes are larger, so it is not the largest contentful paint. */}
+      <CookieConsent initialOpen={!consent} />
     </div>
   );
 }

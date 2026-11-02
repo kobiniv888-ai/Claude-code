@@ -28,6 +28,8 @@ export type CurrentUser = {
   phoneNumber: string | null;
   phoneNumberVerified: boolean;
   role: UserRole;
+  /** A seeded demo account ("Demo Owner — Yossi"): never addressed as a real person. */
+  isDemo: boolean;
   status: UserStatus;
   accountType: AccountType;
   businessName: string | null;
@@ -66,6 +68,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
           phoneNumber: true,
           phoneNumberVerified: true,
           role: true,
+          isDemo: true,
           status: true,
           suspendedUntil: true,
           accountType: true,
@@ -95,6 +98,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     phoneNumber: user.phoneNumber,
     phoneNumberVerified: !!user.phoneNumber && user.phoneNumberVerified === true,
     role: user.role,
+    isDemo: user.isDemo,
     status: user.status,
     accountType: user.accountType,
     businessName: user.businessName,

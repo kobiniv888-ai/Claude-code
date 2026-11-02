@@ -6,11 +6,11 @@ import { pickLocalized } from "@/i18n/locale";
 import { Link } from "@/i18n/navigation";
 import type { JewishPlaceType } from "@/lib/jewish-life/places";
 import { toPublicPlace } from "@/lib/jewish-life/places";
-import { getCitiesWithPlaces, getJewishPlaces } from "@/lib/jewish-life/queries";
+import { loadPlaces } from "./data";
 import { PlacesExplorer } from "./places-explorer";
 
 const contactLinkClass =
-  "inline-flex h-11 items-center justify-center gap-2 rounded-xl border bg-card px-5 text-sm font-semibold shadow-card transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+  "inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-full border bg-card px-5 text-sm font-semibold shadow-card transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
 /** Map and list of Jewish places (server part: loads visible places and passes them to the explorer). */
 export async function PlacesSection({
@@ -23,7 +23,7 @@ export async function PlacesSection({
   initialCity: string | null;
 }) {
   const t = await getTranslations({ locale, namespace: "jewishLife.places" });
-  const [records, cityRows] = await Promise.all([getJewishPlaces(), getCitiesWithPlaces()]);
+  const { records, cities: cityRows } = await loadPlaces();
 
   if (records.length === 0) {
     return (
@@ -49,13 +49,11 @@ export async function PlacesSection({
         initialTypes={initialTypes}
         initialCity={initialCity}
         map={{
-          tileUrl: siteConfig.map.tileUrl,
-          tileAttribution: siteConfig.map.tileAttribution,
           center: siteConfig.map.defaultCenter,
           zoom: siteConfig.map.defaultZoom,
         }}
       />
-      <div className="flex flex-col items-start gap-3 rounded-2xl bg-secondary/60 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+      <div className="flex flex-col items-start gap-3 rounded-card bg-navy-soft/60 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
         <p className="text-sm text-pretty">
           <span className="font-semibold">{t("suggestTitle")}</span> {t("suggestBody")}
         </p>

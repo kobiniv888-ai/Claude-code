@@ -1,0 +1,56 @@
+{
+  "badges": {
+    "welcomes": "מקבלים ישראלים בברכה",
+    "welcomesHint": "המארח התחייב לקבל בברכה אורחים ישראלים ויהודים",
+    "verified": "מאומת",
+    "verifiedHint": "הצוות שלנו בדק את תעודת הזהות של הבעלים או את הוכחת הבעלות",
+    "hebrew": "דובר עברית",
+    "kosherKitchen": "מטבח כשר",
+    "kosherMeals": "ארוחות כשרות",
+    "shabbatFriendly": "מתאים לשבת",
+    "synagogueWalk": "{minutes} דק׳ הליכה לבית כנסת",
+    "keepsShabbat": "שומר שבת",
+    "business": "עסק",
+    "demo": "דמו",
+    "new": "חדש",
+    "priceDropped": "ירד במחיר",
+    "promoted": "מקודם",
+    "more": "+{count}",
+    "moreLabel": "{count, plural, one {ועוד תג אחד: {list}} other {ועוד {count} תגים: {list}}}"
+  },
+  "chip": {
+    "remove": "הסרת {label}"
+  },
+  "sheet": {
+    "close": "סגירה",
+    "clear": "ניקוי"
+  },
+  "section": {
+    "seeAll": "הכל"
+  },
+  "carousel": {
+    "previous": "הקודם",
+    "next": "הבא",
+    "slide": "תמונה {index} מתוך {total}",
+    "noPhotos": "עדיין אין תמונות",
+    "morePhotos": "{count, plural, one {תמונה} other {תמונות}}"
+  },
+  "contactBar": {
+    "label": "יצירת קשר עם המארח"
+  },
+  "devUi": {
+    "title": "מערכת העיצוב",
+    "intro": "עמוד פנימי למפתחים: כל הצבעים, הטקסטים והרכיבים במקום אחד.",
+    "showResults": "{count, plural, one {הצגת נכס אחד} other {הצגת <n>{count}</n> נכסים}}",
+    "emptyTitle": "לא מצאנו נכסים",
+    "emptyText": "נסו להסיר מסנן או להרחיב את האזור.",
+    "emptyAction": "התחילו לחפש",
+    "fixKosher": "הסרת הסינון 'כשר'",
+    "fixArea": "הרחבת האזור",
+    "sectionTitle": "נכסים חדשים",
+    "sectionSubtitle": "מקומות שנוספו השבוע",
+    "post": "פרסום מודעה",
+    "showPhone": "הצגת טלפון",
+    "sheetBody": "כאן יופיעו המסננים."
+  }
+}

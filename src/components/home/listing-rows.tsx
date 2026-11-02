@@ -1,28 +1,21 @@
-import { Megaphone, Sparkles } from "lucide-react";
+import { MegaphoneIcon as Megaphone, SparklesIcon as Sparkles } from "@/components/ds/sprite-icons";
 import { getTranslations } from "next-intl/server";
 import { Container } from "@/components/common/container";
-import { SectionHeading } from "@/components/common/section-heading";
-import { EmptyState } from "@/components/common/states";
+import { CardCarousel } from "@/components/ds/card-carousel";
+import { EmptyState } from "@/components/ds/empty-state";
 import { ListingCard } from "@/components/listing/listing-card";
 import type { AppLocale } from "@/config/site";
 import type { ListingCardData } from "@/lib/listing/types";
+import { HomeSection } from "./home-section";
 
-/**
- * Cards in a swipeable row on phones and a grid from the lg breakpoint. The rows sit below the
- * hero and the cities, so their photos load lazily instead of competing with the first screen.
- */
+/** The shared listing card in a scroll-snap carousel (the next card peeks in on phones). */
 function CardRow({ listings, label }: { listings: ListingCardData[]; label: string }) {
   return (
-    <ul
-      aria-label={label}
-      className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-4 overflow-x-auto px-4 pb-2 [scrollbar-width:none] sm:grid sm:grid-cols-2 sm:overflow-visible lg:grid-cols-4 [&::-webkit-scrollbar]:hidden"
-    >
+    <CardCarousel label={label}>
       {listings.map((listing) => (
-        <li key={listing.id} className="w-[82%] max-w-80 shrink-0 snap-start sm:w-auto sm:max-w-none">
-          <ListingCard listing={listing} />
-        </li>
+        <ListingCard key={listing.id} listing={listing} />
       ))}
-    </ul>
+    </CardCarousel>
   );
 }
 
@@ -31,50 +24,50 @@ export async function FeaturedListings({ locale, listings }: { locale: AppLocale
   if (listings.length === 0) return null;
   const t = await getTranslations({ locale, namespace: "home.featured" });
   return (
-    <section aria-labelledby="home-featured-title" className="py-10 sm:py-14">
-      <Container>
-        <SectionHeading
-          id="home-featured-title"
-          eyebrow={
-            <span className="inline-flex items-center gap-1.5">
-              <Megaphone className="size-4" aria-hidden="true" />
-              {t("eyebrow")}
-            </span>
-          }
-          title={t("title")}
-          description={t("lead")}
-          action={{ label: t("all"), href: "/search" }}
-        />
-        <CardRow listings={listings} label={t("title")} />
-      </Container>
-    </section>
+    <HomeSection
+      id="home-featured-title"
+      eyebrow={
+        <p className="mb-1 inline-flex items-center gap-1.5 text-small font-semibold text-coral-strong">
+          <Megaphone className="size-4" aria-hidden="true" />
+          {t("eyebrow")}
+        </p>
+      }
+      title={t("title")}
+      subtitle={t("lead")}
+      href="/search"
+      linkLabel={t("all")}
+      bleed
+    >
+      <CardRow listings={listings} label={t("title")} />
+    </HomeSection>
   );
 }
 
-/** The newest live listings, or an invitation to be the first. */
+/** "New homes": the newest live listings, or an invitation to be the first. */
 export async function NewestListings({ locale, listings }: { locale: AppLocale; listings: ListingCardData[] }) {
   const t = await getTranslations({ locale, namespace: "home.newest" });
+  if (listings.length === 0) {
+    return (
+      <section aria-labelledby="home-newest-title" className="py-[calc(var(--section-space)*0.55)]">
+        <Container>
+          <h2 id="home-newest-title" className="sr-only">
+            {t("title")}
+          </h2>
+          <EmptyState icon={Sparkles} title={t("emptyTitle")} description={t("emptyText")} action={{ label: t("emptyAction"), href: "/post" }} />
+        </Container>
+      </section>
+    );
+  }
   return (
-    <section aria-labelledby="home-newest-title" className="py-10 sm:py-14">
-      <Container>
-        <SectionHeading
-          id="home-newest-title"
-          title={t("title")}
-          description={t("lead")}
-          action={listings.length > 0 ? { label: t("all"), href: "/search?sort=newest" } : undefined}
-        />
-        {listings.length > 0 ? (
-          <CardRow listings={listings} label={t("title")} />
-        ) : (
-          <EmptyState
-            icon={Sparkles}
-            bordered
-            title={t("emptyTitle")}
-            description={t("emptyText")}
-            action={{ label: t("emptyAction"), href: "/post" }}
-          />
-        )}
-      </Container>
-    </section>
+    <HomeSection
+      id="home-newest-title"
+      title={t("title")}
+      subtitle={t("lead")}
+      href="/search?sort=newest"
+      linkLabel={t("all")}
+      bleed
+    >
+      <CardRow listings={listings} label={t("title")} />
+    </HomeSection>
   );
 }

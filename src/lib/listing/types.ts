@@ -15,6 +15,11 @@ export type ListingCardPhoto = {
 };
 
 export type ListingCardBadges = {
+  /**
+   * The owner accepted the Bayit welcome pledge ("welcomes Israelis and Jews") and their version
+   * is still valid (settings.pledgeRequiredVersion). The green, most prominent badge.
+   */
+  welcomes: boolean;
   /** The owner's ID is verified, or the ownership of this property is verified. */
   verified: boolean;
   /** Posted by a business account (hotel, agency…). */
@@ -23,6 +28,12 @@ export type ListingCardBadges = {
   kosherKitchen: boolean;
   /** Walking minutes to the nearest synagogue. */
   synagogueWalkMin: number | null;
+  /** The host speaks Hebrew (Jewish feature "host_speaks_hebrew" or the owner's languages). */
+  speaksHebrew: boolean;
+  /** The host keeps Shabbat (the owner's profile or the Jewish feature "host_keeps_shabbat"). */
+  keepsShabbat: boolean;
+  /** Hotels and guesthouses: kosher meals or a kosher breakfast. */
+  kosherMeals: boolean;
   /** Published within siteConfig.listings.newLabelDays. */
   isNew: boolean;
   /** Price dropped within siteConfig.listings.priceDropLabelDays. */
@@ -46,6 +57,13 @@ export type ListingCardData = {
   neighborhoodName: string | null;
   /** Up to 6 photos, cover first. */
   photos: ListingCardPhoto[];
+  /**
+   * Optional (card v2): how many photos the listing has in total. When it is more than
+   * `photos.length`, the last card slide shows "+N photos".
+   */
+  photoCount?: number;
+  /** Optional (card v2): the floor, shown in the card's icon row (0 = ground floor). */
+  floor?: number | null;
   /** In the owner's currency. Null when there is no price. */
   price: number | null;
   currency: CurrencyCode;

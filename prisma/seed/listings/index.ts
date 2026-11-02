@@ -1,5 +1,7 @@
 /**
- * 25 demo listings (isDemo). Each run rewrites the listing and its children (translations,
+ * 20 demo listings (isDemo) with local stock photos (public/photos/listings, see
+ * scripts/photos/fetch-demo-photos.ts). Each run deletes demo listings of earlier seeds that are
+ * gone, then rewrites the listing and its children (translations,
  * photos, room types, price history, booked dates) from the data files, then computes the derived
  * fields with the same code the site uses: approximate map point, USD prices, Shabbat badge and
  * search text (prepareListingDerivedFields) and walking times to the demo Jewish places
@@ -9,22 +11,20 @@ import { locales } from "@/config/site";
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { prepareListingDerivedFields } from "@/lib/listing/lifecycle";
 import { computeListingProximity } from "@/lib/nearby";
-import { georgiaDate, randomInt, seededRandom, unsplashPhotoUrl } from "../lib";
+import { PLEDGE_CURRENT_VERSION } from "@/lib/pledge";
+import { georgiaDate, randomInt, seededRandom } from "../lib";
 import type { PlaceIds } from "../places";
 import { demoUser, demoUserId } from "../users";
-import { BATUMI_LISTINGS } from "./batumi";
-import { KUTAISI_LISTINGS } from "./kutaisi";
-import { MOUNTAIN_LISTINGS } from "./mountains";
-import { PHOTOS } from "./photos";
-import { TBILISI_LISTINGS } from "./tbilisi";
+import { ALL_LISTINGS, demoPhotoPath, REMOVED_LISTING_NUMBERS } from "./all";
+import photoManifest from "./photo-manifest.json";
 import { contactMethodsFor, demoListingId, listingTimeline, priceChangesFor } from "./timeline";
 import type { ListingSeed } from "./types";
 
 export { demoListingId } from "./timeline";
+export { ALL_LISTINGS } from "./all";
 
-export const ALL_LISTINGS: ListingSeed[] = [...TBILISI_LISTINGS, ...KUTAISI_LISTINGS, ...BATUMI_LISTINGS, ...MOUNTAIN_LISTINGS].sort(
-  (a, b) => a.n - b.n,
-);
+type PhotoManifestEntry = { width: number; height: number; bytes: number; blurDataURL: string };
+const PHOTO_MANIFEST = photoManifest as Record<string, PhotoManifestEntry>;
 
 const PUBLISHED_STATUSES = new Set(["LIVE", "PAUSED", "RENTED", "EXPIRED"]);
 
@@ -49,6 +49,8 @@ function counters(seed: ListingSeed): Pick<Prisma.ListingCreateManyInput, "viewC
 }
 
 export async function seedListings(db: PrismaClient, places: PlaceIds, now: Date): Promise<number> {
+  // Demo listings an earlier seed created that are no longer in the data (children cascade).
+  await db.listing.deleteMany({ where: { id: { in: REMOVED_LISTING_NUMBERS.map((n) => demoListingId(n)) }, isDemo: true } });
   const firstListings = firstListingNumbers(ALL_LISTINGS);
   for (const seed of ALL_LISTINGS) {
     await seedListing(db, seed, places, now, firstListings.has(seed.n));
@@ -109,6 +111,9 @@ async function seedListing(db: PrismaClient, seed: ListingSeed, places: PlaceIds
     featuredUntil: timeline.featuredUntil,
     contentUpdatedAt: timeline.contentUpdatedAt,
     rulesAcceptedAt: timeline.rulesAcceptedAt,
+    // Demo hosts accepted the current pledge; the listing keeps a snapshot from when it was submitted.
+    welcomePledgeVersion: timeline.rulesAcceptedAt ? PLEDGE_CURRENT_VERSION : null,
+    welcomePledgeAt: timeline.rulesAcceptedAt,
     wizardStep: timeline.wizardStep,
     reportCount: 0,
     isDemo: true,
@@ -162,15 +167,24 @@ async function seedListing(db: PrismaClient, seed: ListingSeed, places: PlaceIds
 
   if (seed.photos.length > 0) {
     await db.listingPhoto.createMany({
-      data: seed.photos.map((key, i) => ({
-        id: `${id}-photo-${i + 1}`,
-        listingId: id,
-        roomTypeId: roomOfPhoto.get(key) ?? null,
-        url: unsplashPhotoUrl(PHOTOS[key]),
-        sortOrder: i,
-        isCover: i === 0,
-        createdAt: timeline.createdAt,
-      })),
+      data: seed.photos.map((key, i) => {
+        const url = demoPhotoPath(seed, key);
+        const file = PHOTO_MANIFEST[url];
+        if (!file) throw new Error(`${id}: photo ${url} is missing — run: npx tsx scripts/photos/fetch-demo-photos.ts`);
+        return {
+          id: `${id}-photo-${i + 1}`,
+          listingId: id,
+          roomTypeId: roomOfPhoto.get(key) ?? null,
+          url,
+          width: file.width,
+          height: file.height,
+          bytes: file.bytes,
+          blurDataUrl: file.blurDataURL,
+          sortOrder: i,
+          isCover: i === 0,
+          createdAt: timeline.createdAt,
+        };
+      }),
     });
   }
 

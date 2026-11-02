@@ -1,0 +1,344 @@
+/*
+ * Search map: price pills, cluster bubbles, community places and popups.
+ * Loaded with the map chunk only (the map is lazy). Colors come from the design tokens in
+ * globals.css, so light and dark follow the site theme. Only transform and opacity animate; the
+ * global prefers-reduced-motion rule shortens every animation and transition to ~0.
+ *
+ * Leaflet moves each marker with `transform` on the marker element itself, so every animation
+ * here runs on the element INSIDE it (.bayit-pill, .bayit-cluster, .bayit-place).
+ */
+
+.bayit-map .leaflet-container {
+  font-family: var(--font-sans);
+}
+
+/* ── Price pills ─────────────────────────────────────────────── */
+
+/* The marker element is a 44px-tall hit area; the visible pill is centered inside it. */
+.bayit-pill-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  outline: none;
+}
+
+.bayit-pill {
+  --pill-bg: var(--navy);
+  --pill-fg: var(--navy-foreground);
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding-inline: 11px;
+  border-radius: 9999px;
+  background: var(--pill-bg);
+  color: var(--pill-fg);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  box-shadow:
+    0 0 0 2px var(--card),
+    0 3px 10px rgb(15 23 42 / 0.28);
+  transform-origin: 50% 60%;
+  /* Scale in when the pill appears (fill "backwards": afterwards the state transform applies). */
+  animation: bayit-marker-in 320ms var(--ease-pop) backwards;
+  transition: transform var(--motion-fast) var(--ease-standard);
+}
+
+/* Hovered card in the list ↔ its pill. */
+.bayit-pill-marker.is-hover .bayit-pill,
+.bayit-pill-marker:hover .bayit-pill {
+  transform: scale(1.1);
+}
+
+/* The tapped pill: coral and bigger while its card is open. coral-strong keeps the text AA. */
+.bayit-pill-marker.is-selected .bayit-pill {
+  --pill-bg: var(--coral-strong);
+  --pill-fg: #ffffff;
+  transform: scale(1.2);
+  box-shadow:
+    0 0 0 2px var(--card),
+    0 6px 18px rgb(180 83 58 / 0.45);
+}
+
+.dark .bayit-pill-marker.is-selected .bayit-pill {
+  --pill-fg: var(--brand-ink);
+}
+
+.bayit-pill-marker:focus-visible .bayit-pill {
+  outline: 3px solid var(--ring);
+  outline-offset: 3px;
+}
+
+/* ── Cluster bubbles ─────────────────────────────────────────── */
+
+.bayit-cluster-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  outline: none;
+}
+
+.bayit-cluster {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 9999px;
+  background: var(--navy);
+  color: var(--navy-foreground);
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  box-shadow:
+    0 0 0 3px var(--card),
+    0 0 0 9px color-mix(in srgb, var(--navy) 22%, transparent),
+    0 4px 14px rgb(15 23 42 / 0.3);
+  animation: bayit-marker-in 360ms var(--ease-pop) backwards;
+  transition: transform var(--motion-fast) var(--ease-standard);
+}
+
+.bayit-cluster-marker:hover .bayit-cluster {
+  transform: scale(1.08);
+}
+
+.bayit-cluster-marker:focus-visible .bayit-cluster {
+  outline: 3px solid var(--ring);
+  outline-offset: 10px;
+}
+
+/* ── Jewish community places ─────────────────────────────────── */
+
+.bayit-place-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  outline: none;
+}
+
+.bayit-place {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9999px;
+  background: var(--place-color);
+  color: #ffffff;
+  box-shadow:
+    0 0 0 2px #ffffff,
+    0 3px 10px rgb(15 23 42 / 0.3);
+  animation: bayit-marker-in 320ms var(--ease-pop) backwards;
+  transition: transform var(--motion-fast) var(--ease-standard);
+}
+
+.bayit-place-marker:hover .bayit-place,
+.bayit-place-marker.is-open .bayit-place {
+  transform: scale(1.12);
+}
+
+.bayit-place-marker:focus-visible .bayit-place {
+  outline: 3px solid var(--ring);
+  outline-offset: 3px;
+}
+
+/* Fixed colors (white icon on top, ≥ 4.5:1), the same in light and dark. */
+.bayit-place[data-type="SYNAGOGUE"] {
+  --place-color: #1e3a6e;
+}
+.bayit-place[data-type="CHABAD_HOUSE"] {
+  --place-color: #7b2d3b;
+}
+.bayit-place[data-type="KOSHER_RESTAURANT"],
+.bayit-place[data-type="KOSHER_SHOP"] {
+  --place-color: #13763a;
+}
+
+/* Community places grouped at low zoom (beside the listings' bubbles, see communityClusterIcon). */
+.bayit-place-cluster-marker {
+  display: flex;
+  outline: none;
+}
+
+.bayit-place-cluster {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 5px;
+  width: 100%;
+  height: 100%;
+  padding-inline: 3px 9px;
+  border-radius: 9999px;
+  /* White with the synagogue color, like the place markers (the same in light and dark), so it never
+     reads as a navy listings bubble. #1e3a6e on white: 11:1. */
+  background: #ffffff;
+  color: #1e3a6e;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  box-shadow:
+    0 0 0 1.5px #1e3a6e,
+    0 3px 10px rgb(15 23 42 / 0.3);
+  animation: bayit-marker-in 320ms var(--ease-pop) backwards;
+  transition: transform var(--motion-fast) var(--ease-standard);
+}
+
+.bayit-place-cluster-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: #1e3a6e;
+  color: #ffffff;
+}
+
+.bayit-place-cluster-marker:hover .bayit-place-cluster {
+  transform: scale(1.08);
+}
+
+.bayit-place-cluster-marker:focus-visible .bayit-place-cluster {
+  outline: 3px solid var(--ring);
+  outline-offset: 3px;
+}
+
+/* ── Popups (community places) ───────────────────────────────── */
+
+.bayit-map .bayit-popup .leaflet-popup-content-wrapper {
+  padding: 0;
+  border-radius: var(--radius-card);
+  background: var(--card);
+  color: var(--card-foreground);
+  box-shadow: var(--shadow-raised);
+}
+
+.bayit-map .bayit-popup .leaflet-popup-content {
+  margin: 0;
+  width: auto !important;
+  min-width: 13rem;
+  max-width: 16rem;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+/* React content in popups: undo Leaflet's link color and paragraph margins. */
+.bayit-map .leaflet-popup-content a {
+  color: inherit;
+}
+
+.bayit-map .leaflet-popup-content p {
+  margin: 0;
+}
+
+/* Desktop: the selected listing's card in a popup over its pill. */
+.bayit-map .bayit-card-popup .leaflet-popup-content {
+  min-width: 0;
+  max-width: none;
+}
+
+.bayit-map-card-popup {
+  animation: bayit-popup-card-in 260ms var(--ease-soft) backwards;
+}
+
+.bayit-map .bayit-popup .leaflet-popup-tip {
+  background: var(--card);
+}
+
+.bayit-map .bayit-popup a.leaflet-popup-close-button {
+  width: 32px;
+  height: 32px;
+  font-size: 20px;
+  line-height: 30px;
+  color: var(--muted-foreground);
+}
+
+/* ── Leaflet controls in the theme ───────────────────────────── */
+
+.bayit-map .leaflet-control-zoom {
+  border: 0;
+  border-radius: 9999px;
+  overflow: hidden;
+  box-shadow: var(--shadow-raised);
+}
+
+.bayit-map .leaflet-control-zoom a {
+  width: 40px;
+  height: 40px;
+  line-height: 40px;
+  background: var(--card);
+  color: var(--foreground);
+  border-color: var(--border);
+}
+
+.bayit-map .leaflet-control-zoom a:hover {
+  background: var(--muted);
+}
+
+.bayit-map .leaflet-control-attribution {
+  background: color-mix(in srgb, var(--card) 80%, transparent);
+  color: var(--muted-foreground);
+}
+
+.bayit-map .leaflet-control-attribution a {
+  color: inherit;
+}
+
+/* ── Motion ──────────────────────────────────────────────────── */
+
+@keyframes bayit-marker-in {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+}
+
+@keyframes bayit-popup-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+@keyframes bayit-controls-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+/* The selected listing card: slides up from below the map edge, and back down when closed. */
+@keyframes bayit-map-card-in {
+  from {
+    transform: translateY(calc(100% + 1.5rem));
+  }
+}
+
+@keyframes bayit-map-card-out {
+  to {
+    transform: translateY(calc(100% + 1.5rem));
+    opacity: 0;
+  }
+}
+
+.bayit-map-card {
+  animation: bayit-map-card-in var(--motion-slow) var(--ease-soft) backwards;
+}
+
+.bayit-map-card[data-state="closing"] {
+  animation: bayit-map-card-out 200ms var(--ease-standard) forwards;
+}
+
+/* Controls fade/slide in once, after the map. */
+.bayit-map-controls > * {
+  animation: bayit-controls-in 0.4s var(--ease-soft) backwards;
+}

@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
+import { extraAllowedHosts } from "./src/lib/auth/dev-origins";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
@@ -28,16 +29,9 @@ const mediaHost = (() => {
 /**
  * Extra hosts that may open the development server and call Server Actions: the forwarded
  * address of a GitHub Codespace, plus any in EXTRA_ALLOWED_ORIGINS (comma-separated, e.g. a tunnel).
+ * The same list feeds Better Auth's trustedOrigins (src/lib/auth/dev-origins.ts).
  */
-const extraOrigins = [
-  ...(process.env.CODESPACES === "true" && process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN
-    ? [`*.${process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}`]
-    : []),
-  ...(process.env.EXTRA_ALLOWED_ORIGINS ?? "")
-    .split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean),
-];
+const extraOrigins = extraAllowedHosts();
 
 const nextConfig: NextConfig = {
   // Separate build folders let several dev servers run side by side (NEXT_DIST_DIR=.next-a).
@@ -55,8 +49,8 @@ const nextConfig: NextConfig = {
   },
   images: {
     formats: ["image/avif", "image/webp"],
+    // Stock and demo photos live in public/photos (no hotlinking), so only our own bucket is remote.
     remotePatterns: [
-      { protocol: "https", hostname: "images.unsplash.com" },
       // Only our own bucket when its address is known, so the image optimizer cannot be used to
       // fetch and resize images from anyone else's r2.dev / supabase.co bucket at our cost.
       ...(mediaHost
@@ -79,6 +73,8 @@ const nextConfig: NextConfig = {
       { source: "/brand/:path*", headers: publicAssetCache },
       { source: "/icons/:path*", headers: publicAssetCache },
       { source: "/images/:path*", headers: publicAssetCache },
+      // Fonts in public/fonts carry a version in their name (noto-sans-hebrew-v1.woff2): cache for a year.
+      { source: "/fonts/:path*", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] },
     ];
   },
 };

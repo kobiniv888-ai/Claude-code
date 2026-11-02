@@ -1,6 +1,8 @@
 /**
  * Small pure helpers for the listing page and owner profile (client-safe).
  */
+import { haversineMeters, walkingMinutes, type LatLng } from "@/lib/geo";
+import type { ContactChannelKey } from "@/lib/listing/fields";
 
 /** "Typically replies within …" bucket for User.avgReplyMinutes. */
 export type ReplyTimeBucket = "hour" | "fewHours" | "day" | "days";
@@ -65,4 +67,40 @@ export function languageName(code: string, locale: string): string {
   } catch {
     return code;
   }
+}
+
+/**
+ * The places within `radiusMeters` of `center`, nearest first, with the straight-line distance
+ * and an estimated walking time (the listing map's synagogues and kosher places).
+ */
+export function placesNear<T extends LatLng>(
+  places: readonly T[],
+  center: LatLng,
+  { radiusMeters = 2500, limit = 12 }: { radiusMeters?: number; limit?: number } = {},
+): (T & { meters: number; minutes: number })[] {
+  return places
+    .map((place) => {
+      const meters = Math.round(haversineMeters(center, place));
+      return { ...place, meters, minutes: walkingMinutes(meters) };
+    })
+    .filter((place) => place.meters <= radiusMeters)
+    .sort((a, b) => a.meters - b.meters)
+    .slice(0, limit);
+}
+
+export type ContactLayout = {
+  /** The big button (WhatsApp when the owner offers it, else their first channel). */
+  primary: ContactChannelKey | null;
+  /** "Show phone" when the owner takes calls (and calling is not already the primary). */
+  phone: boolean;
+  /** Everything else (Telegram, Viber, SMS, email…) for the small menu, in the owner's order. */
+  more: ContactChannelKey[];
+};
+
+/** How the phone contact bar spreads the owner's channels over its buttons. */
+export function contactLayout(channels: readonly ContactChannelKey[]): ContactLayout {
+  const primary = channels.includes("WHATSAPP") ? "WHATSAPP" : (channels[0] ?? null);
+  const phone = primary !== "PHONE" && channels.includes("PHONE");
+  const more = channels.filter((channel) => channel !== primary && channel !== "PHONE");
+  return { primary, phone, more };
 }

@@ -2,51 +2,56 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { EyeIcon, HashIcon, MapIcon, MapPinIcon, RefreshCwIcon, ShieldCheckIcon, SparklesIcon, StarIcon } from "lucide-react";
+import { Suspense } from "react";
+import { FlagIcon } from "lucide-react";
 import { ContactProvider, type ContactAvailability } from "@/components/contact/contact-provider";
 import { MobileContactBar } from "@/components/contact/mobile-contact-bar";
 import { Container } from "@/components/common/container";
 import { JsonLd } from "@/components/common/json-ld";
-import { Ltr } from "@/components/common/ltr";
 import { SafetyTip } from "@/components/common/safety-tip";
+import { CardCarousel } from "@/components/ds/card-carousel";
+import { listingBadgeItems, type BadgeItem } from "@/components/ds/badges";
+import { Reveal } from "@/components/ds/reveal";
+import { SectionHeader } from "@/components/ds/section-header";
 import { HideBottomNav } from "@/components/layout/hide-bottom-nav";
 import { CompareToggle } from "@/components/listing/compare-toggle";
 import { FavoriteButton } from "@/components/listing/favorite-button";
-import { FeatureList } from "@/components/listing/feature-list";
-import { ListingBadges, ListingLabels } from "@/components/listing/badges";
-import { ListingGrid } from "@/components/listing/listing-grid";
+import { ListingCard } from "@/components/listing/listing-card";
+import { ListingCardSkeleton } from "@/components/listing/listing-card-skeleton";
 import { Price } from "@/components/listing/price";
-import { AreaMapLoader } from "@/components/listing-page/area-map-loader";
 import { AvailabilityCalendar } from "@/components/listing-page/availability-calendar";
-import { ContactBox, OwnerHeader, ShabbatReplyNotice, type ShabbatNow } from "@/components/listing-page/contact-box";
+import { ContactBox, HostCard, OwnerHeader, ShabbatReplyNotice, VideoTip, type ShabbatNow } from "@/components/listing-page/contact-box";
 import { Gallery } from "@/components/listing-page/gallery";
-import { CostsSection, DetailsSection, RulesSection } from "@/components/listing-page/info-sections";
-import { JewishSection } from "@/components/listing-page/jewish-section";
+import { AmenitiesSection, CostsSection, DetailsSection, RulesSection } from "@/components/listing-page/info-sections";
 import { KeyFacts } from "@/components/listing-page/key-facts";
-import { ListingDescription, ListingTextProvider, ListingTitle, TranslationSwitch } from "@/components/listing-page/listing-text";
-import { NearbySection } from "@/components/listing-page/nearby-section";
+import { PriceBlock, TitleBlock } from "@/components/listing-page/listing-header";
+import { ListingDescription, ListingTextProvider, TranslationSwitch } from "@/components/listing-page/listing-text";
+import { LocationSection } from "@/components/listing-page/location-section";
 import { RoomTypesSection } from "@/components/listing-page/room-types";
 import { Section } from "@/components/listing-page/section";
 import { ShareMenu } from "@/components/listing-page/share-menu";
 import { StatusBanner } from "@/components/listing-page/status-banner";
+import { TraditionCard } from "@/components/listing-page/tradition-card";
 import { ViewTracker } from "@/components/listing-page/view-tracker";
 import { ReportButton } from "@/components/report/report-dialog";
-import { HolidaysInRange, ShabbatTimesCard } from "@/components/shabbat";
+import { HolidaysInRange } from "@/components/shabbat";
 import { siteConfig, type AppLocale } from "@/config/site";
 import { isAppLocale } from "@/i18n/locale";
 import { Link, redirect } from "@/i18n/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { isBlockedBetween } from "@/lib/contact/server";
 import { stayQuery, stayRequestFrom } from "@/lib/contact/message";
-import { formatDate, formatMoney, formatNumber } from "@/lib/format";
+import { formatMoney } from "@/lib/format";
 import { isShabbatOrHolidayNow } from "@/lib/hebcal";
 import { listingAccess, previewReason } from "@/lib/listing-page/access";
 import { getCardContext } from "@/lib/listing-page/context";
 import { buildListingJsonLd } from "@/lib/listing-page/jsonld";
 import { getListingPage, getListingPaths, isListingSaved, toListingViewer } from "@/lib/listing-page/load";
 import { parseVideoUrl, safeExternalUrl } from "@/lib/listing-page/media";
+import { getCommunityPlacesNear } from "@/lib/listing-page/places";
 import type { ListingPageData } from "@/lib/listing-page/types";
 import { getSimilarListings } from "@/lib/listing/queries";
+import { hasWelcomePledge } from "@/lib/pledge/pledge";
 import { listingPath, listingSlugParam, parseListingParam, searchPath } from "@/lib/listing/urls";
 import { absoluteMediaUrl } from "@/lib/media";
 import { absoluteUrl, localizedPath, pageMetadata, X_DEFAULT_LOCALE } from "@/lib/seo";
@@ -128,13 +133,13 @@ export default async function ListingPage({ params, searchParams }: Props) {
 
   const isPublic = access === "public";
   const isOwner = user?.id === ownerId;
-  const [t, nonce, shabbatMode, blocked, similar, isFavorite] = await Promise.all([
+  const [t, nonce, shabbatMode, blocked, isFavorite, communityPlaces] = await Promise.all([
     getTranslations({ locale, namespace: "listing" }),
     headers().then((h) => h.get("x-nonce") ?? undefined),
     isShabbatModeActive(),
     user && !isOwner ? isBlockedBetween(user.id, ownerId) : Promise.resolve(false),
-    isPublic ? getCardContext(locale).then((c) => getSimilarListings(data.id, c, 8)) : Promise.resolve([]),
     user ? isListingSaved(user.id, data.id) : Promise.resolve(false),
+    getCommunityPlacesNear(data.approx, locale),
   ]);
 
   const availability: ContactAvailability = !isPublic ? "preview" : isOwner ? "own" : blocked ? "blocked" : "ok";
@@ -163,28 +168,46 @@ export default async function ListingPage({ params, searchParams }: Props) {
     images: data.photos.slice(0, 6).map((p) => absoluteMediaUrl(p.large)),
     inLanguage: locale,
   });
-  const badges = {
-    verified: data.owner.badges.idVerified || data.ownerVerified,
-    business: data.owner.badges.business,
-    shabbatFriendly: data.isShabbatFriendly,
-    kosherKitchen: data.kitchenKosher === "KOSHER",
-    synagogueWalkMin: null,
-  };
+  const welcomes = hasWelcomePledge(data.owner, settings);
+  const verified = data.owner.badges.idVerified || data.ownerVerified || data.propertyVerified;
   const priceDropped =
     !!data.priceDroppedAt && Date.parse(nowIso) - Date.parse(data.priceDroppedAt) <= siteConfig.listings.priceDropLabelDays * 86_400_000;
+  // The title row: the promise first, then trust and honest status tags (demo, promoted…).
+  const badges: BadgeItem[] = [
+    ...listingBadgeItems({ welcomes, verified }),
+    ...(data.isDemo ? [{ kind: "demo" as const }] : []),
+    ...(data.promoted ? [{ kind: "promoted" as const }] : []),
+    ...(data.isNew ? [{ kind: "new" as const }] : []),
+    ...(priceDropped ? [{ kind: "priceDropped" as const }] : []),
+    ...(data.owner.badges.business ? [{ kind: "business" as const }] : []),
+  ];
+  const barShown = availability === "ok" && data.contactChannels.length > 0;
+  const ownerHeader = (
+    <div className="grid gap-3">
+      <OwnerHeader
+        owner={data.owner}
+        ownerVerified={data.ownerVerified}
+        propertyVerified={data.propertyVerified}
+        welcomes={welcomes}
+        sale={data.dealType === "SALE"}
+      />
+      <ShabbatReplyNotice now={shabbatNow} />
+    </div>
+  );
 
   return (
     <ListingTextProvider title={data.title} description={data.description} translated={data.isTranslated}>
       <ContactProvider
-        listing={{ id: data.id, publicId: data.publicId, title: data.title.shown, dealType: data.dealType, channels: data.contactChannels }}
+        listing={{ id: data.id, publicId: data.publicId, title: data.title.shown, url: shareUrl, dealType: data.dealType, channels: data.contactChannels }}
         availability={availability}
         stay={stay}
         shabbatModeActive={shabbatMode.active}
       >
         <HideBottomNav />
         {reason && !isPublic ? <StatusBanner reason={reason} isOwner={isOwner} /> : null}
-        <Container className="pt-4 pb-12 sm:pt-6">
-          <nav aria-label={t("breadcrumbs.label")} className="mb-3 text-sm text-muted-foreground">
+
+        <Container className="hidden pt-5 md:block">
+          <nav aria-label={t("breadcrumbs.label")} className="mb-4 text-small text-muted-foreground">
             <ol className="flex flex-wrap items-center gap-1.5">
               <li>
                 <Link href="/search" className="rounded hover:text-foreground hover:underline">
@@ -202,150 +225,171 @@ export default async function ListingPage({ params, searchParams }: Props) {
                 </>
               ) : null}
               <li aria-hidden>/</li>
-              <li aria-current="page">
-                {t.rich("header.listingId", { id: data.publicId, ltr: (chunks) => <Ltr>{chunks}</Ltr> })}
+              <li aria-current="page" dir="auto" className="max-w-[40ch] truncate">
+                {data.title.shown}
               </li>
             </ol>
           </nav>
+        </Container>
+        <div className="md:mx-auto md:max-w-7xl md:px-6 lg:px-8">
+          <Gallery
+            photos={data.photos}
+            title={data.title.shown}
+            video={video}
+            tourUrl={tourUrl}
+            backHref={cityFilter}
+            shareUrl={shareUrl}
+            favorite={isPublic ? { listingId: data.id, isFavorite } : null}
+          />
+        </div>
 
-          <Gallery photos={data.photos} title={data.title.shown} video={video} tourUrl={tourUrl} />
-
-          <div className="mt-6 grid gap-8 lg:mt-8 lg:grid-cols-[minmax(0,1fr)_23rem] lg:gap-x-12">
-            <header className="grid content-start gap-4">
-              <ListingLabels badges={{ isNew: data.isNew, priceDropped, promoted: data.promoted, demo: data.isDemo }} />
-              <div className="grid gap-2">
-                <ListingTitle />
-                <TranslationSwitch auto={data.isAutoTranslated} originalLanguage={originalLanguage} />
+        <Container className="pt-5 pb-12 lg:pt-8">
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_24rem] lg:gap-x-12">
+            <div className="grid min-w-0 content-start gap-8 [&>:empty]:hidden">
+              <div className="grid gap-5">
+                <TitleBlock
+                  data={data}
+                  badges={badges}
+                  actions={
+                    isPublic ? (
+                      <div className="flex items-center gap-2">
+                        <div className="hidden items-center gap-2 md:flex">
+                          <ShareMenu url={shareUrl} title={data.title.shown} />
+                          <FavoriteButton listingId={data.id} title={data.title.shown} isFavorite={isFavorite} variant="outline" />
+                        </div>
+                        <CompareToggle publicId={data.publicId} className="h-11 rounded-full" />
+                      </div>
+                    ) : undefined
+                  }
+                />
+                <PriceBlock data={data} priceDropped={priceDropped} className="lg:hidden" />
+                <KeyFacts data={data} />
               </div>
-              {place ? (
-                <p className="flex items-center gap-1.5 text-muted-foreground">
-                  <MapPinIcon className="size-4 shrink-0" aria-hidden />
-                  <span>{place}</span>
-                </p>
-              ) : null}
-              <div className="lg:hidden">
-                <Price amount={data.price} currency={data.currency} period={data.pricePeriod} from={data.priceIsFrom} size="lg" />
-              </div>
-              <KeyFacts data={data} />
-              <ListingBadges badges={badges} size="md" />
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                <span className="inline-flex items-center gap-1.5">
-                  <HashIcon className="size-4" aria-hidden />
-                  {t.rich("header.listingId", { id: data.publicId, ltr: (chunks) => <Ltr>{chunks}</Ltr> })}
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <RefreshCwIcon className="size-4" aria-hidden />
-                  {t("header.updated", { date: formatDate(data.contentUpdatedAt, locale, { day: "numeric", month: "long", year: "numeric" }) })}
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <EyeIcon className="size-4" aria-hidden />
-                  {t("header.views", { count: data.viewCount, formatted: formatNumber(data.viewCount, locale) })}
-                </span>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <ShareMenu url={shareUrl} title={data.title.shown} />
-                {isPublic ? (
-                  <>
-                    <FavoriteButton listingId={data.id} title={data.title.shown} isFavorite={isFavorite} variant="outline" />
-                    <CompareToggle publicId={data.publicId} />
-                  </>
-                ) : null}
-              </div>
-            </header>
 
-            <aside aria-label={t("contactBox.label")} className="lg:col-start-2 lg:row-span-2 lg:row-start-1">
-              <div className="lg:sticky lg:top-[calc(var(--header-height)+1.5rem)]">
-                <ContactBox data={data} shabbatNow={shabbatNow} nowIso={nowIso} />
-              </div>
-            </aside>
+              {/* Each block fades up the first time it scrolls into view (not what is on screen at load). */}
+              <Reveal>
+                <TraditionCard data={data} locale={locale} />
+              </Reveal>
 
-            <div className="grid min-w-0 content-start gap-10">
-              <Section id="description" title={t("description.title")}>
-                <ListingDescription />
-              </Section>
-
-              <RoomTypesSection rooms={data.roomTypes} />
-
-              {data.amenities.length ? (
-                <Section id="amenities" title={t("amenities.title")} icon={SparklesIcon}>
-                  <FeatureList group="amenity" keys={data.amenities} />
-                </Section>
-              ) : null}
-
-              <JewishSection data={data} />
-              <RulesSection data={data} />
-              <CostsSection data={data} />
-              <DetailsSection data={data} />
-              {data.dealType !== "SALE" ? <AvailabilityCalendar blocks={data.blocks} nowIso={nowIso} /> : null}
-
-              {data.approx ? (
-                <Section id="map" title={t("map.title")} description={t("map.note")} icon={MapIcon}>
-                  <div dir="ltr" className="isolate h-72 overflow-hidden rounded-2xl border sm:h-96">
-                    <AreaMapLoader lat={data.approx.lat} lng={data.approx.lng} label={t("map.label", { place: place || data.title.shown })} />
+              <Reveal>
+                <Section id="description" title={t("description.title")}>
+                  <div className="grid gap-3">
+                    <TranslationSwitch auto={data.isAutoTranslated} originalLanguage={originalLanguage} />
+                    <ListingDescription />
                   </div>
                 </Section>
-              ) : null}
+              </Reveal>
 
-              <NearbySection nearby={data.nearby} />
-
-              {data.city ? (
-                <section aria-label={t("shabbat.label")} className="grid gap-4 border-t pt-8">
-                  <ShabbatTimesCard
-                    city={{ name: data.city.name, lat: data.city.lat, lng: data.city.lng, timezone: data.city.timezone }}
-                    locale={locale}
-                    headingLevel="h2"
-                  />
-                  {isStay && stay.checkIn && stay.checkOut ? (
-                    <HolidaysInRange start={stay.checkIn} end={stay.checkOut} locale={locale} headingLevel="h3" showHints={false} />
-                  ) : null}
-                </section>
+              <Reveal>
+                <RoomTypesSection rooms={data.roomTypes} />
+              </Reveal>
+              <Reveal>
+                <AmenitiesSection amenities={data.amenities} />
+              </Reveal>
+              <Reveal>
+                <RulesSection data={data} />
+              </Reveal>
+              <Reveal>
+                <CostsSection data={data} />
+              </Reveal>
+              {data.dealType !== "SALE" ? (
+                <Reveal>
+                  <AvailabilityCalendar blocks={data.blocks} nowIso={nowIso} />
+                </Reveal>
               ) : null}
+              {isStay && stay.checkIn && stay.checkOut ? (
+                <HolidaysInRange start={stay.checkIn} end={stay.checkOut} locale={locale} headingLevel="h3" showHints={false} />
+              ) : null}
+              <Reveal>
+                <LocationSection data={data} place={place} places={communityPlaces} />
+              </Reveal>
+              <Reveal>
+                <DetailsSection data={data} />
+              </Reveal>
+
+              <Reveal>
+                <Section id="host" title={data.dealType === "SALE" ? t("host.titleSale") : t("host.title")}>
+                  <HostCard data={data} welcomes={welcomes} nowIso={nowIso} shabbatNow={shabbatNow} showContact={!barShown} />
+                </Section>
+              </Reveal>
 
               {siteConfig.features.reviews ? (
-                <Section id="reviews" title={t("reviews.title")} icon={StarIcon}>
+                <Section id="reviews" title={t("reviews.title")}>
                   <p className="text-muted-foreground">{t("reviews.empty")}</p>
                 </Section>
               ) : null}
 
-              <section aria-label={t("safety.label")} className="grid gap-3 border-t pt-8">
-                <SafetyTip />
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <ShieldCheckIcon className="size-4" aria-hidden />
-                    {t("safety.reportHint")}
-                  </p>
-                  {isPublic && !isOwner ? <ReportButton targetType="LISTING" targetId={data.id} /> : null}
-                </div>
+              <section aria-label={t("safety.label")} className="grid gap-3">
+                <SafetyTip compact />
+                <VideoTip publicId={data.publicId} className="px-1 lg:hidden" />
+                {isPublic && !isOwner ? (
+                  <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                    <p className="flex items-center gap-2 text-small text-muted-foreground">
+                      <FlagIcon className="size-4" aria-hidden />
+                      {t("safety.reportHint")}
+                    </p>
+                    <ReportButton targetType="LISTING" targetId={data.id} />
+                  </div>
+                ) : null}
               </section>
             </div>
+
+            <aside aria-label={t("contactBox.label")} className="hidden lg:col-start-2 lg:row-start-1 lg:block">
+              <div className="sticky top-[calc(var(--header-height)+1.5rem)]">
+                <ContactBox data={data} shabbatNow={shabbatNow} />
+              </div>
+            </aside>
           </div>
 
-          {similar.length ? (
-            <section aria-labelledby="similar-title" className="mt-14 grid gap-5 border-t pt-10">
-              <div className="flex flex-wrap items-end justify-between gap-2">
-                <h2 id="similar-title" className="text-xl font-semibold tracking-tight">
-                  {t("similar.title")}
-                </h2>
-                <Link href={cityFilter} className="text-sm font-semibold text-primary hover:underline">
-                  {t("similar.viewAll")}
-                </Link>
-              </div>
-              <ListingGrid listings={similar} columns={4} priorityCount={0} label={t("similar.title")} />
-            </section>
+          {isPublic ? (
+            <Suspense fallback={<SimilarSkeleton />}>
+              <SimilarListings listingId={data.id} locale={locale} cityHref={cityFilter} />
+            </Suspense>
           ) : null}
         </Container>
 
         <MobileContactBar
-          owner={
-            <div className="grid gap-3">
-              <OwnerHeader owner={data.owner} ownerVerified={data.ownerVerified} propertyVerified={data.propertyVerified} />
-              <ShabbatReplyNotice now={shabbatNow} />
-            </div>
-          }
+          price={<Price amount={data.price} currency={data.currency} period={data.pricePeriod} from={data.priceIsFrom} size="bar" stacked showOriginal={false} className="whitespace-normal" />}
+          owner={ownerHeader}
         />
         <ViewTracker listingId={data.id} publicId={data.publicId} isPublic={isPublic} />
         {isPublic ? <JsonLd data={jsonLd} nonce={nonce} /> : null}
       </ContactProvider>
     </ListingTextProvider>
+  );
+}
+
+/** "Similar places": the shared listing card in a swipe row (streams in after the page). */
+async function SimilarListings({ listingId, locale, cityHref }: { listingId: string; locale: AppLocale; cityHref: string }) {
+  const [t, listings] = await Promise.all([
+    getTranslations({ locale, namespace: "listing.similar" }),
+    getCardContext(locale).then((context) => getSimilarListings(listingId, context, 8)),
+  ]);
+  if (listings.length === 0) return null;
+  return (
+    <section aria-labelledby="similar-title" className="mt-14 grid gap-4 border-t border-border/70 pt-10">
+      <SectionHeader id="similar-title" title={t("title")} href={cityHref} linkLabel={t("viewAll")} />
+      {/* Cancel the Container's padding: the carousel adds the page gutter itself. */}
+      <div className="-mx-4 md:-mx-6">
+        <CardCarousel label={t("title")}>
+          {listings.map((listing) => (
+            <ListingCard key={listing.id} listing={listing} />
+          ))}
+        </CardCarousel>
+      </div>
+    </section>
+  );
+}
+
+function SimilarSkeleton() {
+  return (
+    <div className="mt-14 grid gap-4 border-t border-border/70 pt-10" aria-hidden>
+      <div className="h-8 w-48 rounded-md skeleton-shimmer" />
+      <div className="flex gap-4 overflow-hidden">
+        {Array.from({ length: 4 }, (_, i) => (
+          <ListingCardSkeleton key={i} className="w-[85%] shrink-0 sm:w-[46%] lg:w-[31.5%] xl:w-[23.6%]" />
+        ))}
+      </div>
+    </div>
   );
 }

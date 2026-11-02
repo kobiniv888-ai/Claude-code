@@ -13,6 +13,7 @@ import { AppError, NotFoundError, ValidationError } from "@/lib/errors";
 import { approximateLocation, type LatLng } from "@/lib/geo";
 import { computeShabbatFriendly, MODERATION_REASONS, type ModerationReason } from "@/lib/listing/fields";
 import { computeListingProximity } from "@/lib/nearby";
+import { PLEDGE_CURRENT_VERSION } from "@/lib/pledge";
 import { assessListing, type RiskAssessment, type RiskReason } from "@/lib/risk";
 import { countAutoHideReports } from "@/lib/reports/auto-hide";
 import { getSettings } from "@/lib/settings";
@@ -276,7 +277,7 @@ const SUBMIT_SELECT = {
   price: true,
   contactMethods: true,
   roomTypes: { select: { price: true } },
-  owner: { select: OWNER_SELECT },
+  owner: { select: { ...OWNER_SELECT, welcomePledgeVersion: true } },
 } satisfies Prisma.ListingSelect;
 
 /**
@@ -306,8 +307,9 @@ export type SubmitResult = { status: "LIVE" | "IN_REVIEW" | "BLOCKED"; reasons: 
  * first publish (DRAFT), re-submission after "needs changes" or a rejection, and significant
  * edits of a LIVE or IN_REVIEW listing (text, photos, price, location).
  *
- * Requires accepted rules, a verified owner phone and the publication requirements (throws
- * AppError "rules_not_accepted" / "phone_not_verified" / MissingRequirementsError). Then it
+ * Requires accepted rules, a verified owner phone, the current welcome pledge and the publication
+ * requirements (throws AppError "rules_not_accepted" / "phone_not_verified" / "pledge_required" /
+ * MissingRequirementsError). The pledge version is snapshotted on the listing. Then it
  * refreshes the derived fields, translations and nearby places, runs the automatic checks and
  * stores riskScore / riskReasons:
  * - BLOCKED (a blocked phrase, unverified phone): not published; a LIVE listing goes to IN_REVIEW.
@@ -323,6 +325,11 @@ export async function submitForPublication(listingId: string, ownerId: string): 
   if (!listing.rulesAcceptedAt) throw new AppError("rules_not_accepted", "Listing rules not accepted", { status: 422 });
   if (!listing.owner.phoneNumber || listing.owner.phoneNumberVerified !== true) {
     throw new AppError("phone_not_verified", "A verified phone number is required", { status: 403 });
+  }
+  // Every host accepts the current wording of the Bayit welcome pledge before publishing.
+  const pledgeVersion = listing.owner.welcomePledgeVersion;
+  if (pledgeVersion === null || pledgeVersion < PLEDGE_CURRENT_VERSION) {
+    throw new AppError("pledge_required", "The welcome pledge (current version) is not accepted", { status: 422 });
   }
   const gaps = await publicationGaps(listing);
   if (gaps.length > 0) throw new MissingRequirementsError(gaps);
@@ -350,7 +357,12 @@ export async function submitForPublication(listingId: string, ownerId: string): 
   else target = "LIVE";
 
   const now = new Date();
-  let data: Prisma.ListingUncheckedUpdateManyInput = riskData(assessment, checkedAt);
+  let data: Prisma.ListingUncheckedUpdateManyInput = {
+    ...riskData(assessment, checkedAt),
+    // Snapshot of the pledge the owner had accepted when this version of the listing was submitted.
+    welcomePledgeVersion: pledgeVersion,
+    welcomePledgeAt: now,
+  };
   if (target === "LIVE" && from !== "LIVE") data = { ...data, ...(await liveData(listing, now)) };
   else if (target !== from) data = { ...data, status: target };
 

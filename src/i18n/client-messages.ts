@@ -1,44 +1,136 @@
-import "server-only";
 import type { AbstractIntlMessages } from "next-intl";
 
 /**
  * Which interface text the browser receives.
  *
- * The root layout's <NextIntlClientProvider> serializes its messages into every page (HTML and
- * the RSC payload). All namespaces together are ~300 KB of Hebrew text, most of it for the admin
- * panel, the post wizard, the dashboard, legal pages and emails, which no client component on a
- * public page reads. Public pages therefore get every namespace except the ones below, and the
- * sections that need them (`/account`, `/admin`, `/post`) mount their own provider with all
- * messages (`<NextIntlClientProvider>` without `messages` inherits the full set).
+ * A <NextIntlClientProvider> serializes its messages into the page twice over (HTML and the RSC
+ * payload). All namespaces together are ~300 KB of Hebrew text; a public page's client components
+ * read a small part of it. So the browser gets, per route:
  *
- * A namespace listed here must not be read by a client component (`useTranslations` in a
- * "use client" module, or a module it imports) outside those sections. Server components read
- * the full set from i18n/request.ts and are not affected.
+ * - SHELL_MESSAGES from the root layout: what the header, menus, bottom bar, cookie banner, login
+ *   dialog, toasts and error boundaries read (every page has them).
+ * - SITE_MESSAGES from the (site) layout: the listing card, the badges and the search bar's place
+ *   field, which most public pages show (the home page needs nothing else).
+ * - ROUTE_MESSAGES[segment] from that segment's layout (src/app/[locale]/(site)/<segment>/layout.tsx
+ *   renders <RouteMessages route="<segment>">), merged on top in the browser by <MergeMessages>.
+ *
+ * `/admin`, `/account`, `/post` and `/dev` mount <NextIntlClientProvider> without `messages`,
+ * which inherits the full set. Server components read the full set from i18n/request.ts and are
+ * not affected.
+ *
+ * An entry is a namespace ("search") or a part of one ("search.bar"). When a client component on
+ * a public page starts reading another namespace (or a part not listed), add it to the right list:
+ * `npm test` checks every route against the `useTranslations(...)` calls of the client modules it
+ * imports (src/i18n/client-messages.test.ts) and names what is missing.
  */
-export const SECTION_ONLY_NAMESPACES = [
-  // Only client components under /admin, /account or /post.
-  "admin",
-  "adminContent",
-  "account",
-  "moderation",
-  "uploads",
-  "wizard",
-  // Only read by server components.
-  "about",
-  "banners",
-  "emails",
-  "footer",
-  "hebcal",
-  "home",
-  "howItWorks",
-  "legal",
-  "owner",
-  "safety",
-  "shabbat",
+
+/** Root layout: the shell of every page. */
+export const SHELL_MESSAGES = [
+  "auth.country",
+  "auth.devHints",
+  "auth.errors",
+  "auth.login",
+  "auth.menu",
+  "auth.phone",
+  "auth.twoFactor",
+  "auth.welcome",
+  "common",
+  "cookies",
+  "ds",
+  "errors",
+  "nav",
+  "states",
 ] as const;
 
-/** All messages minus the section-only namespaces: what public pages send to the browser. */
-export function publicClientMessages(messages: AbstractIntlMessages): AbstractIntlMessages {
-  const omit = new Set<string>(SECTION_ONLY_NAMESPACES);
-  return Object.fromEntries(Object.entries(messages).filter(([namespace]) => !omit.has(namespace)));
+/** (site) layout: listing cards and the search bar's place field, on most public pages. */
+export const SITE_MESSAGES = ["listingCard", "listingFields.facts", "search.bar", "search.dates"] as const;
+
+/** Extra per route segment under (site) (those not listed need nothing beyond the two sets above). */
+export const ROUTE_MESSAGES = {
+  contact: [
+    "contactPage.form",
+    "tickets.category",
+    "tickets.errors",
+    "tickets.fieldErrors",
+    "tickets.loadError",
+    "tickets.shabbat",
+  ],
+  help: [
+    "help",
+    "tickets.category",
+    "tickets.errors",
+    "tickets.fieldErrors",
+    "tickets.form",
+    "tickets.loadError",
+    "tickets.screenshots",
+    "tickets.shabbat",
+  ],
+  "jewish-life": ["jewishLife.calendar", "jewishLife.error", "jewishLife.places", "maps"],
+  listing: [
+    "contact",
+    "listing.description",
+    "listing.gallery",
+    "listing.map",
+    "listing.share",
+    "listing.translation",
+    "map.community",
+    "maps",
+    "report",
+  ],
+  owner: ["report"],
+  search: [
+    "listingFields",
+    "map",
+    "maps",
+    "search.chips",
+    "search.error",
+    "search.filters",
+    "search.fixes",
+    "search.guests",
+    "search.map",
+    "search.results",
+    "search.sheet",
+    "search.sort",
+    "search.toolbar",
+    "search.top",
+  ],
+  "two-factor": ["auth.setup"],
+  "verify-phone": ["auth.verifyPhone"],
+} as const satisfies Record<string, readonly string[]>;
+
+export type MessageRoute = keyof typeof ROUTE_MESSAGES;
+
+type Messages = AbstractIntlMessages;
+
+function isObject(value: unknown): value is Messages {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** Deep merge (b wins): `{ auth: { login } }` + `{ auth: { setup } }` → `{ auth: { login, setup } }`. */
+export function mergeMessages(a: Messages, b: Messages): Messages {
+  const out: Messages = { ...a };
+  for (const [key, value] of Object.entries(b)) {
+    const prev = out[key];
+    out[key] = isObject(prev) && isObject(value) ? mergeMessages(prev, value) : value;
+  }
+  return out;
+}
+
+/** The parts of `messages` named by dotted paths ("search.bar", "common"), nested as in the source. */
+export function pickMessages(messages: Messages, paths: readonly string[]): Messages {
+  let out: Messages = {};
+  for (const path of paths) {
+    const keys = path.split(".");
+    let value: unknown = messages;
+    for (const key of keys) value = isObject(value) ? value[key] : undefined;
+    if (value === undefined) continue;
+    const branch = keys.reduceRight<unknown>((child, key) => ({ [key]: child }), value) as Messages;
+    out = mergeMessages(out, branch);
+  }
+  return out;
+}
+
+/** `paths` minus those already covered by `covered` (an entry covers itself and everything under it). */
+export function withoutCovered(paths: readonly string[], covered: readonly string[]): string[] {
+  return paths.filter((path) => !covered.some((c) => path === c || path.startsWith(`${c}.`)));
 }

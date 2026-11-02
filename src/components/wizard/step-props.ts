@@ -1,4 +1,5 @@
 import type { AppLocale } from "@/config/site";
+import type { PledgeStatus } from "@/lib/pledge";
 import type { StepIssues, WizardValues } from "@/lib/wizard/schemas";
 import type { ListingKind, WizardStepKey } from "@/lib/wizard/steps";
 import type {
@@ -42,4 +43,7 @@ export type StepProps = {
   setChosen: (patch: Partial<{ deal: boolean; property: boolean }>) => void;
   /** Reports a save state for actions the step runs itself (photos, calendar…). */
   track: <T>(promise: Promise<T>) => Promise<T>;
+  /** The owner's Bayit welcome pledge (accepted in the pledge step; publishing needs the current version). */
+  pledge: PledgeStatus;
+  setPledge: (status: PledgeStatus) => void;
 };

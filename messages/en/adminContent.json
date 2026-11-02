@@ -137,11 +137,11 @@
     "sections": {
       "categories": {
         "title": "Categories",
-        "description": "Short stays, monthly rentals, homes for sale and more."
+        "description": "Photo tiles: apartments, houses, rooms, hotels, for sale and Shabbat-friendly."
       },
       "cities": {
-        "title": "Popular cities",
-        "description": "City cards with photos (cities marked as popular)."
+        "title": "Where to?",
+        "description": "City photo cards with their number of homes and Shabbat start time."
       },
       "featured": {
         "title": "Featured listings",
@@ -156,16 +156,16 @@
         "description": "Listings the visitor opened before (only on their device)."
       },
       "whyUs": {
-        "title": "Why us",
-        "description": "What makes the site different."
+        "title": "The Bayit pledge",
+        "description": "Nobody is turned away for who they are — the promise every host makes."
       },
       "howItWorks": {
         "title": "How it works",
         "description": "Three simple steps for guests and owners."
       },
       "shabbatTimes": {
-        "title": "Shabbat times",
-        "description": "Candle lighting and Havdalah for the main cities."
+        "title": "Jewish life in Georgia",
+        "description": "The Shabbat card with a countdown, the synagogues and quick links."
       },
       "safetyStrip": {
         "title": "Safety tips",

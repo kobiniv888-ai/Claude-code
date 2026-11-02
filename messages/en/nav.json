@@ -25,7 +25,27 @@
     "browse": "Browse",
     "settings": "Settings",
     "account": "My account",
-    "more": "More"
+    "more": "More",
+    "groups": {
+      "search": "Find a place",
+      "jewish": "Jewish life",
+      "help": "Help & safety",
+      "settings": "Settings",
+      "legal": "Legal"
+    },
+    "links": {
+      "jewishLifeHome": "Jewish life in Georgia",
+      "shabbatTimes": "Shabbat times",
+      "calendar": "Jewish calendar",
+      "communityMap": "Community map",
+      "emergency": "Emergency numbers",
+      "howItWorks": "How it works",
+      "listingRules": "Listing rules",
+      "terms": "Terms of use",
+      "privacy": "Privacy policy",
+      "cookies": "Cookie policy",
+      "accessibility": "Accessibility"
+    }
   },
   "language": {
     "label": "Language",

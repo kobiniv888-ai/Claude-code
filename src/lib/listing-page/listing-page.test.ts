@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { listingAccess, previewReason, type ListingAccessInput } from "./access";
 import { buildMonth, buildMonths, georgiaToday, isBlockedDay, weekStartFor } from "./calendar";
-import { clockDate, languageName, needsShowMore, priceChangePercent, pricePerSqm, replyTimeBucket } from "./helpers";
+import { clockDate, contactLayout, languageName, needsShowMore, placesNear, priceChangePercent, pricePerSqm, replyTimeBucket } from "./helpers";
 import { schemaTypeFor } from "./jsonld";
 import { parseVideoUrl, safeExternalUrl } from "./media";
 
@@ -150,5 +150,45 @@ describe("languageName", () => {
     expect(languageName("he", "en")).toBe("Hebrew");
     expect(languageName("ru", "ru")).toBe("Русский");
     expect(languageName("xx-invalid-@@", "en")).toBe("xx-invalid-@@");
+  });
+});
+
+describe("placesNear", () => {
+  const center = { lat: 41.69, lng: 44.8 };
+  // ~111 m per 0.001° of latitude.
+  const places = [
+    { id: "far", lat: 41.72, lng: 44.8 },
+    { id: "near", lat: 41.691, lng: 44.8 },
+    { id: "mid", lat: 41.7, lng: 44.8 },
+  ];
+
+  it("keeps the places inside the radius, nearest first, with meters and walking minutes", () => {
+    const result = placesNear(places, center, { radiusMeters: 2000 });
+    expect(result.map((p) => p.id)).toEqual(["near", "mid"]);
+    expect(result[0].meters).toBeGreaterThan(100);
+    expect(result[0].meters).toBeLessThan(120);
+    expect(result[0].minutes).toBeGreaterThan(0);
+  });
+
+  it("limits the count", () => {
+    expect(placesNear(places, center, { radiusMeters: 10_000, limit: 1 }).map((p) => p.id)).toEqual(["near"]);
+  });
+});
+
+describe("contactLayout", () => {
+  it("puts WhatsApp first, the phone in 'Show phone', the rest in the menu", () => {
+    expect(contactLayout(["TELEGRAM", "PHONE", "WHATSAPP", "VIBER"])).toEqual({ primary: "WHATSAPP", phone: true, more: ["TELEGRAM", "VIBER"] });
+  });
+
+  it("uses the owner's first channel without WhatsApp", () => {
+    expect(contactLayout(["TELEGRAM", "EMAIL"])).toEqual({ primary: "TELEGRAM", phone: false, more: ["EMAIL"] });
+  });
+
+  it("does not repeat the phone when calling is the main channel", () => {
+    expect(contactLayout(["PHONE", "SMS"])).toEqual({ primary: "PHONE", phone: false, more: ["SMS"] });
+  });
+
+  it("handles no channels", () => {
+    expect(contactLayout([])).toEqual({ primary: null, phone: false, more: [] });
   });
 });

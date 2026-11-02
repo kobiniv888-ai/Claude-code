@@ -1,0 +1,19 @@
+{
+  "title": "השבת הקרובה",
+  "cities": "בחירת עיר",
+  "before": "שבת נכנסת בעוד {time}",
+  "during": "שבת שלום · יוצאת ב־{time}",
+  "duringNoEnd": "שבת שלום",
+  "after": "שבוע טוב",
+  "unknown": "זמני השבת יופיעו כאן בקרוב",
+  "candleLighting": "הדלקת נרות",
+  "havdalah": "צאת שבת",
+  "localTime": "שעון מקומי",
+  "more": "כל זמני השבת",
+  "units": {
+    "day": "{count, plural, one {יום} two {יומיים} other {{count} ימים}}",
+    "hour": "{count, plural, one {שעה} two {שעתיים} other {{count} שעות}}",
+    "minute": "{count, plural, one {דקה} other {{count} דקות}}"
+  },
+  "pair": "{first} {digit, select, yes {ו־{second}} other {ו{second}}}"
+}

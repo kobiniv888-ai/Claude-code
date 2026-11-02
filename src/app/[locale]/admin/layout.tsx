@@ -6,6 +6,8 @@ import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { adminNavFor } from "@/lib/admin/nav";
 import { getAdminCounts } from "@/lib/admin/server/counts";
 import { requireStaff } from "@/lib/auth/session";
+// The admin panel's utilities are not in the public stylesheet (src/app/globals.css).
+import "../../sections.css";
 
 export async function generateMetadata({ params }: LayoutProps<"/[locale]/admin">): Promise<Metadata> {
   const { locale } = await params;

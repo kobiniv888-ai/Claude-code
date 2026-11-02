@@ -6,6 +6,7 @@ import { pickLocalized } from "@/i18n/locale";
 import { GEORGIA_EMERGENCY_NUMBER, type EmergencyContact } from "@/lib/jewish-life/emergency";
 import { displayUrl, telHref } from "@/lib/jewish-life/places";
 import { getEmergencyContacts } from "@/lib/jewish-life/queries";
+import { cn } from "@/lib/utils";
 
 async function loadContacts(): Promise<EmergencyContact[]> {
   try {
@@ -47,73 +48,89 @@ export async function EmergencyContacts({ locale }: { locale: AppLocale }) {
 
   return (
     <div className="space-y-4">
-      <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {cards.map((card, index) => {
           const Icon = card.primary ? Siren : Landmark;
           return (
-            <li key={`${card.label}-${index}`}>
+            <li key={`${card.label}-${index}`} className={card.primary && cards.length === 1 ? "sm:col-span-2 lg:col-span-2" : undefined}>
               <div
-                className={
-                  card.primary
-                    ? "flex h-full flex-col rounded-2xl border border-destructive/30 bg-destructive/5 p-5 shadow-card"
-                    : "flex h-full flex-col rounded-2xl border bg-card p-5 shadow-card"
-                }
+                className={cn(
+                  "flex h-full flex-col overflow-hidden rounded-card shadow-card",
+                  card.primary ? "bg-destructive/8 ring-1 ring-destructive/25" : "bg-card ring-1 ring-foreground/5",
+                )}
               >
-                <div className="flex items-start gap-3">
-                  <span
-                    aria-hidden="true"
-                    className={
-                      card.primary
-                        ? "flex size-10 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive"
-                        : "flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"
-                    }
+                {card.phone && card.phoneHref ? (
+                  // The whole card calls: a big target with the number written out.
+                  <a
+                    href={card.phoneHref}
+                    aria-label={t("callLabel", { name: card.label, number: card.phone })}
+                    className="bh-press group flex flex-1 items-center gap-4 p-4 outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/60 sm:p-5"
                   >
-                    <Icon className="size-5" />
-                  </span>
-                  <div className="min-w-0">
-                    <h3 className="font-semibold text-balance" dir="auto">
-                      {card.label}
-                    </h3>
-                    {card.description ? (
-                      <p className="mt-1 text-sm text-pretty text-muted-foreground">{card.description}</p>
-                    ) : null}
+                    <CardText card={card} icon={Icon} />
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        "flex size-12 shrink-0 items-center justify-center rounded-full shadow-sm transition-transform duration-(--motion-fast) group-hover:scale-105 motion-reduce:transition-none",
+                        card.primary ? "bg-destructive text-destructive-foreground" : "bg-primary text-primary-foreground",
+                      )}
+                    >
+                      <Phone className="size-5" />
+                    </span>
+                  </a>
+                ) : (
+                  <div className="flex flex-1 items-center gap-4 p-4 sm:p-5">
+                    <CardText card={card} icon={Icon} />
                   </div>
-                </div>
-                <div className="mt-4 flex flex-col gap-2">
-                  {card.phone && card.phoneHref ? (
-                    <a
-                      href={card.phoneHref}
-                      className={
-                        card.primary
-                          ? "inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-destructive px-4 text-base font-bold text-white transition-colors hover:bg-destructive/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:text-destructive-foreground"
-                          : "inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                      }
-                    >
-                      <Phone aria-hidden="true" className="size-4" />
-                      <span className="sr-only">{t("call")}</span>
-                      <Ltr>{card.phone}</Ltr>
-                    </a>
-                  ) : null}
-                  {card.url ? (
-                    <a
-                      href={card.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-xl border bg-card px-4 text-sm font-semibold transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                    >
-                      <Globe aria-hidden="true" className="size-4 shrink-0" />
-                      <Ltr className="truncate">{displayUrl(card.url)}</Ltr>
-                      <ExternalLink aria-hidden="true" className="size-3.5 shrink-0 opacity-70" />
-                      <span className="sr-only">{t("opensInNewTab")}</span>
-                    </a>
-                  ) : null}
-                </div>
+                )}
+                {card.url ? (
+                  <a
+                    href={card.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex min-h-11 min-w-0 items-center gap-2 border-t px-4 py-2.5 text-small font-semibold text-primary outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/60 sm:px-5"
+                  >
+                    <Globe aria-hidden="true" className="size-4 shrink-0" />
+                    <Ltr className="truncate">{displayUrl(card.url)}</Ltr>
+                    <ExternalLink aria-hidden="true" className="size-3.5 shrink-0 opacity-70" />
+                    <span className="sr-only">{t("opensInNewTab")}</span>
+                  </a>
+                ) : null}
               </div>
             </li>
           );
         })}
       </ul>
-      {stored.length === 0 ? <p className="text-sm text-pretty text-muted-foreground">{t("moreSoon")}</p> : null}
+      {stored.length === 0 ? <p className="text-small text-pretty text-muted-foreground">{t("moreSoon")}</p> : null}
     </div>
+  );
+}
+
+type Card = { label: string; description: string | null; phone: string | null; primary: boolean };
+
+/** Icon, name, the number in big digits and a one-line note. */
+function CardText({ card, icon: Icon }: { card: Card; icon: typeof Siren }) {
+  return (
+    <>
+      <span
+        aria-hidden="true"
+        className={cn(
+          "flex size-12 shrink-0 items-center justify-center rounded-full",
+          card.primary ? "bg-destructive/12 text-destructive" : "bg-navy-soft text-navy",
+        )}
+      >
+        <Icon className="size-6" />
+      </span>
+      <span className="grid min-w-0 flex-1 gap-0.5 text-start">
+        <span className="text-small font-semibold text-balance text-foreground" dir="auto">
+          {card.label}
+        </span>
+        {card.phone ? (
+          <Ltr className={cn("font-extrabold tracking-tight tabular-nums", card.primary ? "text-h1 text-destructive" : "text-h3 text-foreground")}>
+            {card.phone}
+          </Ltr>
+        ) : null}
+        {card.description ? <span className="text-caption text-pretty text-muted-foreground">{card.description}</span> : null}
+      </span>
+    </>
   );
 }

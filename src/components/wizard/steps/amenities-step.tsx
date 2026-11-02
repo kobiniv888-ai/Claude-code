@@ -22,7 +22,7 @@ export function AmenitiesStep({ values, set, errors, kind }: StepProps) {
           description={t("legendHelp")}
           values={values.amenities}
           onChange={(amenities) => set({ amenities })}
-          columns="grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-3"
+          layout="tiles"
           options={AMENITIES.map((a) => ({ value: a, label: label("amenity", a), icon: AMENITY_ICONS[a] }))}
         />
       </Section>
