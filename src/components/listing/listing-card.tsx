@@ -1,5 +1,5 @@
 import { useLocale, useTranslations } from "next-intl";
-import { BathIcon, BedDoubleIcon, Building2Icon, LanguagesIcon, MapPinIcon, RulerIcon, UsersIcon, type LucideIcon } from "lucide-react";
+import { BathIcon, BedDoubleIcon, Building2Icon, LanguagesIcon, MapPinIcon, RulerIcon, UsersIcon, type SpriteIconComponent as LucideIcon } from "@/components/ds/sprite-icons";
 import { BadgeRow, BayitBadge, listingBadgeItems, listingPhotoTags } from "@/components/ds/badges";
 import { Link } from "@/i18n/navigation";
 import { formatArea, formatNumber } from "@/lib/format";

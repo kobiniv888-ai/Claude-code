@@ -97,14 +97,25 @@ On Vercel, add the same variable under **Settings → Environment Variables** an
 ## Feel the real speed (production mode)
 
 Development mode compiles every page on first visit ("Compiling…", "Rendering…"), so it feels
-slow on a phone. To try the site the way visitors will get it:
+slow on a phone. To try the site the way visitors will get it, run this in the codespace terminal:
 
 ```bash
-bash .devcontainer/start.sh --prod
+bash .devcontainer/start-prod.sh
 ```
 
-It builds the site (a few minutes) and serves it on the same address. Run
-`pkill -f "next start"; bash .devcontainer/start.sh` to go back to development mode.
+It stops the development server, builds the site (a few minutes), starts it in production mode
+on the same port 3000 and prints the address. Open that address on your phone (the same one as
+before). Each page now arrives ready-made: no "Compiling…", and the first visit to a page is as
+fast as the second.
+
+- **Logging in does not work in production mode** until Twilio (SMS) is set up: the code is shown
+  on screen only in development mode. "שליחת קוד" then says the code can't be sent right now. Try
+  logging in, Saved and posting a listing in development mode (`bash .devcontainer/start.sh`).
+- Changed some code or switched branch? Run the command again: production mode does not reload
+  by itself.
+- Back to development mode (hot reload): `bash .devcontainer/start.sh`.
+- The build log is in `/tmp/bayit-dev.log`.
+- On your own computer the same is `npm run preview` (build, then serve on port 3000).
 
 ## If the page says "502" or "This page isn't working"
 

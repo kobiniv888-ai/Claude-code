@@ -47,7 +47,20 @@ export function InfoRow({ icon: Icon, label, children }: { icon?: LucideIcon; la
 }
 
 /** A check or a cross with a label (Shabbat checklist, house rules). `state` is read by screen readers. */
-export function CheckItem({ ok, state, icon: Icon, children }: { ok: boolean; state: string; icon?: ComponentType<LucideProps>; children: ReactNode }) {
+export function CheckItem({
+  ok,
+  state,
+  icon: Icon,
+  strike = true,
+  children,
+}: {
+  ok: boolean;
+  state: string;
+  icon?: ComponentType<LucideProps>;
+  /** Strike a missing item through; false when the text already says it is missing ("No space for a sukkah"). */
+  strike?: boolean;
+  children: ReactNode;
+}) {
   return (
     <li className="flex items-center gap-3">
       <span
@@ -59,9 +72,9 @@ export function CheckItem({ ok, state, icon: Icon, children }: { ok: boolean; st
       >
         {ok ? <CheckIcon className="size-3.5" strokeWidth={3} /> : <XIcon className="size-3.5" strokeWidth={3} />}
       </span>
-      <span className="sr-only">{state}: </span>
+      {strike || ok ? <span className="sr-only">{state}: </span> : null}
       {Icon ? <Icon className="size-4.5 shrink-0 text-muted-foreground" aria-hidden /> : null}
-      <span className={cn(!ok && "text-muted-foreground line-through decoration-muted-foreground/40")}>{children}</span>
+      <span className={cn(!ok && "text-muted-foreground", !ok && strike && "line-through decoration-muted-foreground/40")}>{children}</span>
     </li>
   );
 }

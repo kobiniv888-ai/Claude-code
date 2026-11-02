@@ -43,8 +43,13 @@ export function PlaceCard({
             <span className={cn("rounded-full px-2 py-0.5", style.chip)}>{t(`types.${place.type}`)}</span>
             {place.cityName ? <span className="text-muted-foreground">{place.cityName}</span> : null}
             {place.isDemo ? (
-              <span className="rounded-full border border-amber-300 bg-warning-soft px-2 py-0.5 text-amber-900 dark:border-warning/40 dark:text-warning">
+              <span
+                title={t("demoNote")}
+                className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-warning-soft px-2 py-0.5 text-amber-900 dark:border-warning/40 dark:text-warning"
+              >
+                <TriangleAlert aria-hidden="true" className="size-3" />
                 {t("demoBadge")}
+                <span className="sr-only">: {t("demoNote")}</span>
               </span>
             ) : null}
           </p>
@@ -58,13 +63,6 @@ export function PlaceCard({
           </h3>
         </div>
       </div>
-
-      {place.isDemo ? (
-        <p className="mt-3 flex items-start gap-2 rounded-lg bg-warning-soft px-3 py-2 text-xs font-medium text-amber-900 dark:text-warning">
-          <TriangleAlert aria-hidden="true" className="mt-px size-3.5 shrink-0" />
-          {t("demoNote")}
-        </p>
-      ) : null}
 
       {place.description ? (
         <p dir="auto" className="mt-3 line-clamp-3 text-sm text-pretty text-muted-foreground">

@@ -50,7 +50,7 @@
     "sheetTitle": "חיפוש",
     "sheetDescription": "בחרו מקום, תאריכים ומספר אורחים.",
     "closeSheet": "סגירת החיפוש",
-    "clear": "ניקוי הכול"
+    "clear": "ניקוי הכל"
   },
   "dates": {
     "holidayLegend": "חג יהודי — העבירו את הסמן על היום כדי לראות איזה"
@@ -58,7 +58,7 @@
   "guests": {
     "label": "אורחים",
     "hint": "מבוגרים וילדים",
-    "any": "הכול",
+    "any": "הכל",
     "decrease": "פחות אורחים",
     "increase": "יותר אורחים"
   },
@@ -84,7 +84,7 @@
       "owner": "מפרסם",
       "listing": "המודעה"
     },
-    "any": "הכול",
+    "any": "הכל",
     "anyTime": "בכל זמן",
     "atLeast": "{value}+",
     "dealType": "עסקה",
@@ -129,7 +129,7 @@
   "chips": {
     "heading": "מסננים פעילים",
     "remove": "הסרת המסנן",
-    "clearAll": "ניקוי הכול",
+    "clearAll": "ניקוי הכל",
     "text": "„{q}”",
     "moveIn": "כניסה ב-{date}",
     "between": "{min} – {max}",
@@ -217,15 +217,15 @@
   },
   "sheet": {
     "dealShort": {
-      "any": "הכול",
+      "any": "הכל",
       "rent": "השכרה",
-      "short-stay": "קצר",
+      "short-stay": "יומי",
       "monthly": "חודשי",
       "buy": "קנייה",
       "hotels": "מלונות"
     },
     "showCount": "{count, plural, =0 {אין נכסים מתאימים} one {הצגת נכס אחד} other {הצגת <n></n> נכסים}}",
-    "clearAll": "ניקוי הכול",
+    "clearAll": "ניקוי הכל",
     "noneTitle": "אין נכסים שמתאימים לכל המסננים",
     "noneHint": "שינוי אחד ויש תוצאות:",
     "noneGeneric": "נסו טווח מחירים רחב יותר או פחות מסננים.",

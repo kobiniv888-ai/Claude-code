@@ -69,3 +69,25 @@ export function placeIcon(type: CommunityPlaceType): L.DivIcon {
   placeCache.set(type, icon);
   return icon;
 }
+
+/** Width and height of the community-places bubble (an icon and a count, in a pill). */
+const PLACE_CLUSTER = { width: 54, height: 32 } as const;
+
+/**
+ * Community places grouped at country or region zoom: a small pill with the synagogue icon and
+ * a count. It is drawn up and to the right of the group's center (the map is always left-to-right),
+ * so it sits beside the listings' bubble or price pill for the same town instead of on top of it.
+ */
+export function communityClusterIcon(count: number, label: string): L.DivIcon {
+  return L.divIcon({
+    className: "bayit-place-cluster-marker",
+    html:
+      `<span class="bayit-place-cluster" dir="ltr" aria-hidden="true">` +
+      `<span class="bayit-place-cluster-icon"><svg width="14" height="14" viewBox="0 0 24 24" focusable="false"><use href="#${placeSymbolId("SYNAGOGUE")}"></use></svg></span>` +
+      `${count}</span><span class="sr-only">${escapeHtml(label)}</span>`,
+    iconSize: [PLACE_CLUSTER.width, PLACE_CLUSTER.height],
+    // Negative x and a y larger than the height: the pill's bottom-left corner is 20px right of and
+    // 20px above the point, clear of a 44-56px listings bubble centered on it.
+    iconAnchor: [-20, PLACE_CLUSTER.height + 20],
+  });
+}

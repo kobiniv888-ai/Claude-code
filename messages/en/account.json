@@ -48,6 +48,8 @@
   },
   "overview": {
     "greeting": "Hello,",
+    "demoTag": "(demo)",
+    "greetingDemo": "Hello! This is a demo account",
     "lead": "Here's what's happening with your account on {siteName}.",
     "verification": {
       "title": "Your trust badges",

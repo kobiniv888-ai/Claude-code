@@ -1,4 +1,4 @@
-import { CalendarDays, MapPinned, Phone, UtensilsCrossed, type LucideIcon } from "lucide-react";
+import { CalendarDaysIcon as CalendarDays, MapPinnedIcon as MapPinned, PhoneIcon as Phone, UtensilsCrossedIcon as UtensilsCrossed, type SpriteIconComponent as LucideIcon } from "@/components/ds/sprite-icons";
 import { getTranslations } from "next-intl/server";
 import { Container } from "@/components/common/container";
 import { IconCircle } from "@/components/ds/icon-circle";

@@ -1,13 +1,5 @@
 import { useTranslations } from "next-intl";
-import {
-  BadgeCheckIcon,
-  BriefcaseBusinessIcon,
-  FlaskConicalIcon,
-  MegaphoneIcon,
-  SparklesIcon,
-  TrendingDownIcon,
-  type LucideIcon,
-} from "lucide-react";
+import { BadgeCheckIcon, BriefcaseBusinessIcon, FlaskConicalIcon, MegaphoneIcon, SparklesIcon, TrendingDownIcon, type SpriteIconComponent as LucideIcon } from "@/components/ds/sprite-icons";
 import { KosherStampIcon, ShabbatCandlesIcon, SynagogueIcon, type IconComponent } from "@/components/ds/jewish-icons";
 import type { ListingCardBadges } from "@/lib/listing/types";
 import { cn } from "@/lib/utils";

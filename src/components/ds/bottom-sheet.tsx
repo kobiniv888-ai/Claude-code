@@ -1,29 +1,15 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
 import { XIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { Drawer } from "vaul";
 import { useReturnFocus } from "@/components/ui/use-return-focus";
 import { cn } from "@/lib/utils";
+import { useIsDesktop } from "./use-is-desktop";
 
-const DESKTOP_QUERY = "(min-width: 48rem)";
-
-function subscribe(onChange: () => void) {
-  const query = window.matchMedia(DESKTOP_QUERY);
-  query.addEventListener("change", onChange);
-  return () => query.removeEventListener("change", onChange);
-}
-
-/** True from 768px up (false while server rendering). */
-export function useIsDesktop(): boolean {
-  return useSyncExternalStore(
-    subscribe,
-    () => window.matchMedia(DESKTOP_QUERY).matches,
-    () => false,
-  );
-}
+// The screen-size hook has its own module (no Radix/vaul); re-exported for existing imports.
+export { useIsDesktop };
 
 export type BottomSheetProps = {
   open: boolean;

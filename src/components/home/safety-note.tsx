@@ -1,4 +1,4 @@
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheckIcon as ShieldCheck } from "@/components/ds/sprite-icons";
 import { getTranslations } from "next-intl/server";
 import { Container } from "@/components/common/container";
 import { ArrowEnd } from "@/components/common/directional-icon";

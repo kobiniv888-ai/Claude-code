@@ -219,7 +219,7 @@
     "dealShort": {
       "any": "All",
       "rent": "Rent",
-      "short-stay": "Short",
+      "short-stay": "Nightly",
       "monthly": "Monthly",
       "buy": "Buy",
       "hotels": "Hotels"

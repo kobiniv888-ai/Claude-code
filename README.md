@@ -72,6 +72,7 @@ Emails are not sent until Resend is configured. You can read them under **Admin 
 |---|---|
 | `npm run dev` | Development server |
 | `npm run build` / `npm start` | Production build / run it |
+| `npm run preview` | Production build, then serve it on port 3000 (the real speed) |
 | `npm run check` | Typecheck + lint + translation check + unit tests |
 | `npm run i18n:check` | Checks that all 5 languages have the same text keys |
 | `npm test` | Unit tests (Vitest) |
@@ -113,8 +114,12 @@ browser. Logging in works, because the code is shown on screen. Step-by-step gui
 **[docs/CODESPACES.md](docs/CODESPACES.md)**.
 
 In a codespace:
-* `bash .devcontainer/start.sh` starts the site (and reloads missing or expired demo data);
-  `bash .devcontainer/start.sh --prod` runs a production build, to feel the real speed on a phone.
+* `bash .devcontainer/start.sh` starts the site (and reloads missing or expired demo data).
+* **Feel the real speed on your phone:** `bash .devcontainer/start-prod.sh` stops the development
+  server, builds the site for production (a few minutes), serves it on the same port 3000 and
+  prints the address to open. Development mode compiles every page on its first visit
+  ("Compiling…", "Rendering…"), so only this mode shows how fast the site really is. Back to
+  development: `bash .devcontainer/start.sh`. On your own computer: `npm run preview`.
 * Map key: add a Codespaces secret named `NEXT_PUBLIC_MAP_TILE_KEY` (or set it in `.env`); see
   [docs/CODESPACES.md](docs/CODESPACES.md#map-key-so-the-maps-show-streets).
 

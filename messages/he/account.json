@@ -48,6 +48,8 @@
   },
   "overview": {
     "greeting": "שלום,",
+    "demoTag": "(דמו)",
+    "greetingDemo": "שלום! זה חשבון דמו",
     "lead": "מה קורה בחשבון שלך ב־{siteName}.",
     "verification": {
       "title": "תגי האמון שלך",

@@ -1,6 +1,6 @@
 "use client";
 
-import { List, Map as MapIcon, MapPinned, SearchX } from "lucide-react";
+import { ChevronDown, ChevronUp, List, Map as MapIcon, MapPinned, SearchX } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useLocale, useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
@@ -48,6 +48,9 @@ function useIsDesktop(): boolean {
 export type ExplorerCity = { slug: string; name: string; count: number };
 
 const ALL = "all";
+
+/** Phones and tablets show this many places first, then "Show all" (desktop scrolls the full list). */
+const COLLAPSED_COUNT = 3;
 
 /**
  * Map + list of Jewish places with type chips and a city selector.
@@ -109,12 +112,16 @@ export function PlacesExplorer({
 
   const filtered = useMemo(() => {
     const list = types.length ? inCity.filter((p) => types.includes(p.type)) : inCity;
-    return [...list].sort(
+    const sorted = [...list].sort(
       (a, b) =>
         Number(a.isDemo) - Number(b.isDemo) ||
         JEWISH_PLACE_TYPES.indexOf(a.type) - JEWISH_PLACE_TYPES.indexOf(b.type) ||
         a.name.localeCompare(b.name, locale),
     );
+    // Several types: take turns (synagogue, Chabad house, kosher restaurant…), so the first places
+    // shown on a phone are one of each kind rather than three synagogues.
+    // Real places still come before demo ones.
+    return [...interleaveByType(sorted.filter((p) => !p.isDemo)), ...interleaveByType(sorted.filter((p) => p.isDemo))];
   }, [inCity, types, locale]);
 
   const countsByType = useMemo(() => {
@@ -122,6 +129,13 @@ export function PlacesExplorer({
     for (const place of inCity) counts.set(place.type, (counts.get(place.type) ?? 0) + 1);
     return counts;
   }, [inCity]);
+
+  // "Show all" stays open only for the filters it was opened with (new filters start short again).
+  const filterKey = `${serializePlaceTypes(types)}|${city ?? ""}`;
+  const [expandedFor, setExpandedFor] = useState<string | null>(null);
+  const expanded = expandedFor === filterKey;
+  const hiddenCount = expanded ? 0 : Math.max(0, filtered.length - COLLAPSED_COUNT);
+  const listRef = useRef<HTMLUListElement>(null);
 
   const presentTypes = JEWISH_PLACE_TYPES.filter((type) => places.some((p) => p.type === type));
   const hasDemo = filtered.some((p) => p.isDemo);
@@ -162,6 +176,7 @@ export function PlacesExplorer({
   function showInList(id: string) {
     setSelectedId(id);
     setView("list");
+    if (filtered.findIndex((p) => p.id === id) >= COLLAPSED_COUNT) setExpandedFor(filterKey);
     requestAnimationFrame(() => {
       const card = cardRefs.current.get(id);
       card?.scrollIntoView({ behavior: scrollBehavior(), block: "center" });
@@ -309,22 +324,56 @@ export function PlacesExplorer({
               ) : null}
             </div>
           ) : (
-            <ul
-              aria-label={t("listLabel")}
-              className="space-y-3 lg:max-h-[38rem] lg:overflow-y-auto lg:overscroll-contain lg:pe-2"
-            >
-              {filtered.map((place) => (
-                <li
-                  key={place.id}
-                  ref={(node) => {
-                    if (node) cardRefs.current.set(place.id, node);
-                    else cardRefs.current.delete(place.id);
-                  }}
+            <>
+              <ul
+                id="jl-places-list"
+                ref={listRef}
+                aria-label={t("listLabel")}
+                className="scroll-mt-24 space-y-3 lg:max-h-[38rem] lg:overflow-y-auto lg:overscroll-contain lg:pe-2"
+              >
+                {filtered.map((place, index) => (
+                  <li
+                    key={place.id}
+                    ref={(node) => {
+                      if (node) cardRefs.current.set(place.id, node);
+                      else cardRefs.current.delete(place.id);
+                    }}
+                    // Hidden with CSS only below lg, so the desktop list (beside the map) stays complete.
+                    className={cn(!expanded && index >= COLLAPSED_COUNT && "max-lg:hidden")}
+                  >
+                    <PlaceCard place={place} selected={place.id === selectedId} onShowOnMap={() => showOnMap(place.id)} />
+                  </li>
+                ))}
+              </ul>
+              {hiddenCount > 0 ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  aria-controls="jl-places-list"
+                  aria-expanded={false}
+                  onClick={() => setExpandedFor(filterKey)}
+                  className="mt-3 h-11 w-full rounded-full bg-card text-sm font-semibold lg:hidden"
                 >
-                  <PlaceCard place={place} selected={place.id === selectedId} onShowOnMap={() => showOnMap(place.id)} />
-                </li>
-              ))}
-            </ul>
+                  {t("showAll", { count: formatNumber(filtered.length, locale) })}
+                  <ChevronDown aria-hidden="true" className="size-4" />
+                </Button>
+              ) : expanded && filtered.length > COLLAPSED_COUNT ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  aria-controls="jl-places-list"
+                  aria-expanded
+                  onClick={() => {
+                    setExpandedFor(null);
+                    listRef.current?.scrollIntoView({ behavior: scrollBehavior(), block: "start" });
+                  }}
+                  className="mt-3 h-11 w-full rounded-full text-sm font-semibold lg:hidden"
+                >
+                  {t("showFewer")}
+                  <ChevronUp aria-hidden="true" className="size-4" />
+                </Button>
+              ) : null}
+            </>
           )}
         </div>
 
@@ -359,6 +408,22 @@ export function PlacesExplorer({
       </div>
     </div>
   );
+}
+
+/** Reorders a list sorted by type into rounds: the first of each type, then the second of each… */
+function interleaveByType(sorted: PublicJewishPlace[]): PublicJewishPlace[] {
+  const queues = new Map<JewishPlaceType, PublicJewishPlace[]>();
+  for (const place of sorted) {
+    const queue = queues.get(place.type);
+    if (queue) queue.push(place);
+    else queues.set(place.type, [place]);
+  }
+  if (queues.size < 2) return sorted;
+  const result: PublicJewishPlace[] = [];
+  for (let round = 0; result.length < sorted.length; round++) {
+    for (const queue of queues.values()) if (round < queue.length) result.push(queue[round]);
+  }
+  return result;
 }
 
 /** True once the element is within ~600 px of the viewport (and stays true). */

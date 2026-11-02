@@ -164,6 +164,8 @@ test("an admin approves the listing and it becomes public", async ({ browser }) 
   await visitor.page.goto(`/en/listing/${posted.publicId}`);
   await expect(visitor.page.getByRole("heading", { level: 1, name: posted.title })).toBeVisible();
   await expect(visitor.page).toHaveURL(new RegExp(`/en/listing/${posted.publicId}-e2e-mountain-flat-in-mestia`));
+  // The owner accepted the Bayit pledge while posting: the listing shows the green badge.
+  await expect(visitor.page.getByText("Welcomes Israelis", { exact: true }).first()).toBeVisible();
   expect(visitor.consoleErrors).toEqual([]);
   await visitor.context.close();
 });

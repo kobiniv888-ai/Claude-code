@@ -43,10 +43,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 /**
  * Jewish life in Georgia (brief §5.8): a synagogue photo hero with the 4 quick actions, the
- * promise (every host welcomes you) with one-tap searches, photo cards for synagogues, kosher
- * food and community, the places map and list, this week's Shabbat (live countdown with city chips
- * + the per-city table with the parasha), the Hebrew calendar with upcoming holidays, guides
- * ("coming soon") and emergency numbers you tap to call.
+ * promise (every host welcomes you) with one-tap searches, this week's Shabbat (live countdown
+ * with city chips + the per-city table with the parasha), photo cards for synagogues, kosher food
+ * and community, the places map and list (3 places first on phones, then "show all"), the Hebrew
+ * calendar with upcoming holidays, emergency numbers you tap to call and guides ("coming soon").
  */
 export default async function JewishLifePage({ params, searchParams }: Props) {
   const { locale } = await params;
@@ -73,18 +73,9 @@ export default async function JewishLifePage({ params, searchParams }: Props) {
 
       <JlContainer>
         <WelcomeStrip locale={locale} />
-        <ExploreSection locale={locale} />
-        <IntroDetails locale={locale} />
       </JlContainer>
 
-      <JlSection id="places" icon={MapPinned} title={t("places.title")} lead={t("places.lead")}>
-        <PlacesSection
-          locale={locale}
-          initialTypes={parsePlaceTypes(query.type)}
-          initialCity={pageParams.placeCity ?? null}
-        />
-      </JlSection>
-
+      {/* This week's Shabbat comes first (brief §5.8): it is what most visitors open the page for. */}
       {city ? (
         <JlSection
           id="shabbat-times"
@@ -114,8 +105,28 @@ export default async function JewishLifePage({ params, searchParams }: Props) {
         </JlSection>
       ) : null}
 
+      <JlContainer>
+        <ExploreSection locale={locale} />
+        <IntroDetails locale={locale} />
+      </JlContainer>
+
+      <JlSection id="places" icon={MapPinned} title={t("places.title")} lead={t("places.lead")}>
+        <PlacesSection
+          locale={locale}
+          initialTypes={parsePlaceTypes(query.type)}
+          initialCity={pageParams.placeCity ?? null}
+        />
+      </JlSection>
+
       {city ? (
-        <JlSection id="calendar" icon={CalendarDays} tone="green" title={t("calendar.title")} lead={t("calendar.lead")}>
+        <JlSection
+          id="calendar"
+          icon={CalendarDays}
+          tone="green"
+          title={t("calendar.title")}
+          lead={t("calendar.lead")}
+          className="bg-navy-soft/50"
+        >
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
             <JewishCalendar
               month={month}
@@ -142,12 +153,11 @@ export default async function JewishLifePage({ params, searchParams }: Props) {
         tone="amber"
         title={t("emergency.title")}
         lead={t("emergency.lead")}
-        className="bg-navy-soft/50"
       >
         <EmergencyContacts locale={locale} />
       </JlSection>
 
-      <JlSection id="guides" icon={BookOpen} title={t("guides.title")} lead={t("guides.lead")}>
+      <JlSection id="guides" icon={BookOpen} title={t("guides.title")} lead={t("guides.lead")} className="bg-navy-soft/50">
         <GuidesSection locale={locale} />
       </JlSection>
     </div>

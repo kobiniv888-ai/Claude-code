@@ -44,6 +44,7 @@
     "walk": "Walking directions",
     "walkLabel": "Walking directions to {name} (opens in a new window)",
     "demo": "Demo",
-    "demoNote": "Sample point, not a real place"
+    "demoNote": "Demo point, not a real place",
+    "cluster": "{count, plural, one {{formatted} community place here} other {{formatted} community places here}} — tap to zoom in"
   }
 }

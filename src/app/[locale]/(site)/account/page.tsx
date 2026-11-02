@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/common/page-header";
 import { AccountPledgeBanner } from "@/components/pledge/account-pledge-banner";
 import { AttentionList, ListingCountTiles, QuickActions, VerificationProgressCard } from "@/components/account/overview";
 import { siteConfig, type AppLocale } from "@/config/site";
+import { accountGreeting } from "@/lib/account/greeting";
 import { getAccountOverview } from "@/lib/account/queries";
 import { requireUser } from "@/lib/auth/session";
 import { pageMetadata } from "@/lib/seo";
@@ -23,15 +24,20 @@ export default async function AccountOverviewPage({ params }: Props) {
   const user = await requireUser({ next: "/account" });
   const t = await getTranslations("account.overview");
   const overview = await getAccountOverview(user);
-  const firstName = user.name.trim().split(/\s+/)[0] || user.name;
+  const greeting = accountGreeting(user.name, user.isDemo);
 
   return (
     <div>
       <PageHeader
         title={
-          <>
-            {t("greeting")} <span dir="auto">{firstName}</span>
-          </>
+          greeting.kind === "demo" ? (
+            t("greetingDemo")
+          ) : (
+            <>
+              {t("greeting")} <span dir="auto">{greeting.name}</span>
+              {greeting.kind === "demoName" ? <> {t("demoTag")}</> : null}
+            </>
+          )
         }
         description={t("lead", { siteName: siteConfig.localizedName[locale as AppLocale] ?? siteConfig.name })}
       />

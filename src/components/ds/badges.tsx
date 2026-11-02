@@ -1,14 +1,5 @@
 import { useTranslations } from "next-intl";
-import {
-  BadgeCheckIcon,
-  BriefcaseBusinessIcon,
-  FlaskConicalIcon,
-  MegaphoneIcon,
-  MoonStarIcon,
-  SparklesIcon,
-  TrendingDownIcon,
-  UtensilsIcon,
-} from "lucide-react";
+import { BadgeCheckIcon, BriefcaseBusinessIcon, FlaskConicalIcon, MegaphoneIcon, MoonStarIcon, SparklesIcon, TrendingDownIcon, UtensilsIcon } from "./sprite-icons";
 import { cn } from "@/lib/utils";
 import type { BadgeItem, BayitBadgeKind } from "./badge-items";
 import {

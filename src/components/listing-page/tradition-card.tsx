@@ -123,8 +123,8 @@ export function TraditionCard({ data, locale }: { data: ListingPageData; locale:
                   </CheckItem>
                 );
               })}
-              <CheckItem ok={sukkah} icon={TentIcon} state={sukkah ? t("has") : t("hasNot")}>
-                {t("sukkah")}
+              <CheckItem ok={sukkah} icon={TentIcon} state={sukkah ? t("has") : t("hasNot")} strike={false}>
+                {sukkah ? t("sukkah") : t("noSukkah")}
               </CheckItem>
             </ul>
             <p className="text-caption text-muted-foreground">{t("shabbatFriendlyHint")}</p>

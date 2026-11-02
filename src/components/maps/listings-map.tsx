@@ -29,7 +29,8 @@ import { prefersReducedMotion } from "@/lib/motion";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { BaseTiles } from "./base-tiles";
-import { CommunityIconSprite, CommunityMarkers } from "./community-layer";
+import { CommunityClusters } from "./community-clusters";
+import { CommunityIconSprite } from "./community-layer";
 import { MapCardSheet } from "./map-card-sheet";
 import { ListPill, MapControls } from "./map-controls";
 import { clusterIcon, pricePillIcon, type ClusterLike } from "./map-icons";
@@ -536,7 +537,9 @@ export default function ListingsMap({
             );
           })}
         </MarkerClusterGroup>
-        {community.on && community.status === "ready" ? <CommunityMarkers places={community.places} /> : null}
+        {community.on && community.status === "ready" ? (
+          <CommunityClusters places={community.places} animate={!reducedMotion} />
+        ) : null}
         {wide && sheet && !sheet.closing && sheetPoint ? (
           <Popup
             key={sheet.id}

@@ -1,21 +1,21 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
+import { preload } from "react-dom";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { getMessages, getTranslations, setRequestLocale } from "next-intl/server";
 import { LoginDialogProvider } from "@/components/auth/login-dialog-provider";
 import { InlineScript } from "@/components/common/inline-script";
 import { DISMISSED_ALERTS_SCRIPT } from "@/components/layout/dismissed-alerts";
-import { fontStyle } from "@/components/layout/fonts";
+import { HEBREW_FONT_URL, fontStyle } from "@/components/layout/fonts";
 import { SkipLink } from "@/components/layout/skip-link";
 import { CurrencyProvider } from "@/components/providers/currency-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { AppToaster } from "@/components/providers/toaster";
 import { RegisterServiceWorker } from "@/components/pwa/register-sw";
 import { DirectionProvider } from "@/components/ui/direction";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { siteConfig } from "@/config/site";
-import { publicClientMessages } from "@/i18n/client-messages";
+import { SHELL_MESSAGES, pickMessages } from "@/i18n/client-messages";
 import { dirFor } from "@/i18n/locale";
 import { routing } from "@/i18n/routing";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -79,6 +79,9 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
     getMessages(),
   ]);
   const currency = await getDisplayCurrency(user?.currency);
+  // Hebrew pages: the Hebrew face is needed for the first paint (headline, menus), so fetch it with
+  // the HTML instead of after the stylesheet (src/components/layout/fonts.ts).
+  if (locale === "he") preload(HEBREW_FONT_URL, { as: "font", type: "font/woff2", crossOrigin: "anonymous" });
 
   return (
     <html lang={locale} dir={dir} style={fontStyle} suppressHydrationWarning>
@@ -89,18 +92,16 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
       <body>
         <ThemeProvider nonce={nonce}>
           <DirectionProvider dir={dir}>
-            {/* Public pages only ship the namespaces their client components read (see client-messages). */}
-            <NextIntlClientProvider messages={publicClientMessages(messages)}>
-              <TooltipProvider delayDuration={400}>
-                <CurrencyProvider currency={currency} rates={rates}>
-                  <LoginDialogProvider signedIn={!!user}>
-                    <SkipLink />
-                    <DemoDataBanner />
-                    {children}
-                    <AppToaster dir={dir} />
-                  </LoginDialogProvider>
-                </CurrencyProvider>
-              </TooltipProvider>
+            {/* Only the shell's interface text; routes add theirs (src/i18n/client-messages.ts). */}
+            <NextIntlClientProvider messages={pickMessages(messages, SHELL_MESSAGES)}>
+              <CurrencyProvider currency={currency} rates={rates}>
+                <LoginDialogProvider signedIn={!!user}>
+                  <SkipLink />
+                  <DemoDataBanner />
+                  {children}
+                  <AppToaster dir={dir} />
+                </LoginDialogProvider>
+              </CurrencyProvider>
             </NextIntlClientProvider>
           </DirectionProvider>
         </ThemeProvider>

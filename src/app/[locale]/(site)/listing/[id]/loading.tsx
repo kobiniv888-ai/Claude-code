@@ -10,6 +10,9 @@ export default function Loading() {
   return (
     <>
       <HideBottomNav />
+      {/* The contact bar's space (--bottom-nav-height, see mobile-contact-bar.tsx) from the start,
+          so the cookie banner does not jump when the page replaces this skeleton. */}
+      <span data-listing-contact-bar="" hidden />
       <ListingPageSkeleton />
     </>
   );

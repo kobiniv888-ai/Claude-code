@@ -161,6 +161,57 @@
   --place-color: #13763a;
 }
 
+/* Community places grouped at low zoom (beside the listings' bubbles, see communityClusterIcon). */
+.bayit-place-cluster-marker {
+  display: flex;
+  outline: none;
+}
+
+.bayit-place-cluster {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 5px;
+  width: 100%;
+  height: 100%;
+  padding-inline: 3px 9px;
+  border-radius: 9999px;
+  /* White with the synagogue color, like the place markers (the same in light and dark), so it never
+     reads as a navy listings bubble. #1e3a6e on white: 11:1. */
+  background: #ffffff;
+  color: #1e3a6e;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  box-shadow:
+    0 0 0 1.5px #1e3a6e,
+    0 3px 10px rgb(15 23 42 / 0.3);
+  animation: bayit-marker-in 320ms var(--ease-pop) backwards;
+  transition: transform var(--motion-fast) var(--ease-standard);
+}
+
+.bayit-place-cluster-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: #1e3a6e;
+  color: #ffffff;
+}
+
+.bayit-place-cluster-marker:hover .bayit-place-cluster {
+  transform: scale(1.08);
+}
+
+.bayit-place-cluster-marker:focus-visible .bayit-place-cluster {
+  outline: 3px solid var(--ring);
+  outline-offset: 3px;
+}
+
 /* ── Popups (community places) ───────────────────────────────── */
 
 .bayit-map .bayit-popup .leaflet-popup-content-wrapper {

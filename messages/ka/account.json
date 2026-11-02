@@ -48,6 +48,8 @@
   },
   "overview": {
     "greeting": "გამარჯობა,",
+    "demoTag": "(დემო)",
+    "greetingDemo": "გამარჯობა! ეს დემო ანგარიშია",
     "lead": "აი, რა ხდება თქვენს ანგარიშზე {siteName}-ზე.",
     "verification": {
       "title": "თქვენი ნდობის ნიშნები",

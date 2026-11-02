@@ -1,4 +1,5 @@
 import { expect, settle, test } from "./fixtures";
+import { BASE_URL } from "./helpers/env";
 
 /** Phones from 360 px and tablets: the guest flow and right-to-left pages without overflow. */
 
@@ -24,6 +25,21 @@ test("search and filter on a phone", async ({ page, consoleErrors }) => {
   await expect(page).toHaveURL(/shabbatFriendly=/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("2 homes in Tbilisi");
   await expect(page.getByRole("list", { name: "Search results" }).getByRole("article")).toHaveCount(2);
+  expect(consoleErrors).toEqual([]);
+});
+
+test("the Map pill opens the map on a phone", async ({ page, consoleErrors }) => {
+  // Client-side navigation from a fresh page load, before any lazily hydrated part of the header or
+  // footer has loaded (redesign final check: these used to block every navigation on phones).
+  // The cookie banner sits over the floating pill on a first visit: answer it first.
+  const consent = encodeURIComponent(JSON.stringify({ necessary: true, preferences: false, analytics: false, v: 1 }));
+  await page.context().addCookies([{ name: "bayit_consent", value: consent, url: BASE_URL }]);
+  await page.goto("/en/search?city=tbilisi");
+  await settle(page);
+  await page.locator("[data-floating-map-toggle]").getByRole("button", { name: /^Map/ }).click();
+  // A cold development server compiles the map view and the header tools on this first tap.
+  await expect(page).toHaveURL(/view=map/, { timeout: 60_000 });
+  await expect(page.locator(".leaflet-container")).toBeVisible();
   expect(consoleErrors).toEqual([]);
 });
 

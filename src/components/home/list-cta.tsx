@@ -1,4 +1,4 @@
-import { Check } from "lucide-react";
+import { CheckIcon as Check } from "@/components/ds/sprite-icons";
 import { getTranslations } from "next-intl/server";
 import { Container } from "@/components/common/container";
 import { ArrowEnd } from "@/components/common/directional-icon";

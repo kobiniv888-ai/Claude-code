@@ -1,4 +1,4 @@
-import { Flag, HeartHandshake, Quote } from "lucide-react";
+import { FlagIcon as Flag, HeartHandshakeIcon as HeartHandshake, QuoteIcon as Quote } from "@/components/ds/sprite-icons";
 import { getTranslations } from "next-intl/server";
 import { Container } from "@/components/common/container";
 import { IconCircle } from "@/components/ds/icon-circle";

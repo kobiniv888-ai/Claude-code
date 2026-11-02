@@ -1,4 +1,4 @@
-import { Megaphone, Sparkles } from "lucide-react";
+import { MegaphoneIcon as Megaphone, SparklesIcon as Sparkles } from "@/components/ds/sprite-icons";
 import { getTranslations } from "next-intl/server";
 import { Container } from "@/components/common/container";
 import { CardCarousel } from "@/components/ds/card-carousel";

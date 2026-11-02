@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import Image from "next/image";
-import { MapPin } from "lucide-react";
+import { MapPinIcon as MapPin } from "@/components/ds/sprite-icons";
 import { getTranslations } from "next-intl/server";
 import { Container } from "@/components/common/container";
 import { PhotoSlot } from "@/components/photos/photo-slot";

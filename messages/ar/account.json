@@ -48,6 +48,8 @@
   },
   "overview": {
     "greeting": "مرحبًا،",
+    "demoTag": "(تجريبي)",
+    "greetingDemo": "مرحبًا! هذا حساب تجريبي",
     "lead": "إليك ما يحدث في حسابك على {siteName}.",
     "verification": {
       "title": "شارات الثقة الخاصة بك",

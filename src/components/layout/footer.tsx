@@ -6,8 +6,7 @@ import { LogoLink } from "@/components/common/logo";
 import { siteConfig } from "@/config/site";
 import { Link } from "@/i18n/navigation";
 import { siteName } from "@/lib/seo";
-import { CurrencySwitcher } from "./currency-switcher";
-import { LanguageSwitcher } from "./language-switcher";
+import { FooterPickers } from "./footer-pickers";
 
 const COLUMNS = [
   {
@@ -58,7 +57,7 @@ export async function Footer() {
   const social = SOCIAL.filter((key) => siteConfig.social[key]);
 
   return (
-    <footer className="mt-auto border-t bg-card/60">
+    <footer data-site-footer="" className="mt-auto border-t bg-card/60">
       <Container className="py-10 sm:py-14">
         <div className="grid grid-cols-1 gap-6 sm:gap-10 lg:grid-cols-[minmax(0,1.3fr)_repeat(4,minmax(0,1fr))] lg:gap-8">
           <div className="grid content-start gap-4">
@@ -158,9 +157,8 @@ export async function Footer() {
             <p id="footer-preferences" className="text-xs font-semibold text-muted-foreground">
               {t("preferences")}
             </p>
-            <div className="flex flex-wrap items-center gap-2">
-              <LanguageSwitcher variant="footer" align="end" />
-              <CurrencySwitcher variant="footer" align="end" />
+            <div data-footer-pickers="" className="flex flex-wrap items-center gap-2">
+              <FooterPickers />
             </div>
           </div>
         </div>

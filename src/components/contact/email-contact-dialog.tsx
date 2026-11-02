@@ -36,11 +36,14 @@ type DialogProps = {
   defaultMessage: string;
   stay: StayRequest;
   paused: boolean;
+  /** Who receives the email: "seller" for sale listings, otherwise the host (Hebrew/Arabic wording). */
+  role: "host" | "seller";
 };
 
 export function EmailContactDialog({
   open,
   onOpenChange,
+  role,
   ...form
 }: DialogProps) {
   const t = useTranslations("contact.email");
@@ -48,8 +51,8 @@ export function EmailContactDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-lg">
         <DialogHeader className="text-start">
-          <DialogTitle>{t("title")}</DialogTitle>
-          <DialogDescription>{t("description")}</DialogDescription>
+          <DialogTitle>{t("title", { role })}</DialogTitle>
+          <DialogDescription>{t("description", { role })}</DialogDescription>
         </DialogHeader>
         {/* Mounted on every open, so the fields start from the latest ready message. */}
         <EmailForm {...form} onClose={() => onOpenChange(false)} />
@@ -66,7 +69,7 @@ function EmailForm({
   stay,
   paused,
   onClose,
-}: Omit<DialogProps, "open" | "onOpenChange"> & { onClose: () => void }) {
+}: Omit<DialogProps, "open" | "onOpenChange" | "role"> & { onClose: () => void }) {
   const t = useTranslations("contact.email");
   const tc = useTranslations("contact");
   const te = useTranslations("errors");

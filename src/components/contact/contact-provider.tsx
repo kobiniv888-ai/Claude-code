@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
+import dynamic from "next/dynamic";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "@/lib/toast";
 import { useRequireLogin } from "@/components/auth/login-dialog";
@@ -13,8 +14,11 @@ import { errorMessageKey } from "@/lib/errors";
 import { formatDate, formatDateRange } from "@/lib/format";
 import type { ContactChannelKey } from "@/lib/listing/fields";
 import { siteName } from "@/lib/seo";
-import { EmailContactDialog } from "./email-contact-dialog";
-import { SafetyTipDialog } from "./safety-tip-dialog";
+
+// The two dialogs (Radix Dialog, the e-mail form with its checks) load the first time they open,
+// not with the listing page.
+const EmailContactDialog = dynamic(() => import("./email-contact-dialog").then((m) => m.EmailContactDialog), { ssr: false });
+const SafetyTipDialog = dynamic(() => import("./safety-tip-dialog").then((m) => m.SafetyTipDialog), { ssr: false });
 
 /**
  * Contact state shared by the sidebar box and the phone bottom bar of one listing page:
@@ -117,6 +121,11 @@ export function ContactProvider({
   const safetySeen = useRef(false);
   const [safetyFor, setSafetyFor] = useState<RevealedContact | null>(null);
   const [emailOpen, setEmailOpen] = useState(false);
+  // Once opened, the lazily loaded dialogs stay mounted (so they can animate closed and reopen at once).
+  const [safetyWanted, setSafetyWanted] = useState(false);
+  const [emailWanted, setEmailWanted] = useState(false);
+  if (safetyFor !== null && !safetyWanted) setSafetyWanted(true);
+  if (emailOpen && !emailWanted) setEmailWanted(true);
   const inFlight = useRef<Promise<RevealedContact[] | null> | null>(null);
   const [captchaOn, setCaptchaOn] = useState(false);
   const captcha = useRef<TurnstileHandle>(null);
@@ -330,24 +339,29 @@ export function ContactProvider({
           />
         </div>
       ) : null}
-      <SafetyTipDialog
-        open={safetyFor !== null}
-        publicId={listing.publicId}
-        onAccept={acceptSafety}
-        onOpenChange={(next) => {
-          if (!next) setSafetyFor(null);
-        }}
-      />
-      <EmailContactDialog
-        open={emailOpen}
-        onOpenChange={setEmailOpen}
-        listingId={listing.id}
-        defaultName={sender.name}
-        defaultEmail={sender.email ?? ""}
-        defaultMessage={message}
-        stay={stay}
-        paused={shabbatModeActive}
-      />
+      {(safetyWanted || safetyFor !== null) && (
+        <SafetyTipDialog
+          open={safetyFor !== null}
+          publicId={listing.publicId}
+          onAccept={acceptSafety}
+          onOpenChange={(next) => {
+            if (!next) setSafetyFor(null);
+          }}
+        />
+      )}
+      {(emailWanted || emailOpen) && (
+        <EmailContactDialog
+          open={emailOpen}
+          onOpenChange={setEmailOpen}
+          listingId={listing.id}
+          defaultName={sender.name}
+          defaultEmail={sender.email ?? ""}
+          defaultMessage={message}
+          stay={stay}
+          paused={shabbatModeActive}
+          role={listing.dealType === "SALE" ? "seller" : "host"}
+        />
+      )}
     </ContactContext.Provider>
   );
 }

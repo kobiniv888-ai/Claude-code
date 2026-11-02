@@ -49,7 +49,8 @@ export function MapControls({
         {status ? (
           <p
             aria-live="polite"
-            className="pointer-events-auto inline-flex min-h-9 items-center gap-1.5 rounded-full bg-foreground/90 px-3.5 text-small font-semibold text-background shadow-raised"
+            // A dark chip in both themes: near-black in light mode, the dark popover surface in dark mode.
+            className="pointer-events-auto inline-flex min-h-9 items-center gap-1.5 rounded-full bg-foreground/90 px-3.5 text-small font-semibold text-background shadow-raised dark:bg-popover/95 dark:text-popover-foreground dark:ring-1 dark:ring-white/15"
           >
             {status.loading ? (
               <>

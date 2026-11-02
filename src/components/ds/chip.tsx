@@ -1,6 +1,6 @@
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
-import { XIcon } from "lucide-react";
+import { XIcon } from "./sprite-icons";
 import { useTranslations } from "next-intl";
 import { Slot } from "radix-ui";
 import { formatNumber } from "@/lib/format";

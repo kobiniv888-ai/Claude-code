@@ -125,7 +125,7 @@
       "propertyVerified": "Our team saw the property on a video call or a visit",
       "businessVerified": "Our team checked the business registration",
       "keepsShabbat": "Does not reply on Shabbat and Jewish holidays",
-      "demo": "Sample content for trying the site — not a real owner"
+      "demo": "Demo content for trying the site — not a real listing"
     }
   },
   "description": {
@@ -155,7 +155,8 @@
     "host": "The host",
     "keepsShabbat": "Keeps Shabbat",
     "keepsShabbatHint": "Does not reply on Shabbat and holidays",
-    "sukkah": "Space for a sukkah"
+    "sukkah": "Space for a sukkah",
+    "noSukkah": "No space for a sukkah"
   },
   "rules": {
     "title": "House rules",
