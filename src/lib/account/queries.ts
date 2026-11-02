@@ -1,5 +1,6 @@
 import "server-only";
-import { firstNameOf, safeDisplayName } from "@/lib/auth/first-name";
+import { safeDisplayName } from "@/lib/auth/first-name";
+import { settingsFirstName } from "./greeting";
 import type { AppLocale, CurrencyCode } from "@/config/site";
 import type { Prisma } from "@/generated/prisma/client";
 import type { AccountType, DealType, ListingStatus, Locale, PricePeriod, VerificationStatus, VerificationType } from "@/generated/prisma/enums";
@@ -471,6 +472,7 @@ export async function getAccountSettings(userId: string): Promise<AccountSetting
       name: true,
       image: true,
       firstName: true,
+      isDemo: true,
       bio: true,
       spokenLanguages: true,
       keepsShabbat: true,
@@ -492,7 +494,8 @@ export async function getAccountSettings(userId: string): Promise<AccountSetting
   const linkedIds = new Set(user.accounts.map((a) => a.providerId));
   return {
     name: safeDisplayName(user.name) ?? "",
-    firstName: firstNameOf(user),
+    // Demo accounts: "Noa", never the "Demo" of "Demo Guest — Noa" (settingsFirstName).
+    firstName: settingsFirstName(user),
     image: user.image,
     bio: user.bio,
     spokenLanguages: user.spokenLanguages,

@@ -69,7 +69,7 @@ export function Field({
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <label htmlFor={id} className="text-small font-semibold">
           {label}
-          {optional && <span className="ms-1.5 text-xs font-normal text-muted-foreground">{t("optional")}</span>}
+          {optional && <span className="ms-1.5 whitespace-nowrap text-xs font-normal text-muted-foreground">{t("optional")}</span>}
         </label>
         {labelAddon}
       </div>
@@ -116,7 +116,7 @@ export function FieldGroup({
     >
       <legend className={cn("mb-1 text-body font-bold", legendClassName)}>
         {legend}
-        {optional && <span className="ms-1.5 text-xs font-normal text-muted-foreground">{t("optional")}</span>}
+        {optional && <span className="ms-1.5 whitespace-nowrap text-xs font-normal text-muted-foreground">{t("optional")}</span>}
       </legend>
       {description && (
         <p id={descriptionId} className="-mt-2 text-sm text-pretty text-muted-foreground">
@@ -186,6 +186,7 @@ function CheckMark({ checked, shape = "round" }: { checked: boolean; shape?: "ro
 export function ChoiceCards<T extends string>({
   legend,
   legendHidden,
+  description,
   name,
   value,
   options,
@@ -196,6 +197,7 @@ export function ChoiceCards<T extends string>({
 }: {
   legend: ReactNode;
   legendHidden?: boolean;
+  description?: ReactNode;
   name: string;
   value: T | null;
   options: { value: T; title: ReactNode; description?: ReactNode; icon?: IconType; badge?: ReactNode }[];
@@ -205,7 +207,7 @@ export function ChoiceCards<T extends string>({
   size?: "lg" | "md";
 }) {
   return (
-    <FieldGroup legend={legend} error={error} legendClassName={legendHidden ? "sr-only" : undefined}>
+    <FieldGroup legend={legend} description={description} error={error} legendClassName={legendHidden ? "sr-only" : undefined}>
       <div className={cn("grid gap-3", columns)}>
         {options.map((option) => {
           const Icon = option.icon;
@@ -266,6 +268,7 @@ export function ChoiceCards<T extends string>({
  */
 export function CheckCards<T extends string>({
   legend,
+  legendHidden,
   description,
   values,
   options,
@@ -276,6 +279,7 @@ export function CheckCards<T extends string>({
   layout = "list",
 }: {
   legend: ReactNode;
+  legendHidden?: boolean;
   description?: ReactNode;
   values: readonly string[];
   options: { value: T; label: ReactNode; help?: ReactNode; icon?: IconType }[];
@@ -294,7 +298,13 @@ export function CheckCards<T extends string>({
   };
   const tiles = layout === "tiles";
   return (
-    <FieldGroup legend={legend} description={description} error={error} optional={optional}>
+    <FieldGroup
+      legend={legend}
+      description={description}
+      error={error}
+      optional={optional}
+      legendClassName={legendHidden ? "sr-only" : undefined}
+    >
       <div
         className={cn(
           "grid",
@@ -537,7 +547,7 @@ export function Stepper({
           )}
           <span id={`${id}-label`} className="text-small font-semibold">
             {label}
-            {optional && <span className="ms-1.5 text-xs font-normal text-muted-foreground">{t("optional")}</span>}
+            {optional && <span className="ms-1.5 whitespace-nowrap text-xs font-normal text-muted-foreground">{t("optional")}</span>}
           </span>
         </span>
         <div

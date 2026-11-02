@@ -155,6 +155,9 @@ beforeAll(async () => {
       cityId: city.id,
       lat: point.lat + 0.004,
       lng: point.lng,
+      // Walking times come only from verified, non-demo places (brief 5.9, src/lib/nearby.ts).
+      verifiedAt: new Date(),
+      source: "lifecycle test",
     },
   });
   ids.place = place.id;

@@ -122,8 +122,8 @@ export function PhotosStep({ listing, photos, setPhotos, roomTypes, track }: Ste
 
   return (
     <div className="grid gap-6">
-      <div className="flex items-start gap-3 rounded-xl bg-primary-tint p-3.5 text-sm dark:bg-success/15">
-        <ShieldCheckIcon className="mt-0.5 size-5 shrink-0 text-success" aria-hidden />
+      <div className="flex items-start gap-3 rounded-xl bg-primary-tint p-3.5 text-sm">
+        <ShieldCheckIcon className="mt-0.5 size-5 shrink-0 text-primary-text" aria-hidden />
         <p className="text-pretty">{t("privacyNote")}</p>
       </div>
 

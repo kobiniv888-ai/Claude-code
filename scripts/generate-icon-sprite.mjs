@@ -88,6 +88,12 @@ const NAMES = [
   "circle-x",
   "wallet",
   "info",
+  // Content pages and the Jewish life hub (round 2, phase 5)
+  "life-buoy",
+  "mail",
+  "messages-square",
+  "book-open",
+  "chevron-down",
 ];
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");

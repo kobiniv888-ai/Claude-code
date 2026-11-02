@@ -7,21 +7,77 @@ import { absoluteMediaUrl, photoUrl } from "@/lib/media";
 /**
  * "Download my data" (GDPR / Israeli privacy law / Georgian personal data law): everything we
  * keep about the user, as plain JSON. Never includes verification documents (only their status),
- * staff-internal ticket notes, other users' personal data, secrets (2-step key, iCal token) or
- * internal anti-fraud scores.
+ * staff-internal ticket notes, other users' personal data (a host's export has its bookings
+ * without the guests' names, phones or messages), secrets (2-step key, iCal token) or internal
+ * anti-fraud scores.
  */
 
 const MAX_ROWS = 5000;
 
 export const EXPORT_FORMAT_VERSION = 1;
 
+/** The booking fields both sides may see (docs/redesign-2/booking.md). */
+const BOOKING_EXPORT_SELECT = {
+  code: true,
+  listing: { select: { publicId: true, title: true } },
+  roomTypeName: true,
+  checkIn: true,
+  checkOut: true,
+  nights: true,
+  adults: true,
+  children: true,
+  infants: true,
+  nightlyPrice: true,
+  weekendPrice: true,
+  subtotal: true,
+  cleaningFee: true,
+  total: true,
+  currency: true,
+  cancellationPolicy: true,
+  paymentMethods: true,
+  status: true,
+  cancelReasonCode: true,
+  cancelledAt: true,
+  noShowReportedAt: true,
+  rulesAcceptedAt: true,
+  createdAt: true,
+} as const;
+
+/** A booking as plain JSON: dates as days, money as numbers, the listing by its public number. */
+function exportBooking(row: {
+  listing: { publicId: number; title: string };
+  checkIn: Date;
+  checkOut: Date;
+  nightlyPrice: unknown;
+  weekendPrice: unknown;
+  subtotal: unknown;
+  cleaningFee: unknown;
+  total: unknown;
+}) {
+  const { listing, checkIn, checkOut, nightlyPrice, weekendPrice, subtotal, cleaningFee, total, ...rest } = row;
+  const money = (value: unknown) => (value === null || value === undefined ? null : Number(value));
+  return {
+    ...rest,
+    listingId: listing.publicId,
+    listingTitle: listing.title,
+    checkIn: checkIn.toISOString().slice(0, 10),
+    checkOut: checkOut.toISOString().slice(0, 10),
+    nightlyPrice: money(nightlyPrice),
+    weekendPrice: money(weekendPrice),
+    subtotal: money(subtotal),
+    cleaningFee: money(cleaningFee),
+    total: money(total),
+  };
+}
+
 export async function buildAccountExport(userId: string) {
-  const [user, listings, favorites, tickets, reports, contactClicks, verifications, sessions] = await Promise.all([
+  const [user, listings, favorites, tickets, reports, contactClicks, verifications, sessions, tripsAsGuest, bookingsAsHost] = await Promise.all([
     db.user.findUniqueOrThrow({
       where: { id: userId },
       select: {
         id: true,
         name: true,
+        firstName: true,
         email: true,
         contactEmail: true,
         emailVerified: true,
@@ -44,6 +100,8 @@ export async function buildAccountExport(userId: string) {
         idVerifiedAt: true,
         businessVerifiedAt: true,
         safetyTipSeenAt: true,
+        welcomePledgeVersion: true,
+        welcomePledgeAcceptedAt: true,
         createdAt: true,
         updatedAt: true,
         accounts: { select: { providerId: true, createdAt: true } },
@@ -141,6 +199,20 @@ export async function buildAccountExport(userId: string) {
       orderBy: { createdAt: "desc" },
       select: { createdAt: true, updatedAt: true, expiresAt: true, ipAddress: true, userAgent: true },
     }),
+    // Bookings: everything about the user's own trips; for their places, the stay and money but
+    // not the guest's name, phone or message (another person's data).
+    db.booking.findMany({
+      where: { guestUserId: userId },
+      orderBy: { checkIn: "desc" },
+      take: MAX_ROWS,
+      select: { ...BOOKING_EXPORT_SELECT, guestName: true, guestPhone: true, messageToHost: true, cancelReason: true, cancelledById: true },
+    }),
+    db.booking.findMany({
+      where: { hostUserId: userId },
+      orderBy: { checkIn: "desc" },
+      take: MAX_ROWS,
+      select: { ...BOOKING_EXPORT_SELECT, cancelReason: true, cancelledById: true },
+    }),
   ]);
 
   const { accounts, ...profile } = user;
@@ -188,6 +260,16 @@ export async function buildAccountExport(userId: string) {
     contactClicks: contactClicks.map((c) => ({ listingId: c.listing.publicId, channel: c.channel, at: c.createdAt })),
     verificationRequests: verifications.map(({ listing, ...request }) => ({ ...request, listingId: listing?.publicId ?? null })),
     sessions,
+    trips: tripsAsGuest.map(({ cancelledById, ...booking }) => ({
+      ...exportBooking(booking),
+      cancelledBy: booking.cancelledAt ? (cancelledById === userId ? "you" : "host") : null,
+    })),
+    bookingsOfMyPlaces: bookingsAsHost.map(({ cancelledById, cancelReason, ...booking }) => ({
+      ...exportBooking(booking),
+      cancelledBy: booking.cancelledAt ? (cancelledById === userId ? "you" : "guest") : null,
+      // Only the host's own words; a guest's reason is the guest's data.
+      cancelReason: cancelledById === userId ? cancelReason : null,
+    })),
   };
 }
 

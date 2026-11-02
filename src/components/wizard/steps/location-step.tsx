@@ -374,7 +374,12 @@ export function LocationStep({ values, set, errors, context, locale }: StepProps
         >
           <LocationPicker
             value={pin}
-            onChange={(point) => placePin(point)}
+            onChange={(point) => {
+              setGeoError(null);
+              placePin(point);
+            }}
+            allowed={(point) => isInGeorgia(point.lat, point.lng)}
+            onRejected={() => setGeoError(t("tapOutside"))}
             center={center}
             zoom={city ? siteConfig.map.defaultZoom : 7}
             focusKey={focusKey}
@@ -382,7 +387,11 @@ export function LocationStep({ values, set, errors, context, locale }: StepProps
             className="size-full"
           />
         </div>
-        {geoError && <p className="text-sm text-foreground">{geoError}</p>}
+        {geoError && (
+          <p className="text-sm text-foreground" role="status">
+            {geoError}
+          </p>
+        )}
         {pinError && <FieldError id="pin-error">{pinError}</FieldError>}
         {pin && (
           <p className="text-xs text-muted-foreground">
@@ -392,8 +401,8 @@ export function LocationStep({ values, set, errors, context, locale }: StepProps
             </bdi>
           </p>
         )}
-        <div className="flex items-start gap-3 rounded-xl bg-primary-tint p-3.5 text-sm text-foreground dark:bg-success/15">
-          <ShieldCheckIcon className="mt-0.5 size-5 shrink-0 text-success" aria-hidden />
+        <div className="flex items-start gap-3 rounded-xl bg-primary-tint p-3.5 text-sm text-foreground">
+          <ShieldCheckIcon className="mt-0.5 size-5 shrink-0 text-primary-text" aria-hidden />
           <p className="text-pretty">{t("privacyNote", { meters: siteConfig.listings.approximateLocationMeters })}</p>
         </div>
       </Section>

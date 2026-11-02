@@ -12,8 +12,14 @@ import { ContentActionError, parseInput, runContentAction } from "../server/comm
 
 /**
  * Jewish Life places ("content"). After every change the walking times of listings near the
- * old and the new position are recomputed.
+ * old and the new position are recomputed (only verified, non-demo places count: a new or
+ * cleared verification date adds or removes walking times on nearby real listings).
  */
+
+/** Same calendar day (the form sends a date; keep who verified it unless the date changes). */
+function sameDay(a: Date | null, b: Date | null): boolean {
+  return a === b || (a !== null && b !== null && a.toISOString().slice(0, 10) === b.toISOString().slice(0, 10));
+}
 
 async function recompute(points: { lat: number; lng: number }[]): Promise<number> {
   let updated = 0;
@@ -56,15 +62,22 @@ export async function savePlace(input: unknown): Promise<ActionResult<{ id: stri
       website: v.website || null,
       active: v.active,
       isDemo: v.isDemo,
+      verifiedAt: v.verifiedAt,
+      source: v.source || null,
     };
 
     if (placeId) {
-      const before = await db.jewishPlace.findUnique({ where: { id: placeId }, select: { id: true, lat: true, lng: true, active: true } });
+      const before = await db.jewishPlace.findUnique({
+        where: { id: placeId },
+        select: { id: true, lat: true, lng: true, active: true, verifiedAt: true, verifiedById: true },
+      });
       if (!before) throw new ContentActionError("item_not_found", 404);
+      const verifiedChanged = !sameDay(before.verifiedAt, data.verifiedAt);
       await db.jewishPlace.update({
         where: { id: placeId },
         data: {
           ...data,
+          verifiedById: !data.verifiedAt ? null : verifiedChanged ? staff.id : before.verifiedById,
           // Cleared optional texts become database NULL.
           description: data.description ?? Prisma.DbNull,
           address: data.address ?? Prisma.DbNull,
@@ -82,20 +95,25 @@ export async function savePlace(input: unknown): Promise<ActionResult<{ id: stri
           moved: before.lat !== data.lat || before.lng !== data.lng,
           active: data.active,
           isDemo: data.isDemo,
+          verifiedAt: data.verifiedAt?.toISOString().slice(0, 10) ?? null,
+          verifiedChanged,
           listingsUpdated,
         },
       });
       return ok({ id: placeId, listingsUpdated });
     }
 
-    const place = await db.jewishPlace.create({ data: { ...data, createdById: staff.id }, select: { id: true } });
+    const place = await db.jewishPlace.create({
+      data: { ...data, createdById: staff.id, verifiedById: data.verifiedAt ? staff.id : null },
+      select: { id: true },
+    });
     const listingsUpdated = await recompute([data]);
     await audit({
       actorId: staff.id,
       action: "place.create",
       targetType: "JewishPlace",
       targetId: place.id,
-      details: { type: data.type, isDemo: data.isDemo, listingsUpdated },
+      details: { type: data.type, isDemo: data.isDemo, verifiedAt: data.verifiedAt?.toISOString().slice(0, 10) ?? null, listingsUpdated },
     });
     return ok({ id: place.id, listingsUpdated });
   });

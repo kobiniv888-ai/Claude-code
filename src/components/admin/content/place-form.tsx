@@ -1,6 +1,6 @@
 "use client";
 
-import { ShieldCheck, Save, FlaskConical } from "lucide-react";
+import { BadgeCheck, CalendarCheck, FlaskConical, Save, ShieldCheck } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "@/lib/toast";
@@ -32,7 +32,16 @@ export type PlaceFormValues = {
   website: string;
   active: boolean;
   isDemo: boolean;
+  /** "YYYY-MM-DD" or "" (not verified). */
+  verifiedAt: string;
+  source: string;
 };
+
+/** Today in the browser's time zone as "YYYY-MM-DD" (for the date input). */
+function todayInput(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 export type PlaceCityOption = { id: string; name: string; lat: number; lng: number };
 
@@ -49,6 +58,8 @@ function newPlaceValues(): PlaceFormValues {
     website: "",
     active: true,
     isDemo: false,
+    verifiedAt: "",
+    source: "",
   };
 }
 
@@ -76,6 +87,8 @@ export function PlaceForm({ id, initial, cities }: { id: string | null; initial?
     website: values.website,
     active: values.active,
     isDemo: values.isDemo,
+    verifiedAt: values.verifiedAt,
+    source: values.source,
   });
 
   const localeHasError = (locale: string) => ["names", "description", "address", "hours"].some((f) => Boolean(errors[`${f}.${locale}`]));
@@ -222,6 +235,56 @@ export function PlaceForm({ id, initial, cities }: { id: string | null; initial?
         </FormField>
       </section>
 
+      <section aria-labelledby="place-verification-title" className="grid gap-4 rounded-xl border bg-card p-4 shadow-xs sm:grid-cols-2">
+        <div className="sm:col-span-2">
+          <h2 id="place-verification-title" className="flex items-center gap-2 font-semibold">
+            <BadgeCheck aria-hidden className="size-4 text-success" />
+            {t("verification.title")}
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">{t("verification.description")}</p>
+        </div>
+        <FormField label={t("verification.date")} hint={t("verification.dateHint")} error={errorAt(errors, "verifiedAt")}>
+          {(props) => (
+            <div className="flex gap-2">
+              <Input
+                {...props}
+                type="date"
+                dir="ltr"
+                className="min-w-0 flex-1"
+                max={todayInput()}
+                value={values.verifiedAt}
+                disabled={values.isDemo}
+                onChange={(e) => set("verifiedAt", e.target.value)}
+              />
+              <Button type="button" variant="outline" className="h-11 shrink-0" disabled={values.isDemo} onClick={() => set("verifiedAt", todayInput())}>
+                <CalendarCheck aria-hidden />
+                {t("verification.today")}
+              </Button>
+            </div>
+          )}
+        </FormField>
+        <FormField
+          label={t("verification.source")}
+          hint={t("verification.sourceHint")}
+          required={Boolean(values.verifiedAt)}
+          error={errorAt(errors, "source")}
+        >
+          {(props) => (
+            <Input
+              {...props}
+              dir="auto"
+              value={values.source}
+              maxLength={LIMITS.placeSource}
+              placeholder={t("verification.sourcePlaceholder")}
+              onChange={(e) => set("source", e.target.value)}
+            />
+          )}
+        </FormField>
+        <p className="text-sm text-pretty sm:col-span-2" role="status">
+          {values.isDemo ? t("verification.demoNever") : values.verifiedAt ? t("verification.counts") : t("verification.notCounted")}
+        </p>
+      </section>
+
       <section className="grid gap-3 sm:grid-cols-2">
         <SwitchRow label={t("active")} description={t("activeHint")} checked={values.active} onCheckedChange={(v) => set("active", v)} />
         <SwitchRow
@@ -233,7 +296,7 @@ export function PlaceForm({ id, initial, cities }: { id: string | null; initial?
           }
           description={t("isDemoHint")}
           checked={values.isDemo}
-          onCheckedChange={(v) => set("isDemo", v)}
+          onCheckedChange={(v) => setValues((prev) => ({ ...prev, isDemo: v, ...(v ? { verifiedAt: "" } : {}) }))}
         />
       </section>
 

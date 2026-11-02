@@ -99,6 +99,25 @@ describe("schemas", () => {
     }
   });
 
+  it("place verification: a date needs a source, never on demo places, never in the future", () => {
+    const base = { type: "SYNAGOGUE", names, lat: 41.7, lng: 44.8 };
+    const unverified = placeSchema.parse(base);
+    expect(unverified.verifiedAt).toBeNull();
+    expect(unverified.source).toBe("");
+
+    const ok = placeSchema.parse({ ...base, verifiedAt: "2026-10-30", source: "Call with the community office" });
+    expect(ok.verifiedAt?.toISOString()).toBe("2026-10-30T00:00:00.000Z");
+
+    const errorsOf = (values: Record<string, unknown>) => {
+      const result = placeSchema.safeParse({ ...base, ...values });
+      return result.success ? {} : issuesToFieldErrors(result.error);
+    };
+    expect(errorsOf({ verifiedAt: "2026-10-30" }).source).toEqual(["source_required"]);
+    expect(errorsOf({ verifiedAt: "2026-10-30", source: "x", isDemo: true }).verifiedAt).toEqual(["demo_not_verifiable"]);
+    expect(errorsOf({ verifiedAt: "3000-01-01", source: "x" }).verifiedAt).toEqual(["date_in_future"]);
+    expect(errorsOf({ verifiedAt: "30.10.2026", source: "x" }).verifiedAt).toContain("invalid_date");
+  });
+
   it("checks that an alert ends after it starts", () => {
     const alert = { title: names, body: names, startsAt: "2026-11-02T10:00:00Z" };
     expect(alertSchema.safeParse({ ...alert, endsAt: "2026-11-03T10:00:00Z" }).success).toBe(true);

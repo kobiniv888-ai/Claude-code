@@ -128,12 +128,12 @@ export const STEP_FIELDS = {
   deal: ["dealType"],
   property: ["propertyType", "businessName"],
   location: ["cityId", "neighborhoodId", "address", "lat", "lng"],
-  details: [
-    "rooms", "bedrooms", "bathrooms", "bedsSingle", "bedsDouble", "bedsSofa", "maxGuests", "sizeSqm",
-    "floor", "totalFloors", "elevator", "yearBuilt", "buildingAge", "furnished", "condition", "heating",
-    "views", "cadastralCode", "sharedRoomFor", "originalLocale", "title", "description", "videoUrl",
-    "tour360Url",
-  ],
+  // Round 1's "details" step, split (brief 5.7). maxGuests is asked here only for monthly rentals;
+  // short stays and hotels set it in "booking" (both save the same value).
+  size: ["rooms", "bedrooms", "bathrooms", "bedsSingle", "bedsDouble", "bedsSofa", "maxGuests", "sizeSqm", "sharedRoomFor"],
+  building: ["floor", "totalFloors", "elevator", "yearBuilt", "buildingAge", "cadastralCode"],
+  features: ["condition", "furnished", "heating", "views", "videoUrl", "tour360Url"],
+  text: ["originalLocale", "title", "description"],
   amenities: [
     "amenities", "petsAllowed", "smokingAllowed", "partiesAllowed", "checkInFrom", "checkOutUntil",
     "quietHoursFrom", "quietHoursTo",
@@ -335,6 +335,36 @@ export const detailsStepSchema = z.object({
   tour360Url: urlField.refine((v) => v === "" || isHttpsUrl(v), "httpsOnly"),
 });
 
+/** The four steps that replaced round 1's "details" step each validate their part of it. */
+export const sizeStepSchema = detailsStepSchema.pick({
+  rooms: true,
+  bedrooms: true,
+  bathrooms: true,
+  bedsSingle: true,
+  bedsDouble: true,
+  bedsSofa: true,
+  maxGuests: true,
+  sizeSqm: true,
+  sharedRoomFor: true,
+});
+export const buildingStepSchema = detailsStepSchema.pick({
+  floor: true,
+  totalFloors: true,
+  elevator: true,
+  yearBuilt: true,
+  buildingAge: true,
+  cadastralCode: true,
+});
+export const featuresStepSchema = detailsStepSchema.pick({
+  condition: true,
+  furnished: true,
+  heating: true,
+  views: true,
+  videoUrl: true,
+  tour360Url: true,
+});
+export const textStepSchema = detailsStepSchema.pick({ originalLocale: true, title: true, description: true });
+
 export const amenitiesStepSchema = z.object({
   amenities: uniqueKeys(AMENITIES),
   petsAllowed: bool,
@@ -416,7 +446,10 @@ export const stepSaveSchemas = {
   deal: dealStepSchema,
   property: propertyStepSchema,
   location: locationStepSchema,
-  details: detailsStepSchema,
+  size: sizeStepSchema,
+  building: buildingStepSchema,
+  features: featuresStepSchema,
+  text: textStepSchema,
   amenities: amenitiesStepSchema,
   jewish: jewishStepSchema,
   price: priceStepSchema,
@@ -458,24 +491,32 @@ function requiredIssues(step: SavableStepKey, v: WizardValues, kind: ListingKind
       if (v.lat === null || v.lng === null) into.lat = "pinRequired";
       else if (!isInGeorgia(v.lat, v.lng)) into.lat = "outsideGeorgia";
       break;
-    case "details": {
+    // Only the essentials are required (brief 5.7): rooms for rentals and sales, the size of a
+    // home for sale, who shares a room, and a title and description.
+    case "size":
+      // Short stays enter their maximum guests in the booking step.
+      if (kind.dealType === "SHORT_STAY" && !usesBookingStep(kind)) need("maxGuests");
+      if (kind.dealType === "SALE") need("sizeSqm");
+      if (kind.dealType === "SALE" || kind.dealType === "MONTHLY_RENT") need("rooms");
+      if (applies("sharedRoomFor", kind)) need("sharedRoomFor");
+      if (applies("bedrooms", kind) && v.bedrooms !== null && v.rooms !== null && v.bedrooms > v.rooms && !into.bedrooms) {
+        into.bedrooms = "bedroomsAboveRooms";
+      }
+      break;
+    case "building":
+      if (applies("floor", kind) && v.floor !== null && v.totalFloors !== null && v.floor > v.totalFloors && !into.floor) {
+        into.floor = "floorAboveTotal";
+      }
+      break;
+    case "features":
+      break;
+    case "text": {
       need("title");
       need("description");
       const title = v.title.trim();
       const description = v.description.trim();
       if (!into.title && title.length < LIMITS.titleMin) into.title = "titleTooShort";
       if (!into.description && description.length < LIMITS.descriptionMin) into.description = "descriptionTooShort";
-      // Short stays enter their maximum guests in the booking step.
-      if (kind.dealType === "SHORT_STAY" && !usesBookingStep(kind)) need("maxGuests");
-      if (kind.dealType === "SALE") need("sizeSqm");
-      if (kind.dealType === "SALE" || kind.dealType === "MONTHLY_RENT") need("rooms");
-      if (applies("sharedRoomFor", kind)) need("sharedRoomFor");
-      if (applies("floor", kind) && v.floor !== null && v.totalFloors !== null && v.floor > v.totalFloors && !into.floor) {
-        into.floor = "floorAboveTotal";
-      }
-      if (applies("bedrooms", kind) && v.bedrooms !== null && v.rooms !== null && v.bedrooms > v.rooms && !into.bedrooms) {
-        into.bedrooms = "bedroomsAboveRooms";
-      }
       break;
     }
     case "amenities":

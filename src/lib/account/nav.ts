@@ -1,6 +1,11 @@
 /**
  * The "My account" navigation (pure, client-safe). Phase 2 sections appear only when their
  * feature flag in siteConfig.features is on.
+ *
+ * Tabs (brief 5.8): סקירה · הנסיעות שלי · הנכסים שלי · הזמנות לנכסים שלי (hosts only) · שמורים ·
+ * אימות · הגדרות. The other pages keep their URLs but are not tabs: "Compare" is reached from
+ * שמורים, support requests from the overview; on phones they join the tab strip while open or
+ * while something waits there (see AccountShell).
  */
 import { siteConfig } from "@/config/site";
 import { HOST_BOOKINGS_PATH, TRIPS_PATH } from "@/lib/booking/constants";
@@ -21,7 +26,23 @@ export const ACCOUNT_NAV_KEYS = [
 ] as const;
 export type AccountNavKey = (typeof ACCOUNT_NAV_KEYS)[number];
 
-export type AccountNavItem = { key: AccountNavKey; href: string };
+/** The seven tabs, in order (hostBookings only for hosts). */
+export const ACCOUNT_TAB_KEYS = [
+  "overview",
+  "trips",
+  "listings",
+  "hostBookings",
+  "favorites",
+  "verification",
+  "settings",
+] as const satisfies readonly AccountNavKey[];
+
+export type AccountNavItem = {
+  key: AccountNavKey;
+  href: string;
+  /** One of the seven tabs; false for the secondary links (compare, support…). */
+  tab: boolean;
+};
 
 const HREFS: Record<AccountNavKey, string> = {
   overview: "/account",
@@ -56,7 +77,10 @@ export function accountNavItems(features: FeatureFlags = siteConfig.features, op
     if (key === "hostBookings") return options.host === true;
     const flag = FLAG_FOR[key];
     return !flag || features[flag];
-  }).map((key) => ({ key, href: HREFS[key] }));
+  })
+    .map((key) => ({ key, href: HREFS[key], tab: (ACCOUNT_TAB_KEYS as readonly string[]).includes(key) }))
+    // Tabs first (in the brief's order), then the secondary links.
+    .sort((a, b) => Number(b.tab) - Number(a.tab));
 }
 
 function normalize(pathname: string): string {

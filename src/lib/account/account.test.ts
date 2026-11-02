@@ -37,12 +37,24 @@ const flags = { chat: false, savedSearchAlerts: false, reviews: false };
 describe("account nav", () => {
   it("hides Phase 2 sections until their flag is on", () => {
     const keys = accountNavItems(flags).map((i) => i.key);
-    expect(keys).toEqual(["overview", "trips", "listings", "favorites", "compare", "tickets", "verification", "settings"]);
+    // The tabs first (brief 5.8), then the secondary pages.
+    expect(keys).toEqual(["overview", "trips", "listings", "favorites", "verification", "settings", "compare", "tickets"]);
     expect(accountNavItems(flags, { host: true }).map((i) => i.key)).toContain("hostBookings");
     const withChat = accountNavItems({ ...flags, chat: true, reviews: true }).map((i) => i.key);
     expect(withChat).toContain("messages");
     expect(withChat).toContain("reviews");
     expect(withChat).not.toContain("savedSearches");
+  });
+
+  it("has the brief's seven tabs (hostBookings only for hosts); compare and support stay as secondary pages", () => {
+    const tabs = (host: boolean) => accountNavItems(flags, { host }).filter((i) => i.tab).map((i) => i.key);
+    expect(tabs(true)).toEqual(["overview", "trips", "listings", "hostBookings", "favorites", "verification", "settings"]);
+    expect(tabs(false)).not.toContain("hostBookings");
+    const secondary = accountNavItems(flags).filter((i) => !i.tab);
+    expect(secondary.map((i) => [i.key, i.href])).toEqual([
+      ["compare", "/account/compare"],
+      ["tickets", "/account/tickets"],
+    ]);
   });
 
   it("finds the active section by the longest prefix", () => {

@@ -1,13 +1,12 @@
-import { BookOpen, CalendarDays, MapPinned, Phone } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { ShabbatCandlesIcon } from "@/components/ds/jewish-icons";
 import { EmergencyContacts } from "@/components/jewish-life/emergency-contacts";
 import { ExploreSection } from "@/components/jewish-life/explore-section";
 import { GuidesSection } from "@/components/jewish-life/guides-section";
 import { JewishCalendar } from "@/components/jewish-life/jewish-calendar";
 import { JewishLifeHero } from "@/components/jewish-life/jewish-life-hero";
+import { JL_SECTIONS, JumpNav } from "@/components/jewish-life/jump-nav";
 import { PlacesSection } from "@/components/jewish-life/places-section";
 import { JlContainer, JlSection } from "@/components/jewish-life/section";
 import { ShabbatTimesTable } from "@/components/jewish-life/shabbat-times-table";
@@ -42,11 +41,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 /**
- * Jewish life in Georgia (brief §5.8): a synagogue photo hero with the 4 quick actions, the
- * promise (every host welcomes you) with one-tap searches, this week's Shabbat (live countdown
- * with city chips + the per-city table with the parasha), photo cards for synagogues, kosher food
- * and community, the places map and list (3 places first on phones, then "show all"), the Hebrew
- * calendar with upcoming holidays, emergency numbers you tap to call and guides ("coming soon").
+ * Jewish life in Georgia (round 2, brief 5.9): a calm title band and a sticky "on this page" row
+ * of jump links (Shabbat times, calendar, community map, emergency numbers, guides), then the
+ * sections in that order: this week's Shabbat (countdown with city chips + the per-city table),
+ * the Hebrew calendar with upcoming holidays, the community (photo cards, the map and list of
+ * places), emergency numbers you tap to call, and the guides. The promise with one-tap searches
+ * and the longer introduction close the page. All content is kept; only the layout is calmer.
  */
 export default async function JewishLifePage({ params, searchParams }: Props) {
   const { locale } = await params;
@@ -70,29 +70,20 @@ export default async function JewishLifePage({ params, searchParams }: Props) {
   return (
     <div className="pb-8">
       <JewishLifeHero locale={locale} />
+      {/* Without Shabbat cities (no data yet) the times and calendar sections are not shown. */}
+      <JumpNav locale={locale} sections={city ? JL_SECTIONS : JL_SECTIONS.filter((s) => s.id !== "shabbat-times" && s.id !== "calendar")} />
 
-      <JlContainer>
-        <WelcomeStrip locale={locale} />
-      </JlContainer>
-
-      {/* This week's Shabbat comes first (brief §5.8): it is what most visitors open the page for. */}
+      {/* This week's Shabbat comes first: it is what most visitors open the page for. */}
       {city ? (
-        <JlSection
-          id="shabbat-times"
-          icon={ShabbatCandlesIcon}
-          tone="coral"
-          title={t("times.title")}
-          lead={t("times.lead")}
-          className="bg-primary-tint/50"
-        >
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] lg:items-start lg:gap-6">
+        <JlSection id="shabbat-times" title={t("times.title")} lead={t("times.lead")} className="border-t-0">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] lg:items-start lg:gap-6">
             <ShabbatCountdownCard
               cities={cities.map((c) => c.slug)}
               initialCity={city.slug}
               headingLevel="h3"
               moreHref={null}
               locale={locale}
-              className="lg:sticky lg:top-24"
+              className="lg:sticky lg:top-[calc(var(--header-height)+4.5rem)]"
             />
             <ShabbatTimesTable
               cities={cities}
@@ -105,28 +96,8 @@ export default async function JewishLifePage({ params, searchParams }: Props) {
         </JlSection>
       ) : null}
 
-      <JlContainer>
-        <ExploreSection locale={locale} />
-        <IntroDetails locale={locale} />
-      </JlContainer>
-
-      <JlSection id="places" icon={MapPinned} title={t("places.title")} lead={t("places.lead")}>
-        <PlacesSection
-          locale={locale}
-          initialTypes={parsePlaceTypes(query.type)}
-          initialCity={pageParams.placeCity ?? null}
-        />
-      </JlSection>
-
       {city ? (
-        <JlSection
-          id="calendar"
-          icon={CalendarDays}
-          tone="green"
-          title={t("calendar.title")}
-          lead={t("calendar.lead")}
-          className="bg-primary-tint/50"
-        >
+        <JlSection id="calendar" title={t("calendar.title")} lead={t("calendar.lead")}>
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
             <JewishCalendar
               month={month}
@@ -147,19 +118,27 @@ export default async function JewishLifePage({ params, searchParams }: Props) {
         </JlSection>
       ) : null}
 
-      <JlSection
-        id="emergency"
-        icon={Phone}
-        tone="amber"
-        title={t("emergency.title")}
-        lead={t("emergency.lead")}
-      >
+      <JlSection id="places" title={t("places.title")} lead={t("places.lead")}>
+        <ExploreSection locale={locale} />
+        <PlacesSection
+          locale={locale}
+          initialTypes={parsePlaceTypes(query.type)}
+          initialCity={pageParams.placeCity ?? null}
+        />
+      </JlSection>
+
+      <JlSection id="emergency" title={t("emergency.title")} lead={t("emergency.lead")}>
         <EmergencyContacts locale={locale} />
       </JlSection>
 
-      <JlSection id="guides" icon={BookOpen} title={t("guides.title")} lead={t("guides.lead")} className="bg-primary-tint/50">
+      <JlSection id="guides" title={t("guides.title")} lead={t("guides.lead")}>
         <GuidesSection locale={locale} />
       </JlSection>
+
+      <JlContainer className="border-t border-border pb-section">
+        <WelcomeStrip locale={locale} />
+        <IntroDetails locale={locale} />
+      </JlContainer>
     </div>
   );
 }

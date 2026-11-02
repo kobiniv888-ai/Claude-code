@@ -221,9 +221,9 @@ export function toListingCard(row: ListingCardRow, ctx: CardMapContext): Listing
       shabbatFriendly: row.isShabbatFriendly,
       kosherKitchen: row.kitchenKosher === "KOSHER",
       synagogueWalkMin: row.synagogueWalkMin,
-      // Proximity of a real listing is computed from real (non-demo) community places only
-      // (src/lib/nearby.ts); a demo listing may use demo places, so it never gets the tag.
-      // TODO(phase 5): once JewishPlace has verifiedAt, count only verified places in nearby.ts.
+      // Proximity of a real listing is computed from verified, non-demo community places only
+      // (proximityPlaceWhere in src/lib/nearby.ts); a demo listing may use demo places, so it
+      // never gets the tag.
       synagogueVerified: !row.isDemo && row.synagogueWalkMin != null,
       isNew: within(row.publishedAt, newLabelDays, now),
       priceDropped: within(row.priceDroppedAt, priceDropLabelDays, now),

@@ -27,9 +27,10 @@ import { PublishResult } from "./publish-result";
 import type { StepProps } from "./step-props";
 import { AmenitiesStep } from "./steps/amenities-step";
 import { BookingStep } from "./steps/booking-step";
+import { BuildingStep } from "./steps/building-step";
 import { ContactStep } from "./steps/contact-step";
 import { DealStep } from "./steps/deal-step";
-import { DetailsStep } from "./steps/details-step";
+import { FeaturesStep } from "./steps/features-step";
 import { JewishStep } from "./steps/jewish-step";
 import { LocationStep } from "./steps/location-step";
 import { PhotosStep } from "./steps/photos-step";
@@ -38,6 +39,8 @@ import { PriceStep } from "./steps/price-step";
 import { PropertyStep } from "./steps/property-step";
 import { PublishStep } from "./steps/publish-step";
 import { RoomsStep } from "./steps/rooms-step";
+import { SizeStep } from "./steps/size-step";
+import { TextStep } from "./steps/text-step";
 import { useAutosave } from "./use-autosave";
 import { WizardNav, WizardProgress } from "./wizard-chrome";
 import { scrollBehavior } from "@/lib/motion";
@@ -46,7 +49,10 @@ const STEP_COMPONENTS: Record<WizardStepKey, ComponentType<StepProps>> = {
   deal: DealStep,
   property: PropertyStep,
   location: LocationStep,
-  details: DetailsStep,
+  size: SizeStep,
+  building: BuildingStep,
+  features: FeaturesStep,
+  text: TextStep,
   amenities: AmenitiesStep,
   jewish: JewishStep,
   photos: PhotosStep,
@@ -365,7 +371,7 @@ export function WizardShell({
     <div className="mx-auto w-full max-w-3xl px-4 pt-3 pb-6 sm:pt-8">
       <header className="mb-4 flex items-center justify-between gap-3">
         <div className="grid min-w-0 gap-0.5">
-          <p className="truncate text-caption font-semibold tracking-wide text-muted-foreground uppercase">
+          <p className="text-caption font-semibold tracking-wide text-pretty text-muted-foreground uppercase">
             {isEdit ? t("chrome.editing") : t("chrome.newListing")}
           </p>
           <p className="text-caption text-muted-foreground">

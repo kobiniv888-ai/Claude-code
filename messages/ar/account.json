@@ -2,7 +2,7 @@
   "loading": "جارٍ التحميل…",
   "meta": {
     "overview": "حسابي",
-    "listings": "إعلاناتي",
+    "listings": "عقاراتي",
     "stats": "إحصاءات الإعلان",
     "favorites": "الإعلانات المحفوظة",
     "compare": "مقارنة الإعلانات",
@@ -15,7 +15,7 @@
     "heading": "حسابي",
     "overview": "نظرة عامة",
     "trips": "رحلاتي",
-    "listings": "إعلاناتي",
+    "listings": "عقاراتي",
     "hostBookings": "حجوزات عقاراتي",
     "favorites": "المحفوظة",
     "compare": "المقارنة",
@@ -64,7 +64,7 @@
       }
     },
     "listings": {
-      "title": "إعلاناتي",
+      "title": "عقاراتي",
       "all": "{count, plural, one {عرض الإعلان} other {عرض كل الإعلانات ({countText})}}"
     },
     "attention": {
@@ -98,7 +98,7 @@
     "greetingNoName": "مرحبًا!"
   },
   "listings": {
-    "title": "إعلاناتي",
+    "title": "عقاراتي",
     "lead": "أدِر إعلاناتك: عدّل وأوقف مؤقتًا وجدّد وتابع أداءها.",
     "post": "انشر إعلانًا",
     "howItWorks": "كيف يعمل الموقع",

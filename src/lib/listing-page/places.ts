@@ -8,9 +8,9 @@ export type VerifiedPlace = { kind: "synagogue" | "chabad"; name: string; minute
 
 /**
  * The nearest synagogue (or Chabad house) for the folded "Kosher and Shabbat" section, ONLY when
- * it is a real, checked place: active and not demo data. Listing.nearby is computed from every
- * active place (demo ones too, for demo listings), so its entry is checked against the table.
- * Phase 5 adds JewishPlace.verifiedAt; then require it here as well.
+ * it is a real, checked place: active, not demo data, and verified (JewishPlace.verifiedAt, brief
+ * 5.9). A demo listing's Listing.nearby may point to demo places, and a place can be hidden or
+ * un-verified after the listing was computed, so the entry is checked against the table.
  * Never throws: the section just leaves the line out.
  */
 export async function verifiedNearestSynagogue(nearby: NearbyInfo, locale: AppLocale): Promise<VerifiedPlace | null> {
@@ -23,7 +23,7 @@ export async function verifiedNearestSynagogue(nearby: NearbyInfo, locale: AppLo
   if (candidates.length === 0) return null;
   try {
     const real = await db.jewishPlace.findMany({
-      where: { id: { in: candidates.map((c) => c.place.id) }, active: true, isDemo: false },
+      where: { id: { in: candidates.map((c) => c.place.id) }, active: true, isDemo: false, verifiedAt: { not: null } },
       select: { id: true },
     });
     const ok = new Set(real.map((p) => p.id));

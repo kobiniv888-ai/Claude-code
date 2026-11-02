@@ -151,17 +151,6 @@ export const PHOTO_SLOTS = {
 
 export type PhotoSlotKey = keyof typeof PHOTO_SLOTS;
 
-/** The home hero slideshow, in order (the first one is the LCP image: give it priority). */
-export const HERO_SLIDES = [
-  "hero.tbilisi",
-  "hero.batumi",
-  "hero.kazbegi",
-  "hero.gudauri",
-  "hero.sighnaghi",
-  "hero.mestia",
-  "hero.borjomi",
-] as const satisfies readonly PhotoSlotKey[];
-
 const FILES = manifest as Record<string, PhotoFile>;
 
 /** Size, blur and credit of a file under public/ ("/photos/cities/batumi.webp"), or null when it is missing. */

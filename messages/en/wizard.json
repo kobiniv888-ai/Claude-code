@@ -33,7 +33,7 @@
     "deleteDraftConfirm": "Delete draft",
     "cancel": "Cancel",
     "deleted": "Draft deleted",
-    "pledgeNote": "Every host here promises to welcome Israeli and Jewish guests. You confirm it in the step before publishing, and get the green badge."
+    "pledgeNote": "Every host here promises to welcome Israeli and Jewish guests. You confirm it in the step before publishing, and get the “Welcomes Israelis” badge."
   },
   "shabbat": {
     "title": "Shabbat Shalom",
@@ -45,7 +45,10 @@
     "deal": "Deal type",
     "property": "Property type",
     "location": "Location",
-    "details": "Details",
+    "size": "Size and rooms",
+    "building": "The building",
+    "features": "Condition and features",
+    "text": "Title and description",
     "amenities": "Amenities",
     "jewish": "Jewish-friendly",
     "photos": "Photos",
@@ -99,7 +102,7 @@
     "too_many_room_types": "You can add up to 30 room types.",
     "translation_disabled": "Automatic translation isn't available right now. You can write the other languages yourself.",
     "translation_needs_text": "Write a title and a description first, then translate them.",
-    "edit_original_in_details": "This is your original language — edit it in the Details step.",
+    "edit_original_in_details": "This is your original language — edit it in the “Title and description” step.",
     "missing_requirements": "A few things are still missing before you can publish.",
     "rules_not_accepted": "Please accept the listing rules to publish.",
     "already_published": "This listing is already published. Use \"Save changes\" instead.",
@@ -337,14 +340,12 @@
     "pinSet": "Pin set at",
     "geoUnsupported": "Your browser can't share your location. Please search the address or tap the map.",
     "geoOutside": "Your location seems to be outside Georgia. Please search the address or tap the map.",
+    "tapOutside": "That spot is outside Georgia. Tap a place inside Georgia.",
     "geoDenied": "Location access was blocked. You can allow it in your browser settings, or tap the map.",
     "geoFailed": "We couldn't find your location. Please search the address or tap the map.",
     "privacyNote": "Only the approximate area (about {meters} m) is shown publicly. You share the exact address after a guest contacts you."
   },
   "details": {
-    "title": "Tell guests about the place",
-    "subtitle": "The more you fill in, the easier it is for the right guests to find you.",
-    "sizeTitle": "Size and rooms",
     "rooms": "Rooms",
     "roomsHelp": "All rooms except the kitchen and bathrooms (2.5 is fine).",
     "bedrooms": "Bedrooms",
@@ -357,7 +358,6 @@
     "bedsSofa": "Sofa beds",
     "size": "Size",
     "sqm": "m²",
-    "buildingTitle": "Building",
     "floor": "Floor",
     "floorHelp": "0 = ground floor",
     "totalFloors": "Floors in the building",
@@ -369,7 +369,6 @@
       "NEW": "Built in recent years (often with a new-building frame status).",
       "OLD": "An older building, for example Soviet-era or historic."
     },
-    "marketTitle": "Condition and features",
     "marketDescription": "Georgian property terms help buyers and tenants compare places.",
     "condition": "Condition",
     "conditionHelp": {
@@ -388,8 +387,6 @@
     "sharedTitle": "Who is the shared room for?",
     "sharedDescription": "For rooms in shared apartments only: let guests know who shares the apartment.",
     "sharedLegend": "Shared room for",
-    "textTitle": "Title and description",
-    "textDescription": "Write in your own language — we can translate it into the other languages.",
     "writingIn": "I'm writing in",
     "writingInHelp": "The language of your title and description.",
     "titleLabel": "Title",
@@ -403,6 +400,26 @@
     "videoUrlHelp": "A YouTube or Vimeo link.",
     "tourUrl": "360° tour link",
     "tourUrlHelp": "A virtual tour link (Matterport, Kuula…), starting with https://."
+  },
+  "size": {
+    "title": "Size and rooms",
+    "subtitle": "How many rooms and beds there are, and how big the place is."
+  },
+  "building": {
+    "title": "The building",
+    "subtitle": "Floor, elevator and year built. Skip anything you don't know.",
+    "privateTitle": "Property registration"
+  },
+  "features": {
+    "title": "Condition and features",
+    "subtitle": "Everything here is optional. Open only what matters for your place.",
+    "notSet": "Not set",
+    "unfurnished": "Not furnished",
+    "selectedCount": "{count, plural, one {{countText} selected} other {{countText} selected}}"
+  },
+  "text": {
+    "title": "Title and description",
+    "subtitle": "Write in your own language — we can translate it into the other languages."
   },
   "amenities": {
     "title": "What does the place offer?",
@@ -711,7 +728,7 @@
       "reasons": {
         "guests": "Israeli and Jewish guests know they are welcome at your place, and contact you with peace of mind.",
         "everyone": "Every host here makes the same promise.",
-        "badge": "Your listings get the green badge:"
+        "badge": "Your listings get this badge:"
       }
     }
   },
@@ -723,7 +740,10 @@
       "phoneVerified": "Verify your phone number",
       "propertyType": "Choose the property type",
       "location": "Choose the city and put the pin on the map",
-      "details": "Fill in the title, description and required details",
+      "size": "Fill in the size and rooms",
+      "building": "Check the building details",
+      "features": "Fix the details in “Condition and features”",
+      "text": "Write a title and a description",
       "photos": "Add at least {count} photos",
       "price": "Enter the price",
       "contact": "Add a contact method",
@@ -809,7 +829,7 @@
     "share": "Share",
     "copied": "Link copied",
     "shareFailed": "Couldn't share. Please copy the link from the listing page.",
-    "myListings": "My listings",
+    "myListings": "My places",
     "keepEditing": "Keep editing",
     "fixIn": "Fix in \"{step}\"",
     "next": {

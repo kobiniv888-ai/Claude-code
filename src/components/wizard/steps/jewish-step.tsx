@@ -48,7 +48,7 @@ function ShabbatBadgePreview({ features }: { features: string[] }) {
     <div
       className={cn(
         "grid gap-3 rounded-card border p-4 transition-colors",
-        on ? "border-success/30 bg-primary-tint dark:bg-success/15" : "border-dashed border-border bg-muted/40",
+        on ? "border-primary/30 bg-primary-tint" : "border-dashed border-border bg-muted/40",
       )}
       aria-live="polite"
     >
@@ -62,7 +62,7 @@ function ShabbatBadgePreview({ features }: { features: string[] }) {
         {rules.map((rule) => (
           <li key={rule.key} className="flex items-center gap-2">
             {rule.met ? (
-              <CircleCheckIcon className="size-4 text-success" aria-hidden />
+              <CircleCheckIcon className="size-4 text-primary-text" aria-hidden />
             ) : (
               <CircleIcon className="size-4 text-muted-foreground" aria-hidden />
             )}
@@ -119,7 +119,7 @@ function KosherCertificateUpload({
       <span className="text-sm font-medium">{t("certPhoto")}</span>
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-dashed border-border bg-muted/30 p-3">
         {value ? (
-          <span className="flex min-w-0 items-center gap-2 text-sm font-medium text-success">
+          <span className="flex min-w-0 items-center gap-2 text-sm font-medium text-primary-text">
             <FileCheckIcon className="size-5 shrink-0" aria-hidden />
             <span className="truncate" dir="auto">
               {fileName ?? t("certUploaded")}

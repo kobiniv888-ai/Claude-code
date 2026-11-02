@@ -12,7 +12,9 @@ import { haversineMeters, walkingMinutes, type LatLng } from "@/lib/geo";
  *
  * Sets Listing.synagogueWalkMin (nearest synagogue or Chabad house), Listing.chabadWalkMin,
  * Listing.nearby (NearbyInfo JSON) and nearbyUpdatedAt.
- * - Jewish places: active JewishPlace rows within 5 km (demo places only for demo listings).
+ * - Jewish places: active JewishPlace rows within 5 km. A real listing uses ONLY verified, non-demo
+ *   places (JewishPlace.verifiedAt set, brief 5.9); a demo listing may also use demo places (the
+ *   demo shows them labeled "(דמו)" and its cards never get a walking-time tag).
  * - Supermarket and public transport: OpenStreetMap through the Overpass API, 1.2 km around the
  *   listing, 8 s timeout. Fail-safe: when Overpass is slow or down, the previous values are kept.
  *   OVERPASS_ENABLED="false" switches it off; OVERPASS_URL points to another instance.
@@ -85,12 +87,21 @@ function nearestOf(point: LatLng, places: PlaceRow[], types: JewishPlaceType[]):
   return { id: best.place.id, name: toLocalized(best.place.names), ...distanceEntry(best.meters) };
 }
 
-async function jewishPlacesNear(point: LatLng, includeDemo: boolean): Promise<PlaceRow[]> {
+/**
+ * Which community places may give a listing its walking times (brief 5.9): never invented ones.
+ * Real listings: active, non-demo places with a verification date. Demo listings: those, plus
+ * active demo places. Exported for tests.
+ */
+export function proximityPlaceWhere(listingIsDemo: boolean): Prisma.JewishPlaceWhereInput {
+  const verifiedReal: Prisma.JewishPlaceWhereInput = { isDemo: false, verifiedAt: { not: null } };
+  return listingIsDemo ? { active: true, OR: [verifiedReal, { isDemo: true }] } : { active: true, ...verifiedReal };
+}
+
+async function jewishPlacesNear(point: LatLng, listingIsDemo: boolean): Promise<PlaceRow[]> {
   const box = boundingBox(point, JEWISH_RADIUS_M);
   return db.jewishPlace.findMany({
     where: {
-      active: true,
-      ...(includeDemo ? {} : { isDemo: false }),
+      ...proximityPlaceWhere(listingIsDemo),
       lat: { gte: box.minLat, lte: box.maxLat },
       lng: { gte: box.minLng, lte: box.maxLng },
     },

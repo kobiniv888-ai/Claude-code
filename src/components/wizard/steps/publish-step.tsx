@@ -315,7 +315,7 @@ function TranslationsPanel({ listing, context, values, translations, setTranslat
                   <p className="text-sm whitespace-pre-line text-pretty" dir="auto">
                     {values.description || t("noDescription")}
                   </p>
-                  <Button type="button" variant="outline" size="sm" className="justify-self-start" onClick={() => goTo("details")}>
+                  <Button type="button" variant="outline" size="sm" className="justify-self-start" onClick={() => goTo("text")}>
                     <PencilIcon aria-hidden />
                     {t("editOriginal")}
                   </Button>

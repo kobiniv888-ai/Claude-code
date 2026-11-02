@@ -2,7 +2,7 @@
   "loading": "Loading…",
   "meta": {
     "overview": "My account",
-    "listings": "My listings",
+    "listings": "My places",
     "stats": "Listing statistics",
     "favorites": "Saved listings",
     "compare": "Compare listings",
@@ -15,7 +15,7 @@
     "heading": "My account",
     "overview": "Overview",
     "trips": "My trips",
-    "listings": "My listings",
+    "listings": "My places",
     "hostBookings": "Bookings of my places",
     "favorites": "Saved",
     "compare": "Compare",
@@ -64,7 +64,7 @@
       }
     },
     "listings": {
-      "title": "My listings",
+      "title": "My places",
       "all": "{count, plural, one {See {countText} listing} other {See all {countText} listings}}"
     },
     "attention": {
@@ -98,7 +98,7 @@
     "greetingNoName": "Hello!"
   },
   "listings": {
-    "title": "My listings",
+    "title": "My places",
     "lead": "Manage your listings: edit, pause, renew and see how they're doing.",
     "post": "Post a listing",
     "howItWorks": "How it works",

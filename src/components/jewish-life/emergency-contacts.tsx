@@ -64,7 +64,7 @@ export async function EmergencyContacts({ locale }: { locale: AppLocale }) {
                   <a
                     href={card.phoneHref}
                     aria-label={t("callLabel", { name: card.label, number: card.phone })}
-                    className="bh-press group flex flex-1 items-center gap-4 p-4 outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/60 sm:p-5"
+                    className="group flex flex-1 items-center gap-4 p-4 outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/60 sm:p-5"
                   >
                     <CardText card={card} icon={Icon} />
                     <span

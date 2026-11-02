@@ -11,7 +11,11 @@ export const REQUIREMENT_KEYS = [
   "phoneVerified",
   "propertyType",
   "location",
-  "details",
+  // Round 1's "details", split with its step (brief 5.7).
+  "size",
+  "building",
+  "features",
+  "text",
   "photos",
   "price",
   "contact",
@@ -41,7 +45,10 @@ export type RequirementInput = {
 const STEP_REQUIREMENTS: { key: RequirementKey; step: SavableStepKey }[] = [
   { key: "propertyType", step: "property" },
   { key: "location", step: "location" },
-  { key: "details", step: "details" },
+  { key: "size", step: "size" },
+  { key: "building", step: "building" },
+  { key: "features", step: "features" },
+  { key: "text", step: "text" },
   { key: "price", step: "price" },
   { key: "contact", step: "contact" },
 ];

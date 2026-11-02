@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accountGreeting } from "./greeting";
+import { accountGreeting, settingsFirstName } from "./greeting";
 
 describe("accountGreeting", () => {
   it("uses the first name of a real account", () => {
@@ -27,5 +27,21 @@ describe("accountGreeting", () => {
     expect(accountGreeting("Demo Admin", true)).toEqual({ kind: "demo" });
     expect(accountGreeting("Demo Hotel Batumi", true)).toEqual({ kind: "demo" });
     expect(accountGreeting("Demo-Owner", true)).toEqual({ kind: "demo" });
+  });
+});
+
+describe("settingsFirstName (the settings form's first name)", () => {
+  it("never prefills a demo account with \"Demo\"", () => {
+    expect(settingsFirstName({ name: "Demo Guest — Noa", isDemo: true })).toBe("Noa");
+    expect(settingsFirstName({ name: "Demo Owner — Yossi", firstName: null, isDemo: true })).toBe("Yossi");
+    expect(settingsFirstName({ name: "Demo Admin", isDemo: true })).toBeNull();
+    expect(settingsFirstName({ name: "Demo Owner — Yossi", firstName: "יוסי", isDemo: true })).toBe("יוסי");
+  });
+
+  it("uses the saved first name, else the first word of a real name, never a phone or an email", () => {
+    expect(settingsFirstName({ name: "Dana Cohen" })).toBe("Dana");
+    expect(settingsFirstName({ name: "Dana Cohen", firstName: "דנה" })).toBe("דנה");
+    expect(settingsFirstName({ name: "+972 50 123 4567" })).toBeNull();
+    expect(settingsFirstName({ name: "dana@example.com" })).toBeNull();
   });
 });

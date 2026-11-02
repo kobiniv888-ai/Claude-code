@@ -5,16 +5,8 @@
     "description": "A map of synagogues, Chabad houses, kosher restaurants and shops, mikvaot and Jewish heritage sites in Georgia, with this week's Shabbat times for every city and a Jewish calendar — on {siteName}."
   },
   "hero": {
-    "eyebrow": "Jewish Life",
     "title": "Jewish life in Georgia",
-    "lead": "Synagogues, kosher food and Shabbat times — everything for your trip to Georgia, in one place.",
-    "actionsLabel": "Quick links",
-    "actions": {
-      "map": "Community map",
-      "times": "Shabbat times",
-      "calendar": "Hebrew calendar",
-      "emergency": "Emergency numbers"
-    }
+    "lead": "Synagogues, kosher food and Shabbat times — everything for your trip to Georgia, in one place."
   },
   "welcome": {
     "title": "Every host here welcomes Israelis and Jews",
@@ -136,7 +128,9 @@
       "fast": "Fast day",
       "modern": "Israeli national day",
       "timesIn": "Times in {city} local time"
-    }
+    },
+    "allDays": "Show every day of the month",
+    "fewerDays": "Only days with times and holidays"
   },
   "upcoming": {
     "title": "Upcoming holidays",
@@ -150,7 +144,8 @@
       "fast": "Fast day",
       "modern": "Israeli national day"
     },
-    "showInCalendar": "Show in calendar"
+    "showInCalendar": "Show in calendar",
+    "more": "{count, plural, one {One more holiday} other {{formatted} more holidays}}"
   },
   "guides": {
     "title": "Guides for Jewish travelers",
@@ -204,5 +199,13 @@
     "body": "Something went wrong on our side. Please try again in a moment.",
     "retry": "Try again",
     "home": "Go to the home page"
+  },
+  "jump": {
+    "label": "On this page",
+    "times": "Shabbat times",
+    "calendar": "Calendar",
+    "places": "Community map",
+    "emergency": "Emergency numbers",
+    "guides": "Guides"
   }
 }

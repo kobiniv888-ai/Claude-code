@@ -2,6 +2,7 @@
 
 import { Flame, MoonStar } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
+import { useId, useState } from "react";
 import type { AppLocale } from "@/config/site";
 import { formatDate, formatTime } from "@/lib/format";
 import type { JewishCalendarDay } from "@/lib/hebcal";
@@ -96,6 +97,13 @@ export function CalendarMonthView({ data, today }: { data: CalendarMonthData; to
   }));
   const timeLabels = { candleLighting: t("candleLighting"), havdalah: t("havdalah") };
   const showToday = today.slice(0, 7) === monthParam;
+  // Phones: only the days with something on them (today, Shabbat, holidays, candle times) until
+  // "show every day" — the month list was the longest part of the hub (round 2, brief 5.9).
+  const [allDays, setAllDays] = useState(false);
+  const listId = useId();
+  const isNotable = (day: JewishCalendarDay) =>
+    (showToday && day.date === today) || day.holidays.length > 0 || Boolean(day.candleLighting || day.havdalah);
+  const plainCount = days.filter((day) => !isNotable(day)).length;
 
   return (
     <>
@@ -167,7 +175,7 @@ export function CalendarMonthView({ data, today }: { data: CalendarMonthData; to
     </div>
 
     {/* Phones: list of days */}
-    <ol className="divide-y md:hidden" aria-label={t("listLabel", { city: city.name })}>
+    <ol id={listId} className="divide-y md:hidden" aria-label={t("listLabel", { city: city.name })}>
       {days.map((day) => {
         const isToday = showToday && day.date === today;
         const yomTov = isYomTovDay(day);
@@ -180,6 +188,7 @@ export function CalendarMonthView({ data, today }: { data: CalendarMonthData; to
               "px-4 py-2",
               day.weekday === 6 && "bg-secondary/50",
               yomTov && "bg-primary/10",
+              !allDays && !isNotable(day) && "hidden",
             )}
           >
             <div className="flex items-center gap-3">
@@ -207,6 +216,20 @@ export function CalendarMonthView({ data, today }: { data: CalendarMonthData; to
         );
       })}
     </ol>
+
+    {plainCount > 0 ? (
+      <div className="border-t px-4 py-1 md:hidden">
+        <button
+          type="button"
+          aria-expanded={allDays}
+          aria-controls={listId}
+          onClick={() => setAllDays((value) => !value)}
+          className="inline-flex min-h-11 items-center rounded-full text-small font-medium text-primary-text outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          {allDays ? t("fewerDays") : t("allDays")}
+        </button>
+      </div>
+    ) : null}
 
     {/* Legend */}
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t px-4 py-3 text-xs text-muted-foreground sm:px-5">

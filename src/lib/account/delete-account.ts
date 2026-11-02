@@ -1,5 +1,6 @@
 import "server-only";
 import { Prisma } from "@/generated/prisma/client";
+import { releaseBookingsOfDeletedAccount } from "@/lib/booking/service";
 import { db } from "@/lib/db";
 import { isOwnPrivateUpload } from "@/lib/media";
 import { deletePrivate, deletePublic } from "@/lib/storage";
@@ -26,6 +27,9 @@ async function removeFiles(keys: string[], remove: (key: string) => Promise<void
 /**
  * Removes a user's personal data and anonymizes the account (server-only, no session checks —
  * the caller is the user's own "Delete my account" action):
+ *  - first, upcoming bookings (as guest or host) are cancelled and the other side is told, while
+ *    the names and contact details those messages need still exist; the guest snapshot on the
+ *    user's bookings is cleared (releaseBookingsOfDeletedAccount, docs/redesign-2/booking.md);
  *  - every listing → DELETED (soft) with its contact details, exact address/map point, cadastral
  *    code, kosher certificate photo and calendar imports cleared;
  *  - favorites (save counters adjusted), sessions, social/password accounts, device links,
@@ -38,6 +42,8 @@ async function removeFiles(keys: string[], remove: (key: string) => Promise<void
 export async function deleteAccountData(userId: string): Promise<void> {
   const now = new Date();
   const user = await db.user.findUniqueOrThrow({ where: { id: userId }, select: { id: true, image: true } });
+  // Before anything is anonymized: the guests/hosts of upcoming stays must hear about it.
+  await releaseBookingsOfDeletedAccount(userId, now);
 
   const [requests, ticketMessages, favorites, kosherCerts] = await Promise.all([
     db.verificationRequest.findMany({
@@ -106,6 +112,7 @@ export async function deleteAccountData(userId: string): Promise<void> {
       where: { id: userId },
       data: {
         name: DELETED_USER_NAME,
+        firstName: null,
         email: deletedEmailFor(userId),
         emailVerified: false,
         contactEmail: null,

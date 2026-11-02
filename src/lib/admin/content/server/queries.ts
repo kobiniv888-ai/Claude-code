@@ -166,7 +166,7 @@ export type CityOption = Awaited<ReturnType<typeof cityOptions>>[number];
 
 export async function listPlaces(
   locale: string,
-  filters: { type?: JewishPlaceType; cityId?: string; q?: string; show?: "active" | "hidden" | "demo" | "real" },
+  filters: { type?: JewishPlaceType; cityId?: string; q?: string; show?: "active" | "hidden" | "demo" | "real" | "verified" | "unverified" },
 ) {
   const where: Prisma.JewishPlaceWhereInput = {
     ...(filters.type ? { type: filters.type } : {}),
@@ -175,6 +175,8 @@ export async function listPlaces(
     ...(filters.show === "hidden" ? { active: false } : {}),
     ...(filters.show === "demo" ? { isDemo: true } : {}),
     ...(filters.show === "real" ? { isDemo: false } : {}),
+    ...(filters.show === "verified" ? { isDemo: false, verifiedAt: { not: null } } : {}),
+    ...(filters.show === "unverified" ? { isDemo: false, verifiedAt: null } : {}),
   };
   const rows = await db.jewishPlace.findMany({
     where,
@@ -187,6 +189,7 @@ export async function listPlaces(
       address: true,
       active: true,
       isDemo: true,
+      verifiedAt: true,
       phone: true,
       updatedAt: true,
       city: { select: { names: true } },

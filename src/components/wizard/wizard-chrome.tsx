@@ -151,7 +151,7 @@ export function WizardProgress({
                     aria-hidden
                     className={cn(
                       "flex size-8 shrink-0 items-center justify-center rounded-full text-small font-bold tabular-nums",
-                      isCurrent ? "bg-primary text-primary-foreground" : done ? "bg-success text-success-foreground" : "bg-muted",
+                      isCurrent ? "bg-primary text-primary-foreground" : done ? "bg-primary-tint text-primary-text" : "bg-muted",
                     )}
                   >
                     {done ? <CheckIcon className="size-4" strokeWidth={3} /> : formatNumber(i + 1, locale)}

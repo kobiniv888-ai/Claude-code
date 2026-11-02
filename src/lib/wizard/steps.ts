@@ -13,7 +13,11 @@ export const WIZARD_STEP_KEYS = [
   "deal",
   "property",
   "location",
-  "details",
+  // Step 4 of round 1 ("ספרו לאורחים על המקום", ~20 fields) split into short steps (brief 5.7):
+  "size", // גודל וחדרים
+  "building", // הבניין (incl. the private cadastral code)
+  "features", // מצב ומאפיינים: all optional, folded (Georgian condition terms, heating, views, video)
+  "text", // כותרת ותיאור
   "amenities",
   "jewish",
   "photos",
@@ -29,7 +33,20 @@ export const WIZARD_STEP_KEYS = [
 export type WizardStepKey = (typeof WIZARD_STEP_KEYS)[number];
 
 /** Steps saved with updateDraft(listingId, step, data). Photos, rooms, pledge and publish have their own actions. */
-export const SAVABLE_STEPS = ["deal", "property", "location", "details", "amenities", "jewish", "price", "booking", "contact"] as const;
+export const SAVABLE_STEPS = [
+  "deal",
+  "property",
+  "location",
+  "size",
+  "building",
+  "features",
+  "text",
+  "amenities",
+  "jewish",
+  "price",
+  "booking",
+  "contact",
+] as const;
 export type SavableStepKey = (typeof SAVABLE_STEPS)[number];
 
 export function isSavableStep(step: string): step is SavableStepKey {
@@ -39,6 +56,9 @@ export function isSavableStep(step: string): step is SavableStepKey {
 export function isWizardStepKey(step: string): step is WizardStepKey {
   return (WIZARD_STEP_KEYS as readonly string[]).includes(step);
 }
+
+/** Step keys from older links (?step=details, round 1) and the step that took their place. */
+const LEGACY_STEP_KEYS: Record<string, WizardStepKey> = { details: "size" };
 
 export type ListingKind = { dealType: DealType; propertyType: PropertyType };
 
@@ -61,6 +81,7 @@ export function stepsFor(kind: ListingKind): WizardStepKey[] {
   const booking = usesBookingStep(kind);
   return WIZARD_STEP_KEYS.filter((key) => {
     if (key === "rooms") return isBusinessListing(kind);
+    if (key === "size") return sizeStepApplies(kind);
     if (key === "price") return !booking;
     if (key === "booking") return booking;
     return true;
@@ -89,7 +110,13 @@ export function stepAt(position: number, kind: ListingKind): WizardStepKey {
 /** Parses ?step= (a number, or a step key). */
 export function parseStepParam(value: unknown, kind: ListingKind, fallback: number): WizardStepKey {
   const raw = Array.isArray(value) ? value[0] : value;
-  if (typeof raw === "string" && isWizardStepKey(raw) && stepsFor(kind).includes(raw)) return raw;
+  const steps = stepsFor(kind);
+  if (typeof raw === "string" && isWizardStepKey(raw) && steps.includes(raw)) return raw;
+  if (typeof raw === "string" && raw in LEGACY_STEP_KEYS) {
+    const legacy = LEGACY_STEP_KEYS[raw];
+    // Hotels have no "size" step: the first of the split steps they do have.
+    return steps.includes(legacy) ? legacy : "building";
+  }
   const n = typeof raw === "string" ? Number.parseInt(raw, 10) : Number.NaN;
   return stepAt(Number.isFinite(n) ? n : fallback, kind);
 }
@@ -154,4 +181,18 @@ export type ApplicableField = keyof typeof FIELD_APPLIES;
 
 export function applies(field: ApplicableField, kind: ListingKind): boolean {
   return FIELD_APPLIES[field](kind);
+}
+
+/**
+ * "גודל וחדרים" has something to ask (rooms, beds, size, maximum tenants or who shares the room).
+ * Hotel rooms have none of these (their room types and the booking step hold them), so they skip it.
+ */
+export function sizeStepApplies(kind: ListingKind): boolean {
+  return (
+    applies("rooms", kind) ||
+    applies("beds", kind) ||
+    applies("sizeSqm", kind) ||
+    applies("sharedRoomFor", kind) ||
+    (applies("maxGuests", kind) && !usesBookingStep(kind))
+  );
 }

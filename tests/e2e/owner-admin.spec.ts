@@ -35,7 +35,7 @@ async function expectStep(page: Page, step: number, heading: string) {
 }
 
 test("a new user signs up, posts a listing with photos and it goes into review", async ({ page, context, consoleErrors }) => {
-  // The longest flow: sign-up, 11 wizard steps (incl. the pledge), 6 uploads, publish.
+  // The longest flow: sign-up, 14 wizard steps (incl. the pledge), 6 uploads, publish.
   test.slow();
   // Sign up with a fresh phone number.
   ownerPhone = await freshPhone();
@@ -72,47 +72,53 @@ test("a new user signs up, posts a listing with photos and it goes into review",
   await map.click({ position: { x: 200, y: 150 } });
   await expect(page.getByText("Pin set at")).toBeVisible();
   await next(page);
-  // 4 Details
-  await expectStep(page, 4, "Tell guests about the place");
-  // (Short stays set the maximum number of guests in "Bookings and price", step 8.)
+  // 4–7: the round-1 "details" step, split (brief 5.7). Only the title and description are required here.
+  await expectStep(page, 4, "Size and rooms");
+  await next(page);
+  await expectStep(page, 5, "The building");
+  await next(page);
+  await expectStep(page, 6, "Condition and features");
+  await next(page);
+  await expectStep(page, 7, "Title and description");
+  // (Short stays set the maximum number of guests in "Bookings and price", step 11.)
   const title = `E2E Mountain flat in Mestia ${Date.now().toString(36)}`;
   await page.getByRole("textbox", { name: "Title" }).fill(title);
   await page
     .getByRole("textbox", { name: "Description" })
     .fill("A warm wooden flat with a view of the Svaneti mountains, a full kitchen, fast Wi-Fi and a balcony. Ten minutes on foot to the center.");
   await next(page);
-  // 5 Amenities
-  await expectStep(page, 5, "What does the place offer?");
+  // 8 Amenities
+  await expectStep(page, 8, "What does the place offer?");
   await choose(page.getByRole("checkbox", { name: "Wi-Fi" }));
   await next(page);
-  // 6 Jewish-friendly
-  await expectStep(page, 6, "Jewish-friendly details");
+  // 9 Jewish-friendly
+  await expectStep(page, 9, "Jewish-friendly details");
   await next(page);
-  // 7 Photos: 6 generated JPEGs
-  await expectStep(page, 7, "Add photos");
+  // 10 Photos: 6 generated JPEGs
+  await expectStep(page, 10, "Add photos");
   await page.locator('input[type="file"]').setInputFiles(await makePhotos(6));
   await expect(page.getByText("Enough photos to publish")).toBeVisible({ timeout: 90_000 });
   await expect(page.getByText(/^6 photos/)).toBeVisible();
   await next(page);
-  // 8 Bookings and price (short stays, round 2 phase 4): nightly price, guests, payment on arrival
-  await expectStep(page, 8, "Bookings and price");
+  // 11 Bookings and price (short stays, round 2 phase 4): nightly price, guests, payment on arrival
+  await expectStep(page, 11, "Bookings and price");
   await page.getByRole("textbox", { name: "Price per night", exact: true }).fill("95");
   await page.getByRole("button", { name: "More: Maximum guests" }).click();
   await page.getByRole("button", { name: "More: Maximum guests" }).click();
   await choose(page.getByRole("checkbox", { name: "Cash" }));
   await next(page);
-  // 9 Contact: the verified phone is already filled in for WhatsApp
-  await expectStep(page, 9, "How should guests contact you?");
+  // 12 Contact: the verified phone is already filled in for WhatsApp
+  await expectStep(page, 12, "How should guests contact you?");
   await expect(page.getByRole("textbox", { name: "WhatsApp number" })).not.toHaveValue("");
   await next(page);
-  // 10 The Bayit pledge (required; saved on the account)
-  await expectStep(page, 10, "The Bayit pledge");
+  // 13 The Bayit pledge (required; saved on the account)
+  await expectStep(page, 13, "The Bayit pledge");
   await page.getByRole("checkbox", { name: "I have read this and I commit to it" }).check();
   await page.getByRole("button", { name: "Accept the pledge" }).click();
   await expect(page.getByText("You accepted the Bayit pledge")).toBeVisible();
   await page.getByRole("button", { name: "Preview", exact: true }).click();
-  // 11 Preview and publish
-  await expectStep(page, 11, "Preview and publish");
+  // 14 Preview and publish
+  await expectStep(page, 14, "Preview and publish");
   await expect(page.getByRole("region", { name: "Before you can publish" })).toHaveCount(0);
   await page.getByRole("checkbox", { name: /I accept the listing rules/ }).check();
   await page.getByRole("button", { name: "Publish listing" }).click();

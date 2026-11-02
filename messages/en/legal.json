@@ -22,8 +22,8 @@
   "terms": {
     "title": "Terms of use",
     "summary": "The rules for using {siteName}, for guests and for owners.",
-    "metaDescription": "The terms of use of {siteName}: what the service does, your obligations, listing accuracy, fair housing, moderation and the limits of our responsibility.",
-    "lead": "The agreement between you and {siteName} when you search, post or contact someone on the site.",
+    "metaDescription": "The terms of use of {siteName}: what the service does, booking and cancellation rules, your obligations, listing accuracy, fair housing, moderation and the limits of our responsibility.",
+    "lead": "The agreement between you and {siteName} when you search, book, post or contact someone on the site.",
     "sections": {
       "intro": {
         "title": "About these terms",
@@ -32,14 +32,30 @@
       },
       "service": {
         "title": "What {siteName} does",
-        "p1": "{siteName} is a listing platform. Owners and businesses post homes, rooms, hotels and property for sale in Georgia. Guests, renters and buyers find them and contact the owner directly.",
-        "p2": "We are not a party to any agreement between guests and owners. We don't own, manage, inspect or rent out the properties on the site, and we are not a real-estate agent or broker."
+        "p1": "{siteName} is a platform for listings and bookings. Owners and businesses post homes, rooms, hotels and property for sale in Georgia. Short stays and hotel rooms can be booked right on the site; for monthly rentals and purchases, you contact the owner directly.",
+        "p2": "We are not a party to any agreement between guests and owners, even when the booking is made through the site. We don't own, manage, inspect or rent out the properties on the site, and we are not a real-estate agent or broker."
       },
-      "noBookings": {
-        "title": "No bookings or payments",
-        "p1": "At this stage the service doesn't take bookings or payments. Prices, dates, deposits, cancellations and payment are agreed directly between you and the other person, at your own responsibility.",
-        "note": "We will never send you a payment link in a chat or ask you to pay through another site on our behalf. If someone does, it is a scam — please <scamTicket>report it</scamTicket>.",
-        "p2": "If we add paid features or secure bookings in the future, we will update these terms and tell you before the changes apply to you."
+      "bookings": {
+        "title": "Bookings through {siteName}",
+        "note": "<b>Draft for a lawyer's review.</b> This part describes how bookings on the site work today. It has not been legally reviewed yet and may change before launch.",
+        "p1": "{siteName} is only a platform. When you book a place through the site, the stay agreement is made directly between you and the host. {siteName} is not a party to that agreement, is not the landlord and does not act for either side.",
+        "sub1": "Payment",
+        "p2": "{siteName} does not collect, hold or transfer money, and charges no booking fee. You pay the host on arrival, in one of the payment methods the host lists (cash, card or bank transfer), in the host's currency. The price saved with your booking is the price in the host's currency; a price in another currency is only an estimate.",
+        "sub2": "Instant booking",
+        "p3": "Short stays and hotel rooms are confirmed instantly, without a separate approval by the host. Before you confirm, you see the dates, the number of guests, the total price, the cancellation policy and the house rules, and you accept the house rules. To book, you need an account with a verified phone number. The host must keep the calendar up to date; nights blocked by hand or by calendar sync can't be booked.",
+        "p4": "Once the booking is confirmed, you get the exact address and the host's contact details, and the host gets your name and verified phone number.",
+        "sub3": "Cancellations",
+        "p5": "Every listing has one of three cancellation policies. The policy in force when you booked is saved with the booking:",
+        "list": {
+          "a": "<b>Flexible</b>: free cancellation until 24 hours before check-in time;",
+          "b": "<b>Moderate</b>: free cancellation until 5 days before check-in time;",
+          "c": "<b>Strict</b>: free cancellation until 14 days before check-in time."
+        },
+        "p6": "Check-in time is the time the host set in the listing (or 14:00 if none), Georgia time. A guest can cancel until the end of the arrival day. Since {siteName} takes no payments, a cancellation after the deadline is recorded as a \"late cancellation\" and the host is told. <todo>Whether a host may ask for payment for a late cancellation, and how</todo>",
+        "p7": "A host may cancel a booking only for a good reason, such as a double booking or a problem with the property, and must give the reason. We tell the guest right away and review host cancellations. A cancellation that looks like a way around the welcome pledge is handled under the next section.",
+        "sub4": "No-shows",
+        "p8": "If the guest doesn't arrive and didn't cancel, the host can mark \"didn't arrive\" from the day after the arrival day until 7 days after the departure day. <todo>The rules for no-shows, including any payment, will be set later</todo>",
+        "note2": "We will never send you a payment link in a chat or ask you to pay through another site on our behalf. If someone does, it is a scam — please <scamTicket>report it</scamTicket>."
       },
       "accounts": {
         "title": "Your account",
@@ -87,6 +103,14 @@
         "p1": "{siteName} serves the Jewish community through features: kosher kitchens, Shabbat-friendly homes, walking times to synagogues and Hebrew-speaking hosts. These describe the property and the service. They are never rules about who may rent or buy.",
         "p2": "Listings and messages must not refuse, limit or prefer guests, tenants or buyers because of religion, ethnicity, nationality, sex, disability, family status or any other protected characteristic. In some countries, such as the USA and the UK, this can also break fair-housing and equality laws.",
         "p3": "We may edit or remove content that breaks this rule."
+      },
+      "pledge": {
+        "title": "The welcome pledge",
+        "p1": "Before their first listing goes live, every host and advertiser on {siteName} accepts this pledge: \"I commit to welcoming Israeli and Jewish guests and clients, and to never refusing anyone because of their religion or country of origin.\"",
+        "p2": "So a host may not refuse a booking, cancel it, change its terms or ask the guest to cancel because of religion, origin or nationality.",
+        "p3": "If a host breaks the pledge, we may, depending on how serious it is, hide or remove their listings, stop them from receiving bookings, and suspend or close their account.",
+        "p4": "Think a host broke the pledge? <ticket>Contact us</ticket> or use the report button on the listing. We look into every such report.",
+        "note": "<todo>Wording of the sanctions and the host appeal process</todo>"
       },
       "moderation": {
         "title": "Moderation and removal",

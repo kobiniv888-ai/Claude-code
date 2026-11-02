@@ -2,7 +2,7 @@
   "loading": "טוען…",
   "meta": {
     "overview": "החשבון שלי",
-    "listings": "המודעות שלי",
+    "listings": "הנכסים שלי",
     "stats": "סטטיסטיקה של המודעה",
     "favorites": "מודעות שמורות",
     "compare": "השוואת מודעות",
@@ -15,7 +15,7 @@
     "heading": "החשבון שלי",
     "overview": "סקירה",
     "trips": "הנסיעות שלי",
-    "listings": "המודעות שלי",
+    "listings": "הנכסים שלי",
     "hostBookings": "הזמנות לנכסים שלי",
     "favorites": "שמורים",
     "compare": "השוואה",
@@ -64,7 +64,7 @@
       }
     },
     "listings": {
-      "title": "המודעות שלי",
+      "title": "הנכסים שלי",
       "all": "{count, plural, one {לצפייה במודעה} other {לכל {countText} המודעות}}"
     },
     "attention": {
@@ -98,7 +98,7 @@
     "greetingNoName": "שלום!"
   },
   "listings": {
-    "title": "המודעות שלי",
+    "title": "הנכסים שלי",
     "lead": "ניהול המודעות: עריכה, השהיה, חידוש ומעקב אחרי הביצועים.",
     "post": "פרסום מודעה",
     "howItWorks": "איך זה עובד",

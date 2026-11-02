@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const { pickOsmNearby, toLocalized } = await import("./nearby");
+const { pickOsmNearby, proximityPlaceWhere, toLocalized } = await import("./nearby");
 
 const home = { lat: 41.709, lng: 44.766 };
 /** A point `meters` north of home. */
@@ -47,5 +47,18 @@ describe("toLocalized", () => {
       ka: "Great Synagogue",
     });
     expect(toLocalized(null).en).toBe("");
+  });
+});
+
+describe("proximityPlaceWhere (brief 5.9: walking times only from verified, real places)", () => {
+  it("real listings use only active, non-demo places with a verification date", () => {
+    expect(proximityPlaceWhere(false)).toEqual({ active: true, isDemo: false, verifiedAt: { not: null } });
+  });
+
+  it("demo listings may also use demo places, but never unverified real ones", () => {
+    expect(proximityPlaceWhere(true)).toEqual({
+      active: true,
+      OR: [{ isDemo: false, verifiedAt: { not: null } }, { isDemo: true }],
+    });
   });
 });

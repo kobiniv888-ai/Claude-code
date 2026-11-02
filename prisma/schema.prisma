@@ -1120,6 +1120,14 @@ model JewishPlace {
   hours       Json?
   isDemo      Boolean         @default(false)
   active      Boolean         @default(true)
+  /// Round 2 (brief 5.9): the day a team member last checked this real place (a visit, a call,
+  /// the community's own site). Walking times on listings use ONLY verified, non-demo places
+  /// (src/lib/nearby.ts). Demo places are never verified.
+  verifiedAt   DateTime?
+  /// The staff member who entered the verification date (no relation, like createdById).
+  verifiedById String?
+  /// Where the details were checked: free text or a URL (staff only, never public).
+  source       String?
   createdById String?
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt

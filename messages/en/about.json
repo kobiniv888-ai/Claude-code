@@ -1,53 +1,29 @@
 {
-  "metaTitle": "About us",
-  "metaDescription": "{siteName} helps Jewish and Israeli travelers, families and investors find homes in Georgia and contact owners directly — in five languages, with strong scam protection and no booking fees.",
-  "hero": {
-    "eyebrow": "About {siteName}",
-    "title": "A home in Georgia, made for our community",
-    "lead": "{siteName} is a home-listing site for Georgia — the country in the Caucasus. It connects Jewish and Israeli travelers, families and investors with owners of apartments, houses, rooms, hotels and property for sale.",
-    "ctaSearch": "Find a place",
-    "ctaPost": "List your property"
-  },
+  "metaTitle": "Our story",
+  "metaDescription": "Why we built {siteName}: a place where Israelis and Jews find and book an apartment, a room or a house in Georgia, with hosts who promised to welcome them.",
   "what": {
     "title": "What {siteName} is",
-    "p1": "Think of a classifieds site you can trust, with the look and feel of a modern travel app. Owners post homes for short stays, monthly rent or sale. Guests search, compare and contact the owner directly, in the app the owner prefers.",
-    "p2": "We add the details that matter to our community: a kosher kitchen, Shabbat-friendly features, the walking time to the nearest synagogue, Shabbat times for every city and Jewish holidays in the calendar.",
-    "p3": "At launch we don't take bookings or payments. You agree everything with the owner yourself — and we work hard to make sure the person on the other side is real.",
+    "p1": "{siteName} helps Israeli and Jewish travelers, families and investors find a place in Georgia: short stays, monthly rentals, hotels and homes for sale. Every host on the site has promised to welcome you.",
+    "p2": "For those who need it, we also add what is hard to find out on your own: a kosher kitchen, Shabbat-friendly features, the walk to a synagogue, Shabbat times for every city and the holidays in the calendar.",
+    "p3": "Short stays and hotel rooms can be booked right on the site: pick your dates, confirm, and pay the host when you arrive. We don't take payments. For monthly rentals and homes for sale, you contact the owner directly.",
     "highlights": {
       "title": "In short",
       "a": "Homes in Tbilisi, Batumi, Kutaisi and across Georgia",
       "b": "Short stays, monthly rentals and property for sale",
-      "c": "Kosher, Shabbat and synagogue details on every listing",
-      "d": "Direct contact with owners — no booking fees",
+      "c": "Kosher and Shabbat details for those who need them",
+      "d": "Instant booking for short stays, pay the host on arrival",
       "e": "Checked listings and verified owners"
     }
   },
-  "audience": {
-    "title": "Who it's for",
-    "lead": "One site for four kinds of people, each with their own needs.",
-    "guests": {
-      "title": "Guests and renters",
-      "body": "Travelers, families, students and religious families looking for a short stay or a monthly rental — close to a synagogue, with a kitchen they can use."
-    },
-    "buyers": {
-      "title": "Buyers and investors",
-      "body": "Israelis and Jews buying property abroad — Batumi and Tbilisi are popular — who want clear prices, honest details and an owner they can talk to."
-    },
-    "owners": {
-      "title": "Private owners",
-      "body": "People who own a home, apartment or room in Georgia and want to reach the right guests or buyers — for free, in five languages."
-    },
-    "businesses": {
-      "title": "Businesses",
-      "body": "Hotels, guesthouses, property managers and agents. They get a “Business” label, so guests can choose to see private owners only."
-    }
-  },
   "story": {
-    "title": "Our story",
-    "badge": "Placeholder",
-    "noteTitle": "This section is waiting for the founders",
-    "noteBody": "The founders will write our story here: who we are, why we started {siteName} and what home means to us. Until then this note stays visible, so no one mistakes it for finished text.",
-    "noteHint": "Suggested topics: how the idea started, the people behind it, and why Georgia."
+    "title": "Why we built Bayit",
+    "eyebrow": "Our story",
+    "p1": "When we traveled as a family and tried to rent a place on the big booking sites, most hosts turned us down, only because we are Jewish and from Israel.",
+    "p2": "We didn't want any family to feel that way on their vacation.",
+    "p3": "So we built Bayit: a place where Israelis and Jews can find and book an apartment, a room or a house in Georgia, without being afraid of being turned away and without hiding their religion or where they were born.",
+    "p4": "Every host on Bayit promises to welcome you. So you can just sleep well and enjoy your trip.",
+    "p5": "Our color is purple: Israel's blue and Georgia's red, together.",
+    "signature": "[Your name]"
   },
   "how": {
     "title": "How it works",
@@ -58,12 +34,12 @@
       "body": "Filter by city, dates and price, and by Jewish-friendly details such as a kosher kitchen or the walk to a synagogue."
     },
     "step2": {
-      "title": "Check the listing and the owner",
-      "body": "Look at the photos, the details and the owner's verification badges."
+      "title": "Book or get in touch",
+      "body": "Short stays and hotels: pick your dates and the booking is confirmed right away. Monthly rentals and sales: contact the owner directly."
     },
     "step3": {
-      "title": "Contact the owner directly",
-      "body": "Message the owner on WhatsApp, Telegram, Viber or by phone. We charge no booking fees."
+      "title": "Pay the host when you arrive",
+      "body": "You get the address and the host's contact, and you pay the host directly when you arrive. We take no payments and charge no booking fees."
     },
     "link": "See how it works in detail"
   },
@@ -83,8 +59,8 @@
       "body": "Kosher kitchens, Shabbat-friendly homes, synagogue walking times, Shabbat times and holidays — details you would otherwise have to ask about one by one."
     },
     "direct": {
-      "title": "Direct contact, no booking fees",
-      "body": "You talk to the owner in the app they prefer and agree everything between you. We don't add a fee to your stay."
+      "title": "Pay the host directly",
+      "body": "You pay the host on arrival, in cash, by card or by bank transfer, depending on what they accept. We take no payments and add no fee to your stay."
     },
     "languages": {
       "title": "Five languages",
@@ -108,5 +84,10 @@
       "title": "Email",
       "body": "Prefer email? Write to us at <mailto>{email}</mailto>."
     }
+  },
+  "cta": {
+    "title": "Ready to start?",
+    "search": "Find a place",
+    "post": "List your property"
   }
 }

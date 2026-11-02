@@ -27,7 +27,10 @@
       "invalid_airport": "Use the 3-letter airport code, e.g. TBS",
       "airport_coords_required": "Add the airport coordinates too",
       "ends_before_start": "The end must be after the start",
-      "date_in_past": "Choose a date in the future"
+      "date_in_past": "Choose a date in the future",
+      "date_in_future": "The date can't be in the future",
+      "demo_not_verifiable": "A demo place can't be verified. Turn off \"Demo place\" or clear the date.",
+      "source_required": "Say where you checked the details"
     }
   },
   "errors": {
@@ -338,7 +341,24 @@
       "active": "Visible",
       "hidden": "Hidden",
       "demo": "Demo only",
-      "real": "Real only"
+      "real": "Real only",
+      "verified": "Verified",
+      "unverified": "Real, not verified"
+    },
+    "verification": {
+      "title": "Verification",
+      "description": "Only real places that have been checked are used for walking times on listings. A place without a verification date shows on the map, but not as a walking time.",
+      "date": "Date verified",
+      "dateHint": "The day someone on the team checked that the place exists and the address is right.",
+      "today": "Today",
+      "source": "Source",
+      "sourceHint": "How you checked: a phone call, a visit or the community's official site. Staff only.",
+      "sourcePlaceholder": "e.g. Call with the community office, Oct 30",
+      "counts": "This place is verified, so it counts for the walking times of nearby listings.",
+      "notCounted": "This place isn't verified yet, so it doesn't count for walking times.",
+      "demoNever": "A demo place never counts for the walking times of real listings.",
+      "verifiedOn": "Verified {date}",
+      "notVerified": "Not verified"
     }
   },
   "articles": {

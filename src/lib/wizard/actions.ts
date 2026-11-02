@@ -44,6 +44,7 @@ import {
   photoIdsSchema,
   PRICE_PERIODS_BY_DEAL,
   roomTypeSchema,
+  STEP_FIELDS,
   stepSaveSchemas,
   translationSchema,
   type ParsedStep,
@@ -219,41 +220,33 @@ async function buildStepUpdate<S extends SavableStepKey>(
         cityId !== listing.cityId || neighborhoodId !== listing.neighborhoodId || lat !== listing.lat || lng !== listing.lng;
       return { data, contentChanged: changed, textChanged: false };
     }
-    case "details": {
-      const v = input as ParsedStep<"details">;
-      const data: Prisma.ListingUpdateInput = {
-        rooms: v.rooms,
-        bedrooms: v.bedrooms,
-        bathrooms: v.bathrooms,
-        bedsSingle: v.bedsSingle,
-        bedsDouble: v.bedsDouble,
-        bedsSofa: v.bedsSofa,
-        maxGuests: v.maxGuests,
-        sizeSqm: v.sizeSqm,
-        floor: v.floor,
-        totalFloors: v.totalFloors,
-        elevator: v.elevator,
-        yearBuilt: v.yearBuilt,
-        buildingAge: v.buildingAge,
-        furnished: v.furnished,
-        condition: v.condition,
-        heating: v.heating,
-        views: v.views,
-        cadastralCode: orNull(v.cadastralCode),
-        sharedRoomFor: kind.propertyType === "ROOM" ? v.sharedRoomFor : null,
-        originalLocale: v.originalLocale,
-        title: v.title.trim(),
-        description: v.description.trim(),
-        videoUrl: orNull(v.videoUrl),
-        tour360Url: orNull(v.tour360Url),
+    // Round 1's "details" step, split in four (brief 5.7): each saves only its own fields.
+    case "size":
+    case "building":
+    case "features":
+    case "text": {
+      const v = input as ParsedStep<"size"> & ParsedStep<"building"> & ParsedStep<"features"> & ParsedStep<"text">;
+      // How each field is stored (only this step's fields are read: the others are not in `input`).
+      const store: Record<string, () => unknown> = {
+        sharedRoomFor: () => (kind.propertyType === "ROOM" ? v.sharedRoomFor : null),
+        cadastralCode: () => orNull(v.cadastralCode),
+        videoUrl: () => orNull(v.videoUrl),
+        tour360Url: () => orNull(v.tour360Url),
+        title: () => v.title.trim(),
+        description: () => v.description.trim(),
       };
+      const data: Record<string, unknown> = {};
+      for (const key of STEP_FIELDS[step as "size" | "building" | "features" | "text"]) {
+        data[key] = store[key] ? store[key]() : (v as Record<string, unknown>)[key];
+      }
       const textChanged =
-        v.title.trim() !== listing.title ||
-        v.description.trim() !== listing.description ||
-        v.originalLocale !== listing.originalLocale;
+        step === "text" &&
+        (v.title.trim() !== listing.title ||
+          v.description.trim() !== listing.description ||
+          v.originalLocale !== listing.originalLocale);
       const before: Record<string, unknown> = listing;
       const contentChanged = Object.entries(data).some(([key, value]) => !same(value, before[key]));
-      return { data, contentChanged, textChanged };
+      return { data: data as Prisma.ListingUpdateInput, contentChanged, textChanged };
     }
     case "amenities": {
       const v = input as ParsedStep<"amenities">;
@@ -460,8 +453,8 @@ export async function updateDraft(
 async function needsImmediateRecheck(step: SavableStepKey, update: StepUpdate, input: unknown): Promise<boolean> {
   if (!update.contentChanged) return false;
   if (step === "contact") return true;
-  if (step !== "details" || !update.textChanged) return false;
-  const { title, description } = input as ParsedStep<"details">;
+  if (step !== "text" || !update.textChanged) return false;
+  const { title, description } = input as ParsedStep<"text">;
   return textNeedsRecheck(`${title}\n${description}`);
 }
 

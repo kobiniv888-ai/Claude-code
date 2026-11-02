@@ -4,10 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { createTranslator, useLocale } from "next-intl";
 import type countdownMessages from "../../../messages/en/shabbatCountdown.json";
 import { ArrowEnd } from "@/components/common/directional-icon";
+import { chipStyles } from "@/components/ds/chip";
 import { Link } from "@/i18n/navigation";
 import { intlLocale } from "@/i18n/locale";
 import { formatTime } from "@/lib/format";
 import { shabbatPhase, type CountdownPart } from "@/lib/home/countdown";
+import { ShabbatCandlesIcon } from "@/components/ds/jewish-icons";
 import { cn } from "@/lib/utils";
 
 /** The shape of messages/<locale>/shabbatCountdown.json. */
@@ -24,59 +26,6 @@ export type CountdownCity = {
 };
 
 const TICK_MS = 30_000;
-
-/**
- * The candle flicker and glow (transform and opacity only; off with reduced motion). A hoisted
- * <style> rather than a CSS module: next.config's Turbopack rule treats every *.css as plain CSS.
- */
-const SHABBAT_MOTION_CSS = `
-.bs-flame {
-  transform-box: fill-box;
-  transform-origin: 50% 100%;
-  animation: bs-flicker 2.6s ease-in-out infinite alternate;
-}
-.bs-flame2 {
-  animation-duration: 3.1s;
-  animation-delay: -1.2s;
-}
-.bs-glow {
-  animation: bs-glow 3.4s ease-in-out infinite alternate;
-}
-@keyframes bs-flicker {
-  0% {
-    transform: scale(1, 1) rotate(0deg);
-    opacity: 1;
-  }
-  30% {
-    transform: scale(0.94, 1.06) rotate(-2deg);
-    opacity: 0.92;
-  }
-  60% {
-    transform: scale(1.04, 0.95) rotate(1.5deg);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(0.97, 1.03) rotate(-1deg);
-    opacity: 0.88;
-  }
-}
-@keyframes bs-glow {
-  from {
-    opacity: 0.55;
-    transform: scale(1);
-  }
-  to {
-    opacity: 0.8;
-    transform: scale(1.08);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .bs-flame,
-  .bs-glow {
-    animation: none;
-  }
-}
-`;
 
 /**
  * The client part of <ShabbatCountdownCard>: the live countdown ("Shabbat starts in 2 days and
@@ -152,28 +101,17 @@ export function ShabbatCountdown({
   const scrollChips = cities.length > 3;
 
   return (
-    <article
-      aria-labelledby={headingId}
-      className={cn(
-        "relative isolate overflow-hidden rounded-card bg-primary p-5 text-white shadow-raised sm:p-6",
-        className,
-      )}
-    >
-      <style href="bayit-shabbat-motion" precedence="medium">
-        {SHABBAT_MOTION_CSS}
-      </style>
-      {/* Warm candle glow, decorative. */}
-      <span
-        aria-hidden="true"
-        className={cn(
-          "pointer-events-none absolute -top-16 -end-12 -z-10 size-56 rounded-full bg-white/10 blur-3xl",
-          "bs-glow",
-        )}
-      />
-      <div className="flex items-start gap-4">
-        <Candles className="h-16 w-12 shrink-0 sm:h-20 sm:w-14" />
-        <div className="grid min-w-0 gap-1">
-          <Heading id={headingId} className="text-small font-semibold text-white/80">
+    // Round 2: a calm card (border, no fill, no flames); the two times sit on the lavender tint.
+    <article aria-labelledby={headingId} className={cn("min-w-0 rounded-card border border-border bg-card p-4 sm:p-5", className)}>
+      <div className="flex items-start gap-3">
+        <span
+          aria-hidden="true"
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-tint text-primary-text"
+        >
+          <ShabbatCandlesIcon className="size-5" />
+        </span>
+        <div className="grid min-w-0 gap-0.5">
+          <Heading id={headingId} className="text-small text-muted-foreground">
             {t("title")}
             {city.parashaTitle ? (
               <>
@@ -182,98 +120,64 @@ export function ShabbatCountdown({
               </>
             ) : null}
           </Heading>
-          <p className="text-h3 leading-snug font-bold text-balance text-white">{status}</p>
+          <p className="text-body font-semibold text-balance text-foreground">
+            {status}
+          </p>
         </div>
       </div>
 
-      <dl className="mt-5 grid grid-cols-2 gap-3">
-        <div className="rounded-input bg-white/10 px-3 py-2.5 ring-1 ring-white/15">
-          <dt className="text-caption text-white/75">{t("candleLighting")}</dt>
-          <dd className="text-h3 font-bold tabular-nums">
+      <dl className="mt-4 grid grid-cols-2 gap-2">
+        <div className="rounded-input bg-primary-tint px-3 py-2.5">
+          <dt className="text-caption text-muted-foreground">{t("candleLighting")}</dt>
+          <dd className="text-h2 font-semibold text-foreground tabular-nums">
             <bdi>{time(candles)}</bdi>
           </dd>
         </div>
-        <div className="rounded-input bg-white/10 px-3 py-2.5 ring-1 ring-white/15">
-          <dt className="text-caption text-white/75">{t("havdalah")}</dt>
-          <dd className="text-h3 font-bold tabular-nums">
+        <div className="rounded-input bg-primary-tint px-3 py-2.5">
+          <dt className="text-caption text-muted-foreground">{t("havdalah")}</dt>
+          <dd className="text-h2 font-semibold text-foreground tabular-nums">
             <bdi>{time(havdalah)}</bdi>
           </dd>
         </div>
       </dl>
 
-      <div className={cn("mt-4 flex items-center justify-between gap-3", scrollChips ? "flex-col items-stretch" : "flex-wrap")}>
-        {cities.length > 1 ? (
-          <div
-            role="group"
-            aria-label={t("cities")}
-            className={cn(
-              "flex gap-2",
-              // Many cities: one row that scrolls sideways (the card's padding stays visible as a gutter).
-              scrollChips
-                ? "-mx-5 snap-x scroll-px-5 overflow-x-auto px-5 pb-1 scrollbar-none sm:-mx-6 sm:scroll-px-6 sm:px-6"
-                : "flex-wrap",
-            )}
-          >
-            {cities.map((option) => {
-              const pressed = option.slug === city.slug;
-              return (
-                <button
-                  key={option.slug}
-                  type="button"
-                  aria-pressed={pressed}
-                  onClick={() => setSlug(option.slug)}
-                  // Plain string: cn() would drop text-small next to a text color (custom size names).
-                  className={`inline-flex min-h-11 shrink-0 snap-start items-center rounded-full px-4 text-small font-semibold whitespace-nowrap outline-none transition-colors focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-white/60 ${
-                    pressed ? "bg-white text-brand" : "bg-white/10 text-white ring-1 ring-white/25 hover:bg-white/20"
-                  }`}
-                >
-                  {option.name}
-                </button>
-              );
-            })}
-          </div>
-        ) : (
-          <span />
-        )}
-        <span className="text-caption text-white/75">{t("localTime")}</span>
-      </div>
+      {cities.length > 1 ? (
+        <div
+          role="group"
+          aria-label={t("cities")}
+          className={cn(
+            "mt-3 flex gap-2",
+            // Many cities: one row that scrolls sideways (the card's padding stays visible as a gutter).
+            scrollChips ? "-mx-4 snap-x scroll-px-4 overflow-x-auto px-4 py-1 scrollbar-none sm:-mx-5 sm:scroll-px-5 sm:px-5" : "flex-wrap py-1",
+          )}
+        >
+          {cities.map((option) => {
+            const pressed = option.slug === city.slug;
+            return (
+              <button
+                key={option.slug}
+                type="button"
+                aria-pressed={pressed}
+                onClick={() => setSlug(option.slug)}
+                className={cn(chipStyles({ size: "md", active: pressed }), "snap-start")}
+              >
+                {option.name}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+      <p className="mt-2 text-caption text-muted-foreground">{t("localTime")}</p>
 
       {moreHref ? (
         <Link
           href={moreHref}
-          className="group mt-3 -mb-1 inline-flex min-h-11 items-center gap-1 rounded-full text-small font-semibold text-white underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-white/60"
+          className="mt-2 -mb-1 inline-flex min-h-11 items-center gap-1 rounded-full text-small font-medium text-primary-text outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
         >
           {t("more")}
           <ArrowEnd className="size-4" aria-hidden="true" />
         </Link>
       ) : null}
     </article>
-  );
-}
-
-/** Two Shabbat candles with flickering flames (decorative SVG). */
-function Candles({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 48 64" aria-hidden="true" className={className}>
-      <defs>
-        <linearGradient id="bayit-flame" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#fff7d6" />
-          <stop offset="0.55" stopColor="#ffd166" />
-          <stop offset="1" stopColor="#f59e0b" />
-        </linearGradient>
-      </defs>
-      <ellipse cx="14" cy="13" rx="7" ry="9" fill="#fcd34d" opacity="0.18" />
-      <ellipse cx="34" cy="13" rx="7" ry="9" fill="#fcd34d" opacity="0.18" />
-      <path className={"bs-flame"} d="M14 4c-2.6 3.2-4 5.6-4 7.7a4 4 0 0 0 8 0c0-2.1-1.4-4.5-4-7.7Z" fill="url(#bayit-flame)" />
-      <path
-        className={cn("bs-flame", "bs-flame2")}
-        d="M34 4c-2.6 3.2-4 5.6-4 7.7a4 4 0 0 0 8 0c0-2.1-1.4-4.5-4-7.7Z"
-        fill="url(#bayit-flame)"
-      />
-      <rect x="10" y="20" width="8" height="34" rx="1.5" fill="#f8fafc" />
-      <rect x="30" y="20" width="8" height="34" rx="1.5" fill="#f8fafc" />
-      <path d="M14 16.5v3.5M34 16.5v3.5" stroke="#1f2937" strokeWidth="1.2" strokeLinecap="round" />
-      <rect x="4" y="54" width="40" height="5" rx="2.5" fill="#cbd5e1" />
-    </svg>
   );
 }

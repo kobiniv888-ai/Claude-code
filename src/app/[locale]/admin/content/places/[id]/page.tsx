@@ -47,6 +47,8 @@ export default async function EditPlacePage({ params }: PageProps<"/[locale]/adm
             website: place.website ?? "",
             active: place.active,
             isDemo: place.isDemo,
+            verifiedAt: place.verifiedAt ? place.verifiedAt.toISOString().slice(0, 10) : "",
+            source: place.source ?? "",
           }}
         />
       </div>

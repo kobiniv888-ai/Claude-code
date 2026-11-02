@@ -36,11 +36,11 @@ export async function GuidesSection({ locale }: { locale: AppLocale }) {
       <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {guides.map((guide) => (
           <li key={guide.slug}>
-            <article className="relative flex h-full flex-col rounded-2xl border bg-card p-5 shadow-card transition-shadow hover:shadow-card-hover">
+            <article className="relative flex h-full flex-col rounded-card border border-border bg-card p-4 transition-colors hover:border-border-strong sm:p-5">
               <span aria-hidden="true" className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
                 <BookOpen className="size-5" />
               </span>
-              <h3 className="mt-4 text-lg font-semibold text-balance" dir="auto">
+              <h3 className="mt-3 text-body font-semibold text-balance" dir="auto">
                 <Link
                   href={`/jewish-life/guides/${guide.slug}`}
                   className="rounded-sm after:absolute after:inset-0 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
@@ -74,23 +74,19 @@ export async function GuidesSection({ locale }: { locale: AppLocale }) {
   }
 
   return (
-    <div className="relative isolate overflow-hidden rounded-3xl border bg-card p-6 shadow-card sm:p-8">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -top-16 -end-16 -z-10 size-56 rounded-full bg-primary/10 blur-3xl"
-      />
+    <div className="rounded-card border border-border bg-card p-4 sm:p-6">
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-12">
         <div className="max-w-sm">
           <span className="inline-flex items-center rounded-full bg-secondary px-3 py-1 text-xs font-semibold text-secondary-foreground">
             {t("comingSoonBadge")}
           </span>
-          <h3 className="mt-3 text-xl font-semibold text-balance">{t("comingSoonTitle")}</h3>
+          <h3 className="mt-2 text-body font-semibold text-balance">{t("comingSoonTitle")}</h3>
           <p className="mt-2 text-sm text-pretty text-muted-foreground">{t("comingSoonBody")}</p>
         </div>
-        <ul className="grid flex-1 gap-3 sm:grid-cols-2">
+        <ul className="grid flex-1 gap-x-6 gap-y-4 sm:grid-cols-2">
           {TOPICS.map(({ key, icon: Icon }) => (
-            <li key={key} className="flex items-start gap-3 rounded-xl bg-muted/60 p-4">
-              <span aria-hidden="true" className="flex size-9 shrink-0 items-center justify-center rounded-full bg-card text-primary shadow-card">
+            <li key={key} className="flex items-start gap-3">
+              <span aria-hidden="true" className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-tint text-primary-text">
                 <Icon className="size-4" />
               </span>
               <div>

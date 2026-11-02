@@ -168,7 +168,7 @@ export function MobileMenuSheet({
     { id: "help", href: "/help", label: t("tabs.help"), icon: LifeBuoy },
     { id: "safety", href: "/safety", label: t("safety"), icon: ShieldCheck },
     { id: "contact", href: "/contact", label: t("contact"), icon: Mail },
-    { id: "about", href: "/about", label: t("tabs.about"), icon: Info },
+    { id: "about", href: "/about", label: t("menu.links.ourStory"), icon: Info },
     { id: "how", href: "/how-it-works", label: t("menu.links.howItWorks"), icon: Compass },
   ].map((row) => ({ ...row, current: path === row.href }));
 

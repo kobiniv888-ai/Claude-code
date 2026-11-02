@@ -58,8 +58,8 @@ test("scam phrases and a phone number in the description send a listing to revie
   });
 
   const { context, page, consoleErrors } = await openAs(browser, owner.phone);
-  // Step 11 since the pledge step (10) was added before the preview.
-  await page.goto(`/en/post/${draft.id}?step=11`);
+  // By key: the preview's position depends on the steps (the pledge, the split details step…).
+  await page.goto(`/en/post/${draft.id}?step=publish`);
   await expect(page.getByRole("heading", { level: 1, name: "Preview and publish" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Before you can publish" })).toHaveCount(0);
   await settle(page);

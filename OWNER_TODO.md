@@ -3,15 +3,26 @@
 This list is kept up to date as the work goes on. It was last updated during redesign round 2.
 
 ## Content and wording
-- [ ] Review the About page story in Hebrew and English (and the other translations), then replace
-      `[השם שלכם]` / `[Your name]` with your name.
+- [ ] **About page story (phase 5).** The About page (linked as "הסיפור שלנו" from the footer and
+      the menu) now opens with your Hebrew and English drafts, word for word, translated into
+      Russian, Arabic and Georgian. Please review all five and send your name: the signature shows
+      `[השם שלכם]` / `[Your name]` / `[Ваше имя]` / `[اسمكم]` / `[თქვენი სახელი]` until then
+      (`messages/<lang>/about.json` → `story.signature`). The rest of the page (what Bayit is, how
+      booking works, values) was updated for booking and needs a quick read too.
+- [ ] **Help FAQ for bookings (phase 5).** New questions: "how booking works and when do I pay",
+      "cancellations and what happens if the host cancels" (under "הזמנות ויצירת קשר") and "calendar
+      sync" (under "פרסום מודעה"). Old answers that said we take no bookings, or that you log in
+      with Apple or a phone code, were updated. Seeded questions are restored by re-running the
+      seed, so make lasting changes in `prisma/seed/faq.ts` (or tell us).
 - [ ] Review the Hebrew notes in `docs/redesign/hebrew-notes.md`.
 - [ ] Listing page "חשוב לדעת" (phase 3): check the wording of the payment line ("משלמים למארח
       בהגעה. בית לא גובה תשלום."), the three cancellation lines (24 hours / 5 days / 14 days
       before arrival) and the neutral line for listings without a policy ("את תנאי הביטול כדאי
       לסכם עם המארח לפני ההגעה."). They should match the booking Terms once a lawyer has read them.
-- [ ] The nearest synagogue on a listing appears only for real (non-demo) places. With the demo
-      places only, no listing shows one until real synagogues are added (see "Real data").
+- [ ] Walking times (the synagogue tag on cards, the nearest synagogue on a listing, the "near a
+      synagogue" filter) come only from **real places with a verification date**. With the demo
+      places only, no real listing shows one until real synagogues are added and verified (see
+      "Real data"). Demo listings never show the tag.
 - [ ] **New home page wording in Russian, Arabic and Georgian** (phase 2): the hero title, the line
       under it and the promise line ("here, no one will turn you away for who you are") need a
       native speaker's read.
@@ -27,15 +38,28 @@ This list is kept up to date as the work goes on. It was last updated during red
 ## Real data
 - [ ] Real community places (synagogues, Chabad houses, kosher restaurants and shops): name,
       address, coordinates, the date you checked it and your source. Add them in
-      **Admin → Content → Places**. Demo places stay marked "(דמו)", and they are never used for
-      walking times on real listings.
+      **Admin → Content → Places**: the form now has **"תאריך הבדיקה"** (date verified, with a
+      "היום" button) and **"מקור"** (source: a call, a visit, the community's site; staff only).
+      Only places with a date count for walking times; saving recomputes the listings within 5 km.
+      The list can be filtered to "real, not verified". Demo places stay marked "(דמו)", can't be
+      verified, and are never used for walking times on real listings. A real place added before
+      this change counts only after you give it a date.
 - [ ] Your own photos: see `PHOTOS_NEEDED.md`.
 
 ## Legal
 - [ ] Company name, registration number and address, to replace the visible placeholders such as
       `[שם החברה, מספר הרישום והכתובת]`.
 - [ ] A lawyer's review of the Terms of use (booking rules) and the Privacy policy. Both are marked
-      as drafts.
+      as drafts. The Terms now have "Bookings through Bayit" (platform only, the stay agreement is
+      between guest and host, no payments, instant booking, the three cancellation presets,
+      no-shows) and "The welcome pledge" (what a host may not do, and what we may do if a host
+      breaks it), with an extra "draft for a lawyer" box. Visible placeholders the lawyer must
+      fill: whether a host may charge for a late cancellation, the no-show rules, and the wording of
+      sanctions and the host appeal process (plus the existing company details, governing law and
+      liability cap).
+- [ ] **Privacy policy and bookings.** It doesn't yet describe what a booking shares: the guest's
+      name and verified phone go to the host; the exact address and the host's phone go to the
+      guest. Please have the lawyer add this.
 - [ ] **Decide later: no-shows and late cancellations.** Guests pay at arrival, so today a "didn't
       arrive" report from a host and a cancellation after the free period are only recorded (and
       host cancellations within 48 hours of a booking are flagged for review). Tell us if you want
@@ -156,5 +180,9 @@ so look again before you pay.
         Errors from the hourly sync are not stored (that would need a new database field).
       - **"How to connect" steps for Airbnb and Booking.com** describe their menus in general words;
         please check them against the real sites once.
+- [ ] **Jewish life page (phase 5).** It is calmer now: a short title band, a sticky row of jump
+      links (Shabbat times, calendar, community map, emergency numbers, guides), no big photo or
+      zoom, and on phones the month list shows only days with times or holidays (with "show every
+      day") and the holidays list shows four (with "N more"). All the content is still there.
 - [ ] **Footer tagline.** It still says the site has "kosher and Shabbat details". Say if you want
       it to talk about the pledge or booking instead.

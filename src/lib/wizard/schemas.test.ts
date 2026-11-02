@@ -4,7 +4,6 @@ import { missingRequirements } from "./requirements";
 import {
   contactStepSchema,
   contactValueProblem,
-  detailsStepSchema,
   isVideoUrl,
   normalizeContactValue,
   pickStepData,
@@ -87,13 +86,15 @@ const kind = { dealType: "SHORT_STAY", propertyType: "APARTMENT" } as const;
 describe("steps", () => {
   it("adds the room types step only for hotels", () => {
     expect(stepsFor(kind)).not.toContain("rooms");
-    expect(stepsFor(kind)).toHaveLength(11);
+    expect(stepsFor(kind)).toHaveLength(14);
     expect(stepsFor(kind).slice(-2)).toEqual(["pledge", "publish"]);
     const hotel = { dealType: "HOTEL_ROOM", propertyType: "HOTEL" } as const;
-    expect(stepsFor(hotel)).toHaveLength(12);
-    expect(stepNumber("rooms", hotel)).toBe(8);
-    expect(stepNumber("booking", hotel)).toBe(9);
-    expect(stepNumber("booking", kind)).toBe(8);
+    // Hotels skip "size" (their room types hold it): 15 - 1.
+    expect(stepsFor(hotel)).toHaveLength(14);
+    expect(stepsFor(hotel)).not.toContain("size");
+    expect(stepNumber("rooms", hotel)).toBe(10);
+    expect(stepNumber("booking", hotel)).toBe(11);
+    expect(stepNumber("booking", kind)).toBe(11);
   });
 
   it("uses the bookings-and-price step instead of the price step for short stays and hotels", () => {
@@ -116,7 +117,8 @@ describe("steps", () => {
     expect(parseStepParam("photos", kind, 1)).toBe("photos");
     expect(parseStepParam("rooms", kind, 2)).toBe("property"); // not a step here → fallback
     expect(parseStepParam("99", kind, 1)).toBe("publish");
-    expect(parseStepParam(undefined, kind, 4)).toBe("details");
+    expect(parseStepParam(undefined, kind, 4)).toBe("size");
+    expect(parseStepParam(undefined, kind, 7)).toBe("text");
     expect(stepAt(0, kind)).toBe("deal");
   });
 
@@ -132,16 +134,22 @@ describe("steps", () => {
 describe("step save schemas", () => {
   it("accepts a half-filled step (auto-save)", () => {
     const empty = { ...base, title: "", description: "", maxGuests: null, rooms: null };
-    expect(detailsStepSchema.safeParse(pickStepData("details", empty)).success).toBe(true);
+    for (const step of ["size", "building", "features", "text"] as const) {
+      expect(stepSaveSchemas[step].safeParse(pickStepData(step, empty)).success).toBe(true);
+    }
   });
 
   it("rejects values out of range or in the wrong format", () => {
-    expect(detailsStepSchema.safeParse({ ...pickStepData("details", base), maxGuests: 0 }).success).toBe(false);
-    expect(detailsStepSchema.safeParse({ ...pickStepData("details", base), rooms: 2.3 }).success).toBe(false);
-    expect(detailsStepSchema.safeParse({ ...pickStepData("details", base), rooms: 2.5 }).success).toBe(true);
-    expect(detailsStepSchema.safeParse({ ...pickStepData("details", base), title: "x".repeat(91) }).success).toBe(false);
-    expect(detailsStepSchema.safeParse({ ...pickStepData("details", base), videoUrl: "http://youtube.com/x" }).success).toBe(false);
-    expect(detailsStepSchema.safeParse({ ...pickStepData("details", base), tour360Url: "https://my.matterport.com/show/?m=1" }).success).toBe(true);
+    expect(stepSaveSchemas.size.safeParse({ ...pickStepData("size", base), maxGuests: 0 }).success).toBe(false);
+    expect(stepSaveSchemas.size.safeParse({ ...pickStepData("size", base), rooms: 2.3 }).success).toBe(false);
+    expect(stepSaveSchemas.size.safeParse({ ...pickStepData("size", base), rooms: 2.5 }).success).toBe(true);
+    expect(stepSaveSchemas.text.safeParse({ ...pickStepData("text", base), title: "x".repeat(91) }).success).toBe(false);
+    expect(stepSaveSchemas.features.safeParse({ ...pickStepData("features", base), videoUrl: "http://youtube.com/x" }).success).toBe(false);
+    expect(stepSaveSchemas.features.safeParse({ ...pickStepData("features", base), tour360Url: "https://my.matterport.com/show/?m=1" }).success).toBe(true);
+    expect(stepSaveSchemas.building.safeParse({ ...pickStepData("building", base), cadastralCode: "abc" }).success).toBe(false);
+    // Each split step sends only its own fields.
+    expect(Object.keys(pickStepData("text", base)).sort()).toEqual(["description", "originalLocale", "title"]);
+    expect(pickStepData("building", base)).not.toHaveProperty("title");
     expect(stepSaveSchemas.amenities.safeParse({ ...pickStepData("amenities", base), checkInFrom: "25:00" }).success).toBe(false);
     expect(stepSaveSchemas.amenities.safeParse({ ...pickStepData("amenities", base), amenities: ["jacuzzi"] }).success).toBe(false);
   });
@@ -187,15 +195,19 @@ describe("step save schemas", () => {
 
 describe("stepIssues (Next is blocked)", () => {
   it("is empty for a complete step", () => {
-    for (const step of ["deal", "property", "location", "details", "amenities", "jewish", "price", "booking", "contact"] as const) {
+    for (const step of ["deal", "property", "location", "size", "building", "features", "text", "amenities", "jewish", "price", "booking", "contact"] as const) {
       expect(stepIssues(step, base, kind)).toEqual({});
     }
   });
 
   it("requires title and description (a short stay's guests are in the booking step)", () => {
-    const issues = stepIssues("details", { ...base, title: "Short", description: "", maxGuests: null }, kind);
+    const issues = stepIssues("text", { ...base, title: "Short", description: "", maxGuests: null }, kind);
     expect(issues).toMatchObject({ title: "titleTooShort", description: "required" });
-    expect(issues.maxGuests).toBeUndefined();
+    expect(stepIssues("size", { ...base, maxGuests: null }, kind).maxGuests).toBeUndefined();
+    // Only the essentials: "building" and "features" never block Next on empty fields.
+    const blank = { ...base, floor: null, totalFloors: null, yearBuilt: null, condition: null, heating: [], views: [] };
+    expect(stepIssues("building", blank, kind)).toEqual({});
+    expect(stepIssues("features", blank, { dealType: "SALE", propertyType: "APARTMENT" })).toEqual({});
     expect(stepIssues("booking", { ...base, maxGuests: null }, kind).maxGuests).toBe("required");
   });
 
@@ -209,15 +221,16 @@ describe("stepIssues (Next is blocked)", () => {
   });
 
   it("checks cross-field rules", () => {
-    expect(stepIssues("details", { ...base, floor: 10, totalFloors: 5 }, kind).floor).toBe("floorAboveTotal");
-    expect(stepIssues("details", { ...base, bedrooms: 4, rooms: 2 }, kind).bedrooms).toBe("bedroomsAboveRooms");
+    expect(stepIssues("building", { ...base, floor: 10, totalFloors: 5 }, kind).floor).toBe("floorAboveTotal");
+    expect(stepIssues("size", { ...base, bedrooms: 4, rooms: 2 }, kind).bedrooms).toBe("bedroomsAboveRooms");
   });
 
   it("requires size and rooms for a sale, and sharedRoomFor for a room", () => {
     const sale = { dealType: "SALE", propertyType: "APARTMENT" } as const;
-    expect(stepIssues("details", { ...base, sizeSqm: null }, sale).sizeSqm).toBe("required");
+    expect(stepIssues("size", { ...base, sizeSqm: null }, sale).sizeSqm).toBe("required");
+    expect(stepIssues("size", { ...base, rooms: null }, sale).rooms).toBe("required");
     const room = { dealType: "MONTHLY_RENT", propertyType: "ROOM" } as const;
-    expect(stepIssues("details", base, room).sharedRoomFor).toBe("required");
+    expect(stepIssues("size", base, room).sharedRoomFor).toBe("required");
   });
 
   it("needs a pin inside Georgia and a city", () => {
@@ -329,6 +342,30 @@ describe("availability ranges", () => {
     ).toEqual([
       { start: "2026-11-01", end: "2026-11-02" },
       { start: "2026-11-20", end: "2026-11-25" },
+    ]);
+  });
+});
+
+describe("the split details step (brief 5.7)", () => {
+  it("opens old ?step=details links on the first of the new steps", () => {
+    expect(parseStepParam("details", kind, 1)).toBe("size");
+    expect(parseStepParam("details", { dealType: "HOTEL_ROOM", propertyType: "HOTEL" }, 1)).toBe("building");
+  });
+
+  it("puts size, building, features and text right after the location", () => {
+    expect(stepsFor(kind).slice(2, 8)).toEqual(["location", "size", "building", "features", "text", "amenities"]);
+  });
+
+  it("lists what is missing per new step, with the step that fixes it", () => {
+    const missing = missingRequirements({
+      values: { ...base, title: "", videoUrl: "not a link" },
+      photoCount: 10,
+      phoneVerified: true,
+      pledgeAccepted: true,
+    });
+    expect(missing.map((m) => [m.key, m.step])).toEqual([
+      ["features", "features"],
+      ["text", "text"],
     ]);
   });
 });
