@@ -3,6 +3,7 @@
  * `booking.errors`.
  */
 import { z } from "zod";
+import { currencyCodes } from "@/config/site";
 import { looksLikeContact } from "@/lib/auth/first-name";
 import {
   CANCEL_REASON_TEXT_MAX,
@@ -62,6 +63,10 @@ export const createBookingSchema = quoteInputSchema.extend({
     ),
   messageToHost: optionalText(MESSAGE_TO_HOST_MAX),
   rulesAccepted: z.literal(true, { error: "rules_not_accepted" }),
+  /** What the review page showed: a change since then is refused with "terms_changed". */
+  expectedTotal: z.number().nonnegative().max(100_000_000).optional(),
+  expectedCurrency: z.enum(currencyCodes).optional(),
+  expectedPolicy: z.enum(CANCELLATION_POLICIES).optional(),
 });
 export type CreateBookingInput = z.input<typeof createBookingSchema>;
 

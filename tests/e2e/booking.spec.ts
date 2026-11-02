@@ -103,6 +103,22 @@ test.describe("booking", () => {
     await confirmButton(page).click();
     await expect(page.getByRole("alert").filter({ hasText: "יש לאשר את כללי הבית." })).toBeVisible();
 
+    // The host raises the price while the guest is on this page → no booking at a price the guest
+    // never saw: a clear message and the new total (hardening B2), then back to $70.
+    await page.getByRole("checkbox", { name: /קראתי ואני מסכים/ }).check();
+    await sql(`UPDATE "Listing" SET price = 75 WHERE id = $1`, [listing.id]);
+    try {
+      await confirmButton(page).click();
+      await expect(page.getByText(/המארח עדכן את המחיר/).first()).toBeVisible();
+      await expect(page.locator("main")).toContainText("170"); // 2 × $75 + $20
+      expect(await sql(`SELECT 1 FROM "Booking" WHERE "listingId" = $1 AND "messageToHost" IS NULL AND "createdAt" > now() - interval '5 minutes'`, [listing.id])).toHaveLength(0);
+    } finally {
+      await sql(`UPDATE "Listing" SET price = 70 WHERE id = $1`, [listing.id]);
+    }
+    await page.goto(reviewUrl);
+    await settle(page);
+    await expect(page.locator("main")).toContainText("160");
+
     await page.getByLabel("הודעה למארח (לא חובה)").fill(MESSAGE);
     await page.getByRole("checkbox", { name: /קראתי ואני מסכים/ }).check();
     await confirmButton(page).click();

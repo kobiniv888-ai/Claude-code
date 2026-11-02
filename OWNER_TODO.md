@@ -153,10 +153,11 @@ so look again before you pay.
 
 ## Speed (after the site is online)
 - [ ] **Check the real speed with PageSpeed Insights** (pagespeed.web.dev) on `/he`, a search and
-      a listing once the site is deployed. The local lab test cannot reach 90: on this machine
-      every script counts into the first paint (details and numbers in
-      `docs/integration/performance-seo.md`, "Round 2 speed pass"). A host with HTTP/2 and a CDN
-      (e.g. Vercel) was ~1 s faster in our proxy test.
+      a listing once the site is deployed. After the hardening speed pass the local lab test gives
+      91 on home, 90 on a listing and on the booking review, and 87 on search; on this machine
+      every script counts into the first paint (numbers in `docs/redesign-2/final.md` and
+      `docs/integration/performance-seo.md`). A host with HTTP/2 and a CDN (e.g. Vercel) was ~1 s
+      faster in our proxy test.
 - [ ] **Try the fast version on your phone:** `bash .devcontainer/start-prod.sh` in the Codespace
       (same address as before; photos are prepared in the background for 2–3 minutes).
 
@@ -178,6 +179,10 @@ so look again before you pay.
       the confirmation email and the page after booking are the same. Short stays and hotels whose
       host hasn't saved booking settings show "שאלה למארח" instead of "הזמנה". The guest's name
       for the host is prefilled with the account's first name.
+      - **Warned and suspended accounts.** A guest with a warning can book. A suspended guest
+        can't, and their listings stay hidden, even after the end date staff gave the suspension,
+        until staff lift it in the admin ("הפעלה מחדש"). Say if a suspension should end by itself on
+        its end date.
 - [ ] **Host booking choices (conservative, change any time).**
       - **No weekly/monthly discounts on booked stays.** The booking total is nights × price (+ the
         weekend price and the cleaning fee). A discount the total doesn't apply would be a broken

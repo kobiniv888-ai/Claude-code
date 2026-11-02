@@ -5,7 +5,7 @@ import { siteConfig } from "@/config/site";
 import { isAppLocale } from "@/i18n/locale";
 import { db } from "@/lib/db";
 import { isEmailDeliveryConfigured } from "@/lib/email";
-import { isSmsConfigured, maskPhone, sendSms } from "@/lib/sms";
+import { isSmsConfigured, maskPhone, sendSms, twilioErrorSummary } from "@/lib/sms";
 import { codeDisplayForHeaders, type CodeDisplayMode } from "./code-display";
 
 /**
@@ -174,8 +174,7 @@ export async function sendLoginCode(input: {
     throw new SmsUnavailableError(`Twilio Verify request failed: ${(error as Error).message}`);
   }
   if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    throw new SmsUnavailableError(`Twilio Verify returned ${response.status}: ${detail.slice(0, 300)}`);
+    throw new SmsUnavailableError(`Twilio Verify returned ${await twilioErrorSummary(response)}`);
   }
 }
 
@@ -196,8 +195,7 @@ export async function checkLoginCode(phoneNumber: string, code: string): Promise
   // 429 (Twilio error 60202): too many wrong codes for this verification.
   if (response.status === 429) return "too_many_attempts";
   if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    throw new SmsUnavailableError(`Twilio Verify check returned ${response.status}: ${detail.slice(0, 300)}`);
+    throw new SmsUnavailableError(`Twilio Verify check returned ${await twilioErrorSummary(response)}`);
   }
   const data = (await response.json().catch(() => null)) as { status?: string } | null;
   return data?.status === "approved" ? "approved" : "wrong";

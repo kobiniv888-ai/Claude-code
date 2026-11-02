@@ -1,6 +1,7 @@
 {
   "title": "Cookies on {name}",
   "description": "We use necessary cookies to keep the site working and secure. With your permission, we also remember your preferences and measure how the site is used, so we can improve it.",
+  "descriptionShort": "Necessary cookies run the site; others only with your permission.",
   "policyLink": "Cookie policy",
   "acceptAll": "Accept all",
   "necessaryOnly": "Necessary only",

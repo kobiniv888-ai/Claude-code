@@ -1,5 +1,6 @@
 import { unstable_rethrow } from "next/navigation";
 import type { ReactNode } from "react";
+import { getTranslations } from "next-intl/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getConsent } from "@/lib/consent";
 import { getSettings } from "@/lib/settings";
@@ -8,6 +9,7 @@ import { DemoDataBanner } from "./demo-data-banner";
 import { Footer } from "./footer";
 import { Header } from "./header";
 import { MobileBottomNav } from "./mobile-bottom-nav";
+import { NavigationSkeleton } from "./navigation-skeleton";
 import { ScamAlertBanner } from "./scam-alert-banner";
 import { ShabbatModeBanner } from "./shabbat-mode-banner";
 
@@ -17,7 +19,7 @@ import { ShabbatModeBanner } from "./shabbat-mode-banner";
  * Used by app/[locale]/(site)/layout.tsx and the 404 page.
  */
 export async function SiteShell({ children }: { children: ReactNode }) {
-  const [user, settings, consent] = await Promise.all([
+  const [user, settings, consent, t] = await Promise.all([
     getCurrentUser().catch((error: unknown) => {
       // Let Next.js handle its own control-flow errors (dynamic rendering, redirects).
       unstable_rethrow(error);
@@ -26,6 +28,7 @@ export async function SiteShell({ children }: { children: ReactNode }) {
     }),
     getSettings(),
     getConsent(),
+    getTranslations("listing"),
   ]);
 
   return (
@@ -37,7 +40,8 @@ export async function SiteShell({ children }: { children: ReactNode }) {
       {settings.demoDataVisible ? <DemoDataBanner /> : null}
       <Header user={user} />
       <main id="main" tabIndex={-1} className="flex-1 outline-none">
-        {children}
+        {/* The listing skeleton while a tapped listing link loads (the listing route streams nothing). */}
+        <NavigationSkeleton loadingLabel={t("loading")}>{children}</NavigationSkeleton>
       </main>
       <Footer />
       <MobileBottomNav isSignedIn={!!user} />

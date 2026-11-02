@@ -2,9 +2,7 @@
 
 import { ChevronDown } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { toast } from "@/lib/toast";
 import { useCurrency } from "@/components/providers/currency-provider";
-import { chipStyles } from "@/components/ds/chip";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -15,20 +13,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { siteConfig, type CurrencyCode } from "@/config/site";
+import { siteConfig } from "@/config/site";
 import { cn } from "@/lib/utils";
+import { DISPLAY_CURRENCIES, useChangeCurrency } from "./currency-chips";
 
-/** The currencies a visitor can pick (siteConfig.currencies.list with enabled: true). */
-export const DISPLAY_CURRENCIES = siteConfig.currencies.list.filter((c) => c.enabled);
-
-function useChangeCurrency() {
-  const t = useTranslations("nav.currency");
-  const { setCurrency } = useCurrency();
-  return async (code: string) => {
-    const ok = await setCurrency(code as CurrencyCode);
-    if (!ok) toast.error(t("error"));
-  };
-}
+export { CurrencyChips, DISPLAY_CURRENCIES } from "./currency-chips";
 
 /** Header / footer currency menu: "₪ ILS". The choice is saved in a cookie and prices refresh. */
 export function CurrencySwitcher({
@@ -91,37 +80,5 @@ export function CurrencySwitcher({
         <p className="px-2 py-1.5 text-xs leading-relaxed text-muted-foreground">{t("hint")}</p>
       </DropdownMenuContent>
     </DropdownMenu>
-  );
-}
-
-/** Currency chips for menus and settings pages. */
-export function CurrencyChips({ className }: { className?: string }) {
-  const t = useTranslations("nav.currency");
-  const { currency } = useCurrency();
-  const change = useChangeCurrency();
-  return (
-    <div role="radiogroup" aria-label={t("label")} className={cn("grid grid-cols-4 gap-2", className)}>
-      {DISPLAY_CURRENCIES.map((c) => {
-        const selected = c.code === currency;
-        return (
-          <button
-            key={c.code}
-            type="button"
-            role="radio"
-            aria-checked={selected}
-            aria-label={`${c.code} — ${t(`names.${c.code}`)}`}
-            onClick={() => void change(c.code)}
-            className={cn(chipStyles({ size: "sm", active: selected }), "w-full gap-1 px-1.5")}
-          >
-            <span aria-hidden className="text-base leading-none">
-              {c.symbol}
-            </span>
-            <span dir="ltr" className="text-xs">
-              {c.code}
-            </span>
-          </button>
-        );
-      })}
-    </div>
   );
 }

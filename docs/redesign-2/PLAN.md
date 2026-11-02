@@ -90,6 +90,15 @@ These are the questions the brief asked, answered so the work could go on:
    caches results, sends a clear User-Agent, holds the whole site to 1 request per second, and
    keeps the OSM credit. No paid geocoder.
 5. **Default currency.** he/ru/ar → ILS, en → USD, ka → GEL. A visitor's own choice always wins.
+6. **Who may book** (hardening). A guest account that is ACTIVE or WARNED may book, the same rule
+   as for hosts whose listings stay public. A SUSPENDED account may not, even after its
+   `suspendedUntil` date has passed, until staff lift the suspension (there is no automatic lift
+   for hosts either). A listing can be booked only while its page is public: LIVE, not past its
+   expiry date, and its owner ACTIVE or WARNED.
+7. **Price or policy changed while booking** (hardening). The review page sends the total, the
+   currency and the cancellation policy the guest saw. If the host changed any of them in the
+   meantime, the booking is refused with "terms_changed" and the page shows the new terms, so the
+   guest confirms again.
 
 ## Login (founder request after the brief)
 

@@ -96,7 +96,8 @@
     "reason_required": "Please choose a reason.",
     "reason_text_required": "Please write a few words about the reason.",
     "no_show_not_allowed": "You can report that a guest didn't arrive from the day after the arrival date until a week after departure.",
-    "payment_method_required": "Please choose at least one payment method."
+    "payment_method_required": "Please choose at least one payment method.",
+    "terms_changed": "The host changed the price or the cancellation terms while you were filling in your details. The new terms are shown now: please check them and confirm again."
   },
   "ics": {
     "summary": "{title} · {code}",

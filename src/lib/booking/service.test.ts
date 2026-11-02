@@ -26,11 +26,14 @@ vi.mock("@/lib/request", () => ({ getIpHash: async () => "test-ip" }));
 
 type Sent = { to: string; template: string; locale: string; subject: string; text: string };
 const sent: Sent[] = [];
+/** Runs while an email is being "sent" (to act in the middle of a slow notification). */
+const hooks: { onEmail?: () => Promise<void> } = {};
 vi.mock("@/lib/email", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/lib/email")>();
   return {
     ...real,
     sendEmail: vi.fn(async (input: Parameters<typeof real.sendEmail>[0]) => {
+      await hooks.onEmail?.();
       const rendered = await real.renderEmail(input.template, input.locale, input.data as never);
       sent.push({ to: input.to, template: input.template, locale: String(input.locale), subject: rendered.subject, text: rendered.text });
       return { ok: true };
@@ -53,7 +56,7 @@ const { BookingError } = await import("./errors");
 const { addDays, tbilisiToday } = await import("./dates");
 
 const prefix = `bk${randomUUID().replace(/-/g, "").slice(0, 10)}`;
-const ids = { city: "", listing: "", host: "", guestA: "", guestB: "", guestC: "" };
+const ids = { city: "", listing: "", host: "", guestA: "", guestB: "", guestC: "", host2: "", listing2: "", guestD: "" };
 const today = tbilisiToday();
 const day = (n: number) => addDays(today, n);
 
@@ -145,9 +148,10 @@ beforeEach(() => {
 });
 
 afterAll(async () => {
-  const users = [ids.host, ids.guestA, ids.guestB, ids.guestC].filter(Boolean);
-  await db.booking.deleteMany({ where: { listingId: ids.listing } });
-  await db.listing.deleteMany({ where: { id: ids.listing } });
+  const users = [ids.host, ids.guestA, ids.guestB, ids.guestC, ids.host2, ids.guestD].filter(Boolean);
+  const listings = [ids.listing, ids.listing2].filter(Boolean);
+  await db.booking.deleteMany({ where: { listingId: { in: listings } } });
+  await db.listing.deleteMany({ where: { id: { in: listings } } });
   await db.auditLog.deleteMany({ where: { actorId: { in: users } } });
   await db.rateLimit.deleteMany({ where: { key: { startsWith: "booking:create:" + prefix } } });
   await db.user.deleteMany({ where: { id: { in: users } } });
@@ -291,3 +295,135 @@ describe("cancel, no-show, complete, remind", () => {
     expect(await db.auditLog.count({ where: { action: "booking.no_show", targetId: created.id } })).toBe(1);
   });
 });
+
+describe("hardening (round 2 review)", () => {
+  const digits = () => `${(Date.now() + Math.floor(Math.random() * 1000)) % 1_000_000}`.padStart(6, "0");
+
+  beforeAll(async () => {
+    ids.host2 = await makeUser("Avi", digits() + "5");
+    ids.guestD = await makeUser("Tamar", digits() + "6", "he");
+    const listing = await db.listing.create({
+      data: {
+        ownerId: ids.host2,
+        status: "LIVE",
+        dealType: "SHORT_STAY",
+        propertyType: "APARTMENT",
+        pricePeriod: "NIGHT",
+        price: 80,
+        currency: "USD",
+        maxGuests: 4,
+        bookingMode: "INSTANT",
+        cancellationPolicy: "FLEXIBLE",
+        paymentMethodsAtCheckIn: ["cash"],
+        cityId: ids.city,
+        lat: 41.7102,
+        lng: 44.7703,
+        address: "2 Test Street, Tbilisi",
+        contactMethods: [{ channel: "WHATSAPP", value: "+995555123457", order: 0 }],
+        originalLocale: "en",
+        title: "Second flat for booking tests",
+        description: "A test listing.",
+      },
+    });
+    ids.listing2 = listing.id;
+  });
+
+  it("B1: refuses a listing that is not public (owner suspended, or past its expiry date)", async () => {
+    const quoteStay = { listingId: ids.listing, checkIn: day(70), checkOut: day(73), adults: 2 };
+    await db.user.update({ where: { id: ids.host }, data: { status: "SUSPENDED" } });
+    try {
+      expect(await service.getBookingQuote(quoteStay)).toEqual({ ok: false, error: "not_bookable" });
+      await expectCode(service.createBooking(stay(ids.guestA, day(70), day(73), { notify: false })), "not_bookable");
+    } finally {
+      await db.user.update({ where: { id: ids.host }, data: { status: "ACTIVE" } });
+    }
+    await db.listing.update({ where: { id: ids.listing }, data: { expiresAt: new Date(Date.now() - 60_000) } });
+    try {
+      await expectCode(service.createBooking(stay(ids.guestA, day(70), day(73), { notify: false })), "not_bookable");
+    } finally {
+      await db.listing.update({ where: { id: ids.listing }, data: { expiresAt: null } });
+    }
+    // A warned host's listing stays bookable (the listing page's rule).
+    await db.user.update({ where: { id: ids.host }, data: { status: "WARNED" } });
+    try {
+      expect(await service.getBookingQuote(quoteStay)).toMatchObject({ ok: true });
+    } finally {
+      await db.user.update({ where: { id: ids.host }, data: { status: "ACTIVE" } });
+    }
+    expect(await db.booking.count({ where: { listingId: ids.listing, checkIn: dayToDateOf(day(70)) } })).toBe(0);
+  });
+
+  it("B2: refuses with terms_changed when the price, currency or policy differ from what the guest saw", async () => {
+    const seen = await service.getBookingQuote({ listingId: ids.listing, checkIn: day(80), checkOut: day(83), adults: 2 });
+    if (!seen.ok) throw new Error("no quote");
+    const expected = { expectedTotal: seen.quote.total, expectedCurrency: seen.quote.currency, expectedPolicy: seen.cancellationPolicy };
+
+    // The host raises the price while the guest is on the review page.
+    await db.listing.update({ where: { id: ids.listing }, data: { price: 300 } });
+    try {
+      await expectCode(service.createBooking(stay(ids.guestA, day(80), day(83), { ...expected, notify: false })), "terms_changed");
+    } finally {
+      await db.listing.update({ where: { id: ids.listing }, data: { price: 100 } });
+    }
+    await expectCode(
+      service.createBooking(stay(ids.guestA, day(80), day(83), { ...expected, expectedPolicy: "STRICT", notify: false })),
+      "terms_changed",
+    );
+    await expectCode(
+      service.createBooking(stay(ids.guestA, day(80), day(83), { ...expected, expectedCurrency: "GEL", notify: false })),
+      "terms_changed",
+    );
+    expect(await db.booking.count({ where: { listingId: ids.listing, checkIn: dayToDateOf(day(80)) } })).toBe(0);
+
+    const created = await service.createBooking(stay(ids.guestA, day(80), day(83), { ...expected, notify: false }));
+    expect(created.total).toBe(seen.quote.total);
+  });
+
+  it("B5: a warned guest can book; a suspended one (even past suspendedUntil) cannot", async () => {
+    try {
+      await db.user.update({ where: { id: ids.guestD }, data: { status: "WARNED" } });
+      const created = await service.createBooking(stay(ids.guestD, day(120), day(122), { notify: false }));
+      expect(created.code).toMatch(/^BT-/);
+      await db.user.update({ where: { id: ids.guestD }, data: { status: "SUSPENDED", suspendedUntil: new Date(Date.now() - 60_000) } });
+      await expectCode(service.createBooking(stay(ids.guestD, day(124), day(126), { notify: false })), "not_allowed");
+    } finally {
+      await db.user.update({ where: { id: ids.guestD }, data: { status: "ACTIVE", suspendedUntil: null } });
+    }
+  });
+
+  it("B6: deleting the account removes the guest's own cancellation text, not the host's", async () => {
+    const own = await service.createBooking(stay(ids.guestD, day(86), day(88), { notify: false }));
+    await service.guestCancel({ bookingId: own.id, guestUserId: ids.guestD, reasonCode: "OTHER", reasonText: "family emergency, call me", notify: false });
+    const byHost = await service.createBooking(stay(ids.guestD, day(90), day(92), { notify: false }));
+    await service.hostCancel({ bookingId: byHost.id, hostUserId: ids.host, reasonCode: "OTHER", reasonText: "Boiler broke", notify: false });
+    expect((await db.booking.findUniqueOrThrow({ where: { id: own.id } })).cancelReason).toBe("family emergency, call me");
+
+    await service.releaseBookingsOfDeletedAccount(ids.guestD);
+    expect(await db.booking.findUniqueOrThrow({ where: { id: own.id } })).toMatchObject({ cancelReason: null, cancelReasonCode: "OTHER", guestName: "—" });
+    expect((await db.booking.findUniqueOrThrow({ where: { id: byHost.id } })).cancelReason).toBe("Boiler broke");
+  });
+
+  it("B4: a booking made while a deleted host's bookings are being cancelled is refused", async () => {
+    await service.createBooking(stay(ids.guestA, day(100), day(103), { listingId: ids.listing2, notify: false }));
+    let late: unknown = null;
+    hooks.onEmail = async () => {
+      hooks.onEmail = undefined;
+      // Another guest books while the cancellation emails are going out.
+      late = await service
+        .createBooking(stay(ids.guestC, day(110), day(113), { listingId: ids.listing2, notify: false }))
+        .catch((error: unknown) => error);
+    };
+    try {
+      expect((await service.releaseBookingsOfDeletedAccount(ids.host2)).cancelled).toBe(1);
+    } finally {
+      hooks.onEmail = undefined;
+    }
+    expect(late).toMatchObject({ code: "not_bookable" });
+    expect(await db.booking.count({ where: { listingId: ids.listing2, status: "CONFIRMED" } })).toBe(0);
+    expect((await db.listing.findUniqueOrThrow({ where: { id: ids.listing2 } })).bookingMode).toBe("CONTACT");
+  });
+});
+
+function dayToDateOf(value: string) {
+  return new Date(`${value}T00:00:00Z`);
+}

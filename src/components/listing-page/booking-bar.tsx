@@ -2,29 +2,23 @@
 
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { CalendarDaysIcon, CheckIcon, EllipsisIcon, GitCompareArrowsIcon, MessageCircleQuestionIcon, UsersRoundIcon } from "lucide-react";
+import { CalendarDaysIcon, CheckIcon, GitCompareArrowsIcon, MessageCircleQuestionIcon, UsersRoundIcon } from "lucide-react";
 import { DatesGuestsSheet } from "@/components/booking/dates-guests-sheet";
 import { useGuestSummary } from "@/components/booking/guest-summary";
 import { PriceBreakdown } from "@/components/booking/price-breakdown";
 import { BottomSheet } from "@/components/ds/bottom-sheet";
 import { Button, buttonStyles } from "@/components/ds/button";
+import { OverflowMenu, type OverflowMenuItem } from "@/components/ds/overflow-menu";
 import { StickyContactBar } from "@/components/ds/sticky-contact-bar";
 import { ChannelIcon } from "@/components/contact/channel-icon";
 import { ContactPanel } from "@/components/contact/contact-panel";
 import { useContact } from "@/components/contact/contact-provider";
 import { Price } from "@/components/listing/price";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { useCompare } from "@/hooks/use-compare";
 import { Link, useRouter } from "@/i18n/navigation";
 import { formatDate } from "@/lib/format";
 import { contactLayout } from "@/lib/listing-page/helpers";
-import { COMPARE_PATH } from "@/lib/listing/urls";
+import { COMPARE_PATH } from "@/lib/listing/paths";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { useStay, useStayMoney } from "./stay-dates";
@@ -129,6 +123,34 @@ export function BookingBar() {
   const [contactOpen, setContactOpen] = useState(false);
   const canContact = availability === "ok" && listing.channels.length > 0;
   const { primary } = contactLayout(listing.channels);
+  const menuItems: OverflowMenuItem[] = [
+    ...(canContact && primary
+      ? ([
+          {
+            key: "ask",
+            icon: primary === "WHATSAPP" ? <ChannelIcon channel={primary} className="size-5" /> : <MessageCircleQuestionIcon className="size-5" aria-hidden />,
+            label: t("ask"),
+            hint: tc(`channel.${primary}`),
+            onSelect: () => contact(primary),
+            disabled: revealing,
+          },
+          {
+            key: "all",
+            icon: <UsersRoundIcon className="size-5" aria-hidden="true" />,
+            label: tc("allOptions"),
+            onSelect: () => reveal(() => setContactOpen(true)),
+            disabled: revealing,
+          },
+          "separator",
+        ] satisfies OverflowMenuItem[])
+      : []),
+    {
+      key: "compare",
+      icon: compareItem.active ? <CheckIcon className="size-5" aria-hidden /> : <GitCompareArrowsIcon className="size-5" aria-hidden />,
+      label: compareItem.label,
+      onSelect: compareItem.toggle,
+    },
+  ];
 
   return (
     <>
@@ -144,37 +166,7 @@ export function BookingBar() {
           </div>
         }
         primary={<BookButton />}
-        menu={
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" aria-label={t("more")}>
-                <EllipsisIcon aria-hidden="true" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" side="top" sideOffset={10} className="min-w-60 rounded-xl p-1.5">
-              {canContact && primary ? (
-                <>
-                  <DropdownMenuItem className="min-h-11 gap-3 rounded-lg" disabled={revealing} onSelect={() => contact(primary)}>
-                    {primary === "WHATSAPP" ? <ChannelIcon channel={primary} className="size-5" /> : <MessageCircleQuestionIcon className="size-5" aria-hidden />}
-                    <span className="grid">
-                      {t("ask")}
-                      <span className="text-caption text-muted-foreground">{tc(`channel.${primary}`)}</span>
-                    </span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="min-h-11 gap-3 rounded-lg" disabled={revealing} onSelect={() => reveal(() => setContactOpen(true))}>
-                    <UsersRoundIcon className="size-5" aria-hidden="true" />
-                    {tc("allOptions")}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                </>
-              ) : null}
-              <DropdownMenuItem className="min-h-11 gap-3 rounded-lg" onSelect={compareItem.toggle}>
-                {compareItem.active ? <CheckIcon className="size-5" aria-hidden /> : <GitCompareArrowsIcon className="size-5" aria-hidden />}
-                {compareItem.label}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        }
+        menu={<OverflowMenu label={t("more")} items={menuItems} contentClassName="min-w-60" />}
       />
       {canContact ? <ContactSheet open={contactOpen} onOpenChange={setContactOpen} /> : null}
     </>

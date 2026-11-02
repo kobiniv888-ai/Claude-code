@@ -2,17 +2,11 @@
 
 import { useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { EllipsisIcon, PhoneIcon, UsersRoundIcon } from "lucide-react";
+import { PhoneIcon, UsersRoundIcon } from "lucide-react";
 import { BottomSheet } from "@/components/ds/bottom-sheet";
 import { Button } from "@/components/ds/button";
+import { OverflowMenu } from "@/components/ds/overflow-menu";
 import { StickyContactBar } from "@/components/ds/sticky-contact-bar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { contactLayout } from "@/lib/listing-page/helpers";
 import { ChannelIcon } from "./channel-icon";
 import { ContactPanel } from "./contact-panel";
@@ -78,26 +72,20 @@ export function MobileContactBar({ price, owner }: { price: ReactNode; owner: Re
         }
         menu={
           more.length ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon" aria-label={t("moreChannels")}>
-                  <EllipsisIcon aria-hidden="true" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" side="top" sideOffset={10} className="min-w-56 rounded-xl p-1.5">
-                {more.map((channel) => (
-                  <DropdownMenuItem key={channel} className="min-h-11 gap-3 rounded-lg" onSelect={() => contact(channel)}>
-                    <ChannelIcon channel={channel} className="size-5" />
-                    {t(`channelAction.${channel}`)}
-                  </DropdownMenuItem>
-                ))}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="min-h-11 gap-3 rounded-lg" onSelect={() => reveal(openSheet)}>
-                  <UsersRoundIcon className="size-5" aria-hidden="true" />
-                  {t("allOptions")}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <OverflowMenu
+              label={t("moreChannels")}
+              contentClassName="min-w-56"
+              items={[
+                ...more.map((channel) => ({
+                  key: channel,
+                  icon: <ChannelIcon channel={channel} className="size-5" />,
+                  label: t(`channelAction.${channel}`),
+                  onSelect: () => contact(channel),
+                })),
+                "separator",
+                { key: "all", icon: <UsersRoundIcon className="size-5" aria-hidden="true" />, label: t("allOptions"), onSelect: () => reveal(openSheet) },
+              ]}
+            />
           ) : undefined
         }
       />

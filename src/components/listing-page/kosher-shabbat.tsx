@@ -1,12 +1,12 @@
 import { useLocale, useTranslations } from "next-intl";
 import { SpriteIcon } from "@/components/ds/sprite-icons";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Link } from "@/i18n/navigation";
 import { formatNumber } from "@/lib/format";
 import { otherJewishFeatures, shabbatChecklist, type ShabbatLine } from "@/lib/listing-page/highlights";
 import type { VerifiedPlace } from "@/lib/listing-page/places";
 import type { ListingPageData } from "@/lib/listing-page/types";
 import { cn } from "@/lib/utils";
+import { KosherFoldedSection } from "./folded-section-island";
 
 function lineText(line: ShabbatLine, t: (key: string, values?: Record<string, string>) => string, locale: string): string {
   if (line.key === "elevator" && !line.ok && line.floor !== null) return t("line.elevator.noFloor", { floor: formatNumber(line.floor, locale) });
@@ -44,79 +44,74 @@ export function KosherShabbatSection({ data, synagogue }: { data: ListingPageDat
 
   return (
     <section id="kosher" aria-label={t("title")} className="scroll-mt-(--header-height) border-t border-border pt-4">
-      <Accordion type="single" collapsible>
-        <AccordionItem value="kosher" className="border-b-0">
-          <AccordionTrigger className="text-h2">{t("title")}</AccordionTrigger>
-          <AccordionContent className="grid gap-5 pt-1">
-            {data.kitchenKosher || data.kosherCertName || hotelFood.length ? (
-              <dl className="grid gap-3">
-                {data.kitchenKosher ? (
-                  <div className="grid gap-0.5">
-                    <dt className="text-small text-muted-foreground">{t("kitchen")}</dt>
-                    <dd>{f(`kitchenKosher.${data.kitchenKosher}`)}</dd>
-                  </div>
-                ) : null}
-                {data.kosherCertName ? (
-                  <div className="grid gap-0.5">
-                    <dt className="text-small text-muted-foreground">{t("supervision")}</dt>
-                    <dd dir="auto">{data.kosherCertName}</dd>
-                  </div>
-                ) : null}
-                {hotelFood.length ? (
-                  <div className="grid gap-0.5">
-                    <dt className="text-small text-muted-foreground">{t("food")}</dt>
-                    <dd>{hotelFood.map((key) => f(`hotelJewishFeature.${key}`)).join(" · ")}</dd>
-                  </div>
-                ) : null}
-              </dl>
-            ) : null}
-
-            {checklist.length ? (
-              <div className="grid gap-2.5">
-                <h3 className="text-body font-semibold">{t("checklist")}</h3>
-                <ul className="grid gap-2.5 sm:grid-cols-2">
-                  {checklist.map((line) => (
-                    <Check key={line.key} ok={line.ok}>
-                      {lineText(line, t as never, locale)}
-                    </Check>
-                  ))}
-                </ul>
+      <KosherFoldedSection value="kosher" title={t("title")} triggerClassName="text-h2" contentClassName="grid gap-5 pt-1">
+        {data.kitchenKosher || data.kosherCertName || hotelFood.length ? (
+          <dl className="grid gap-3">
+            {data.kitchenKosher ? (
+              <div className="grid gap-0.5">
+                <dt className="text-small text-muted-foreground">{t("kitchen")}</dt>
+                <dd>{f(`kitchenKosher.${data.kitchenKosher}`)}</dd>
               </div>
             ) : null}
-
-            {others.length ? (
-              <ul className="grid gap-2.5 sm:grid-cols-2">
-                {others.map((key) => (
-                  <Check key={key} ok>
-                    {f(`jewishFeature.${key}`)}
-                  </Check>
-                ))}
-              </ul>
+            {data.kosherCertName ? (
+              <div className="grid gap-0.5">
+                <dt className="text-small text-muted-foreground">{t("supervision")}</dt>
+                <dd dir="auto">{data.kosherCertName}</dd>
+              </div>
             ) : null}
-
-            {synagogue ? (
-              <p className="flex items-start gap-2.5">
-                <SpriteIcon name="map-pin" className="mt-0.5 size-5 shrink-0 text-primary-text" />
-                <span>
-                  {t(synagogue.kind === "chabad" ? "nearestChabad" : "nearestSynagogue")}: <span dir="auto" className="font-medium">{synagogue.name}</span>
-                  <span aria-hidden="true" className="px-1.5 text-muted-foreground">·</span>
-                  {t("walk", { count: synagogue.minutes })}
-                </span>
-              </p>
+            {hotelFood.length ? (
+              <div className="grid gap-0.5">
+                <dt className="text-small text-muted-foreground">{t("food")}</dt>
+                <dd>{hotelFood.map((key) => f(`hotelJewishFeature.${key}`)).join(" · ")}</dd>
+              </div>
             ) : null}
+          </dl>
+        ) : null}
 
-            {data.city ? (
-              <Link
-                href={{ pathname: "/jewish-life", query: { city: data.city.slug }, hash: "shabbat-times" }}
-                className="inline-flex min-h-11 items-center gap-1.5 justify-self-start rounded font-medium text-primary-text underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
-              >
-                {t("times", { city: data.city.name })}
-                <SpriteIcon name="arrow-right" className="size-4 rtl:-scale-x-100" />
-              </Link>
-            ) : null}
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
+        {checklist.length ? (
+          <div className="grid gap-2.5">
+            <h3 className="text-body font-semibold">{t("checklist")}</h3>
+            <ul className="grid gap-2.5 sm:grid-cols-2">
+              {checklist.map((line) => (
+                <Check key={line.key} ok={line.ok}>
+                  {lineText(line, t as never, locale)}
+                </Check>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {others.length ? (
+          <ul className="grid gap-2.5 sm:grid-cols-2">
+            {others.map((key) => (
+              <Check key={key} ok>
+                {f(`jewishFeature.${key}`)}
+              </Check>
+            ))}
+          </ul>
+        ) : null}
+
+        {synagogue ? (
+          <p className="flex items-start gap-2.5">
+            <SpriteIcon name="map-pin" className="mt-0.5 size-5 shrink-0 text-primary-text" />
+            <span>
+              {t(synagogue.kind === "chabad" ? "nearestChabad" : "nearestSynagogue")}: <span dir="auto" className="font-medium">{synagogue.name}</span>
+              <span aria-hidden="true" className="px-1.5 text-muted-foreground">·</span>
+              {t("walk", { count: synagogue.minutes })}
+            </span>
+          </p>
+        ) : null}
+
+        {data.city ? (
+          <Link
+            href={{ pathname: "/jewish-life", query: { city: data.city.slug }, hash: "shabbat-times" }}
+            className="inline-flex min-h-11 items-center gap-1.5 justify-self-start rounded font-medium text-primary-text underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            {t("times", { city: data.city.name })}
+            <SpriteIcon name="arrow-right" className="size-4 rtl:-scale-x-100" />
+          </Link>
+        ) : null}
+      </KosherFoldedSection>
     </section>
   );
 }

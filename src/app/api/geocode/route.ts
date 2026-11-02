@@ -13,9 +13,15 @@ import { rateLimit, rateLimitByIp, rateLimitHeaders } from "@/lib/rate-limit";
  * Errors: 400 too_short · 401 unauthorized · 429 rate_limited · 503 busy · 502 unavailable.
  */
 
-const PER_USER = { limit: 30, windowSeconds: 60 };
-const PER_IP = { limit: 60, windowSeconds: 60 };
+// One search per click is plenty. Each requester stays well under the site-wide upstream budget
+// (one Nominatim request per 1.1 s ≈ 54/min, 8 waiting at most) — hardening A3.
+const PER_USER = { limit: 8, windowSeconds: 60 };
+const PER_IP = { limit: 15, windowSeconds: 60 };
+/** Searches one person may have waiting for the shared upstream slot at the same time. */
+const MAX_IN_FLIGHT_PER_USER = 2;
 const NO_STORE = { "Cache-Control": "no-store" };
+
+const inFlightByUser = new Map<string, number>();
 
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
@@ -36,6 +42,11 @@ export async function GET(request: NextRequest) {
     return Response.json({ error: "rate_limited" }, { status: 429, headers: rateLimitHeaders(byUser, PER_USER.limit) });
   }
 
+  const waiting = inFlightByUser.get(user.id) ?? 0;
+  if (waiting >= MAX_IN_FLIGHT_PER_USER) {
+    return Response.json({ error: "rate_limited" }, { status: 429, headers: { ...NO_STORE, "Retry-After": "2" } });
+  }
+  inFlightByUser.set(user.id, waiting + 1);
   try {
     const results = await geocodeAddress(query, locale);
     return Response.json(
@@ -49,5 +60,9 @@ export async function GET(request: NextRequest) {
     if (!(error instanceof GeocodeUnavailableError)) console.error("[geocode] search failed:", error);
     else console.warn("[geocode]", error.message);
     return Response.json({ error: "unavailable" }, { status: 502, headers: NO_STORE });
+  } finally {
+    const left = (inFlightByUser.get(user.id) ?? 1) - 1;
+    if (left > 0) inFlightByUser.set(user.id, left);
+    else inFlightByUser.delete(user.id);
   }
 }

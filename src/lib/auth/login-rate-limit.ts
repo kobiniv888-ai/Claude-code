@@ -14,6 +14,9 @@ export const LOGIN_CODE_LIMITS = {
   perEmail: { limit: 5, windowSeconds: HOUR },
   perIp: { limit: 20, windowSeconds: HOUR },
   checksPerIp: { limit: 30, windowSeconds: HOUR },
+  /** "Verify your phone" (signed in): each request may reveal whether a number has an account. */
+  phoneChecksPerUser: { limit: 10, windowSeconds: HOUR },
+  phoneChecksPerIp: { limit: 20, windowSeconds: HOUR },
 } as const;
 
 /** One "send code" request. False when the phone number or the visitor's IP is over the limit. */
@@ -25,6 +28,17 @@ export async function limitLoginCodeRequests(phoneNumber: string): Promise<boole
   const phoneKey = hmacHash(`phone:${phoneNumber}`);
   const byPhone = await rateLimit(`auth:otp-send:phone:${phoneKey}`, LOGIN_CODE_LIMITS.perPhone);
   return byPhone.ok;
+}
+
+/**
+ * One "verify your phone" send request by a signed-in account (before the "number taken" lookup).
+ * False when the account or the visitor's IP is over the limit.
+ */
+export async function limitPhoneCheckRequests(userId: string): Promise<boolean> {
+  const byIp = await rateLimitByIp("auth:otp-phone-check", LOGIN_CODE_LIMITS.phoneChecksPerIp);
+  if (!byIp.ok) return false;
+  const byUser = await rateLimit(`auth:otp-phone-check:user:${userId}`, LOGIN_CODE_LIMITS.phoneChecksPerUser);
+  return byUser.ok;
 }
 
 /** One "check code" request from the visitor's IP. */

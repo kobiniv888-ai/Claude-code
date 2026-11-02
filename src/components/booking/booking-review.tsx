@@ -176,7 +176,9 @@ function ReviewForm({
   }, [guests, maxGuests, setGuests]);
 
   // The server confirms the price and that every night is still free (debounced).
-  const key = JSON.stringify([request, currency]);
+  // `requote` asks again after the server said the terms changed (same stay, fresh price).
+  const [requote, setRequote] = useState(0);
+  const key = JSON.stringify([request, currency, requote]);
   const [server, setServer] = useState<ServerCheck | null>(null);
   useEffect(() => {
     if (!local.ok) return;
@@ -263,6 +265,10 @@ function ReviewForm({
         messageToHost: message,
         rulesAccepted: true,
         locale,
+        // What the guest is confirming: the server refuses with "terms_changed" if it has changed.
+        expectedTotal: quote?.total,
+        expectedCurrency: quote?.currency,
+        expectedPolicy: terms.cancellationPolicy,
       }).catch(() => ({ ok: false as const, error: "server_error" }));
       if (result.ok) {
         router.push(`${result.data.path}?booked=1`);
@@ -274,6 +280,12 @@ function ReviewForm({
           setTaken(true);
           router.refresh();
           focus(`${ids}-stay`);
+          break;
+        case "terms_changed":
+          // The host changed the price or the policy: show the new terms before a new confirm.
+          setRequote((n) => n + 1);
+          router.refresh();
+          toast.error(errorText(result.error));
           break;
         case "phone_not_verified":
           setPhone(null);

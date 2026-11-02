@@ -34,10 +34,10 @@ import {
 import { Link, usePathname } from "@/i18n/navigation";
 import { isRtl } from "@/i18n/locale";
 import { cn } from "@/lib/utils";
-import { CurrencyChips } from "./currency-switcher";
-import { LanguageList } from "./language-switcher";
+import { CurrencyChips } from "./currency-chips";
+import { LanguageList } from "./language-list";
 import { activeNavKey, NAV_ITEMS, normalizePath, type NavKey } from "./nav-items";
-import { ThemeSegmented } from "./theme-toggle";
+import { ThemeSegmented } from "./theme-segmented";
 
 type Row = { id: string; href: string; label: string; icon: IconComponent; current?: boolean };
 

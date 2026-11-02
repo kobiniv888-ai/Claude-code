@@ -22,6 +22,7 @@ export const BOOKING_ERROR_CODES = [
   "reason_text_required",
   "no_show_not_allowed",
   "payment_method_required",
+  "terms_changed",
 ] as const;
 export type BookingErrorCode = (typeof BOOKING_ERROR_CODES)[number];
 

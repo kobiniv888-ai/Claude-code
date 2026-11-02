@@ -7,7 +7,7 @@ import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "@/i18n/navigation";
 import { useCompare } from "@/hooks/use-compare";
-import { COMPARE_PATH } from "@/lib/listing/urls";
+import { COMPARE_PATH } from "@/lib/listing/paths";
 import { cn } from "@/lib/utils";
 
 /** Adds or removes a listing from the compare list (max siteConfig.listings.compareMax). */

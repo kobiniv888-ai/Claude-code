@@ -48,8 +48,14 @@ export function deferredIsland<P extends object>(
       stopListening = () => document.removeEventListener("click", onClick, true);
     });
 
+  // Listen from the moment this module runs (before the page hydrates), not from when React first
+  // renders the island: React hydrates suspended boundaries only after the rest of the page, so a
+  // tap in between would otherwise be missed — and a navigation it started would wait for this
+  // island forever (hardening C1).
+  const early = typeof window === "undefined" ? null : opened();
+
   const Lazy = lazy(() =>
-    (typeof window === "undefined" ? Promise.resolve() : Promise.race([gate(), opened(), firstInteraction()]))
+    (early ? Promise.race([gate(), early, firstInteraction()]) : Promise.resolve())
       .then(load)
       .then((component) => ({ default: component })),
   );
@@ -97,6 +103,7 @@ export function deferredIsland<P extends object>(
 }
 
 let interaction: Promise<void> | null = null;
+let wake: (() => void) | null = null;
 
 /**
  * Resolves at the first click, key press, form submit or back/forward in the page (shared by all
@@ -105,7 +112,8 @@ let interaction: Promise<void> | null = null;
  * (pathname, search params). React must hydrate such a boundary before it can commit the
  * navigation, so with a closed gate (the desktop header tools on a phone, the footer pickers far
  * below) every link, filter chip and "Map" tap would wait forever. Navigations start from one of
- * these events, so the code is already on its way when React needs it.
+ * these events, so the code is already on its way when React needs it. Navigations started from
+ * code (a map moved with a finger) call wakeDeferredIslands() instead.
  */
 function firstInteraction(): Promise<void> {
   interaction ??= new Promise<void>((resolve) => {
@@ -113,12 +121,29 @@ function firstInteraction(): Promise<void> {
     const done = () => {
       for (const type of events) document.removeEventListener(type, done, true);
       window.removeEventListener("popstate", done, true);
+      wake = null;
       resolve();
     };
+    wake = done;
     for (const type of events) document.addEventListener(type, done, true);
     window.addEventListener("popstate", done, true);
   });
   return interaction;
+}
+
+// Listen as soon as this module runs: it is part of the root layout's code, which runs before the
+// page hydrates, so even the very first tap that React handles is seen (hardening C1).
+if (typeof window !== "undefined") void firstInteraction();
+
+/**
+ * Loads every waiting island now. Call it before a client-side navigation that no click, key or
+ * submit started (e.g. a search after the map was dragged or pinched): the navigation cannot
+ * finish until the islands above it have hydrated (hardening C2).
+ */
+export function wakeDeferredIslands(): void {
+  if (typeof window === "undefined") return;
+  void firstInteraction();
+  wake?.();
 }
 
 /** Resolves once `selector` is within `margin` of the viewport, or something in it gets focus. */

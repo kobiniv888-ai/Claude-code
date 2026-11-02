@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useSyncExternalStore } from "react";
+import { lazy, Suspense, useEffect, useSyncExternalStore } from "react";
 import ar from "../../messages/ar/states.json";
 import en from "../../messages/en/states.json";
 import he from "../../messages/he/states.json";
 import ka from "../../messages/ka/states.json";
 import ru from "../../messages/ru/states.json";
-import { BrandLockup } from "@/components/brand/mark";
 import { fontStyle } from "@/components/layout/fonts";
 import { locales, siteConfig, type AppLocale } from "@/config/site";
 import { dirFor, isAppLocale } from "@/i18n/locale";
@@ -19,6 +18,11 @@ import "./globals.css";
  */
 
 const messages: Record<AppLocale, typeof en> = { he, en, ru, ar, ka };
+
+// This component's code is part of every page's first load (Next.js preloads it for the root
+// error boundary). The logo brings the class merger (cn), which would then be downloaded twice
+// (once here, once with the page), so it loads only when this page is actually shown.
+const BrandLockup = lazy(() => import("@/components/brand/mark").then((m) => ({ default: m.BrandLockup })));
 
 const subscribe = () => () => {};
 function useAddressLocale(): AppLocale {
@@ -47,7 +51,9 @@ export default function GlobalError({ error, retry }: { error: unknown; retry: (
         <main className="flex min-h-dvh items-center justify-center px-4 py-10">
           <div className="w-full max-w-lg rounded-3xl border bg-card p-6 text-center shadow-card sm:p-8">
             <div className="flex justify-center">
-              <BrandLockup locale={locale} size={26} />
+              <Suspense fallback={<div className="h-9" />}>
+                <BrandLockup locale={locale} size={26} />
+              </Suspense>
             </div>
             <h1 className="mt-5 text-2xl font-bold tracking-tight">{m.errorTitle}</h1>
             <p className="mt-2 text-pretty text-muted-foreground">{m.errorDescription}</p>

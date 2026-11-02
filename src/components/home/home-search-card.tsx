@@ -12,11 +12,14 @@ import { PlaceCombobox, type PopularPlace } from "@/components/search/place-comb
 import { useRouter } from "@/i18n/navigation";
 import { currencySymbol, formatDate, formatNumber } from "@/lib/format";
 import { asksForDates, HOME_ROOM_OPTIONS, homeSearchFilters, parseBudget, type HomeSearchState } from "@/lib/home/search-card";
-import { searchPath } from "@/lib/listing/urls";
 import { formatStay } from "@/lib/search/format-stay";
 import type { HolidayMark } from "@/lib/search/holiday-marks";
 import { MAX_GUESTS, SEARCH_BAR_DEALS, type SearchBarDeal } from "@/lib/search/search-bar";
 import { cn } from "@/lib/utils";
+
+// The search address builder (the whole filter serializer) is only needed on submit: it loads when
+// the form is first touched, not with the home page.
+const loadUrls = () => import("@/lib/listing/urls");
 
 // The calendar (react-day-picker) and the sheet (vaul) load the first time "When?" is opened.
 const loadDatesSheet = () => import("./home-dates-sheet");
@@ -96,9 +99,11 @@ export function HomeSearchCard({
     setDatesOpen(true);
   }
 
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault();
-    router.push(searchPath(homeSearchFilters(state)));
+    const filters = homeSearchFilters(state);
+    const { searchPath } = await loadUrls();
+    router.push(searchPath(filters));
   }
 
   const datesValue =
@@ -115,6 +120,8 @@ export function HomeSearchCard({
       role="search"
       aria-label={labels.label}
       onSubmit={submit}
+      onFocus={() => void loadUrls()}
+      onPointerDown={() => void loadUrls()}
       className="rounded-card bg-card p-3 text-start text-card-foreground shadow-raised sm:p-4 md:p-5 dark:border dark:border-border dark:shadow-none"
     >
       <SegmentedControl

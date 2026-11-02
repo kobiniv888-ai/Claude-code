@@ -8,7 +8,7 @@ import { useRequireLogin } from "@/components/auth/login-dialog";
 import { useRouter } from "@/i18n/navigation";
 import { errorMessageKey } from "@/lib/errors";
 import { toggleFavorite } from "@/lib/listing/favorites";
-import { FAVORITES_PATH } from "@/lib/listing/urls";
+import { FAVORITES_PATH } from "@/lib/listing/paths";
 
 /**
  * The heart (coral, pops when saved). Optimistic: it fills at once and rolls back if saving fails. Signed-out visitors

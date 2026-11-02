@@ -16,6 +16,7 @@ const eslintConfig = defineConfig([
     // client, local file storage, test output and agent tooling are not source code.
     ".next-*/**",
     "src/generated/**",
+    "src/lib/cn-tables.generated.js",
     "storage/**",
     "test-results/**",
     "playwright-report/**",

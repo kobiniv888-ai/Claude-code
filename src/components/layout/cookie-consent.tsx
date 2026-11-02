@@ -1,15 +1,19 @@
 "use client";
 
-import { useId, useState, type ReactNode } from "react";
+import { lazy, Suspense, useId, useState, type ReactNode } from "react";
 import { Cookie, Lock } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { Link } from "@/i18n/navigation";
 import { ALL_CONSENT, makeConsent, NECESSARY_ONLY, writeConsent, type Consent } from "@/lib/consent-cookie";
 import { siteName } from "@/lib/seo";
 import { cn } from "@/lib/utils";
+
+// The banner is on every first visit; the switches only show after "Customize". Their code (Radix
+// Switch) loads when the visitor points at or taps "Customize", not with the page.
+const loadSwitch = () => import("@/components/ui/switch");
+const Switch = lazy(() => loadSwitch().then((m) => ({ default: m.Switch })));
 
 /** Fired on window after the visitor saves a choice (analytics loaders can listen for it). */
 export const CONSENT_EVENT = "bayit:consent";
@@ -64,7 +68,9 @@ export function CookieConsent({ initialOpen }: { initialOpen: boolean }) {
               {t("title", { name: siteName(locale) })}
             </h2>
             <p id={descriptionId} className="text-[13px] leading-relaxed text-pretty text-muted-foreground sm:text-sm">
-              {t("description")}{" "}
+              {/* Phones: one short sentence, so the card stays clear of the home search button (hardening C4). */}
+              <span className="sm:hidden">{t("descriptionShort")}</span>
+              <span className="hidden sm:inline">{t("description")}</span>{" "}
               <Link
                 href="/legal/cookies"
                 className="rounded-sm font-medium text-primary underline underline-offset-4 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
@@ -137,6 +143,9 @@ export function CookieConsent({ initialOpen }: { initialOpen: boolean }) {
                 type="button"
                 variant="ghost"
                 className="h-auto min-h-11 rounded-xl px-2 py-2 leading-tight whitespace-normal lg:min-h-10"
+                onPointerEnter={() => void loadSwitch()}
+                onPointerDown={() => void loadSwitch()}
+                onFocus={() => void loadSwitch()}
                 onClick={() => setCustomizing(true)}
               >
                 {t("customize")}
@@ -180,13 +189,15 @@ function CategoryRow({
         </p>
       </div>
       {switchId ? (
-        <Switch
-          id={switchId}
-          checked={checked}
-          onCheckedChange={onCheckedChange}
-          aria-describedby={descriptionId}
-          className="mt-0.5 shrink-0"
-        />
+        <Suspense fallback={<span aria-hidden className="mt-0.5 inline-block h-[18.4px] w-[32px] shrink-0 rounded-full bg-input" />}>
+          <Switch
+            id={switchId}
+            checked={checked}
+            onCheckedChange={onCheckedChange}
+            aria-describedby={descriptionId}
+            className="mt-0.5 shrink-0"
+          />
+        </Suspense>
       ) : (
         control
       )}

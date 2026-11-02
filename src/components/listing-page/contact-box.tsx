@@ -4,7 +4,6 @@ import { ContactPanel } from "@/components/contact/contact-panel";
 import { Ltr } from "@/components/common/ltr";
 import { SpriteIcon } from "@/components/ds/sprite-icons";
 import type { SpriteIconName } from "@/components/ds/sprite-icons.generated";
-import { CurrencySwitcher } from "@/components/layout/currency-switcher";
 import { Price } from "@/components/listing/price";
 import { Link } from "@/i18n/navigation";
 import { formatDate, formatTime } from "@/lib/format";
@@ -14,6 +13,7 @@ import { ownerPath } from "@/lib/listing/urls";
 import { cn } from "@/lib/utils";
 import { OwnerAvatar } from "./owner-avatar";
 import { OwnerLocalTime } from "./owner-local-time";
+import { BoxCurrencySwitcher } from "./currency-switcher-island";
 
 export type ShabbatNow = { active: boolean; kind: "shabbat" | "holiday" | null };
 
@@ -56,7 +56,11 @@ export function ContactBox({ data, shabbatNow }: { data: ListingPageData; shabba
     <div className="grid gap-4 rounded-card border border-border bg-card p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Price amount={data.price} currency={data.currency} period={data.pricePeriod} from={data.priceIsFrom} size="lg" />
-        {data.price ? <CurrencySwitcher align="end" className="h-9 bg-surface-muted px-2.5 hover:bg-surface-muted/70" /> : null}
+        {data.price ? (
+          <span data-box-currency="" className="contents">
+            <BoxCurrencySwitcher align="end" className="h-9 bg-surface-muted px-2.5 hover:bg-surface-muted/70" />
+          </span>
+        ) : null}
       </div>
       <OwnerHeader owner={data.owner} sale={data.dealType === "SALE"} />
       <ShabbatReplyNotice now={shabbatNow} />

@@ -1,11 +1,13 @@
 import "server-only";
 import type { CurrencyCode, AppLocale } from "@/config/site";
 import { Prisma } from "@/generated/prisma/client";
+import { isAccountInGoodStanding } from "@/lib/auth/account-status";
 import { verifiedPhoneOf } from "@/lib/auth/phone-once";
 import { audit } from "@/lib/audit";
 import { getRates } from "@/lib/currency";
 import { db } from "@/lib/db";
 import { NotFoundError } from "@/lib/errors";
+import { previewReason } from "@/lib/listing-page/access";
 import { assertRateLimit } from "@/lib/rate-limit";
 import { generateBookingCode } from "./code";
 import { cleanPaymentMethods, REMINDER_DAYS_BEFORE, type GuestCancelReason, type HostCancelReason } from "./constants";
@@ -55,6 +57,8 @@ const listingSelect = {
   paymentMethodsAtCheckIn: true,
   checkInFrom: true,
   isDemo: true,
+  expiresAt: true,
+  owner: { select: { status: true, deletedAt: true } },
   roomTypes: {
     select: {
       id: true,
@@ -126,6 +130,10 @@ function quoteFor(
   },
 ): BookingQuoteResult {
   if (!isInstantBookable(listing)) return { ok: false, error: "not_bookable" };
+  // The same rule as the listing page (expiry date, owner's account): a hidden listing is not
+  // bookable, even from a review page opened before it was hidden (hardening B1). The demo rule is
+  // applied by createBooking itself.
+  if (previewReason(listing, { demoVisible: true, now: options.now }) !== null) return { ok: false, error: "not_bookable" };
   const resolved = resolveTerms(listing, stay.roomTypeId);
   if (!resolved.ok)
     return {
@@ -181,6 +189,13 @@ export type CreateBookingParams = StayParams & {
   /** false: the caller sends the notifications itself (e.g. with after()). Default true. */
   notify?: boolean;
   now?: Date;
+  /**
+   * What the review page showed the guest. When given and the listing's terms have changed since,
+   * the booking is refused with "terms_changed" so the guest sees the new terms first.
+   */
+  expectedTotal?: number | null;
+  expectedCurrency?: CurrencyCode | null;
+  expectedPolicy?: LoadedListing["cancellationPolicy"] | null;
 };
 
 export type CreatedBooking = {
@@ -228,6 +243,13 @@ async function freshCode(tx: Prisma.TransactionClient): Promise<string> {
   throw new Error("Could not find a free booking code");
 }
 
+/** The price or cancellation policy differs from what the review page showed (hardening B2). */
+function termsChanged(params: CreateBookingParams, quote: Quote, policy: LoadedListing["cancellationPolicy"]): boolean {
+  if (params.expectedCurrency && params.expectedCurrency !== quote.currency) return true;
+  if (params.expectedTotal != null && Math.abs(params.expectedTotal - quote.total) > 0.005) return true;
+  return !!params.expectedPolicy && params.expectedPolicy !== policy;
+}
+
 function failQuote(result: Exclude<BookingQuoteResult, { ok: true }>): never {
   if (result.error === "not_found") throw new BookingError("not_bookable");
   const details: Record<string, number> = {};
@@ -259,7 +281,9 @@ export async function createBooking(params: CreateBookingParams): Promise<Create
     },
   });
   if (!guest || guest.deletedAt) throw new NotFoundError();
-  if (guest.status !== "ACTIVE") throw new BookingError("not_allowed");
+  // WARNED accounts book like active ones (the same rule as for hosts' listings); SUSPENDED stays
+  // refused until staff lift it, even after suspendedUntil (hardening B5).
+  if (!isAccountInGoodStanding(guest.status)) throw new BookingError("not_allowed");
   const verifiedPhone = verifiedPhoneOf(guest);
   if (!verifiedPhone || (params.guestPhone && params.guestPhone !== verifiedPhone)) throw new BookingError("phone_not_verified");
 
@@ -315,6 +339,7 @@ export async function createBooking(params: CreateBookingParams): Promise<Create
         });
         if (!priced.ok) failQuote(priced);
         const { quote, roomType } = priced;
+        if (termsChanged(params, quote, locked.cancellationPolicy)) throw new BookingError("terms_changed");
 
         if (await findBlockingRange(locked.id, quote.checkIn, quote.checkOut, tx)) throw new BookingError("dates_unavailable");
 
@@ -615,9 +640,15 @@ export async function sendBookingReminders(
  * For "Delete my account" (call it before the user row is anonymized): the account's upcoming
  * bookings are cancelled — as the guest's own cancellation, or as the host's for bookings of their
  * listings — and the other side is told; the guest's name, phone and message are then removed
- * from all of the account's bookings as a guest.
+ * from all of the account's bookings as a guest, with the reason text of the guest's own
+ * cancellations. The account's listings stop taking instant bookings first.
  */
 export async function releaseBookingsOfDeletedAccount(userId: string, now: Date = new Date()): Promise<{ cancelled: number }> {
+  // First, no new bookings of the account's listings: one made while the others are being cancelled
+  // (each cancellation sends an email and a text) would never be cancelled (hardening B4). The
+  // UPDATE waits for a booking that holds a listing's lock, so that booking is in the list below;
+  // a later one sees "CONTACT" in its locked re-read and is refused.
+  await db.listing.updateMany({ where: { ownerId: userId, bookingMode: "INSTANT" }, data: { bookingMode: "CONTACT" } });
   const upcoming = await db.booking.findMany({
     where: { status: "CONFIRMED", checkOut: { gt: dayToDate(tbilisiToday(now)) }, OR: [{ guestUserId: userId }, { hostUserId: userId }] },
     select: { id: true, code: true, guestUserId: true },
@@ -648,5 +679,11 @@ export async function releaseBookingsOfDeletedAccount(userId: string, now: Date 
     await notifyBookingCancelled(booking.id);
   }
   await db.booking.updateMany({ where: { guestUserId: userId }, data: { guestName: "—", guestPhone: "", messageToHost: null } });
+  // The guest's own words when they cancelled (hosts' reasons stay for staff review; the reason
+  // code stays too).
+  await db.booking.updateMany({
+    where: { guestUserId: userId, cancelledById: userId, status: "CANCELLED_BY_GUEST" },
+    data: { cancelReason: null },
+  });
   return { cancelled };
 }

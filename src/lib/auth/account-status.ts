@@ -8,6 +8,16 @@ import type { UserStatus } from "@/generated/prisma/enums";
  */
 export type AccountBlock = "banned" | "deleted" | "suspended";
 
+/**
+ * Accounts in good standing: they may book, and their listings are public. A SUSPENDED account
+ * stays out until staff lift the suspension, even after `suspendedUntil` has passed.
+ */
+export const ACTIVE_ACCOUNT_STATUSES: readonly UserStatus[] = ["ACTIVE", "WARNED"];
+
+export function isAccountInGoodStanding(status: UserStatus | string): boolean {
+  return (ACTIVE_ACCOUNT_STATUSES as readonly string[]).includes(status);
+}
+
 export function accountBlock(
   user: { status: UserStatus | string; suspendedUntil?: Date | string | null },
   now: Date = new Date(),

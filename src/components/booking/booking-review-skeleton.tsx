@@ -1,8 +1,11 @@
 import { Container } from "@/components/common/container";
 import { SkeletonBlock } from "@/components/common/skeletons";
 
-/** "אישור הזמנה" while it loads: the same layout as the page (stay, price, then the form). */
-export default function Loading() {
+/**
+ * "אישור הזמנה" (the booking review) while it loads: the same layout as the page (stay, price, then
+ * the form). Shown by layout/navigation-skeleton.tsx when "Book" is tapped on a listing.
+ */
+export function BookingReviewSkeleton() {
   return (
     <Container className="grid max-w-5xl gap-4 pt-3 pb-6 lg:gap-6 lg:pt-6" aria-hidden>
       <div className="grid gap-2">

@@ -8,7 +8,7 @@ import { db } from "@/lib/db";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { codeDisplayForHeaders } from "./code-display";
 import { authErrorKey } from "./error-codes";
-import { limitLoginCodeChecks } from "./login-rate-limit";
+import { limitLoginCodeChecks, limitPhoneCheckRequests } from "./login-rate-limit";
 import { checkLoginPhoneNumber } from "./phone";
 import { isPhoneAlreadyVerified, phoneCheckStep } from "./phone-once";
 import { auth } from "./server";
@@ -53,6 +53,13 @@ export async function sendPhoneCheckCode(input: unknown): Promise<ActionResult<P
     const check = checkLoginPhoneNumber(parsed.data.phoneNumber);
     if (!check.ok) return fail(check.reason === "country_not_supported" ? "country_not_supported" : "invalid_phone");
     const phoneNumber = check.e164;
+    // Reveals only this account's own state, so it may come before the limits.
+    if (isPhoneAlreadyVerified(user, phoneNumber)) return ok({ status: "already_verified", phoneNumber });
+
+    // "phone_taken" tells whether some account has this number: charge the limits and check the
+    // CAPTCHA before looking, so the action cannot be used to test numbers in bulk (hardening A1).
+    if (!(await limitPhoneCheckRequests(user.id))) return fail("rate_limited");
+    if (!(await verifyTurnstile(parsed.data.captchaToken, { expectedAction: "login" }))) return fail("captcha_failed");
 
     const other = await db.user.findFirst({
       where: { phoneNumber, NOT: { id: user.id } },
@@ -64,7 +71,6 @@ export async function sendPhoneCheckCode(input: unknown): Promise<ActionResult<P
 
     const requestHeaders = await headers();
     if ((await phoneCodeRoute(phoneNumber, requestHeaders)) === "unavailable") return fail("phone_check_unavailable");
-    if (!(await verifyTurnstile(parsed.data.captchaToken, { expectedAction: "login" }))) return fail("captcha_failed");
 
     try {
       // Runs the same hooks as the login form: number rules and the per-number / per-IP limits.

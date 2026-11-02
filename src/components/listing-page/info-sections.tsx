@@ -2,7 +2,6 @@ import { useLocale, useTranslations } from "next-intl";
 import { Ltr } from "@/components/common/ltr";
 import { SpriteIcon } from "@/components/ds/sprite-icons";
 import type { SpriteIconName } from "@/components/ds/sprite-icons.generated";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { formatDate, formatMoney, formatNumber, formatTime } from "@/lib/format";
 import { clockDate, priceChangePercent, pricePerSqm } from "@/lib/listing-page/helpers";
 import { houseRules, orderedAmenities, type Highlight, type HouseRule } from "@/lib/listing-page/highlights";
@@ -10,6 +9,7 @@ import type { ListingPageData } from "@/lib/listing-page/types";
 import { AMENITY_SPRITE } from "./icons";
 import { MoreSheet } from "./more-sheet";
 import { Section } from "./section";
+import { PriceHistoryFoldedSection } from "./folded-section-island";
 
 const AMENITIES_PREVIEW = 6;
 const RULES_PREVIEW = 3;
@@ -284,35 +284,30 @@ export function SalePriceSection({ data }: { data: ListingPageData }) {
           </p>
         ) : null}
         {history.length ? (
-          <Accordion type="single" collapsible>
-            <AccordionItem value="history" className="border-b-0">
-              <AccordionTrigger>{t("priceHistory")}</AccordionTrigger>
-              <AccordionContent>
-                <ol className="grid gap-2">
-                  {history.map((change) => {
-                    const pct = priceChangePercent(change.oldPrice, change.newPrice);
-                    return (
-                      <li key={change.changedAt} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-small">
-                        <time dateTime={change.changedAt} className="text-muted-foreground">
-                          {formatDate(change.changedAt, locale, { day: "numeric", month: "short", year: "numeric" })}
-                        </time>
-                        <span className="inline-flex items-center gap-1.5 font-medium">
-                          <bdi className="text-muted-foreground">{formatMoney(change.oldPrice, change.currency, locale)}</bdi>
-                          <SpriteIcon name="arrow-right" className="size-3.5 text-muted-foreground rtl:-scale-x-100" />
-                          <bdi>{formatMoney(change.newPrice, change.currency, locale)}</bdi>
-                        </span>
-                        {pct !== null ? (
-                          <span className="font-semibold">
-                            <Ltr>{`${pct > 0 ? "+" : ""}${formatNumber(pct, locale)}%`}</Ltr>
-                          </span>
-                        ) : null}
-                      </li>
-                    );
-                  })}
-                </ol>
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
+          <PriceHistoryFoldedSection value="history" title={t("priceHistory")}>
+            <ol className="grid gap-2">
+              {history.map((change) => {
+                const pct = priceChangePercent(change.oldPrice, change.newPrice);
+                return (
+                  <li key={change.changedAt} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-small">
+                    <time dateTime={change.changedAt} className="text-muted-foreground">
+                      {formatDate(change.changedAt, locale, { day: "numeric", month: "short", year: "numeric" })}
+                    </time>
+                    <span className="inline-flex items-center gap-1.5 font-medium">
+                      <bdi className="text-muted-foreground">{formatMoney(change.oldPrice, change.currency, locale)}</bdi>
+                      <SpriteIcon name="arrow-right" className="size-3.5 text-muted-foreground rtl:-scale-x-100" />
+                      <bdi>{formatMoney(change.newPrice, change.currency, locale)}</bdi>
+                    </span>
+                    {pct !== null ? (
+                      <span className="font-semibold">
+                        <Ltr>{`${pct > 0 ? "+" : ""}${formatNumber(pct, locale)}%`}</Ltr>
+                      </span>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ol>
+          </PriceHistoryFoldedSection>
         ) : null}
       </div>
     </Section>

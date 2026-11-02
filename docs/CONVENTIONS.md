@@ -67,7 +67,9 @@ dynamic as usual. Bundled docs: `node_modules/next/dist/docs/`.
     Fast public pages (home, search, listing, Jewish Life, help and the other `(site)` pages without
     their own) have **no route `loading.tsx`**: React shows streamed content at least 300 ms after a
     skeleton, which made it the slowest part of the first paint. Use `<Suspense>` around a slow
-    section instead.
+    section instead. The listing page's and the booking review's skeletons are shown for taps on
+    their links only, by `layout/navigation-skeleton.tsx` in the site shell (first visits get the
+    page in one response).
 11. **Accessibility:** semantic HTML, labels on every input, `alt` on images, visible focus, keyboard
     reachable dialogs/menus (shadcn does this), color contrast AA.
 12. **Mobile first** from 360px. Test at 360px in Hebrew (RTL) and English.

@@ -35,6 +35,17 @@ export function maskPhone(phone: string): string {
   return phone.length > 6 ? `${phone.slice(0, 4)}${"•".repeat(phone.length - 7)}${phone.slice(-3)}` : "•••";
 }
 
+/**
+ * A failed Twilio response, safe for logs: the HTTP status and Twilio's numeric error code only.
+ * Twilio's error `message` repeats the destination number (e.g. 21211, 21408, Verify 60200), so it
+ * is never logged.
+ */
+export async function twilioErrorSummary(response: Response): Promise<string> {
+  const data = (await response.json().catch(() => null)) as { code?: unknown } | null;
+  const code = typeof data?.code === "number" || typeof data?.code === "string" ? String(data.code).slice(0, 12) : "?";
+  return `${response.status} (Twilio code ${code})`;
+}
+
 export async function sendSms(input: {
   to: string;
   body: string;
@@ -66,8 +77,7 @@ export async function sendSms(input: {
       cache: "no-store",
     });
     if (!response.ok) {
-      const detail = await response.text().catch(() => "");
-      console.error(`[sms] Twilio Messaging returned ${response.status} for ${maskPhone(input.to)}: ${detail.slice(0, 300)}`);
+      console.error(`[sms] Twilio Messaging returned ${await twilioErrorSummary(response)} for ${maskPhone(input.to)}`);
       return { ok: false, delivered: false };
     }
     return { ok: true, delivered: true };
