@@ -13,6 +13,8 @@
  *   public/icons/apple-touch-icon.png      180 px, full-bleed (iOS rounds the corners itself)
  *   public/icons/icon-192.png, icon-512.png           PWA "any" icons (rounded square)
  *   public/icons/maskable-192.png, maskable-512.png   PWA "maskable" icons (full-bleed square)
+ *   public/brand/bayit-mark-white.png      the white mark alone, 90 × 93 px (3× of the 30 × 31 px it
+ *                                          is shown at): email headers (src/lib/email/layout.ts)
  *
  * Share images (Open Graph) are drawn per page by next/og: src/app/[locale]/opengraph-image.tsx.
  * After replacing the brand SVGs, run:  node scripts/generate-icons.mjs
@@ -27,6 +29,7 @@ const brandDir = path.join(root, "public", "brand");
 const iconsDir = path.join(root, "public", "icons");
 const appDir = path.join(root, "src", "app");
 
+const markSvg = await fs.readFile(path.join(brandDir, "bayit-mark.svg"), "utf8");
 const appIcon = await fs.readFile(path.join(brandDir, "bayit-app-icon.svg"), "utf8");
 const squareIcon = await fs.readFile(path.join(brandDir, "bayit-app-icon-square.svg"), "utf8");
 // Apple: full bleed (iOS masks the corners; transparent corners would show black), at the mark size
@@ -87,6 +90,14 @@ const written = [
   await png(squareIcon, 192, path.join(iconsDir, "maskable-192.png")),
   await png(squareIcon, 512, path.join(iconsDir, "maskable-512.png")),
 ];
+const whiteMark = markSvg.replace(/currentColor/g, "#FFFFFF");
+if (whiteMark === markSvg) throw new Error("bayit-mark.svg: expected stroke=\"currentColor\"");
+await sharp(Buffer.from(whiteMark), { density: 288 })
+  .resize(90, 93, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+  .png({ compressionLevel: 9 })
+  .toFile(path.join(brandDir, "bayit-mark-white.png"));
+written.push(path.join(brandDir, "bayit-mark-white.png"));
+
 await fs.writeFile(path.join(appDir, "icon.svg"), appIcon);
 written.push(path.join(appDir, "icon.svg"));
 

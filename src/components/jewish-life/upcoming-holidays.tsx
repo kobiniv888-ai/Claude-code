@@ -79,7 +79,7 @@ export async function UpcomingHolidays({
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">
                   {ongoing ? (
-                    <span className="rounded-full bg-primary-tint px-2 py-0.5 text-xs font-semibold text-success">
+                    <span className="rounded-full bg-primary-tint px-2 py-0.5 text-xs font-semibold text-primary-text">
                       {t("now")}
                     </span>
                   ) : null}

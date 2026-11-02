@@ -135,7 +135,7 @@ export function ListingLabels({
   const t = useTranslations("listingCard.labels");
   const labels: { key: string; icon: LucideIcon; text: string; className: string }[] = [];
   if (badges.promoted) labels.push({ key: "promoted", icon: MegaphoneIcon, text: t("promoted"), className: "bg-primary text-primary-foreground" });
-  if (badges.priceDropped) labels.push({ key: "drop", icon: TrendingDownIcon, text: t("priceDropped"), className: "bg-success text-success-foreground" });
+  if (badges.priceDropped) labels.push({ key: "drop", icon: TrendingDownIcon, text: t("priceDropped"), className: "bg-primary text-primary-foreground" });
   if (badges.isNew) labels.push({ key: "new", icon: SparklesIcon, text: t("new"), className: "bg-card text-foreground ring-1 ring-foreground/10" });
   if (badges.demo) labels.push({ key: "demo", icon: FlaskConicalIcon, text: t("demo"), className: "bg-surface-muted text-foreground" });
   if (labels.length === 0) return null;

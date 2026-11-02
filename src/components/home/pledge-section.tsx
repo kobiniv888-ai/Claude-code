@@ -27,13 +27,13 @@ export async function PledgeSection({ locale }: { locale: AppLocale }) {
   return (
     <section aria-labelledby="home-pledge-title" className="py-[calc(var(--section-space)*0.55)]">
       <Container>
-        <Reveal className="relative isolate overflow-hidden rounded-card bg-primary-tint px-5 py-7 ring-1 ring-success/15 sm:px-8 sm:py-10 lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-center lg:gap-12 lg:px-12">
+        <Reveal className="relative isolate overflow-hidden rounded-card bg-primary-tint px-5 py-7 ring-1 ring-primary-tint-border sm:px-8 sm:py-10 lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-center lg:gap-12 lg:px-12">
           <WelcomeHomeIcon
             aria-hidden="true"
-            className="pointer-events-none absolute -end-6 -bottom-8 -z-10 size-48 text-success/10 sm:size-64"
+            className="pointer-events-none absolute -end-6 -bottom-8 -z-10 size-48 text-primary-text/10 sm:size-64"
           />
           <div>
-            <p className="inline-flex items-center gap-2 text-small font-bold text-success">
+            <p className="inline-flex items-center gap-2 text-small font-bold text-primary-text">
               <IconCircle icon={WelcomeHomeIcon} tone="green" size="sm" className="bg-card" />
               {tPledge("title")}
             </p>
@@ -43,7 +43,7 @@ export async function PledgeSection({ locale }: { locale: AppLocale }) {
             <figure className="mt-5 rounded-input bg-card/80 p-4 shadow-xs ring-1 ring-foreground/5">
               <figcaption className="text-caption font-semibold text-muted-foreground">{t("statementLabel")}</figcaption>
               <blockquote className="mt-1.5 flex gap-2 text-body font-semibold text-foreground">
-                <Quote className="mt-1 size-4 shrink-0 text-success rtl:-scale-x-100" aria-hidden="true" />
+                <Quote className="mt-1 size-4 shrink-0 text-primary-text rtl:-scale-x-100" aria-hidden="true" />
                 <p className="text-pretty">{statement}</p>
               </blockquote>
             </figure>

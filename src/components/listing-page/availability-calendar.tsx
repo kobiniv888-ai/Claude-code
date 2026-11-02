@@ -72,7 +72,7 @@ export function AvailabilityCalendar({ blocks, nowIso }: { blocks: DateBlock[]; 
       </div>
       <ul className="mt-4 flex flex-wrap gap-4 text-xs text-muted-foreground">
         <li className="inline-flex items-center gap-2">
-          <span className="size-4 rounded bg-primary-tint ring-1 ring-success/30" aria-hidden />
+          <span className="size-4 rounded bg-primary-tint ring-1 ring-primary-tint-border" aria-hidden />
           {t("available")}
         </li>
         <li className="inline-flex items-center gap-2">

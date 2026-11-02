@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import type { DateRange } from "react-day-picker";
+import { ar, enUS, he, ka, ru } from "react-day-picker/locale";
 import { HomeIcon, MinusIcon, PhoneIcon, PlusIcon, SlidersHorizontalIcon } from "lucide-react";
 import { WhatsAppIcon } from "@/components/common/brand-icons";
 import {
@@ -215,6 +216,8 @@ export function ContactBarDemo() {
   );
 }
 
+const DAY_PICKER_LOCALES = { he, en: enUS, ru, ar, ka } as const;
+
 /** Day `offset` days from today, at local midnight. */
 function day(offset: number) {
   const d = new Date();
@@ -237,6 +240,8 @@ export function CalendarDemo() {
           selected={range}
           onSelect={setRange}
           dir={dirFor(locale)}
+          locale={DAY_PICKER_LOCALES[locale as keyof typeof DAY_PICKER_LOCALES] ?? enUS}
+          weekStartsOn={locale === "he" || locale === "ar" ? 0 : 1}
           numerals="latn"
           disabled={[{ before: day(0) }, ...booked]}
           modifiers={{ booked }}

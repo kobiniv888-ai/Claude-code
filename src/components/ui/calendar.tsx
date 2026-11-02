@@ -144,7 +144,8 @@ function Calendar({
           defaultClassNames.outside
         ),
         disabled: cn(
-          "text-muted-foreground opacity-45 [&>button]:no-underline",
+          // Past or closed days: a faded grey, no opacity (so a booked day's strike stays readable).
+          "text-muted-foreground/50 [&>button]:hover:bg-transparent",
           defaultClassNames.disabled
         ),
         hidden: cn("invisible", defaultClassNames.hidden),

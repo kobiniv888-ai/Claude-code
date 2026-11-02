@@ -159,7 +159,7 @@ export function LoginPanel({
               type="button"
               variant="outline"
               size="lg"
-              className="relative h-12 w-full rounded-full border-input bg-card text-base font-semibold"
+              className="relative h-12 w-full rounded-button border-input bg-card text-base font-semibold"
               onClick={() => void continueWith("google")}
               disabled={redirecting !== null}
               aria-busy={redirecting === "google" || undefined}
@@ -176,7 +176,7 @@ export function LoginPanel({
             <Button
               type="button"
               size="lg"
-              className="relative h-12 w-full rounded-full bg-foreground text-base font-semibold text-background hover:bg-foreground/90"
+              className="relative h-12 w-full rounded-button bg-foreground text-base font-semibold text-background hover:bg-foreground/90"
               onClick={() => void continueWith("apple")}
               disabled={redirecting !== null}
               aria-busy={redirecting === "apple" || undefined}

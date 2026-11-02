@@ -116,8 +116,8 @@ docs/
   live in those folders (`src/app/stylesheets.test.ts`).
 * Write real translations in all five languages (Hebrew, English, Russian, Arabic, Georgian).
   Native speakers will review before launch, so prefer clear, simple wording.
-* Do not put U+2011 (non-breaking hyphen) in messages: of our fonts only Noto Sans Arabic
-  (162 KB) has it, so one such character downloads that file on any page. Use a plain hyphen.
+* Do not put U+2011 (non-breaking hyphen) in messages: only Rubik's Arabic face (32 KB) lists it
+  (and has no glyph for it), so one such character downloads that file on any page. Use a plain hyphen.
 * Database content that is translated (city names, FAQ, scam alerts…) is a JSON object
   `{ he, en, ru, ar, ka }`; read it with `pickLocalized(value, locale)` from `@/i18n/locale`.
 * Listing text: the owner's original is in `Listing.title/description` (+ `originalLocale`);

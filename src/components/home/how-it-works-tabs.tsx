@@ -22,7 +22,7 @@ const ICONS: Record<StepIcon, LucideIcon | IconComponent> = {
 const TONES = [
   "bg-primary-tint text-primary-text",
   "bg-primary-tint text-primary-text",
-  "bg-primary-tint text-success",
+  "bg-primary-tint text-primary-text",
 ] as const;
 
 /** Guests / owners tabs of the home "How it works" section: three numbered step cards. */

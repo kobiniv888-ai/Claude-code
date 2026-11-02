@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
-import { preload } from "react-dom";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { getMessages, getTranslations, setRequestLocale } from "next-intl/server";
 import { LoginDialogProvider } from "@/components/auth/login-dialog-provider";
@@ -72,6 +71,12 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
   if (!hasLocale(routing.locales, locale)) notFound();
   setRequestLocale(locale);
   const dir = dirFor(locale);
+  // Hebrew, Russian and Arabic pages: the script's Rubik face is needed for the first paint
+  // (headline, menus), so fetch it with the HTML instead of after the stylesheet
+  // (src/components/layout/fonts.ts). Latin is preloaded by next/font on every page. A <link> in
+  // <head> rather than preload(): the layout awaits data first, and a later hint only reaches the
+  // browser in the streamed payload.
+  const scriptFont = scriptFontUrl(locale);
 
   const [nonce, user, rates, messages] = await Promise.all([
     headers().then((h) => h.get("x-nonce") ?? undefined),
@@ -80,15 +85,11 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
     getMessages(),
   ]);
   const currency = await getDisplayCurrency(user?.currency);
-  // Hebrew, Russian and Arabic pages: the script's Rubik face is needed for the first paint
-  // (headline, menus), so fetch it with the HTML instead of after the stylesheet
-  // (src/components/layout/fonts.ts). Latin is preloaded by next/font on every page.
-  const scriptFont = scriptFontUrl(locale);
-  if (scriptFont) preload(scriptFont, { as: "font", type: "font/woff2", crossOrigin: "anonymous" });
 
   return (
     <html lang={locale} dir={dir} style={fontStyle} suppressHydrationWarning>
       <head>
+        {scriptFont ? <link rel="preload" href={scriptFont} as="font" type="font/woff2" crossOrigin="anonymous" /> : null}
         <InlineScript nonce={nonce} html={DISMISSED_ALERTS_SCRIPT} />
         <InlineScript nonce={nonce} html={ZOD_JITLESS_SCRIPT} />
       </head>

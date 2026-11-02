@@ -58,7 +58,8 @@ function MenuRow({ row, onNavigate }: { row: Row; onNavigate: () => void }) {
         )}
       >
         <row.icon aria-hidden className={cn("size-5 shrink-0", row.current ? "text-primary-text" : "text-muted-foreground")} />
-        <span className="min-w-0 flex-1 truncate">{row.label}</span>
+        {/* Long labels (Georgian, Russian) wrap instead of being cut off (bug 8.3). */}
+        <span className="min-w-0 flex-1 py-1.5 leading-snug text-pretty">{row.label}</span>
         <ChevronEnd
           aria-hidden
           className="size-4 shrink-0 text-muted-foreground/70 transition-transform duration-(--motion-fast) group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5 motion-reduce:transition-none"
@@ -71,7 +72,7 @@ function MenuRow({ row, onNavigate }: { row: Row; onNavigate: () => void }) {
 function MenuGroup({ title, children, className }: { title: string; children: ReactNode; className?: string }) {
   const id = useId();
   return (
-    <section aria-labelledby={id} className={cn("grid gap-1.5", className)}>
+    <section aria-labelledby={id} className={cn("grid grid-cols-1 gap-1.5", className)}>
       <h3 id={id} className="px-2 text-caption font-semibold tracking-wide text-muted-foreground">
         {title}
       </h3>
@@ -103,7 +104,7 @@ function SearchRows({ active, onNavigate }: { active: NavKey | null; onNavigate:
     },
   ];
   return (
-    <ul className="grid gap-0.5">
+    <ul className="grid grid-cols-1 gap-0.5">
       {rows.map((row) => (
         <MenuRow key={row.id} row={row} onNavigate={onNavigate} />
       ))}
@@ -191,7 +192,7 @@ export function MobileMenuSheet({
             )}
           </div>
 
-          <nav aria-label={t("mainNav")} className="mt-5 grid gap-5">
+          <nav aria-label={t("mainNav")} className="mt-5 grid grid-cols-1 gap-5">
             <MenuGroup title={t("menu.groups.search")}>
               <Suspense fallback={<SearchRowsWithoutQuery onNavigate={close} />}>
                 <SearchRowsWithQuery onNavigate={close} />
@@ -199,7 +200,7 @@ export function MobileMenuSheet({
             </MenuGroup>
 
             <MenuGroup title={t("menu.groups.jewish")}>
-              <ul className="grid gap-0.5">
+              <ul className="grid grid-cols-1 gap-0.5">
                 {jewishRows.map((row) => (
                   <MenuRow key={row.id} row={row} onNavigate={close} />
                 ))}
@@ -207,7 +208,7 @@ export function MobileMenuSheet({
             </MenuGroup>
 
             <MenuGroup title={t("menu.groups.help")}>
-              <ul className="grid gap-0.5">
+              <ul className="grid grid-cols-1 gap-0.5">
                 {helpRows.map((row) => (
                   <MenuRow key={row.id} row={row} onNavigate={close} />
                 ))}
@@ -248,7 +249,8 @@ export function MobileMenuSheet({
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetContent
-        side={isRtl(locale) ? "left" : "right"}
+        // The language pill opens a short bottom sheet; the menu button the side menu.
+        side={view === "language" ? "bottom" : isRtl(locale) ? "left" : "right"}
         showCloseButton={false}
         onCloseAutoFocus={(event) => {
           event.preventDefault();
@@ -256,26 +258,39 @@ export function MobileMenuSheet({
         }}
         className="gap-0 p-0 data-[side=left]:w-[min(88vw,24rem)] data-[side=right]:w-[min(88vw,24rem)] data-[side=left]:sm:max-w-sm data-[side=right]:sm:max-w-sm"
       >
-        <SheetHeader className="flex-row items-center justify-between border-b py-3 ps-5 pe-3">
-          <SheetTitle className="sr-only">{view === "language" ? t("language.label") : t("menu.title")}</SheetTitle>
-          <SheetDescription className="sr-only">{t("mainNav")}</SheetDescription>
-          <Logo size={18} onClick={close} />
-          <SheetClose asChild>
-            <Button variant="ghost" size="icon" className="size-11 rounded-full" aria-label={tc("close")}>
-              <X aria-hidden className="size-5" />
-            </Button>
-          </SheetClose>
-        </SheetHeader>
-
-        <div className="flex-1 overflow-y-auto overscroll-contain px-3 pt-4 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]">
-          {view === "language" ? (
-            <MenuGroup title={t("language.label")} className="px-2 [&>h3]:px-0">
+        {view === "language" ? (
+          <>
+            <div aria-hidden className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-border-strong" />
+            <SheetHeader className="flex-row items-center justify-between border-b border-border py-2 ps-5 pe-3">
+              <SheetTitle className="text-body font-semibold">{t("language.label")}</SheetTitle>
+              <SheetDescription className="sr-only">{t("language.label")}</SheetDescription>
+              <SheetClose asChild>
+                <Button variant="ghost" size="icon" className="size-11 rounded-full" aria-label={tc("close")}>
+                  <X aria-hidden className="size-5" />
+                </Button>
+              </SheetClose>
+            </SheetHeader>
+            <div className="px-5 pt-4 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]">
               <LanguageList onNavigate={close} />
-            </MenuGroup>
-          ) : (
-            menuBody
-          )}
-        </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <SheetHeader className="flex-row items-center justify-between border-b border-border py-3 ps-5 pe-3">
+              <SheetTitle className="sr-only">{t("menu.title")}</SheetTitle>
+              <SheetDescription className="sr-only">{t("mainNav")}</SheetDescription>
+              <Logo size={18} onClick={close} />
+              <SheetClose asChild>
+                <Button variant="ghost" size="icon" className="size-11 rounded-full" aria-label={tc("close")}>
+                  <X aria-hidden className="size-5" />
+                </Button>
+              </SheetClose>
+            </SheetHeader>
+            <div className="flex-1 overflow-y-auto overscroll-contain px-3 pt-4 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]">
+              {menuBody}
+            </div>
+          </>
+        )}
       </SheetContent>
     </Sheet>
   );

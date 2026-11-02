@@ -73,7 +73,7 @@ const nextConfig: NextConfig = {
       { source: "/brand/:path*", headers: publicAssetCache },
       { source: "/icons/:path*", headers: publicAssetCache },
       { source: "/images/:path*", headers: publicAssetCache },
-      // Fonts in public/fonts carry a version in their name (noto-sans-hebrew-v1.woff2): cache for a year.
+      // Fonts in public/fonts carry a version in their name (rubik-hebrew-v1.woff2): cache for a year.
       { source: "/fonts/:path*", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] },
     ];
   },

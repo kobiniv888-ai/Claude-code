@@ -200,7 +200,7 @@ export function LoginButton({
   const context = useContext(LoginDialogContext);
   const router = useRouter();
   return (
-    <Button asChild variant={variant} size={size} className={cn("rounded-full", className)}>
+    <Button asChild variant={variant} size={size} className={cn("rounded-button", className)}>
       <Link
         href="/login"
         onClick={(event) => {

@@ -108,7 +108,7 @@ export function TraditionCard({ data, locale }: { data: ListingPageData; locale:
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-body font-bold">{t("shabbatChecklist")}</h3>
               {data.isShabbatFriendly ? (
-                <span className="inline-flex h-7 items-center gap-1.5 rounded-full bg-primary-tint px-3 text-small font-semibold text-success ring-1 ring-success/20">
+                <span className="inline-flex h-7 items-center gap-1.5 rounded-full bg-primary-tint px-3 text-small font-semibold text-primary-text ring-1 ring-primary-tint-border">
                   <ShabbatCandlesIcon className="size-4" aria-hidden="true" />
                   {t("shabbatFriendly")}
                 </span>

@@ -27,7 +27,7 @@ export const OG_CONTENT_TYPE = "image/png";
 
 const PURPLE = siteConfig.colors.primary;
 const WHITE = "#FFFFFF";
-/** Lavender text on the purple (8.3:1). */
+/** Lavender text on the purple (7.8:1). */
 const SOFT = siteConfig.colors.primaryTintBorder;
 
 const FONT_DIR = path.join(process.cwd(), "src", "app", "fonts");

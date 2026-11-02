@@ -28,20 +28,46 @@ function multiline(value: string): string {
   return escapeHtml(value).replace(/\r?\n/g, "<br>");
 }
 
+/** Round-2 brand (src/config/site.ts): purple header band, white card, near-black text. */
 const colors = {
   primary: siteConfig.colors.primary,
-  accent: siteConfig.colors.accent,
-  background: siteConfig.colors.background,
-  text: "#1F2937",
-  muted: "#5B6472",
-  border: "#E7E1D8",
-  panel: "#F6F2EC",
-  noticeBg: "#FFF7E6",
-  noticeBorder: "#F2D59B",
+  primaryTint: siteConfig.colors.primaryTint,
+  primaryTintBorder: siteConfig.colors.primaryTintBorder,
+  background: siteConfig.colors.surfaceMuted,
+  text: siteConfig.colors.text,
+  muted: siteConfig.colors.textMuted,
+  border: siteConfig.colors.border,
+  panel: siteConfig.colors.surfaceMuted,
+  /** Lavender tagline on the purple band (7.8:1). */
+  onPrimarySoft: siteConfig.colors.primaryTintBorder,
 };
 
 const FONT =
-  "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans', 'Noto Sans Hebrew', 'Noto Sans Arabic', 'Noto Sans Georgian', Arial, sans-serif";
+  "Rubik, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans', 'Noto Sans Hebrew', 'Noto Sans Arabic', 'Noto Sans Georgian', Arial, sans-serif";
+
+/**
+ * The white ב mark as a PNG (mail apps drop inline SVG), made by scripts/generate-icons.mjs at 3×.
+ * alt="": the name next to it is live text, so a blocked image loses nothing.
+ */
+export const EMAIL_MARK_PATH = "/brand/bayit-mark-white.png";
+const MARK_HEIGHT = 31;
+const MARK_WIDTH = 30;
+
+/** The purple band: the white mark first in reading order, then the name in the email's language. */
+function renderHeader(ctx: LayoutContext, dir: "rtl" | "ltr", align: "left" | "right"): string {
+  const { brand, t, page } = ctx;
+  const origin = siteConfig.url.replace(/\/+$/, "");
+  const gap = dir === "rtl" ? "padding-left:6px;" : "padding-right:6px;";
+  const tracking = ctx.locale === "he" ? "" : "letter-spacing:-0.01em;";
+  return `<tr><td class="px" dir="${dir}" style="background:${colors.primary};padding:20px 32px;text-align:${align};">
+<a href="${escapeHtml(page(""))}" style="display:inline-block;color:#FFFFFF;text-decoration:none;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" dir="${dir}" style="border-collapse:collapse;"><tr>
+<td style="${gap}vertical-align:middle;line-height:0;"><img src="${escapeHtml(`${origin}${EMAIL_MARK_PATH}`)}" width="${MARK_WIDTH}" height="${MARK_HEIGHT}" alt="" style="display:block;border:0;width:${MARK_WIDTH}px;height:${MARK_HEIGHT}px;"></td>
+<td style="vertical-align:middle;font-family:${FONT};font-size:22px;line-height:1;font-weight:600;color:#FFFFFF;${tracking}">${escapeHtml(brand)}</td>
+</tr></table></a>
+<div style="font-family:${FONT};font-size:13px;line-height:1.4;color:${colors.onPrimarySoft};margin-top:8px;">${escapeHtml(t("common.tagline"))}</div>
+</td></tr>`;
+}
 
 function renderBlock(block: EmailBlock, align: "left" | "right"): string {
   // Quotes are user-written: dir="auto" + text-align:start let them follow their own language.
@@ -49,12 +75,12 @@ function renderBlock(block: EmailBlock, align: "left" | "right"): string {
     case "paragraph":
       return `<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:${colors.text};">${multiline(block.text)}</p>`;
     case "notice":
-      return `<p style="margin:0 0 16px;padding:12px 16px;font-size:14px;line-height:1.55;color:${colors.text};background:${colors.noticeBg};border:1px solid ${colors.noticeBorder};border-radius:10px;">${multiline(block.text)}</p>`;
+      return `<p style="margin:0 0 16px;padding:12px 16px;font-size:14px;line-height:1.55;color:${colors.text};background:${colors.primaryTint};border:1px solid ${colors.primaryTintBorder};border-radius:12px;">${multiline(block.text)}</p>`;
     case "quote": {
       const label = block.label
-        ? `<p style="margin:0 0 6px;font-size:13px;font-weight:700;color:${colors.muted};">${escapeHtml(block.label)}</p>`
+        ? `<p style="margin:0 0 6px;font-size:13px;font-weight:600;color:${colors.muted};">${escapeHtml(block.label)}</p>`
         : "";
-      return `${label}<div dir="auto" style="margin:0 0 16px;padding:14px 16px;font-size:15px;line-height:1.6;color:${colors.text};background:${colors.panel};border-radius:10px;text-align:start;">${multiline(block.text)}</div>`;
+      return `${label}<div dir="auto" style="margin:0 0 16px;padding:14px 16px;font-size:15px;line-height:1.6;color:${colors.text};background:${colors.panel};border-radius:12px;text-align:start;">${multiline(block.text)}</div>`;
     }
     case "details": {
       const rows = block.rows
@@ -80,8 +106,8 @@ export function renderEmailHtml(content: EmailContent, ctx: LayoutContext): stri
 
   const cta = content.cta
     ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 24px;">
-<tr><td style="border-radius:10px;background:${colors.accent};">
-<a href="${escapeHtml(content.cta.url)}" target="_blank" style="display:inline-block;padding:14px 28px;font-family:${FONT};font-size:16px;font-weight:700;color:#FFFFFF;text-decoration:none;border-radius:10px;">${escapeHtml(content.cta.label)}</a>
+<tr><td style="border-radius:14px;background:${colors.primary};">
+<a href="${escapeHtml(content.cta.url)}" target="_blank" style="display:inline-block;padding:14px 28px;font-family:${FONT};font-size:16px;line-height:20px;font-weight:600;color:#FFFFFF;text-decoration:none;border-radius:14px;">${escapeHtml(content.cta.label)}</a>
 </td></tr></table>
 <p style="margin:0 0 24px;font-size:13px;line-height:1.5;color:${colors.muted};">${escapeHtml(t("common.buttonFallback"))}<br><a href="${escapeHtml(content.cta.url)}" dir="ltr" style="color:${colors.primary};word-break:break-all;">${escapeHtml(content.cta.url)}</a></p>`
     : "";
@@ -116,12 +142,9 @@ export function renderEmailHtml(content: EmailContent, ctx: LayoutContext): stri
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${colors.background};">
 <tr><td align="center" style="padding:24px 12px;">
 <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;background:#FFFFFF;border:1px solid ${colors.border};border-radius:16px;overflow:hidden;">
-<tr><td class="px" dir="${dir}" style="background:${colors.primary};padding:20px 32px;text-align:${align};">
-<a href="${escapeHtml(page(""))}" style="font-family:${FONT};font-size:24px;font-weight:800;color:#FFFFFF;text-decoration:none;letter-spacing:0.2px;">${escapeHtml(brand)}</a>
-<div style="font-size:13px;color:#DCE6F7;margin-top:4px;">${escapeHtml(t("common.tagline"))}</div>
-</td></tr>
+${renderHeader(ctx, dir, align)}
 <tr><td class="px" dir="${dir}" style="padding:32px;text-align:${align};font-family:${FONT};">
-<h1 style="margin:0 0 20px;font-size:24px;line-height:1.3;font-weight:800;color:${colors.primary};">${escapeHtml(content.heading)}</h1>
+<h1 style="margin:0 0 20px;font-size:22px;line-height:1.25;font-weight:600;color:${colors.text};">${escapeHtml(content.heading)}</h1>
 <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:${colors.text};">${escapeHtml(greeting)}</p>
 ${content.blocks.map((b) => renderBlock(b, align)).join("\n")}
 ${cta}

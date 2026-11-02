@@ -224,7 +224,7 @@ export function ShabbatCountdown({
                   onClick={() => setSlug(option.slug)}
                   // Plain string: cn() would drop text-small next to a text color (custom size names).
                   className={`inline-flex min-h-11 shrink-0 snap-start items-center rounded-full px-4 text-small font-semibold whitespace-nowrap outline-none transition-colors focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-white/60 ${
-                    pressed ? "bg-white text-primary" : "bg-white/10 text-white ring-1 ring-white/25 hover:bg-white/20"
+                    pressed ? "bg-white text-brand" : "bg-white/10 text-white ring-1 ring-white/25 hover:bg-white/20"
                   }`}
                 >
                   {option.name}

@@ -94,6 +94,9 @@
   --color-header-fg: var(--header-fg);
   --color-hero-band: var(--hero-band);
   --color-bottom-nav: var(--bottom-nav);
+  /* The brand purple in both themes (#4B2A8C): purple text or icons on a white pill or card that
+     stays white in dark mode (text-brand). text-primary turns lavender in dark mode. */
+  --color-brand: var(--brand-purple);
   /* "text-primary" is purple text: the text-safe shade in both themes (#4B2A8C light, #B9A4FF dark;
      the dark button purple #7B52E3 is 3.8:1 on the page). bg/border/ring-primary keep --primary. */
   --text-color-primary: var(--primary-text);

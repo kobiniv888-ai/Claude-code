@@ -3,7 +3,7 @@ import "./welcome-door.css";
 
 /**
  * Sign-in illustration, drawn for Bayit: a key turns in a front door with a mezuzah, the door
- * opens onto warm light, a heart floats out and a green check pops up. A gentle 6-second CSS loop
+ * opens onto warm light, a heart floats out and a purple check pops up. A gentle 6-second CSS loop
  * (transform and opacity only); with reduced motion it is a still picture of the open door.
  * Colors come from the theme tokens, so it follows light and dark mode. Decorative (aria-hidden).
  *
@@ -63,11 +63,11 @@ export function WelcomeDoorIllustration({ className }: { className?: string }) {
 
       {/* Check badge */}
       <g data-part="check">
-        <circle cx="146" cy="42" r="13" fill="var(--success)" stroke="var(--card)" strokeWidth="3" />
+        <circle cx="146" cy="42" r="13" fill="var(--primary)" stroke="var(--card)" strokeWidth="3" />
         <path
           d="m140.4 42.4 3.9 3.9 7.4-7.7"
           fill="none"
-          stroke="var(--success-foreground)"
+          stroke="var(--primary-foreground)"
           strokeWidth="3"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -77,7 +77,7 @@ export function WelcomeDoorIllustration({ className }: { className?: string }) {
       {/* Floating dots and sparkles */}
       <circle data-part="dot" cx="42" cy="48" r="3.6" fill="var(--primary)" opacity="0.85" />
       <circle data-part="dot" cx="166" cy="94" r="3" fill="var(--primary)" opacity="0.45" style={{ "--delay": "-1.2s" } as React.CSSProperties} />
-      <circle data-part="dot" cx="50" cy="104" r="2.6" fill="var(--success)" opacity="0.75" style={{ "--delay": "-2.1s" } as React.CSSProperties} />
+      <circle data-part="dot" cx="50" cy="104" r="2.6" fill="var(--primary-text)" opacity="0.75" style={{ "--delay": "-2.1s" } as React.CSSProperties} />
       <circle data-part="dot" cx="118" cy="14" r="2.2" fill="var(--primary)" opacity="0.6" style={{ "--delay": "-0.6s" } as React.CSSProperties} />
       <g transform="translate(58 26)">
         <path data-part="spark" d="M0-6 1.6-1.6 6 0 1.6 1.6 0 6-1.6 1.6-6 0-1.6-1.6z" fill="var(--muted-foreground)" />

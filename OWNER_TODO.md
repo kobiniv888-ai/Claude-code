@@ -27,3 +27,11 @@ This list is kept up to date as the work goes on. It was last updated during red
       messages.
 - [ ] **Email (Resend).** You need this for booking confirmations, reminders and cancellations.
       Until it's set up, emails only appear in Admin → Email outbox.
+
+## Look and feel (decide when you have a minute)
+- [ ] **The WhatsApp button stays WhatsApp green.** This is the only green besides "verified" and
+      success messages. Say if you want it purple.
+- [ ] **Red stays for safety.** The emergency number card (112) and the scam-alert banners stay
+      red. Say if you want them neutral.
+- [ ] **Arabic share images** show "Bayit" with the English tagline, because the image generator
+      can't draw Arabic letters.

@@ -66,7 +66,7 @@ export function CheckItem({
       <span
         className={cn(
           "inline-flex size-6 shrink-0 items-center justify-center rounded-full text-xs",
-          ok ? "bg-primary-tint text-success" : "bg-muted text-muted-foreground",
+          ok ? "bg-primary-tint text-primary-text" : "bg-muted text-muted-foreground",
         )}
         aria-hidden
       >

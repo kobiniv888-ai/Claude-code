@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- CommonJS preload: require() is the only option here. */
 /**
  * Preload for Node scripts that use server modules (seed, demo removal):
  *   tsx --require ./scripts/server-script.cjs prisma/seed/index.ts

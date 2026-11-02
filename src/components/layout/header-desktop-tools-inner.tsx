@@ -75,7 +75,7 @@ export function HeaderDesktopTools({ labels, chat, user }: HeaderDesktopToolsPro
           <UserMenuClient user={user} />
         </div>
       ) : (
-        <LoginButton className="ms-1" />
+        <LoginButton variant="ghost" className="ms-1 h-10 px-4 ring-1 ring-white/60 ring-inset" />
       )}
       <PostListingButton label={labels.post} className="ms-2" />
     </>

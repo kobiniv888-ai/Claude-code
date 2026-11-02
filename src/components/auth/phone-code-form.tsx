@@ -233,7 +233,7 @@ export function PhoneCodeForm({
           <Button
             type="submit"
             size="lg"
-            className="h-12 w-full rounded-full text-base font-semibold"
+            className="h-12 w-full rounded-button text-base font-semibold"
             disabled={pending !== null || !captchaReady}
             aria-busy={pending === "send" || undefined}
           >
@@ -312,7 +312,7 @@ export function PhoneCodeForm({
           <Button
             type="submit"
             size="lg"
-            className="h-12 w-full rounded-full text-base font-semibold"
+            className="h-12 w-full rounded-button text-base font-semibold"
             disabled={pending !== null || code.length !== 6}
             aria-busy={pending === "verify" || undefined}
           >
