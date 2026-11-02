@@ -18,10 +18,10 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
-    "db:seed": "tsx --conditions=react-server prisma/seed/index.ts",
+    "db:seed": "tsx --require ./scripts/server-script.cjs prisma/seed/index.ts",
     "db:reset": "prisma db push --force-reset && npm run db:seed",
     "db:studio": "prisma studio",
-    "demo:remove": "tsx --conditions=react-server scripts/demo-remove.ts",
+    "demo:remove": "tsx --require ./scripts/server-script.cjs scripts/demo-remove.ts",
     "vercel-build": "node scripts/vercel-build.mjs"
   },
   "dependencies": {

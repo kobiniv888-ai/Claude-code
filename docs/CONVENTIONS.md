@@ -215,6 +215,6 @@ npm run db:push && npm run db:seed
 npm run dev                     # http://localhost:3000
 ```
 Several dev servers can run side by side: `NEXT_DIST_DIR=.next-b npx next dev -p 3101`.
-Scripts that import server modules run with `tsx --conditions=react-server`.
+Scripts that import server modules run with `tsx --require ./scripts/server-script.cjs` (it makes `server-only` a no-op; avoid `--conditions=react-server`, which breaks tsx on some Node 22 versions).
 
 Checks before you finish: `npm run typecheck`, `npm run lint`, `npm run i18n:check`, `npm test`.
