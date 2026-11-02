@@ -54,28 +54,31 @@ uploads work, and the files are stored inside the codespace.
 * Free accounts include 120 core-hours a month, which is about 30 hours on this 4-core machine.
   Delete the codespace from github.com/codespaces when you no longer need it.
 
-## Switch the codespace to the redesign branch
+## Switch the codespace to the newest redesign (round 2)
 
 Open the terminal in the codespace (the **☰ menu** at the top left → **Terminal → New Terminal**)
 and run:
 
 ```bash
-git fetch origin && git checkout redesign && bash .devcontainer/start.sh
+git fetch origin && git checkout redesign-2 && git pull && bash .devcontainer/start-prod.sh
 ```
 
-`start.sh` updates the database tables, reloads the demo data when it is missing or expired, and
-starts the website. If it says a package is missing, run `npm ci` once and then the same
-`bash .devcontainer/start.sh` again.
+If git says your local changes would be overwritten, run `git stash` first and then the same line
+again.
+
+`start.sh` (which `start-prod.sh` uses) installs packages when the package list changed, updates the
+database code and tables, reloads the demo data when it is missing, expired or from an older
+version, and starts the website.
 
 ## Getting the newest version
 
 When new work is pushed to the branch, open the codespace, open the terminal and run:
 
 ```bash
-git pull && npm ci && bash .devcontainer/start.sh
+git pull && bash .devcontainer/start-prod.sh
 ```
 
-Then reload the page.
+(or `git pull && bash .devcontainer/start.sh` for the development version). Then reload the page.
 
 ## Map key (so the maps show streets)
 

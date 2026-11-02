@@ -93,3 +93,6 @@ data back on a development database.
   `npx tsx scripts/photos/fetch-demo-photos.ts` and `npm run db:seed`.
 - `src/lib/demo.test.ts` checks the seed data: 5 languages everywhere, description lengths, no
   contact details or scam phrases in listing texts, valid phone numbers, unique photos.
+- When you change the demo data, raise the number in `prisma/seed/DEMO_DATA_VERSION`. On its next
+  start, a codespace whose database was loaded with an older number reloads the demo data
+  (`.devcontainer/start.sh`; the seed is idempotent).

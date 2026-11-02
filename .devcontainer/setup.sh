@@ -22,6 +22,7 @@ fi
 sync_env
 
 npm ci --no-audit --no-fund
+sha256sum package-lock.json | cut -d' ' -f1 > node_modules/.bayit-lock-hash
 
 echo "Waiting for the database…"
 until (echo > /dev/tcp/127.0.0.1/5432) 2>/dev/null; do sleep 1; done
@@ -30,5 +31,6 @@ sleep 2
 npx prisma db execute --file prisma/sql/before-push.sql
 npx prisma db push
 npm run db:seed
+cp prisma/seed/DEMO_DATA_VERSION .devcontainer/.demo-data-version
 touch .devcontainer/.setup-done
 echo "Setup finished."

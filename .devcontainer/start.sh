@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # Starts the Bayit website and waits until it answers. Safe to run again at any time:
 # - first-run setup still going → waits for it; packages missing → runs it
+# - after a `git pull`: reinstalls packages when package-lock.json changed, and always regenerates
+#   the database client (Prisma 7's `db push` no longer does that, and src/generated/ is not in git)
 # - always: updates the database tables (prisma db push, idempotent) and reloads the demo data
-#   when the database has no cities or no public listings (e.g. all demo listings expired)
+#   when the database has no cities or no public listings (e.g. all demo listings expired), or
+#   when it was loaded by an older version of the demo data (prisma/seed/DEMO_DATA_VERSION)
 # - already running → just prints the address
 #
 #   bash .devcontainer/start.sh          development server (hot reload)
@@ -36,18 +39,39 @@ fi
 # shellcheck source=env-sync.sh
 source .devcontainer/env-sync.sh
 sync_env | tee -a "$LOG"
-
-# The database: tables up to date, demo data present and not expired.
 log "── start $(date -u +%FT%TZ) ──"
+
+# Packages: the same as package-lock.json. The marker holds the lock file's hash from the last
+# install; a codespace made before the marker existed just gets one (its packages are current).
+lock_hash=$(sha256sum package-lock.json | cut -d' ' -f1)
+if [ ! -f node_modules/.bayit-lock-hash ]; then
+  echo "$lock_hash" > node_modules/.bayit-lock-hash
+elif [ "$(cat node_modules/.bayit-lock-hash)" != "$lock_hash" ]; then
+  log "The package list changed — installing packages (a few minutes)…"
+  pkill -f "next dev" 2>/dev/null; pkill -f "next start" 2>/dev/null; sleep 1
+  npm ci --no-audit --no-fund >> "$LOG" 2>&1 || { log "Installing packages failed — see $LOG"; exit 1; }
+  echo "$lock_hash" > node_modules/.bayit-lock-hash
+fi
+
+# The database client, generated from prisma/schema.prisma (a few seconds; safe to repeat).
+npx prisma generate >> "$LOG" 2>&1 || { log "prisma generate failed — see $LOG"; exit 1; }
+
+# The database: tables up to date, demo data present, current and not expired.
 for _ in $(seq 1 30); do (echo > /dev/tcp/127.0.0.1/5432) 2>/dev/null && break; sleep 2; done
 # (before-push.sql: lets the push add the booking index without a consent prompt; idempotent.)
 { npx prisma db execute --file prisma/sql/before-push.sql && npx prisma db push; } >> "$LOG" 2>&1 || log "prisma db push failed — see $LOG"
 node scripts/db-status.mjs 2>&1 | tee -a "$LOG"
 status=${PIPESTATUS[0]}
+demo_version=$(cat prisma/seed/DEMO_DATA_VERSION)
+if [ "$status" = "0" ] && [ "$(cat .devcontainer/.demo-data-version 2>/dev/null)" != "$demo_version" ]; then
+  log "The demo data is from an older version — updating it."
+  status=10
+fi
 if [ "$status" = "10" ] && [ "${BAYIT_SKIP_AUTO_SEED:-}" != "1" ]; then
   log "Loading the demo data (npm run db:seed)…"
   if npm run db:seed >> "$LOG" 2>&1; then
     touch .devcontainer/.setup-done
+    echo "$demo_version" > .devcontainer/.demo-data-version
     node scripts/db-status.mjs 2>&1 | tee -a "$LOG"
   else
     log "Seeding failed — the error was:"
