@@ -1,12 +1,89 @@
+
 import "server-only";
+import { getTranslations } from "next-intl/server";
+import { siteConfig } from "@/config/site";
+import { isAppLocale } from "@/i18n/locale";
+import { db } from "@/lib/db";
+import { isEmailDeliveryConfigured } from "@/lib/email";
+import { isSmsConfigured, maskPhone, sendSms } from "@/lib/sms";
+import { codeDisplayForHeaders, type CodeDisplayMode } from "./code-display";
 
 /**
- * Login codes by SMS or WhatsApp through Twilio Verify (REST API, no SDK).
+ * How phone and email codes reach people.
  *
- * Without Twilio credentials, development prints the code to the server console and keeps it in
- * memory for the "Development mode — your code is …" hint (GET /api/dev/last-otp). Production
- * without Twilio refuses to send codes.
+ * Phone codes: Twilio Verify (it makes and checks its own codes), else Twilio Messaging through
+ * `sendSms` (Better Auth makes and checks the code), else nothing. Email codes: Resend through
+ * `sendEmail`. When no service is set up, and only where codes may be shown on screen
+ * (./code-display.ts: development, or AUTH_TEST_MODE on localhost / a Codespaces preview), the code
+ * is kept in memory and shown in the form (GET /api/dev/last-otp). The demo accounts' phone numbers
+ * are fake, so in that mode their codes are always shown, even when Twilio is set up.
  */
+
+// ── Codes shown on screen (memory; survives hot reloads) ──
+
+type ScreenCode = { code: string; expiresAt: number };
+const globalForCodes = globalThis as unknown as { __bayitScreenCodes?: Map<string, ScreenCode> };
+const screenCodes = (globalForCodes.__bayitScreenCodes ??= new Map<string, ScreenCode>());
+
+export const phoneCodeKey = (phoneNumber: string) => `phone:${phoneNumber}`;
+export const emailCodeKey = (email: string) => `email:${email.trim().toLowerCase()}`;
+
+export function rememberScreenCode(key: string, code: string, ttlSeconds: number) {
+  screenCodes.set(key, { code, expiresAt: Date.now() + ttlSeconds * 1000 });
+}
+
+/** The last code for `key`, only while codes may be shown for this request. */
+export function readScreenCode(key: string, display: CodeDisplayMode | null): string | null {
+  if (!display) return null;
+  const entry = screenCodes.get(key);
+  if (!entry) return null;
+  if (entry.expiresAt < Date.now()) {
+    screenCodes.delete(key);
+    return null;
+  }
+  return entry.code;
+}
+
+export function forgetScreenCode(key: string) {
+  screenCodes.delete(key);
+}
+
+// ── Which way a code goes ──
+
+/** Some SMS service is set up: phone codes reach real phones. */
+export function isSmsServiceConfigured(): boolean {
+  return isTwilioConfigured() || isSmsConfigured();
+}
+
+async function isDemoPhone(phoneNumber: string): Promise<boolean> {
+  const user = await db.user
+    .findUnique({ where: { phoneNumber }, select: { isDemo: true } })
+    .catch(() => null);
+  return !!user?.isDemo;
+}
+
+export type PhoneCodeRoute = "screen" | "verify" | "sms" | "unavailable";
+
+export async function phoneCodeRoute(
+  phoneNumber: string,
+  headers: Pick<Headers, "get"> | null | undefined,
+): Promise<PhoneCodeRoute> {
+  if (codeDisplayForHeaders(headers) && (!isSmsServiceConfigured() || (await isDemoPhone(phoneNumber)))) {
+    return "screen";
+  }
+  if (isTwilioConfigured()) return "verify";
+  if (isSmsConfigured()) return "sms";
+  return "unavailable";
+}
+
+export type EmailCodeRoute = "screen" | "email" | "unavailable";
+
+export function emailCodeRoute(headers: Pick<Headers, "get"> | null | undefined): EmailCodeRoute {
+  if (isEmailDeliveryConfigured()) return "email";
+  return codeDisplayForHeaders(headers) ? "screen" : "unavailable";
+}
+
+// ── Twilio Verify ──
 
 const VERIFY_API = "https://verify.twilio.com/v2";
 const REQUEST_TIMEOUT_MS = 10_000;
@@ -27,38 +104,10 @@ function twilioConfig(): TwilioConfig | null {
   return { accountSid, authToken, serviceSid, channel };
 }
 
+/** Twilio Verify is set up (it makes and checks the phone codes). */
 export function isTwilioConfigured(): boolean {
   return twilioConfig() !== null;
 }
-
-/** Development fallback: codes are logged and readable through /api/dev/last-otp. */
-export function isDevOtpMode(): boolean {
-  return process.env.NODE_ENV !== "production" && !isTwilioConfigured();
-}
-
-// ── Development code store (survives hot reloads; never used in production) ──
-
-type DevCode = { code: string; expiresAt: number };
-const globalForDevOtp = globalThis as unknown as { __bayitDevOtp?: Map<string, DevCode> };
-const devCodes = (globalForDevOtp.__bayitDevOtp ??= new Map<string, DevCode>());
-
-export function rememberDevOtp(phoneNumber: string, code: string, ttlSeconds: number) {
-  if (!isDevOtpMode()) return;
-  devCodes.set(phoneNumber, { code, expiresAt: Date.now() + ttlSeconds * 1000 });
-}
-
-export function readDevOtp(phoneNumber: string): string | null {
-  if (!isDevOtpMode()) return null;
-  const entry = devCodes.get(phoneNumber);
-  if (!entry) return null;
-  if (entry.expiresAt < Date.now()) {
-    devCodes.delete(phoneNumber);
-    return null;
-  }
-  return entry.code;
-}
-
-// ── Twilio Verify ──
 
 /** Twilio Verify message languages we can use (Georgian is not offered by Twilio). */
 const TWILIO_LOCALES = new Set(["he", "en", "ru", "ar"]);
@@ -85,24 +134,35 @@ export class SmsUnavailableError extends Error {
 }
 
 /**
- * Sends a login code. `devCode` is the code Better Auth generated — only used by the
- * development fallback (Twilio Verify generates and checks its own codes).
+ * Sends a phone code along `route` (see `phoneCodeRoute`). `code` is the one Better Auth made:
+ * shown on screen or sent by `sendSms`; Twilio Verify makes its own.
  */
 export async function sendLoginCode(input: {
   phoneNumber: string;
-  devCode: string;
+  code: string;
   ttlSeconds: number;
   locale?: string | null;
+  route: PhoneCodeRoute;
 }): Promise<void> {
-  const config = twilioConfig();
-  if (!config) {
-    if (process.env.NODE_ENV === "production") {
-      throw new SmsUnavailableError("Twilio Verify is not configured");
-    }
-    rememberDevOtp(input.phoneNumber, input.devCode, input.ttlSeconds);
-    console.info(`[auth] Development login code for ${input.phoneNumber}: ${input.devCode}`);
+  if (input.route === "screen") {
+    rememberScreenCode(phoneCodeKey(input.phoneNumber), input.code, input.ttlSeconds);
+    console.info(`[auth] Login code for ${input.phoneNumber} (shown on screen): ${input.code}`);
     return;
   }
+  if (input.route === "sms") {
+    const locale = isAppLocale(input.locale) ? input.locale : "en";
+    const t = await getTranslations({ locale, namespace: "auth.sms" });
+    const minutes = Math.round(input.ttlSeconds / 60);
+    const result = await sendSms({
+      to: input.phoneNumber,
+      body: t("code", { code: input.code, minutes, brand: siteConfig.localizedName[locale] ?? siteConfig.name }),
+      logAs: `[login code for ${maskPhone(input.phoneNumber)}]`,
+    });
+    if (!result.ok) throw new SmsUnavailableError("Twilio Messaging could not send the code");
+    return;
+  }
+  const config = input.route === "verify" ? twilioConfig() : null;
+  if (!config) throw new SmsUnavailableError("No SMS service is set up");
 
   const body: Record<string, string> = { To: input.phoneNumber, Channel: config.channel };
   if (input.locale && TWILIO_LOCALES.has(input.locale)) body.Locale = input.locale;

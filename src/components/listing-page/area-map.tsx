@@ -58,7 +58,7 @@ export default function AreaMap({ lat, lng, label, places = [] }: AreaMapProps) 
 
   return (
     <div className="bayit-map size-full">
-      <CommunityIconSprite />
+      {places.length ? <CommunityIconSprite /> : null}
       <MapContainer
         bounds={bounds}
         boundsOptions={{ padding: [28, 28], maxZoom: 15 }}

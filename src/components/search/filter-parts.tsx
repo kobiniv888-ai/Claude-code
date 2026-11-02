@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { ChevronDownIcon } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Switch } from "@/components/ui/switch";
 import type { IconComponent } from "@/components/ds";
 import { formatNumber } from "@/lib/format";
 import type { SearchFilters } from "@/lib/listing/search-params";
@@ -122,13 +123,57 @@ export function ChoiceChips<T extends string | number | null>({
             onClick={() => onChange(option)}
             className={cn(
               "min-h-10 rounded-full border px-4 py-1.5 text-sm font-medium transition-colors duration-(--motion-fast) outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
-              active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:border-input hover:bg-muted",
+              active ? "border-primary-tint-border bg-primary-tint text-primary-text" : "border-border bg-card hover:border-input hover:bg-muted",
             )}
           >
             {label(option)}
           </button>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * A plain on/off row (round 2: the "כשרות ושבת" group): the label at the start, a switch at the
+ * end, the whole row is the 48px tap target. `children` show under it while it is on (e.g. the
+ * walking-time choice).
+ */
+export function SwitchRow({
+  checked,
+  onChange,
+  label,
+  hint,
+  children,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  label: string;
+  hint?: string;
+  children?: ReactNode;
+}) {
+  const id = useId();
+  return (
+    <div className="grid">
+      <label htmlFor={id} className="flex min-h-12 cursor-pointer items-center justify-between gap-4 py-1.5">
+        <span className="grid min-w-0 gap-0.5">
+          <span className="text-body leading-snug text-foreground">{label}</span>
+          {hint ? (
+            <span id={`${id}-hint`} className="text-caption text-muted-foreground">
+              {hint}
+            </span>
+          ) : null}
+        </span>
+        <Switch
+          id={id}
+          checked={checked}
+          onCheckedChange={onChange}
+          aria-describedby={hint ? `${id}-hint` : undefined}
+          // The "off" track needs 3:1 against the sheet (the default grey is too faint).
+          className="data-unchecked:bg-muted-foreground/75 dark:data-unchecked:bg-muted-foreground/60"
+        />
+      </label>
+      {checked && children ? <div className="pb-2">{children}</div> : null}
     </div>
   );
 }

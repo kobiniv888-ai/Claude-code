@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { CircleAlertIcon, LoaderCircleIcon } from "lucide-react";
+import { CircleAlertIcon, LoaderCircleIcon, MailIcon, SmartphoneIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getPathname, Link, useRouter } from "@/i18n/navigation";
 import { getLoginState } from "@/lib/auth/actions";
@@ -10,19 +10,27 @@ import { signIn, signOut } from "@/lib/auth/client";
 import type { LoginConfig } from "@/lib/auth/config";
 import { authErrorKey, type AuthErrorKey } from "@/lib/auth/error-codes";
 import { safeNextPath } from "@/lib/auth/next-path";
+import { EmailCodeForm } from "./email-code-form";
+import { FirstNameForm } from "./first-name-form";
 import { PhoneCodeForm } from "./phone-code-form";
 import { AppleIcon, GoogleIcon } from "./provider-icons";
+import { TestModeStrip } from "./test-mode-strip";
 import { TwoFactorChallenge } from "./two-factor-challenge";
 import { useAuthErrorMessage } from "./use-auth-messages";
 
 type Provider = "google" | "apple";
 
-/** Where the visitor is in the login: the first screen, the 6-digit code, the 2-step code, or done. */
-export type LoginStage = "start" | "code" | "two-factor" | "done";
+/**
+ * Where the visitor is in the login: the first screen, the 6-digit code, the 2-step code, the
+ * first name (new accounts), or done.
+ */
+export type LoginStage = "start" | "code" | "two-factor" | "name" | "done";
 
 /**
- * The login UI: Google, Apple (when configured) and a phone code — then the 2-step check
- * in place when the account has it on. Used by the /login page and the login dialog.
+ * The login UI (founder request, round 2), in this order: Google (and Apple) when configured, a code
+ * by email (always), and — in development / test mode only — a code by phone, so testers can sign
+ * in as the demo accounts. Then, in place: the 2-step check when the account has it on, and the
+ * first-name step for a new account. Used by the /login page and the login dialog.
  *
  * Without `onSuccess`, it navigates to `next` after logging in.
  */
@@ -31,6 +39,7 @@ export function LoginPanel({
   next,
   variant = "page",
   initialError,
+  initialStage = "start",
   onSuccess,
   onStageChange,
   autoFocus,
@@ -40,10 +49,12 @@ export function LoginPanel({
   next?: string;
   variant?: "page" | "dialog";
   initialError?: AuthErrorKey | null;
+  /** "name": already signed in, the first name is still missing (the /login page). */
+  initialStage?: "start" | "name";
   onSuccess?: () => void | Promise<void>;
   /** Lets the sheet or page shrink its welcome block while a code is being entered. */
   onStageChange?: (stage: LoginStage) => void;
-  /** Focus the phone field at once (default: in the dialog when there is no Google/Apple). */
+  /** Focus the email field at once (default: in the dialog when there is no Google/Apple). */
   autoFocus?: boolean;
 }) {
   const t = useTranslations("auth.login");
@@ -52,11 +63,14 @@ export function LoginPanel({
   const errorMessage = useAuthErrorMessage();
   const target = safeNextPath(next);
 
-  const [step, setStepState] = useState<"start" | "two-factor" | "done">("start");
-  const setStep = (next: "start" | "two-factor" | "done") => {
+  const [step, setStepState] = useState<"start" | "two-factor" | "name" | "done">(initialStage);
+  const setStep = (next: "start" | "two-factor" | "name" | "done") => {
     setStepState(next);
     onStageChange?.(next);
   };
+  const [method, setMethod] = useState<"email" | "phone">("email");
+  /** The email or phone form is on its 6-digit code step (hide the switch between them). */
+  const [enteringCode, setEnteringCode] = useState(false);
   const [redirecting, setRedirecting] = useState<Provider | null>(null);
   const [error, setError] = useState<AuthErrorKey | string | null>(initialError ?? null);
 
@@ -70,11 +84,16 @@ export function LoginPanel({
     router.refresh();
   }
 
-  async function afterPhoneLogin() {
+  /** After a code login or the 2-step code: the 2-step check, the first name, or done. */
+  async function afterSignIn() {
     setError(null);
     const state = await getLoginState().catch(() => null);
     if (state?.twoFactorRequired) {
       setStep("two-factor");
+      return;
+    }
+    if (state?.needsFirstName) {
+      setStep("name");
       return;
     }
     await finish();
@@ -83,9 +102,9 @@ export function LoginPanel({
   async function continueWith(provider: Provider) {
     setError(null);
     setRedirecting(provider);
-    // Google/Apple come back through /two-factor, which asks for the authenticator code when
-    // the account has 2-step login on and otherwise forwards to `next`.
-    const callbackURL = getPathname({ href: { pathname: "/two-factor", query: { next: target } }, locale });
+    // Google/Apple come back to /login, which asks for the authenticator code (2-step login on)
+    // or the first name (new account) and otherwise forwards to `next`.
+    const callbackURL = getPathname({ href: { pathname: "/login", query: { next: target } }, locale });
     const errorCallbackURL = getPathname({ href: { pathname: "/login", query: { next: target } }, locale });
     const { error: signInError } = await signIn.social({ provider, callbackURL, errorCallbackURL });
     if (signInError) {
@@ -100,7 +119,7 @@ export function LoginPanel({
         <div className="grid gap-1 text-center">
           <p className="text-h3">{t("twoFactorTitle")}</p>
         </div>
-        <TwoFactorChallenge onVerified={finish} />
+        <TwoFactorChallenge onVerified={afterSignIn} />
         <Button
           type="button"
           variant="link"
@@ -115,6 +134,10 @@ export function LoginPanel({
         </Button>
       </div>
     );
+  }
+
+  if (step === "name") {
+    return <FirstNameForm onSaved={finish} />;
   }
 
   if (step === "done") {
@@ -142,6 +165,7 @@ export function LoginPanel({
 
   return (
     <div className="grid gap-5">
+      <TestModeStrip mode={config.codeDisplay} />
       {error && (
         <div
           role="alert"
@@ -200,13 +224,51 @@ export function LoginPanel({
         </div>
       )}
 
-      <PhoneCodeForm
-        mode="sign-in"
-        config={config.phone}
-        onVerified={afterPhoneLogin}
-        autoFocus={autoFocus ?? (variant === "dialog" && !hasSocial)}
-        onStepChange={(phoneStep) => onStageChange?.(phoneStep === "code" ? "code" : "start")}
-      />
+      {method === "email" || !config.phone.login ? (
+        config.email.available ? (
+          <EmailCodeForm
+            devHints={config.phone.devHints}
+            onVerified={afterSignIn}
+            autoFocus={autoFocus ?? (variant === "dialog" && !hasSocial)}
+            onStepChange={(emailStep) => {
+              setEnteringCode(emailStep === "code");
+              onStageChange?.(emailStep === "code" ? "code" : "start");
+            }}
+          />
+        ) : (
+          <div role="status" className="flex items-start gap-2.5 rounded-input border border-border bg-surface-muted px-3.5 py-3 text-sm">
+            <MailIcon className="mt-0.5 size-4 shrink-0 text-primary-text" aria-hidden />
+            <p>{t(hasSocial ? "emailUnavailable" : "emailUnavailableNoSocial")}</p>
+          </div>
+        )
+      ) : (
+        <PhoneCodeForm
+          purpose="sign-in"
+          config={config.phone}
+          onVerified={afterSignIn}
+          autoFocus
+          onStepChange={(phoneStep) => {
+            setEnteringCode(phoneStep === "code");
+            onStageChange?.(phoneStep === "code" ? "code" : "start");
+          }}
+        />
+      )}
+
+      {config.phone.login && !enteringCode && (
+        <Button
+          type="button"
+          variant="link"
+          className="mx-auto min-h-tap h-auto max-w-full whitespace-normal text-center"
+          onClick={() => {
+            setError(null);
+            setMethod(method === "email" ? "phone" : "email");
+            onStageChange?.("start");
+          }}
+        >
+          {method === "email" ? <SmartphoneIcon aria-hidden /> : <MailIcon aria-hidden />}
+          {t(method === "email" ? "usePhone" : "useEmail")}
+        </Button>
+      )}
 
       <p className="text-center text-xs leading-relaxed text-muted-foreground">
         {t.rich("consent", { terms: legalLink("/legal/terms"), privacy: legalLink("/legal/privacy") })}

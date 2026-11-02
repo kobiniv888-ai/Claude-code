@@ -1,37 +1,18 @@
 import { useLocale, useTranslations } from "next-intl";
-import {
-  BadgePercentIcon,
-  CheckIcon,
-  ChevronDownIcon,
-  BuildingIcon,
-  CalendarClockIcon,
-  CigaretteIcon,
-  CoinsIcon,
-  DoorClosedIcon,
-  DoorOpenIcon,
-  FlameIcon,
-  MountainSnowIcon,
-  PartyPopperIcon,
-  PawPrintIcon,
-  PiggyBankIcon,
-  PlugZapIcon,
-  RulerIcon,
-  SofaIcon,
-  SparklesIcon,
-  TrendingDownIcon,
-  UsersIcon,
-  Volume1Icon,
-  WrenchIcon,
-} from "lucide-react";
-import { ArrowEnd } from "@/components/common/directional-icon";
 import { Ltr } from "@/components/common/ltr";
-import { AMENITY_ICONS, CONDITION_ICONS } from "@/components/listing/field-icons";
-import type { Amenity } from "@/lib/listing/fields";
-import { formatArea, formatDate, formatMoney, formatNumber, formatTime } from "@/lib/format";
+import { SpriteIcon } from "@/components/ds/sprite-icons";
+import type { SpriteIconName } from "@/components/ds/sprite-icons.generated";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { formatDate, formatMoney, formatNumber, formatTime } from "@/lib/format";
 import { clockDate, priceChangePercent, pricePerSqm } from "@/lib/listing-page/helpers";
+import { houseRules, orderedAmenities, type Highlight, type HouseRule } from "@/lib/listing-page/highlights";
 import type { ListingPageData } from "@/lib/listing-page/types";
-import { cn } from "@/lib/utils";
-import { InfoRow, Section } from "./section";
+import { AMENITY_SPRITE } from "./icons";
+import { MoreSheet } from "./more-sheet";
+import { Section } from "./section";
+
+const AMENITIES_PREVIEW = 6;
+const RULES_PREVIEW = 3;
 
 function useClock() {
   const locale = useLocale();
@@ -41,231 +22,299 @@ function useClock() {
   };
 }
 
-/** House rules: check-in/out, smoking, pets, parties, quiet hours. */
-export function RulesSection({ data }: { data: ListingPageData }) {
-  const t = useTranslations("listing.rules");
-  const clock = useClock();
-  const checkIn = clock(data.checkInFrom);
-  const checkOut = clock(data.checkOutUntil);
-  const quietFrom = clock(data.quietHoursFrom);
-  const quietTo = clock(data.quietHoursTo);
-  const bools = [
-    { key: "smoking", value: data.smokingAllowed, icon: CigaretteIcon },
-    { key: "pets", value: data.petsAllowed, icon: PawPrintIcon },
-    { key: "parties", value: data.partiesAllowed, icon: PartyPopperIcon },
-  ] as const;
-  const anyBool = bools.some((b) => b.value !== null);
-  if (!checkIn && !checkOut && !anyBool && !(quietFrom && quietTo)) return null;
+/** "What this place offers": six amenities (not the ones already highlighted), then "Show all N". */
+export function AmenitiesSection({ amenities, highlights }: { amenities: string[]; highlights: Highlight[] }) {
+  const t = useTranslations("listing.amenities");
+  const f = useTranslations("listingFields.amenity");
+  const locale = useLocale();
+  const ordered = orderedAmenities(amenities, highlights);
+  if (ordered.length === 0) return null;
+  const list = (keys: typeof ordered) => (
+    <ul className="grid gap-x-6 gap-y-3.5 sm:grid-cols-2">
+      {keys.map((key) => (
+        <li key={key} className="flex items-center gap-3 text-body">
+          <SpriteIcon name={AMENITY_SPRITE[key]} className="size-6 shrink-0 text-muted-foreground" />
+          {f(key)}
+        </li>
+      ))}
+    </ul>
+  );
   return (
-    <Section id="rules" title={t("title")}>
-      <div className="grid gap-5 sm:grid-cols-2">
-        {checkIn || checkOut || (quietFrom && quietTo) ? (
-          <dl className="divide-y rounded-2xl bg-muted/60 px-4 dark:bg-muted">
-            {checkIn ? (
-              <InfoRow icon={DoorOpenIcon} label={t("checkIn")}>
-                {t("from", { time: checkIn })}
-              </InfoRow>
-            ) : null}
-            {checkOut ? (
-              <InfoRow icon={DoorClosedIcon} label={t("checkOut")}>
-                {t("until", { time: checkOut })}
-              </InfoRow>
-            ) : null}
-            {quietFrom && quietTo ? (
-              <InfoRow icon={Volume1Icon} label={t("quietHours")}>
-                <bdi>{quietFrom}</bdi> – <bdi>{quietTo}</bdi>
-              </InfoRow>
-            ) : null}
-          </dl>
-        ) : null}
-        {anyBool ? (
-          <ul className="flex flex-wrap content-start gap-2">
-            {bools.map(({ key, value, icon: Icon }) =>
-              value === null ? null : (
-                <li
-                  key={key}
-                  className={cn(
-                    "inline-flex min-h-10 items-center gap-2 rounded-full px-3.5 text-small font-medium",
-                    value ? "bg-primary-tint text-primary-text" : "bg-muted/80 text-foreground dark:bg-muted",
-                  )}
-                >
-                  <Icon className="size-4.5 shrink-0" aria-hidden />
-                  <span className="sr-only">{value ? t("allowed") : t("notAllowed")}: </span>
-                  {t(`${key}.${value ? "yes" : "no"}`)}
-                </li>
-              ),
-            )}
-          </ul>
+    <Section id="amenities" title={t("title")}>
+      <div className="grid gap-5">
+        {list(ordered.slice(0, AMENITIES_PREVIEW))}
+        {ordered.length > AMENITIES_PREVIEW ? (
+          <MoreSheet label={t("showAll", { count: formatNumber(ordered.length, locale) })} title={t("title")}>
+            {list(ordered)}
+          </MoreSheet>
         ) : null}
       </div>
     </Section>
   );
 }
 
-/** All costs: deposit, cleaning, utilities, minimum stay, discounts; sales: price per m² and price drops. */
-export function CostsSection({ data }: { data: ListingPageData }) {
-  const t = useTranslations("listing.costs");
-  const locale = useLocale();
-  const money = (amount: number) => <Ltr>{formatMoney(amount, data.currency, locale)}</Ltr>;
-  const isSale = data.dealType === "SALE";
-  const perSqm = isSale ? pricePerSqm(data.price, data.sizeSqm) : null;
-  const rows: { key: string; icon: typeof CoinsIcon; label: string; value: React.ReactNode }[] = [];
+type Row = { key: string; icon: SpriteIconName; label: string; children: React.ReactNode };
 
-  if (perSqm) rows.push({ key: "sqm", icon: RulerIcon, label: t("pricePerSqm"), value: t("perSqm", { price: formatMoney(perSqm, data.currency, locale) }) });
-  if (!isSale) {
-    if (data.deposit) rows.push({ key: "deposit", icon: PiggyBankIcon, label: t("deposit"), value: money(data.deposit) });
-    if (data.cleaningFee) rows.push({ key: "cleaning", icon: SparklesIcon, label: t("cleaningFee"), value: money(data.cleaningFee) });
-    if (data.utilitiesIncluded !== null || data.utilitiesEstimate) {
-      rows.push({
-        key: "utilities",
-        icon: PlugZapIcon,
-        label: t("utilities"),
-        value: data.utilitiesIncluded
-          ? t("utilitiesIncluded")
-          : data.utilitiesEstimate
-            ? t("utilitiesEstimate", { amount: formatMoney(data.utilitiesEstimate, data.currency, locale) })
-            : t("utilitiesNotIncluded"),
-      });
-    }
-    if (data.minStayNights) rows.push({ key: "minStay", icon: CalendarClockIcon, label: t("minStay"), value: t("nights", { count: data.minStayNights }) });
-    if (data.weeklyDiscountPct) rows.push({ key: "weekly", icon: BadgePercentIcon, label: t("weeklyDiscount"), value: t("percentOff", { count: data.weeklyDiscountPct }) });
-    if (data.monthlyDiscountPct) rows.push({ key: "monthly", icon: BadgePercentIcon, label: t("monthlyDiscount"), value: t("percentOff", { count: data.monthlyDiscountPct }) });
+function InfoList({ rows }: { rows: Row[] }) {
+  return (
+    <ul className="grid gap-5">
+      {rows.map(({ key, icon, label, children }) => (
+        <li key={key} className="flex items-start gap-3">
+          <SpriteIcon name={icon} className="mt-0.5 size-6 shrink-0 text-muted-foreground" />
+          <div className="grid min-w-0 gap-0.5">
+            <h3 className="text-body font-semibold">{label}</h3>
+            <div className="text-small text-muted-foreground">{children}</div>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function RuleText({ rule }: { rule: HouseRule }) {
+  const t = useTranslations("listing.rules");
+  const clock = useClock();
+  if (rule.key === "quietHours") {
+    return (
+      <>
+        {t("quietHours")}: <bdi>{clock(rule.from)}</bdi> – <bdi>{clock(rule.to)}</bdi>
+      </>
+    );
   }
-  const history = isSale ? data.priceChanges : [];
-  if (rows.length === 0 && history.length === 0) return null;
+  return <>{t(`${rule.key}.${rule.allowed ? "yes" : "no"}`)}</>;
+}
+
+/**
+ * "Good to know": check-in and check-out, the costs beside the rent, the house rules (three,
+ * then "Show all"), the cancellation policy and the pay-at-arrival note (stays), and the
+ * live-video safety tip: the ONLY safety block on the page.
+ */
+export function ImportantToKnow({ data }: { data: ListingPageData }) {
+  const t = useTranslations("listing.important");
+  const tr = useTranslations("listing.rules");
+  const tc = useTranslations("listing.costs");
+  const locale = useLocale();
+  const clock = useClock();
+  const stay = data.dealType === "SHORT_STAY" || data.dealType === "HOTEL_ROOM";
+  const sale = data.dealType === "SALE";
+  const money = (amount: number) => <Ltr>{formatMoney(amount, data.currency, locale)}</Ltr>;
+  const rows: Row[] = [];
+
+  const checkIn = clock(data.checkInFrom);
+  const checkOut = clock(data.checkOutUntil);
+  if (!sale && (checkIn || checkOut)) {
+    rows.push({
+      key: "times",
+      icon: "clock",
+      label: t("times"),
+      children: (
+        <p>
+          {checkIn ? tr("checkInFrom", { time: checkIn }) : null}
+          {checkIn && checkOut ? <span aria-hidden="true" className="px-1.5">·</span> : null}
+          {checkOut ? tr("checkOutUntil", { time: checkOut }) : null}
+        </p>
+      ),
+    });
+  }
+
+  const costs: React.ReactNode[] = [];
+  if (!sale) {
+    if (data.deposit) costs.push(<>{tc("deposit")}: {money(data.deposit)}</>);
+    if (data.cleaningFee) costs.push(<>{tc("cleaningFee")}: {money(data.cleaningFee)}</>);
+    if (data.utilitiesIncluded !== null && !stay) {
+      costs.push(
+        data.utilitiesIncluded
+          ? tc("utilitiesIncluded")
+          : data.utilitiesEstimate
+            ? tc("utilitiesEstimate", { amount: formatMoney(data.utilitiesEstimate, data.currency, locale) })
+            : tc("utilitiesNotIncluded"),
+      );
+    }
+    // Rentals store the minimum in nights (90 = about three months): say it in months from four weeks up.
+    if (data.minStayNights && !stay) {
+      costs.push(
+        data.minStayNights >= 28
+          ? tc("minStayText", { count: Math.round(data.minStayNights / 30) })
+          : tc("minStayNightsText", { count: data.minStayNights }),
+      );
+    }
+    if (data.weeklyDiscountPct) costs.push(tc("weeklyDiscountText", { count: formatNumber(data.weeklyDiscountPct, locale) }));
+    if (data.monthlyDiscountPct) costs.push(tc("monthlyDiscountText", { count: formatNumber(data.monthlyDiscountPct, locale) }));
+  }
+  if (costs.length) {
+    rows.push({
+      key: "costs",
+      icon: "hand-coins",
+      label: t("costs"),
+      children: (
+        <ul className="grid gap-0.5">
+          {costs.map((cost, i) => (
+            <li key={i}>{cost}</li>
+          ))}
+        </ul>
+      ),
+    });
+  }
+
+  const rules = sale ? [] : houseRules(data);
+  if (rules.length) {
+    const list = (items: HouseRule[]) => (
+      <ul className="grid gap-0.5">
+        {items.map((rule) => (
+          <li key={rule.key}>
+            <RuleText rule={rule} />
+          </li>
+        ))}
+      </ul>
+    );
+    rows.push({
+      key: "rules",
+      icon: "door-open",
+      label: t("rules"),
+      children: (
+        <div className="grid gap-2">
+          {list(rules.slice(0, RULES_PREVIEW))}
+          {rules.length > RULES_PREVIEW ? (
+            <MoreSheet label={t("showAll")} title={t("rules")} className="h-11">
+              <div className="text-body">{list(rules)}</div>
+            </MoreSheet>
+          ) : null}
+        </div>
+      ),
+    });
+  }
+
+  if (stay) {
+    rows.push({
+      key: "cancel",
+      icon: "calendar-x",
+      label: t("cancellation"),
+      children: <p>{data.cancellationPolicy ? t(`policy.${data.cancellationPolicy}`) : t("policy.none")}</p>,
+    });
+    rows.push({ key: "payment", icon: "wallet", label: t("payment"), children: <p>{t("paymentText")}</p> });
+  }
+
+  rows.push({
+    key: "video",
+    icon: "video",
+    label: t("safety"),
+    children: <p>{t.rich("videoTip", { id: data.publicId, ltr: (chunks) => <Ltr>{chunks}</Ltr> })}</p>,
+  });
 
   return (
-    <Section id="costs" title={isSale ? t("titleSale") : t("title")}>
-      {rows.length ? (
-        <dl className="divide-y rounded-2xl bg-muted/60 px-4 dark:bg-muted">
-          {rows.map(({ key, icon, label, value }) => (
-            <InfoRow key={key} icon={icon} label={label}>
-              {value}
-            </InfoRow>
-          ))}
-        </dl>
-      ) : null}
-      {history.length ? (
-        <div className="mt-6 grid gap-3">
-          <h3 className="flex items-center gap-2 font-semibold">
-            <TrendingDownIcon className="size-5 text-primary-text" aria-hidden />
-            {t("priceHistory")}
-          </h3>
-          <ol className="grid gap-2">
-            {history.map((change) => {
-              const pct = priceChangePercent(change.oldPrice, change.newPrice);
-              return (
-                <li key={change.changedAt} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-muted/60 px-3 py-2 text-sm">
-                  <time dateTime={change.changedAt} className="text-muted-foreground">
-                    {formatDate(change.changedAt, locale, { day: "numeric", month: "short", year: "numeric" })}
-                  </time>
-                  <span className="inline-flex items-center gap-1.5 font-medium">
-                    <bdi className="text-muted-foreground line-through">{formatMoney(change.oldPrice, change.currency, locale)}</bdi>
-                    <ArrowEnd className="size-3.5 text-muted-foreground" aria-hidden />
-                    <bdi>{formatMoney(change.newPrice, change.currency, locale)}</bdi>
-                  </span>
-                  {pct !== null ? (
-                    <span className={pct < 0 ? "font-semibold text-primary-text" : "font-semibold text-foreground"}>
-                      <Ltr>{`${pct > 0 ? "+" : ""}${formatNumber(pct, locale)}%`}</Ltr>
-                    </span>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ol>
-        </div>
-      ) : null}
+    <Section id="good-to-know" title={t("title")}>
+      <InfoList rows={rows} />
     </Section>
   );
 }
 
-/** Every basic and Georgian market detail the owner filled in. */
+/** Rentals and sales: the building and the flat (the Georgian frame terms first), six then "Show all". */
 export function DetailsSection({ data }: { data: ListingPageData }) {
   const t = useTranslations("listing.details");
   const f = useTranslations("listingFields");
   const locale = useLocale();
   const yesNo = (value: boolean) => (value ? t("yes") : t("no"));
-  const rows: { key: string; icon: typeof CoinsIcon; label: string; value: React.ReactNode }[] = [
-    { key: "deal", icon: CoinsIcon, label: t("dealType"), value: f(`dealType.${data.dealType}`) },
-    { key: "type", icon: BuildingIcon, label: t("propertyType"), value: f(`propertyType.${data.propertyType}`) },
+  const rows: { key: string; label: string; value: React.ReactNode }[] = [
+    { key: "type", label: t("propertyType"), value: f(`propertyType.${data.propertyType}`) },
   ];
-  if (data.rooms) rows.push({ key: "rooms", icon: DoorOpenIcon, label: t("rooms"), value: formatNumber(data.rooms, locale) });
-  if (data.bedrooms !== null) rows.push({ key: "bedrooms", icon: DoorOpenIcon, label: t("bedrooms"), value: formatNumber(data.bedrooms, locale) });
-  if (data.bathrooms !== null) rows.push({ key: "bathrooms", icon: DoorOpenIcon, label: t("bathrooms"), value: formatNumber(data.bathrooms, locale) });
-  const beds = [
-    data.bedsDouble ? t("bedsDouble", { count: data.bedsDouble }) : null,
-    data.bedsSingle ? t("bedsSingle", { count: data.bedsSingle }) : null,
-    data.bedsSofa ? t("bedsSofa", { count: data.bedsSofa }) : null,
-  ].filter(Boolean);
-  if (beds.length) rows.push({ key: "beds", icon: SofaIcon, label: t("beds"), value: beds.join(", ") });
-  if (data.maxGuests && data.dealType !== "SALE") rows.push({ key: "guests", icon: UsersIcon, label: t("maxGuests"), value: formatNumber(data.maxGuests, locale) });
-  if (data.sharedRoomFor) rows.push({ key: "shared", icon: UsersIcon, label: t("sharedRoomFor"), value: f(`sharedRoomFor.${data.sharedRoomFor}`) });
-  if (data.sizeSqm) rows.push({ key: "size", icon: RulerIcon, label: t("size"), value: formatArea(data.sizeSqm, locale) });
   if (data.floor !== null) {
     rows.push({
       key: "floor",
-      icon: BuildingIcon,
       label: t("floor"),
       value: data.totalFloors !== null ? t("floorOf", { floor: formatNumber(data.floor, locale), total: formatNumber(data.totalFloors, locale) }) : formatNumber(data.floor, locale),
     });
   }
-  if (data.elevator !== null) rows.push({ key: "elevator", icon: BuildingIcon, label: t("elevator"), value: yesNo(data.elevator) });
-  if (data.buildingAge) rows.push({ key: "age", icon: BuildingIcon, label: t("building"), value: f(`buildingAge.${data.buildingAge}`) });
-  if (data.yearBuilt) rows.push({ key: "year", icon: CalendarClockIcon, label: t("yearBuilt"), value: <Ltr>{String(data.yearBuilt)}</Ltr> });
-  if (data.furnished !== null) rows.push({ key: "furnished", icon: SofaIcon, label: t("furnished"), value: yesNo(data.furnished) });
-  if (data.heating.length) rows.push({ key: "heating", icon: FlameIcon, label: t("heating"), value: data.heating.map((h) => f(`heating.${h}`)).join(", ") });
-  if (data.views.length) rows.push({ key: "views", icon: MountainSnowIcon, label: t("views"), value: data.views.map((v) => f(`view.${v}`)).join(", ") });
+  if (data.elevator !== null) rows.push({ key: "elevator", label: t("elevator"), value: yesNo(data.elevator) });
+  if (data.furnished !== null) rows.push({ key: "furnished", label: t("furnished"), value: yesNo(data.furnished) });
+  if (data.heating.length) rows.push({ key: "heating", label: t("heating"), value: data.heating.map((h) => f(`heating.${h}`)).join(", ") });
+  if (data.views.length) rows.push({ key: "views", label: t("views"), value: data.views.map((v) => f(`view.${v}`)).join(", ") });
+  if (data.buildingAge) rows.push({ key: "age", label: t("building"), value: f(`buildingAge.${data.buildingAge}`) });
+  if (data.yearBuilt) rows.push({ key: "year", label: t("yearBuilt"), value: <Ltr>{String(data.yearBuilt)}</Ltr> });
+  if (data.sharedRoomFor) rows.push({ key: "shared", label: t("sharedRoomFor"), value: f(`sharedRoomFor.${data.sharedRoomFor}`) });
 
-  const ConditionIcon = data.condition ? CONDITION_ICONS[data.condition] : WrenchIcon;
+  const list = (items: typeof rows) => (
+    <dl className="grid gap-x-8 sm:grid-cols-2">
+      {items.map(({ key, label, value }) => (
+        <div key={key} className="flex items-baseline justify-between gap-3 border-b border-border py-2.5">
+          <dt className="text-muted-foreground">{label}</dt>
+          <dd className="text-end font-medium">{value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+
   return (
     <Section id="details" title={t("title")}>
-      {data.condition ? (
-        <div className="mb-4 flex gap-3 rounded-xl border bg-muted/40 p-4">
-          <ConditionIcon className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
-          <div className="grid gap-0.5">
+      <div className="grid gap-4">
+        {data.condition ? (
+          <div className="grid gap-0.5 rounded-card bg-surface-muted p-4">
             <p className="font-semibold">
               {t("condition")}: {f(`condition.${data.condition}`)}
             </p>
-            <p className="text-sm text-muted-foreground">{f(`conditionHint.${data.condition}`)}</p>
+            <p className="text-small text-muted-foreground">{f(`conditionHint.${data.condition}`)}</p>
           </div>
-        </div>
-      ) : null}
-      <details className="group rounded-2xl border bg-card">
-        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-4 font-semibold outline-none select-none focus-visible:ring-3 focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden">
-          {t("showAll", { count: rows.length })}
-          <ChevronDownIcon className="size-5 shrink-0 transition-transform duration-(--motion-fast) group-open:rotate-180 motion-reduce:transition-none" aria-hidden />
-        </summary>
-        <dl className="grid divide-y border-t px-4 sm:grid-cols-2 sm:gap-x-8 sm:divide-y-0 [&>div]:sm:border-b [&>div:nth-last-child(-n+2)]:sm:border-b-0">
-          {rows.map(({ key, icon, label, value }) => (
-            <InfoRow key={key} icon={icon} label={label}>
-              {value}
-            </InfoRow>
-          ))}
-        </dl>
-      </details>
+        ) : null}
+        {list(rows.slice(0, 6))}
+        {rows.length > 6 ? (
+          <MoreSheet label={t("showAll", { count: rows.length })} title={t("title")}>
+            {list(rows)}
+          </MoreSheet>
+        ) : null}
+      </div>
     </Section>
   );
 }
 
-/** What the place has, as chips with icons. */
-export function AmenitiesSection({ amenities }: { amenities: string[] }) {
-  const t = useTranslations("listing.amenities");
-  const f = useTranslations("listingFields");
-  const known = amenities.filter((key): key is Amenity => key in AMENITY_ICONS);
-  if (known.length === 0) return null;
+/** Sales: the price per m², and the price history folded under "Price history". */
+export function SalePriceSection({ data }: { data: ListingPageData }) {
+  const t = useTranslations("listing.costs");
+  const locale = useLocale();
+  const perSqm = pricePerSqm(data.price, data.sizeSqm);
+  const history = data.priceChanges;
+  if (!perSqm && history.length === 0) return null;
   return (
-    <Section id="amenities" title={t("title")}>
-      <ul className="flex flex-wrap gap-2">
-        {known.map((key) => {
-          const Icon = AMENITY_ICONS[key] ?? CheckIcon;
-          return (
-            <li key={key} className="inline-flex min-h-10 items-center gap-2 rounded-full bg-muted/80 px-3.5 text-small font-medium dark:bg-muted">
-              <Icon className="size-4.5 shrink-0 text-primary-text" aria-hidden />
-              {f(`amenity.${key}`)}
-            </li>
-          );
-        })}
-      </ul>
+    <Section id="price" title={t("titleSale")}>
+      <div className="grid gap-2">
+        {perSqm ? (
+          <p className="flex items-baseline justify-between gap-3 border-b border-border py-2.5">
+            <span className="text-muted-foreground">{t("pricePerSqm")}</span>
+            <span className="font-medium">
+              <Ltr>{t("perSqm", { price: formatMoney(perSqm, data.currency, locale) })}</Ltr>
+            </span>
+          </p>
+        ) : null}
+        {history.length ? (
+          <Accordion type="single" collapsible>
+            <AccordionItem value="history" className="border-b-0">
+              <AccordionTrigger>{t("priceHistory")}</AccordionTrigger>
+              <AccordionContent>
+                <ol className="grid gap-2">
+                  {history.map((change) => {
+                    const pct = priceChangePercent(change.oldPrice, change.newPrice);
+                    return (
+                      <li key={change.changedAt} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-small">
+                        <time dateTime={change.changedAt} className="text-muted-foreground">
+                          {formatDate(change.changedAt, locale, { day: "numeric", month: "short", year: "numeric" })}
+                        </time>
+                        <span className="inline-flex items-center gap-1.5 font-medium">
+                          <bdi className="text-muted-foreground">{formatMoney(change.oldPrice, change.currency, locale)}</bdi>
+                          <SpriteIcon name="arrow-right" className="size-3.5 text-muted-foreground rtl:-scale-x-100" />
+                          <bdi>{formatMoney(change.newPrice, change.currency, locale)}</bdi>
+                        </span>
+                        {pct !== null ? (
+                          <span className="font-semibold">
+                            <Ltr>{`${pct > 0 ? "+" : ""}${formatNumber(pct, locale)}%`}</Ltr>
+                          </span>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ol>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        ) : null}
+      </div>
     </Section>
   );
 }

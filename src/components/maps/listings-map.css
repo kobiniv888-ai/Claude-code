@@ -58,14 +58,26 @@
 .bayit-pill-marker.is-selected .bayit-pill {
   --pill-bg: var(--primary-pressed);
   --pill-fg: #ffffff;
-  transform: scale(1.2);
+  transform: scale(1.25);
   box-shadow:
     0 0 0 2px var(--card),
     0 6px 18px rgb(75 42 140 / 0.45);
 }
 
+/* Dark maps (bug 8.11): the bright purple with a WHITE border, so pills stand out on dark tiles;
+   the tapped one turns the deep brand purple, still white-bordered, and bigger. */
+.dark .bayit-pill {
+  box-shadow:
+    0 0 0 2px #ffffff,
+    0 3px 10px rgb(0 0 0 / 0.55);
+}
+
 .dark .bayit-pill-marker.is-selected .bayit-pill {
+  --pill-bg: var(--brand-purple);
   --pill-fg: #ffffff;
+  box-shadow:
+    0 0 0 2.5px #ffffff,
+    0 6px 18px rgb(0 0 0 / 0.6);
 }
 
 .bayit-pill-marker:focus-visible .bayit-pill {
@@ -102,6 +114,14 @@
     0 4px 14px rgb(15 23 42 / 0.3);
   animation: bayit-marker-in 360ms var(--ease-pop) backwards;
   transition: transform var(--motion-fast) var(--ease-standard);
+}
+
+/* Dark maps (bug 8.11): a white border and a lighter halo around the count bubble. */
+.dark .bayit-cluster {
+  box-shadow:
+    0 0 0 3px #ffffff,
+    0 0 0 9px color-mix(in srgb, var(--brand-lavender) 30%, transparent),
+    0 4px 14px rgb(0 0 0 / 0.55);
 }
 
 .bayit-cluster-marker:hover .bayit-cluster {

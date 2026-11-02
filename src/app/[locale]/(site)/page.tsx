@@ -2,23 +2,21 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { Container } from "@/components/common/container";
+import { CategoryChips } from "@/components/home/category-chips";
 import { Destinations } from "@/components/home/destinations";
-import { HomeHero } from "@/components/home/hero";
+import { HomeHero } from "@/components/home/home-hero";
 import { HomeJsonLd } from "@/components/home/home-json-ld";
 import { HomeSearchCard, type HomeSearchLabels } from "@/components/home/home-search-card";
 import { HowItWorks } from "@/components/home/how-it-works";
-import { JewishLifeBand } from "@/components/home/jewish-life-band";
+import { JewishLifeCard } from "@/components/home/jewish-life-card";
 import { ListCta } from "@/components/home/list-cta";
-import { FeaturedListings, NewestListings } from "@/components/home/listing-rows";
-import { PledgeSection } from "@/components/home/pledge-section";
-import { QuickCategories } from "@/components/home/quick-categories";
-import { SafetyNote } from "@/components/home/safety-note";
-import { TrustStrip } from "@/components/home/trust-strip";
+import { RecommendedListings } from "@/components/home/recommended-listings";
 import { RecentlyViewed } from "@/components/listing/recently-viewed";
 import type { AppLocale } from "@/config/site";
 import { isAppLocale } from "@/i18n/locale";
 import { getHomeCities, type HomeCity } from "@/lib/home/cities";
+import { HOME_RECOMMENDED_CARDS, mergeRecommended } from "@/lib/home/recommended";
+import { HOME_ROOM_OPTIONS } from "@/lib/home/search-card";
 import { getFeaturedListings, getNewestListings } from "@/lib/listing/queries";
 import type { ListingCardData } from "@/lib/listing/types";
 import { getSearchContext } from "@/lib/search/context";
@@ -28,13 +26,6 @@ import { pageMetadata, siteName } from "@/lib/seo";
 import { getSettings, type HomeSectionKey } from "@/lib/settings";
 
 type Props = { params: Promise<{ locale: string }> };
-
-/**
- * Cards in the "New homes" and "Featured" carousels: one row on desktop, a swipe on phones. Each
- * card is ~18 KB of HTML (photos, badges, icons), so more would slow the first load; "See all"
- * opens the search.
- */
-const HOME_ROW_CARDS = 4;
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
@@ -73,6 +64,9 @@ async function searchLabels(locale: AppLocale): Promise<HomeSearchLabels> {
     moreGuests: t("moreGuests"),
     rooms: t("rooms"),
     roomsAny: t("roomsAny"),
+    roomCounts: HOME_ROOM_OPTIONS.filter((n) => n > 0).map((count) => t("roomCount", { count })),
+    fewerRooms: t("fewerRooms"),
+    moreRooms: t("moreRooms"),
     budget: t("budget"),
     budgetMonthly: t("budgetMonthly"),
     budgetPlaceholder: t("budgetPlaceholder"),
@@ -80,13 +74,26 @@ async function searchLabels(locale: AppLocale): Promise<HomeSearchLabels> {
   };
 }
 
+/** The Container's width and gutters, on the row itself. */
+const RECENT_CONTAINER = "mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8";
+
 /**
- * The home page (brief §5.1): the promise and the search card over a photo slideshow, the trust
- * strip, then the sections admins toggle and order in Admin → Content → Home
- * (settings.homeSections). The redesign kept the stored keys:
- *   cities → "Where to?" · categories → photo tiles · featured / newest → card carousels ·
- *   recentlyViewed · shabbatTimes → the "Jewish life in Georgia" band (Shabbat countdown) ·
- *   whyUs → "The Bayit pledge" · howItWorks · safetyStrip → the small safety tip · listCta.
+ * Below-the-fold sections the browser may skip styling and laying out until they come near the
+ * screen (content-visibility); the size is a placeholder until the real height is known. Not on
+ * "recently viewed" (often empty) or the short rows.
+ */
+const DEFERRED_SIZE: Partial<Record<HomeSectionKey, string>> = {
+  featured: "[content-visibility:auto] [contain-intrinsic-size:auto_24rem]",
+  cities: "[content-visibility:auto] [contain-intrinsic-size:auto_12rem]",
+};
+
+/**
+ * The home page, short and clear (brief round 2, 5.2): the purple band with the title, the search
+ * card overlapping it and the promise line, then the sections admins can switch off or reorder in
+ * Admin → Content → Home (settings.homeSections, default order): category chips, "Recommended
+ * places" (promoted, then newest), "Recently viewed" (only with history), "Where to?", the 3-step
+ * "How it works", the slim Jewish life card and the host card. The footer comes from the layout.
+ * Server components only; the search card is the one client island above the fold.
  */
 export default async function HomePage({ params }: Props) {
   const { locale: rawLocale } = await params;
@@ -99,29 +106,24 @@ export default async function HomePage({ params }: Props) {
   const ctx = await getSearchContext(locale);
   const none: ListingCardData[] = [];
   const noCities: HomeCity[] = [];
+  const wantsListings = enabled.has("featured");
 
-  const [cities, holidays, featured, newest, labels] = await Promise.all([
+  const [cities, holidays, promoted, newest, labels] = await Promise.all([
     safely("cities", () => getHomeCities(locale), noCities),
     getHolidayMarks(locale),
-    enabled.has("featured") ? safely("featured listings", () => getFeaturedListings(ctx, HOME_ROW_CARDS), none) : none,
-    enabled.has("newest") ? safely("newest listings", () => getNewestListings(ctx, HOME_ROW_CARDS), none) : none,
+    wantsListings ? safely("featured listings", () => getFeaturedListings(ctx, HOME_RECOMMENDED_CARDS), none) : none,
+    wantsListings ? safely("newest listings", () => getNewestListings(ctx, HOME_RECOMMENDED_CARDS), none) : none,
     searchLabels(locale),
   ]);
 
   const sections: Record<HomeSectionKey, () => ReactNode> = {
+    categories: () => <CategoryChips locale={locale} />,
+    featured: () => <RecommendedListings locale={locale} listings={mergeRecommended(promoted, newest)} />,
+    // Renders nothing without history, so its wrapper stays :empty and takes no gap.
+    recentlyViewed: () => <RecentlyViewed className={RECENT_CONTAINER} />,
     cities: () => <Destinations locale={locale} cities={cities} />,
-    categories: () => <QuickCategories locale={locale} />,
-    featured: () => <FeaturedListings locale={locale} listings={featured} />,
-    newest: () => <NewestListings locale={locale} listings={newest} />,
-    recentlyViewed: () => (
-      <Container>
-        <RecentlyViewed className="py-6 sm:py-10" />
-      </Container>
-    ),
-    shabbatTimes: () => <JewishLifeBand locale={locale} />,
-    whyUs: () => <PledgeSection locale={locale} />,
     howItWorks: () => <HowItWorks locale={locale} />,
-    safetyStrip: () => <SafetyNote locale={locale} />,
+    jewishLife: () => <JewishLifeCard locale={locale} />,
     listCta: () => <ListCta locale={locale} />,
   };
 
@@ -134,20 +136,13 @@ export default async function HomePage({ params }: Props) {
           <HomeSearchCard labels={labels} popular={cities.map(({ slug, name }) => ({ slug, name }))} holidays={holidays} />
         }
       />
-      <TrustStrip locale={locale} />
-      <div className="pb-6">
+      {/* 32px between sections on phones (--section-space); empty sections (no history, no cities)
+          render nothing or an empty wrapper that the gap skips. */}
+      <div className="mt-6 flex flex-col gap-section pb-section">
         {settings.homeSections
           .filter((section) => section.enabled)
           .map((section) => (
-            // content-visibility: the browser skips style and layout of the sections below the
-            // fold until they come near the screen, so the hero (the LCP photo) paints sooner.
-            // The size is a placeholder; `auto` remembers the real height once rendered. Not on
-            // "recently viewed", which is often empty (a placeholder would leave a gap).
-            <div
-              key={section.key}
-              data-home-section={section.key}
-              className={section.key === "recentlyViewed" ? undefined : "[content-visibility:auto] [contain-intrinsic-size:auto_32rem]"}
-            >
+            <div key={section.key} data-home-section={section.key} className={`empty:hidden ${DEFERRED_SIZE[section.key] ?? ""}`}>
               {sections[section.key]()}
             </div>
           ))}

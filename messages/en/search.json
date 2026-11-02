@@ -23,7 +23,7 @@
   "bar": {
     "label": "Search homes",
     "where": "Where",
-    "wherePlaceholder": "City, neighborhood or listing ID",
+    "wherePlaceholder": "City, area or listing ID",
     "whereTo": "Where to?",
     "clearPlace": "Clear place",
     "popularPlaces": "Popular destinations",
@@ -124,7 +124,10 @@
     "ownerType": "Posted by",
     "postedWithin": "Posted within",
     "noMin": "No min",
-    "noMax": "No max"
+    "noMax": "No max",
+    "kosherShabbat": "Kosher or Shabbat-friendly",
+    "kosherShabbatHint": "A kosher kitchen, Shabbat-friendly or kosher meals: any one is enough",
+    "walkUpTo": "Up to {count} min"
   },
   "chips": {
     "heading": "Active filters",
@@ -135,11 +138,12 @@
     "between": "{min} – {max}",
     "atLeast": "From {min}",
     "atMost": "Up to {max}",
-    "minRooms": "{value}+ rooms",
-    "minBedrooms": "{value}+ bedrooms",
-    "minBathrooms": "{value}+ bathrooms",
+    "minRooms": "{value} rooms",
+    "minBedrooms": "{value} bedrooms",
+    "minBathrooms": "{value} bathrooms",
     "floor": "Floor {range}",
-    "mapArea": "Map area"
+    "mapArea": "Map area",
+    "kosherShabbat": "Kosher or Shabbat-friendly"
   },
   "toolbar": {
     "sortLabel": "Sort by",
@@ -160,7 +164,8 @@
       "hotels": "Hotels and guesthouses"
     },
     "count": "{count, plural, =0 {No homes found} one {{formatted} home} other {{formatted} homes}}",
-    "countIn": "{count, plural, =0 {No homes found in {place}} one {{formatted} home in {place}} other {{formatted} homes in {place}}}"
+    "countIn": "{count, plural, =0 {No homes found in {place}} one {{formatted} home in {place}} other {{formatted} homes in {place}}}",
+    "promise": "Every host here has pledged to welcome Israelis"
   },
   "map": {
     "loading": "Loading the map…",
@@ -203,12 +208,15 @@
       "kosher": "Kosher",
       "shabbat": "Shabbat-friendly",
       "synagogue": "Near a synagogue",
-      "hebrew": "Hebrew-speaking"
+      "hebrew": "Hebrew-speaking",
+      "kosherShabbat": "Kosher & Shabbat"
     },
     "anywhere": "All of Georgia",
     "anyDates": "Add dates",
     "moveIn": "Move in {date}",
-    "summaryLabel": "Change search: {summary}"
+    "summaryLabel": "Change search: {summary}",
+    "propertyType": "Property type",
+    "propertyTypes": "{count, plural, one {{count} property type} other {{count} property types}}"
   },
   "sort": {
     "title": "Sort by",

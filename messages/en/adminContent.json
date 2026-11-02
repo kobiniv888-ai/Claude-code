@@ -137,43 +137,31 @@
     "sections": {
       "categories": {
         "title": "Categories",
-        "description": "Photo tiles: apartments, houses, rooms, hotels, for sale and Shabbat-friendly."
-      },
-      "cities": {
-        "title": "Where to?",
-        "description": "City photo cards with their number of homes and Shabbat start time."
+        "description": "A row of chips: apartments, houses and villas, rooms, hotels, for sale, kosher and Shabbat."
       },
       "featured": {
-        "title": "Featured listings",
-        "description": "The listings you pick under Featured listings."
-      },
-      "newest": {
-        "title": "Newest listings",
-        "description": "The latest live listings."
+        "title": "Recommended places",
+        "description": "The promoted listings you picked, then the newest listings."
       },
       "recentlyViewed": {
         "title": "Recently viewed",
         "description": "Listings the visitor opened before (only on their device)."
       },
-      "whyUs": {
-        "title": "The Bayit pledge",
-        "description": "Nobody is turned away for who they are — the promise every host makes."
+      "cities": {
+        "title": "Where to?",
+        "description": "Small city cards with a photo and the number of places."
       },
       "howItWorks": {
         "title": "How it works",
-        "description": "Three simple steps for guests and owners."
+        "description": "One row of three steps for guests."
       },
-      "shabbatTimes": {
+      "jewishLife": {
         "title": "Jewish life in Georgia",
-        "description": "The Shabbat card with a countdown, the synagogues and quick links."
-      },
-      "safetyStrip": {
-        "title": "Safety tips",
-        "description": "A short reminder on how to avoid scams."
+        "description": "A slim card linking to Shabbat times, synagogues and kosher food."
       },
       "listCta": {
-        "title": "List your property",
-        "description": "An invitation for owners to post a listing."
+        "title": "List your place",
+        "description": "A small card that invites hosts to list for free."
       }
     },
     "moveUp": "Move “{section}” up",

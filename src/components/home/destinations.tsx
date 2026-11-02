@@ -1,7 +1,5 @@
 import Image from "next/image";
 import { getTranslations } from "next-intl/server";
-import { CardCarousel } from "@/components/ds/card-carousel";
-import { ShabbatCandlesIcon } from "@/components/ds/jewish-icons";
 import { PhotoPlaceholder, PhotoSlot } from "@/components/photos/photo-slot";
 import { citySlot } from "@/config/photos";
 import type { AppLocale } from "@/config/site";
@@ -9,12 +7,15 @@ import { Link } from "@/i18n/navigation";
 import { formatNumber } from "@/lib/format";
 import type { HomeCity } from "@/lib/home/cities";
 import { searchPath } from "@/lib/listing/urls";
-import { cn } from "@/lib/utils";
 import { HomeSection } from "./home-section";
 
-const SIZES = "(min-width: 1280px) 19vw, (min-width: 1024px) 23vw, (min-width: 640px) 31vw, 46vw";
+/** The photo is 140px wide on phones, 176px from 640px, ~150px in the desktop grid. */
+const SIZES = "(min-width: 1024px) 180px, (min-width: 640px) 176px, 140px";
 
-/** "Where to?": tall photo cards per city with the real number of listings and this week's Shabbat time. */
+/**
+ * "Where to?" (brief round 2, 5.2): small city cards in a sideways row (a grid on desktop, where
+ * a mouse can't swipe): a photo, the city name and the real number of public listings. No Shabbat times (they live on the Jewish life page).
+ */
 export async function Destinations({ locale, cities }: { locale: AppLocale; cities: HomeCity[] }) {
   if (cities.length === 0) return null;
   const [t, tPhotos] = await Promise.all([
@@ -23,47 +24,39 @@ export async function Destinations({ locale, cities }: { locale: AppLocale; citi
   ]);
 
   return (
-    <HomeSection id="home-cities-title" title={t("title")} subtitle={t("lead")} href="/search" linkLabel={t("all")} bleed>
-      <CardCarousel label={t("title")} itemClassName="basis-[46%] sm:basis-[31%] lg:basis-[23.2%] xl:basis-[19%]">
+    <HomeSection id="home-cities-title" title={t("title")} bleed>
+      <ul
+        aria-label={t("title")}
+        className="flex snap-x snap-mandatory scroll-px-gutter gap-3 overflow-x-auto overscroll-x-contain px-gutter pb-1 scrollbar-none lg:grid lg:grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] lg:gap-4 lg:overflow-visible"
+      >
         {cities.map((city) => {
           const slot = citySlot(city.slug);
           return (
-            <Link
-              key={city.slug}
-              href={searchPath({ city: city.slug })}
-              className={cn(
-                "group relative isolate flex aspect-[3/4] flex-col justify-end overflow-hidden rounded-card bg-muted p-3 text-white shadow-card outline-none focus-visible:ring-3 focus-visible:ring-ring focus-visible:ring-offset-2 sm:p-4",
-                "bh-press",
-              )}
-            >
-              <span className={cn("absolute inset-0 -z-10", "bh-zoom-hover")} aria-hidden="true">
-                {slot ? (
-                  <PhotoSlot slot={slot} sizes={SIZES} alt="" className="size-full" />
-                ) : city.photoUrl ? (
-                  <Image src={city.photoUrl} alt="" fill sizes={SIZES} className="object-cover" />
-                ) : (
-                  <PhotoPlaceholder label={tPhotos("comingSoon")} className="size-full" />
-                )}
-              </span>
-              <span aria-hidden="true" className="absolute inset-0 -z-10 bg-linear-to-t from-black/80 via-black/25 to-black/10" />
-              {city.shabbat ? (
-                <span className="absolute start-2.5 top-2.5 inline-flex max-w-[calc(100%-1.25rem)] items-center gap-1 rounded-full bg-black/45 px-2 py-1 text-caption font-semibold text-white ring-1 ring-white/20 backdrop-blur-sm">
-                  <ShabbatCandlesIcon className="size-3.5 shrink-0 text-white" aria-hidden="true" />
-                  <span className="truncate">
-                    {t(city.shabbat.kind === "in" ? "shabbatIn" : "shabbatOut", { time: city.shabbat.time })}
-                  </span>
+            <li key={city.slug} className="w-35 shrink-0 snap-start sm:w-44 lg:w-auto">
+              <Link
+                href={searchPath({ city: city.slug })}
+                className="group block rounded-card outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              >
+                <span className="relative block aspect-[4/3] overflow-hidden rounded-card bg-surface-muted" aria-hidden="true">
+                  {slot ? (
+                    <PhotoSlot slot={slot} sizes={SIZES} alt="" className="size-full" />
+                  ) : city.photoUrl ? (
+                    <Image src={city.photoUrl} alt="" fill sizes={SIZES} className="object-cover" />
+                  ) : (
+                    <PhotoPlaceholder label={tPhotos("comingSoon")} className="size-full" />
+                  )}
                 </span>
-              ) : null}
-              <span className="text-h3 leading-tight font-bold text-white [text-shadow:0_1px_8px_rgb(0_0_0/0.45)]" dir="auto">
-                {city.name}
-              </span>
-              <span className="text-small font-medium text-white/90">
-                {t("count", { count: city.count, formatted: formatNumber(city.count, locale) })}
-              </span>
-            </Link>
+                <span className="mt-2 block truncate text-[0.9375rem] leading-snug font-medium text-foreground group-hover:underline" dir="auto">
+                  {city.name}
+                </span>
+                <span className="block truncate text-caption text-muted-foreground">
+                  {t("count", { count: city.count, formatted: formatNumber(city.count, locale) })}
+                </span>
+              </Link>
+            </li>
           );
         })}
-      </CardCarousel>
+      </ul>
     </HomeSection>
   );
 }

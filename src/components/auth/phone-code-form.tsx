@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowLeftIcon, LoaderCircleIcon, MessageSquareTextIcon, RotateCcwIcon, TerminalIcon } from "lucide-react";
+import { LoaderCircleIcon, MessageSquareTextIcon, TerminalIcon } from "lucide-react";
 import { formatPhoneNumberIntl, isValidPhoneNumber, parsePhoneNumber, type Country } from "react-phone-number-input";
 import { Ltr } from "@/components/common/ltr";
 import { Turnstile, type TurnstileHandle } from "@/components/common/turnstile";
@@ -11,28 +11,30 @@ import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth/client";
 import type { LoginConfig } from "@/lib/auth/config";
 import { authErrorKey, type AuthErrorKey } from "@/lib/auth/error-codes";
-import { cn } from "@/lib/utils";
-import { CodeInput } from "./code-input";
-import { formatCountdown, useAuthDevHint, useAuthErrorMessage } from "./use-auth-messages";
+import { confirmPhoneCheckCode, sendPhoneCheckCode } from "@/lib/auth/phone-check-actions";
+import { CodeStep, useResendTimer } from "./code-step";
+import { useAuthDevHint, useAuthErrorMessage } from "./use-auth-messages";
 
 /**
- * Phone number → 6-digit code. Used to log in (creates the account on first use) and to add
- * a phone number to a Google/Apple account (`mode="add-phone"`).
+ * Phone number → 6-digit code.
+ * - `purpose="sign-in"`: the phone LOGIN (development / test mode only; creates the account on
+ *   first use) through the Better Auth API.
+ * - `purpose="check"`: a signed-in account verifies a number (booking, posting) through the server
+ *   actions in @/lib/auth/phone-check-actions — once per number: a number the account already has
+ *   verified is accepted without a code. Use <PhoneCheck> rather than this directly.
  */
-
-const RESEND_AFTER_SECONDS = 60;
 
 type Step = "phone" | "code";
 
 export function PhoneCodeForm({
-  mode,
+  purpose,
   config,
   onVerified,
   autoFocus,
   initialPhone,
   onStepChange,
 }: {
-  mode: "sign-in" | "add-phone";
+  purpose: "sign-in" | "check";
   config: LoginConfig["phone"];
   onVerified: (phoneNumber: string) => void | Promise<void>;
   autoFocus?: boolean;
@@ -41,13 +43,10 @@ export function PhoneCodeForm({
   onStepChange?: (step: Step) => void;
 }) {
   const t = useTranslations("auth.phone");
-  // Signed-in users adding a phone, or no Google/Apple configured: never suggest Google/Apple.
-  const errorMessage = useAuthErrorMessage({ phoneOnly: mode === "add-phone" || !config.socialLogin });
+  const tCodes = useTranslations("auth.codes");
+  // Phone checks happen while signed in: never suggest other ways to log in there.
+  const errorMessage = useAuthErrorMessage({ phoneOnly: purpose === "check" });
   const devHint = useAuthDevHint();
-  const formId = useId();
-  const codeId = `${formId}-code`;
-  const codeHelpId = `${formId}-code-help`;
-  const codeErrorId = `${formId}-code-error`;
 
   const [step, setStepState] = useState<Step>("phone");
   const setStep = (next: Step) => {
@@ -58,31 +57,17 @@ export function PhoneCodeForm({
   const [country, setCountry] = useState<Country | undefined>(config.defaultCountry as Country);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   /** The error key behind phoneError, for the development-only hint. */
-  const [phoneErrorKey, setPhoneErrorKey] = useState<AuthErrorKey | null>(null);
+  const [phoneErrorKey, setPhoneErrorKey] = useState<AuthErrorKey | string | null>(null);
   const [code, setCode] = useState("");
-  const [codeError, setCodeError] = useState<AuthErrorKey | null>(null);
+  const [codeError, setCodeError] = useState<AuthErrorKey | string | null>(null);
   const [pending, setPending] = useState<"send" | "verify" | "resend" | null>(null);
-  const [resendAt, setResendAt] = useState(0);
-  const [now, setNow] = useState(() => Date.now());
+  const timer = useResendTimer();
   const [notice, setNotice] = useState<string | null>(null);
-  const [devCode, setDevCode] = useState<string | null>(null);
+  const [screenCode, setScreenCode] = useState<string | null>(null);
 
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [captchaFailed, setCaptchaFailed] = useState(false);
   const captcha = useRef<TurnstileHandle>(null);
-
-  // Countdown for "send a new code".
-  useEffect(() => {
-    if (step !== "code" || resendAt <= Date.now()) return;
-    const timer = window.setInterval(() => {
-      const current = Date.now();
-      setNow(current);
-      if (current >= resendAt) window.clearInterval(timer);
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, [step, resendAt]);
-
-  const secondsLeft = Math.max(0, Math.ceil((resendAt - now) / 1000));
 
   function validatePhone(value: string | undefined): string | null {
     if (!value) return t("required");
@@ -94,29 +79,48 @@ export function PhoneCodeForm({
     return null;
   }
 
-  async function fetchDevCode(phoneNumber: string) {
-    if (!config.devHints) return;
+  async function fetchScreenCode(phoneNumber: string): Promise<string | null> {
+    if (!config.devHints) return null;
     try {
-      const response = await fetch(`/api/dev/last-otp?phone=${encodeURIComponent(phoneNumber)}`, {
-        cache: "no-store",
-      });
-      if (!response.ok) return;
+      const response = await fetch(`/api/dev/last-otp?phone=${encodeURIComponent(phoneNumber)}`, { cache: "no-store" });
+      if (!response.ok) return null;
       const data = (await response.json()) as { code?: string | null };
-      setDevCode(data.code ?? null);
+      return data.code ?? null;
     } catch {
-      setDevCode(null);
+      return null;
     }
   }
 
-  /** Sends a code; returns an error key or null. */
-  async function sendCode(phoneNumber: string): Promise<AuthErrorKey | null> {
-    const { error } = await authClient.phoneNumber.sendOtp({
-      phoneNumber,
-      fetchOptions: captchaToken ? { headers: { "x-captcha-response": captchaToken } } : undefined,
-    });
+  type Sent = { error: AuthErrorKey | string } | { alreadyVerified: true } | { screenCode: string | null };
+
+  /** Sends a code (or, for a number this account already verified, nothing). */
+  async function sendCode(phoneNumber: string): Promise<Sent> {
+    const token = captchaToken;
     // Turnstile tokens are single-use.
     setCaptchaToken(null);
     captcha.current?.reset();
+    if (purpose === "check") {
+      const result = await sendPhoneCheckCode({ phoneNumber, captchaToken: token }).catch(() => null);
+      if (!result) return { error: "network" };
+      if (!result.ok) return { error: result.error };
+      if (result.data.status === "already_verified") return { alreadyVerified: true };
+      return { screenCode: result.data.screenCode };
+    }
+    const { error } = await authClient.phoneNumber.sendOtp({
+      phoneNumber,
+      fetchOptions: token ? { headers: { "x-captcha-response": token } } : undefined,
+    });
+    if (error) return { error: authErrorKey(error) };
+    return { screenCode: await fetchScreenCode(phoneNumber) };
+  }
+
+  async function checkCode(phoneNumber: string, value: string): Promise<AuthErrorKey | string | null> {
+    if (purpose === "check") {
+      const result = await confirmPhoneCheckCode({ phoneNumber, code: value }).catch(() => null);
+      if (!result) return "network";
+      return result.ok ? null : result.error;
+    }
+    const { error } = await authClient.phoneNumber.verify({ phoneNumber, code: value });
     return error ? authErrorKey(error) : null;
   }
 
@@ -129,21 +133,28 @@ export function PhoneCodeForm({
     if (problem || !phone) return;
 
     setPending("send");
-    const error = await sendCode(phone);
-    setPending(null);
-    if (error) {
-      setPhoneError(errorMessage(error));
-      setPhoneErrorKey(error);
+    const sent = await sendCode(phone);
+    if ("error" in sent) {
+      setPending(null);
+      setPhoneError(errorMessage(sent.error));
+      setPhoneErrorKey(sent.error);
       return;
     }
+    if ("alreadyVerified" in sent) {
+      try {
+        await onVerified(phone);
+      } finally {
+        setPending(null);
+      }
+      return;
+    }
+    setPending(null);
     setStep("code");
     setCode("");
     setCodeError(null);
     setNotice(null);
-    setDevCode(null);
-    setNow(Date.now());
-    setResendAt(Date.now() + RESEND_AFTER_SECONDS * 1000);
-    void fetchDevCode(phone);
+    setScreenCode(sent.screenCode);
+    timer.restart();
   }
 
   async function verify(value: string) {
@@ -151,18 +162,12 @@ export function PhoneCodeForm({
     setPending("verify");
     setCodeError(null);
     setNotice(null);
-    const { error } = await authClient.phoneNumber.verify({
-      phoneNumber: phone,
-      code: value,
-      ...(mode === "add-phone" && { updatePhoneNumber: true }),
-    });
+    const error = await checkCode(phone, value);
     if (error) {
       setPending(null);
-      const key = authErrorKey(error);
-      setCodeError(key);
+      setCodeError(error);
       setCode("");
-      // The code is gone after too many attempts or when it expired: allow a new one now.
-      if (key === "too_many_attempts" || key === "code_expired") setResendAt(0);
+      if (error === "too_many_attempts" || error === "code_expired") timer.allowNow();
       return;
     }
     try {
@@ -172,28 +177,22 @@ export function PhoneCodeForm({
     }
   }
 
-  async function onSubmitCode(event: FormEvent) {
-    event.preventDefault();
-    await verify(code);
-  }
-
   async function resend() {
-    if (!phone || pending || secondsLeft > 0) return;
+    if (!phone || pending || timer.secondsLeft > 0) return;
     setPending("resend");
     setCodeError(null);
     setNotice(null);
-    const error = await sendCode(phone);
+    const sent = await sendCode(phone);
     setPending(null);
-    if (error) {
-      setCodeError(error);
+    if ("error" in sent) {
+      setCodeError(sent.error);
       return;
     }
+    if ("alreadyVerified" in sent) return;
     setCode("");
-    setDevCode(null);
-    setNotice(t("resent"));
-    setNow(Date.now());
-    setResendAt(Date.now() + RESEND_AFTER_SECONDS * 1000);
-    void fetchDevCode(phone);
+    setScreenCode(sent.screenCode);
+    setNotice(tCodes("resent"));
+    timer.restart();
   }
 
   function changeNumber() {
@@ -201,7 +200,7 @@ export function PhoneCodeForm({
     setCode("");
     setCodeError(null);
     setNotice(null);
-    setDevCode(null);
+    setScreenCode(null);
   }
 
   const captchaReady = captchaToken !== null;
@@ -246,103 +245,30 @@ export function PhoneCodeForm({
           </Button>
         </form>
       ) : (
-        <form onSubmit={onSubmitCode} noValidate className="grid gap-4">
-          <div className="grid gap-1 text-center">
-            <p className="text-base font-semibold" id={`${formId}-code-title`}>
-              {t("codeTitle")}
-            </p>
-            <p id={codeHelpId} className="text-sm text-muted-foreground">
-              {config.channel === "whatsapp"
-                ? t.rich("codeSentWhatsapp", { phone: displayPhone, ltr })
-                : t.rich("codeSentSms", { phone: displayPhone, ltr })}
-            </p>
-          </div>
-
-          <CodeInput
-            id={codeId}
-            label={t("codeLabel")}
-            value={code}
-            onChange={(value) => {
-              setCode(value);
-              if (codeError) setCodeError(null);
-            }}
-            onComplete={(value) => void verify(value)}
-            disabled={pending === "verify"}
-            invalid={!!codeError}
-            autoFocus
-            describedBy={[codeHelpId, codeError ? codeErrorId : null].filter(Boolean).join(" ")}
-          />
-
-          {codeError && (
-            <p id={codeErrorId} role="alert" className="text-center text-sm font-medium text-destructive">
-              {errorMessage(codeError)}
-            </p>
-          )}
-          <DevHint text={devHint(codeError)} />
-          {notice && !codeError && (
-            <p role="status" className="text-center text-sm text-success">
-              {notice}
-            </p>
-          )}
-
-          {devCode && (
-            <div className="flex items-center gap-2 rounded-lg border border-dashed border-border-strong/50 bg-surface-muted px-3 py-2 text-sm text-foreground">
-              <TerminalIcon className="size-4 shrink-0 text-foreground" aria-hidden />
-              <span>
-                {t.rich("devCode", {
-                  code: devCode,
-                  value: (chunks) => (
-                    <button
-                      type="button"
-                      className="rounded px-1 font-mono font-semibold tracking-widest underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                      onClick={() => {
-                        setCode(devCode);
-                        void verify(devCode);
-                      }}
-                      dir="ltr"
-                    >
-                      {chunks}
-                    </button>
-                  ),
-                })}
-              </span>
-            </div>
-          )}
-
-          <Button
-            type="submit"
-            size="lg"
-            className="h-12 w-full rounded-button text-base font-semibold"
-            disabled={pending !== null || code.length !== 6}
-            aria-busy={pending === "verify" || undefined}
-          >
-            {pending === "verify" && <LoaderCircleIcon className="size-5 animate-spin" aria-hidden />}
-            {pending === "verify" ? t("verifying") : t("verify")}
-          </Button>
-
-          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm">
-            <Button type="button" variant="link" className="h-auto px-0" onClick={changeNumber}>
-              <ArrowLeftIcon className="rtl:-scale-x-100" aria-hidden />
-              {t("changeNumber")}
-            </Button>
-            {secondsLeft > 0 ? (
-              <span className="text-muted-foreground" aria-live="off">
-                {t.rich("resendIn", { time: formatCountdown(secondsLeft), ltr: (c) => <Ltr>{c}</Ltr> })}
-              </span>
-            ) : (
-              <Button
-                type="button"
-                variant="link"
-                className="h-auto px-0"
-                onClick={() => void resend()}
-                disabled={pending !== null || !captchaReady}
-              >
-                <RotateCcwIcon className={cn(pending === "resend" && "animate-spin")} aria-hidden />
-                {t("resend")}
-              </Button>
-            )}
-          </div>
-        </form>
+        <CodeStep
+          sentText={
+            config.channel === "whatsapp"
+              ? t.rich("codeSentWhatsapp", { phone: displayPhone, ltr })
+              : t.rich("codeSentSms", { phone: displayPhone, ltr })
+          }
+          code={code}
+          onCodeChange={(value) => {
+            setCode(value);
+            if (codeError) setCodeError(null);
+          }}
+          onVerify={(value) => void verify(value)}
+          verifying={pending === "verify"}
+          resending={pending === "resend"}
+          error={errorMessage(codeError)}
+          extra={<DevHint text={devHint(codeError)} />}
+          notice={notice}
+          screenCode={screenCode}
+          backLabel={t("changeNumber")}
+          onBack={changeNumber}
+          secondsLeft={timer.secondsLeft}
+          onResend={() => void resend()}
+          resendDisabled={!captchaReady}
+        />
       )}
 
       <Turnstile
@@ -368,10 +294,10 @@ export function PhoneCodeForm({
 }
 
 /** Development only: what to fix when sending a code fails (origin, proxy, server, SMS). */
-function DevHint({ text }: { text: string | null }) {
+export function DevHint({ text }: { text: string | null }) {
   if (!text) return null;
   return (
-    <p className="flex items-start gap-2 rounded-lg border border-dashed border-border-strong/50 bg-surface-muted px-3 py-2 text-xs text-foreground">
+    <p className="flex items-start gap-2 rounded-input border border-dashed border-border-strong/50 bg-surface-muted px-3 py-2 text-xs text-foreground">
       <TerminalIcon className="mt-0.5 size-3.5 shrink-0 text-foreground" aria-hidden />
       <span>{text}</span>
     </p>

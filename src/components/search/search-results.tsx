@@ -2,8 +2,9 @@
 
 import { Fragment, useCallback, useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { MapIcon } from "lucide-react";
+import { MapIcon, ShieldCheckIcon } from "lucide-react";
 import { ListingCardSkeleton } from "@/components/ds";
+import { preferredCardTags, stayNights, type CardTagKind } from "@/components/listing/card-tags";
 import { ListingCard, type ListingCardVariant } from "@/components/listing/listing-card";
 import { ListingsMapLoader } from "@/components/maps/listings-map-loader";
 import type { Bounds } from "@/lib/geo";
@@ -13,7 +14,7 @@ import { scrollBehavior } from "@/lib/motion";
 import { getSearchMapPoints } from "@/lib/search/actions";
 import { cn } from "@/lib/utils";
 import { resultListClass } from "./result-cards";
-import { MapSortPill, SortButton, ViewSwitcher } from "./results-toolbar";
+import { MapPill, SortButton, ViewSwitcher } from "./results-toolbar";
 import { useSearch } from "./search-context";
 import { useMediaQuery } from "./use-media-query";
 
@@ -43,6 +44,7 @@ export type SearchResultsProps = {
  * changes do not flash).
  */
 export function SearchResults({ items, mapPoints, fitKey, header, cards, chips, notice, pagination, empty }: SearchResultsProps) {
+  const t = useTranslations("search.results");
   const { filters, isPending } = useSearch();
   const [hovered, setHovered] = useState<number | null>(null);
   const wide = useMediaQuery("(min-width: 1024px)");
@@ -58,22 +60,37 @@ export function SearchResults({ items, mapPoints, fitKey, header, cards, chips, 
         <Fragment key="cards">{cards}</Fragment>
       </div>
     ) : (
-      <ResultList items={items} variant={variant} highlightedId={hovered} onHover={setHovered} empty={empty} />
+      <ResultList
+        items={items}
+        variant={variant}
+        nights={stayNights(filters.checkIn, filters.checkOut)}
+        preferTags={preferredCardTags(filters)}
+        highlightedId={hovered}
+        onHover={setHovered}
+        empty={empty}
+      />
     );
 
   const body = (
     // minmax(0,1fr): the count line's nowrap title must not widen the column (it pushed the page
     // wider than the phone screen in Russian and Georgian, where "Recommended" is long).
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
-      <div className="flex min-h-11 min-w-0 items-center gap-1">
-        <div className="min-w-0 shrink">
-          <Fragment key="header">{header}</Fragment>
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
+      <div className="grid gap-0.5">
+        {/* The promise, once on this screen (brief 4): every host here took the pledge. */}
+        <p className="flex items-start gap-1.5 text-small text-muted-foreground">
+          <ShieldCheckIcon className="mt-0.5 size-4 shrink-0 text-primary-text" aria-hidden="true" />
+          <span>{t("promise")}</span>
+        </p>
+        <div className="flex min-h-11 min-w-0 items-center gap-1">
+          <div className="min-w-0 shrink">
+            <Fragment key="header">{header}</Fragment>
+          </div>
+          <span aria-hidden="true" className="text-muted-foreground">
+            ·
+          </span>
+          <SortButton />
+          <ViewSwitcher className="ms-auto hidden lg:inline-flex" />
         </div>
-        <span aria-hidden="true" className="text-muted-foreground">
-          ·
-        </span>
-        <SortButton />
-        <ViewSwitcher className="ms-auto hidden lg:inline-flex" />
       </div>
       <Fragment key="chips">{chips}</Fragment>
       <Fragment key="notice">{notice}</Fragment>
@@ -114,7 +131,7 @@ export function SearchResults({ items, mapPoints, fitKey, header, cards, chips, 
           data-floating-map-toggle
           className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--bottom-nav-height)+1rem)] z-(--z-sticky) flex justify-center lg:hidden"
         >
-          <MapSortPill className="pointer-events-auto" />
+          <MapPill className="pointer-events-auto" />
         </div>
       ) : null}
     </>
@@ -156,12 +173,16 @@ function PendingSkeleton({ variant }: { variant: ListingCardVariant }) {
 function ResultList({
   items,
   variant,
+  nights,
+  preferTags,
   highlightedId,
   onHover,
   empty,
 }: {
   items: ListingCardData[];
   variant: ListingCardVariant;
+  nights: number | null;
+  preferTags: CardTagKind[];
   highlightedId: number | null;
   onHover: (id: number | null) => void;
   empty: ReactNode;
@@ -178,6 +199,8 @@ function ResultList({
             // Only the first photo is above the fold on phones; the rest load as they come into view.
             priority={index === 0}
             showCompare
+            nights={nights}
+            preferTags={preferTags}
             onHover={onHover}
             className={cn(highlightedId === listing.publicId && "ring-2 ring-primary")}
           />
@@ -321,6 +344,7 @@ function MapPanel({
         onBoundsChange={onBoundsChange}
         focusPlace={{ citySlug: filters.city, neighborhoodSlug: filters.neighborhood }}
         listings={items}
+        card={{ nights: stayNights(filters.checkIn, filters.checkOut), preferTags: preferredCardTags(filters) }}
         controls={{
           searchAsMove: { checked: moveSearch, onChange: toggleMoveSearch },
           loading: isPending,

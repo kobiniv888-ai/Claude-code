@@ -22,7 +22,7 @@ export function RoomTypesSection({ rooms }: { rooms: RoomTypeData[] }) {
             room.sizeSqm ? { key: "size", icon: RulerIcon, text: formatArea(room.sizeSqm, locale) } : null,
           ].filter((fact) => fact !== null);
           return (
-            <li key={room.id} className="grid content-start overflow-hidden rounded-card border bg-card shadow-card">
+            <li key={room.id} className="grid content-start overflow-hidden rounded-card border border-border bg-card">
               <RoomPhotos photos={room.photos} name={room.name} />
               <div className="grid gap-2.5 p-4">
                 <h3 dir="auto" className="text-h3">
@@ -31,7 +31,7 @@ export function RoomTypesSection({ rooms }: { rooms: RoomTypeData[] }) {
                 {facts.length ? (
                   <ul className="flex flex-wrap gap-1.5">
                     {facts.map(({ key, icon: Icon, text }) => (
-                      <li key={key} className="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-muted/80 px-2.5 text-small font-medium dark:bg-muted">
+                      <li key={key} className="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-surface-muted px-2.5 text-small font-medium">
                         <Icon className="size-4 text-primary-text" aria-hidden />
                         {text}
                       </li>

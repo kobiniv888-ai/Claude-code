@@ -10,7 +10,8 @@ const card = (page: Page, title: string) => page.getByRole("list", { name: "Sear
 test("favorites and compare", async ({ browser }) => {
   const user = await createTestUser({ name: "E2E Saver" });
   const { context, page, consoleErrors } = await openAs(browser, user.phone);
-  await page.goto("/en/search?city=tbilisi&deal=short-stay");
+  // Round 2: the compare toggle is only on the desktop list view (the grid card's photo keeps just the heart).
+  await page.goto("/en/search?city=tbilisi&deal=short-stay&view=list");
   await expect(card(page, VAKE)).toBeVisible();
   await settle(page);
 

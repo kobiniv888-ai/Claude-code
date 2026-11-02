@@ -10,6 +10,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { ImageOffIcon, XIcon } from "lucide-react";
 import { MapContainer, Marker, Popup, ZoomControl, useMap, useMapEvents } from "react-leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
+import type { CardTagKind } from "@/components/listing/card-tags";
 import { ListingCard } from "@/components/listing/listing-card";
 import { ListingCardSkeleton } from "@/components/listing/listing-card-skeleton";
 import { Price } from "@/components/listing/price";
@@ -85,13 +86,15 @@ export type ListingsMapProps = {
    * its own; "Re-center" and the community layer are always there.
    */
   controls?: ListingsMapControls;
+  /** For the selected listing's card: the searched stay's nights and the tags filtered by. */
+  card?: { nights?: number | null; preferTags?: readonly CardTagKind[] };
   className?: string;
 };
 
 /** Room the slide-up card takes at the bottom of the map (phones); a tapped pill below this line is shown above it. */
 const CARD_AREA_PX = 264;
-/** Desktop: the card opens in a popup over the pill, kept clear of the controls at the top. */
-const POPUP_WIDTH_PX = 352;
+/** Desktop: the card (photo on top) opens in a popup over the pill, kept clear of the controls at the top. */
+const POPUP_WIDTH_PX = 300;
 const WIDE_QUERY = "(min-width: 1024px)";
 
 function subscribeWide(onChange: () => void) {
@@ -272,6 +275,7 @@ export default function ListingsMap({
   focusPlace = null,
   listings,
   controls,
+  card,
   className,
 }: ListingsMapProps) {
   const t = useTranslations("map");
@@ -461,14 +465,16 @@ export default function ListingsMap({
   const status = controls ? { loading: controls.loading === true, count: inView } : null;
   const sheetPoint = sheetId === null ? undefined : points.find((p) => p.publicId === sheetId);
   const sheetCard = pageCard ?? (sheetId === null ? undefined : fetchedCards.get(sheetId));
+  // The one listing card: photo on top in the desktop popup, a compact row in the phone's slide-up sheet.
+  const cardVariant = wide ? "grid" : "compact";
   const cardContent = sheetCard ? (
-    <ListingCard listing={sheetCard} variant="compact" priority />
+    <ListingCard listing={sheetCard} variant={cardVariant} priority nights={card?.nights} preferTags={card?.preferTags} />
   ) : sheetCard === null && sheetPoint ? (
     <PointCard point={sheetPoint} />
   ) : (
     <div role="status">
       <span className="sr-only">{t("card.loading")}</span>
-      <ListingCardSkeleton variant="compact" />
+      <ListingCardSkeleton variant={cardVariant} />
     </div>
   );
 
@@ -570,7 +576,7 @@ export default function ListingsMap({
                 type="button"
                 onClick={closeSheet}
                 aria-label={t("card.close")}
-                className="absolute -end-2.5 -top-2.5 z-30 inline-flex size-8 items-center justify-center rounded-full bg-card text-foreground shadow-raised ring-1 ring-foreground/10 outline-none before:absolute before:-inset-1.5 before:content-[''] hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="absolute -end-3.5 -top-3.5 z-30 inline-flex size-8 items-center justify-center rounded-full bg-card text-foreground shadow-raised ring-1 ring-foreground/10 outline-none before:absolute before:-inset-1.5 before:content-[''] hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
               >
                 <XIcon className="size-4" aria-hidden="true" />
               </button>
@@ -611,8 +617,8 @@ export default function ListingsMap({
 function PointCard({ point }: { point: ListingMapPoint }) {
   const t = useTranslations("map.card");
   return (
-    <article className="relative flex min-h-36 overflow-hidden rounded-card bg-card">
-      <div className="relative w-[38%] max-w-44 shrink-0 bg-muted">
+    <article className="relative flex min-h-30 overflow-hidden rounded-card bg-card">
+      <div className="relative w-[40%] max-w-40 shrink-0 overflow-hidden rounded-card bg-muted">
         {point.photo ? (
           <Image src={point.photo} alt="" fill sizes="176px" className="object-cover" />
         ) : (
@@ -622,12 +628,12 @@ function PointCard({ point }: { point: ListingMapPoint }) {
         )}
       </div>
       <div className="flex min-w-0 flex-1 flex-col gap-1 px-3 py-2.5">
-        <Price amount={point.price} currency={point.currency} period={point.pricePeriod} from={point.priceIsFrom} size="card" showOriginal={false} />
-        <h3 className="truncate text-sm leading-snug font-semibold">
+        <h3 className="truncate text-[0.9375rem] leading-snug font-medium">
           <Link href={point.href} dir="auto" className="after:absolute after:inset-0 after:content-[''] focus-visible:underline">
             {point.title}
           </Link>
         </h3>
+        <Price amount={point.price} currency={point.currency} period={point.pricePeriod} from={point.priceIsFrom} size="line" showOriginal={false} compact="auto" />
         <span className="mt-auto text-sm font-semibold text-primary">{t("open")}</span>
       </div>
     </article>

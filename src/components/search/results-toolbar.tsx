@@ -65,44 +65,25 @@ export function ViewSwitcher({ className }: { className?: string }) {
 }
 
 /**
- * The floating "Map | Sort" pill at the bottom center on phones (above the bottom bar).
- * On the map it reads "List | Sort".
+ * The floating "מפה" pill at the bottom center on phones (above the bottom bar); on the map it
+ * reads "רשימה". Sorting lives in the count line ("24 מקומות · מומלץ ▾").
  */
-export function MapSortPill({ className }: { className?: string }) {
+export function MapPill({ className }: { className?: string }) {
   const t = useTranslations("search.toolbar");
-  const sortT = useTranslations("search.sort");
   const { filters, navigate } = useSearch();
-  const { openSort, preload } = useSearchSheets();
   const onMap = filters.view === "map";
   const Icon = onMap ? ListIcon : MapIcon;
-  const half =
-    "inline-flex h-11 items-center gap-2 px-4 text-small font-semibold outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50";
   return (
-    <div
-      role="group"
-      aria-label={t("pillLabel")}
-      className={cn("inline-flex items-center overflow-hidden rounded-full bg-card text-foreground shadow-float ring-1 ring-border/70", className)}
+    <button
+      type="button"
+      onClick={() => navigate(withFilters(filters, { view: onMap ? DEFAULT_VIEW : "map", page: filters.page }))}
+      className={cn(
+        "inline-flex h-11 items-center gap-2 rounded-full bg-foreground px-5 text-small font-semibold text-background shadow-float outline-none transition-transform duration-(--motion-fast) active:scale-[0.97] focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:active:scale-100",
+        className,
+      )}
     >
-      <button
-        type="button"
-        onClick={() => navigate(withFilters(filters, { view: onMap ? DEFAULT_VIEW : "map", page: filters.page }))}
-        className={cn(half, "ps-5")}
-      >
-        <Icon className="size-4.5" aria-hidden="true" />
-        {onMap ? t("showList") : t("showMap")}
-      </button>
-      <span aria-hidden="true" className="h-5 w-px bg-border" />
-      <button
-        type="button"
-        aria-haspopup="dialog"
-        onClick={openSort}
-        onPointerEnter={() => preload("sort")}
-        onFocus={() => preload("sort")}
-        className={cn(half, "pe-5")}
-      >
-        <ArrowDownUpIcon className="size-4.5" aria-hidden="true" />
-        {sortT("short")}
-      </button>
-    </div>
+      <Icon className="size-4.5" aria-hidden="true" />
+      {onMap ? t("showList") : t("showMap")}
+    </button>
   );
 }

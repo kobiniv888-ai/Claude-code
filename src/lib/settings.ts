@@ -18,19 +18,20 @@ import { isShabbatOrHolidayNow } from "@/lib/hebcal";
  */
 
 /**
- * Home page sections, in their default order (the redesigned home kept these keys: shabbatTimes is
- * the "Jewish life in Georgia" band, whyUs is "The Bayit pledge" — see app/[locale]/(site)/page.tsx).
+ * Home page sections that admins can switch off or reorder (Admin → Content → Home), in their
+ * default order (brief round 2, 5.2). The hero band, the search card and the promise line under it
+ * always show; see app/[locale]/(site)/page.tsx.
+ *   categories → the category chips · featured → "Recommended places" (promoted, then newest) ·
+ *   recentlyViewed · cities → "Where to?" · howItWorks → the 3-step row ·
+ *   jewishLife → the slim "Jewish life in Georgia" card · listCta → the host card.
  */
 export const HOME_SECTION_KEYS = [
-  "cities",
   "categories",
   "featured",
-  "newest",
   "recentlyViewed",
-  "shabbatTimes",
-  "whyUs",
+  "cities",
   "howItWorks",
-  "safetyStrip",
+  "jewishLife",
   "listCta",
 ] as const;
 export type HomeSectionKey = (typeof HOME_SECTION_KEYS)[number];
@@ -115,6 +116,30 @@ export type SettingsPatch = Partial<SiteSettings>;
 const SETTING_KEYS = Object.keys(settingSchemas) as (keyof SiteSettings)[];
 
 /** Keeps saved order, drops unknown sections and appends sections added in a later release. */
+/**
+ * Round-1 keys in stored settings: "shabbatTimes" became "jewishLife" (keeps its place and switch);
+ * "newest" merged into "featured"; "whyUs" and "safetyStrip" left the home page. Unknown keys are
+ * dropped, so an old stored list still validates instead of falling back to the defaults.
+ */
+const LEGACY_HOME_SECTIONS: Record<string, HomeSectionKey | null> = {
+  shabbatTimes: "jewishLife",
+  newest: null,
+  whyUs: null,
+  safetyStrip: null,
+};
+
+function migrateHomeSections(value: unknown): unknown {
+  if (!Array.isArray(value)) return value;
+  const seen = new Set<string>();
+  return value.flatMap((item: unknown) => {
+    if (!item || typeof item !== "object" || !("key" in item) || typeof item.key !== "string") return [item];
+    const key = Object.hasOwn(LEGACY_HOME_SECTIONS, item.key) ? LEGACY_HOME_SECTIONS[item.key] : item.key;
+    if (!key || !(HOME_SECTION_KEYS as readonly string[]).includes(key) || seen.has(key)) return [];
+    seen.add(key);
+    return [{ ...item, key }];
+  });
+}
+
 function normalizeHomeSections(list: SiteSettings["homeSections"]): SiteSettings["homeSections"] {
   const known = list.filter((s) => (HOME_SECTION_KEYS as readonly string[]).includes(s.key));
   const present = new Set(known.map((s) => s.key));
@@ -138,7 +163,9 @@ export function mergeSettings(rows: { key: string; value: unknown }[]): SiteSett
       else console.warn(`[settings] ignoring invalid stored value for "${key}"`);
       continue;
     }
-    const parsed = settingSchemas[settingKey].safeParse(value);
+    const parsed = settingSchemas[settingKey].safeParse(
+      settingKey === "homeSections" ? migrateHomeSections(value) : value,
+    );
     if (parsed.success) target[settingKey] = parsed.data;
     else console.warn(`[settings] ignoring invalid stored value for "${key}"`);
   }

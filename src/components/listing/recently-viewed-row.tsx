@@ -106,12 +106,12 @@ export function RecentlyViewedRow({
       >
         {loading && cards.length === 0
           ? Array.from({ length: Math.min(ids.length, 4) }, (_, i) => (
-              <li key={i} className="w-[78%] max-w-72 shrink-0 snap-start sm:w-64">
+              <li key={i} className="w-[70%] max-w-64 shrink-0 snap-start sm:w-60">
                 <ListingCardSkeleton />
               </li>
             ))
           : cards.map((card) => (
-              <li key={card.id} className="w-[78%] max-w-72 shrink-0 snap-start sm:w-64">
+              <li key={card.id} className="w-[70%] max-w-64 shrink-0 snap-start sm:w-60">
                 <ListingCard listing={card} />
               </li>
             ))}

@@ -11,6 +11,7 @@ const HOUR = 60 * 60;
 
 export const LOGIN_CODE_LIMITS = {
   perPhone: { limit: 5, windowSeconds: HOUR },
+  perEmail: { limit: 5, windowSeconds: HOUR },
   perIp: { limit: 20, windowSeconds: HOUR },
   checksPerIp: { limit: 30, windowSeconds: HOUR },
 } as const;
@@ -30,4 +31,13 @@ export async function limitLoginCodeRequests(phoneNumber: string): Promise<boole
 export async function limitLoginCodeChecks(): Promise<boolean> {
   const byIp = await rateLimitByIp("auth:otp-verify", LOGIN_CODE_LIMITS.checksPerIp);
   return byIp.ok;
+}
+
+/** One "email me a code" request. False when the address or the visitor's IP is over the limit. */
+export async function limitEmailCodeRequests(email: string): Promise<boolean> {
+  const byIp = await rateLimitByIp("auth:email-otp-send", LOGIN_CODE_LIMITS.perIp);
+  if (!byIp.ok) return false;
+  const emailKey = hmacHash(`email:${email.trim().toLowerCase()}`);
+  const byEmail = await rateLimit(`auth:email-otp-send:email:${emailKey}`, LOGIN_CODE_LIMITS.perEmail);
+  return byEmail.ok;
 }

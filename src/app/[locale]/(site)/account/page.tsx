@@ -24,7 +24,7 @@ export default async function AccountOverviewPage({ params }: Props) {
   const user = await requireUser({ next: "/account" });
   const t = await getTranslations("account.overview");
   const overview = await getAccountOverview(user);
-  const greeting = accountGreeting(user.name, user.isDemo);
+  const greeting = accountGreeting(user.name, user.isDemo, user.firstName);
 
   return (
     <div>
@@ -32,6 +32,8 @@ export default async function AccountOverviewPage({ params }: Props) {
         title={
           greeting.kind === "demo" ? (
             t("greetingDemo")
+          ) : greeting.kind === "none" ? (
+            t("greetingNoName")
           ) : (
             <>
               {t("greeting")} <span dir="auto">{greeting.name}</span>

@@ -1,8 +1,9 @@
 "use client";
 
-import { createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { ChevronDownIcon, LanguagesIcon } from "lucide-react";
+import { LanguagesIcon } from "lucide-react";
+import { BottomSheet } from "@/components/ds/bottom-sheet";
 import type { LocalizedText } from "@/lib/listing-page/types";
 import { cn } from "@/lib/utils";
 
@@ -41,9 +42,12 @@ export function ListingTextProvider({
 
 export function ListingTitle({ className }: { className?: string }) {
   const { showOriginal, title, translated } = useListingText();
+  const text = translated && showOriginal ? title.original : title.shown;
+  // 22px / 600, at most 3 lines (brief 3.3). The whole title stays in the page for screen readers
+  // and copying; the tooltip shows it to mouse users.
   return (
-    <h1 dir="auto" className={cn("text-h1 text-balance text-foreground", className)}>
-      {translated && showOriginal ? title.original : title.shown}
+    <h1 dir="auto" title={text} className={cn("line-clamp-3 text-h1 text-foreground", className)}>
+      {text}
     </h1>
   );
 }
@@ -62,7 +66,7 @@ export function TranslationSwitch({ auto, originalLanguage }: { auto: boolean; o
         type="button"
         onClick={toggle}
         aria-pressed={showOriginal}
-        className="inline-flex min-h-11 items-center rounded font-semibold text-primary underline underline-offset-4 outline-none hover:decoration-2 focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="inline-flex min-h-11 items-center rounded font-semibold text-primary-text underline underline-offset-4 outline-none hover:decoration-2 focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         {showOriginal ? t("showTranslation") : t("showOriginal")}
       </button>
@@ -70,55 +74,53 @@ export function TranslationSwitch({ auto, originalLanguage }: { auto: boolean; o
   );
 }
 
-/** The description, clamped to a few lines with "Read more" when it is longer than that. */
-export function ListingDescription() {
+/**
+ * The description: 5 lines, then "Read more" opens the whole text in a bottom sheet (the
+ * translation switch inside it too). "Read more" appears only when the text is really cut.
+ */
+export function ListingDescription({ footer }: { footer?: ReactNode }) {
   const t = useTranslations("listing.description");
   const { showOriginal, description, translated } = useListingText();
   const text = translated && showOriginal ? description.original : description.shown;
-  const [expanded, setExpanded] = useState(false);
+  const [open, setOpen] = useState(false);
   const [overflows, setOverflows] = useState(false);
   const box = useRef<HTMLDivElement>(null);
-  const id = useId();
 
-  // "Read more" only when the clamped text is really cut (depends on the screen width).
+  // Depends on the screen width: measure, and again when the box is resized.
   useEffect(() => {
     const el = box.current;
-    if (!el || expanded) return;
+    if (!el) return;
     const measure = () => setOverflows(el.scrollHeight > el.clientHeight + 2);
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [text, expanded]);
+  }, [text]);
 
   if (!text) return <p className="text-muted-foreground">{t("empty")}</p>;
-  const clamped = !expanded;
   return (
     <div className="grid justify-items-start gap-1">
-      <div
-        ref={box}
-        id={id}
-        dir="auto"
-        className={cn(
-          "w-full text-body leading-relaxed whitespace-pre-line text-foreground/90",
-          clamped && "line-clamp-6",
-          clamped && overflows && "mask-b-from-50%",
-        )}
-      >
+      <div ref={box} dir="auto" className="line-clamp-5 w-full text-body whitespace-pre-line text-foreground">
         {text}
       </div>
-      {overflows || expanded ? (
+      {overflows ? (
         <button
           type="button"
-          className="inline-flex min-h-11 items-center gap-1 rounded font-bold text-primary underline underline-offset-4 outline-none hover:decoration-2 focus-visible:ring-3 focus-visible:ring-ring/50"
-          aria-expanded={expanded}
-          aria-controls={id}
-          onClick={() => setExpanded((v) => !v)}
+          className="inline-flex min-h-11 items-center rounded font-semibold text-primary-text underline underline-offset-4 outline-none hover:decoration-2 focus-visible:ring-3 focus-visible:ring-ring/50"
+          aria-haspopup="dialog"
+          onClick={() => setOpen(true)}
         >
-          {expanded ? t("showLess") : t("showMore")}
-          <ChevronDownIcon className={cn("size-4 transition-transform duration-(--motion-fast) motion-reduce:transition-none", expanded && "rotate-180")} aria-hidden />
+          {t("showMore")}
         </button>
       ) : null}
+      <BottomSheet open={open} onOpenChange={setOpen} title={t("title")}>
+        <div className="grid gap-3 px-4 pt-3 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]">
+          {footer}
+          <div dir="auto" className="text-body whitespace-pre-line text-foreground">
+            {text}
+          </div>
+        </div>
+      </BottomSheet>
     </div>
   );
 }

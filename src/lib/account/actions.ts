@@ -239,6 +239,7 @@ export async function updateProfile(input: unknown): Promise<ActionResult> {
       where: { id: user.id },
       data: {
         name: data.name,
+        firstName: data.firstName,
         bio: data.bio,
         spokenLanguages: data.spokenLanguages,
         keepsShabbat: data.keepsShabbat,

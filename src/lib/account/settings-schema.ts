@@ -7,6 +7,7 @@
  * (listing and ticket emails on unless turned off, tips & news off unless turned on).
  */
 import { z } from "zod";
+import { FIRST_NAME_MAX, looksLikeContact } from "@/lib/auth/first-name";
 import { locales } from "@/config/site";
 import { enabledCurrencies } from "@/lib/currency/convert";
 
@@ -46,6 +47,17 @@ const languageCode = z.string().regex(/^[a-z]{2,3}$/);
 export const profileSchema = z
   .object({
     name: z.string().trim().min(2).max(NAME_MAX),
+    // "שלום, <first name>" (brief 5.8): required, never a phone or an email.
+    firstName: z
+      .string()
+      .transform((value) => value.replace(/\s+/g, " ").trim())
+      .pipe(
+        z
+          .string()
+          .min(1, "required")
+          .max(FIRST_NAME_MAX, "invalid")
+          .refine((value) => !looksLikeContact(value), "not_a_name"),
+      ),
     bio: z
       .string()
       .trim()

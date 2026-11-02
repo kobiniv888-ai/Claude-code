@@ -15,15 +15,16 @@
   },
   "price": {
     "per": {
-      "NIGHT": "ללילה",
-      "WEEK": "לשבוע",
-      "MONTH": "לחודש"
+      "NIGHT": "/ לילה",
+      "WEEK": "/ שבוע",
+      "MONTH": "/ חודש"
     },
     "from": "החל מ־{price}",
     "onRequest": "מחיר לפי בקשה",
     "original": "{price} במקור",
     "approx": "≈ {price}",
-    "approxHint": "בקירוב, לפי שער החליפין של היום. המחיר של הבעלים הוא {price}."
+    "approxHint": "בקירוב, לפי שער החליפין של היום. המחיר של הבעלים הוא {price}.",
+    "total": "{price} סה״כ"
   },
   "favorite": {
     "save": "שמירת {title}",
@@ -64,5 +65,14 @@
   "empty": {
     "title": "אין מודעות להצגה",
     "description": "נסו עיר אחרת, תאריכים אחרים או פחות מסננים."
+  },
+  "facts": {
+    "groundFloor": "קומת קרקע"
+  },
+  "tags": {
+    "kosherKitchen": "מטבח כשר",
+    "shabbatFriendly": "מתאים לשבת",
+    "synagogue": "{count} דק׳ לבית כנסת",
+    "hebrew": "דובר עברית"
   }
 }

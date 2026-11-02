@@ -20,7 +20,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return authPageMetadata(locale, "verifyPhone");
 }
 
-/** Add and verify a phone number — required to post a listing. */
+/** Add and verify a phone number — required to post a listing (once per number). */
 export default async function VerifyPhonePage({ params, searchParams }: Props) {
   const { locale } = await params;
   setRequestLocale(locale);
@@ -48,7 +48,7 @@ export default async function VerifyPhonePage({ params, searchParams }: Props) {
         </span>
       }
     >
-      <VerifyPhonePanel config={getLoginConfig(locale).phone} next={next} verifiedPhone={verifiedPhone} />
+      <VerifyPhonePanel config={(await getLoginConfig(locale)).phone} next={next} verifiedPhone={verifiedPhone} />
     </AuthShell>
   );
 }

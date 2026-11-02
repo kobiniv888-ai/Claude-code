@@ -3,9 +3,9 @@ import { Container } from "@/components/common/container";
 import { SkeletonBlock } from "@/components/common/skeletons";
 
 /**
- * /listing/[id] while it loads (route loading.tsx): the same shape as the page — the photo, the
- * badges, title, price, the fact tiles, the "For those who keep tradition" card and the contact
- * bar on phones; the mosaic and the side contact box on desktop. Shown at once, never a spinner.
+ * /listing/[id] while it loads (route loading.tsx): the same shape as the quiet page: the photo,
+ * the title and one facts line, the host line, three highlights, the description and the sticky
+ * bar on phones; the mosaic and the side box on desktop. Shown at once, never a spinner.
  */
 export function ListingPageSkeleton() {
   const t = useTranslations("listing");
@@ -21,46 +21,43 @@ export function ListingPageSkeleton() {
             <SkeletonBlock key={i} className="rounded-none" />
           ))}
         </div>
-        <div className="mt-5 grid gap-8 lg:mt-8 lg:grid-cols-[minmax(0,1fr)_24rem] lg:gap-x-12">
-          <div className="grid content-start gap-4">
-            <div className="flex gap-2">
-              <SkeletonBlock className="h-8 w-44 rounded-full" />
-              <SkeletonBlock className="h-8 w-20 rounded-full" />
+        <div className="mt-4 grid gap-8 lg:mt-8 lg:grid-cols-[minmax(0,1fr)_23rem] lg:gap-x-14">
+          <div className="grid content-start gap-3">
+            <SkeletonBlock className="h-7 w-11/12" />
+            <SkeletonBlock className="h-7 w-2/3" />
+            <SkeletonBlock className="h-5 w-40" />
+            <SkeletonBlock className="h-4 w-64" />
+            <div className="my-2 flex items-center gap-3 border-y border-border py-4">
+              <SkeletonBlock className="size-11 rounded-full" />
+              <div className="grid flex-1 gap-2">
+                <SkeletonBlock className="h-4 w-48" />
+                <SkeletonBlock className="h-4 w-64" />
+              </div>
             </div>
-            <SkeletonBlock className="h-8 w-11/12" />
-            <SkeletonBlock className="h-8 w-2/3" />
-            <SkeletonBlock className="h-4 w-52" />
-            <SkeletonBlock className="h-4 w-60" />
-            <SkeletonBlock className="mt-1 h-9 w-40 lg:hidden" />
-            <div className="mt-2 grid grid-cols-2 gap-2 sm:gap-3">
-              {Array.from({ length: 6 }, (_, i) => (
-                <SkeletonBlock key={i} className="h-14 rounded-2xl" />
-              ))}
-            </div>
-            <SkeletonBlock className="mt-4 h-56 rounded-card" />
-            <div className="mt-6 grid gap-2.5">
-              <SkeletonBlock className="h-7 w-40" />
+            {Array.from({ length: 3 }, (_, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <SkeletonBlock className="size-6 rounded-md" />
+                <SkeletonBlock className="h-4 w-36" />
+              </div>
+            ))}
+            <div className="mt-6 grid gap-2.5 border-t border-border pt-8">
+              <SkeletonBlock className="h-6 w-32" />
               {Array.from({ length: 5 }, (_, i) => (
                 <SkeletonBlock key={i} className={i === 4 ? "h-4 w-2/3" : "h-4 w-full"} />
               ))}
             </div>
           </div>
-          <div className="hidden content-start gap-4 rounded-card border bg-card p-5 lg:grid">
-            <SkeletonBlock className="h-9 w-44" />
-            <div className="flex items-center gap-3">
-              <SkeletonBlock className="size-10 rounded-full" />
-              <SkeletonBlock className="h-5 w-36" />
-            </div>
-            <SkeletonBlock className="h-13 w-full rounded-full" />
-            <SkeletonBlock className="h-13 w-full rounded-full" />
-            <SkeletonBlock className="h-4 w-full" />
+          <div className="hidden content-start gap-4 rounded-card border border-border bg-card p-5 lg:grid">
+            <SkeletonBlock className="h-8 w-40" />
+            <SkeletonBlock className="h-14 w-full rounded-input" />
+            <SkeletonBlock className="h-12 w-full rounded-button" />
           </div>
         </div>
       </Container>
-      <div className="fixed inset-x-0 bottom-0 z-(--z-sticky) border-t border-border/70 bg-card/95 pb-[env(safe-area-inset-bottom,0px)] lg:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-(--z-sticky) border-t border-border bg-card pb-[env(safe-area-inset-bottom,0px)] lg:hidden">
         <div className="mx-auto flex h-18 max-w-3xl items-center gap-2 px-gutter">
-          <SkeletonBlock className="me-auto h-7 w-24" />
-          <SkeletonBlock className="h-11 w-32 rounded-full" />
+          <SkeletonBlock className="me-auto h-6 w-28" />
+          <SkeletonBlock className="h-12 w-36 rounded-button" />
           <SkeletonBlock className="size-11 rounded-full" />
         </div>
       </div>

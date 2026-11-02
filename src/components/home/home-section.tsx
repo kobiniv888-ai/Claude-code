@@ -1,6 +1,5 @@
 import type { ComponentProps, ReactNode } from "react";
 import { Container } from "@/components/common/container";
-import { Reveal } from "@/components/ds/reveal";
 import { SectionHeader } from "@/components/ds/section-header";
 import { cn } from "@/lib/utils";
 
@@ -11,46 +10,33 @@ import { cn } from "@/lib/utils";
 export const CAROUSEL_ALIGN = "px-0 sm:px-2 md:px-0 lg:px-2";
 
 /**
- * A home page section: a big title (with an optional "See all →"), then its content, which
- * fades up the first time it scrolls into view.
+ * A home page section: the 18px section title (with an optional purple "All ←"), then its
+ * content. The page puts 32px between sections (gap-section); sections add no padding of their own.
  */
 export function HomeSection({
   id,
   title,
-  subtitle,
   href,
   linkLabel,
-  eyebrow,
   className,
   bleed = false,
   children,
 }: {
   id: string;
   title: ReactNode;
-  subtitle?: ReactNode;
   href?: ComponentProps<typeof SectionHeader>["href"];
   linkLabel?: string;
-  eyebrow?: ReactNode;
   className?: string;
-  /** Content runs edge to edge on phones (carousels): only the header sits in the Container. */
+  /** Content runs edge to edge on phones (carousels, sideways rows): only the header sits in the Container. */
   bleed?: boolean;
   children: ReactNode;
 }) {
   return (
-    <section aria-labelledby={id} className={cn("py-[calc(var(--section-space)*0.55)]", className)}>
+    <section aria-labelledby={id} className={className}>
       <Container>
-        {eyebrow}
-        <SectionHeader id={id} title={title} subtitle={subtitle} href={href} linkLabel={linkLabel} className="mb-4 sm:mb-6" />
+        <SectionHeader id={id} title={title} href={href} linkLabel={linkLabel} className={cn("mb-3", !href && "min-h-11")} />
       </Container>
-      {bleed ? (
-        <Container className={CAROUSEL_ALIGN}>
-          <Reveal>{children}</Reveal>
-        </Container>
-      ) : (
-        <Container>
-          <Reveal>{children}</Reveal>
-        </Container>
-      )}
+      <Container className={bleed ? CAROUSEL_ALIGN : undefined}>{children}</Container>
     </section>
   );
 }

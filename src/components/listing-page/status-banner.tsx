@@ -19,7 +19,7 @@ export function StatusBanner({ reason, isOwner }: { reason: PreviewReason; isOwn
           </div>
         </div>
         {isOwner ? (
-          <Button asChild variant="outline" className="h-10 shrink-0 rounded-xl bg-card">
+          <Button asChild variant="outline" className="h-10 shrink-0 rounded-button bg-card">
             <Link href="/account/listings">{t("manage")}</Link>
           </Button>
         ) : (

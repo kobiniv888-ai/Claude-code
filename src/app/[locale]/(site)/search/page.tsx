@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
+import { preferredCardTags, stayNights } from "@/components/listing/card-tags";
 import { HolidaysInRange } from "@/components/shabbat";
 import { ActiveFilterChips } from "@/components/search/active-filter-chips";
 import { ResultsPagination } from "@/components/search/results-pagination";
@@ -100,12 +101,27 @@ export default async function SearchPage({ params, searchParams }: Props) {
           fitKey={fitKey}
           cards={
             !isMap && result.items.length > 0 ? (
-              <ResultCards items={result.items} variant={filters.view === "list" ? "list" : "grid"} />
+              <ResultCards
+                items={result.items}
+                variant={filters.view === "list" ? "list" : "grid"}
+                nights={stayNights(filters.checkIn, filters.checkOut)}
+                preferTags={preferredCardTags(filters)}
+              />
             ) : null
           }
           header={
-            <h1 className="truncate text-body font-bold text-foreground" aria-live="polite">
-              {place ? t("countIn", { ...count, place }) : t("count", count)}
+            <h1 className="truncate text-body font-semibold text-foreground" aria-live="polite">
+              {place ? (
+                <>
+                  {/* Phones: "24 נכסים" (the place is in the summary pill above); screen readers get it all. */}
+                  <span aria-hidden="true" className="md:hidden">
+                    {t("count", count)}
+                  </span>
+                  <span className="max-md:sr-only">{t("countIn", { ...count, place })}</span>
+                </>
+              ) : (
+                t("count", count)
+              )}
             </h1>
           }
           chips={<ActiveFilterChips placeNames={names} className="hidden lg:flex" />}

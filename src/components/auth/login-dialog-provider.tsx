@@ -12,7 +12,7 @@ import { LoginDialogProviderClient } from "./login-dialog";
 export async function LoginDialogProvider({ signedIn, children }: { signedIn: boolean; children: ReactNode }) {
   const locale = await getLocale();
   return (
-    <LoginDialogProviderClient config={getLoginConfig(locale)} signedIn={signedIn}>
+    <LoginDialogProviderClient config={await getLoginConfig(locale)} signedIn={signedIn}>
       {children}
     </LoginDialogProviderClient>
   );

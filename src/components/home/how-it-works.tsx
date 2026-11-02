@@ -1,31 +1,39 @@
 import { getTranslations } from "next-intl/server";
+import { CalendarCheckIcon, ChevronRightIcon, HandCoinsIcon, SearchIcon, type SpriteIconComponent } from "@/components/ds/sprite-icons";
 import type { AppLocale } from "@/config/site";
-import { formatNumber } from "@/lib/format";
 import { HomeSection } from "./home-section";
-import { HowItWorksTabs, type StepIcon } from "./how-it-works-tabs";
 
-const STEPS = ["one", "two", "three"] as const;
-const ICONS: Record<"guests" | "owners", readonly StepIcon[]> = {
-  guests: ["search", "check", "chat"],
-  owners: ["post", "pledge", "chat"],
-};
+const STEPS: readonly { key: "search" | "book" | "pay"; icon: SpriteIconComponent }[] = [
+  { key: "search", icon: SearchIcon },
+  { key: "book", icon: CalendarCheckIcon },
+  { key: "pay", icon: HandCoinsIcon },
+];
 
-/** "How it works": three numbered step cards for guests and for owners (tabs), with a link to the full page. */
+/**
+ * "How it works" (brief round 2, 5.2): one compact row of three steps for guests:
+ * search → book on the site → pay the host on arrival. (The host's steps live on the post page.)
+ */
 export async function HowItWorks({ locale }: { locale: AppLocale }) {
   const t = await getTranslations({ locale, namespace: "home.howItWorks" });
-  const track = (audience: "guests" | "owners") => ({
-    label: t(`tabs.${audience}`),
-    steps: STEPS.map((step, index) => ({
-      number: formatNumber(index + 1, locale, { minimumIntegerDigits: 2 }),
-      stepLabel: t("step", { number: formatNumber(index + 1, locale) }),
-      icon: ICONS[audience][index],
-      title: t(`${audience}.${step}.title`),
-      text: t(`${audience}.${step}.text`),
-    })),
-  });
   return (
-    <HomeSection id="home-how-title" title={t("title")} subtitle={t("lead")} href="/how-it-works" linkLabel={t("more")}>
-      <HowItWorksTabs guests={track("guests")} owners={track("owners")} label={t("tabsLabel")} />
+    <HomeSection id="home-how-title" title={t("title")}>
+      <ol className="grid grid-cols-3 gap-4 sm:max-w-2xl sm:gap-8">
+        {STEPS.map(({ key, icon: Icon }, index) => (
+          <li key={key} className="relative flex min-w-0 flex-col items-center gap-2 text-center">
+            {index > 0 ? (
+              // In the gap before this step, pointing in the reading direction.
+              <ChevronRightIcon
+                className="absolute top-3.5 -start-4 size-4 text-muted-foreground rtl:-scale-x-100 sm:-start-6"
+                aria-hidden="true"
+              />
+            ) : null}
+            <span className="inline-flex size-11 items-center justify-center rounded-full bg-primary-tint text-primary-text ring-1 ring-primary-tint-border">
+              <Icon className="size-5" aria-hidden="true" />
+            </span>
+            <span className="text-small leading-snug font-medium text-pretty text-foreground">{t(`steps.${key}`)}</span>
+          </li>
+        ))}
+      </ol>
     </HomeSection>
   );
 }

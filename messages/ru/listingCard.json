@@ -23,7 +23,8 @@
     "onRequest": "Цена по запросу",
     "original": "{price} в оригинале",
     "approx": "≈ {price}",
-    "approxHint": "Примерно, по сегодняшнему курсу. Цена владельца — {price}."
+    "approxHint": "Примерно, по сегодняшнему курсу. Цена владельца — {price}.",
+    "total": "{price} всего"
   },
   "favorite": {
     "save": "Сохранить: {title}",
@@ -64,5 +65,14 @@
   "empty": {
     "title": "Нет объявлений",
     "description": "Попробуйте другой город, другие даты или меньше фильтров."
+  },
+  "facts": {
+    "groundFloor": "Первый этаж"
+  },
+  "tags": {
+    "kosherKitchen": "Кошерная кухня",
+    "shabbatFriendly": "Для Шаббата",
+    "synagogue": "{count} мин до синагоги",
+    "hebrew": "Говорит на иврите"
   }
 }

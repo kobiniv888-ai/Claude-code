@@ -23,7 +23,8 @@
     "onRequest": "السعر عند الطلب",
     "original": "{price} السعر الأصلي",
     "approx": "≈ {price}",
-    "approxHint": "تقريبي، بسعر صرف اليوم. سعر المالك هو {price}."
+    "approxHint": "تقريبي، بسعر صرف اليوم. سعر المالك هو {price}.",
+    "total": "{price} الإجمالي"
   },
   "favorite": {
     "save": "حفظ {title}",
@@ -64,5 +65,14 @@
   "empty": {
     "title": "لا توجد إعلانات للعرض",
     "description": "جرّب مدينة أخرى أو تواريخ أخرى أو عددًا أقل من الفلاتر."
+  },
+  "facts": {
+    "groundFloor": "الطابق الأرضي"
+  },
+  "tags": {
+    "kosherKitchen": "مطبخ كوشير",
+    "shabbatFriendly": "مناسب للسبت",
+    "synagogue": "{count} د إلى الكنيس",
+    "hebrew": "يتحدث العبرية"
   }
 }

@@ -9,6 +9,7 @@
  * - markSafetyTipSeen: the first-contact safety tip was accepted.
  * - sendContactEmail: the email channel — a form, so the owner's address stays hidden.
  */
+import { personName } from "@/lib/auth/first-name";
 import { z } from "zod";
 import { isAppLocale } from "@/i18n/locale";
 import { fail, ok, runAction, type ActionResult } from "@/lib/action";
@@ -81,7 +82,8 @@ export async function revealContact(listingId: string, turnstileToken?: string |
     return ok({
       methods,
       safetyTipSeen: await safetyTipSeen(user.id),
-      sender: { name: user.name, email: user.emailIsPlaceholder ? null : user.email },
+      // Never a phone number or an email as a name (bug 8.2).
+      sender: { name: personName(user) ?? "", email: user.emailIsPlaceholder ? null : user.email },
     });
   });
 }

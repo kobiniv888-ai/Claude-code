@@ -53,6 +53,11 @@ export type SendEmailInput<K extends EmailTemplate> = {
   data: EmailData[K];
   /** e.g. the guest's address for "contact_owner", so the owner can simply reply. */
   replyTo?: string | null;
+  /**
+   * Secrets in the email (a login code): sent as they are, but masked in the EmailOutbox row
+   * (staff can read the outbox) and in production logs.
+   */
+  redact?: string[];
 };
 
 export type RenderedEmail = { subject: string; html: string; text: string };
@@ -126,6 +131,18 @@ function resend(): Resend | null {
   return resendClient;
 }
 
+/** True when emails really go out (RESEND_API_KEY is set); otherwise they are only logged. */
+export function isEmailDeliveryConfigured(): boolean {
+  return !!process.env.RESEND_API_KEY?.trim();
+}
+
+function maskSecrets(rendered: RenderedEmail, secrets: string[] | undefined): RenderedEmail {
+  const list = (secrets ?? []).filter((secret) => secret.length >= 4);
+  if (list.length === 0) return rendered;
+  const mask = (value: string) => list.reduce((text, secret) => text.split(secret).join("•".repeat(secret.length)), value);
+  return { subject: mask(rendered.subject), html: mask(rendered.html), text: mask(rendered.text) };
+}
+
 function fromAddress(): string {
   return process.env.EMAIL_FROM?.trim() || `${siteConfig.name} <onboarding@resend.dev>`;
 }
@@ -167,6 +184,7 @@ export async function sendEmail<K extends EmailTemplate>({
   locale: localeInput,
   data,
   replyTo,
+  redact,
 }: SendEmailInput<K>): Promise<{ ok: boolean }> {
   const locale: AppLocale = isAppLocale(localeInput) ? localeInput : siteConfig.i18n.fallbackLocale;
   const recipient = (to ?? "").trim();
@@ -187,12 +205,15 @@ export async function sendEmail<K extends EmailTemplate>({
     return { ok: false };
   }
 
+  // What the outbox (and a production log) may keep: secrets masked.
+  const stored = maskSecrets(rendered, redact);
+
   if (!isEmailAddress(recipient) || isPlaceholderEmail(recipient)) {
     await recordOutbox({
       to: recipient,
       template,
       locale,
-      rendered,
+      rendered: stored,
       status: "FAILED",
       error: isPlaceholderEmail(recipient) ? "placeholder address (phone-only account)" : "invalid address",
     });
@@ -201,11 +222,12 @@ export async function sendEmail<K extends EmailTemplate>({
 
   const client = resend();
   if (!client) {
+    const logged = process.env.NODE_ENV === "production" ? stored : rendered;
     console.info(
       `[email] RESEND_API_KEY is not set — not sent (see the admin email outbox).\n` +
-        `  to: ${recipient}\n  template: ${template} (${locale})\n  subject: ${rendered.subject}\n\n${rendered.text}\n`,
+        `  to: ${recipient}\n  template: ${template} (${locale})\n  subject: ${logged.subject}\n\n${logged.text}\n`,
     );
-    await recordOutbox({ to: recipient, template, locale, rendered, status: "LOGGED", provider: "console" });
+    await recordOutbox({ to: recipient, template, locale, rendered: stored, status: "LOGGED", provider: "console" });
     return { ok: true };
   }
 
@@ -222,14 +244,14 @@ export async function sendEmail<K extends EmailTemplate>({
     });
     if (error) {
       console.error(`[email] Resend rejected "${template}" to ${recipient}:`, error.message);
-      await recordOutbox({ to: recipient, template, locale, rendered, status: "FAILED", provider: "resend", error: error.message });
+      await recordOutbox({ to: recipient, template, locale, rendered: stored, status: "FAILED", provider: "resend", error: error.message });
       return { ok: false };
     }
     await recordOutbox({
       to: recipient,
       template,
       locale,
-      rendered,
+      rendered: stored,
       status: "SENT",
       provider: "resend",
       providerId: sent?.id ?? null,
@@ -241,7 +263,7 @@ export async function sendEmail<K extends EmailTemplate>({
       to: recipient,
       template,
       locale,
-      rendered,
+      rendered: stored,
       status: "FAILED",
       provider: "resend",
       error: (error as Error)?.message ?? String(error),

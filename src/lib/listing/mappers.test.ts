@@ -42,6 +42,10 @@ function row(overrides: Partial<ListingCardRow> = {}): ListingCardRow {
     ],
     _count: { photos: 7 },
     floor: 3,
+    rooms: 3,
+    bedsSingle: 1,
+    bedsDouble: 1,
+    bedsSofa: null,
     roomTypes: [],
     ...overrides,
   };
@@ -97,6 +101,7 @@ describe("toListingCard", () => {
       shabbatFriendly: true,
       kosherKitchen: true,
       synagogueWalkMin: 6,
+      synagogueVerified: true,
       isNew: true,
       priceDropped: false,
       promoted: true,
@@ -147,5 +152,20 @@ describe("toListingCard", () => {
       { locale: "en", now },
     );
     expect(card).toMatchObject({ price: 95, currency: "USD", pricePeriod: "NIGHT", priceIsFrom: true, maxGuests: 3 });
+  });
+});
+
+describe("toListingCard (round 2)", () => {
+  it("reads rooms and counts beds for the facts line", () => {
+    const card = toListingCard(row(), { locale: "en", now });
+    expect(card.rooms).toBe(3);
+    expect(card.beds).toBe(2);
+    expect(toListingCard(row({ bedsSingle: null, bedsDouble: null }), { locale: "en", now }).beds).toBeNull();
+  });
+
+  it("marks the synagogue walk as verified only for real listings", () => {
+    expect(toListingCard(row(), { locale: "en", now }).badges.synagogueVerified).toBe(true);
+    expect(toListingCard(row({ isDemo: true }), { locale: "en", now }).badges.synagogueVerified).toBe(false);
+    expect(toListingCard(row({ synagogueWalkMin: null }), { locale: "en", now }).badges.synagogueVerified).toBe(false);
   });
 });

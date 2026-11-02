@@ -126,7 +126,7 @@ describe("chip and fix labels", () => {
 
   it("labels chips with their value", () => {
     const f = filters({ bedrooms: 3, kitchen: "kosher" });
-    expect(chipLabel({ key: "bedrooms", value: "3" }, f, ctx)).toBe('minBedrooms{"value":"3"}');
+    expect(chipLabel({ key: "bedrooms", value: "3" }, f, ctx)).toBe('minBedrooms{"value":"\u20663+\u2069"}');
     expect(chipLabel({ key: "kitchen", value: "kosher" }, f, ctx)).toBe("kitchenFilter.kosher");
     expect(chipLabel({ key: "city", value: "tbilisi" }, f, ctx)).toBe("Tbilisi");
   });

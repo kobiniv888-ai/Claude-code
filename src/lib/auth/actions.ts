@@ -4,6 +4,7 @@ import { z } from "zod";
 import { fail, ok, runAction, type ActionResult } from "@/lib/action";
 import { AuthRequiredError } from "@/lib/errors";
 import { rateLimit } from "@/lib/rate-limit";
+import { needsFirstName } from "./first-name";
 import { getCurrentUser, requireUserForAction } from "./session";
 import {
   TOTP_CODE_PATTERN,
@@ -90,6 +91,8 @@ export type LoginState = {
   /** Signed in, but the authenticator code for this session is still missing. */
   twoFactorRequired: boolean;
   phoneVerified: boolean;
+  /** A new account (or one named after its phone): ask for the first name now. */
+  needsFirstName: boolean;
 };
 
 /** Where the login UI stands after a sign-in (used to show the 2-step check in place). */
@@ -99,5 +102,6 @@ export async function getLoginState(): Promise<LoginState> {
     signedIn: !!user,
     twoFactorRequired: !!user && !user.twoFactorVerified,
     phoneVerified: !!user?.phoneNumberVerified,
+    needsFirstName: !!user && needsFirstName(user),
   };
 }

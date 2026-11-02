@@ -120,6 +120,16 @@ export function buildListingWhere(filters: SearchFilters, ctx: ListingWhereConte
   if (filters.kitchen === "kosher") and.push({ kitchenKosher: "KOSHER" });
   if (filters.kitchen === "kosher_or_kasherable") and.push({ kitchenKosher: { in: ["KOSHER", "CAN_KASHER"] } });
   if (filters.shabbatFriendly) and.push({ isShabbatFriendly: true });
+  if (filters.kosherShabbat) {
+    // The "כשר ושבת" chip: any one of these is enough.
+    and.push({
+      OR: [
+        { kitchenKosher: "KOSHER" },
+        { isShabbatFriendly: true },
+        { hotelJewishFeatures: { hasSome: ["kosher_meals", "kosher_breakfast"] } },
+      ],
+    });
+  }
   if (filters.jewish.length) and.push({ jewishFeatures: { hasEvery: filters.jewish } });
   if (filters.hotel.length) and.push({ hotelJewishFeatures: { hasEvery: filters.hotel } });
   if (filters.synagogueMaxWalk) and.push({ synagogueWalkMin: { lte: filters.synagogueMaxWalk } });

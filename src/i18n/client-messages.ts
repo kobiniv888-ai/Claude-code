@@ -26,11 +26,14 @@ import type { AbstractIntlMessages } from "next-intl";
 
 /** Root layout: the shell of every page. */
 export const SHELL_MESSAGES = [
+  "auth.codes",
   "auth.country",
   "auth.devHints",
+  "auth.email",
   "auth.errors",
   "auth.login",
   "auth.menu",
+  "auth.name",
   "auth.phone",
   "auth.twoFactor",
   "auth.welcome",
@@ -68,6 +71,8 @@ export const ROUTE_MESSAGES = {
   "jewish-life": ["jewishLife.calendar", "jewishLife.error", "jewishLife.places", "maps"],
   listing: [
     "contact",
+    "listing.booking",
+    "listing.calendar",
     "listing.description",
     "listing.gallery",
     "listing.map",

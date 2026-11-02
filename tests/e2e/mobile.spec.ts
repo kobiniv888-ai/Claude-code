@@ -13,17 +13,17 @@ test("search and filter on a phone", async ({ page, consoleErrors }) => {
   await card.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page).toHaveURL(/\/en\/search\?.*city=tbilisi/);
   // Demo data since redesign phase 1: 2 short stays in Tbilisi, both Shabbat-friendly.
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("2 homes in Tbilisi");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveAccessibleName("2 homes in Tbilisi");
   await settle(page);
 
   await page.getByRole("button", { name: /^Filters/ }).first().click();
   const dialog = page.getByRole("dialog", { name: "Filters" });
   await expect(dialog).toBeVisible();
-  await dialog.getByRole("button", { name: "Shabbat-friendly", exact: true }).click();
+  await dialog.getByRole("switch", { name: "Shabbat-friendly", exact: true }).click();
   await dialog.getByRole("button", { name: "Show 2 homes" }).click();
   await expect(dialog).toBeHidden();
   await expect(page).toHaveURL(/shabbatFriendly=/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("2 homes in Tbilisi");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveAccessibleName("2 homes in Tbilisi");
   await expect(page.getByRole("list", { name: "Search results" }).getByRole("article")).toHaveCount(2);
   expect(consoleErrors).toEqual([]);
 });

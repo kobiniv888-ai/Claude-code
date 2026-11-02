@@ -1,4 +1,5 @@
 import "server-only";
+import { personName } from "@/lib/auth/first-name";
 import { cache } from "react";
 import { locales, siteConfig, type AppLocale, type CurrencyCode } from "@/config/site";
 import type { Locale, Prisma } from "@/generated/prisma/client";
@@ -24,7 +25,8 @@ import type { ListingPageData, OwnerSummary, PagePhoto } from "./types";
 
 const DAY_MS = 24 * 3600 * 1000;
 const MAX_PHOTOS = siteConfig.listings.maxPhotos;
-const CALENDAR_DAYS = 75;
+/** About six months of booked dates: the page calendar can page ahead that far. */
+const CALENDAR_DAYS = 190;
 
 type DecimalLike = { toString(): string } | null;
 const num = (value: DecimalLike): number | null => {
@@ -39,6 +41,7 @@ const photoOrder = [{ isCover: "desc" }, { sortOrder: "asc" }] satisfies Prisma.
 export const OWNER_PUBLIC_SELECT = {
   id: true,
   name: true,
+  firstName: true,
   image: true,
   createdAt: true,
   phoneNumberVerified: true,
@@ -63,7 +66,8 @@ export function toOwnerSummary(owner: OwnerRow): OwnerSummary {
   const business = owner.accountType === "BUSINESS";
   return {
     id: owner.id,
-    name: (business && owner.businessName?.trim()) || owner.name,
+    // Never a phone number or an email as a name (bug 8.2).
+    name: (business && owner.businessName?.trim()) || personName(owner) || "",
     image: owner.image,
     badges: {
       phoneVerified: owner.phoneNumberVerified === true,
@@ -325,6 +329,8 @@ async function load(publicId: number, locale: AppLocale): Promise<LoadedListing 
     monthlyDiscountPct: row.monthlyDiscountPct,
     checkInFrom: row.checkInFrom,
     checkOutUntil: row.checkOutUntil,
+    // Round 2 phase 4 adds Listing.cancellationPolicy; read it here once the schema has it.
+    cancellationPolicy: null,
     smokingAllowed: row.smokingAllowed,
     petsAllowed: row.petsAllowed,
     partiesAllowed: row.partiesAllowed,

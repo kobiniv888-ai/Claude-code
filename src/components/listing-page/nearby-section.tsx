@@ -1,33 +1,34 @@
 import { useLocale, useTranslations } from "next-intl";
-import { BusIcon, DropletsIcon, PlaneIcon, ShoppingCartIcon, TrainFrontIcon } from "lucide-react";
 import { Ltr } from "@/components/common/ltr";
-import { IconCircle } from "@/components/ds/icon-circle";
-import { KosherStampIcon, SynagogueIcon, WelcomeHomeIcon, type IconComponent } from "@/components/ds/jewish-icons";
+import { SpriteIcon } from "@/components/ds/sprite-icons";
+import type { SpriteIconName } from "@/components/ds/sprite-icons.generated";
 import { pickLocalized } from "@/i18n/locale";
 import { formatNumber } from "@/lib/format";
 import type { NearbyInfo } from "@/lib/nearby";
 
-type Row = { key: string; icon: IconComponent; label: string; name: string | null; value: string };
+type Row = { key: string; icon: SpriteIconName; label: string; name: string | null; value: string };
 
-/** Nearby places with walking times, and the distance to the airport (under the location map). */
+const TRANSPORT_ICON: Record<NonNullable<NearbyInfo["transport"]>["kind"], SpriteIconName> = {
+  metro: "train-front",
+  train: "train-front",
+  tram: "tram-front",
+  bus: "bus",
+};
+
+/**
+ * What is nearby, with walking times, and the distance to the airport (under the location map).
+ * Synagogues and kosher places are not repeated here: the nearest verified synagogue is in the
+ * folded "Kosher and Shabbat" section (each place once).
+ */
 export function NearbyList({ nearby }: { nearby: NearbyInfo }) {
   const t = useTranslations("listing.nearby");
   const locale = useLocale();
   const rows: Row[] = [];
-  const place = (key: "synagogue" | "chabad" | "kosherFood" | "mikveh", icon: IconComponent) => {
-    const p = nearby[key];
-    if (!p) return;
-    rows.push({ key, icon, label: t(key), name: pickLocalized(p.name, locale) || null, value: t("walk", { count: p.minutes }) });
-  };
-  place("synagogue", SynagogueIcon);
-  place("chabad", WelcomeHomeIcon);
-  place("kosherFood", KosherStampIcon);
-  place("mikveh", DropletsIcon);
   if (nearby.supermarket) {
     const s = nearby.supermarket;
     rows.push({
       key: "supermarket",
-      icon: ShoppingCartIcon,
+      icon: "shopping-cart",
       label: t("supermarket"),
       name: (s.names && pickLocalized(s.names, locale)) || s.name || null,
       value: t("walk", { count: s.minutes }),
@@ -37,7 +38,7 @@ export function NearbyList({ nearby }: { nearby: NearbyInfo }) {
     const tr = nearby.transport;
     rows.push({
       key: "transport",
-      icon: tr.kind === "bus" ? BusIcon : TrainFrontIcon,
+      icon: TRANSPORT_ICON[tr.kind] ?? "bus",
       label: t(`transport.${tr.kind}`),
       name: (tr.names && pickLocalized(tr.names, locale)) || tr.name || null,
       value: t("walk", { count: tr.minutes }),
@@ -46,7 +47,7 @@ export function NearbyList({ nearby }: { nearby: NearbyInfo }) {
   if (nearby.airport) {
     rows.push({
       key: "airport",
-      icon: PlaneIcon,
+      icon: "plane",
       label: t("airport"),
       name: null,
       value: t("km", { km: formatNumber(nearby.airport.km, locale), code: nearby.airport.code }),
@@ -56,19 +57,19 @@ export function NearbyList({ nearby }: { nearby: NearbyInfo }) {
 
   return (
     <div className="grid gap-2">
-      <ul className="grid gap-2 sm:grid-cols-2">
+      <ul className="grid gap-3 sm:grid-cols-2">
         {rows.map(({ key, icon, label, name, value }) => (
-          <li key={key} className="flex items-center gap-3 rounded-2xl border bg-card p-2.5">
-            <IconCircle icon={icon} tone="navy" size="sm" />
+          <li key={key} className="flex items-center gap-3">
+            <SpriteIcon name={icon} className="size-5 shrink-0 text-muted-foreground" />
             <span className="grid min-w-0 flex-1">
-              <span className="text-small font-semibold">{label}</span>
+              <span className="text-small font-medium">{label}</span>
               {name ? (
                 <span dir="auto" className="truncate text-caption text-muted-foreground">
                   {name}
                 </span>
               ) : null}
             </span>
-            <span className="shrink-0 text-small font-bold text-primary-text">{key === "airport" ? <Ltr>{value}</Ltr> : value}</span>
+            <span className="shrink-0 text-small text-foreground">{key === "airport" ? <Ltr>{value}</Ltr> : value}</span>
           </li>
         ))}
       </ul>

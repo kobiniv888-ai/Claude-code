@@ -36,7 +36,7 @@ export type UserMenuUser = {
   isStaff: boolean;
 };
 
-/** Up to two initials; null when the name is a phone number (shows a person icon instead). */
+/** Up to two initials; null without a name (shows a person icon instead). */
 function initials(name: string): string | null {
   const trimmed = name.trim();
   if (!trimmed || /^[+\d\s()-]+$/.test(trimmed)) return null;
@@ -100,7 +100,7 @@ export function UserMenuClient({ user }: { user: UserMenuUser }) {
           <UserAvatar user={user} className="size-10" />
           <span className="grid min-w-0">
             <span dir="auto" className="truncate text-sm font-semibold text-foreground">
-              {user.name}
+              {user.name || t("account")}
             </span>
             {user.contact && (
               <span className="truncate text-xs text-muted-foreground">

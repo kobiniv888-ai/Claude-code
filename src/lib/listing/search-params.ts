@@ -152,6 +152,11 @@ export type SearchFilters = {
   amenities: AmenityFilter[];
   kitchen: KitchenFilter | null;
   shabbatFriendly: boolean;
+  /**
+   * The "כשר ושבת" quick chip (round 2, `?kosherShabbat=1`): a kosher kitchen OR Shabbat-friendly
+   * OR (hotels) kosher meals or a kosher breakfast. One of them is enough.
+   */
+  kosherShabbat: boolean;
   /** Must have all of these Jewish-friendly details. */
   jewish: JewishFeature[];
   /** Must have all of these hotel features (kosher breakfast…). */
@@ -209,6 +214,7 @@ export function emptyFilters(): SearchFilters {
     amenities: [],
     kitchen: null,
     shabbatFriendly: false,
+    kosherShabbat: false,
     jewish: [],
     hotel: [],
     synagogueMaxWalk: null,
@@ -254,6 +260,7 @@ const PARAM_ORDER = [
   "amenities",
   "kitchen",
   "shabbatFriendly",
+  "kosherShabbat",
   "jewish",
   "hotel",
   "synagogueMaxWalk",
@@ -429,6 +436,7 @@ export function parseSearchParams(input: SearchParamsInput | null | undefined): 
   filters.amenities = pickList(listValues(read, "amenities"), AMENITY_FILTERS, lowerKey);
   filters.kitchen = pickOne(one("kitchen"), KITCHEN_FILTERS, lowerKey);
   filters.shabbatFriendly = flag(one("shabbatFriendly"));
+  filters.kosherShabbat = flag(one("kosherShabbat"));
   filters.jewish = pickList(listValues(read, "jewish"), JEWISH_FEATURES, lowerKey);
   filters.hotel = pickList(listValues(read, "hotel"), HOTEL_JEWISH_FEATURES, lowerKey);
   const walk = numberIn(one("synagogueMaxWalk"), 1, 60);
@@ -547,6 +555,7 @@ export type ChipKey =
   | "amenities"
   | "kitchen"
   | "shabbatFriendly"
+  | "kosherShabbat"
   | "jewish"
   | "hotel"
   | "synagogueMaxWalk"
@@ -586,6 +595,7 @@ const VALUE_CHIPS = [
 ] as const;
 const FLAG_CHIPS = [
   "shabbatFriendly",
+  "kosherShabbat",
   "bigFamily",
   "verifiedOnly",
   "hasPhotos",

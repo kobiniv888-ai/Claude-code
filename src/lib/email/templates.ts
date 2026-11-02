@@ -7,6 +7,7 @@ import type { AppLocale } from "@/config/site";
 import type { TicketStatus, VerificationType } from "@/generated/prisma/enums";
 
 export const EMAIL_TEMPLATES = [
+  "login_code",
   "welcome",
   "listing_live",
   "listing_in_review",
@@ -34,6 +35,8 @@ type Url = string;
 
 /** The data each template needs. User-written values are escaped when rendered. */
 export type EmailData = {
+  /** The 6-digit email login code (Better Auth email OTP). `name` when the account has one. */
+  login_code: { code: string; minutes: number; name?: string | null };
   welcome: { name: string };
   listing_live: { ownerName: string; listingTitle: string; listingUrl: Url; expiresAt?: DateValue | null };
   listing_in_review: { ownerName: string; listingTitle: string };
@@ -92,7 +95,9 @@ export type EmailBlock =
   /** User- or staff-written text: shown in a box with dir="auto". */
   | { type: "quote"; label?: string; text: string }
   | { type: "details"; rows: { label: string; value: string; ltr?: boolean }[] }
-  | { type: "notice"; text: string };
+  | { type: "notice"; text: string }
+  /** A one-time code: big digits, left to right. */
+  | { type: "code"; label: string; code: string };
 
 export type EmailContent = {
   subject: string;
@@ -133,6 +138,20 @@ export function isolate(value: string): string {
 type Builder<K extends EmailTemplate> = (data: EmailData[K], ctx: TemplateContext) => EmailContent;
 
 const builders: { [K in EmailTemplate]: Builder<K> } = {
+  login_code: (data, { t, brand }) => ({
+    subject: t("templates.login_code.subject", { code: data.code, brand }),
+    preheader: t("templates.login_code.preheader", { minutes: data.minutes }),
+    heading: t("templates.login_code.heading", { brand }),
+    greetingName: clean(data.name) || null,
+    blocks: [
+      { type: "paragraph", text: t("templates.login_code.body1", { brand }) },
+      { type: "code", label: t("templates.login_code.codeLabel"), code: data.code },
+      { type: "paragraph", text: t("templates.login_code.body2", { minutes: data.minutes }) },
+      { type: "notice", text: t("templates.login_code.body3", { brand }) },
+    ],
+    audience: "account",
+  }),
+
   welcome: (data, { t, page, brand }) => ({
     subject: t("templates.welcome.subject", { brand }),
     preheader: t("templates.welcome.preheader", { brand }),

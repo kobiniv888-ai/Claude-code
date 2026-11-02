@@ -124,7 +124,10 @@
     "ownerType": "المعلِن",
     "postedWithin": "نُشر خلال",
     "noMin": "بلا حد أدنى",
-    "noMax": "بلا حد أقصى"
+    "noMax": "بلا حد أقصى",
+    "kosherShabbat": "كوشير أو مناسب للسبت",
+    "kosherShabbatHint": "مطبخ كوشير أو مناسب للسبت أو وجبات كوشير: يكفي واحد منها",
+    "walkUpTo": "حتى {count} د"
   },
   "chips": {
     "heading": "الفلاتر المفعّلة",
@@ -135,11 +138,12 @@
     "between": "{min} – {max}",
     "atLeast": "من {min}",
     "atMost": "حتى {max}",
-    "minRooms": "{value}+ غرف",
-    "minBedrooms": "{value}+ غرف نوم",
-    "minBathrooms": "{value}+ حمّامات",
+    "minRooms": "{value} غرف",
+    "minBedrooms": "{value} غرف نوم",
+    "minBathrooms": "{value} حمّامات",
     "floor": "الطابق {range}",
-    "mapArea": "منطقة على الخريطة"
+    "mapArea": "منطقة على الخريطة",
+    "kosherShabbat": "كوشير أو مناسب للسبت"
   },
   "toolbar": {
     "sortLabel": "الترتيب حسب",
@@ -160,7 +164,8 @@
       "hotels": "فنادق ودور ضيافة"
     },
     "count": "{count, plural, =0 {لم يتم العثور على عقارات} one {عقار واحد} two {عقاران} few {{formatted} عقارات} many {{formatted} عقارًا} other {{formatted} عقار}}",
-    "countIn": "{count, plural, =0 {لم يتم العثور على عقارات في {place}} one {عقار واحد في {place}} two {عقاران في {place}} few {{formatted} عقارات في {place}} many {{formatted} عقارًا في {place}} other {{formatted} عقار في {place}}}"
+    "countIn": "{count, plural, =0 {لم يتم العثور على عقارات في {place}} one {عقار واحد في {place}} two {عقاران في {place}} few {{formatted} عقارات في {place}} many {{formatted} عقارًا في {place}} other {{formatted} عقار في {place}}}",
+    "promise": "تعهّد كل المضيفين هنا بالترحيب بالإسرائيليين"
   },
   "map": {
     "loading": "جارٍ تحميل الخريطة…",
@@ -203,12 +208,15 @@
       "kosher": "كوشير",
       "shabbat": "مناسب للسبت",
       "synagogue": "قرب كنيس",
-      "hebrew": "يتحدث العبرية"
+      "hebrew": "يتحدث العبرية",
+      "kosherShabbat": "كوشير وسبت"
     },
     "anywhere": "كل جورجيا",
     "anyDates": "إضافة تواريخ",
     "moveIn": "الانتقال في {date}",
-    "summaryLabel": "تغيير البحث: {summary}"
+    "summaryLabel": "تغيير البحث: {summary}",
+    "propertyType": "نوع العقار",
+    "propertyTypes": "{count, plural, zero {{count} أنواع} one {نوع واحد} two {نوعان} few {{count} أنواع} many {{count} نوعًا} other {{count} نوع}}"
   },
   "sort": {
     "title": "الترتيب حسب",

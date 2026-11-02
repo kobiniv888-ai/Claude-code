@@ -2,15 +2,8 @@
 
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { ChevronDownIcon, UsersIcon } from "lucide-react";
-import {
-  HebrewBubbleIcon,
-  KosherStampIcon,
-  SegmentedControl,
-  ShabbatCandlesIcon,
-  SynagogueIcon,
-  type IconComponent,
-} from "@/components/ds";
+import { ChevronDownIcon } from "lucide-react";
+import { KosherStampIcon, SegmentedControl, type IconComponent } from "@/components/ds";
 import {
   HOTEL_JEWISH_FEATURE_ICONS,
   JEWISH_FEATURE_ICONS,
@@ -25,7 +18,6 @@ import {
   JEWISH_FEATURES,
   SHARED_ROOM_FOR,
   VIEW_TYPES,
-  type HotelJewishFeature,
   type JewishFeature,
 } from "@/lib/listing/fields";
 import {
@@ -38,13 +30,23 @@ import {
   type AmenityFilter,
   type DealFilter,
   type SearchFilters,
+  type SynagogueWalk,
 } from "@/lib/listing/search-params";
 import { filterVisibility, propertyTypesFor } from "@/lib/search/filter-sections";
 import type { HolidayMark } from "@/lib/search/holiday-marks";
 import type { PriceHistogram } from "@/lib/search/price-histogram";
-import { NEAR_SYNAGOGUE_MINUTES } from "@/lib/search/quick-chips";
 import { cn } from "@/lib/utils";
-import { CheckList, CheckRow, ChoiceChips, CollapsibleSection, Field, IconTile, NumberRange, SheetSection } from "./filter-parts";
+import {
+  CheckList,
+  CheckRow,
+  ChoiceChips,
+  CollapsibleSection,
+  Field,
+  IconTile,
+  NumberRange,
+  SheetSection,
+  SwitchRow,
+} from "./filter-parts";
 import { GuestsStepper } from "./guests-stepper";
 import { HolidayCalendar } from "./holiday-calendar";
 import { PriceFilter } from "./price-filter";
@@ -61,7 +63,7 @@ export type FiltersPanelProps = {
 const MIN_COUNTS = ["any", "1", "2", "3", "4", "5"] as const;
 type MinCount = (typeof MIN_COUNTS)[number];
 const AMENITIES_COLLAPSED = 8;
-/** The Jewish features with their own big toggle (the rest are small chips under "More"). */
+/** The Jewish features with their own switch row (the rest are small chips under "More"). */
 const BIG_JEWISH: readonly JewishFeature[] = ["host_keeps_shabbat", "host_speaks_hebrew"];
 
 const toggled = <T extends string>(list: readonly T[], value: T): T[] =>
@@ -69,7 +71,7 @@ const toggled = <T extends string>(list: readonly T[], value: T): T[] =>
 
 /**
  * The body of the filters sheet (brief 5.4): deal type, property type tiles, price histogram +
- * slider, rooms as segmented rows, "Kashrut & Shabbat" as big icon toggles, then collapsed
+ * slider, rooms as segmented rows, "Kashrut & Shabbat" as plain switch rows, then collapsed
  * sections for dates, amenities, property details, the advertiser and the listing. Stateless:
  * the sheet keeps the draft. Filters that cannot match the deal are hidden unless set.
  */
@@ -95,6 +97,8 @@ export function FiltersPanel({ filters, onChange, holidays, histogram, className
         <SegmentedControl<DealFilter | "any">
           aria-label={t("dealType")}
           size="sm"
+          // Five segments on a phone: smaller text so long Georgian/Russian labels stay inside (bug 8.3).
+          className="max-sm:[&_[role=radio]]:px-1 max-sm:[&_[role=radio]]:text-xs"
           value={filters.deal ?? "any"}
           options={[
             { value: "any", label: s("dealShort.any") },
@@ -137,6 +141,9 @@ export function FiltersPanel({ filters, onChange, holidays, histogram, className
             />
           </Field>
         ))}
+        {visible.bigFamily ? (
+          <SwitchRow checked={filters.bigFamily} onChange={(bigFamily) => onChange({ bigFamily })} label={f("filter.bigFamily")} />
+        ) : null}
       </SheetSection>
 
       <JewishSection filters={filters} onChange={onChange} />
@@ -280,7 +287,16 @@ export function FiltersPanel({ filters, onChange, holidays, histogram, className
   );
 }
 
-/** "Kashrut & Shabbat": big icon toggles, the walking time to the synagogue, and the rest as chips. */
+/** Synagogue walking times offered in the "כשרות ושבת" group (≤10 / ≤20 min); 20 when switched on. */
+const WALK_CHOICES = [10, 20] as const satisfies readonly SynagogueWalk[];
+const DEFAULT_WALK: SynagogueWalk = 20;
+
+/**
+ * "כשרות ושבת" (round 2): plain switch rows — kosher kitchen, kosher meals (hotels), Shabbat-friendly,
+ * a synagogue within walking distance (≤10 / ≤20 min), the host keeps Shabbat, the host speaks
+ * Hebrew. The "כשר ושבת" quick chip shows here as its own row while it is on. Everything else
+ * (kasherable kitchens, mezuzot, Pesach-ready, hotel extras, shared rooms) is under "More".
+ */
 function JewishSection({ filters, onChange }: Pick<FiltersPanelProps, "filters" | "onChange">) {
   const t = useTranslations("search.filters");
   const s = useTranslations("search.sheet");
@@ -288,92 +304,69 @@ function JewishSection({ filters, onChange }: Pick<FiltersPanelProps, "filters" 
   const visible = filterVisibility(filters);
   const [more, setMore] = useState(false);
 
-  type Toggle = { key: string; icon: IconComponent; label: string; pressed: boolean; patch: () => Partial<SearchFilters> };
-  const jewish = (feature: JewishFeature, icon: IconComponent): Toggle => ({
-    key: feature,
-    icon,
-    label: f(`jewishFeature.${feature}`),
-    pressed: filters.jewish.includes(feature),
-    patch: () => ({ jewish: toggled(filters.jewish, feature) }),
-  });
-  const hotel = (feature: HotelJewishFeature): Toggle => ({
-    key: feature,
-    icon: HOTEL_JEWISH_FEATURE_ICONS[feature],
-    label: f(`hotelJewishFeature.${feature}`),
-    pressed: filters.hotel.includes(feature),
-    patch: () => ({ hotel: toggled(filters.hotel, feature) }),
-  });
-
-  const toggles: Toggle[] = [
-    {
-      key: "kitchen",
-      icon: KosherStampIcon,
-      label: f("kitchenFilter.kosher"),
-      pressed: filters.kitchen !== null,
-      patch: () => ({ kitchen: filters.kitchen ? null : "kosher" }),
-    },
-    {
-      key: "shabbat",
-      icon: ShabbatCandlesIcon,
-      label: f("filter.shabbatFriendly"),
-      pressed: filters.shabbatFriendly,
-      patch: () => ({ shabbatFriendly: !filters.shabbatFriendly }),
-    },
-    {
-      key: "synagogue",
-      icon: SynagogueIcon,
-      label: s("synagogueNear"),
-      pressed: filters.synagogueMaxWalk !== null,
-      patch: () => ({ synagogueMaxWalk: filters.synagogueMaxWalk ? null : NEAR_SYNAGOGUE_MINUTES }),
-    },
-    jewish("host_keeps_shabbat", JEWISH_FEATURE_ICONS.host_keeps_shabbat),
-    jewish("host_speaks_hebrew", HebrewBubbleIcon),
-    ...(visible.hotel ? HOTEL_JEWISH_FEATURES.map(hotel) : []),
-    ...(visible.bigFamily
-      ? [
-          {
-            key: "bigFamily",
-            icon: UsersIcon,
-            label: s("bigFamily"),
-            pressed: filters.bigFamily,
-            patch: () => ({ bigFamily: !filters.bigFamily }),
-          },
-        ]
-      : []),
-  ];
-
+  const walkChoices: SynagogueWalk[] =
+    filters.synagogueMaxWalk !== null && !(WALK_CHOICES as readonly number[]).includes(filters.synagogueMaxWalk)
+      ? [...SYNAGOGUE_WALK_OPTIONS].filter((m) => (WALK_CHOICES as readonly number[]).includes(m) || m === filters.synagogueMaxWalk)
+      : [...WALK_CHOICES];
+  const moreHotel = HOTEL_JEWISH_FEATURES.filter((feature) => feature !== "kosher_meals");
   const others = JEWISH_FEATURES.filter((feature) => !BIG_JEWISH.includes(feature));
   const moreActive =
     filters.kitchen === "kosher_or_kasherable" ||
     filters.sharedRoomFor !== null ||
-    others.some((feature) => filters.jewish.includes(feature));
+    others.some((feature) => filters.jewish.includes(feature)) ||
+    moreHotel.some((feature) => filters.hotel.includes(feature));
   const showMore = more || moreActive;
 
   return (
     <SheetSection id="jewish" title={s("jewishTitle")}>
-      <div className="grid grid-cols-2 gap-2">
-        {toggles.map((toggle) => (
-          <IconTile
-            key={toggle.key}
-            layout="row"
-            icon={toggle.icon}
-            label={toggle.label}
-            pressed={toggle.pressed}
-            onToggle={() => onChange(toggle.patch())}
+      <div className="-my-1 grid divide-y divide-border">
+        {filters.kosherShabbat ? (
+          <SwitchRow
+            checked
+            onChange={(on) => onChange({ kosherShabbat: on })}
+            label={t("kosherShabbat")}
+            hint={t("kosherShabbatHint")}
+          />
+        ) : null}
+        <SwitchRow
+          checked={filters.kitchen === "kosher"}
+          onChange={(on) => onChange({ kitchen: on ? "kosher" : null })}
+          label={f("kitchenFilter.kosher")}
+        />
+        {visible.hotel ? (
+          <SwitchRow
+            checked={filters.hotel.includes("kosher_meals")}
+            onChange={() => onChange({ hotel: toggled(filters.hotel, "kosher_meals") })}
+            label={f("hotelJewishFeature.kosher_meals")}
+          />
+        ) : null}
+        <SwitchRow
+          checked={filters.shabbatFriendly}
+          onChange={(on) => onChange({ shabbatFriendly: on })}
+          label={f("filter.shabbatFriendly")}
+          hint={filters.shabbatFriendly ? t("shabbatFriendlyHint") : undefined}
+        />
+        <SwitchRow
+          checked={filters.synagogueMaxWalk !== null}
+          onChange={(on) => onChange({ synagogueMaxWalk: on ? DEFAULT_WALK : null })}
+          label={s("synagogueNear")}
+        >
+          <ChoiceChips
+            value={filters.synagogueMaxWalk}
+            options={walkChoices}
+            label={(minutes) => t("walkUpTo", { count: minutes ?? 0 })}
+            onChange={(synagogueMaxWalk) => onChange({ synagogueMaxWalk })}
+          />
+        </SwitchRow>
+        {BIG_JEWISH.map((feature) => (
+          <SwitchRow
+            key={feature}
+            checked={filters.jewish.includes(feature)}
+            onChange={() => onChange({ jewish: toggled(filters.jewish, feature) })}
+            label={f(`jewishFeature.${feature}`)}
           />
         ))}
       </div>
-      {filters.synagogueMaxWalk !== null ? (
-        <Field label={t("synagogueWalk")}>
-          <ChoiceChips
-            value={filters.synagogueMaxWalk}
-            options={SYNAGOGUE_WALK_OPTIONS}
-            label={(minutes) => t("walkMinutes", { count: minutes })}
-            onChange={(synagogueMaxWalk) => onChange({ synagogueMaxWalk })}
-          />
-        </Field>
-      ) : null}
-      {filters.shabbatFriendly ? <p className="text-caption text-muted-foreground">{t("shabbatFriendlyHint")}</p> : null}
 
       <button
         type="button"
@@ -406,6 +399,17 @@ function JewishSection({ filters, onChange }: Pick<FiltersPanelProps, "filters" 
                 onToggle={() => onChange({ jewish: toggled(filters.jewish, feature) })}
               />
             ))}
+            {visible.hotel
+              ? moreHotel.map((feature) => (
+                  <SmallToggle
+                    key={feature}
+                    icon={HOTEL_JEWISH_FEATURE_ICONS[feature]}
+                    label={f(`hotelJewishFeature.${feature}`)}
+                    pressed={filters.hotel.includes(feature)}
+                    onToggle={() => onChange({ hotel: toggled(filters.hotel, feature) })}
+                  />
+                ))
+              : null}
           </div>
           {visible.sharedRoomFor ? (
             <Field label={t("sharedRoomFor")}>
@@ -431,7 +435,7 @@ function SmallToggle({ icon: Icon, label, pressed, onToggle }: { icon: IconCompo
       onClick={onToggle}
       className={cn(
         "inline-flex min-h-10 items-center gap-1.5 rounded-full border px-3.5 text-sm font-medium transition-colors duration-(--motion-fast) outline-none focus-visible:ring-3 focus-visible:ring-ring/50 [&_svg]:size-4 [&_svg]:shrink-0",
-        pressed ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:border-input hover:bg-muted",
+        pressed ? "border-primary-tint-border bg-primary-tint text-primary-text" : "border-border bg-card hover:border-input hover:bg-muted",
       )}
     >
       <Icon aria-hidden="true" />

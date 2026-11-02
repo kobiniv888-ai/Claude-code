@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
+import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "@/lib/toast";
 import { useRequireLogin } from "@/components/auth/login-dialog";
@@ -9,7 +10,7 @@ import { Turnstile, type TurnstileHandle } from "@/components/common/turnstile";
 import type { DealType } from "@/generated/prisma/enums";
 import { revealContact, recordContactTap, markSafetyTipSeen } from "@/lib/contact/actions";
 import { buildChannelHref, channelCopiesMessage, channelOpensNewTab, type RevealedContact } from "@/lib/contact/links";
-import { messageVariant, type StayRequest } from "@/lib/contact/message";
+import { messageVariant, stayRequestFrom, type StayRequest } from "@/lib/contact/message";
 import { errorMessageKey } from "@/lib/errors";
 import { formatDate, formatDateRange } from "@/lib/format";
 import type { ContactChannelKey } from "@/lib/listing/fields";
@@ -99,12 +100,13 @@ function openHref(href: string, newTab: boolean) {
 export function ContactProvider({
   listing,
   availability,
-  stay,
+  stay: initialStay,
   shabbatModeActive,
   children,
 }: {
   listing: ContactListing;
   availability: ContactAvailability;
+  /** The dates and guests in the address when the page loaded. */
   stay: StayRequest;
   /** Site-wide Shabbat mode: the email form is paused. */
   shabbatModeActive: boolean;
@@ -113,6 +115,9 @@ export function ContactProvider({
   const t = useTranslations("contact");
   const te = useTranslations("errors");
   const locale = useLocale();
+  // The listing page changes ?checkIn&checkOut in place when dates are picked: follow the address.
+  const search = useSearchParams();
+  const stay = useMemo(() => (search ? stayRequestFrom(Object.fromEntries(search.entries())) : initialStay), [search, initialStay]);
   const requireLogin = useRequireLogin();
   const [methods, setMethods] = useState<RevealedContact[] | null>(null);
   const [revealing, setRevealing] = useState(false);

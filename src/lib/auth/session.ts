@@ -9,6 +9,7 @@ import { db } from "@/lib/db";
 import { AppError, AuthRequiredError, ForbiddenError } from "@/lib/errors";
 import { isAccountBlocked } from "./account-status";
 import { safeNextPath, withNext } from "./next-path";
+import { needsFirstName } from "./first-name";
 import { can, isStaffRole, type Permission } from "./permissions";
 import { isPlaceholderEmail } from "./phone";
 import { auth } from "./server";
@@ -20,7 +21,10 @@ import { auth } from "./server";
 
 export type CurrentUser = {
   id: string;
+  /** Full name; may be empty or (older phone sign-ups) a phone number — show `personName()` instead. */
   name: string;
+  /** From the first-name step or Google; null until given (see ./first-name.ts). */
+  firstName: string | null;
   email: string;
   /** True for phone-only accounts ("<digits>@phone.bayit.invalid"): never show or email it. */
   emailIsPlaceholder: boolean;
@@ -63,6 +67,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
         select: {
           id: true,
           name: true,
+          firstName: true,
           email: true,
           image: true,
           phoneNumber: true,
@@ -92,6 +97,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   return {
     id: user.id,
     name: user.name,
+    firstName: user.firstName,
     email: user.email,
     emailIsPlaceholder: isPlaceholderEmail(user.email),
     image: user.image,
@@ -139,7 +145,8 @@ async function redirectWithNext(pathname: string, next: string | undefined): Pro
 
 /**
  * For pages that need a signed-in user. Redirects to /login, /two-factor or /verify-phone
- * (with ?next=) when needed, otherwise returns the user.
+ * (with ?next=) when needed, otherwise returns the user. An account without a first name is sent
+ * to /login, which asks for it (one short step) and then continues to `next`.
  *
  *   const user = await requireUser({ next: "/account/listings" });
  *   const owner = await requireUser({ phoneVerified: true, next: "/post" });
@@ -150,6 +157,7 @@ export async function requireUser(
   const user = await getCurrentUser();
   if (!user) return redirectWithNext("/login", await resolveNext(opts.next));
   if (!user.twoFactorVerified) return redirectWithNext("/two-factor", await resolveNext(opts.next));
+  if (needsFirstName(user)) return redirectWithNext("/login", await resolveNext(opts.next));
   if (opts.phoneVerified && !user.phoneNumberVerified) {
     return redirectWithNext("/verify-phone", await resolveNext(opts.next));
   }

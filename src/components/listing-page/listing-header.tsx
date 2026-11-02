@@ -1,69 +1,118 @@
 import { useLocale, useTranslations } from "next-intl";
-import { MapPinIcon } from "lucide-react";
-import { Ltr } from "@/components/common/ltr";
-import { BadgeRow, type BadgeItem } from "@/components/ds/badges";
-import { CurrencySwitcher } from "@/components/layout/currency-switcher";
-import { Price } from "@/components/listing/price";
-import { formatDate, formatMoney, formatNumber } from "@/lib/format";
-import { pricePerSqm } from "@/lib/listing-page/helpers";
+import { SpriteIcon } from "@/components/ds/sprite-icons";
+import { Tag } from "@/components/ds/tag";
+import { Link } from "@/i18n/navigation";
+import { formatArea } from "@/lib/format";
+import type { Highlight } from "@/lib/listing-page/highlights";
 import type { ListingPageData } from "@/lib/listing-page/types";
-import { cn } from "@/lib/utils";
+import { ownerPath } from "@/lib/listing/urls";
+import { HIGHLIGHT_SPRITE } from "./icons";
 import { ListingTitle } from "./listing-text";
+import { OwnerAvatar } from "./owner-avatar";
 
 /**
- * The top of the listing: the badge row ("Welcomes Israelis" · verified · demo…), the big title,
- * city · neighborhood with a pin, and a livo-style meta line (posted · views · listing number).
- * Real data only.
+ * The top of the listing: the title (22px, at most 3 lines), "Area · City", and ONE line of facts
+ * (guests · bedrooms · beds · baths; rooms and size for rentals and sales). Honest status tags
+ * (demo, promoted) sit above the title, in grey. Real data only.
  */
-export function TitleBlock({ data, badges, actions }: { data: ListingPageData; badges: BadgeItem[]; actions?: React.ReactNode }) {
+export function TitleBlock({ data, tags }: { data: ListingPageData; tags: ("demo" | "promoted")[] }) {
   const t = useTranslations("listing.header");
+  const f = useTranslations("listingFields.facts");
   const locale = useLocale();
-  const place = [data.city?.name, data.neighborhoodName].filter(Boolean).join(" · ");
-  const posted = data.publishedAt ?? data.contentUpdatedAt;
+  const place = [data.neighborhoodName, data.city?.name].filter(Boolean).join(" · ");
+  const stay = data.dealType === "SHORT_STAY" || data.dealType === "HOTEL_ROOM";
+  const beds = (data.bedsSingle ?? 0) + (data.bedsDouble ?? 0) + (data.bedsSofa ?? 0);
+  const facts = [
+    stay && data.maxGuests ? f("guests", { count: data.maxGuests }) : null,
+    !stay && data.rooms ? f("rooms", { count: data.rooms }) : null,
+    data.propertyType === "STUDIO" ? f("studio") : data.bedrooms ? f("bedrooms", { count: data.bedrooms }) : null,
+    stay && beds > 0 ? f("beds", { count: beds }) : null,
+    data.bathrooms ? f("bathrooms", { count: data.bathrooms }) : null,
+    !stay && data.sizeSqm ? formatArea(data.sizeSqm, locale) : null,
+  ].filter((fact): fact is string => !!fact);
+
   return (
-    <header className="grid content-start gap-3">
-      {badges.length ? <BadgeRow items={badges} max={6} size="md" /> : null}
-      <ListingTitle />
-      {place ? (
-        <p className="flex items-center gap-1.5 text-body font-medium text-foreground/85">
-          <MapPinIcon className="size-5 shrink-0 text-primary-text" aria-hidden />
-          <span>{place}</span>
-        </p>
+    <header className="grid content-start gap-1.5">
+      {tags.length ? (
+        <div className="mb-1 flex flex-wrap gap-1.5">
+          {tags.map((tag) => (
+            <Tag key={tag} size="sm">
+              {t(`tag.${tag}`)}
+            </Tag>
+          ))}
+        </div>
       ) : null}
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-small text-muted-foreground">
-          <time dateTime={posted}>
-            {t(data.publishedAt ? "posted" : "updated", { date: formatDate(posted, locale, { day: "numeric", month: "short", year: "numeric" }) })}
-          </time>
-          <span aria-hidden>·</span>
-          <span>{t("views", { count: data.viewCount, formatted: formatNumber(data.viewCount, locale) })}</span>
-          <span aria-hidden>·</span>
-          <span>{t.rich("listingId", { id: data.publicId, ltr: (chunks) => <Ltr>{chunks}</Ltr> })}</span>
-        </p>
-        {actions}
-      </div>
+      <ListingTitle />
+      {place ? <p className="text-body text-muted-foreground">{place}</p> : null}
+      {facts.length ? (
+        // Wraps between facts (never inside one), so long Georgian or Russian words never widen the page.
+        <ul className="flex flex-wrap items-center gap-x-1.5 text-small text-foreground">
+          {facts.map((fact, i) => (
+            <li key={fact} className="flex items-center gap-x-1.5 whitespace-nowrap">
+              {i > 0 ? <span aria-hidden="true" className="text-muted-foreground">·</span> : null}
+              {fact}
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </header>
   );
 }
 
-/** The price with its unit, a compact currency switch, and one helpful line under it. */
-export function PriceBlock({ data, priceDropped, className }: { data: ListingPageData; priceDropped: boolean; className?: string }) {
-  const t = useTranslations("listing.price");
-  const f = useTranslations("listingFields");
-  const locale = useLocale();
-  const perSqm = data.dealType === "SALE" ? pricePerSqm(data.price, data.sizeSqm) : null;
-  const notes = [
-    perSqm ? t("perSqm", { price: formatMoney(perSqm, data.currency, locale) }) : null,
-    data.minStayNights && data.dealType !== "SALE" ? f("facts.minStay", { count: data.minStayNights }) : null,
-    priceDropped ? t("dropped") : null,
-  ].filter((note): note is string => !!note);
+/**
+ * The host line under the title: avatar or initials, "Hosted by [name] · Verified" (only when an
+ * ID, the ownership or the property was checked), and the pledge with a shield: the ONLY place
+ * the promise appears on this page.
+ */
+export function HostLine({ data, verified, welcomes }: { data: ListingPageData; verified: boolean; welcomes: boolean }) {
+  const t = useTranslations("listing.hostLine");
+  const sale = data.dealType === "SALE";
+  const name = (
+    <Link href={ownerPath(data.owner.id)} dir="auto" className="rounded font-semibold underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50">
+      {data.owner.name}
+    </Link>
+  );
   return (
-    <div className={cn("grid gap-1", className)}>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <Price amount={data.price} currency={data.currency} period={data.pricePeriod} from={data.priceIsFrom} size="hero" />
-        {data.price ? <CurrencySwitcher align="start" className="h-9 bg-muted px-2.5 hover:bg-muted/70" /> : null}
+    <div className="grid gap-2.5 border-y border-border py-4">
+      <div className="flex items-center gap-3">
+        <OwnerAvatar name={data.owner.name} image={data.owner.image} size={44} />
+        <p className="min-w-0 text-body">
+          {t.rich(sale ? "listedBy" : "hostedBy", { name: () => name })}
+          {verified ? (
+            <>
+              <span aria-hidden="true" className="px-1.5 text-muted-foreground">·</span>
+              <span className="inline-flex items-center gap-1 font-medium whitespace-nowrap text-success">
+                <SpriteIcon name="badge-check" className="size-4" />
+                {t("verified")}
+              </span>
+            </>
+          ) : null}
+        </p>
       </div>
-      {notes.length ? <p className="text-small text-muted-foreground">{notes.join(" · ")}</p> : null}
+      {welcomes ? (
+        <p className="flex items-center gap-2 text-small text-foreground">
+          <SpriteIcon name="shield-check" className="size-5 shrink-0 text-primary-text" />
+          {sale ? t("pledgeSale") : t("pledge")}
+        </p>
+      ) : null}
     </div>
+  );
+}
+
+/** Three highlights with icons, computed from the listing's data (lib/listing-page/highlights). */
+export function Highlights({ items }: { items: Highlight[] }) {
+  const t = useTranslations("listing.highlights");
+  if (items.length === 0) return null;
+  return (
+    <section aria-label={t("label")}>
+      <ul className="grid gap-3">
+        {items.map((key) => (
+          <li key={key} className="flex items-center gap-3 text-body">
+            <SpriteIcon name={HIGHLIGHT_SPRITE[key]} className="size-6 shrink-0 text-primary-text" />
+            {t(key)}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

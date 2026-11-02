@@ -121,7 +121,7 @@ export function LoginDialogProviderClient({
   const title = forAction
     ? t("dialogTitle")
     : t("title", { name: siteConfig.localizedName[locale as AppLocale] ?? siteConfig.name });
-  const description = t(hasSocial ? "dialogSubtitle" : "dialogSubtitlePhoneOnly");
+  const description = t(hasSocial ? "dialogSubtitle" : "dialogSubtitleNoSocial");
 
   const onOpenChange = (nextOpen: boolean) => {
     setOpen(nextOpen);

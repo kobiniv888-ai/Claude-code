@@ -16,8 +16,11 @@
   "header": {
     "listingId": "מס׳ <ltr>{id}</ltr>",
     "updated": "עודכן ב-{date}",
-    "views": "{count, plural, one {צפייה אחת} other {{formatted} צפיות}}",
-    "posted": "פורסם ב-{date}"
+    "posted": "פורסם ב-{date}",
+    "tag": {
+      "demo": "דמו",
+      "promoted": "מקודם"
+    }
   },
   "status": {
     "title": "לא מוצגת לציבור: {status}",
@@ -105,7 +108,6 @@
     "contactHours": "שעות נוחות לשיחה",
     "repliesAfterShabbat": "עכשיו שבת — התשובה תגיע במוצאי שבת.",
     "repliesAfterHoliday": "עכשיו חג — התשובה תגיע בצאת החג.",
-    "videoTip": "לפני כל תשלום, בקשו שיחת וידאו חיה שבה מראים לכם את המקום ודף עם התאריך של היום ומספר המודעה (<ltr>{id}</ltr>).",
     "listedBy": "מפרסם/ת"
   },
   "badges": {
@@ -131,42 +133,14 @@
   "description": {
     "title": "על המקום",
     "empty": "עדיין אין תיאור למודעה הזו.",
-    "showMore": "קראו עוד",
-    "showLess": "הצגת פחות"
+    "showMore": "קראו עוד"
   },
   "amenities": {
-    "title": "מה יש במקום"
-  },
-  "jewish": {
-    "title": "לשומרי מסורת",
-    "kitchen": "מטבח",
-    "synagogue": "בית הכנסת הקרוב",
-    "chabad": "בית חב״ד",
-    "walk": "{count, plural, one {דקת הליכה אחת} other {{count} דקות הליכה}}",
-    "shabbatChecklist": "רשימת שבת",
-    "shabbatFriendly": "מתאים לשבת",
-    "shabbatFriendlyHint": "מתאים לשבת פירושו מפתח רגיל, בלי חיישני תנועה בכניסה, ופלטה או מיחם.",
-    "has": "יש",
-    "hasNot": "אין",
-    "jewishFeatures": "עוד לאורחים יהודים",
-    "hotelKosher": "אוכל כשר",
-    "supervision": "השגחת כשרות",
-    "subtitle": "כשרות, שבת ובית כנסת — במבט אחד",
-    "host": "המארח",
-    "keepsShabbat": "שומר שבת",
-    "keepsShabbatHint": "לא עונה בשבתות ובחגים",
-    "sukkah": "מקום לסוכה",
-    "noSukkah": "אין מקום לסוכה"
+    "title": "מה יש במקום",
+    "showAll": "הצגת כל {count}"
   },
   "rules": {
-    "title": "כללי הבית",
-    "checkIn": "כניסה",
-    "checkOut": "יציאה",
-    "from": "החל מ-{time}",
-    "until": "עד {time}",
     "quietHours": "שעות שקט",
-    "allowed": "מותר",
-    "notAllowed": "אסור",
     "smoking": {
       "yes": "מותר לעשן",
       "no": "אסור לעשן"
@@ -178,40 +152,29 @@
     "parties": {
       "yes": "מותר לערוך מסיבות ואירועים",
       "no": "בלי מסיבות ואירועים"
-    }
+    },
+    "checkInFrom": "צ׳ק-אין החל מ-{time}",
+    "checkOutUntil": "צ׳ק-אאוט עד {time}"
   },
   "costs": {
-    "title": "כל העלויות",
     "titleSale": "פרטי המחיר",
     "deposit": "פיקדון",
     "cleaningFee": "דמי ניקיון",
-    "utilities": "חשבונות",
     "utilitiesIncluded": "כלולים במחיר",
     "utilitiesNotIncluded": "לא כלולים",
     "utilitiesEstimate": "כ-{amount} לחודש, לא כלולים",
-    "minStay": "שהייה מינימלית",
-    "nights": "{count, plural, one {לילה אחד} two {שני לילות} other {{count} לילות}}",
-    "weeklyDiscount": "הנחה שבועית",
-    "monthlyDiscount": "הנחה חודשית",
-    "percentOff": "{count}% הנחה",
     "pricePerSqm": "מחיר למ״ר",
     "perSqm": "{price} למ״ר",
-    "priceHistory": "שינויי מחיר"
+    "priceHistory": "שינויי מחיר",
+    "minStayText": "{count, plural, one {מינימום חודש אחד} other {מינימום {count} חודשים}}",
+    "weeklyDiscountText": "הנחה שבועית: {count}%",
+    "monthlyDiscountText": "הנחה חודשית: {count}%",
+    "minStayNightsText": "{count, plural, one {מינימום לילה אחד} other {מינימום {count} לילות}}"
   },
   "details": {
     "title": "פרטי הנכס",
-    "dealType": "סוג עסקה",
     "propertyType": "סוג נכס",
-    "rooms": "חדרים",
-    "bedrooms": "חדרי שינה",
-    "bathrooms": "חדרי רחצה",
-    "beds": "מיטות",
-    "bedsDouble": "{count, plural, one {זוגית אחת} other {{count} זוגיות}}",
-    "bedsSingle": "{count, plural, one {יחיד אחת} other {{count} יחיד}}",
-    "bedsSofa": "{count, plural, one {ספה נפתחת אחת} other {{count} ספות נפתחות}}",
-    "maxGuests": "אורחים (מקסימום)",
     "sharedRoomFor": "חדר בדירת שותפים עבור",
-    "size": "שטח",
     "floor": "קומה",
     "floorOf": "{floor} מתוך {total}",
     "elevator": "מעלית",
@@ -234,25 +197,29 @@
   },
   "calendar": {
     "title": "זמינות",
-    "subtitle": "החודש והחודש הבא. המארח מעדכן את היומן.",
-    "allFree": "אין תאריכים תפוסים החודש ובחודש הבא. בקשו מהמארח לאשר את התאריכים שלכם.",
     "available": "פנוי",
     "booked": "תפוס",
     "past": "עבר",
-    "today": "היום"
+    "pickIn": "בחרו תאריך הגעה",
+    "pickOut": "עכשיו בחרו תאריך עזיבה",
+    "range": "{range} · {nights}",
+    "nights": "{count, plural, one {לילה אחד} two {שני לילות} other {{count} לילות}}",
+    "minStay": "{count, plural, one {מינימום לילה אחד} other {מינימום {count} לילות}}",
+    "checkIn": "הגעה",
+    "checkOut": "עזיבה",
+    "previous": "החודש הקודם",
+    "next": "החודש הבא",
+    "clear": "ניקוי תאריכים"
   },
   "map": {
-    "title": "איפה זה",
+    "title": "המיקום",
     "note": "העיגול מראה את האזור המשוער. את הכתובת המדויקת תקבלו אחרי שתיצרו קשר.",
     "label": "מפה של האזור המשוער: {place}",
-    "loading": "טוען את המפה…"
+    "loading": "טוען את המפה…",
+    "noteBooking": "המיקום המדויק יישלח אחרי ההזמנה"
   },
   "nearby": {
     "note": "זמני ההליכה הם הערכה לפי המפה.",
-    "synagogue": "בית כנסת",
-    "chabad": "בית חב״ד",
-    "kosherFood": "אוכל כשר",
-    "mikveh": "מקווה",
     "supermarket": "סופרמרקט",
     "airport": "שדה תעופה",
     "walk": "{count, plural, one {דקת הליכה} other {{count} דק׳ הליכה}}",
@@ -264,14 +231,6 @@
       "bus": "תחנת אוטובוס"
     }
   },
-  "reviews": {
-    "title": "ביקורות",
-    "empty": "עדיין אין ביקורות."
-  },
-  "safety": {
-    "label": "בטיחות",
-    "reportHint": "משהו לא תקין במודעה? ספרו לנו."
-  },
   "similar": {
     "title": "נכסים דומים",
     "viewAll": "עוד בעיר הזו"
@@ -282,18 +241,116 @@
     "search": "לכל המודעות",
     "home": "חזרה לדף הבית"
   },
-  "facts": {
-    "title": "פרטים עיקריים",
-    "elevator": "מעלית",
-    "furnished": "מרוהט"
-  },
-  "price": {
-    "perSqm": "{price} למ״ר",
-    "dropped": "המחיר ירד לאחרונה"
-  },
   "host": {
     "title": "המארח",
     "profile": "לפרופיל ולכל המודעות",
     "titleSale": "המפרסם"
+  },
+  "hostLine": {
+    "hostedBy": "מארח: <name></name>",
+    "listedBy": "מפרסם: <name></name>",
+    "verified": "מאומת",
+    "pledge": "המארח התחייב לקבל ישראלים בברכה",
+    "pledgeSale": "המפרסם התחייב לקבל ישראלים בברכה"
+  },
+  "highlights": {
+    "label": "מה מיוחד במקום",
+    "self_check_in": "צ׳ק-אין עצמי",
+    "sea_view": "נוף לים",
+    "kosher_kitchen": "מטבח כשר",
+    "mountain_view": "נוף להרים",
+    "pool": "בריכה",
+    "near_sea": "קרוב לים",
+    "near_ski_lifts": "ליד הרכבל",
+    "yard": "חצר",
+    "balcony_terrace": "מרפסת",
+    "workspace": "פינת עבודה",
+    "parking": "חניה",
+    "washing_machine": "מכונת כביסה",
+    "air_conditioning": "מיזוג אוויר"
+  },
+  "kosher": {
+    "title": "כשרות ושבת",
+    "yes": "יש",
+    "kitchen": "המטבח",
+    "supervision": "השגחת כשרות",
+    "food": "אוכל כשר",
+    "checklist": "שבת במקום",
+    "line": {
+      "key": {
+        "ok": "מפתח רגיל (לא קוד ולא מנעול חשמלי)",
+        "no": "אין מפתח רגיל (קוד או מנעול חשמלי)"
+      },
+      "elevator": {
+        "ok": "מדרגות או מעלית שבת",
+        "no": "אין מעלית שבת",
+        "noFloor": "אין מעלית שבת · קומה {floor}"
+      },
+      "sensors": {
+        "ok": "אין חיישני תנועה בכניסה",
+        "no": "יש חיישני תנועה בכניסה"
+      },
+      "hotPlate": {
+        "ok": "פלטה",
+        "no": "אין פלטה"
+      },
+      "urn": {
+        "ok": "מיחם",
+        "no": "אין מיחם"
+      },
+      "timers": {
+        "ok": "שעון שבת לתאורה",
+        "no": "אין שעון שבת לתאורה"
+      },
+      "sukkah": {
+        "ok": "יש מקום לסוכה",
+        "no": "אין מקום לסוכה"
+      }
+    },
+    "nearestSynagogue": "בית הכנסת הקרוב",
+    "nearestChabad": "בית חב״ד הקרוב",
+    "walk": "{count, plural, one {דקת הליכה אחת} other {{count} דקות הליכה}}",
+    "times": "זמני שבת ב{city}"
+  },
+  "booking": {
+    "boxLabel": "הזמנה",
+    "barLabel": "מחיר והזמנה",
+    "datesTitle": "בחירת תאריכים",
+    "chooseDates": "בחירת תאריכים",
+    "book": "הזמנה",
+    "clear": "ניקוי",
+    "done": "אישור",
+    "summary": "{nights} · סה״כ {total}",
+    "times": "{price} × {nights}",
+    "cleaningFee": "דמי ניקיון",
+    "total": "סה״כ",
+    "checkIn": "הגעה",
+    "checkOut": "עזיבה",
+    "addDate": "הוספת תאריך",
+    "more": "עוד אפשרויות",
+    "ask": "שאלה למארח"
+  },
+  "book": {
+    "title": "ההזמנה באתר תיפתח בקרוב",
+    "text": "בינתיים אפשר לשאול את המארח על התאריכים שבחרתם.",
+    "back": "חזרה למודעה"
+  },
+  "important": {
+    "title": "חשוב לדעת",
+    "times": "צ׳ק-אין וצ׳ק-אאוט",
+    "costs": "תשלומים נוספים",
+    "rules": "כללי הבית",
+    "showAll": "הצגת הכל",
+    "cancellation": "ביטול",
+    "policy": {
+      "FLEXIBLE": "אפשר לבטל עד 24 שעות לפני ההגעה.",
+      "MODERATE": "אפשר לבטל עד 5 ימים לפני ההגעה.",
+      "STRICT": "אפשר לבטל עד 14 ימים לפני ההגעה.",
+      "none": "את תנאי הביטול כדאי לסכם עם המארח לפני ההגעה."
+    },
+    "payment": "תשלום",
+    "paymentText": "משלמים למארח בהגעה. בית לא גובה תשלום.",
+    "safety": "לפני כל תשלום",
+    "videoTip": "בקשו שיחת וידאו חיה שבה מראים לכם את המקום ודף עם התאריך של היום ומספר המודעה (<ltr>{id}</ltr>)."
   }
 }

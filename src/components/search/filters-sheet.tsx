@@ -186,10 +186,13 @@ export function FiltersSheet({
             </div>
           ) : null}
           <div className="flex items-center gap-3">
-            <Button type="button" variant="ghost" onClick={clearAll} disabled={chips.length === 0} className="shrink-0 px-3">
+            {/* Phones: the sheet's header already has "Clear" (same action), so the apply button gets the
+                whole row; long Georgian/Russian labels pushed it off the screen (bug 8.3). */}
+            <Button type="button" variant="ghost" onClick={clearAll} disabled={chips.length === 0} className="shrink-0 px-3 max-sm:hidden">
               {s("clearAll")}
             </Button>
-            <Button type="button" size="lg" block onClick={apply} aria-live="polite" className="min-w-0 flex-1">
+            {/* `shrink`: the design-system Button is shrink-0 by default. */}
+            <Button type="button" size="lg" block onClick={apply} aria-live="polite" className="min-w-0 flex-1 shrink">
               <span className={cn("truncate transition-opacity duration-(--motion-fast)", counting && "opacity-70")}>
                 {shownCount === null
                   ? t("showResults")

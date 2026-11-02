@@ -3,7 +3,7 @@
 import { useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { useLocale } from "next-intl";
-import { CalendarDays, MapPin, Minus, Plus, Search, Users } from "lucide-react";
+import { BedDouble, CalendarDays, MapPin, Minus, Plus, Search, Users, type LucideIcon } from "lucide-react";
 import { Ltr } from "@/components/common/ltr";
 import { Button } from "@/components/ds/button";
 import { SegmentedControl } from "@/components/ds/segmented-control";
@@ -41,6 +41,10 @@ export type HomeSearchLabels = {
   moreGuests: string;
   rooms: string;
   roomsAny: string;
+  /** "1 or more rooms" … (index = count - 1), read out by screen readers next to "2+". */
+  roomCounts: string[];
+  fewerRooms: string;
+  moreRooms: string;
   budget: string;
   budgetMonthly: string;
   budgetPlaceholder: string;
@@ -58,9 +62,11 @@ const INITIAL: HomeSearchState = {
 };
 
 /**
- * The home search card: the four deal tabs, "Where to?" with instant suggestions, then "When?" and
- * "How many guests?" for short stays and hotels, or rooms and a budget for monthly rentals and
- * buying, and a big navy "Search" → /search?…
+ * The home search card (brief round 2, 3.8 and 5.2): the four deal tabs, "Where to?" with instant
+ * suggestions, then two half-width fields ("When?" + "Guests" for short stays and hotels, "Rooms" +
+ * "Budget" for monthly rentals and buying) and a full-width purple "Search" → /search?…
+ * Every tab has the same height, so the card never jumps and always fits above the bottom nav.
+ * White with a soft shadow in light mode; a #18161F card with a hairline border in dark mode.
  */
 export function HomeSearchCard({
   labels,
@@ -102,12 +108,14 @@ export function HomeSearchCard({
         ? formatDate(state.checkIn, locale, { day: "numeric", month: "short" })
         : null;
 
+  const maxRooms = HOME_ROOM_OPTIONS[HOME_ROOM_OPTIONS.length - 1];
+
   return (
     <form
       role="search"
       aria-label={labels.label}
       onSubmit={submit}
-      className="rounded-card bg-card p-3 text-start text-card-foreground shadow-raised ring-1 ring-foreground/5 sm:p-5"
+      className="rounded-card bg-card p-3 text-start text-card-foreground shadow-raised sm:p-4 md:p-5 dark:border dark:border-border dark:shadow-none"
     >
       <SegmentedControl
         aria-label={labels.dealLabel}
@@ -123,14 +131,7 @@ export function HomeSearchCard({
         )}
       />
 
-      <div
-        className={cn(
-          "mt-3 grid grid-cols-2 gap-2 sm:gap-3 md:mt-4 md:items-stretch",
-          withDates
-            ? "md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,0.9fr)_auto]"
-            : "md:grid-cols-[minmax(0,1.3fr)_minmax(0,1.2fr)_minmax(0,1fr)_auto]",
-        )}
-      >
+      <div className="mt-3 grid grid-cols-2 gap-2 md:mt-4 md:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_auto] md:items-stretch md:gap-3">
         <Field icon={MapPin} className="col-span-2 md:col-span-1">
           <PlaceCombobox
             value={state.place}
@@ -155,72 +156,49 @@ export function HomeSearchCard({
               aria-haspopup="dialog"
               className={cn(fieldClass, "text-start outline-none focus-visible:ring-3 focus-visible:ring-ring/50")}
             >
-              <CalendarDays className="size-5 shrink-0 text-primary" aria-hidden="true" />
+              <CalendarDays className="size-5 shrink-0 text-primary max-[379px]:hidden" aria-hidden="true" />
               <span className="grid min-w-0">
-                <span className="text-caption font-semibold text-foreground">{labels.when}</span>
-                <span className={`truncate text-small ${datesValue ? "font-medium text-foreground" : "text-muted-foreground"}`}>
+                <span className="truncate text-caption font-semibold text-foreground">{labels.when}</span>
+                <span className={`truncate text-small ${datesValue ? "font-medium text-foreground" : "text-placeholder"}`}>
                   {datesValue ?? labels.addDates}
                 </span>
               </span>
             </button>
 
-            <div role="group" aria-labelledby={`${ids}-guests`} className={cn(fieldClass, "pe-1.5")}>
-              <Users className="size-5 shrink-0 text-primary max-[379px]:hidden" aria-hidden="true" />
-              <span className="grid min-w-0 flex-1">
-                <span id={`${ids}-guests`} className="truncate text-caption font-semibold text-foreground">
-                  {labels.guests}
-                </span>
-                <span className="flex items-center justify-between gap-1">
-                  <StepButton
-                    label={labels.fewerGuests}
-                    disabled={state.guests <= 0}
-                    onClick={() => patch({ guests: Math.max(0, state.guests - 1) })}
-                  >
-                    <Minus className="size-4" aria-hidden="true" />
-                  </StepButton>
-                  <output
-                    aria-live="polite"
-                    aria-label={state.guests > 0 ? labels.guestCounts[state.guests - 1] : labels.guestsAny}
-                    className={`min-w-6 text-center ${state.guests > 0 ? "text-base font-semibold" : "text-small text-muted-foreground"}`}
-                  >
-                    {state.guests > 0 ? formatNumber(state.guests, locale) : labels.guestsAny}
-                  </output>
-                  <StepButton
-                    label={labels.moreGuests}
-                    disabled={state.guests >= MAX_GUESTS}
-                    onClick={() => patch({ guests: Math.min(MAX_GUESTS, state.guests + 1) })}
-                  >
-                    <Plus className="size-4" aria-hidden="true" />
-                  </StepButton>
-                </span>
-              </span>
-            </div>
+            <StepperField
+              id={`${ids}-guests`}
+              icon={Users}
+              label={labels.guests}
+              value={state.guests}
+              max={MAX_GUESTS}
+              display={state.guests > 0 ? formatNumber(state.guests, locale) : labels.guestsAny}
+              spoken={state.guests > 0 ? labels.guestCounts[state.guests - 1] : labels.guestsAny}
+              fewer={labels.fewerGuests}
+              more={labels.moreGuests}
+              onChange={(guests) => patch({ guests })}
+            />
           </>
         ) : (
           <>
-            <div className="col-span-2 grid gap-1 rounded-input border bg-background px-3 py-2 md:col-span-1">
-              <span id={`${ids}-rooms`} className="text-caption font-semibold text-foreground">
-                {labels.rooms}
-              </span>
-              <SegmentedControl
-                aria-labelledby={`${ids}-rooms`}
-                size="sm"
-                tone="card"
-                options={HOME_ROOM_OPTIONS.map((rooms) => ({
-                  value: String(rooms),
-                  label: rooms === 0 ? labels.roomsAny : `${formatNumber(rooms, locale)}+`,
-                }))}
-                value={String(state.rooms)}
-                onValueChange={(value) => patch({ rooms: Number(value) })}
-              />
-            </div>
+            <StepperField
+              id={`${ids}-rooms`}
+              icon={BedDouble}
+              label={labels.rooms}
+              value={state.rooms}
+              max={maxRooms}
+              display={state.rooms > 0 ? <Ltr>{`${formatNumber(state.rooms, locale)}+`}</Ltr> : labels.roomsAny}
+              spoken={state.rooms > 0 ? labels.roomCounts[state.rooms - 1] : labels.roomsAny}
+              fewer={labels.fewerRooms}
+              more={labels.moreRooms}
+              onChange={(rooms) => patch({ rooms })}
+            />
 
-            <label className={cn(fieldClass, "col-span-2 cursor-text md:col-span-1")}>
+            <label className={cn(fieldClass, "cursor-text")}>
               <span className="grid min-w-0 flex-1">
-                <span className="text-caption font-semibold text-foreground">
+                <span className="truncate text-caption font-semibold text-foreground">
                   {state.deal === "monthly" ? labels.budgetMonthly : labels.budget}
                 </span>
-                <span className="flex items-center gap-1.5">
+                <span className="flex min-w-0 items-center gap-1">
                   <Ltr className="text-base font-semibold text-muted-foreground">{symbol}</Ltr>
                   <input
                     type="text"
@@ -233,7 +211,7 @@ export function HomeSearchCard({
                       setBudgetText(budget ? formatNumber(budget, locale) : "");
                       patch({ budget });
                     }}
-                    className="h-7 w-full min-w-0 bg-transparent text-start text-base text-foreground tabular-nums outline-none placeholder:text-muted-foreground"
+                    className="h-7 w-full min-w-0 bg-transparent text-start text-base text-foreground tabular-nums outline-none placeholder:text-placeholder"
                   />
                 </span>
               </span>
@@ -241,7 +219,7 @@ export function HomeSearchCard({
           </>
         )}
 
-        <Button type="submit" size="lg" block className="col-span-2 h-13 md:col-span-1 md:h-auto md:min-h-14 md:w-auto md:px-8">
+        <Button type="submit" size="lg" block className="col-span-2 md:col-span-1 md:h-auto md:min-h-14 md:w-auto md:px-8">
           <Search className="size-5" aria-hidden="true" />
           {labels.submit}
         </Button>
@@ -269,13 +247,65 @@ function compactStay(checkIn: string, checkOut: string, locale: string): string 
 }
 
 const fieldClass =
-  "flex min-h-14 min-w-0 items-center gap-2.5 rounded-input border bg-background px-3 py-2 transition-colors focus-within:border-ring hover:border-input";
+  "flex min-h-14 min-w-0 items-center gap-2.5 rounded-input border border-border-strong bg-background px-3 py-2 transition-colors focus-within:border-ring hover:border-input";
 
-function Field({ icon: Icon, className, children }: { icon: typeof MapPin; className?: string; children: ReactNode }) {
+function Field({ icon: Icon, className, children }: { icon: LucideIcon; className?: string; children: ReactNode }) {
   return (
     <div className={cn(fieldClass, className)}>
       <Icon className="size-5 shrink-0 text-primary" aria-hidden="true" />
       {children}
+    </div>
+  );
+}
+
+/** A half-width field with a visible label and − value + buttons (guests, rooms). 0 = any. */
+function StepperField({
+  id,
+  icon: Icon,
+  label,
+  value,
+  max,
+  display,
+  spoken,
+  fewer,
+  more,
+  onChange,
+}: {
+  id: string;
+  icon: LucideIcon;
+  label: string;
+  value: number;
+  max: number;
+  display: ReactNode;
+  /** What a screen reader hears for the value ("2 guests", "Any"). */
+  spoken: string;
+  fewer: string;
+  more: string;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <div role="group" aria-labelledby={id} className={cn(fieldClass, "gap-2 pe-1.5")}>
+      <Icon className="size-5 shrink-0 text-primary max-[379px]:hidden" aria-hidden="true" />
+      <span className="grid min-w-0 flex-1">
+        <span id={id} className="truncate text-caption font-semibold text-foreground">
+          {label}
+        </span>
+        <span className="flex items-center justify-between gap-1">
+          <StepButton label={fewer} disabled={value <= 0} onClick={() => onChange(Math.max(0, value - 1))}>
+            <Minus className="size-4" aria-hidden="true" />
+          </StepButton>
+          <output
+            aria-live="polite"
+            aria-label={spoken}
+            className={`min-w-6 truncate text-center ${value > 0 ? "text-base font-semibold" : "text-small text-placeholder"}`}
+          >
+            {display}
+          </output>
+          <StepButton label={more} disabled={value >= max} onClick={() => onChange(Math.min(max, value + 1))}>
+            <Plus className="size-4" aria-hidden="true" />
+          </StepButton>
+        </span>
+      </span>
     </div>
   );
 }
@@ -297,7 +327,7 @@ function StepButton({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="relative inline-flex size-8 shrink-0 items-center justify-center rounded-full border bg-card text-foreground outline-none transition-colors before:absolute before:-inset-1.5 before:content-[''] hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-35"
+      className="relative inline-flex size-8 shrink-0 items-center justify-center rounded-full border border-border-strong bg-card text-foreground outline-none transition-colors before:absolute before:-inset-1.5 before:content-[''] hover:bg-surface-muted focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-35"
     >
       {children}
     </button>

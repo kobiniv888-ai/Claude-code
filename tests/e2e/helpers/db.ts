@@ -244,7 +244,7 @@ export async function cleanupTestData(opts: { since?: Date } = {}) {
   await sql(`DELETE FROM "Report" WHERE id = ANY($1)`, [reports.map((r) => r.id)]);
   await sql(`DELETE FROM "ContactClick" WHERE "userId" = ANY($1)`, [userIds]);
   await sql(`DELETE FROM "EmailOutbox" WHERE "to" = ANY($1) OR "to" LIKE $2`, [users.map((u) => u.email), `%@${TEST_EMAIL_DOMAIN}`]);
-  await sql(`DELETE FROM "Verification" WHERE identifier LIKE $1`, [`${TEST_PHONE_PREFIX}%`]);
+  await sql(`DELETE FROM "Verification" WHERE identifier LIKE $1 OR identifier LIKE $2`, [`${TEST_PHONE_PREFIX}%`, `%@${TEST_EMAIL_DOMAIN}`]);
   await sql(`DELETE FROM "Listing" WHERE id = ANY($1)`, [listingIds]);
   await sql(`DELETE FROM "User" WHERE id = ANY($1)`, [userIds]);
   // Sessions the tests opened for demo users (admin, guest…), recognised by the user agent.

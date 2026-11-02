@@ -8,6 +8,11 @@ export const AUTH_HOOK_ERRORS = {
   RATE_LIMITED: "RATE_LIMITED",
   COUNTRY_NOT_SUPPORTED: "COUNTRY_NOT_SUPPORTED",
   SMS_UNAVAILABLE: "SMS_UNAVAILABLE",
+  /** Phone login over HTTP outside development/test mode (phone codes only verify a number there). */
+  PHONE_LOGIN_DISABLED: "PHONE_LOGIN_DISABLED",
+  INVALID_EMAIL: "INVALID_EMAIL",
+  /** No email service (Resend) and codes may not be shown on screen. */
+  EMAIL_UNAVAILABLE: "EMAIL_UNAVAILABLE",
   ACCOUNT_SUSPENDED: "ACCOUNT_SUSPENDED",
   ACCOUNT_BANNED: "ACCOUNT_BANNED",
   ACCOUNT_DELETED: "ACCOUNT_DELETED",
@@ -20,6 +25,9 @@ export type AuthErrorKey =
   | "code_expired"
   | "too_many_attempts"
   | "invalid_phone"
+  | "invalid_email"
+  | "email_unavailable"
+  | "phone_login_disabled"
   | "country_not_supported"
   | "rate_limited"
   | "phone_taken"
@@ -58,6 +66,9 @@ const BY_CODE: Record<string, AuthErrorKey> = {
   [AUTH_HOOK_ERRORS.RATE_LIMITED]: "rate_limited",
   [AUTH_HOOK_ERRORS.COUNTRY_NOT_SUPPORTED]: "country_not_supported",
   [AUTH_HOOK_ERRORS.SMS_UNAVAILABLE]: "sms_unavailable",
+  [AUTH_HOOK_ERRORS.PHONE_LOGIN_DISABLED]: "phone_login_disabled",
+  [AUTH_HOOK_ERRORS.INVALID_EMAIL]: "invalid_email",
+  [AUTH_HOOK_ERRORS.EMAIL_UNAVAILABLE]: "email_unavailable",
   [AUTH_HOOK_ERRORS.ACCOUNT_SUSPENDED]: "account_suspended",
   [AUTH_HOOK_ERRORS.ACCOUNT_BANNED]: "account_banned",
   [AUTH_HOOK_ERRORS.ACCOUNT_DELETED]: "account_banned",

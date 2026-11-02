@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { countdownParts, shabbatPhase } from "./countdown";
+import { HOME_CATEGORY_FILTERS, HOME_CATEGORY_KEYS, JEWISH_QUICK_FILTER } from "./categories";
+import { citiesWithListings, HOME_RECOMMENDED_CARDS, mergeRecommended } from "./recommended";
 import { asksForDates, homeSearchFilters, parseBudget, type HomeSearchState } from "./search-card";
 
 const HOUR = 3_600_000;
@@ -94,5 +96,44 @@ describe("home search card", () => {
     expect(parseBudget("")).toBeNull();
     expect(parseBudget("0")).toBeNull();
     expect(parseBudget("abc")).toBeNull();
+  });
+});
+
+describe("mergeRecommended", () => {
+  const card = (id: string) => ({ id });
+
+  it("puts promoted listings first, then the newest, without duplicates", () => {
+    expect(mergeRecommended([card("a"), card("b")], [card("b"), card("c"), card("d")], 3)).toEqual([card("a"), card("b"), card("c")]);
+  });
+
+  it("fills with the newest when nothing is promoted, and stops at the limit", () => {
+    const newest = Array.from({ length: 10 }, (_, i) => card(`n${i}`));
+    expect(mergeRecommended([], newest)).toHaveLength(HOME_RECOMMENDED_CARDS);
+    expect(mergeRecommended([], [])).toEqual([]);
+  });
+});
+
+describe("citiesWithListings", () => {
+  it("drops cities without public listings and keeps the order", () => {
+    expect(
+      citiesWithListings([
+        { slug: "tbilisi", count: 5 },
+        { slug: "mestia", count: 0 },
+        { slug: "batumi", count: 2 },
+      ]).map((c) => c.slug),
+    ).toEqual(["tbilisi", "batumi"]);
+  });
+});
+
+describe("home categories", () => {
+  it("has the six chips of the brief, in order", () => {
+    expect(HOME_CATEGORY_KEYS).toEqual(["apartments", "houses", "rooms", "hotels", "forSale", "kosherShabbat"]);
+  });
+
+  it("opens the search with one filter each; kosher & Shabbat is the Jewish quick filter", () => {
+    expect(HOME_CATEGORY_FILTERS.hotels).toEqual({ deal: "hotels" });
+    expect(HOME_CATEGORY_FILTERS.forSale).toEqual({ deal: "buy" });
+    expect(HOME_CATEGORY_FILTERS.kosherShabbat).toBe(JEWISH_QUICK_FILTER);
+    expect(JEWISH_QUICK_FILTER).toEqual({ kosherShabbat: true });
   });
 });

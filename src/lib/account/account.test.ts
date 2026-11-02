@@ -150,12 +150,20 @@ describe("verification rules", () => {
 
 describe("settings rules", () => {
   it("requires a business name for business accounts", () => {
-    const base = { name: "Dana", spokenLanguages: ["he", "he", "en"], keepsShabbat: true, accountType: "PRIVATE" as const };
+    const base = { name: "Dana", firstName: "Dana", spokenLanguages: ["he", "he", "en"], keepsShabbat: true, accountType: "PRIVATE" as const };
     const parsed = profileSchema.safeParse(base);
     expect(parsed.success && parsed.data.spokenLanguages).toEqual(["he", "en"]);
     expect(profileSchema.safeParse({ ...base, accountType: "BUSINESS" }).success).toBe(false);
     expect(profileSchema.safeParse({ ...base, accountType: "BUSINESS", businessName: "Hotel" }).success).toBe(true);
     expect(profileSchema.safeParse({ ...base, name: " " }).success).toBe(false);
+  });
+
+  it("requires a first name that is not a phone number or an email (bug 8.2)", () => {
+    const base = { name: "Dana Levi", spokenLanguages: [], keepsShabbat: false, accountType: "PRIVATE" as const };
+    expect(profileSchema.safeParse({ ...base, firstName: "  דנה " }).data?.firstName).toBe("דנה");
+    expect(profileSchema.safeParse({ ...base, firstName: "" }).success).toBe(false);
+    expect(profileSchema.safeParse({ ...base, firstName: "+972 50 123 4567" }).success).toBe(false);
+    expect(profileSchema.safeParse({ ...base, firstName: "dana@example.com" }).success).toBe(false);
   });
 
   it("accepts an empty or valid contact email", () => {

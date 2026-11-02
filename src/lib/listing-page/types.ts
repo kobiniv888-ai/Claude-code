@@ -71,6 +71,8 @@ export type RoomTypeData = {
   photos: PagePhoto[];
 };
 
+export type CancellationPolicyKey = "FLEXIBLE" | "MODERATE" | "STRICT";
+
 export type PriceChangeData = { oldPrice: number; newPrice: number; currency: CurrencyCode; changedAt: string };
 
 export type LocalizedText = {
@@ -145,6 +147,8 @@ export type ListingPageData = {
 
   checkInFrom: string | null;
   checkOutUntil: string | null;
+  /** The booking cancellation policy (round 2, phase 4 schema); null = not set yet. */
+  cancellationPolicy: CancellationPolicyKey | null;
   smokingAllowed: boolean | null;
   petsAllowed: boolean | null;
   partiesAllowed: boolean | null;

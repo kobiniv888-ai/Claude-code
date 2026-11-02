@@ -124,7 +124,10 @@
     "ownerType": "מפרסם",
     "postedWithin": "פורסם ב",
     "noMin": "ללא מינימום",
-    "noMax": "ללא מקסימום"
+    "noMax": "ללא מקסימום",
+    "kosherShabbat": "כשר או מתאים לשבת",
+    "kosherShabbatHint": "מטבח כשר, מתאים לשבת או ארוחות כשרות: מספיק אחד מהם",
+    "walkUpTo": "עד {count} דק׳"
   },
   "chips": {
     "heading": "מסננים פעילים",
@@ -135,11 +138,12 @@
     "between": "{min} – {max}",
     "atLeast": "מ-{min}",
     "atMost": "עד {max}",
-    "minRooms": "{value}+ חדרים",
-    "minBedrooms": "{value}+ חדרי שינה",
-    "minBathrooms": "{value}+ חדרי רחצה",
+    "minRooms": "{value} חדרים",
+    "minBedrooms": "{value} חדרי שינה",
+    "minBathrooms": "{value} חדרי רחצה",
     "floor": "קומה {range}",
-    "mapArea": "אזור במפה"
+    "mapArea": "אזור במפה",
+    "kosherShabbat": "כשר או מתאים לשבת"
   },
   "toolbar": {
     "sortLabel": "מיון לפי",
@@ -160,7 +164,8 @@
       "hotels": "מלונות ובתי הארחה"
     },
     "count": "{count, plural, =0 {לא נמצאו נכסים} one {נכס אחד} other {{formatted} נכסים}}",
-    "countIn": "{count, plural, =0 {לא נמצאו נכסים ב{place}} one {נכס אחד ב{place}} other {{formatted} נכסים ב{place}}}"
+    "countIn": "{count, plural, =0 {לא נמצאו נכסים ב{place}} one {נכס אחד ב{place}} other {{formatted} נכסים ב{place}}}",
+    "promise": "כל המארחים כאן התחייבו לקבל ישראלים בברכה"
   },
   "map": {
     "loading": "טוענים את המפה…",
@@ -203,12 +208,15 @@
       "kosher": "כשר",
       "shabbat": "מתאים לשבת",
       "synagogue": "ליד בית כנסת",
-      "hebrew": "דובר עברית"
+      "hebrew": "דובר עברית",
+      "kosherShabbat": "כשר ושבת"
     },
     "anywhere": "כל גאורגיה",
     "anyDates": "הוספת תאריכים",
     "moveIn": "כניסה ב-{date}",
-    "summaryLabel": "שינוי החיפוש: {summary}"
+    "summaryLabel": "שינוי החיפוש: {summary}",
+    "propertyType": "סוג נכס",
+    "propertyTypes": "{count, plural, one {סוג נכס אחד} other {{count} סוגי נכס}}"
   },
   "sort": {
     "title": "מיון לפי",

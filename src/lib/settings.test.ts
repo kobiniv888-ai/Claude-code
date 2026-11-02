@@ -50,6 +50,29 @@ describe("mergeSettings", () => {
     ]);
     expect(settings.homeSections.map((s) => s.key).sort()).toEqual([...HOME_SECTION_KEYS].sort());
   });
+
+  it("migrates round-1 home section keys instead of dropping the saved list", () => {
+    const settings = mergeSettings([
+      {
+        key: "homeSections",
+        value: [
+          { key: "cities", enabled: true },
+          { key: "shabbatTimes", enabled: false },
+          { key: "newest", enabled: true },
+          { key: "whyUs", enabled: true },
+          { key: "safetyStrip", enabled: false },
+          { key: "featured", enabled: true },
+          { key: "constructor", enabled: true },
+        ],
+      },
+    ]);
+    expect(settings.homeSections.slice(0, 3)).toEqual([
+      { key: "cities", enabled: true },
+      { key: "jewishLife", enabled: false },
+      { key: "featured", enabled: true },
+    ]);
+    expect(settings.homeSections.map((s) => s.key).sort()).toEqual([...HOME_SECTION_KEYS].sort());
+  });
 });
 
 describe("getSettings", () => {

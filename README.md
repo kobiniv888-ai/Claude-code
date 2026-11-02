@@ -49,8 +49,11 @@ openssl rand -hex 16      # HASH_SALT
 
 ### Logging in during development
 
-Phone codes are **not sent by SMS** until Twilio is configured. The code is printed in the terminal
-where `npm run dev` runs, and the login page shows it too. Demo users (see `docs/DEMO-DATA.md`):
+The login offers Google (when `GOOGLE_*` is set), a **code by email** (always) and — in development
+or test mode only — a **code by phone**. Without Resend/Twilio nothing is sent: the code is printed
+in the terminal where `npm run dev` runs and the login form shows it on screen. New accounts give
+their first name in one short step. Demo users log in with the phone code ("Log in with a phone
+code (test mode)" under the email form; see `docs/DEMO-DATA.md`):
 
 | Phone | Role |
 |---|---|
@@ -152,9 +155,9 @@ You can do all of this from a phone browser.
    set **Settings → Git → Production Branch** to `claude/website-build-jm62em`.
 
 In a preview, **browsing works right away**. Two things need one more service:
-* **Logging in:** phone codes need Twilio. A free [Twilio trial](https://www.twilio.com/try-twilio)
-  sends codes to your own verified phone. Create a Verify service and add `TWILIO_ACCOUNT_SID`,
-  `TWILIO_AUTH_TOKEN` and `TWILIO_VERIFY_SERVICE_SID`.
+* **Logging in:** email codes need Resend (`RESEND_API_KEY`, free tier); Google needs `GOOGLE_*`.
+  Login codes are never shown on screen on a real domain (`AUTH_TEST_MODE` only works on
+  localhost and Codespaces previews).
 * **Uploading photos** in the post wizard needs Cloudflare R2 storage (see step 2 of "Going live").
 
 Turn `DB_PUSH_ON_BUILD` and `SEED_ON_BUILD` off once the preview is set up.
@@ -176,14 +179,18 @@ Turn `DB_PUSH_ON_BUILD` and `SEED_ON_BUILD` off once the preview is set up.
    (or `npx prisma migrate deploy` if you use migrations). Then
    `DATABASE_URL=<prod url> npm run db:seed` to load cities, FAQ and banned words. Remove the demo
    data afterwards, as described above.
-5. **Phone codes.** Create a [Twilio Verify](https://www.twilio.com/docs/verify) service and fill
-   in `TWILIO_*`. In the Twilio console, turn on **Fraud Guard** and allow only the countries you
-   need (this protects against SMS-pumping fraud). The list of countries we send codes to is also in
-   `src/config/site.ts` → `phone.smsAllowedCountries`.
+5. **Phone codes** (only for bookings and a host's phone check, once per number — not a login on
+   the real site). Create a [Twilio Verify](https://www.twilio.com/docs/verify) service and fill
+   in `TWILIO_*` (or only a Messaging Service: `TWILIO_MESSAGING_SERVICE_SID`). In the Twilio
+   console, turn on **Fraud Guard** and allow only the countries you need (this protects against
+   SMS-pumping fraud). The list of countries we send codes to is also in
+   `src/config/site.ts` → `phone.smsAllowedCountries`. Without it, the phone check says "not
+   available yet".
 6. **Google and Apple login.** Create OAuth credentials and fill in `GOOGLE_*` / `APPLE_*`. The
-   redirect URL is `https://<your domain>/api/auth/callback/google` (or `/apple`).
-7. **Email.** Create a [Resend](https://resend.com) account, verify your domain, and fill in
-   `RESEND_API_KEY` and `EMAIL_FROM`.
+   redirect URL is `https://<your domain>/api/auth/callback/google` (or `/apple`); after Google
+   the visitor lands on `/login`, which asks a new account for its first name and then continues.
+7. **Email** (also the email login codes). Create a [Resend](https://resend.com) account, verify
+   your domain, and fill in `RESEND_API_KEY` and `EMAIL_FROM`. Never set `AUTH_TEST_MODE` here.
 8. **Auto-translation.** Enable the Cloud Translation API in Google Cloud, create an API key
    restricted to it, and set `GOOGLE_TRANSLATE_API_KEY`.
 9. **Cloudflare.** Put the domain behind Cloudflare (CDN and attack protection). Create a
@@ -222,7 +229,9 @@ Turn `DB_PUSH_ON_BUILD` and `SEED_ON_BUILD` off once the preview is set up.
 | `BETTER_AUTH_URL` | Auth base URL | Uses `NEXT_PUBLIC_SITE_URL` |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google login | Button hidden |
 | `APPLE_CLIENT_ID`, `APPLE_CLIENT_SECRET`, `APPLE_APP_BUNDLE_IDENTIFIER` | Apple login | Button hidden |
-| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID` | Phone codes via Twilio Verify | Code printed in the server log (dev) |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID` | Phone codes via Twilio Verify (bookings, host phone check) | Code on screen in dev/test mode; "not available yet" on the real site |
+| `TWILIO_MESSAGING_SERVICE_SID` or `TWILIO_FROM_NUMBER` | Text messages (`sendSms`), phone codes without Verify | Only logged |
+| `AUTH_TEST_MODE` | Show login codes on screen in a production build — only on localhost / `*.app.github.dev` | Off |
 | `TWILIO_VERIFY_CHANNEL` | `sms` or `whatsapp` | `sms` |
 | `TWILIO_LOOKUP_ENABLED` | VoIP-number check during the scam checks | Off |
 | `RESEND_API_KEY`, `EMAIL_FROM` | Sending email | Saved to the dev outbox only |

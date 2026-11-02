@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 import { expect, settle, test } from "./fixtures";
-import { loginThroughForm } from "./helpers/auth";
-import { freshPhone, sql, userIdByPhone } from "./helpers/db";
+import { loginThroughEmailForm } from "./helpers/auth";
+import { TEST_EMAIL_DOMAIN, sql } from "./helpers/db";
 
 /**
  * Definition of done: a guest can search, filter, sort, use the map, open a listing, and message
@@ -47,25 +47,35 @@ test.describe("guest search", () => {
     const url = new URL(page.url());
     expect(url.searchParams.get("city")).toBe("tbilisi");
     expect(url.searchParams.get("deal")).toBe("short-stay");
-    await expect(heading(page)).toHaveText("2 homes in Tbilisi");
+    await expect(heading(page)).toHaveAccessibleName("2 homes in Tbilisi");
     await expect(results(page)).toHaveCount(2);
     await settle(page);
 
-    // Kosher kitchen → 1 result, with a removable chip.
-    await quickFilters(page).getByRole("button", { name: "Kosher", exact: true }).click();
+    // The quick "Kosher & Shabbat" chip (round 2): kosher kitchen OR Shabbat-friendly → both stay.
+    const kosherShabbat = quickFilters(page).getByRole("button", { name: "Kosher & Shabbat", exact: true });
+    await kosherShabbat.click();
+    await expect(page).toHaveURL(/kosherShabbat=1/);
+    await expect(kosherShabbat).toHaveAttribute("aria-pressed", "true");
+    await expect(heading(page)).toHaveAccessibleName("2 homes in Tbilisi");
+    await expect(results(page)).toHaveCount(2);
+    await kosherShabbat.click();
+    await expect(page).not.toHaveURL(/kosherShabbat=/);
+
+    // Kosher kitchen (a switch in the sheet's "Kosher & Shabbat" group) → 1 result, with a removable chip.
+    await inFiltersSheet(page, (sheet) => sheet.getByRole("switch", { name: "Kosher kitchen", exact: true }).click(), "Show 1 home");
     await expect(page).toHaveURL(/kitchen=kosher/);
-    await expect(heading(page)).toHaveText("1 home in Tbilisi");
+    await expect(heading(page)).toHaveAccessibleName("1 home in Tbilisi");
     const chips = page.getByRole("heading", { name: "Active filters" }).locator("xpath=following-sibling::ul[1]");
     const kosherChip = chips.getByRole("button", { name: /Kosher kitchen/ });
     await expect(kosherChip).toBeVisible();
     await kosherChip.click();
     await expect(page).not.toHaveURL(/kitchen=/);
-    await expect(heading(page)).toHaveText("2 homes in Tbilisi");
+    await expect(heading(page)).toHaveAccessibleName("2 homes in Tbilisi");
 
     // Shabbat-friendly → both results stay.
-    await inFiltersSheet(page, (sheet) => sheet.getByRole("button", { name: "Shabbat-friendly", exact: true }).click(), "Show 2 homes");
+    await inFiltersSheet(page, (sheet) => sheet.getByRole("switch", { name: "Shabbat-friendly", exact: true }).click(), "Show 2 homes");
     await expect(page).toHaveURL(/shabbatFriendly=/);
-    await expect(heading(page)).toHaveText("2 homes in Tbilisi");
+    await expect(heading(page)).toHaveAccessibleName("2 homes in Tbilisi");
     await expect(chips.getByRole("button", { name: /Shabbat-friendly/ })).toBeVisible();
 
     // Price range $60–$80 → only the $70 flat.
@@ -80,7 +90,7 @@ test.describe("guest search", () => {
     );
     await expect(page).toHaveURL(/priceMin=60/);
     await expect(page).toHaveURL(/priceMax=80/);
-    await expect(heading(page)).toHaveText("1 home in Tbilisi");
+    await expect(heading(page)).toHaveAccessibleName("1 home in Tbilisi");
     expect(await cardPrices(page)).toEqual([70]);
     const priceChip = chips.getByRole("button", { name: /\$60/ });
     await expect(priceChip).toBeVisible();
@@ -89,7 +99,7 @@ test.describe("guest search", () => {
     await priceChip.click();
     await expect(page).not.toHaveURL(/priceMin=/);
     await chips.getByRole("button", { name: /Shabbat-friendly/ }).click();
-    await expect(heading(page)).toHaveText("2 homes in Tbilisi");
+    await expect(heading(page)).toHaveAccessibleName("2 homes in Tbilisi");
 
     // Sort: price low → high.
     await page.getByRole("button", { name: /^Sort: / }).first().click();
@@ -129,16 +139,16 @@ test.describe("guest contact", () => {
     expect(title).toContain("Kosher apartment");
     await settle(page);
 
-    // Signed out: the WhatsApp button (redesign phase 3) opens the login dialog first.
-    const whatsapp = page.getByRole("button", { name: /Message on WhatsApp/ }).first();
+    // Signed out: "Ask the host" (the owner's WhatsApp; round 2 moved it from the bar into the booking
+    // box on desktop and the "…" menu on phones) opens the login dialog first.
+    const whatsapp = page.getByRole("button", { name: "Ask the host", exact: true }).first();
     await whatsapp.click();
     const dialog = page.getByRole("dialog", { name: "Log in to continue" });
     await expect(dialog).toBeVisible();
 
-    // A brand-new guest signs up in the dialog with a phone code.
-    const phone = await freshPhone();
-    // The dialog starts on +972 for English (redesign phase 1); the helper switches to +995.
-    await loginThroughForm(page, phone, dialog);
+    // A brand-new guest signs up in the dialog with an email code, then gives a first name.
+    const email = `guest-${Date.now()}@${TEST_EMAIL_DOMAIN}`;
+    await loginThroughEmailForm(page, email, dialog, { firstName: "Noa" });
     await expect(dialog).toBeHidden({ timeout: 30_000 });
 
     // After logging in the tap goes on by itself; the first contact shows the safety tip.
@@ -161,7 +171,7 @@ test.describe("guest contact", () => {
     await popup.close();
 
     // The tap is recorded for the owner's stats.
-    const userId = await userIdByPhone(phone);
+    const [{ id: userId }] = await sql<{ id: string }>(`SELECT id FROM "User" WHERE email = $1`, [email]);
     await expect
       .poll(async () => (await sql(`SELECT 1 FROM "ContactClick" c JOIN "Listing" l ON l.id = c."listingId" WHERE c."userId" = $1 AND l."publicId" = 91 AND c.channel = 'WHATSAPP'`, [userId])).length)
       .toBe(1);

@@ -23,7 +23,8 @@
     "onRequest": "Price on request",
     "original": "{price} original",
     "approx": "≈ {price}",
-    "approxHint": "Approximate, at today's exchange rate. The owner's price is {price}."
+    "approxHint": "Approximate, at today's exchange rate. The owner's price is {price}.",
+    "total": "{price} total"
   },
   "favorite": {
     "save": "Save {title}",
@@ -64,5 +65,14 @@
   "empty": {
     "title": "No listings to show",
     "description": "Try another city, other dates or fewer filters."
+  },
+  "facts": {
+    "groundFloor": "Ground floor"
+  },
+  "tags": {
+    "kosherKitchen": "Kosher kitchen",
+    "shabbatFriendly": "Shabbat-friendly",
+    "synagogue": "{count} min to synagogue",
+    "hebrew": "Speaks Hebrew"
   }
 }

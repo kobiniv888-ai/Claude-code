@@ -63,7 +63,10 @@ if [ "$MODE" = "prod" ]; then
   echo "Building for production (a few minutes)…"
   npm run build >> /tmp/bayit-dev.log 2>&1 || { echo "Build failed:"; tail -n 30 /tmp/bayit-dev.log; exit 1; }
   echo "Starting the production server…"
-  setsid nohup npm start > /tmp/bayit-dev.log 2>&1 < /dev/null &
+  # Test mode: login codes on screen (src/lib/auth/code-display.ts). Honored only on localhost and
+  # the Codespaces preview address, never on a real domain. AUTH_TEST_MODE=false turns it off.
+  echo "Login test mode: ${AUTH_TEST_MODE:-true} (codes shown on screen; set AUTH_TEST_MODE=false to turn off)"
+  AUTH_TEST_MODE="${AUTH_TEST_MODE:-true}" setsid nohup npm start > /tmp/bayit-dev.log 2>&1 < /dev/null &
 else
   if answering; then
     echo "Bayit is running: ${url}/he"

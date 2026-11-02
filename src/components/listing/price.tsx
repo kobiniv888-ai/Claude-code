@@ -17,6 +17,8 @@ const sizes = {
   sm: { main: "text-sm font-semibold", extra: "text-xs" },
   md: { main: "text-base font-semibold", extra: "text-xs" },
   lg: { main: "text-2xl font-bold tracking-tight", extra: "text-sm" },
+  /** Round 2 listing card: 16px / 600, the unit and the stay total in grey 14px. */
+  line: { main: "text-base leading-snug font-semibold", extra: "text-sm text-muted-foreground" },
   /** Listing card v2: big and heavy, the unit beside it. */
   card: { main: "text-xl font-extrabold tracking-tight", extra: "text-sm font-medium" },
   /** Listing page contact bar: compact but heavy. */
@@ -42,6 +44,11 @@ export type PriceProps = {
   stacked?: boolean;
   /** Short form for big numbers ("₪1.2M"); "auto" = only for totals (sales) from 100,000. */
   compact?: boolean | "auto";
+  /**
+   * Nights of the searched stay: adds "₪1,260 סה״כ" in grey after a nightly price (not for
+   * "from" prices, whose total depends on the room).
+   */
+  nights?: number | null;
   className?: string;
 };
 
@@ -58,6 +65,7 @@ export function Price({
   size = "md",
   stacked = false,
   compact = false,
+  nights = null,
   className,
 }: PriceProps) {
   const t = useTranslations("listingCard.price");
@@ -78,6 +86,13 @@ export function Price({
   const suffix = (PERIODS_WITH_SUFFIX as readonly string[]).includes(period)
     ? t(`per.${period as (typeof PERIODS_WITH_SUFFIX)[number]}`)
     : null;
+  const totalAmount = nights && nights > 0 && period === "NIGHT" && !from ? amount * nights : null;
+  const total =
+    totalAmount === null
+      ? null
+      : converted
+        ? t("approx", { price: isolate(format(totalAmount, currency, { maximumFractionDigits: 0 })) })
+        : formatMoney(totalAmount, currency, locale);
 
   return (
     <span
@@ -90,6 +105,12 @@ export function Price({
         </span>
         {suffix && <span className={cn(style.extra, "text-muted-foreground")}>{suffix}</span>}
       </span>
+      {total && (
+        <span className={cn(style.extra, "font-normal text-muted-foreground")}>
+          <span aria-hidden="true">· </span>
+          {t("total", { price: isolate(total) })}
+        </span>
+      )}
       {converted && showOriginal && (
         <span className={cn(style.extra, "text-muted-foreground")}>
           {!stacked && <span aria-hidden="true">· </span>}

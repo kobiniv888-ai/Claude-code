@@ -26,6 +26,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { locales, siteConfig, type AppLocale } from "@/config/site";
 import { usePathname, useRouter } from "@/i18n/navigation";
+import { FIRST_NAME_MAX } from "@/lib/auth/first-name";
 import {
   deleteMyAccount,
   removeAvatar,
@@ -216,6 +217,7 @@ export function ProfileForm({ data, languageNames }: { data: AccountSettingsData
   const id = useId();
   const { pending, save, fieldErrors } = useSave();
   const [name, setName] = useState(data.name);
+  const [firstName, setFirstName] = useState(data.firstName ?? "");
   const [bio, setBio] = useState(data.bio ?? "");
   const [languages, setLanguages] = useState<string[]>(data.spokenLanguages);
   const [keepsShabbat, setKeepsShabbat] = useState(data.keepsShabbat);
@@ -233,7 +235,7 @@ export function ProfileForm({ data, languageNames }: { data: AccountSettingsData
       className="grid gap-5"
       onSubmit={(event) => {
         event.preventDefault();
-        save(() => updateProfile({ name, bio, spokenLanguages: languages, keepsShabbat, accountType, businessName }));
+        save(() => updateProfile({ name, firstName, bio, spokenLanguages: languages, keepsShabbat, accountType, businessName }));
       }}
     >
       <AvatarField name={data.name} image={data.image} />
@@ -258,6 +260,28 @@ export function ProfileForm({ data, languageNames }: { data: AccountSettingsData
           {t("nameHint")}
         </p>
         <FieldError id={`${id}-name-error`} errors={fieldErrors.name} />
+      </div>
+
+      <div className="grid gap-1.5">
+        <label htmlFor={`${id}-first-name`} className="text-sm font-medium">
+          {t("firstName")}
+        </label>
+        <Input
+          id={`${id}-first-name`}
+          dir="auto"
+          value={firstName}
+          maxLength={FIRST_NAME_MAX}
+          required
+          autoComplete="given-name"
+          aria-invalid={!!fieldErrors.firstName}
+          aria-describedby={fieldErrors.firstName ? `${id}-first-name-error` : `${id}-first-name-hint`}
+          onChange={(e) => setFirstName(e.target.value)}
+          className="h-11 rounded-xl bg-background"
+        />
+        <p id={`${id}-first-name-hint`} className="text-xs text-muted-foreground">
+          {t("firstNameHint")}
+        </p>
+        <FieldError id={`${id}-first-name-error`} errors={fieldErrors.firstName} />
       </div>
 
       <div className="grid gap-1.5">

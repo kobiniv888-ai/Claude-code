@@ -5,6 +5,9 @@
 #
 #   bash .devcontainer/start-prod.sh
 #
+# Login test mode is ON here (AUTH_TEST_MODE=true: login codes on screen, only for localhost and
+# the Codespaces address). To see the real behavior: AUTH_TEST_MODE=false bash .devcontainer/start-prod.sh
+#
 # Back to development mode (hot reload): bash .devcontainer/start.sh
 # Build and server log: /tmp/bayit-dev.log.
 set -u

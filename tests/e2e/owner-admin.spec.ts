@@ -41,7 +41,7 @@ test("a new user signs up, posts a listing with photos and it goes into review",
   ownerPhone = await freshPhone();
   await page.goto("/en/login");
   await settle(page);
-  await loginThroughForm(page, ownerPhone);
+  await loginThroughForm(page, ownerPhone, page, { firstName: "Dana" });
   // Without ?next= the login page continues to the account (the first visit may compile it).
   await expect(page).toHaveURL(/\/en\/account$/, { timeout: 90_000 });
   await expect(page.getByRole("banner").getByRole("link", { name: "Log in" })).toBeHidden({ timeout: 30_000 });
@@ -164,8 +164,9 @@ test("an admin approves the listing and it becomes public", async ({ browser }) 
   await visitor.page.goto(`/en/listing/${posted.publicId}`);
   await expect(visitor.page.getByRole("heading", { level: 1, name: posted.title })).toBeVisible();
   await expect(visitor.page).toHaveURL(new RegExp(`/en/listing/${posted.publicId}-e2e-mountain-flat-in-mestia`));
-  // The owner accepted the Bayit pledge while posting: the listing shows the green badge.
-  await expect(visitor.page.getByText("Welcomes Israelis", { exact: true }).first()).toBeVisible();
+  // The owner accepted the Bayit pledge while posting: the host block shows the pledge line (round 2:
+  // one line with a shield instead of the green badge).
+  await expect(visitor.page.getByText(/^The (host|seller) has pledged to welcome Israelis$/).first()).toBeVisible();
   expect(visitor.consoleErrors).toEqual([]);
   await visitor.context.close();
 });

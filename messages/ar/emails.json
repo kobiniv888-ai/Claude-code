@@ -14,6 +14,15 @@
     "tagline": "منازل في جورجيا للمسافرين والعائلات والمستثمرين اليهود"
   },
   "templates": {
+    "login_code": {
+      "subject": "{code} هو رمز الدخول إلى {brand}",
+      "preheader": "الرمز صالح لمدة {minutes, plural, zero {{minutes} دقيقة} one {دقيقة واحدة} two {دقيقتين} few {{minutes} دقائق} many {{minutes} دقيقة} other {{minutes} دقيقة}}.",
+      "heading": "رمز الدخول الخاص بك",
+      "body1": "أدخل هذا الرمز لتسجيل الدخول إلى {brand}:",
+      "codeLabel": "رمز الدخول",
+      "body2": "الرمز صالح لمدة {minutes, plural, zero {{minutes} دقيقة} one {دقيقة واحدة} two {دقيقتين} few {{minutes} دقائق} many {{minutes} دقيقة} other {{minutes} دقيقة}}. إذا لم تطلبه، يمكنك تجاهل هذه الرسالة.",
+      "body3": "لا تشارك هذا الرمز أبدًا. لن يطلبه منك فريق {brand} عبر الهاتف أو الدردشة."
+    },
     "welcome": {
       "subject": "أهلًا بك في {brand}",
       "preheader": "ابحث عن منزل في جورجيا، أو انشر منزلك في دقائق.",

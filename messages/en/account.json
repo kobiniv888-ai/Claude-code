@@ -92,7 +92,8 @@
       "favoritesHint": "{count, plural, =0 {Nothing saved yet} one {{countText} saved} other {{countText} saved}}",
       "support": "Help and support",
       "supportHint": "{count, plural, =0 {No open tickets} one {{countText} open ticket} other {{countText} open tickets}}"
-    }
+    },
+    "greetingNoName": "Hello!"
   },
   "listings": {
     "title": "My listings",
@@ -384,7 +385,8 @@
     "fieldErrors": {
       "invalid": "Please check this field.",
       "required": "This field is required.",
-      "invalid_email": "Please enter a valid email address."
+      "invalid_email": "Please enter a valid email address.",
+      "not_a_name": "Enter a name, not a phone number or email."
     },
     "profile": {
       "title": "Profile",
@@ -399,6 +401,8 @@
       "photoHint": "A friendly, clear photo of your face builds trust. Hidden data (like location) is removed.",
       "name": "Name",
       "nameHint": "Use your real name — it must match your ID for verification.",
+      "firstName": "First name",
+      "firstNameHint": "How we greet you on the site: “Hello, …”",
       "bio": "About you",
       "bioPlaceholder": "A few words about you and your place, in any language.",
       "languages": "Languages you speak",

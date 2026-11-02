@@ -1,4 +1,5 @@
 import "server-only";
+import { firstNameOf, safeDisplayName } from "@/lib/auth/first-name";
 import type { AppLocale, CurrencyCode } from "@/config/site";
 import type { Prisma } from "@/generated/prisma/client";
 import type { AccountType, DealType, ListingStatus, Locale, PricePeriod, VerificationStatus, VerificationType } from "@/generated/prisma/enums";
@@ -436,6 +437,8 @@ export type ConnectedProvider = "google" | "apple";
 
 export type AccountSettingsData = {
   name: string;
+  /** Null until the first-name step; the form starts from the first word of a real name. */
+  firstName: string | null;
   image: string | null;
   bio: string | null;
   spokenLanguages: string[];
@@ -467,6 +470,7 @@ export async function getAccountSettings(userId: string): Promise<AccountSetting
     select: {
       name: true,
       image: true,
+      firstName: true,
       bio: true,
       spokenLanguages: true,
       keepsShabbat: true,
@@ -487,7 +491,8 @@ export async function getAccountSettings(userId: string): Promise<AccountSetting
   const providers = (["google", "apple"] as const).filter((p) => authProviders[p]);
   const linkedIds = new Set(user.accounts.map((a) => a.providerId));
   return {
-    name: user.name,
+    name: safeDisplayName(user.name) ?? "",
+    firstName: firstNameOf(user),
     image: user.image,
     bio: user.bio,
     spokenLanguages: user.spokenLanguages,

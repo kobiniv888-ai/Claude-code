@@ -23,7 +23,7 @@
   "bar": {
     "label": "Поиск жилья",
     "where": "Где",
-    "wherePlaceholder": "Город, район или номер объявления",
+    "wherePlaceholder": "Город, район или ID",
     "whereTo": "Куда едем?",
     "clearPlace": "Очистить место",
     "popularPlaces": "Популярные направления",
@@ -124,7 +124,10 @@
     "ownerType": "Кто разместил",
     "postedWithin": "Опубликовано",
     "noMin": "Без минимума",
-    "noMax": "Без максимума"
+    "noMax": "Без максимума",
+    "kosherShabbat": "Кошер или для Шаббата",
+    "kosherShabbatHint": "Кошерная кухня, подходит для Шаббата или кошерное питание: достаточно одного",
+    "walkUpTo": "До {count} мин"
   },
   "chips": {
     "heading": "Включённые фильтры",
@@ -135,11 +138,12 @@
     "between": "{min} – {max}",
     "atLeast": "От {min}",
     "atMost": "До {max}",
-    "minRooms": "Комнат: {value}+",
-    "minBedrooms": "Спален: {value}+",
-    "minBathrooms": "Ванных: {value}+",
+    "minRooms": "Комнат: {value}",
+    "minBedrooms": "Спален: {value}",
+    "minBathrooms": "Ванных: {value}",
     "floor": "Этаж {range}",
-    "mapArea": "Область на карте"
+    "mapArea": "Область на карте",
+    "kosherShabbat": "Кошер или для Шаббата"
   },
   "toolbar": {
     "sortLabel": "Сортировка",
@@ -160,7 +164,8 @@
       "hotels": "Отели и гостевые дома"
     },
     "count": "{count, plural, =0 {Ничего не найдено} one {{formatted} вариант} few {{formatted} варианта} many {{formatted} вариантов} other {{formatted} варианта}}",
-    "countIn": "{count, plural, =0 {Ничего не найдено: {place}} one {{formatted} вариант: {place}} few {{formatted} варианта: {place}} many {{formatted} вариантов: {place}} other {{formatted} варианта: {place}}}"
+    "countIn": "{count, plural, =0 {Ничего не найдено: {place}} one {{formatted} вариант: {place}} few {{formatted} варианта: {place}} many {{formatted} вариантов: {place}} other {{formatted} варианта: {place}}}",
+    "promise": "Все хозяева здесь обязались радушно принимать израильтян"
   },
   "map": {
     "loading": "Загружаем карту…",
@@ -203,12 +208,15 @@
       "kosher": "Кошерно",
       "shabbat": "Подходит для Шаббата",
       "synagogue": "Рядом синагога",
-      "hebrew": "Говорит на иврите"
+      "hebrew": "Говорит на иврите",
+      "kosherShabbat": "Кошер и Шаббат"
     },
     "anywhere": "Вся Грузия",
-    "anyDates": "Добавить даты",
+    "anyDates": "Когда?",
     "moveIn": "Заезд {date}",
-    "summaryLabel": "Изменить поиск: {summary}"
+    "summaryLabel": "Изменить поиск: {summary}",
+    "propertyType": "Тип жилья",
+    "propertyTypes": "{count, plural, one {{count} тип жилья} few {{count} типа жилья} many {{count} типов жилья} other {{count} типа жилья}}"
   },
   "sort": {
     "title": "Сортировать по",
@@ -220,7 +228,7 @@
       "any": "Все",
       "rent": "Аренда",
       "short-stay": "Посуточно",
-      "monthly": "Помесячно",
+      "monthly": "На месяц",
       "buy": "Купить",
       "hotels": "Отели"
     },

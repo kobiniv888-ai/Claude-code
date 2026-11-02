@@ -14,6 +14,15 @@
     "tagline": "Homes in Georgia for Jewish travelers, families and investors"
   },
   "templates": {
+    "login_code": {
+      "subject": "{code} is your {brand} login code",
+      "preheader": "The code works for {minutes, plural, one {{minutes} minute} other {{minutes} minutes}}.",
+      "heading": "Your login code",
+      "body1": "Enter this code to log in to {brand}:",
+      "codeLabel": "Login code",
+      "body2": "The code works for {minutes, plural, one {{minutes} minute} other {{minutes} minutes}}. If you didn’t ask for it, you can simply ignore this email.",
+      "body3": "Never share this code. The {brand} team will never ask you for it by phone or chat."
+    },
     "welcome": {
       "subject": "Welcome to {brand}",
       "preheader": "Find a home in Georgia, or list yours in a few minutes.",

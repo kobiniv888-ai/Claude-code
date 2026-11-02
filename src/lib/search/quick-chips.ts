@@ -1,4 +1,7 @@
 /**
+ * Round 2: the /search chip row has ONE Jewish chip, "כשר ושבת" (`?kosherShabbat=1`, see
+ * SearchFilters.kosherShabbat). The four round-1 chips below stay as helpers (URLs unchanged).
+ *
  * The Jewish quick chips in the sticky chip row of /search (pure): כשר · מתאים לשבת · ליד בית
  * כנסת · דובר עברית. Each is a one-tap shortcut for an existing filter, so the URLs stay the same
  * ("?kitchen=kosher", "?shabbatFriendly=1", "?synagogueMaxWalk=15", "?jewish=host_speaks_hebrew").

@@ -13,7 +13,8 @@ import { listingPath } from "@/lib/listing/urls";
 import { hasWelcomePledge, PLEDGE_CURRENT_VERSION } from "@/lib/pledge";
 
 const DAY_MS = 86_400_000;
-const MAX_CARD_PHOTOS = 6;
+/** Round 2: at most 5 photos (and so 5 dots) on a card. */
+const MAX_CARD_PHOTOS = 5;
 
 const photoOrder = [{ isCover: "desc" }, { sortOrder: "asc" }] satisfies Prisma.ListingPhotoOrderByWithRelationInput[];
 const cheapestRoom = {
@@ -68,6 +69,11 @@ export function listingCardSelect(locale: AppLocale) {
     // Card v2: the total for the "+N photos" slide, and the floor in the icon row.
     _count: { select: { photos: true } },
     floor: true,
+    // Round 2: the facts line ("3 חדרים", "מיטה 1").
+    rooms: true,
+    bedsSingle: true,
+    bedsDouble: true,
+    bedsSofa: true,
     roomTypes: cheapestRoom,
   } satisfies Prisma.ListingSelect;
 }
@@ -111,6 +117,12 @@ function toNumber(value: DecimalLike): number | null {
   if (value === null) return null;
   const n = typeof value === "number" ? value : Number(value.toString());
   return Number.isFinite(n) ? n : null;
+}
+
+/** Single + double + sofa beds; null when the owner gave none of them. */
+export function bedCount(row: { bedsSingle: number | null; bedsDouble: number | null; bedsSofa: number | null }): number | null {
+  const parts = [row.bedsSingle, row.bedsDouble, row.bedsSofa].filter((n): n is number => typeof n === "number" && n > 0);
+  return parts.length ? parts.reduce((a, b) => a + b, 0) : null;
 }
 
 function within(date: Date | null, days: number, now: Date): boolean {
@@ -200,6 +212,8 @@ export function toListingCard(row: ListingCardRow, ctx: CardMapContext): Listing
     maxGuests: row.maxGuests ?? row.roomTypes[0]?.maxGuests ?? null,
     photoCount: row._count.photos,
     floor: row.floor,
+    rooms: row.rooms,
+    beds: bedCount(row),
     badges: {
       ...jewishBadges(row, ctx.pledgeRequiredVersion),
       verified: !!row.owner.idVerifiedAt || !!row.ownerVerifiedAt,
@@ -207,6 +221,10 @@ export function toListingCard(row: ListingCardRow, ctx: CardMapContext): Listing
       shabbatFriendly: row.isShabbatFriendly,
       kosherKitchen: row.kitchenKosher === "KOSHER",
       synagogueWalkMin: row.synagogueWalkMin,
+      // Proximity of a real listing is computed from real (non-demo) community places only
+      // (src/lib/nearby.ts); a demo listing may use demo places, so it never gets the tag.
+      // TODO(phase 5): once JewishPlace has verifiedAt, count only verified places in nearby.ts.
+      synagogueVerified: !row.isDemo && row.synagogueWalkMin != null,
       isNew: within(row.publishedAt, newLabelDays, now),
       priceDropped: within(row.priceDroppedAt, priceDropLabelDays, now),
       promoted: isPromoted(row, ctx.featuredIds, now),

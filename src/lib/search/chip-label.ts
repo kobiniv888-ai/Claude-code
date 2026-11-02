@@ -26,6 +26,8 @@ export function chipLabel(chip: FilterChip, filters: SearchFilters, ctx: ChipLab
   const { t, f, locale, currency, placeNames } = ctx;
   const value = chip.value ?? "";
   // Isolated (LRI … PDI) so "₪300" keeps its order inside Hebrew text.
+  // "5+" as one left-to-right unit, so it never shows as "+5" in Hebrew and Arabic.
+  const atLeast = (n: number) => `⁦${formatNumber(n, locale)}+⁩`;
   const money = (amount: number) => `⁦${formatMoney(amount, currency, locale, { maximumFractionDigits: 0 })}⁩`;
   const range = (min: number | null, max: number | null, show: (n: number) => string) =>
     min !== null && max !== null
@@ -52,17 +54,19 @@ export function chipLabel(chip: FilterChip, filters: SearchFilters, ctx: ChipLab
     case "price":
       return range(filters.priceMin, filters.priceMax, money);
     case "rooms":
-      return t("minRooms", { value: formatNumber(Number(value), locale) });
+      return t("minRooms", { value: atLeast(Number(value)) });
     case "bedrooms":
-      return t("minBedrooms", { value: formatNumber(Number(value), locale) });
+      return t("minBedrooms", { value: atLeast(Number(value)) });
     case "bathrooms":
-      return t("minBathrooms", { value: formatNumber(Number(value), locale) });
+      return t("minBathrooms", { value: atLeast(Number(value)) });
     case "propertyTypes":
       return f(`propertyType.${value}`);
     case "amenities":
       return value === "pets_allowed" || value === "smoking_allowed" ? f(`houseRule.${value}`) : f(`amenity.${value}`);
     case "kitchen":
       return f(`kitchenFilter.${value}`);
+    case "kosherShabbat":
+      return t("kosherShabbat");
     case "jewish":
       return f(`jewishFeature.${value}`);
     case "hotel":

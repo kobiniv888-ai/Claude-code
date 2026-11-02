@@ -28,6 +28,11 @@ export type ListingCardBadges = {
   kosherKitchen: boolean;
   /** Walking minutes to the nearest synagogue. */
   synagogueWalkMin: number | null;
+  /**
+   * Round 2: `synagogueWalkMin` comes from a real, verified place, so the card may show it as a
+   * tag ("6 דק׳ לבית כנסת"). Demo places never count. Missing = false.
+   */
+  synagogueVerified?: boolean;
   /** The host speaks Hebrew (Jewish feature "host_speaks_hebrew" or the owner's languages). */
   speaksHebrew: boolean;
   /** The host keeps Shabbat (the owner's profile or the Jewish feature "host_keeps_shabbat"). */
@@ -62,8 +67,12 @@ export type ListingCardData = {
    * `photos.length`, the last card slide shows "+N photos".
    */
   photoCount?: number;
-  /** Optional (card v2): the floor, shown in the card's icon row (0 = ground floor). */
+  /** Optional (card v2): the floor, shown in the card's facts line (0 = ground floor). */
   floor?: number | null;
+  /** Optional (round 2): rooms, in the facts line of monthly rentals and sales ("3 חדרים"). */
+  rooms?: number | null;
+  /** Optional (round 2): beds (single + double + sofa beds), in the facts line of short stays. */
+  beds?: number | null;
   /** In the owner's currency. Null when there is no price. */
   price: number | null;
   currency: CurrencyCode;

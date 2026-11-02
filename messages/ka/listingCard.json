@@ -23,7 +23,8 @@
     "onRequest": "ფასი მოთხოვნით",
     "original": "{price} ორიგინალი",
     "approx": "≈ {price}",
-    "approxHint": "მიახლოებით, დღევანდელი კურსით. მესაკუთრის ფასია {price}."
+    "approxHint": "მიახლოებით, დღევანდელი კურსით. მესაკუთრის ფასია {price}.",
+    "total": "სულ {price}"
   },
   "favorite": {
     "save": "შენახვა: {title}",
@@ -64,5 +65,14 @@
   "empty": {
     "title": "განცხადებები არ არის",
     "description": "სცადეთ სხვა ქალაქი, სხვა თარიღები ან ნაკლები ფილტრი."
+  },
+  "facts": {
+    "groundFloor": "პირველი სართული"
+  },
+  "tags": {
+    "kosherKitchen": "კოშერული სამზარეულო",
+    "shabbatFriendly": "შაბათისთვის",
+    "synagogue": "{count} წთ სინაგოგამდე",
+    "hebrew": "ებრაულად საუბრობს"
   }
 }

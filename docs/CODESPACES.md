@@ -27,8 +27,10 @@ Screen**. It works only for you while you are signed in to GitHub, because the p
 
 ## Log in
 
-Phone codes are not sent by SMS in this preview. The login page shows the code on screen
-("Development mode — your code is …").
+Nothing is sent by SMS or email in this preview: the login form shows the code on screen, under a
+small "Development mode" (or "Test mode") strip. Log in with your email, or as a demo account: tap
+"Log in with a phone code (test mode)" under the email form and use a number below. A new account
+is asked for its first name once.
 
 | Phone | Who |
 |---|---|
@@ -108,9 +110,10 @@ on the same port 3000 and prints the address. Open that address on your phone (t
 before). Each page now arrives ready-made: no "Compiling…", and the first visit to a page is as
 fast as the second.
 
-- **Logging in does not work in production mode** until Twilio (SMS) is set up: the code is shown
-  on screen only in development mode. "שליחת קוד" then says the code can't be sent right now. Try
-  logging in, Saved and posting a listing in development mode (`bash .devcontainer/start.sh`).
+- **Logging in works here too**: `start-prod.sh` turns on test mode (`AUTH_TEST_MODE=true`), so the
+  login codes are shown on screen. Test mode only works on the Codespaces address and localhost,
+  never on the real domain, and the server log says so loudly while it is on. To see exactly what
+  visitors get (no codes on screen): `AUTH_TEST_MODE=false bash .devcontainer/start-prod.sh`.
 - Changed some code or switched branch? Run the command again: production mode does not reload
   by itself.
 - Back to development mode (hot reload): `bash .devcontainer/start.sh`.

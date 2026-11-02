@@ -7,6 +7,7 @@ import { redirect } from "@/i18n/navigation";
 import { getLoginConfig } from "@/lib/auth/config";
 import { oauthErrorKey } from "@/lib/auth/error-codes";
 import { safeNextPath, withNext } from "@/lib/auth/next-path";
+import { needsFirstName } from "@/lib/auth/first-name";
 import { getCurrentUser } from "@/lib/auth/session";
 import { LoginCard } from "./login-card";
 
@@ -26,16 +27,18 @@ export default async function LoginPage({ params, searchParams }: Props) {
   const query = await searchParams;
   const next = safeNextPath(query.next);
 
+  // Signed in (also on the way back from Google/Apple): the 2-step code, then the first name of a
+  // new account (asked here, one short step), then on to `next`.
   const user = await getCurrentUser();
   if (user) {
     if (!user.twoFactorVerified) return redirect({ href: withNext("/two-factor", next), locale });
-    return redirect({ href: next, locale });
+    if (!needsFirstName(user)) return redirect({ href: next, locale });
   }
 
   const t = await getTranslations("auth.login");
-  const error = oauthErrorKey(typeof query.error === "string" ? query.error : null);
+  const error = user ? null : oauthErrorKey(typeof query.error === "string" ? query.error : null);
 
-  const config = getLoginConfig(locale);
+  const config = await getLoginConfig(locale);
   const hasSocial = config.providers.google || config.providers.apple;
 
   return (
@@ -50,8 +53,9 @@ export default async function LoginPage({ params, searchParams }: Props) {
           config={config}
           next={next}
           initialError={error}
+          initialStage={user ? "name" : "start"}
           title={t("title", { name: siteConfig.localizedName[locale as AppLocale] ?? siteConfig.name })}
-          description={t(hasSocial ? "dialogSubtitle" : "dialogSubtitlePhoneOnly")}
+          description={t(hasSocial ? "dialogSubtitle" : "dialogSubtitleNoSocial")}
         />
       </div>
     </div>

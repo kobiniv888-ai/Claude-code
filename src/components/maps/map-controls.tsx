@@ -76,7 +76,12 @@ export function MapControls({
             className="pointer-events-auto flex min-h-11 cursor-pointer items-center gap-2.5 rounded-full bg-card px-4 text-sm font-medium text-foreground shadow-raised"
           >
             {t("controls.searchAsMove")}
-            <Switch id={switchId} checked={searchAsMove.checked} onCheckedChange={(on) => searchAsMove.onChange(on === true)} />
+            <Switch
+              id={switchId}
+              checked={searchAsMove.checked}
+              onCheckedChange={(on) => searchAsMove.onChange(on === true)}
+              className="data-unchecked:bg-muted-foreground/75 dark:data-unchecked:bg-muted-foreground/60"
+            />
           </label>
         ) : (
           <span />
@@ -87,7 +92,8 @@ export function MapControls({
           onClick={community.onToggle}
           title={t("controls.communityHint")}
           aria-busy={community.loading || undefined}
-          className={cn(FLOATING, "ms-auto", community.on && "border-primary")}
+          // Neutral (round 2): purple is for the listings' pins only; "on" = a dark outline.
+          className={cn(FLOATING, "ms-auto bg-card text-foreground", community.on && "border-foreground bg-card text-foreground")}
         >
           {t("controls.community")}
         </Chip>

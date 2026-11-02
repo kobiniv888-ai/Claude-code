@@ -1,30 +1,38 @@
 import "server-only";
 import type { AppLocale } from "@/config/site";
-import type { CommunityPlace } from "@/lib/map/community";
-import { getCommunityPlaces } from "@/lib/map/community-queries";
-import { placesNear } from "./helpers";
+import { pickLocalized } from "@/i18n/locale";
+import { db } from "@/lib/db";
+import type { NearbyInfo } from "@/lib/nearby";
 
-export type NearbyCommunityPlace = CommunityPlace & { meters: number; minutes: number };
-
-/** How far around the listing's approximate point the map shows synagogues and kosher places. */
-const RADIUS_METERS = 2500;
-const LIMIT = 12;
+export type VerifiedPlace = { kind: "synagogue" | "chabad"; name: string; minutes: number };
 
 /**
- * Synagogues, Chabad houses and kosher places near the listing's PUBLIC (approximate) point, for
- * the location map. Public data only (the Jewish-life places); demo places only while demo data
- * is visible (getJewishPlaces decides). Never throws: the map just shows the area without them.
+ * The nearest synagogue (or Chabad house) for the folded "Kosher and Shabbat" section, ONLY when
+ * it is a real, checked place: active and not demo data. Listing.nearby is computed from every
+ * active place (demo ones too, for demo listings), so its entry is checked against the table.
+ * Phase 5 adds JewishPlace.verifiedAt; then require it here as well.
+ * Never throws: the section just leaves the line out.
  */
-export async function getCommunityPlacesNear(
-  point: { lat: number; lng: number } | null,
-  locale: AppLocale,
-): Promise<NearbyCommunityPlace[]> {
-  if (!point) return [];
+export async function verifiedNearestSynagogue(nearby: NearbyInfo, locale: AppLocale): Promise<VerifiedPlace | null> {
+  const candidates = (
+    [
+      nearby.synagogue && { kind: "synagogue" as const, place: nearby.synagogue },
+      nearby.chabad && { kind: "chabad" as const, place: nearby.chabad },
+    ].filter(Boolean) as { kind: VerifiedPlace["kind"]; place: NonNullable<NearbyInfo["synagogue"]> }[]
+  ).sort((a, b) => a.place.minutes - b.place.minutes);
+  if (candidates.length === 0) return null;
   try {
-    const places = await getCommunityPlaces(locale);
-    return placesNear(places, point, { radiusMeters: RADIUS_METERS, limit: LIMIT });
+    const real = await db.jewishPlace.findMany({
+      where: { id: { in: candidates.map((c) => c.place.id) }, active: true, isDemo: false },
+      select: { id: true },
+    });
+    const ok = new Set(real.map((p) => p.id));
+    const found = candidates.find((c) => ok.has(c.place.id));
+    if (!found) return null;
+    const name = pickLocalized(found.place.name, locale);
+    return name ? { kind: found.kind, name, minutes: found.place.minutes } : null;
   } catch (error) {
-    console.error("[listing] community places failed", error);
-    return [];
+    console.error("[listing] synagogue check failed", error);
+    return null;
   }
 }

@@ -82,6 +82,9 @@ function renderBlock(block: EmailBlock, align: "left" | "right"): string {
         : "";
       return `${label}<div dir="auto" style="margin:0 0 16px;padding:14px 16px;font-size:15px;line-height:1.6;color:${colors.text};background:${colors.panel};border-radius:12px;text-align:start;">${multiline(block.text)}</div>`;
     }
+    case "code":
+      return `<p style="margin:0 0 6px;font-size:13px;font-weight:600;color:${colors.muted};">${escapeHtml(block.label)}</p>` +
+        `<div dir="ltr" style="margin:0 0 16px;padding:14px 16px;font-family:'Courier New',Courier,monospace;font-size:32px;line-height:1.2;font-weight:700;letter-spacing:8px;text-align:center;color:${colors.text};background:${colors.primaryTint};border:1px solid ${colors.primaryTintBorder};border-radius:12px;">${escapeHtml(block.code)}</div>`;
     case "details": {
       const rows = block.rows
         .map(
@@ -177,6 +180,8 @@ export function renderEmailText(content: EmailContent, ctx: LayoutContext): stri
       lines.push(...block.text.split(/\r?\n/).map((line) => `> ${line}`), "");
     } else if (block.type === "details") {
       lines.push(...block.rows.map((row) => `${row.label}: ${row.value}`), "");
+    } else if (block.type === "code") {
+      lines.push(`${block.label}:`, block.code, "");
     }
   }
   if (content.cta) lines.push(`${content.cta.label}: ${content.cta.url}`, "");

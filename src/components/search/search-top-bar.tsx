@@ -3,29 +3,25 @@
 import { useEffect, useRef } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { ChevronDownIcon, SearchIcon, SlidersHorizontalIcon } from "lucide-react";
-import { Chip, HebrewBubbleIcon, KosherStampIcon, ShabbatCandlesIcon, SynagogueIcon, type IconComponent } from "@/components/ds";
+import { Chip } from "@/components/ds";
 import { useCurrency } from "@/components/providers/currency-provider";
-import { formatDate } from "@/lib/format";
-import { countActiveFilters, withFilters, type SearchFilters } from "@/lib/listing/search-params";
+import { formatDate, formatNumber } from "@/lib/format";
+import { countActiveFilters, withFilters } from "@/lib/listing/search-params";
 import { chipLabel } from "@/lib/search/chip-label";
 import { formatStay } from "@/lib/search/format-stay";
-import { QUICK_CHIPS, quickChipActive, toggleQuickChip, type QuickChip } from "@/lib/search/quick-chips";
 import { usesDatesAndGuests } from "@/lib/search/search-bar";
 import { cn } from "@/lib/utils";
 import { useSearch } from "./search-context";
 import { useSearchSheets } from "./search-sheets";
 
-const QUICK_ICONS: Record<QuickChip, IconComponent> = {
-  kosher: KosherStampIcon,
-  shabbat: ShabbatCandlesIcon,
-  synagogue: SynagogueIcon,
-  hebrew: HebrewBubbleIcon,
-};
-
 /**
- * The sticky bar at the top of /search: on phones a one-line summary of the search ("Tbilisi ·
- * Dec 12–15 · 4 guests") that reopens the search sheet, and on every screen a sideways-scrolling
- * row of chips — Filters (n), deal, price, rooms, and the Jewish quick filters (active = navy).
+ * The sticky bar at the top of /search (round 2, brief 5.3):
+ * - phones: a summary pill of the search ("Tbilisi · Dec 12–15 · 4 guests") that reopens the
+ *   search sheet, and a "סינון" button with the number of filters set;
+ * - every screen: a sideways-scrolling chip row — price, rooms, property type and the "כשר ושבת"
+ *   quick chip (`?kosherShabbat=1`: a kosher kitchen OR Shabbat-friendly OR kosher hotel meals).
+ *   Active chips are the purple tint with purple text. From 768px "Filters" leads the chip row
+ *   (the full search bar sits above it).
  * Its height is published as --search-top-height for the map view below it.
  */
 export function SearchTopBar({
@@ -64,24 +60,50 @@ export function SearchTopBar({
   const rooms = filters.bedrooms ?? filters.rooms;
   const roomsLabel =
     filters.bedrooms !== null ? label("bedrooms", filters.bedrooms) : filters.rooms !== null ? label("rooms", filters.rooms) : t("rooms");
+  const types = filters.propertyTypes;
+  const typesLabel =
+    types.length === 0 ? t("propertyType") : types.length === 1 ? f(`propertyType.${types[0]}`) : t("propertyTypes", { count: types.length });
   const chevron = <ChevronDownIcon className="ms-0.5 inline size-3.5 align-[-0.15em] opacity-70" aria-hidden="true" />;
-  const toggle = (patch: Partial<SearchFilters>) => navigate(withFilters(filters, patch));
+  const filtersLabel = active > 0 ? `${filtersT("title")} · ${filtersT("activeCount", { count: active })}` : undefined;
 
   return (
     <div
       ref={bar}
       data-search-top-bar=""
       className={cn(
-        "sticky top-(--header-height) z-(--z-sticky) border-b border-border/70 bg-background/95 backdrop-blur-md supports-[backdrop-filter]:bg-background/85",
+        "sticky top-(--header-height) z-(--z-sticky) border-b border-border bg-background/95 backdrop-blur-md supports-[backdrop-filter]:bg-background/85",
         className,
       )}
     >
       <div className="mx-auto w-full max-w-screen-2xl px-4 pt-2 sm:px-6 lg:px-8">
-        <SearchSummary placeNames={placeNames} onOpen={sheets.openSearch} onPreload={() => sheets.preload("search")} />
+        <div className="flex items-center gap-2 md:hidden">
+          <SearchSummary placeNames={placeNames} onOpen={sheets.openSearch} onPreload={() => sheets.preload("search")} />
+          <button
+            type="button"
+            aria-haspopup="dialog"
+            aria-label={filtersLabel}
+            onClick={() => sheets.openFilters()}
+            onPointerEnter={() => sheets.preload("filters")}
+            onFocus={() => sheets.preload("filters")}
+            className={cn(
+              "inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-small font-medium outline-none transition-[transform,background-color] duration-(--motion-fast) active:scale-[0.97] focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:active:scale-100",
+              active > 0 ? "border-primary-tint-border bg-primary-tint text-primary-text" : "border-border-strong bg-card text-foreground",
+            )}
+          >
+            <SlidersHorizontalIcon className="size-4.5" aria-hidden="true" />
+            {/* Below 390px (long Georgian and Russian labels) the icon and the count carry it. */}
+            <span className="max-[389px]:sr-only">{filtersT("title")}</span>
+            {active > 0 ? (
+              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-caption leading-none font-semibold text-primary-foreground" dir="ltr">
+                {formatNumber(active, locale)}
+              </span>
+            ) : null}
+          </button>
+        </div>
         <div
           role="group"
           aria-label={t("chipsLabel")}
-          className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 py-1.5 [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 [&::-webkit-scrollbar]:hidden"
+          className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 py-2 [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 [&::-webkit-scrollbar]:hidden"
         >
           <Chip
             size="sm"
@@ -89,15 +111,12 @@ export function SearchTopBar({
             active={active > 0}
             count={active}
             aria-haspopup="dialog"
-            aria-label={active > 0 ? `${filtersT("title")} · ${filtersT("activeCount", { count: active })}` : undefined}
+            aria-label={filtersLabel}
             onClick={() => sheets.openFilters()}
             onPointerEnter={() => sheets.preload("filters")}
+            className="max-md:hidden"
           >
             {filtersT("title")}
-          </Chip>
-          <Chip size="sm" active={filters.deal !== null} aria-haspopup="dialog" onClick={() => sheets.openFilters("deal")}>
-            {filters.deal ? f(`dealFilter.${filters.deal}`) : t("deal")}
-            {chevron}
           </Chip>
           <Chip size="sm" active={priceSet} aria-haspopup="dialog" onClick={() => sheets.openFilters("price")}>
             {priceSet ? label("price") : t("price")}
@@ -107,18 +126,17 @@ export function SearchTopBar({
             {roomsLabel}
             {chevron}
           </Chip>
-          <span aria-hidden="true" className="mx-0.5 h-6 w-px shrink-0 bg-border" />
-          {QUICK_CHIPS.map((chip) => (
-            <Chip
-              key={chip}
-              size="sm"
-              icon={QUICK_ICONS[chip]}
-              pressed={quickChipActive(filters, chip)}
-              onClick={() => toggle(toggleQuickChip(filters, chip))}
-            >
-              {t(`quick.${chip}`)}
-            </Chip>
-          ))}
+          <Chip size="sm" active={types.length > 0} aria-haspopup="dialog" onClick={() => sheets.openFilters("deal")}>
+            {typesLabel}
+            {chevron}
+          </Chip>
+          <Chip
+            size="sm"
+            pressed={filters.kosherShabbat}
+            onClick={() => navigate(withFilters(filters, { kosherShabbat: !filters.kosherShabbat }))}
+          >
+            {t("quick.kosherShabbat")}
+          </Chip>
         </div>
       </div>
     </div>
@@ -162,7 +180,7 @@ function SearchSummary({
       onFocus={onPreload}
       aria-haspopup="dialog"
       aria-label={t("summaryLabel", { summary: [place, ...parts].join(" · ") })}
-      className="flex h-11 w-full items-center gap-2.5 rounded-full bg-card px-4 text-start shadow-card ring-1 ring-border/70 outline-none transition-transform duration-(--motion-fast) active:scale-[0.99] focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:active:scale-100 md:hidden"
+      className="flex h-11 min-w-0 flex-1 items-center gap-2.5 rounded-full border border-border-strong bg-card px-4 text-start outline-none transition-transform duration-(--motion-fast) active:scale-[0.99] focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:active:scale-100"
     >
       <SearchIcon className="size-4.5 shrink-0 text-primary" aria-hidden="true" />
       <span className="flex min-w-0 flex-1 items-center gap-1.5 text-small">

@@ -3,59 +3,55 @@ import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Suspense } from "react";
-import { FlagIcon } from "lucide-react";
 import { ContactProvider, type ContactAvailability } from "@/components/contact/contact-provider";
 import { MobileContactBar } from "@/components/contact/mobile-contact-bar";
 import { Container } from "@/components/common/container";
 import { JsonLd } from "@/components/common/json-ld";
-import { SafetyTip } from "@/components/common/safety-tip";
 import { CardCarousel } from "@/components/ds/card-carousel";
-import { listingBadgeItems, type BadgeItem } from "@/components/ds/badges";
-import { Reveal } from "@/components/ds/reveal";
 import { SectionHeader } from "@/components/ds/section-header";
 import { HideBottomNav } from "@/components/layout/hide-bottom-nav";
-import { CompareToggle } from "@/components/listing/compare-toggle";
-import { FavoriteButton } from "@/components/listing/favorite-button";
 import { ListingCard } from "@/components/listing/listing-card";
 import { ListingCardSkeleton } from "@/components/listing/listing-card-skeleton";
 import { Price } from "@/components/listing/price";
-import { AvailabilityCalendar } from "@/components/listing-page/availability-calendar";
-import { ContactBox, HostCard, OwnerHeader, ShabbatReplyNotice, VideoTip, type ShabbatNow } from "@/components/listing-page/contact-box";
+import { AvailabilityPicker } from "@/components/listing-page/availability-picker";
+import { BookingBar, BookingBox, DatesSheet } from "@/components/listing-page/booking-bar";
+import { ContactBox, HostCard, OwnerHeader, ShabbatReplyNotice, type ShabbatNow } from "@/components/listing-page/contact-box";
 import { Gallery } from "@/components/listing-page/gallery";
-import { AmenitiesSection, CostsSection, DetailsSection, RulesSection } from "@/components/listing-page/info-sections";
-import { KeyFacts } from "@/components/listing-page/key-facts";
-import { PriceBlock, TitleBlock } from "@/components/listing-page/listing-header";
+import { AmenitiesSection, DetailsSection, ImportantToKnow, SalePriceSection } from "@/components/listing-page/info-sections";
+import { KosherShabbatSection } from "@/components/listing-page/kosher-shabbat";
+import { Highlights, HostLine, TitleBlock } from "@/components/listing-page/listing-header";
 import { ListingDescription, ListingTextProvider, TranslationSwitch } from "@/components/listing-page/listing-text";
 import { LocationSection } from "@/components/listing-page/location-section";
 import { RoomTypesSection } from "@/components/listing-page/room-types";
 import { Section } from "@/components/listing-page/section";
-import { ShareMenu } from "@/components/listing-page/share-menu";
 import { StatusBanner } from "@/components/listing-page/status-banner";
-import { TraditionCard } from "@/components/listing-page/tradition-card";
+import { StayProvider } from "@/components/listing-page/stay-dates";
 import { ViewTracker } from "@/components/listing-page/view-tracker";
 import { ReportButton } from "@/components/report/report-dialog";
-import { HolidaysInRange } from "@/components/shabbat";
 import { siteConfig, type AppLocale } from "@/config/site";
 import { isAppLocale } from "@/i18n/locale";
 import { Link, redirect } from "@/i18n/navigation";
-import { getCurrentUser } from "@/lib/auth/session";
 import { isBlockedBetween } from "@/lib/contact/server";
 import { stayQuery, stayRequestFrom } from "@/lib/contact/message";
 import { formatMoney } from "@/lib/format";
 import { isShabbatOrHolidayNow } from "@/lib/hebcal";
-import { listingAccess, previewReason } from "@/lib/listing-page/access";
+import { previewReason } from "@/lib/listing-page/access";
+import { georgiaToday } from "@/lib/listing-page/calendar";
 import { getCardContext } from "@/lib/listing-page/context";
+import { hasKosherShabbat, listingHighlights } from "@/lib/listing-page/highlights";
 import { buildListingJsonLd } from "@/lib/listing-page/jsonld";
-import { getListingPage, getListingPaths, isListingSaved, toListingViewer } from "@/lib/listing-page/load";
+import { getListingPaths, isListingSaved } from "@/lib/listing-page/load";
 import { parseVideoUrl, safeExternalUrl } from "@/lib/listing-page/media";
-import { getCommunityPlacesNear } from "@/lib/listing-page/places";
+import { verifiedNearestSynagogue } from "@/lib/listing-page/places";
+import { resolveListing } from "@/lib/listing-page/resolve";
+import { rangeIsFree } from "@/lib/listing-page/stay";
 import type { ListingPageData } from "@/lib/listing-page/types";
 import { getSimilarListings } from "@/lib/listing/queries";
 import { hasWelcomePledge } from "@/lib/pledge/pledge";
-import { listingPath, listingSlugParam, parseListingParam, searchPath } from "@/lib/listing/urls";
+import { listingPath, listingSlugParam, searchPath } from "@/lib/listing/urls";
 import { absoluteMediaUrl } from "@/lib/media";
 import { absoluteUrl, localizedPath, pageMetadata, X_DEFAULT_LOCALE } from "@/lib/seo";
-import { getSettings, isShabbatModeActive } from "@/lib/settings";
+import { isShabbatModeActive } from "@/lib/settings";
 
 type Props = {
   params: Promise<{ locale: string; id: string }>;
@@ -63,21 +59,6 @@ type Props = {
 };
 
 const PERIODS = ["NIGHT", "WEEK", "MONTH"] as const;
-
-/** Loads the listing and decides access for this visitor (shared by metadata and the page). */
-async function resolve(locale: AppLocale, id: string) {
-  const publicId = parseListingParam(id);
-  if (!publicId) return null;
-  const [loaded, user, settings] = await Promise.all([
-    getListingPage(publicId, locale),
-    getCurrentUser().catch(() => null),
-    getSettings(),
-  ]);
-  if (!loaded) return null;
-  const access = listingAccess(loaded.access, toListingViewer(user), { demoVisible: settings.demoDataVisible });
-  if (access === "none") return null;
-  return { data: loaded.data, ownerId: loaded.ownerId, accessInput: loaded.access, user, settings, access };
-}
 
 function priceText(data: ListingPageData, locale: AppLocale, t: (key: string, values?: Record<string, string>) => string): string | null {
   if (!data.price || data.price <= 0) return null;
@@ -92,7 +73,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale, id } = await params;
   if (!isAppLocale(locale)) return {};
   const t = await getTranslations({ locale, namespace: "listing" });
-  const resolved = await resolve(locale, id);
+  const resolved = await resolveListing(locale, id);
   if (!resolved) return { title: t("notFound.title"), robots: { index: false, follow: true } };
   const { data, access } = resolved;
   const place = [data.neighborhoodName, data.city?.name].filter(Boolean).join(", ");
@@ -116,13 +97,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return meta;
 }
 
+/**
+ * The listing page, quiet: every fact once (brief 5.4). Short stays and hotel rooms, top to
+ * bottom: gallery, title + facts, host line with the pledge, three highlights, description,
+ * amenities, "Kosher and Shabbat" (folded), availability, location, "Good to know", the host
+ * card, similar places; a sticky bar with the price and "Book". Rentals and sales: the same page
+ * without the calendar, with the WhatsApp / "Show phone" bar.
+ */
 export default async function ListingPage({ params, searchParams }: Props) {
   const { locale: rawLocale, id } = await params;
   if (!isAppLocale(rawLocale)) notFound();
   const locale: AppLocale = rawLocale;
   setRequestLocale(locale);
 
-  const resolved = await resolve(locale, id);
+  const resolved = await resolveListing(locale, id);
   if (!resolved) notFound();
   const { data, access, user, settings, ownerId } = resolved;
   const query = await searchParams;
@@ -134,17 +122,18 @@ export default async function ListingPage({ params, searchParams }: Props) {
 
   const isPublic = access === "public";
   const isOwner = user?.id === ownerId;
-  const [t, nonce, shabbatMode, blocked, isFavorite, communityPlaces] = await Promise.all([
+  const [t, nonce, shabbatMode, blocked, isFavorite, synagogue] = await Promise.all([
     getTranslations({ locale, namespace: "listing" }),
     headers().then((h) => h.get("x-nonce") ?? undefined),
     isShabbatModeActive(),
     user && !isOwner ? isBlockedBetween(user.id, ownerId) : Promise.resolve(false),
     user ? isListingSaved(user.id, data.id) : Promise.resolve(false),
-    getCommunityPlacesNear(data.approx, locale),
+    verifiedNearestSynagogue(data.nearby, locale),
   ]);
 
   const availability: ContactAvailability = !isPublic ? "preview" : isOwner ? "own" : blocked ? "blocked" : "ok";
   const nowIso = new Date().toISOString();
+  const today = georgiaToday(new Date(nowIso));
   let shabbatNow: ShabbatNow = { active: false, kind: null };
   if (data.city && (data.owner.badges.keepsShabbat || data.noReplyOnShabbat)) {
     try {
@@ -160,9 +149,10 @@ export default async function ListingPage({ params, searchParams }: Props) {
   const tourUrl = safeExternalUrl(data.tour360Url);
   const path = listingPath(data.publicId, data.title.shown);
   const shareUrl = absoluteUrl(localizedPath(locale, path));
-  const place = [data.neighborhoodName, data.city?.name].filter(Boolean).join(", ");
+  const place = [data.neighborhoodName, data.city?.name].filter(Boolean).join(" · ");
   const cityFilter = data.city ? searchPath({ city: data.city.slug }) : "/search";
   const isStay = data.dealType === "SHORT_STAY" || data.dealType === "HOTEL_ROOM";
+  const isSale = data.dealType === "SALE";
   const originalLanguage = siteConfig.i18n.nativeNames[data.originalLocale];
   const jsonLd = buildListingJsonLd(data, {
     url: shareUrl,
@@ -170,30 +160,130 @@ export default async function ListingPage({ params, searchParams }: Props) {
     inLanguage: locale,
   });
   const welcomes = hasWelcomePledge(data.owner, settings);
-  const verified = data.owner.badges.idVerified || data.ownerVerified || data.propertyVerified;
-  const priceDropped =
-    !!data.priceDroppedAt && Date.parse(nowIso) - Date.parse(data.priceDroppedAt) <= siteConfig.listings.priceDropLabelDays * 86_400_000;
-  // The title row: the promise first, then trust and honest status tags (demo, promoted…).
-  const badges: BadgeItem[] = [
-    ...listingBadgeItems({ welcomes, verified }),
-    ...(data.isDemo ? [{ kind: "demo" as const }] : []),
-    ...(data.promoted ? [{ kind: "promoted" as const }] : []),
-    ...(data.isNew ? [{ kind: "new" as const }] : []),
-    ...(priceDropped ? [{ kind: "priceDropped" as const }] : []),
-    ...(data.owner.badges.business ? [{ kind: "business" as const }] : []),
-  ];
-  const barShown = availability === "ok" && data.contactChannels.length > 0;
-  const ownerHeader = (
-    <div className="grid gap-3">
-      <OwnerHeader
-        owner={data.owner}
-        ownerVerified={data.ownerVerified}
-        propertyVerified={data.propertyVerified}
-        welcomes={welcomes}
-        sale={data.dealType === "SALE"}
-      />
-      <ShabbatReplyNotice now={shabbatNow} />
-    </div>
+  const verified = data.owner.badges.idVerified || data.owner.badges.businessVerified || data.ownerVerified || data.propertyVerified;
+  const highlights = listingHighlights(data);
+  const showKosher = hasKosherShabbat({
+    ...data,
+    hostKeepsShabbat: data.owner.badges.keepsShabbat,
+    verifiedSynagogue: !!synagogue,
+  });
+  const tags = [...(data.isDemo ? (["demo"] as const) : []), ...(data.promoted ? (["promoted"] as const) : [])];
+  // Booking (short stays, hotel rooms): public listings, not your own. Others keep the contact bar.
+  const booking = isStay && isPublic && !isOwner;
+  const contactBarShown = !booking && availability === "ok" && data.contactChannels.length > 0;
+  // Dates from a search link stay only when every night is free (else the guest picks again).
+  const initialDates =
+    stay.checkIn && stay.checkOut && stay.checkIn >= today && rangeIsFree(data.blocks, stay.checkIn, stay.checkOut)
+      ? { checkIn: stay.checkIn, checkOut: stay.checkOut }
+      : { checkIn: null, checkOut: null };
+  const report = isPublic && !isOwner ? <ReportButton targetType="LISTING" targetId={data.id} /> : null;
+
+  const page = (
+    <>
+      <HideBottomNav />
+      {reason && !isPublic ? <StatusBanner reason={reason} isOwner={isOwner} /> : null}
+
+      <Container className="hidden pt-5 md:block">
+        <nav aria-label={t("breadcrumbs.label")} className="mb-4 text-small text-muted-foreground">
+          <ol className="flex flex-wrap items-center gap-1.5">
+            <li>
+              <Link href="/search" className="rounded hover:text-foreground hover:underline">
+                {t("breadcrumbs.search")}
+              </Link>
+            </li>
+            {data.city ? (
+              <>
+                <li aria-hidden>/</li>
+                <li>
+                  <Link href={cityFilter} className="rounded hover:text-foreground hover:underline">
+                    {data.city.name}
+                  </Link>
+                </li>
+              </>
+            ) : null}
+            <li aria-hidden>/</li>
+            <li aria-current="page" dir="auto" className="max-w-[40ch] truncate">
+              {data.title.shown}
+            </li>
+          </ol>
+        </nav>
+      </Container>
+      <div className="md:mx-auto md:max-w-content md:px-6">
+        <Gallery
+          photos={data.photos}
+          title={data.title.shown}
+          video={video}
+          tourUrl={tourUrl}
+          backHref={cityFilter}
+          shareUrl={shareUrl}
+          favorite={isPublic ? { listingId: data.id, isFavorite } : null}
+        />
+      </div>
+
+      <Container className="pt-4 pb-10 lg:pt-8">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_23rem] lg:gap-x-14">
+          <div className="grid min-w-0 content-start gap-8 [&>:empty]:hidden">
+            <div className="grid gap-4">
+              <TitleBlock data={data} tags={tags} />
+              <HostLine data={data} verified={verified} welcomes={welcomes} />
+              <Highlights items={highlights} />
+            </div>
+
+            <Section id="description" title={t("description.title")}>
+              <div className="grid gap-2">
+                <ListingDescription footer={<TranslationSwitch auto={data.isAutoTranslated} originalLanguage={originalLanguage} />} />
+                <TranslationSwitch auto={data.isAutoTranslated} originalLanguage={originalLanguage} />
+              </div>
+            </Section>
+
+            <RoomTypesSection rooms={data.roomTypes} />
+            <AmenitiesSection amenities={data.amenities} highlights={highlights} />
+            {showKosher ? <KosherShabbatSection data={data} synagogue={synagogue} /> : null}
+            {isSale ? <SalePriceSection data={data} /> : null}
+            {!isStay ? <DetailsSection data={data} /> : null}
+            {isStay ? (
+              <Section id="availability" title={t("calendar.title")}>
+                <AvailabilityPicker />
+              </Section>
+            ) : null}
+            <LocationSection data={data} place={place} />
+            <ImportantToKnow data={data} />
+            <HostCard data={data} nowIso={nowIso} shabbatNow={shabbatNow} showContact={!booking && !contactBarShown} report={report} />
+          </div>
+
+          <aside aria-label={booking ? t("booking.boxLabel") : t("contactBox.label")} className="hidden lg:col-start-2 lg:row-start-1 lg:block">
+            <div className="sticky top-[calc(var(--header-height)+1.5rem)]">
+              {booking ? <BookingBox /> : <ContactBox data={data} shabbatNow={shabbatNow} />}
+            </div>
+          </aside>
+        </div>
+
+        {isPublic ? (
+          <Suspense fallback={<SimilarSkeleton />}>
+            <SimilarListings listingId={data.id} locale={locale} cityHref={cityFilter} />
+          </Suspense>
+        ) : null}
+      </Container>
+
+      {booking ? (
+        <>
+          <BookingBar />
+          <DatesSheet />
+        </>
+      ) : (
+        <MobileContactBar
+          price={<Price amount={data.price} currency={data.currency} period={data.pricePeriod} from={data.priceIsFrom} size="line" stacked showOriginal={false} className="whitespace-normal" />}
+          owner={
+            <div className="grid gap-3">
+              <OwnerHeader owner={data.owner} sale={isSale} />
+              <ShabbatReplyNotice now={shabbatNow} />
+            </div>
+          }
+        />
+      )}
+      <ViewTracker listingId={data.id} publicId={data.publicId} isPublic={isPublic} />
+      {isPublic ? <JsonLd data={jsonLd} nonce={nonce} /> : null}
+    </>
   );
 
   return (
@@ -204,157 +294,21 @@ export default async function ListingPage({ params, searchParams }: Props) {
         stay={stay}
         shabbatModeActive={shabbatMode.active}
       >
-        <HideBottomNav />
-        {reason && !isPublic ? <StatusBanner reason={reason} isOwner={isOwner} /> : null}
-
-        <Container className="hidden pt-5 md:block">
-          <nav aria-label={t("breadcrumbs.label")} className="mb-4 text-small text-muted-foreground">
-            <ol className="flex flex-wrap items-center gap-1.5">
-              <li>
-                <Link href="/search" className="rounded hover:text-foreground hover:underline">
-                  {t("breadcrumbs.search")}
-                </Link>
-              </li>
-              {data.city ? (
-                <>
-                  <li aria-hidden>/</li>
-                  <li>
-                    <Link href={cityFilter} className="rounded hover:text-foreground hover:underline">
-                      {data.city.name}
-                    </Link>
-                  </li>
-                </>
-              ) : null}
-              <li aria-hidden>/</li>
-              <li aria-current="page" dir="auto" className="max-w-[40ch] truncate">
-                {data.title.shown}
-              </li>
-            </ol>
-          </nav>
-        </Container>
-        <div className="md:mx-auto md:max-w-7xl md:px-6 lg:px-8">
-          <Gallery
-            photos={data.photos}
-            title={data.title.shown}
-            video={video}
-            tourUrl={tourUrl}
-            backHref={cityFilter}
-            shareUrl={shareUrl}
-            favorite={isPublic ? { listingId: data.id, isFavorite } : null}
-          />
-        </div>
-
-        <Container className="pt-5 pb-12 lg:pt-8">
-          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_24rem] lg:gap-x-12">
-            <div className="grid min-w-0 content-start gap-8 [&>:empty]:hidden">
-              <div className="grid gap-5">
-                <TitleBlock
-                  data={data}
-                  badges={badges}
-                  actions={
-                    isPublic ? (
-                      <div className="flex items-center gap-2">
-                        <div className="hidden items-center gap-2 md:flex">
-                          <ShareMenu url={shareUrl} title={data.title.shown} />
-                          <FavoriteButton listingId={data.id} title={data.title.shown} isFavorite={isFavorite} variant="outline" />
-                        </div>
-                        <CompareToggle publicId={data.publicId} className="h-11 rounded-full" />
-                      </div>
-                    ) : undefined
-                  }
-                />
-                <PriceBlock data={data} priceDropped={priceDropped} className="lg:hidden" />
-                <KeyFacts data={data} />
-              </div>
-
-              {/* Each block fades up the first time it scrolls into view (not what is on screen at load). */}
-              <Reveal>
-                <TraditionCard data={data} locale={locale} />
-              </Reveal>
-
-              <Reveal>
-                <Section id="description" title={t("description.title")}>
-                  <div className="grid gap-3">
-                    <TranslationSwitch auto={data.isAutoTranslated} originalLanguage={originalLanguage} />
-                    <ListingDescription />
-                  </div>
-                </Section>
-              </Reveal>
-
-              <Reveal>
-                <RoomTypesSection rooms={data.roomTypes} />
-              </Reveal>
-              <Reveal>
-                <AmenitiesSection amenities={data.amenities} />
-              </Reveal>
-              <Reveal>
-                <RulesSection data={data} />
-              </Reveal>
-              <Reveal>
-                <CostsSection data={data} />
-              </Reveal>
-              {data.dealType !== "SALE" ? (
-                <Reveal>
-                  <AvailabilityCalendar blocks={data.blocks} nowIso={nowIso} />
-                </Reveal>
-              ) : null}
-              {isStay && stay.checkIn && stay.checkOut ? (
-                <HolidaysInRange start={stay.checkIn} end={stay.checkOut} locale={locale} headingLevel="h3" showHints={false} />
-              ) : null}
-              <Reveal>
-                <LocationSection data={data} place={place} places={communityPlaces} />
-              </Reveal>
-              <Reveal>
-                <DetailsSection data={data} />
-              </Reveal>
-
-              <Reveal>
-                <Section id="host" title={data.dealType === "SALE" ? t("host.titleSale") : t("host.title")}>
-                  <HostCard data={data} welcomes={welcomes} nowIso={nowIso} shabbatNow={shabbatNow} showContact={!barShown} />
-                </Section>
-              </Reveal>
-
-              {siteConfig.features.reviews ? (
-                <Section id="reviews" title={t("reviews.title")}>
-                  <p className="text-muted-foreground">{t("reviews.empty")}</p>
-                </Section>
-              ) : null}
-
-              <section aria-label={t("safety.label")} className="grid gap-3">
-                <SafetyTip compact />
-                <VideoTip publicId={data.publicId} className="px-1 lg:hidden" />
-                {isPublic && !isOwner ? (
-                  <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-                    <p className="flex items-center gap-2 text-small text-muted-foreground">
-                      <FlagIcon className="size-4" aria-hidden />
-                      {t("safety.reportHint")}
-                    </p>
-                    <ReportButton targetType="LISTING" targetId={data.id} />
-                  </div>
-                ) : null}
-              </section>
-            </div>
-
-            <aside aria-label={t("contactBox.label")} className="hidden lg:col-start-2 lg:row-start-1 lg:block">
-              <div className="sticky top-[calc(var(--header-height)+1.5rem)]">
-                <ContactBox data={data} shabbatNow={shabbatNow} />
-              </div>
-            </aside>
-          </div>
-
-          {isPublic ? (
-            <Suspense fallback={<SimilarSkeleton />}>
-              <SimilarListings listingId={data.id} locale={locale} cityHref={cityFilter} />
-            </Suspense>
-          ) : null}
-        </Container>
-
-        <MobileContactBar
-          price={<Price amount={data.price} currency={data.currency} period={data.pricePeriod} from={data.priceIsFrom} size="bar" stacked showOriginal={false} className="whitespace-normal" />}
-          owner={ownerHeader}
-        />
-        <ViewTracker listingId={data.id} publicId={data.publicId} isPublic={isPublic} />
-        {isPublic ? <JsonLd data={jsonLd} nonce={nonce} /> : null}
+        {isStay ? (
+          <StayProvider
+            initial={initialDates}
+            guests={stay.guests}
+            blocks={data.blocks}
+            today={today}
+            minNights={data.minStayNights}
+            price={{ amount: data.price, currency: data.currency, period: data.pricePeriod, from: data.priceIsFrom, cleaningFee: data.cleaningFee }}
+            listingPath={path}
+          >
+            {page}
+          </StayProvider>
+        ) : (
+          page
+        )}
       </ContactProvider>
     </ListingTextProvider>
   );
@@ -368,7 +322,7 @@ async function SimilarListings({ listingId, locale, cityHref }: { listingId: str
   ]);
   if (listings.length === 0) return null;
   return (
-    <section aria-labelledby="similar-title" className="mt-14 grid gap-4 border-t border-border/70 pt-10">
+    <section aria-labelledby="similar-title" className="mt-10 grid gap-4 border-t border-border pt-8">
       <SectionHeader id="similar-title" title={t("title")} href={cityHref} linkLabel={t("viewAll")} />
       {/* Cancel the Container's padding: the carousel adds the page gutter itself. */}
       <div className="-mx-4 md:-mx-6">
@@ -384,11 +338,11 @@ async function SimilarListings({ listingId, locale, cityHref }: { listingId: str
 
 function SimilarSkeleton() {
   return (
-    <div className="mt-14 grid gap-4 border-t border-border/70 pt-10" aria-hidden>
-      <div className="h-8 w-48 rounded-md skeleton-shimmer" />
+    <div className="mt-10 grid gap-4 border-t border-border pt-8" aria-hidden>
+      <div className="h-7 w-48 rounded-md skeleton-shimmer" />
       <div className="flex gap-4 overflow-hidden">
         {Array.from({ length: 4 }, (_, i) => (
-          <ListingCardSkeleton key={i} className="w-[85%] shrink-0 sm:w-[46%] lg:w-[31.5%] xl:w-[23.6%]" />
+          <ListingCardSkeleton key={i} className="w-[70%] shrink-0 sm:w-[46%] lg:w-[31.5%] xl:w-[23.6%]" />
         ))}
       </div>
     </div>

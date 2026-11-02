@@ -90,3 +90,37 @@ These are the questions the brief asked, answered so the work could go on:
    caches results, sends a clear User-Agent, holds the whole site to 1 request per second, and
    keeps the OSM credit. No paid geocoder.
 5. **Default currency.** he/ru/ar → ILS, en → USD, ka → GEL. A visitor's own choice always wins.
+
+## Login (founder request after the brief)
+
+1. **Ways to log in, in this order:** Google (when `GOOGLE_*` is set), a 6-digit code by email
+   (Better Auth `emailOTP`, sent with `sendEmail` as the 5-language `login_code` email; always
+   offered), and a code by phone only where codes may be shown on screen. New accounts are created
+   by the email code (or Google).
+2. **Codes on screen** only in development (`NODE_ENV !== "production"`) or with
+   `AUTH_TEST_MODE=true` when the request's Host / X-Forwarded-Host **and** the configured site
+   address are localhost, 127.0.0.1, ::1 or `*.app.github.dev`
+   (`src/lib/auth/code-display.ts`, unit-tested). A small "Development / Test mode" strip shows on
+   the login UI; the server logs a loud warning. `start-prod.sh` turns test mode on for the
+   Codespaces preview. Codes sent by a real SMS/email service are never kept or shown.
+3. **SMS only to check a number**: a guest's booking and a host before posting, through
+   `<PhoneCheck>` + `sendPhoneCheckCode` / `confirmPhoneCheckCode`
+   (`src/lib/auth/phone-check-actions.ts`). **Once per number**: a number the account already has
+   verified is accepted without sending anything (`src/lib/auth/phone-once.ts`, unit-tested); a
+   number another account has is refused before any SMS. Phone LOGIN over HTTP is refused outside
+   development/test mode. Without an SMS service, the real site says "not available yet".
+   *Conservative choice:* phone login is off on the real site even when Twilio is set up (the
+   founder asked not to offer it); demo phone logins keep working in dev/test mode, and demo
+   numbers always get on-screen codes there (their numbers are fake), even with Twilio set up.
+4. **SMS provider:** Twilio Verify when set up; otherwise Twilio Messaging (`sendSms`,
+   `src/lib/sms.ts`) with a Better Auth code; otherwise nothing.
+5. **First name** (`User.firstName`): asked once right after the first sign-up (in the login sheet
+   or on `/login`, required, one field) and in Settings → Profile. Google sign-ups take Google's
+   given name and skip the step. `requireUser()` sends an account without one to `/login`, which
+   asks and continues to `next`. Demo accounts are never asked. Phone sign-ups no longer get their
+   number as a name; saving a first name also replaces an empty/phone/email full name. The
+   greeting is "שלום, <first name>" or "שלום!"; a phone number or email is never shown as a name
+   (header menu, account, host cards).
+6. **Security details:** email codes are stored hashed, limited per address and per IP (Postgres)
+   and behind Turnstile like phone codes; the outbox and production logs mask the code; the email
+   endpoints other than sign-in are disabled; `name`/`image` in the sign-in request are refused.

@@ -27,9 +27,9 @@ const Lightbox = dynamic(() => import("./lightbox").then((m) => m.Lightbox), { s
 const MAIN_SIZES = "(min-width: 768px) 50vw, 100vw";
 
 /** Round buttons over the photo: white, with a shadow, 44px. */
-const ROUND = "inline-flex size-11 items-center justify-center rounded-full bg-card/95 text-foreground shadow-raised outline-none backdrop-blur transition-transform duration-(--motion-fast) ease-standard hover:bg-card focus-visible:ring-3 focus-visible:ring-ring/60 active:scale-95 motion-reduce:active:scale-100";
+const ROUND = "inline-flex size-11 items-center justify-center rounded-full bg-card/95 text-foreground shadow-sm outline-none backdrop-blur transition-transform duration-(--motion-fast) ease-standard hover:bg-card focus-visible:ring-3 focus-visible:ring-ring/60 active:scale-95 motion-reduce:active:scale-100";
 /** Pill buttons over the photo ("All photos", "Video"). */
-const PILL = "inline-flex min-h-9 items-center gap-1.5 rounded-full bg-card/95 px-3 text-small font-semibold text-foreground shadow-raised outline-none backdrop-blur transition-transform duration-(--motion-fast) ease-standard hover:bg-card focus-visible:ring-3 focus-visible:ring-ring/60 active:scale-95 motion-reduce:active:scale-100 [&_svg]:size-4";
+const PILL = "inline-flex min-h-9 items-center gap-1.5 rounded-full bg-card/95 px-3 text-small font-semibold text-foreground shadow-sm outline-none backdrop-blur transition-transform duration-(--motion-fast) ease-standard hover:bg-card focus-visible:ring-3 focus-visible:ring-ring/60 active:scale-95 motion-reduce:active:scale-100 [&_svg]:size-4";
 
 export type GalleryProps = {
   photos: PagePhoto[];
@@ -102,7 +102,7 @@ export function Gallery({ photos, title, video, tourUrl, backHref, shareUrl, fav
           <BackButton href={backHref} className="pointer-events-auto" />
           <div className="pointer-events-auto flex items-center gap-2">
             <ShareMenu url={shareUrl} title={title} variant="round" />
-            {favorite ? <FavoriteButton listingId={favorite.listingId} title={title} isFavorite={favorite.isFavorite} variant="overlay" className="bg-card/95 shadow-raised" /> : null}
+            {favorite ? <FavoriteButton listingId={favorite.listingId} title={title} isFavorite={favorite.isFavorite} variant="overlay" className="bg-card/95 shadow-sm" /> : null}
           </div>
         </div>
         <div className="pointer-events-none absolute start-3 bottom-3 flex items-center gap-2">

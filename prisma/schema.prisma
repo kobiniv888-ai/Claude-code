@@ -281,6 +281,8 @@ enum PaymentPurpose {
 model User {
   id                  String   @id
   name                String
+  /// Asked right after sign-up and in the settings: "שלום, <firstName>". Never a phone or email.
+  firstName           String?
   /// Real email, or a placeholder "<digits>@phone.bayit.invalid" for phone-only sign-ups.
   email               String   @unique
   emailVerified       Boolean  @default(false)

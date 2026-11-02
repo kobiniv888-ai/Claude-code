@@ -1,14 +1,11 @@
 {
   "meta": {
-    "title": "Homes in Georgia for Jewish travelers, families and investors",
-    "description": "{siteName}: apartments, houses, hotels and homes for sale in Tbilisi, Batumi and across Georgia — from hosts who welcome Israelis and Jews, with kosher and Shabbat-friendly details, synagogue walking times and direct contact. In Hebrew, English, Russian, Arabic and Georgian."
+    "title": "Apartments, houses and hotels in Georgia, with hosts who welcome Israelis",
+    "description": "{siteName}: short stays, monthly rentals, homes for sale and hotels in Tbilisi, Batumi and across Georgia. Every host has promised to welcome Israeli and Jewish guests. In Hebrew, English, Russian, Arabic and Georgian."
   },
   "hero": {
-    "eyebrow": "{siteName} · Homes in Georgia",
-    "title": "A home in Georgia, with hosts who can't wait to welcome you",
-    "lead": "Every host here welcomes Israelis and Jews — no refusals, no hiding where you're from. Just sleep well and enjoy your trip.",
-    "pause": "Pause the photo slideshow",
-    "play": "Play the photo slideshow"
+    "title": "A home in Georgia, with hosts <em>who welcome you</em>",
+    "lead": "Every host here welcomes Israeli guests."
   },
   "search": {
     "label": "Search homes",
@@ -25,131 +22,56 @@
     "datesTitle": "When are you coming?",
     "datesDone": "Done",
     "clearDates": "Clear",
-    "guests": "How many guests?",
+    "guests": "Guests",
     "guestsAny": "Any",
     "guestCount": "{count, plural, one {{count} guest} other {{count} guests}}",
     "fewerGuests": "Fewer guests",
     "moreGuests": "More guests",
     "rooms": "Rooms",
     "roomsAny": "Any",
-    "budget": "Budget up to",
-    "budgetMonthly": "Monthly budget up to",
+    "roomCount": "{count, plural, one {{count} or more rooms} other {{count} or more rooms}}",
+    "fewerRooms": "Fewer rooms",
+    "moreRooms": "More rooms",
+    "budget": "Budget",
+    "budgetMonthly": "Budget per month",
     "budgetPlaceholder": "No limit",
     "submit": "Search"
   },
-  "trust": {
-    "label": "What you get on {siteName}",
-    "welcome": "Israelis welcome",
-    "jewish": "Kosher, Shabbat, synagogue",
-    "hebrew": "Hebrew-speaking hosts",
-    "noFees": "No agent fees",
-    "verified": "Verified owners"
+  "promise": "Here, no one will turn you away for who you are",
+  "categories": {
+    "label": "Types of places",
+    "apartments": "Apartments",
+    "houses": "Houses & villas",
+    "rooms": "Rooms",
+    "hotels": "Hotels",
+    "forSale": "For sale",
+    "kosherShabbat": "Kosher & Shabbat"
+  },
+  "recommended": {
+    "title": "Recommended places",
+    "all": "All",
+    "emptyTitle": "The first places are on their way",
+    "emptyText": "Have a place in Georgia? List it for free.",
+    "emptyAction": "List a place"
   },
   "cities": {
     "title": "Where to?",
-    "lead": "From Tbilisi and Batumi to the mountains of Kazbegi.",
-    "all": "All homes",
-    "count": "{count, plural, =0 {New homes coming soon} one {{formatted} home} other {{formatted} homes}}",
-    "shabbatIn": "Shabbat starts {time}",
-    "shabbatOut": "Shabbat ends {time}"
-  },
-  "categories": {
-    "title": "What are you looking for?",
-    "apartments": "Apartments",
-    "houses": "Houses and villas",
-    "rooms": "Rooms",
-    "hotels": "Hotels and guesthouses",
-    "forSale": "For sale",
-    "shabbat": "Shabbat-friendly near a synagogue"
-  },
-  "featured": {
-    "eyebrow": "Promoted",
-    "title": "Featured homes",
-    "lead": "Promoted listings, always marked \"Promoted\".",
-    "all": "See all"
-  },
-  "newest": {
-    "title": "New homes",
-    "lead": "Just listed by owners across Georgia.",
-    "all": "See all",
-    "emptyTitle": "The first homes are on their way",
-    "emptyText": "Own a place in Georgia? List it for free.",
-    "emptyAction": "List a property"
-  },
-  "jewishLife": {
-    "title": "Jewish life in Georgia",
-    "lead": "Synagogues, kosher food and Shabbat times — all in one place.",
-    "all": "Everything Jewish",
-    "synagogues": {
-      "label": "Synagogues",
-      "tbilisi": "The Great Synagogue, Tbilisi",
-      "batumi": "The Batumi synagogue"
-    },
-    "links": {
-      "label": "Quick links",
-      "map": "Community map",
-      "kosher": "Kosher food",
-      "calendar": "Hebrew calendar",
-      "emergency": "Emergency numbers"
-    }
-  },
-  "pledge": {
-    "title": "Here, nobody will turn you away for who you are",
-    "statementLabel": "Every host promises this before listing:"
+    "count": "{count, plural, one {1 place} other {{formatted} places}}"
   },
   "howItWorks": {
     "title": "How it works",
-    "lead": "Three steps, no fees and no middlemen.",
-    "more": "Learn more",
-    "tabsLabel": "How it works for",
-    "step": "Step {number}",
-    "tabs": {
-      "guests": "For guests",
-      "owners": "For owners"
-    },
-    "guests": {
-      "one": {
-        "title": "Search",
-        "text": "A city, your dates, and filters for kosher, Shabbat and a nearby synagogue."
-      },
-      "two": {
-        "title": "Choose with confidence",
-        "text": "Photos, kosher and Shabbat details, and the \"Verified\" badge."
-      },
-      "three": {
-        "title": "Contact the owner directly",
-        "text": "WhatsApp, Telegram or a call — no booking fees."
-      }
-    },
-    "owners": {
-      "one": {
-        "title": "List for free",
-        "text": "A few minutes: photos, price and the details Jewish guests look for."
-      },
-      "two": {
-        "title": "Accept the pledge",
-        "text": "Promise to welcome every guest and get the green badge."
-      },
-      "three": {
-        "title": "Guests contact you",
-        "text": "Directly, in the app you prefer, with no commission."
-      }
+    "steps": {
+      "search": "Search",
+      "book": "Book on the site",
+      "pay": "Pay the host when you arrive"
     }
   },
-  "safety": {
-    "title": "A small tip to stay safe",
-    "text": "Don't pay a deposit before you've talked to the host and seen the place, at least on a video call.",
-    "link": "More tips"
+  "jewishLife": {
+    "title": "Jewish life in Georgia",
+    "text": "Shabbat times, synagogues, kosher food"
   },
   "listCta": {
-    "eyebrow": "For owners",
-    "title": "List your property for free",
-    "text": "Travelers, families and investors from Israel are looking for a home in Georgia.",
-    "points": {
-      "free": "No commission",
-      "direct": "Guests contact you directly",
-      "fast": "Ready in minutes"
-    },
-    "button": "List a property for free"
+    "title": "Have a place in Georgia? List it for free",
+    "button": "List a place"
   }
 }

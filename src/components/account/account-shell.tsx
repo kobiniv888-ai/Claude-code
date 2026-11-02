@@ -21,6 +21,7 @@ import { useCompare } from "@/hooks/use-compare";
 import { Link, usePathname } from "@/i18n/navigation";
 import { formatNumber } from "@/lib/format";
 import { activeAccountNav, isFullWidthAccountPage, type AccountNavItem, type AccountNavKey } from "@/lib/account/nav";
+import { safeDisplayName } from "@/lib/auth/first-name";
 import { cn } from "@/lib/utils";
 
 const ICONS: Record<AccountNavKey, LucideIcon> = {
@@ -98,12 +99,13 @@ export function AccountShell({
           <div className="flex items-center gap-3 px-2">
             <Avatar className="size-11">
               {user.image ? <AvatarImage src={user.image} alt="" /> : null}
-              <AvatarFallback>{initials(user.name)}</AvatarFallback>
+              <AvatarFallback>{initials(safeDisplayName(user.name) ?? "")}</AvatarFallback>
             </Avatar>
             <div className="min-w-0">
               <p className="text-xs text-muted-foreground">{t("heading")}</p>
+              {/* Never a phone number or an email as a name (bug 8.2). */}
               <p className="truncate font-semibold" dir="auto">
-                {user.name}
+                {safeDisplayName(user.name)}
               </p>
             </div>
           </div>

@@ -24,6 +24,7 @@ const { EMAIL_TEMPLATES, isPlaceholderEmail, notificationEmailFor, renderEmail, 
 type Data = import("./templates").EmailData;
 
 const samples: { [K in keyof Data]: Data[K] } = {
+  login_code: { code: "482913", minutes: 5, name: "Dana" },
   welcome: { name: "Dana" },
   listing_live: { ownerName: "Dana", listingTitle: "Sunny flat in Vake", listingUrl: "/listing/1234-sunny-flat", expiresAt: "2026-12-30" },
   listing_in_review: { ownerName: "Dana", listingTitle: "Sunny flat in Vake" },
@@ -130,6 +131,17 @@ describe("sendEmail", () => {
     expect(a.ok).toBe(false);
     expect(b.ok).toBe(false);
     expect(outbox.map((row) => row.status)).toEqual(["FAILED", "FAILED"]);
+  });
+
+  it("masks a login code in the outbox (staff can read it) but puts it in the email", async () => {
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    const rendered = await renderEmail("login_code", "he", samples.login_code);
+    expect(rendered.subject).toContain("482913");
+    expect(rendered.html).toContain("482913");
+    await sendEmail({ to: "dana@example.com", template: "login_code", locale: "he", data: samples.login_code, redact: ["482913"] });
+    const row = outbox[0] as { subject: string; html: string; text: string };
+    expect(`${row.subject}${row.html}${row.text}`).not.toContain("482913");
+    expect(row.text).toContain("••••••");
   });
 
   it("falls back to English for an unknown locale", async () => {
