@@ -83,7 +83,7 @@ export function RecentlyViewedRow({
   return (
     <section aria-labelledby="recently-viewed-title" className={cn("flex flex-col gap-4", className)}>
       <div className="flex items-center justify-between gap-3">
-        <h2 id="recently-viewed-title" className="flex items-center gap-2 text-xl font-semibold sm:text-2xl">
+        <h2 id="recently-viewed-title" className="flex items-center gap-2 text-h2 text-foreground">
           <HistoryIcon className="size-5 text-primary" aria-hidden="true" />
           {title ?? t("title")}
         </h2>
