@@ -28,9 +28,12 @@ const control =
 // `postLabel` is kept for callers; the menu uses the short "Post" label next to "Log in".
 export function MobileMenu({
   isSignedIn,
+  adminLabel,
   languageLabel,
 }: {
   isSignedIn: boolean;
+  /** Staff only: the "Admin panel" label, from the server (so the menu shows that link). */
+  adminLabel?: string;
   postLabel?: string;
   /** The language pill's accessible name, from the server ("שפה: עברית. החלפת שפה"), so the
    * site config with the native names stays out of the first-load script. */
@@ -89,6 +92,7 @@ export function MobileMenu({
       {wanted && (
         <MobileMenuSheet
           isSignedIn={isSignedIn}
+          adminLabel={adminLabel}
           open={open}
           setOpen={setOpen}
           view={view}

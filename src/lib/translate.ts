@@ -193,6 +193,55 @@ export async function translateListing(
   return result;
 }
 
+/** Listing statuses worth translating: everything a visitor or a moderator can read (not drafts). */
+const TRANSLATABLE_STATUSES = ["IN_REVIEW", "NEEDS_CHANGES", "LIVE", "PAUSED", "HIDDEN", "RENTED", "SOLD", "EXPIRED"] as const;
+
+/**
+ * The languages a listing still lacks a translation for (pure). Owner-written rows count as
+ * present, so they are never replaced.
+ */
+export function missingTranslationLocales(originalLocale: string, presentLocales: readonly string[]): AppLocale[] {
+  const present = new Set(presentLocales);
+  return locales.filter((locale) => locale !== originalLocale && !present.has(locale));
+}
+
+/**
+ * Translates a listing only when at least one language is missing — safe to call on every
+ * approval or start: an up-to-date listing costs nothing. Returns the languages added.
+ */
+export async function translateListingIfMissing(listingId: string): Promise<AppLocale[]> {
+  if (!isTranslationEnabled()) return [];
+  const listing = await db.listing.findUnique({
+    where: { id: listingId },
+    select: { originalLocale: true, title: true, description: true, translations: { select: { locale: true } } },
+  });
+  if (!listing || !(listing.title.trim() || listing.description.trim())) return [];
+  const missing = missingTranslationLocales(listing.originalLocale, listing.translations.map((t) => t.locale));
+  if (missing.length === 0) return [];
+  const result = await translateListing(listingId);
+  return result.translated;
+}
+
+/**
+ * Catch-up for listings sent before translation was switched on (`npm run translate:missing`,
+ * also run by .devcontainer/start.sh when a key is set). Real listings only — demo listings carry
+ * their own hand-written texts. Drafts are translated when the owner sends them.
+ */
+export async function translateMissingListings(): Promise<{ checked: number; translated: number }> {
+  if (!isTranslationEnabled()) return { checked: 0, translated: 0 };
+  const listings = await db.listing.findMany({
+    where: { isDemo: false, deletedAt: null, status: { in: [...TRANSLATABLE_STATUSES] } },
+    select: { id: true, originalLocale: true, translations: { select: { locale: true } } },
+  });
+  let translated = 0;
+  for (const listing of listings) {
+    const missing = missingTranslationLocales(listing.originalLocale, listing.translations.map((t) => t.locale));
+    if (missing.length === 0) continue;
+    if ((await translateListingIfMissing(listing.id)).length > 0) translated += 1;
+  }
+  return { checked: listings.length, translated };
+}
+
 /**
  * Listing.searchText: every title (original + translations), the city and neighborhood names in
  * all languages (with aliases) and the public ID — normalized with @/lib/search-text, so a search

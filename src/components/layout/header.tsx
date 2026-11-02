@@ -17,7 +17,7 @@ import { MobileMenu } from "./mobile-menu";
  * switchers, Saved, Messages, account menu and "Post a listing", with the main tabs on a second row.
  */
 export async function Header({ user }: { user: CurrentUser | null }) {
-  const [t, locale] = await Promise.all([getTranslations("nav"), getLocale()]);
+  const [t, tMenu, locale] = await Promise.all([getTranslations("nav"), getTranslations("auth.menu"), getLocale()]);
   const languageName = siteConfig.i18n.nativeNames[isAppLocale(locale) ? locale : siteConfig.i18n.fallbackLocale];
   return (
     <HeaderShell>
@@ -35,7 +35,12 @@ export async function Header({ user }: { user: CurrentUser | null }) {
           />
         </div>
         <div className="ms-auto flex items-center lg:hidden">
-          <MobileMenu isSignedIn={!!user} postLabel={t("post")} languageLabel={t("language.change", { current: languageName })} />
+          <MobileMenu
+            isSignedIn={!!user}
+            adminLabel={user?.isStaff ? tMenu("admin") : undefined}
+            postLabel={t("post")}
+            languageLabel={t("language.change", { current: languageName })}
+          />
         </div>
       </Container>
       <div className="hidden lg:block">

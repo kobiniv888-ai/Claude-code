@@ -139,12 +139,15 @@ const legalLinks = [
  */
 export function MobileMenuSheet({
   isSignedIn,
+  adminLabel,
   open,
   setOpen,
   view = "menu",
   trigger,
 }: {
   isSignedIn: boolean;
+  /** Staff only: shows an "Admin panel" link (the admin pages check the role themselves). */
+  adminLabel?: string;
   open: boolean;
   setOpen: (open: boolean) => void;
   view?: MenuView;
@@ -189,6 +192,12 @@ export function MobileMenuSheet({
               <div onClickCapture={close} className="flex min-w-fit flex-1">
                 <LoginButton className="h-12 flex-1 rounded-button bg-card px-4 text-base font-medium" />
               </div>
+            )}
+            {adminLabel && (
+              <Link href="/admin" onClick={close} className={buttonStyles({ variant: "secondary", size: "md", className: "w-full px-4" })}>
+                <ShieldCheck aria-hidden className="size-5" />
+                {adminLabel}
+              </Link>
             )}
           </div>
 

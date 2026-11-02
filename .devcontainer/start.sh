@@ -80,6 +80,12 @@ if [ "$status" = "10" ] && [ "${BAYIT_SKIP_AUTO_SEED:-}" != "1" ]; then
   fi
 fi
 
+# Translation key set → listings sent before it was set get their other languages now (listings
+# that already have all five are skipped, so this costs nothing on later starts).
+if grep -q '^GOOGLE_TRANSLATE_API_KEY="[^"]' .env 2>/dev/null; then
+  timeout 300 npm run --silent translate:missing 2>&1 | tail -n 3 | tee -a "$LOG"
+fi
+
 if [ "$MODE" = "prod" ]; then
   if answering; then
     echo "Stopping the running website…"

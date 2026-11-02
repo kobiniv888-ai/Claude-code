@@ -17,7 +17,7 @@ import { PLEDGE_CURRENT_VERSION } from "@/lib/pledge";
 import { assessListing, type RiskAssessment, type RiskReason } from "@/lib/risk";
 import { countAutoHideReports } from "@/lib/reports/auto-hide";
 import { getSettings } from "@/lib/settings";
-import { translateForLocale, translateListing, updateListingSearchText } from "@/lib/translate";
+import { translateForLocale, translateListing, translateListingIfMissing, updateListingSearchText } from "@/lib/translate";
 
 /**
  * The listing state machine (server-only). See docs/CONVENTIONS.md "Listing lifecycle".
@@ -529,6 +529,12 @@ export async function approveListing(listingId: string, staffId: string): Promis
     targetId: listing.id,
     details: { from: listing.status, publicId: listing.publicId },
   });
+  // A listing sent while translation was off goes live in every language once a key is set.
+  try {
+    await translateListingIfMissing(listing.id);
+  } catch (error) {
+    console.error(`[lifecycle] translation of ${listing.id} on approval failed:`, error);
+  }
   await notifyOwner(
     listing.owner,
     "listing_approved",

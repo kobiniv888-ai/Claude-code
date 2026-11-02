@@ -103,6 +103,34 @@ a plain background) and show **"Map key missing"**.
 
 On Vercel, add the same variable under **Settings → Environment Variables** and redeploy.
 
+## Other keys (translation, email, Google login, SMS)
+
+They work the same way as the map key: add a **Codespaces secret** with the exact name and restart
+the codespace. `start.sh` copies these names into `.env`: `GOOGLE_TRANSLATE_API_KEY`,
+`RESEND_API_KEY`, `EMAIL_FROM`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `TWILIO_ACCOUNT_SID`,
+`TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID`, `TWILIO_MESSAGING_SERVICE_SID`,
+`TWILIO_FROM_NUMBER`. Where to get each one and what it costs: `OWNER_TODO.md`.
+
+With `GOOGLE_TRANSLATE_API_KEY` set, every start also translates the listings that are still
+missing languages (`npm run translate:missing` does the same by hand).
+
+## Approving listings (the review queue)
+
+A new listing waits "In review" until a moderator approves it:
+1. Log in as the demo admin: phone **+995 555 000 001** (the code shows on screen in the codespace).
+2. Open the menu (☰) → **Admin panel** → **Moderation** (or go to `/en/admin/moderation`).
+3. Tap the listing → **Approve** → **Approve and publish**. It goes live, it is translated if a
+   translation key is set, and the owner gets an email.
+
+**2-step login for staff.** The admin panel needs 2-step login (an authenticator app such as Google
+Authenticator), as on the real site. The **development version** (`bash .devcontainer/start.sh`)
+skips it for the demo accounts, so approving there needs no app. In the **fast version**
+(`start-prod.sh`) the admin panel first asks you to set up the app once (scan the QR code, type the
+6-digit code).
+
+To approve with your own account instead: as the demo admin, open **Admin panel → Roles**, find
+your account by phone or email and give it the **Admin** (or **Moderator**) role.
+
 ## The fast version (production mode)
 
 Development mode compiles every page on its first visit (the round "N" button, "Compiling…",

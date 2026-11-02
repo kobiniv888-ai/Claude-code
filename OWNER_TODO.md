@@ -71,6 +71,23 @@ round 2. The round-2 summary, the "Done when" checklist and what to check on you
 - [ ] **CARTO map key.** Confirm it is registered for commercial use (free up to 1 million tiles a
       month), then add it as the Codespaces secret `NEXT_PUBLIC_MAP_TILE_KEY` (and on Vercel later).
 - [ ] **SMS (Twilio) and email (Resend):** see "Login & messages" below.
+- [ ] **Translation of listings (Google Cloud Translation).** Every listing's title and description
+      is translated into the other four languages automatically when the owner sends it, edits it,
+      and when a moderator approves it, but only once this key exists. Without it, each listing
+      shows only the language the owner wrote it in. Setup, about 10 minutes:
+      1. Go to console.cloud.google.com and create a project (for example "bayit"). Google asks for
+         a billing account (a card) even for the free part.
+      2. Enable the **Cloud Translation API** (APIs & Services → Library).
+      3. Create a key (APIs & Services → Credentials → Create credentials → API key). Then
+         **restrict it**: under "API restrictions" choose only "Cloud Translation API".
+      4. On github.com → your photo → Settings → Codespaces → Secrets → **New secret**: name
+         `GOOGLE_TRANSLATE_API_KEY`, value = the key, repository = this one. Restart the codespace.
+         The next `bash .devcontainer/start-prod.sh` copies it in and translates the listings that
+         are already waiting (also by hand: `npm run translate:missing`).
+      - **Cost (estimate, check cloud.google.com/translate/pricing):** the first 500,000 characters
+        a month are free, then about $20 per million characters. One listing (about 1,500
+        characters) into 4 languages is about 6,000 characters, so roughly 80 new or edited listings
+        a month are free.
 
 ## Login & messages
 How people log in now (your request after the brief): **Google** (when set up), a **6-digit code by

@@ -22,6 +22,7 @@
     "db:reset": "prisma db push --force-reset && npm run db:seed",
     "db:studio": "prisma studio",
     "demo:remove": "tsx --require ./scripts/server-script.cjs scripts/demo-remove.ts",
+    "translate:missing": "tsx --require ./scripts/server-script.cjs scripts/translate-missing.ts",
     "vercel-build": "node scripts/vercel-build.mjs"
   },
   "dependencies": {
