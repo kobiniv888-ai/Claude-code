@@ -1,3 +1,4 @@
+import { avatarInitial } from "@/lib/account/greeting";
 import { personName } from "@/lib/auth/first-name";
 import { formatPhoneInternational } from "@/lib/auth/phone";
 import type { CurrentUser } from "@/lib/auth/session";
@@ -12,6 +13,7 @@ export function userMenuData(user: CurrentUser | null): UserMenuUser | null {
   return {
     // Never a phone number or an email as a name (bug 8.2): empty shows "My account" and a person icon.
     name: personName(user) ?? "",
+    initial: avatarInitial(user),
     image: user.image,
     // Formatted here so the browser does not need the phone-number metadata (~50 KB) on every page.
     contact: !contact ? null : user.emailIsPlaceholder ? formatPhoneInternational(contact) : contact,

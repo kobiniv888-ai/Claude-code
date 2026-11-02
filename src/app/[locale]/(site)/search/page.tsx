@@ -5,7 +5,7 @@ import { preferredCardTags, stayNights } from "@/components/listing/card-tags";
 import { HolidaysInRange } from "@/components/shabbat";
 import { ActiveFilterChips } from "@/components/search/active-filter-chips";
 import { ResultsPagination } from "@/components/search/results-pagination";
-import { SearchBar } from "@/components/search/search-bar";
+import { SearchBarIsland } from "@/components/search/search-bar-island";
 import { SearchProvider } from "@/components/search/search-context";
 import { SearchEmpty } from "@/components/search/search-empty";
 import { ResultCards } from "@/components/search/result-cards";
@@ -83,8 +83,8 @@ export default async function SearchPage({ params, searchParams }: Props) {
     <SearchProvider filters={filters} total={result.total} holidays={holidays}>
       <SearchSheets popular={popular} placeNames={names}>
         {/* Tablets and desktops: the full search bar (it scrolls away; the chip row below stays). */}
-        <Container size="wide" className="hidden pt-4 pb-1 md:block">
-          <SearchBar
+        <Container size="wide" className="hidden pt-4 pb-1 md:block" data-search-bar="">
+          <SearchBarIsland
             key={barKey}
             variant="compact"
             initial={searchBarStateFrom(filters, names)}

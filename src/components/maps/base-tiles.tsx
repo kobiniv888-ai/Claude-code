@@ -52,7 +52,10 @@ export function BaseTiles({ noticeClassName }: { noticeClassName?: string } = {}
   );
 }
 
-/** Top center by default; pass `noticeClassName` (e.g. "top-28") to clear a map's own controls. */
+/**
+ * Top center by default, 48px in from both sides so it never covers the zoom buttons (LTR or RTL);
+ * pass `noticeClassName` (e.g. "top-28") to clear a map's own controls.
+ */
 function MapTilesNotice({ className }: { className?: string }) {
   const t = useTranslations("maps");
   const development = process.env.NODE_ENV === "development";
@@ -61,7 +64,7 @@ function MapTilesNotice({ className }: { className?: string }) {
     <p
       role="status"
       className={cn(
-        "pointer-events-none absolute inset-x-0 top-2 z-[1000] mx-auto flex w-fit max-w-[calc(100%-1rem)] items-center gap-1.5 rounded-full bg-background/90 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-sm",
+        "pointer-events-none absolute inset-x-12 top-2.5 z-[1000] mx-auto flex w-fit max-w-[calc(100%-6rem)] items-center gap-1.5 rounded-full bg-background/90 px-3 py-1.5 text-xs font-medium text-muted-foreground shadow-sm",
         className,
       )}
     >

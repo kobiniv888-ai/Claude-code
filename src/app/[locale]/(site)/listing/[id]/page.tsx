@@ -318,6 +318,12 @@ export default async function ListingPage({ params, searchParams }: Props) {
   );
 }
 
+/**
+ * The photo widths of CardCarousel's default cards in the main column (85% on phones, 46% from
+ * 640px, 31.5% / 23.6% of the column next to the 23rem booking box from 1024px / 1280px).
+ */
+const SIMILAR_CARD_SIZES = "(min-width: 1280px) 200px, (min-width: 1024px) 250px, (min-width: 640px) 44vw, 80vw";
+
 /** "Similar places": the shared listing card in a swipe row (streams in after the page). */
 async function SimilarListings({ listingId, locale, cityHref }: { listingId: string; locale: AppLocale; cityHref: string }) {
   const [t, listings] = await Promise.all([
@@ -332,7 +338,7 @@ async function SimilarListings({ listingId, locale, cityHref }: { listingId: str
       <div className="-mx-4 md:-mx-6">
         <CardCarousel label={t("title")}>
           {listings.map((listing) => (
-            <ListingCard key={listing.id} listing={listing} />
+            <ListingCard key={listing.id} listing={listing} sizes={SIMILAR_CARD_SIZES} />
           ))}
         </CardCarousel>
       </div>

@@ -47,7 +47,7 @@
       "heading": "Your listing is being reviewed",
       "body1": "Thank you for posting “{title}”. Before it goes live, a member of our team checks it. We do this for every new account, and whenever our automatic safety checks ask for a second look.",
       "body2": "This usually takes less than a day. We'll email you as soon as it's done.",
-      "cta": "My listings"
+      "cta": "My places"
     },
     "listing_approved": {
       "subject": "Approved: “{title}” is live",
@@ -99,7 +99,7 @@
       "heading": "Your listing is temporarily hidden",
       "body1": "Several people reported “{title}”, so we've hidden it until a moderator checks it. This is an automatic safety step and doesn't mean you did anything wrong.",
       "body2": "We usually finish within a day. If something needs to change, we'll tell you exactly what.",
-      "cta": "My listings"
+      "cta": "My places"
     },
     "ticket_created": {
       "subject": "We got your request (#{number}): {subject}",

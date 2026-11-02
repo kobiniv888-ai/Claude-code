@@ -5,7 +5,8 @@ import { useTranslations } from "next-intl";
 import { LoaderCircleIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FIRST_NAME_MAX, firstNameSchema } from "@/lib/auth/first-name";
+import { FIRST_NAME_MAX } from "@/lib/auth/first-name";
+import { firstNameSchema } from "@/lib/auth/first-name-schema";
 import { saveFirstName } from "@/lib/auth/profile-actions";
 
 /**

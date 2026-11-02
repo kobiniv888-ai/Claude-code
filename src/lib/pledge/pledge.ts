@@ -25,7 +25,7 @@ export function requiredPledgeVersion(settings: PledgeSettings, currentVersion: 
   return Math.min(Math.max(required, 1), currentVersion);
 }
 
-/** True when the owner's accepted pledge is still valid for the green badge. */
+/** True when the owner's accepted pledge is still valid for the pledge line. */
 export function hasWelcomePledge(
   owner: PledgeHolder | null | undefined,
   settings: PledgeSettings,

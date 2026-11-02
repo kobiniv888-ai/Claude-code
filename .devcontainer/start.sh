@@ -81,6 +81,12 @@ for _ in $(seq 1 60); do
   if answering; then
     echo ""
     echo "Bayit is ready: ${url}/he"
+    if [ "$MODE" = "prod" ]; then
+      # Photos are converted (AVIF/WebP, each width) on their first request; do that now for the
+      # main pages, so the first visit on the phone does not wait for it (bug 8.10).
+      setsid nohup node scripts/warm-images.mjs http://localhost:3000 > /tmp/bayit-warm.log 2>&1 < /dev/null &
+      echo "Preparing the photos in the background (2–3 minutes; log: /tmp/bayit-warm.log)."
+    fi
     exit 0
   fi
   sleep 5

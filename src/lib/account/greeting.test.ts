@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accountGreeting, settingsFirstName } from "./greeting";
+import { accountGreeting, settingsFirstName, avatarInitial } from "./greeting";
 
 describe("accountGreeting", () => {
   it("uses the first name of a real account", () => {
@@ -43,5 +43,24 @@ describe("settingsFirstName (the settings form's first name)", () => {
     expect(settingsFirstName({ name: "Dana Cohen", firstName: "דנה" })).toBe("דנה");
     expect(settingsFirstName({ name: "+972 50 123 4567" })).toBeNull();
     expect(settingsFirstName({ name: "dana@example.com" })).toBeNull();
+  });
+});
+
+describe("avatarInitial (one letter, the same everywhere)", () => {
+  it("uses the first letter of the first name", () => {
+    expect(avatarInitial({ name: "Dana Cohen" })).toBe("D");
+    expect(avatarInitial({ name: "Dana Cohen", firstName: "דנה" })).toBe("ד");
+    expect(avatarInitial({ name: "yossi" })).toBe("Y");
+  });
+  it("gives demo accounts the letter of their personal name, never the D of Demo", () => {
+    expect(avatarInitial({ name: "Demo Owner — Yossi", isDemo: true })).toBe("Y");
+    expect(avatarInitial({ name: "Demo Owner — Yossi" })).toBe("Y");
+    expect(avatarInitial({ name: "Demo Guest — Noa Levi", isDemo: true })).toBe("N");
+    expect(avatarInitial({ name: "Demo Admin", isDemo: true })).toBeNull();
+  });
+  it("never uses a phone number or an email", () => {
+    expect(avatarInitial({ name: "+972 50 123 4567" })).toBeNull();
+    expect(avatarInitial({ name: "dana@example.com" })).toBeNull();
+    expect(avatarInitial({})).toBeNull();
   });
 });

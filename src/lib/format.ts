@@ -132,7 +132,27 @@ export function formatMoney(
     maximumFractionDigits,
     ...(compact ? { notation: "compact" as const } : {}),
   });
-  return joinNumberParts(formatter.formatToParts(amount), locale, currencySymbol(currency));
+  const parts = formatter.formatToParts(amount);
+  const base = String(locale).split("-")[0];
+  if (base === "he" || (base === "ar" && !compact)) return symbolFirst(parts, currencySymbol(currency));
+  return joinNumberParts(parts, locale, currencySymbol(currency));
+}
+
+const BIDI_MARKS_AND_SPACES = /[\u200e\u200f\u061c\u2066-\u2069\s]/g;
+
+/**
+ * Hebrew and Arabic money as "₪290" / "$1,250": the symbol right before the number, with no
+ * direction marks. Intl's "‏290 ‏$" reads "290$" inside a left-to-right island but "$ 290" in
+ * running right-to-left text; this form reads the same everywhere (one style on the whole site).
+ */
+function symbolFirst(parts: Intl.NumberFormatPart[], symbol: string): string {
+  const number = parts
+    .filter((part) => part.type !== "currency" && part.type !== "minusSign")
+    .map((part) => part.value)
+    .join("")
+    .replace(BIDI_MARKS_AND_SPACES, "");
+  const negative = parts.some((part) => part.type === "minusSign");
+  return `${negative ? "-" : ""}${symbol}${number}`;
 }
 
 /** Unit label for square meters in each language. */

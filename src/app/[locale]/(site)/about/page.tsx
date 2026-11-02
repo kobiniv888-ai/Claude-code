@@ -187,11 +187,11 @@ export default async function AboutPage({ params }: Props) {
         <div className="flex flex-col gap-4 rounded-card bg-primary-tint p-5 ring-1 ring-primary-tint-border sm:flex-row sm:items-center sm:justify-between sm:p-6">
           <h2 className="text-h2 text-balance text-foreground">{t("cta.title")}</h2>
           <div className="flex flex-wrap gap-2">
-            <Link href="/search" className={buttonStyles({ variant: "primary", className: "min-w-0 flex-1 sm:flex-none" })}>
+            <Link href="/search" className={buttonStyles({ variant: "primary", className: "grow sm:grow-0" })}>
               <SpriteIcon name="search" />
               {t("cta.search")}
             </Link>
-            <Link href="/post" className={buttonStyles({ variant: "outline", className: "min-w-0 flex-1 bg-card sm:flex-none" })}>
+            <Link href="/post" className={buttonStyles({ variant: "outline", className: "grow bg-card sm:grow-0" })}>
               <SpriteIcon name="key-round" />
               {t("cta.post")}
             </Link>

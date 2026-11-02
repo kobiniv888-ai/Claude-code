@@ -4,6 +4,10 @@ GitHub Codespaces is a free cloud computer that GitHub runs for you. The reposit
 start the whole website there, with its own database and the demo listings. You only need your
 GitHub account. It works from a phone browser.
 
+**The fast version, in one command:** once the site runs, type
+`bash .devcontainer/start-prod.sh` in the codespace terminal (see
+[The fast version](#the-fast-version-production-mode)). Same address, the real speed.
+
 ## Start it (first time: about 5–8 minutes)
 
 1. On your phone, sign in at **github.com** in the browser (Safari or Chrome, not the GitHub app).
@@ -96,19 +100,21 @@ a plain background) and show **"Map key missing"**.
 
 On Vercel, add the same variable under **Settings → Environment Variables** and redeploy.
 
-## Feel the real speed (production mode)
+## The fast version (production mode)
 
-Development mode compiles every page on first visit ("Compiling…", "Rendering…"), so it feels
-slow on a phone. To try the site the way visitors will get it, run this in the codespace terminal:
+Development mode compiles every page on its first visit (the round "N" button, "Compiling…",
+"Rendering…") and converts photos one at a time, so it feels slow on a phone. To try the site the
+way visitors will get it, run **one command** in the codespace terminal:
 
 ```bash
 bash .devcontainer/start-prod.sh
 ```
 
-It stops the development server, builds the site (a few minutes), starts it in production mode
-on the same port 3000 and prints the address. Open that address on your phone (the same one as
+It stops the development server, builds the site (3–5 minutes), starts it in production mode on
+the **same port 3000** and prints the address. Open that address on your phone (the same one as
 before). Each page now arrives ready-made: no "Compiling…", and the first visit to a page is as
-fast as the second.
+fast as the second. Right after it starts, it prepares the photos of the main pages in the
+background (2–3 minutes, log in `/tmp/bayit-warm.log`), so they are sharp at once.
 
 - **Logging in works here too**: `start-prod.sh` turns on test mode (`AUTH_TEST_MODE=true`), so the
   login codes are shown on screen. Test mode only works on the Codespaces address and localhost,

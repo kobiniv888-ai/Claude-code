@@ -21,6 +21,7 @@ import { Link, useRouter } from "@/i18n/navigation";
 import type { LoginConfig } from "@/lib/auth/config";
 import { safeNextPath, withNext } from "@/lib/auth/next-path";
 import { afterLoadIdle } from "@/lib/idle";
+import { loginSubtitleKey } from "@/lib/auth/login-subtitle";
 import { cn } from "@/lib/utils";
 import type { LoginStage } from "./login-panel";
 
@@ -121,7 +122,7 @@ export function LoginDialogProviderClient({
   const title = forAction
     ? t("dialogTitle")
     : t("title", { name: siteConfig.localizedName[locale as AppLocale] ?? siteConfig.name });
-  const description = t(hasSocial ? "dialogSubtitle" : "dialogSubtitleNoSocial");
+  const description = t(loginSubtitleKey(config));
 
   const onOpenChange = (nextOpen: boolean) => {
     setOpen(nextOpen);

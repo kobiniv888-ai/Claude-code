@@ -36,11 +36,11 @@ export function ReacceptBanner({ status, onReview, className }: ReacceptBannerPr
     <section
       aria-label={title}
       className={cn(
-        "flex flex-col gap-3 rounded-2xl border border-success/30 bg-primary-tint p-4 sm:flex-row sm:items-center sm:gap-4",
+        "flex flex-col gap-3 rounded-2xl border border-primary/20 bg-primary-tint p-4 sm:flex-row sm:items-center sm:gap-4",
         className,
       )}
     >
-      <span className="grid size-11 shrink-0 place-items-center rounded-full bg-background/80 text-success dark:bg-background/40">
+      <span className="grid size-11 shrink-0 place-items-center rounded-full bg-background/80 text-primary-text dark:bg-background/40">
         <HeartHandshake className="size-6" aria-hidden />
       </span>
       <div className="grid flex-1 gap-0.5">

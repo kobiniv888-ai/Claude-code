@@ -19,18 +19,15 @@ import {
  * Share: the phone's own share sheet when there is one, otherwise WhatsApp, Telegram,
  * Facebook and "Copy link".
  */
-export function ShareMenu({
-  url,
-  title,
-  variant = "outline",
-  className,
-}: {
+export type ShareMenuProps = {
   url: string;
   title: string;
   /** outline = labeled pill on the page; round = a white 44px circle over the photo. */
   variant?: "outline" | "round";
   className?: string;
-}) {
+};
+
+export function ShareMenu({ url, title, variant = "outline", className }: ShareMenuProps) {
   const t = useTranslations("listing.share");
   const [native, setNative] = useState(false);
 

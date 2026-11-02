@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { cleanFirstName, firstNameOf, firstNameSchema, looksLikeContact, needsFirstName, personName } from "./first-name";
+import { cleanFirstName, firstNameOf, looksLikeContact, needsFirstName, personName } from "./first-name";
+import { firstNameSchema } from "./first-name-schema";
 
 describe("first names (brief 5.8, bug 8.2)", () => {
   it("spots phone numbers, placeholders and emails", () => {

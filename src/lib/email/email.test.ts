@@ -183,6 +183,9 @@ describe("booking emails", () => {
     expect(email.text).toMatch(/2 מבוגרים, ילד אחד, תינוק אחד/);
     expect(email.text).toMatch(/\/he\/account\/trips\/BT-7K3Q9/);
     expect(email.text).not.toMatch(/[٠-٩]/);
+    // The booking number never wraps at its hyphen in the HTML.
+    expect(email.html).toContain('<span style="white-space:nowrap;">BT-7K3Q9</span>');
+    expect(email.html).not.toMatch(/[^>]BT-7K3Q9<\/span>|>BT-7K3Q9(?!<\/span>)/);
   });
 
   it("gives the host the guest's phone and message, and the guest a way to report a cancellation", async () => {

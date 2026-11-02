@@ -323,8 +323,8 @@
     "neighborhoodHelp": "We pick the nearest one from the pin — change it if needed.",
     "noCities": "No cities are available yet. Please try again later.",
     "searchLabel": "Search the address",
-    "searchPlaceholder": "Street and number, e.g. Chavchavadze Ave 12",
-    "searchHelp": "Type at least 3 letters. Results come from OpenStreetMap.",
+    "searchPlaceholder": "Street and number",
+    "searchHelp": "Type the address and press Search. Results come from OpenStreetMap.",
     "searchError": "The address search isn't answering right now. You can still tap the map to put the pin.",
     "searchResults": "Address suggestions",
     "searchEmpty": "No addresses found. Try another spelling or tap the map.",
@@ -343,7 +343,9 @@
     "tapOutside": "That spot is outside Georgia. Tap a place inside Georgia.",
     "geoDenied": "Location access was blocked. You can allow it in your browser settings, or tap the map.",
     "geoFailed": "We couldn't find your location. Please search the address or tap the map.",
-    "privacyNote": "Only the approximate area (about {meters} m) is shown publicly. You share the exact address after a guest contacts you."
+    "privacyNote": "Only the approximate area (about {meters} m) is shown publicly. You share the exact address after a guest contacts you.",
+    "searchShort": "Type at least 3 letters, then press Search.",
+    "searchBusy": "Lots of searches right now. Try again in a few seconds, or tap the map."
   },
   "details": {
     "rooms": "Rooms",

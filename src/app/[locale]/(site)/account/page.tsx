@@ -46,10 +46,18 @@ export default async function AccountOverviewPage({ params }: Props) {
       <div className="grid gap-4 sm:gap-6">
         <AccountPledgeBanner userId={user.id} />
         <QuickActions idVerified={!!user.idVerifiedAt} favorites={overview.favorites} openTickets={overview.openTickets} />
-        <div className="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-          <AttentionList items={overview.attention} />
-          <VerificationProgressCard progress={overview.progress} />
-        </div>
+        {overview.attention.length > 0 ? (
+          <div className="grid grid-cols-1 items-start gap-4 sm:gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+            <AttentionList items={overview.attention} />
+            <VerificationProgressCard progress={overview.progress} />
+          </div>
+        ) : (
+          <>
+            {/* Nothing waiting: a slim line, and the trust card gets the full width (no empty card). */}
+            <AttentionList items={overview.attention} />
+            <VerificationProgressCard progress={overview.progress} />
+          </>
+        )}
         <ListingCountTiles counts={overview.counts} />
       </div>
     </div>

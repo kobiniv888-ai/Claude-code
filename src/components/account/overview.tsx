@@ -254,25 +254,27 @@ function AttentionRow({ item }: { item: AttentionItem }) {
   );
 }
 
+/** The waiting items in a card; with nothing waiting, one slim "all set" line instead of a card. */
 export function AttentionList({ items }: { items: AttentionItem[] }) {
   const t = useTranslations("account.overview.attention");
+  if (items.length === 0) {
+    return (
+      <p className="flex items-center gap-2 rounded-xl bg-success/10 px-3 py-3 text-sm font-medium text-success">
+        <BadgeCheckIcon className="size-5 shrink-0" aria-hidden="true" />
+        {t("allGood")}
+      </p>
+    );
+  }
   return (
     <section aria-labelledby="attention" className={sectionCard}>
-      <h2 id="attention" className="text-lg font-semibold">
+      <h2 id="attention" className="text-h2">
         {t("title")}
       </h2>
-      {items.length === 0 ? (
-        <p className="mt-3 flex items-center gap-2 rounded-xl bg-success/10 px-3 py-3 text-sm font-medium text-success">
-          <BadgeCheckIcon className="size-5 shrink-0" aria-hidden="true" />
-          {t("allGood")}
-        </p>
-      ) : (
-        <ul className="mt-4 grid gap-2">
-          {items.map((item, i) => (
-            <AttentionRow key={`${item.kind}-${i}`} item={item} />
-          ))}
-        </ul>
-      )}
+      <ul className="mt-4 grid gap-2">
+        {items.map((item, i) => (
+          <AttentionRow key={`${item.kind}-${i}`} item={item} />
+        ))}
+      </ul>
     </section>
   );
 }

@@ -7,6 +7,7 @@ import { accountNavItems } from "@/lib/account/nav";
 import { requireUser } from "@/lib/auth/session";
 import { BOOKABLE_DEAL_TYPES } from "@/lib/booking/constants";
 import { db } from "@/lib/db";
+import { avatarInitial } from "@/lib/account/greeting";
 // The dashboard's utilities are not in the public stylesheet (src/app/globals.css).
 import "../../../sections.css";
 
@@ -37,7 +38,7 @@ export default async function AccountLayout({
   return (
     // All interface text for the dashboard's client components (the site root only sends public namespaces).
     <NextIntlClientProvider>
-      <AccountShell items={accountNavItems(undefined, { host: bookablePlace !== null || hostBooking !== null })} user={{ name: user.name, image: user.image }} waitingTickets={waitingTickets}>
+      <AccountShell items={accountNavItems(undefined, { host: bookablePlace !== null || hostBooking !== null })} user={{ name: user.name, image: user.image, initial: avatarInitial(user) }} waitingTickets={waitingTickets}>
         {children}
       </AccountShell>
     </NextIntlClientProvider>

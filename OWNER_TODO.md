@@ -1,6 +1,8 @@
 # Things only you can do or decide
 
-This list is kept up to date as the work goes on. It was last updated during redesign round 2.
+This list is kept up to date as the work goes on. It was last updated at the end of redesign
+round 2. The round-2 summary, the "Done when" checklist and what to check on your phone are in
+`docs/redesign-2/final.md`.
 
 ## Content and wording
 - [ ] **About page story (phase 5).** The About page (linked as "הסיפור שלנו" from the footer and
@@ -148,6 +150,15 @@ so look again before you pay.
       log in (only to check a number). If real people signed up with only a phone number before
       launch, they can no longer reach those accounts (there is no email on them) — tell us and we
       will add a way back for them.
+
+## Speed (after the site is online)
+- [ ] **Check the real speed with PageSpeed Insights** (pagespeed.web.dev) on `/he`, a search and
+      a listing once the site is deployed. The local lab test cannot reach 90: on this machine
+      every script counts into the first paint (details and numbers in
+      `docs/integration/performance-seo.md`, "Round 2 speed pass"). A host with HTTP/2 and a CDN
+      (e.g. Vercel) was ~1 s faster in our proxy test.
+- [ ] **Try the fast version on your phone:** `bash .devcontainer/start-prod.sh` in the Codespace
+      (same address as before; photos are prepared in the background for 2–3 minutes).
 
 ## Look and feel (decide when you have a minute)
 - [ ] **The WhatsApp button stays WhatsApp green.** This is the only green besides "verified" and

@@ -2,7 +2,7 @@
 
 import { useId, useRef, useState, useTransition, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { CameraIcon, CheckIcon, DownloadIcon, LinkIcon, LoaderIcon, Trash2Icon, UnlinkIcon } from "lucide-react";
+import { CameraIcon, CheckIcon, DownloadIcon, LinkIcon, LoaderIcon, Trash2Icon, UnlinkIcon, UserRoundIcon } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { AppleIcon, GoogleIcon } from "@/components/common/brand-icons";
 import { Ltr } from "@/components/common/ltr";
@@ -51,7 +51,7 @@ import { enabledCurrencies } from "@/lib/currency/convert";
 import { currencySymbol } from "@/lib/format";
 import { languageName } from "@/lib/listing-page/helpers";
 import { cn } from "@/lib/utils";
-import { initials } from "./account-shell";
+import { avatarInitial } from "@/lib/account/greeting";
 import { useActionError } from "./use-action-error";
 
 type Result = { ok: true } | { ok: false; error: string; fieldErrors?: Record<string, string[] | undefined> };
@@ -133,7 +133,7 @@ function FieldError({ id, errors }: { id: string; errors?: string[] }) {
 
 // ─── Profile ──────────────────────────────────────────────────
 
-function AvatarField({ name, image }: { name: string; image: string | null }) {
+function AvatarField({ initial, image }: { initial: string | null; image: string | null }) {
   const t = useTranslations("account.settings.profile");
   const router = useRouter();
   const errorText = useActionError();
@@ -167,7 +167,7 @@ function AvatarField({ name, image }: { name: string; image: string | null }) {
     <div className="flex flex-wrap items-center gap-4">
       <Avatar className="size-20">
         {image ? <AvatarImage src={image} alt={t("photoAlt")} /> : null}
-        <AvatarFallback className="text-lg">{initials(name)}</AvatarFallback>
+        <AvatarFallback className="text-lg">{initial ?? <UserRoundIcon className="size-8" aria-hidden />}</AvatarFallback>
       </Avatar>
       <div className="flex flex-wrap gap-2">
         <input
@@ -238,7 +238,7 @@ export function ProfileForm({ data, languageNames }: { data: AccountSettingsData
         save(() => updateProfile({ name, firstName, bio, spokenLanguages: languages, keepsShabbat, accountType, businessName }));
       }}
     >
-      <AvatarField name={data.name} image={data.image} />
+      <AvatarField initial={avatarInitial({ firstName: data.firstName, isDemo: false })} image={data.image} />
 
       <div className="grid gap-1.5">
         <label htmlFor={`${id}-name`} className="text-sm font-medium">

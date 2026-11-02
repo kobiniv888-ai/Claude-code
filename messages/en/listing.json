@@ -24,7 +24,7 @@
   },
   "status": {
     "title": "Not public: {status}",
-    "manage": "Manage my listings",
+    "manage": "Manage my places",
     "staffNote": "Staff preview — visitors cannot see this page.",
     "labels": {
       "DRAFT": "Draft",

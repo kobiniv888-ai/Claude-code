@@ -60,11 +60,6 @@ export function pickDay(current: StayDates, day: string, rules: PickRules): Stay
   return current;
 }
 
-/** The stay total in the host's currency: nights × the nightly price, plus the cleaning fee. */
-export function stayTotal(nightly: number, nights: number, cleaningFee: number | null | undefined): number {
-  return nightly * nights + (cleaningFee && cleaningFee > 0 ? cleaningFee : 0);
-}
-
 /** Adds or replaces checkIn / checkOut in a query string, keeping the other parameters. */
 export function withStayParams(search: string, dates: StayDates): string {
   const params = new URLSearchParams(search);
@@ -75,14 +70,4 @@ export function withStayParams(search: string, dates: StayDates): string {
   }
   const query = params.toString();
   return query ? `?${query}` : "";
-}
-
-/** The booking step for these dates: /listing/<id>/book?checkIn&checkOut&guests. */
-export function bookingPath(listingPath: string, dates: StayDates, guests: number | null): string {
-  const params = new URLSearchParams();
-  if (dates.checkIn) params.set("checkIn", dates.checkIn);
-  if (dates.checkOut) params.set("checkOut", dates.checkOut);
-  if (guests) params.set("guests", String(guests));
-  const query = params.toString();
-  return `${listingPath}/book${query ? `?${query}` : ""}`;
 }

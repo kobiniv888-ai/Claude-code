@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { ChevronDownIcon } from "lucide-react";
-import { KosherStampIcon, SegmentedControl, type IconComponent } from "@/components/ds";
+import { KosherStampIcon, type IconComponent } from "@/components/ds/jewish-icons";
+import { SegmentedControl } from "@/components/ds/segmented-control";
 import {
   HOTEL_JEWISH_FEATURE_ICONS,
   JEWISH_FEATURE_ICONS,

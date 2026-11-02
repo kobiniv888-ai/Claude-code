@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { MapIcon, ShieldCheckIcon } from "lucide-react";
-import { ListingCardSkeleton } from "@/components/ds";
+import { ListingCardSkeleton } from "@/components/listing/listing-card-skeleton";
 import { preferredCardTags, stayNights, type CardTagKind } from "@/components/listing/card-tags";
 import { ListingCard, type ListingCardVariant } from "@/components/listing/listing-card";
 import { ListingsMapLoader } from "@/components/maps/listings-map-loader";

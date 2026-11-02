@@ -3,7 +3,9 @@
 import { useState, type FormEvent } from "react";
 import { useTranslations } from "next-intl";
 import { SearchIcon } from "lucide-react";
-import { BottomSheet, Button, Chip } from "@/components/ds";
+import { BottomSheet } from "@/components/ds/bottom-sheet";
+import { Button } from "@/components/ds/button";
+import { Chip } from "@/components/ds/chip";
 import { DEAL_TYPE_ICONS } from "@/components/listing/field-icons";
 import type { DealType } from "@/generated/prisma/enums";
 import { withFilters } from "@/lib/listing/search-params";

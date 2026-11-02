@@ -29,6 +29,8 @@ import { cn } from "@/lib/utils";
 
 export type UserMenuUser = {
   name: string;
+  /** One letter for the avatar (`avatarInitial`), or null for a person icon. */
+  initial: string | null;
   image: string | null;
   /** A real email or the phone number (already formatted by the server) — shown under the name. */
   contact: string | null;
@@ -36,20 +38,8 @@ export type UserMenuUser = {
   isStaff: boolean;
 };
 
-/** Up to two initials; null without a name (shows a person icon instead). */
-function initials(name: string): string | null {
-  const trimmed = name.trim();
-  if (!trimmed || /^[+\d\s()-]+$/.test(trimmed)) return null;
-  const letters = trimmed
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((word) => Array.from(word)[0] ?? "")
-    .join("");
-  return letters.toLocaleUpperCase() || null;
-}
-
-export function UserAvatar({ user, className }: { user: Pick<UserMenuUser, "name" | "image">; className?: string }) {
-  const letters = initials(user.name);
+export function UserAvatar({ user, className }: { user: Pick<UserMenuUser, "initial" | "image">; className?: string }) {
+  const letters = user.initial;
   return (
     <Avatar className={cn("size-8", className)}>
       {user.image && <AvatarImage src={user.image} alt="" referrerPolicy="no-referrer" />}
@@ -90,7 +80,7 @@ export function UserMenuClient({ user }: { user: UserMenuUser }) {
       <DropdownMenuTrigger
         className="flex h-10 items-center gap-2 rounded-full border border-border bg-card ps-3 pe-1 shadow-xs transition-shadow outline-none hover:shadow-card focus-visible:ring-3 focus-visible:ring-ring/50 aria-expanded:shadow-card"
         // The visible initials are part of the name (WCAG 2.5.3 label in name).
-        aria-label={[t("openMenu"), initials(user.name)].filter(Boolean).join(" · ")}
+        aria-label={[t("openMenu"), user.name].filter(Boolean).join(" · ")}
       >
         <MenuIcon className="size-4 text-muted-foreground" aria-hidden />
         <UserAvatar user={user} />

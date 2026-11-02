@@ -71,7 +71,7 @@ export async function LegalDocument({ locale, doc }: { locale: string; doc: Lega
     }
     if (blockKey.startsWith("sub")) {
       return (
-        <h3 key={blockKey} className="mt-6 text-lg font-semibold">
+        <h3 key={blockKey} className="mt-6 text-body font-semibold">
           {t(path, plain)}
         </h3>
       );
@@ -117,7 +117,7 @@ export async function LegalDocument({ locale, doc }: { locale: string; doc: Lega
                 <section key={key} className="border-b py-8 first:pt-0 last:border-b-0">
                   <h2
                     id={sectionAnchor(key)}
-                    className="flex scroll-mt-24 gap-2 text-xl font-semibold tracking-tight text-foreground sm:text-2xl"
+                    className="flex scroll-mt-24 gap-2 text-h2 text-foreground"
                   >
                     <span aria-hidden="true" className="tabular-nums text-muted-foreground">
                       {index + 1}.
@@ -130,7 +130,7 @@ export async function LegalDocument({ locale, doc }: { locale: string; doc: Lega
             </article>
 
             <nav aria-labelledby="other-legal-pages" className="mt-10">
-              <h2 id="other-legal-pages" className="text-lg font-semibold">
+              <h2 id="other-legal-pages" className="text-h2 text-foreground">
                 {t("common.otherDocs")}
               </h2>
               <ul className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -140,7 +140,7 @@ export async function LegalDocument({ locale, doc }: { locale: string; doc: Lega
                     <li key={key}>
                       <Link
                         href={legalDocs[key].path}
-                        className="group flex items-center gap-3 rounded-2xl border bg-card p-4 shadow-card transition-shadow hover:shadow-card-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                        className="group flex items-center gap-3 rounded-2xl border bg-card p-4 transition-colors hover:border-primary/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                       >
                         <span
                           aria-hidden="true"

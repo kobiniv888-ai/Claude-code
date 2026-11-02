@@ -15,6 +15,7 @@ import {
   SettingsIcon,
   ShieldCheckIcon,
   StarIcon,
+  UserRoundIcon,
   type LucideIcon,
 } from "lucide-react";
 import { Container } from "@/components/common/container";
@@ -40,11 +41,6 @@ const ICONS: Record<AccountNavKey, LucideIcon> = {
   verification: ShieldCheckIcon,
   settings: SettingsIcon,
 };
-
-export function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  return (parts.length > 1 ? `${parts[0][0]}${parts[parts.length - 1][0]}` : (parts[0] ?? "?").slice(0, 2)).toUpperCase();
-}
 
 function shortCount(value: number, locale: string): string {
   return value > 99 ? `${formatNumber(99, locale)}+` : formatNumber(value, locale);
@@ -74,7 +70,7 @@ export function AccountShell({
   children,
 }: {
   items: AccountNavItem[];
-  user: { name: string; image: string | null };
+  user: { name: string; image: string | null; initial: string | null };
   waitingTickets: number;
   children: ReactNode;
 }) {
@@ -133,7 +129,7 @@ export function AccountShell({
           <div className="flex items-center gap-3 px-2">
             <Avatar className="size-11">
               {user.image ? <AvatarImage src={user.image} alt="" /> : null}
-              <AvatarFallback>{initials(safeDisplayName(user.name) ?? "")}</AvatarFallback>
+              <AvatarFallback>{user.initial ?? <UserRoundIcon className="size-5" aria-hidden />}</AvatarFallback>
             </Avatar>
             <div className="min-w-0">
               <p className="text-xs text-muted-foreground">{t("heading")}</p>

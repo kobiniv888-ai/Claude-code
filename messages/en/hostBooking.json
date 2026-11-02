@@ -49,7 +49,7 @@
     "notFound": {
       "title": "We couldn't find this calendar",
       "body": "The listing may have been deleted, or it isn't yours.",
-      "back": "Back to my listings"
+      "back": "Back to my places"
     }
   },
   "ical": {
@@ -105,7 +105,7 @@
     "total": "Total on arrival",
     "emptyTitle": "No bookings yet",
     "emptyBody": "When a guest books one of your places, the booking shows up here and you get an email and a text.",
-    "emptyAction": "My listings",
+    "emptyAction": "My places",
     "forListing": "Only the bookings of",
     "thisListing": "this place",
     "allListings": "All places",

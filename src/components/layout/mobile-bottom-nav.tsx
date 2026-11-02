@@ -60,6 +60,9 @@ export function MobileBottomNav({ isSignedIn }: { isSignedIn: boolean }) {
                 <li key={key} className="flex justify-center">
                   <Link
                     href={href}
+                    // Not prefetched: /post's layout carries the whole interface text (~100 KB),
+                    // which every page view downloaded in the background for the few who post.
+                    prefetch={false}
                     aria-label={t("postLabel")}
                     aria-current={current ? "page" : undefined}
                     onClick={(event) => isPlainClick(event) && setTapped({ key, from: pathname })}

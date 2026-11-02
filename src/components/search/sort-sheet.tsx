@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { CheckIcon } from "lucide-react";
-import { BottomSheet } from "@/components/ds";
+import { BottomSheet } from "@/components/ds/bottom-sheet";
 import { availableSorts, withFilters } from "@/lib/listing/search-params";
 import { cn } from "@/lib/utils";
 import { useSearch } from "./search-context";

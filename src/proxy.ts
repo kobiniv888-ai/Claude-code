@@ -24,7 +24,6 @@ function buildCsp(nonce: string) {
     "font-src": ["'self'", "data:"],
     "connect-src": [
       "'self'",
-      "https://nominatim.openstreetmap.org",
       "https://*.ingest.sentry.io",
       "https://*.ingest.de.sentry.io",
       ...(isDev ? ["ws:", "wss:"] : []),

@@ -221,13 +221,9 @@ export function HelpCenter({ items }: { items: HelpFaqItem[] }) {
   return (
     <>
       {/* Hero with the search box */}
-      <section className="relative isolate overflow-hidden bg-linear-to-b from-primary-tint to-background">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -top-24 -end-24 -z-10 size-72 rounded-full bg-primary/10 blur-3xl sm:size-96"
-        />
-        <div className="mx-auto w-full max-w-3xl px-gutter pt-8 pb-8 text-center sm:pt-14 sm:pb-12">
-          <IconCircle icon={LifeBuoy} tone="navy" size="lg" className="mx-auto mb-4 bg-card shadow-raised" />
+      <section className="border-b border-border bg-background">
+        <div className="mx-auto w-full max-w-3xl px-gutter pt-8 pb-8 text-center sm:pt-14 sm:pb-10">
+          <IconCircle icon={LifeBuoy} tone="navy" size="md" className="mx-auto mb-4" />
           <h1 className="text-h1 text-balance text-foreground">{t("hero.title")}</h1>
           <p className="mx-auto mt-2 max-w-xl text-body text-pretty text-muted-foreground">{t("hero.lead")}</p>
           <form role="search" onSubmit={(e) => e.preventDefault()} className="relative mx-auto mt-6 max-w-2xl">
@@ -254,7 +250,7 @@ export function HelpCenter({ items }: { items: HelpFaqItem[] }) {
               autoComplete="off"
               enterKeyHint="search"
               aria-describedby={`${searchId}-status`}
-              className="h-14 w-full rounded-full border border-input bg-card ps-13 pe-13 text-body shadow-raised outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-4 focus-visible:ring-ring/30 sm:h-16 sm:text-lg [&::-webkit-search-cancel-button]:hidden"
+              className="h-13 w-full rounded-full border border-input bg-card ps-13 pe-13 text-body outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-4 focus-visible:ring-ring/30 sm:h-14 [&::-webkit-search-cancel-button]:hidden"
             />
             {query ? (
               <button

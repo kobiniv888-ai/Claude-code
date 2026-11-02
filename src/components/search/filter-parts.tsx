@@ -6,7 +6,7 @@ import { ChevronDownIcon } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Switch } from "@/components/ui/switch";
-import type { IconComponent } from "@/components/ds";
+import type { IconComponent } from "@/components/ds/jewish-icons";
 import { formatNumber } from "@/lib/format";
 import type { SearchFilters } from "@/lib/listing/search-params";
 import { sectionActiveCount, type FilterSection } from "@/lib/search/filter-sections";

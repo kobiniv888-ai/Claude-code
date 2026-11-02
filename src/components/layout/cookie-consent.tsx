@@ -45,16 +45,17 @@ export function CookieConsent({ initialOpen }: { initialOpen: boolean }) {
       aria-labelledby={titleId}
       aria-describedby={descriptionId}
       className={cn(
-        // Phones: a sheet floating just above the bottom bar (clear of its raised Post button).
-        "fixed inset-x-2 bottom-[calc(var(--bottom-nav-height)+1.75rem)] z-40 animate-sheet-up",
+        // Phones: a compact sheet floating just above the bottom bar (clear of its raised Post
+        // button), short enough that the home search card stays visible above it at 390×844.
+        "fixed inset-x-2 bottom-[calc(var(--bottom-nav-height)+1.25rem)] z-40 animate-sheet-up",
         "sm:inset-x-auto sm:start-4 sm:w-[25rem] lg:start-6 lg:bottom-6 lg:w-[24rem]",
       )}
     >
-      <div className="max-h-[calc(100dvh-var(--bottom-nav-height)-6rem)] overflow-y-auto rounded-2xl border bg-card p-4 text-card-foreground shadow-float sm:p-5">
+      <div className="max-h-[calc(100dvh-var(--bottom-nav-height)-6rem)] overflow-y-auto rounded-2xl border bg-card p-3 text-card-foreground shadow-float sm:p-5">
         <div className="flex items-start gap-3">
           <span
             aria-hidden
-            className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-foreground"
+            className="hidden size-10 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-foreground sm:inline-flex"
           >
             <Cookie className="size-5" strokeWidth={1.9} />
           </span>
@@ -105,24 +106,29 @@ export function CookieConsent({ initialOpen }: { initialOpen: boolean }) {
           </fieldset>
         ) : null}
 
-        <div className="mt-4 grid grid-cols-2 gap-2">
+        {/* Phones: the three choices in one row (labels may wrap); larger screens: "accept all" on its own row. */}
+        <div className="mt-3 grid grid-cols-3 gap-2 sm:mt-4 sm:grid-cols-2">
           {customizing ? (
             <Button
               type="button"
-              className="col-span-2 h-11 rounded-xl lg:h-10"
+              className="col-span-3 h-11 rounded-xl sm:col-span-2 lg:h-10"
               onClick={() => save(makeConsent({ preferences, analytics }), true)}
             >
               {t("save")}
             </Button>
           ) : (
             <>
-              <Button type="button" className="col-span-2 h-11 rounded-xl lg:h-10" onClick={() => save(ALL_CONSENT)}>
+              <Button
+                type="button"
+                className="h-auto min-h-11 rounded-xl px-2 py-2 leading-tight whitespace-normal sm:col-span-2 lg:min-h-10"
+                onClick={() => save(ALL_CONSENT)}
+              >
                 {t("acceptAll")}
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                className="h-auto min-h-11 rounded-xl bg-card py-2 leading-tight whitespace-normal lg:min-h-10"
+                className="h-auto min-h-11 rounded-xl bg-card px-2 py-2 leading-tight whitespace-normal lg:min-h-10"
                 onClick={() => save(NECESSARY_ONLY)}
               >
                 {t("necessaryOnly")}
@@ -130,7 +136,7 @@ export function CookieConsent({ initialOpen }: { initialOpen: boolean }) {
               <Button
                 type="button"
                 variant="ghost"
-                className="h-auto min-h-11 rounded-xl py-2 leading-tight whitespace-normal lg:min-h-10"
+                className="h-auto min-h-11 rounded-xl px-2 py-2 leading-tight whitespace-normal lg:min-h-10"
                 onClick={() => setCustomizing(true)}
               >
                 {t("customize")}

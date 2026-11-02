@@ -48,6 +48,12 @@ dynamic as usual. Bundled docs: `node_modules/next/dist/docs/`.
    (`@/components/ds/deferred-island`). Until an island hydrates, React cannot commit any
    client-side navigation, so every island also opens at the first click, key press or back/forward;
    keep that, and test a link and a filter tap on a fresh page after adding one.
+   `BottomSheet` (`@/components/ds/bottom-sheet`) already loads its vaul/Radix code only when
+   idle, at the first touch or when it opens; other dialogs and menus that are closed on first
+   paint should load the same way (`next/dynamic`, mounted from the first opening). In client
+   components import design-system parts from their own files (`@/components/ds/chip`), not from
+   the `@/components/ds` barrel, which pulls every part (sheets, popovers) into the page.
+   `ListingCard` takes `sizes` when the card is narrower than its grid default (carousels).
 7. **Links and navigation:** import `Link`, `redirect`, `useRouter`, `usePathname` from
    `@/i18n/navigation`, never from `next/link` / `next/navigation` (except `notFound`).
 8. **Server-only code** (`db`, auth, storage, email…) imports `"server-only"`. The Prisma client is
@@ -147,6 +153,7 @@ docs/
 | `@/lib/images` | `processListingPhoto`, `processPrivateImage`, `perceptualHash`, `hammingDistance` |
 | `@/lib/risk` | `assessListing(listingId)`, `scanText(text)` — automatic scam checks |
 | `@/lib/rate-limit` | `rateLimit(key, { limit, windowSeconds })`, `assertRateLimit(...)` |
+| `@/lib/geocode` | `geocodeAddress(query, locale)` (server): address search through OpenStreetMap Nominatim, cached, 1 request per second site-wide. The browser calls `GET /api/geocode?q=&locale=` (signed in, once per Search/Enter), never Nominatim |
 | `@/lib/turnstile` | `verifyTurnstile(token)` |
 | `@/lib/request` | `getClientIp()`, `getCountryCode()`, `getDeviceId()` |
 | `@/lib/action` | `ActionResult<T>`, `ok()`, `fail()` helpers for server actions |

@@ -40,7 +40,7 @@ export function publicListingWhere(ctx: Pick<ListingWhereContext, "demoVisible" 
 }
 
 /**
- * Listings whose owner holds a valid welcome pledge (green badge). Not needed in public search —
+ * Listings whose owner holds a valid welcome pledge (the pledge line). Not needed in public search —
  * every listing goes live only after its owner accepted the pledge — but useful for admin views
  * and for re-checks after the pledge wording changes.
  */

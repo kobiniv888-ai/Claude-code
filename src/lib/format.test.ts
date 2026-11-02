@@ -55,6 +55,15 @@ describe("formatMoney", () => {
     expect(formatMoney(100, "EUR", "ru")).toContain("€");
   });
 
+  it("writes Hebrew and Arabic amounts one way, symbol first, with no direction marks", () => {
+    expect(formatMoney(290, "USD", "he")).toBe("$290");
+    expect(formatMoney(1250, "ILS", "he")).toBe("₪1,250");
+    expect(formatMoney(1250000, "ILS", "he", { compact: true })).toBe("₪1.3M");
+    expect(formatMoney(-40, "GEL", "he")).toBe("-₾40");
+    expect(formatMoney(290, "USD", "ar")).toBe("$290");
+    expect(formatMoney(12.5, "USD", "he")).toBe("$12.50");
+  });
+
   it("drops decimals from 100 up and for whole numbers", () => {
     expect(formatMoney(1250.75, "USD", "en")).toBe("$1,251");
     expect(formatMoney(45, "USD", "en")).toBe("$45");

@@ -42,19 +42,42 @@ describe("getDisplayCurrency", () => {
     expect(await getDisplayCurrency("GEL")).toBe("GEL");
   });
 
-  it("other languages fall back to country, then the admin default", async () => {
-    state.locale = "ka";
+  it("defaults by language: he/ru/ar → ILS, en → USD, ka → GEL (bug 8.5)", async () => {
     state.country = "GE";
-    expect(await getDisplayCurrency(null)).toBe("GEL");
+    for (const [locale, currency] of [
+      ["he", "ILS"],
+      ["ru", "ILS"],
+      ["ar", "ILS"],
+      ["en", "USD"],
+      ["ka", "GEL"],
+    ] as const) {
+      state.locale = locale;
+      expect(await getDisplayCurrency(null)).toBe(currency);
+      expect(await getDisplayCurrency(null, locale)).toBe(currency);
+    }
+  });
+
+  it("an unknown language falls back to the country, then the admin default", async () => {
+    state.country = "GE";
+    expect(await getDisplayCurrency(null, "fr")).toBe("GEL");
     state.country = null;
-    expect(await getDisplayCurrency(null, "en")).toBe("USD");
+    expect(await getDisplayCurrency(null, "fr")).toBe("USD");
+  });
+
+  it("the visitor's choice wins over the language default", async () => {
+    state.locale = "ka";
+    state.cookie = "USD";
+    expect(await getDisplayCurrency(null)).toBe("USD");
   });
 });
 
 describe("defaultCurrencyForLocale", () => {
-  it("maps Hebrew to ILS only", () => {
+  it("maps every interface language", () => {
     expect(defaultCurrencyForLocale("he")).toBe("ILS");
-    expect(defaultCurrencyForLocale("ru")).toBeNull();
+    expect(defaultCurrencyForLocale("ru")).toBe("ILS");
+    expect(defaultCurrencyForLocale("ar")).toBe("ILS");
+    expect(defaultCurrencyForLocale("en")).toBe("USD");
+    expect(defaultCurrencyForLocale("ka")).toBe("GEL");
     expect(defaultCurrencyForLocale(undefined)).toBeNull();
   });
 });

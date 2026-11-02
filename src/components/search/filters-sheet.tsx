@@ -3,7 +3,10 @@
 import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { SearchXIcon } from "lucide-react";
-import { BottomSheet, Button, Chip, NumberRoll, RemovableChip } from "@/components/ds";
+import { BottomSheet } from "@/components/ds/bottom-sheet";
+import { Button } from "@/components/ds/button";
+import { Chip, RemovableChip } from "@/components/ds/chip";
+import { NumberRoll } from "@/components/ds/number-roll";
 import { useCurrency } from "@/components/providers/currency-provider";
 import { formatNumber } from "@/lib/format";
 import {

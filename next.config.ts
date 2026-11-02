@@ -48,7 +48,14 @@ const nextConfig: NextConfig = {
     },
   },
   images: {
-    formats: ["image/avif", "image/webp"],
+    // AVIF first (smallest), WebP for older browsers. In development only WebP: the dev server
+    // converts one photo at a time and AVIF takes ~5× longer to encode, which made photos take
+    // seconds to sharpen there (bug 8.10). Production caches every size (.next/cache/images;
+    // start.sh --prod warms it with scripts/warm-images.mjs).
+    formats: process.env.NODE_ENV === "development" ? ["image/webp"] : ["image/avif", "image/webp"],
+    // Converted photos are kept 30 days (Next's default is 4 hours, after which each size is
+    // encoded again). Photo files never change in place: uploads get new keys, demo photos new names.
+    minimumCacheTTL: 2592000,
     // Stock and demo photos live in public/photos (no hotlinking), so only our own bucket is remote.
     remotePatterns: [
       // Only our own bucket when its address is known, so the image optimizer cannot be used to

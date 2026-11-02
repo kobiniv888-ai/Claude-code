@@ -1,6 +1,7 @@
 import { RotateCcwIcon, SearchXIcon } from "lucide-react";
 import { getTranslations } from "next-intl/server";
-import { EmptyState, chipStyles } from "@/components/ds";
+import { chipStyles } from "@/components/ds/chip";
+import { EmptyState } from "@/components/ds/empty-state";
 import type { AppLocale } from "@/config/site";
 import { Link } from "@/i18n/navigation";
 import { formatNumber } from "@/lib/format";

@@ -4,7 +4,8 @@ import { z } from "zod";
 import { fail, ok, runAction, type ActionResult } from "@/lib/action";
 import { db } from "@/lib/db";
 import { assertRateLimit } from "@/lib/rate-limit";
-import { firstNameSchema, safeDisplayName } from "./first-name";
+import { safeDisplayName } from "./first-name";
+import { firstNameSchema } from "./first-name-schema";
 import { requireUserForAction } from "./session";
 
 /**

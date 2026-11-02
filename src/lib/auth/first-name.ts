@@ -1,9 +1,8 @@
-import { z } from "zod";
-
 /**
  * First names (brief 5.8, bug 8.2). Asked right after the first sign-up and in the settings;
  * the account greets "שלום, <first name>" or "שלום!". A phone number, an email or a placeholder
  * ("+972…", "995…@phone.bayit.invalid") is never shown as a name. Pure, safe on server and client.
+ * No zod here (client components import these helpers): the form schema is in ./first-name-schema.
  */
 
 export const FIRST_NAME_MAX = 40;
@@ -19,7 +18,8 @@ export function looksLikeContact(value: string | null | undefined): boolean {
   return digits >= 3 && /^[+\d\s().\-‐-―]+$/.test(text);
 }
 
-function tidy(value: string | null | undefined): string {
+/** Collapses runs of spaces and trims. */
+export function tidy(value: string | null | undefined): string {
   return (value ?? "").replace(/\s+/g, " ").trim();
 }
 
@@ -56,17 +56,3 @@ export function personName(user: { firstName?: string | null; name?: string | nu
 export function needsFirstName(user: { firstName?: string | null; name?: string | null; isDemo?: boolean }): boolean {
   return !user.isDemo && !firstNameOf(user);
 }
-
-/** The first-name form (sign-up step and settings). Error messages are keys in `auth.name.errors`. */
-export const firstNameSchema = z.object({
-  firstName: z
-    .string()
-    .transform(tidy)
-    .pipe(
-      z
-        .string()
-        .min(1, "required")
-        .max(FIRST_NAME_MAX, "too_long")
-        .refine((value) => !looksLikeContact(value), "not_a_name"),
-    ),
-});

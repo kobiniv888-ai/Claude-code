@@ -12,6 +12,19 @@ Viber, Messenger, phone or email. There are no bookings or payments in Phase 1.
 * **Trust:** phone, ID and ownership verification, automatic scam checks on every listing,
   moderation, reports, and safety tips at the moment of contact.
 
+> **The fast version (production mode) — one command.** In the Codespace terminal run:
+>
+> ```bash
+> bash .devcontainer/start-prod.sh
+> ```
+>
+> It stops the development server, builds the site (3–5 minutes), serves it on the **same port
+> 3000** (the same address you already open on your phone) and prepares the photos in the
+> background. No "Compiling…" or "Rendering…", and no "N" button: this is the speed visitors get.
+> Logging in still works (codes on screen). Changed code or switched branch? Run it again. Back to
+> development mode: `bash .devcontainer/start.sh`. On your own computer: `npm run preview`.
+> Details: [docs/CODESPACES.md](docs/CODESPACES.md#the-fast-version-production-mode).
+
 "Bayit" is a working name. The name, logo, colors, cities, currencies, limits and paid-feature
 prices are all in **`src/config/site.ts`**. The logo files are in `public/brand/`.
 
@@ -118,11 +131,12 @@ browser. Logging in works, because the code is shown on screen. Step-by-step gui
 
 In a codespace:
 * `bash .devcontainer/start.sh` starts the site (and reloads missing or expired demo data).
-* **Feel the real speed on your phone:** `bash .devcontainer/start-prod.sh` stops the development
-  server, builds the site for production (a few minutes), serves it on the same port 3000 and
-  prints the address to open. Development mode compiles every page on its first visit
-  ("Compiling…", "Rendering…"), so only this mode shows how fast the site really is. Back to
-  development: `bash .devcontainer/start.sh`. On your own computer: `npm run preview`.
+* **The fast version (production mode), one command:** `bash .devcontainer/start-prod.sh` stops
+  the development server, builds the site for production (3–5 minutes), serves it on the same port
+  3000, prints the address to open and prepares the photos in the background. Development mode
+  compiles every page on its first visit ("Compiling…", "Rendering…"), so only this mode shows how
+  fast the site really is. Back to development: `bash .devcontainer/start.sh`. On your own
+  computer: `npm run preview`.
 * Map key: add a Codespaces secret named `NEXT_PUBLIC_MAP_TILE_KEY` (or set it in `.env`); see
   [docs/CODESPACES.md](docs/CODESPACES.md#map-key-so-the-maps-show-streets).
 

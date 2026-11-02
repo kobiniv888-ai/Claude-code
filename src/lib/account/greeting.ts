@@ -43,3 +43,17 @@ export function accountGreeting(fullName: string, isDemo: boolean, firstName?: s
   const personal = demoPersonalName(name);
   return personal ? { kind: "demoName", name: personal } : { kind: "demo" };
 }
+
+/**
+ * The one letter shown in an avatar without a photo: the first letter of the first name
+ * ("Yossi" → "Y"), or null (a person icon is shown instead). The header menu, the account sidebar,
+ * Settings and the host avatars all use it, so a person has the same letter everywhere. Demo
+ * accounts use the personal part of their name, never the "D" of "Demo". `isDemo` defaults to a
+ * name that starts with "Demo".
+ */
+export function avatarInitial(user: { firstName?: string | null; name?: string | null; isDemo?: boolean }): string | null {
+  const isDemo = user.isDemo ?? /^demo\s/i.test(user.name?.trim() ?? "");
+  const first = settingsFirstName({ ...user, isDemo });
+  const letter = first ? Array.from(first.trim())[0] : undefined;
+  return letter ? letter.toLocaleUpperCase() : null;
+}

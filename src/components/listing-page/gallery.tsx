@@ -9,16 +9,17 @@ import { ArrowStart } from "@/components/common/directional-icon";
 import { BottomSheet } from "@/components/ds/bottom-sheet";
 import { PhotoCarousel, isOptimizableImage } from "@/components/ds/photo-carousel";
 import { FavoriteButton } from "@/components/listing/favorite-button";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Link, useRouter } from "@/i18n/navigation";
 import { formatNumber } from "@/lib/format";
 import type { VideoEmbed } from "@/lib/listing-page/media";
 import type { PagePhoto } from "@/lib/listing-page/types";
 import { cn } from "@/lib/utils";
-import { ShareMenu } from "./share-menu";
+import { ShareMenu } from "./share-menu-island";
 
 /** The full-screen viewer (embla + dialog) loads only when a photo is opened. */
 const Lightbox = dynamic(() => import("./lightbox").then((m) => m.Lightbox), { ssr: false });
+// The video player's dialog (Radix Dialog) loads when the video is first opened.
+const VideoDialog = dynamic(() => import("./video-dialog").then((m) => m.VideoDialog), { ssr: false });
 
 /**
  * The same `sizes` for the phone carousel's first photo and the desktop mosaic's main photo, so
@@ -56,6 +57,9 @@ export function Gallery({ photos, title, video, tourUrl, backHref, shareUrl, fav
   const [viewer, setViewer] = useState<{ mounted: boolean; open: boolean; index: number }>({ mounted: false, open: false, index: 0 });
   const [gridOpen, setGridOpen] = useState(false);
   const [videoOpen, setVideoOpen] = useState(false);
+  // Mounted from the first opening on, so the dialog can animate closed.
+  const [videoUsed, setVideoUsed] = useState(false);
+  if (videoOpen && !videoUsed) setVideoUsed(true);
   const total = photos.length;
   const openAt = useCallback((index: number) => setViewer({ mounted: true, open: true, index }), []);
   const allLabel = t("showAll", { count: total, formatted: formatNumber(total, locale) });
@@ -101,7 +105,10 @@ export function Gallery({ photos, title, video, tourUrl, backHref, shareUrl, fav
         <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 px-[max(0.75rem,env(safe-area-inset-left),env(safe-area-inset-right))] pt-3">
           <BackButton href={backHref} className="pointer-events-auto" />
           <div className="pointer-events-auto flex items-center gap-2">
-            <ShareMenu url={shareUrl} title={title} variant="round" />
+            {/* The share island's scope: an early tap on it is replayed once its code is in. */}
+            <span data-share-menu="" className="contents">
+              <ShareMenu url={shareUrl} title={title} variant="round" />
+            </span>
             {favorite ? <FavoriteButton listingId={favorite.listingId} title={title} isFavorite={favorite.isFavorite} variant="overlay" className="bg-card/95 shadow-sm" /> : null}
           </div>
         </div>
@@ -144,7 +151,7 @@ export function Gallery({ photos, title, video, tourUrl, backHref, shareUrl, fav
           onOpenChange={(open) => setViewer((s) => ({ ...s, open }))}
         />
       ) : null}
-      <VideoDialog video={video} open={videoOpen} onOpenChange={setVideoOpen} title={title} />
+      {video && videoUsed ? <VideoDialog video={video} open={videoOpen} onOpenChange={setVideoOpen} title={title} /> : null}
     </section>
   );
 }
@@ -251,41 +258,5 @@ function PhotoGrid({ photos, onOpen }: { photos: PagePhoto[]; onOpen: (index: nu
         </li>
       ))}
     </ul>
-  );
-}
-
-function VideoDialog({
-  video,
-  open,
-  onOpenChange,
-  title,
-}: {
-  video: VideoEmbed | null;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  title: string;
-}) {
-  const t = useTranslations("listing.gallery");
-  if (!video) return null;
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[min(96vw,64rem)] max-w-none gap-3 bg-black p-2 text-white sm:max-w-none sm:p-3">
-        <DialogTitle className="sr-only">{t("videoTitle", { title })}</DialogTitle>
-        <DialogDescription className="sr-only">{t("videoHint")}</DialogDescription>
-        <div className="relative aspect-video w-full overflow-hidden rounded-lg" dir="ltr">
-          {open ? (
-            <iframe
-              src={video.embedUrl}
-              title={t("videoTitle", { title })}
-              className="absolute inset-0 size-full"
-              allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-              allowFullScreen
-              loading="lazy"
-              referrerPolicy="strict-origin-when-cross-origin"
-            />
-          ) : null}
-        </div>
-      </DialogContent>
-    </Dialog>
   );
 }

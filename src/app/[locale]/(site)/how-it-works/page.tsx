@@ -214,8 +214,8 @@ function Track({
   return (
     <div>
       <div className="text-center">
-        <h2 className="text-2xl font-bold tracking-tight text-balance sm:text-3xl">{title}</h2>
-        <p className="mx-auto mt-2 max-w-xl text-muted-foreground sm:text-lg">{lead}</p>
+        <h2 className="text-h2 text-balance">{title}</h2>
+        <p className="mx-auto mt-2 max-w-xl text-body text-muted-foreground">{lead}</p>
       </div>
       <ol className="mt-8 grid gap-4 md:grid-cols-3">{children}</ol>
       <div className="mt-8 flex justify-center">{cta}</div>

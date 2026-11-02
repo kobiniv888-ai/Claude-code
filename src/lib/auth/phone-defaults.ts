@@ -3,8 +3,9 @@ import { siteConfig } from "@/config/site";
 /**
  * Which country code a phone field starts with. Pure and client-safe.
  * - Guest login / verify-phone: by interface language (siteConfig.phone.defaultCountryByLocale).
- * - The listing contact phone: Georgia, unless the owner's verified phone is from elsewhere.
- * - Either way the visitor's last pick wins (remembered in localStorage per purpose).
+ * - The listing contact phone: always Georgia (+995) (brief section 6).
+ * - Either way the visitor's last pick wins (remembered in localStorage per purpose). Never a
+ *   guess from the browser's or phone's language: many Israelis set their phones to English (US).
  */
 
 export type PhoneCountryPurpose = "login" | "listing-contact";
@@ -14,9 +15,9 @@ export function defaultPhoneCountryForLocale(locale: string): string {
   return byLocale[locale] ?? siteConfig.phone.defaultCountry;
 }
 
-/** The listing contact default: the owner's verified phone country, else Georgia. */
-export function listingContactDefaultCountry(ownerPhoneCountry?: string | null): string {
-  return ownerPhoneCountry || siteConfig.phone.listingContactDefaultCountry;
+/** The listing contact default: Georgia (+995). A prefilled number keeps its own country. */
+export function listingContactDefaultCountry(): string {
+  return siteConfig.phone.listingContactDefaultCountry;
 }
 
 const STORAGE_PREFIX = "bayit:phone-country:";

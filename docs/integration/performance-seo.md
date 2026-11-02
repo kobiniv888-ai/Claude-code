@@ -193,6 +193,80 @@ How to measure: `npm run preview` (or the commands above), then
 The scratch scripts used (median of N runs, network timeline, Lantern graph dump, CLS recorder,
 class coverage check) are described here and were not committed.
 
+## Round 2 speed pass (2026-11-02, phase 6)
+
+Production build (`NEXT_DIST_DIR=.next-4502 next build` + `next start -p 4502`), Lighthouse 12.8
+mobile preset (simulated throttling), Chromium from `/opt/pw-browsers`, `--headless=new
+--no-sandbox`, HTTP/1.1 + gzip as `next start` serves it. Pages: `/he`, `/he/search?city=tbilisi`,
+the live demo listing `/he/listing/89-…` and its booking review
+`/he/listing/89-…/book?checkIn=2026-11-23&checkOut=2026-11-26&adults=2` (signed out). A run that
+fails with Lighthouse's `NO_NAVSTART` trace error is repeated.
+
+**Machine load:** another engineer's dev server and Playwright scans ran on the same 4 CPUs the
+whole time (load average 2.5–2.8 during the "before" runs, 3.0–3.7 during the "after" runs), so
+TBT and the scores move by ±10 between runs of the same build. The byte columns are exact and are
+the better before/after comparison.
+
+| Page | Before (median of 3) | After (median of 5) | Runs after |
+|---|---|---|---|
+| `/he` | 83 · LCP 3.98 s · FCP 1.56 s · TBT 223 ms · CLS 0 | 77 · LCP 3.73 s · FCP 1.54 s · TBT 473 ms · CLS 0 | 77/75/89/71/79 |
+| `/he/search?city=tbilisi` | 67 · LCP 4.44 s · FCP 1.53 s · TBT 985 ms · CLS 0 | **81** · LCP **3.38 s** · FCP 1.57 s · TBT **428 ms** · CLS 0 | 62/77/86/81/85 |
+| listing | 78 · LCP 4.73 s · FCP 1.67 s · TBT 230 ms · CLS 0 | 76 · LCP 4.65 s · FCP 1.67 s · TBT 317 ms · CLS 0 | 76/80/63/77/64 |
+| booking review | 80 · LCP 4.34 s · FCP 1.56 s · TBT 254 ms · CLS 0.006 | **89** · LCP **3.34 s** · FCP 1.56 s · TBT **173 ms** · CLS 0.006 | 89/90/91/80/86 |
+
+JavaScript downloaded before the LCP was painted (what Lighthouse's simulation counts into the LCP
+here, see "How Lighthouse's simulated LCP behaves here"):
+
+| Page | Before | After |
+|---|---|---|
+| `/he` | 262 KB | 262 KB (the RSC prefetch of `/post`, 102 KB, no longer follows each load) |
+| search | 325 KB | **265 KB** |
+| listing | 359 KB | **330 KB** |
+| booking review | 435 KB in all, ~150 KB of it for the phone check | **366 KB** in all; no phone check code for visitors who are not signed in |
+
+**Targets (Performance ≥ 90, LCP < 2.5 s, CLS < 0.1): CLS is met on all four pages; Performance
+90 and LCP < 2.5 s are not met on this machine** (best single runs: home 89, search 86, booking
+review 91). The reasons are those of the phase 4 pass below and still hold: on localhost every
+script arrives before the first frame, so the simulated LCP is the time to download the document,
+CSS, fonts and *all* first-load JavaScript on slow 4G. React DOM (73 KB), the Next.js runtime
+(37 KB), tailwind-merge (28 KB, every `cn()` in a client component), next-intl (13 KB) and the
+page's islands put the floor at ~3.3–3.7 s here. Measure the deployed site with PageSpeed Insights
+(HTTP/2, brotli, CDN); the phase 4 proxy test put the same kind of build ~1 s lower.
+
+### What changed
+
+| Change | Files | Effect |
+|---|---|---|
+| **Card photo sizes.** `ListingCard` has an additive `sizes` prop (default unchanged). The home carousel (~62vw cards), "Recently viewed" (70% / 256 px) and "Similar places" (80vw on phones, 200–250 px beside the booking box) pass their real widths instead of the grid's 92vw. | `listing/listing-card.tsx`, `home/recommended-listings.tsx`, `listing/recently-viewed-row.tsx`, `listing/[id]/page.tsx` | A 390 px phone at 3× loads the 828 w file instead of 1080 w; Lighthouse's phone 640 w instead of 750 w. |
+| **The first home card photo is not lazy** (`priority` on the first card). It is the largest paint on phones; it was `loading="lazy"`, so it started only after layout. | `home/recommended-listings.tsx` | Lighthouse no longer flags "LCP image was lazily loaded". |
+| **Photos sharpen at once (bug 8.10).** Cause: the image optimizer encodes each photo to AVIF at each width on its first request (~0.5 s each here; the dev server does one at a time, so a page of photos took seconds). Production now keeps converted photos 30 days (`minimumCacheTTL`, was 4 h), development uses WebP only (≈5× faster to encode), and `start.sh --prod` runs `scripts/warm-images.mjs` in the background after the server starts: it opens the main pages and 12 listings and requests every photo width ≤ 1200 px in AVIF (578 sizes, ~2.5 min on this machine, log `/tmp/bayit-warm.log`). Blur placeholders were already in place (`blurDataUrl` for every demo and uploaded photo). | `next.config.ts`, `scripts/warm-images.mjs`, `.devcontainer/start.sh` | A warmed photo is served from the cache in a few ms. |
+| **Bottom sheets load their code when needed.** `BottomSheet` is now a small wrapper: vaul + Radix Dialog (`ds/bottom-sheet-impl.tsx`) are fetched once the page is idle, at the first touch, or when a sheet first opens; a closed sheet renders nothing, as before. The sheet mounts closed and opens one commit later, so the 250 ms slide-up still plays. Same API. | `ds/bottom-sheet.tsx`, `ds/bottom-sheet-impl.tsx` | Off the first load of the listing page (dates, contact, "more", all-photos sheets), booking review, search and home. |
+| **No design-system barrel in client components.** The search components imported `@/components/ds`, which pulled the bottom sheet, popovers and the rest into the search page's first load. They import each part from its own file now. | `search/*.tsx` | Search: −60 KB of first-load JavaScript, TBT 985 → ~430 ms. |
+| **The search page's full search bar is a deferred island** (tablets and desktops only; phones use the top bar and the search sheet): rendered on the server as before, its code (Radix popover and sheet, place field) hydrates when idle on a wide screen, when the pointer reaches it, or at the first tap. | `search/search-bar-island.tsx`, `search/page.tsx` | Phones no longer download it with the page. |
+| **Listing page: share menu and video dialog.** The share button is a deferred island (idle or first tap, which is replayed, so an early tap still opens the menu); the video dialog loads when the video is first opened. | `listing-page/share-menu-island.tsx`, `share-menu.tsx`, `video-dialog.tsx`, `gallery.tsx` | Radix dropdown menu and dialog code out of the gallery. |
+| **Booking review: the phone check loads only for signed-in guests** (`next/dynamic`; rendered on the server for them as before). Its phone field, country list, libphonenumber, code input and Turnstile (~150 KB) are no longer downloaded by visitors who are not signed in. `looksLikeContact` no longer brings zod: the first-name form schema moved to `lib/auth/first-name-schema.ts`. | `booking/booking-review.tsx`, `lib/auth/first-name*.ts`, `auth/first-name-form.tsx`, `lib/auth/profile-actions.ts` | Booking review 80 → 89, LCP 4.34 → 3.34 s. |
+| **`/post` is not prefetched from the bottom bar and the desktop header.** Its layout carries the whole interface text, so every page view downloaded ~100 KB of RSC data in the background. | `layout/mobile-bottom-nav.tsx`, `layout/header-desktop-tools-inner.tsx` | Home: background fetches 160 → ~50 KB. |
+| **Holiday lists cached across requests.** `getHolidaysInRange` keeps its result per language, day range and calendar (pure hebcal computation, bounded cache). The 18 months of holiday marks for the date pickers (home, search) and the Jewish life lists were recomputed on every page view (~4 ms each). The calendar API already sends `Cache-Control: public, max-age=3600, s-maxage=86400`. | `lib/hebcal/index.ts` | — |
+| **Booking screens: skeletons** for "My trips" and the trip / confirmation page (they fell back to the generic account skeleton). The review page already shows the price at once (computed in the browser, confirmed by the server after 250 ms) and the listing's sheets and calendar are client-side. | `account/trips/loading.tsx`, `account/trips/[code]/loading.tsx` | — |
+| **Post form "Creating…".** Measured in production: the `createDraft` action takes 10–130 ms and the wizard's first step is on screen 220–380 ms after the tap. The seconds seen in the Codespace came from development mode compiling the `/post/[id]` route on its first visit; the button already shows a spinner and "Creating…". Nothing to fix in production. | — | — |
+
+Checked in the production build (Playwright, 390 px Hebrew and 1440/700 px English): the filters
+sheet opens from a tap right after load and closes with Escape; the listing's dates sheet and
+"all photos" sheet open; the desktop search bar's "Where" opens; an early tap on the share
+button opens the menu; no console errors. The map was already loaded only when shown (search: the
+map view or ≥ 1024 px; listing: near the viewport; Jewish life: near the viewport). Fonts were
+already only Rubik 400/500/600 (one variable file per script) with the page's script face
+preloaded.
+
+### Not done (next steps, each measured to matter)
+
+1. **Listing page sticky bar menus.** `booking-bar.tsx` and `mobile-contact-bar.tsx` import the
+   Radix dropdown menu (menu + popper, ~35 KB) for the "⋯" button that is on screen at first paint.
+   Loading the menu at the first tap needs a trigger that works before hydration; not done.
+2. **tailwind-merge (28 KB) on every page** through `cn()` in client components.
+3. **The listing page streams** (its `loading.tsx` skeleton), so its LCP comes after all scripts;
+   see the phase 4 notes.
+
 ## Link crawler (production)
 
 Playwright opens every internal `<a href>` in a new tab at 1280 px. It records the status, console
@@ -266,7 +340,7 @@ Now one load per language runs at a time, and only a missing folder counts as em
 
 | Severity | Issue |
 |---|---|
-| High | **Performance below 90 on mobile** — now 81 (home), 80 (search), 78 (listing) on localhost and 82–84 behind HTTP/2 + brotli; see "Redesign speed pass" for what changed and why the rest remains. Earlier notes: (71–85 after the second pass above). What is left: (1) ~300 KB of JavaScript on every page, which Lighthouse counts into the LCP here — the biggest parts are react-dom (73 KB), the Next runtime (45 KB) and ~70 KB of Radix for the header menus, tooltips, sheet and dialogs that also hydrate on phones where they are hidden; loading those menus on first use is the next step. (2) Hydration: lucide-react 1.x icons are client components, so every icon in a server component is serialized into the RSC payload (up to 25 KB on the listing page) and hydrates; icons are ~45% of the DOM (svg + paths). (3) Interface text: every public page ships ~55 KB of messages (tickets, listing, jewishLife, search…) that most pages never read; per-route providers would cut it. (4) Page-specific client trees: the help center's Radix accordion, Jewish Life's places explorer. Measure again on the real host (HTTP/2, CDN): the lab result here depends on how fast localhost delivers the scripts. |
+| High | **Performance below 90 on mobile** — round 2 (phase 6, under heavy machine load): home 77–89, search 81, listing 76, booking review 89 (see "Round 2 speed pass"). Phase 4: 81 (home), 80 (search), 78 (listing) on localhost and 82–84 behind HTTP/2 + brotli; see "Redesign speed pass" for what changed and why the rest remains. Earlier notes: (71–85 after the second pass above). What is left: (1) ~300 KB of JavaScript on every page, which Lighthouse counts into the LCP here — the biggest parts are react-dom (73 KB), the Next runtime (45 KB) and ~70 KB of Radix for the header menus, tooltips, sheet and dialogs that also hydrate on phones where they are hidden; loading those menus on first use is the next step. (2) Hydration: lucide-react 1.x icons are client components, so every icon in a server component is serialized into the RSC payload (up to 25 KB on the listing page) and hydrates; icons are ~45% of the DOM (svg + paths). (3) Interface text: every public page ships ~55 KB of messages (tickets, listing, jewishLife, search…) that most pages never read; per-route providers would cut it. (4) Page-specific client trees: the help center's Radix accordion, Jewish Life's places explorer. Measure again on the real host (HTTP/2, CDN): the lab result here depends on how fast localhost delivers the scripts. |
 | ~~Medium~~ Fixed | ~~One "₾" downloads 168 KB of font.~~ A 13 KB face goes first in the stack for U+20BE (a copy of Noto Sans Georgian latin-ext, `src/components/layout/font-files/`, SIL OFL), and "≈" (U+2248, in none of our Noto files) comes from a system font through `local()` ("Bayit Symbols" in `globals.css`); without a matching local font the browser falls back as before. Avoid U+2011 (non-breaking hyphen) in interface text: only Noto Sans Arabic (162 KB) has it. The last three (`auth.json` he, "ה-QR" on the 2-step setup pages) were replaced in the final regression gate; `grep -rn $'‑' messages` is empty. |
 | Low | **Listing SEO 92 in Lighthouse.** Next 16 streams listing metadata after the shell for user agents that are not on its bot list, and Lighthouse 12 no longer sends "Chrome-Lighthouse". Real crawlers (Googlebot renders JS; WhatsApp, Facebook, Telegram, Twitter, Slack and Discord are on Next's bot list) get it in `<head>`. Viber is not on that list; add it with `htmlLimitedBots` if Viber previews matter. |
 | Low | Bare listing links (`/listing/113`) now get a real `308` to the canonical slug from `src/proxy.ts` (public listings only, query kept, `Cache-Control: no-store` because the slug follows the title). Old slugs (`/listing/113-old-title`) are redirected by the page itself; since the listing route has no `loading.tsx` any more (second performance pass) that is a real HTTP `307`. Internal links always use the canonical slug. |

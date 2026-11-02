@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useState, useTransition, type ReactNode } from "react";
+import dynamic from "next/dynamic";
 import { useLocale, useTranslations } from "next-intl";
 import {
   BanknoteIcon,
@@ -13,7 +14,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useRequireLogin } from "@/components/auth/login-dialog";
-import { PhoneCheck } from "@/components/auth/phone-check";
 import { Card } from "@/components/ds/card";
 import { Button } from "@/components/ds/button";
 import { StickyContactBar } from "@/components/ds/sticky-contact-bar";
@@ -44,6 +44,15 @@ import { AskHostButton } from "./ask-host-button";
 import { DatesGuestsSheet } from "./dates-guests-sheet";
 import { useGuestSummary } from "./guest-summary";
 import { PriceBreakdown } from "./price-breakdown";
+
+/*
+ * The phone check (phone field, country list, libphonenumber, code input, Turnstile: ~150 KB) is
+ * only for signed-in guests. Rendered on the server for them as before (Next then loads its code
+ * with the page); for visitors who are not signed in it is not downloaded at all.
+ */
+const PhoneCheck = dynamic(() => import("@/components/auth/phone-check").then((m) => m.PhoneCheck), {
+  loading: () => <div aria-hidden className="h-12 animate-pulse rounded-input bg-muted motion-reduce:animate-none" />,
+});
 
 export type ReviewListing = {
   id: string;
@@ -340,27 +349,24 @@ function ReviewForm({
         </div>
       </div>
       <dl className="grid divide-y divide-border border-t border-border">
-        <div className="flex items-center justify-between gap-3 py-2">
-          <div className="grid min-w-0">
-            <dt className="text-caption text-muted-foreground">{t("review.dates")}</dt>
-            <dd className="text-small font-medium">
-              {dates.checkIn && dates.checkOut ? (
-                <>
-                  {formatDateRange(dates.checkIn, dates.checkOut, locale, { day: "numeric", month: "short" })} · {t("price.nights", { count: nights })}
-                </>
-              ) : (
-                <span className="text-muted-foreground">{t("review.noDates")}</span>
-              )}
-            </dd>
-          </div>
-          {changeButton(t("review.changeDates"))}
+        {/* A dl row may hold only dt/dd: the "change" button sits in its own dd on the end side. */}
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 py-2">
+          <dt className="col-start-1 text-caption text-muted-foreground">{t("review.dates")}</dt>
+          <dd className="col-start-1 min-w-0 text-small font-medium">
+            {dates.checkIn && dates.checkOut ? (
+              <>
+                {formatDateRange(dates.checkIn, dates.checkOut, locale, { day: "numeric", month: "short" })} · {t("price.nights", { count: nights })}
+              </>
+            ) : (
+              <span className="text-muted-foreground">{t("review.noDates")}</span>
+            )}
+          </dd>
+          <dd className="col-start-2 row-span-2 row-start-1">{changeButton(t("review.changeDates"))}</dd>
         </div>
-        <div className="flex items-center justify-between gap-3 py-2">
-          <div className="grid min-w-0">
-            <dt className="text-caption text-muted-foreground">{t("sheet.guests")}</dt>
-            <dd className="text-small font-medium">{guestSummary(guests)}</dd>
-          </div>
-          {changeButton(t("review.changeGuests"))}
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 py-2">
+          <dt className="col-start-1 text-caption text-muted-foreground">{t("sheet.guests")}</dt>
+          <dd className="col-start-1 min-w-0 text-small font-medium">{guestSummary(guests)}</dd>
+          <dd className="col-start-2 row-span-2 row-start-1">{changeButton(t("review.changeGuests"))}</dd>
         </div>
       </dl>
       {terms.checkInFrom || terms.checkOutUntil ? (

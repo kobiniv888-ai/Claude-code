@@ -15,8 +15,8 @@ import { cn } from "@/lib/utils";
 export function PledgeStatement({ version, className }: { version: number; className?: string }) {
   const t = useTranslations("pledge");
   return (
-    <figure className={cn("grid gap-3 rounded-2xl border border-success/30 bg-primary-tint p-4 sm:p-5", className)}>
-      <figcaption className="flex items-center gap-2.5 text-sm font-semibold text-success">
+    <figure className={cn("grid gap-3 rounded-2xl border border-primary/20 bg-primary-tint p-4 sm:p-5", className)}>
+      <figcaption className="flex items-center gap-2.5 text-sm font-semibold text-primary-text">
         <span className="grid size-9 shrink-0 place-items-center rounded-full bg-background/80 dark:bg-background/40">
           <HeartHandshake className="size-5" aria-hidden />
         </span>
@@ -34,8 +34,8 @@ export function PledgeAccepted({ status, className }: { status: PledgeStatus; cl
   const t = useTranslations("pledge");
   const locale = useLocale();
   return (
-    <div className={cn("flex items-start gap-3 rounded-2xl border border-success/30 bg-primary-tint p-4", className)} role="status">
-      <CircleCheckBig className="mt-0.5 size-6 shrink-0 text-success" aria-hidden />
+    <div className={cn("flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary-tint p-4", className)} role="status">
+      <CircleCheckBig className="mt-0.5 size-6 shrink-0 text-primary-text" aria-hidden />
       <div className="grid gap-1">
         <p className="font-semibold">{t("accepted.title")}</p>
         {status.version !== null && (

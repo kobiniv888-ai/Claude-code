@@ -207,7 +207,7 @@
     "notFound": {
       "title": "Listing not found",
       "body": "This listing doesn't exist or isn't yours.",
-      "back": "Back to my listings"
+      "back": "Back to my places"
     }
   },
   "favorites": {

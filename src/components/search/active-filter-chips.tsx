@@ -1,7 +1,7 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
-import { RemovableChip } from "@/components/ds";
+import { RemovableChip } from "@/components/ds/chip";
 import { useCurrency } from "@/components/providers/currency-provider";
 import { activeFilterChips, clearFilters, removeFilter } from "@/lib/listing/search-params";
 import { chipLabel } from "@/lib/search/chip-label";

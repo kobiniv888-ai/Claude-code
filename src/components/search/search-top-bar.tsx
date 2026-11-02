@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { ChevronDownIcon, SearchIcon, SlidersHorizontalIcon } from "lucide-react";
-import { Chip } from "@/components/ds";
+import { Chip } from "@/components/ds/chip";
 import { useCurrency } from "@/components/providers/currency-provider";
 import { formatDate, formatNumber } from "@/lib/format";
 import { countActiveFilters, withFilters } from "@/lib/listing/search-params";

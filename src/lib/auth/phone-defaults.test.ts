@@ -18,10 +18,8 @@ describe("defaultPhoneCountryForLocale", () => {
 });
 
 describe("listingContactDefaultCountry", () => {
-  it("defaults the host's contact phone to Georgia unless their verified phone says otherwise", () => {
+  it("defaults the host's contact phone to Georgia (+995)", () => {
     expect(listingContactDefaultCountry()).toBe("GE");
-    expect(listingContactDefaultCountry(null)).toBe("GE");
-    expect(listingContactDefaultCountry("IL")).toBe("IL");
   });
 });
 

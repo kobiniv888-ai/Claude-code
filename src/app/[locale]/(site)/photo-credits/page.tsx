@@ -35,7 +35,7 @@ export default async function PhotoCreditsPage({ params }: Props) {
   return (
     <ContentContainer size="narrow" className="grid gap-8 py-8 sm:py-12">
       <header className="grid gap-2">
-        <h1 className="text-3xl font-bold tracking-tight text-balance sm:text-4xl">{t("title")}</h1>
+        <h1 className="text-h1 text-balance">{t("title")}</h1>
         <p className="text-pretty text-muted-foreground">{t("lead")}</p>
       </header>
 

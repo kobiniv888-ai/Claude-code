@@ -103,7 +103,8 @@ export async function refreshExchangeRates(): Promise<Rates> {
 
 /**
  * The currency prices are shown in for this visitor:
- * their choice (cookie) → their account setting → the interface language (Hebrew → ILS)
+ * their choice (cookie) → their account setting → the interface language (he/ru/ar → ILS,
+ * en → USD, ka → GEL)
  * → their country → the admin default → USD.
  * Only enabled currencies are returned. Pass the signed-in user's `User.currency`; `locale`
  * defaults to the request's locale (next-intl).

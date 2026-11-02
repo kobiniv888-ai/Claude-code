@@ -16,6 +16,9 @@ import { scrollBehavior } from "@/lib/motion";
 
 type Loaded = { cards: Map<number, ListingCardData>; missing: Set<number>; failed: boolean };
 
+/** Photo widths of the row's cards (w-[70%] max-w-64, sm:w-60) for next/image. */
+const CARD_SIZES = "(min-width: 640px) 240px, (min-width: 366px) 256px, 70vw";
+
 /**
  * The "Recently viewed" row itself: fetches the cards and renders them. Loaded by
  * <RecentlyViewed> (./recently-viewed) only when the visitor has viewed listings.
@@ -112,7 +115,7 @@ export function RecentlyViewedRow({
             ))
           : cards.map((card) => (
               <li key={card.id} className="w-[70%] max-w-64 shrink-0 snap-start sm:w-60">
-                <ListingCard listing={card} />
+                <ListingCard listing={card} sizes={CARD_SIZES} />
               </li>
             ))}
       </ul>

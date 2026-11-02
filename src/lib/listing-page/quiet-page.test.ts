@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { hasKosherShabbat, houseRules, listingHighlights, orderedAmenities, otherJewishFeatures, shabbatChecklist } from "./highlights";
-import { bookingPath, canCheckOut, lastCheckOut, nightsBetween, pickDay, rangeIsFree, stayTotal, withStayParams } from "./stay";
+import { canCheckOut, lastCheckOut, nightsBetween, pickDay, rangeIsFree, withStayParams } from "./stay";
 
 const blocks = [{ start: "2026-11-10", end: "2026-11-13" }];
 const rules = { blocks, today: "2026-11-02", minNights: 2 };
@@ -31,16 +31,11 @@ describe("stay dates", () => {
     expect(pickDay({ checkIn: null, checkOut: null }, "2026-11-11", rules)).toEqual({ checkIn: null, checkOut: null });
   });
 
-  it("adds the cleaning fee to the total and builds the links", () => {
-    expect(stayTotal(100, 3, 25)).toBe(325);
-    expect(stayTotal(100, 3, null)).toBe(300);
+  it("builds the date links", () => {
     expect(withStayParams("?guests=2&checkIn=2026-01-01", { checkIn: "2026-11-04", checkOut: "2026-11-07" })).toBe(
       "?guests=2&checkIn=2026-11-04&checkOut=2026-11-07",
     );
     expect(withStayParams("?checkIn=2026-11-04&checkOut=2026-11-07", { checkIn: null, checkOut: null })).toBe("");
-    expect(bookingPath("/listing/104-x", { checkIn: "2026-11-04", checkOut: "2026-11-07" }, 2)).toBe(
-      "/listing/104-x/book?checkIn=2026-11-04&checkOut=2026-11-07&guests=2",
-    );
   });
 });
 

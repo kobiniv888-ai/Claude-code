@@ -93,7 +93,7 @@ export default async function OwnerPage({ params }: Props) {
                 <UserRoundIcon className="size-4" aria-hidden />
                 {owner.badges.business ? t("businessProfile") : t("ownerProfile")}
               </p>
-              <h1 dir="auto" className="text-2xl font-bold tracking-tight text-balance sm:text-3xl">
+              <h1 dir="auto" className="text-h1 text-balance">
                 {owner.name}
               </h1>
             </div>

@@ -12,6 +12,7 @@ import { siteConfig } from "@/config/site";
 import { formatNumber } from "@/lib/format";
 import { haversineMeters, type LatLng } from "@/lib/geo";
 import { cn } from "@/lib/utils";
+import { normalizeGeocodeQuery, type GeocodeResult } from "@/lib/geocode/core";
 import { isInGeorgia, LIMITS } from "@/lib/wizard/schemas";
 import type { WizardCity } from "@/lib/wizard/types";
 import { Field, FieldError, Section } from "../fields";
@@ -22,10 +23,8 @@ const LocationPicker = dynamic(() => import("@/components/maps/location-picker")
   loading: () => <Skeleton className="size-full rounded-none" />,
 });
 
-type NominatimResult = { place_id: number; display_name: string; lat: string; lon: string };
+type SearchState = "idle" | "short" | "loading" | "done" | "error" | "busy";
 
-const NOMINATIM = "https://nominatim.openstreetmap.org/search";
-const SEARCH_DELAY_MS = 1100;
 /** A pin farther than this from every neighborhood center is not given a neighborhood. */
 const NEIGHBORHOOD_MAX_METERS = 3500;
 /** A pin within this distance of a city center picks that city when none is chosen. */
@@ -44,7 +43,10 @@ function nearest<T extends LatLng>(items: T[], point: LatLng, maxMeters: number)
   return bestDistance <= maxMeters ? best : null;
 }
 
-/** Address search with OpenStreetMap Nominatim (from the browser, ≥ 1 s between requests). */
+/**
+ * Address search (bug 8.9): one request per "Search" press or Enter, through our own
+ * `/api/geocode` (cached, 1 request per second site-wide to OpenStreetMap). Never per keystroke.
+ */
 function AddressSearch({
   locale,
   onPick,
@@ -53,132 +55,125 @@ function AddressSearch({
   onPick: (result: { lat: number; lng: number; address: string }) => void;
 }) {
   const t = useTranslations("wizard.location");
+  const tc = useTranslations("common");
   const id = useId();
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<NominatimResult[]>([]);
-  const [state, setState] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [results, setResults] = useState<GeocodeResult[]>([]);
+  const [state, setState] = useState<SearchState>("idle");
   const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(-1);
-  const lastRequest = useRef(0);
+  const lastSearched = useRef<string | null>(null);
+  const controller = useRef<AbortController | null>(null);
 
-  useEffect(() => {
-    const q = query.trim();
-    if (q.length < 3) return;
-    const controller = new AbortController();
-    const wait = Math.max(SEARCH_DELAY_MS, lastRequest.current + SEARCH_DELAY_MS - Date.now());
-    const timer = setTimeout(async () => {
-      lastRequest.current = Date.now();
-      setState("loading");
-      try {
-        const url = `${NOMINATIM}?format=jsonv2&countrycodes=ge&limit=6&accept-language=${encodeURIComponent(locale)}&q=${encodeURIComponent(q)}`;
-        const response = await fetch(url, { signal: controller.signal, headers: { Accept: "application/json" } });
-        if (!response.ok) throw new Error(String(response.status));
-        const data = (await response.json()) as NominatimResult[];
-        setResults(Array.isArray(data) ? data.slice(0, 6) : []);
-        setActive(-1);
-        setOpen(true);
-        setState("done");
-      } catch (error) {
-        if ((error as Error).name !== "AbortError") setState("error");
+  useEffect(() => () => controller.current?.abort(), []);
+
+  const search = async () => {
+    const q = normalizeGeocodeQuery(query);
+    if (!q) {
+      setState("short");
+      setOpen(false);
+      return;
+    }
+    if (state === "loading") return;
+    // The same words again: show the last answer instead of asking again.
+    if (q === lastSearched.current && state === "done") {
+      setOpen(true);
+      return;
+    }
+    controller.current?.abort();
+    const abort = new AbortController();
+    controller.current = abort;
+    setState("loading");
+    try {
+      const response = await fetch(`/api/geocode?q=${encodeURIComponent(q)}&locale=${encodeURIComponent(locale)}`, {
+        signal: abort.signal,
+        headers: { Accept: "application/json" },
+      });
+      if (response.status === 503 || response.status === 429) {
+        setState("busy");
+        return;
       }
-    }, wait);
-    return () => {
-      clearTimeout(timer);
-      controller.abort();
-    };
-  }, [query, locale]);
+      if (!response.ok) throw new Error(String(response.status));
+      const data = (await response.json()) as { results?: GeocodeResult[] };
+      setResults(Array.isArray(data.results) ? data.results : []);
+      lastSearched.current = q;
+      setOpen(true);
+      setState("done");
+    } catch (error) {
+      if ((error as Error).name !== "AbortError") setState("error");
+    }
+  };
 
-  const pick = (result: NominatimResult) => {
-    onPick({ lat: Number(result.lat), lng: Number(result.lon), address: result.display_name.slice(0, LIMITS.addressMax) });
-    setQuery(result.display_name);
+  const pick = (result: GeocodeResult) => {
+    onPick({ lat: result.lat, lng: result.lng, address: result.label.slice(0, LIMITS.addressMax) });
+    setQuery(result.label);
+    lastSearched.current = normalizeGeocodeQuery(result.label);
     setOpen(false);
   };
 
   const listId = `${id}-list`;
-  const showList = open && query.trim().length >= 3 && state === "done";
+  const showList = open && state === "done";
+  const help =
+    state === "error" ? t("searchError") : state === "busy" ? t("searchBusy") : state === "short" ? t("searchShort") : t("searchHelp");
   return (
-    <div className="relative grid gap-2">
+    <div className="grid gap-2">
       <label htmlFor={`${id}-input`} className="text-sm font-medium">
         {t("searchLabel")}
       </label>
-      <div className="relative">
-        <SearchIcon className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
-        <Input
-          id={`${id}-input`}
-          role="combobox"
-          aria-expanded={showList}
-          aria-controls={listId}
-          aria-autocomplete="list"
-          aria-activedescendant={active >= 0 ? `${id}-opt-${active}` : undefined}
-          aria-describedby={`${id}-help`}
-          dir="auto"
-          autoComplete="off"
-          value={query}
-          placeholder={t("searchPlaceholder")}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setOpen(true);
-            if (e.target.value.trim().length < 3) {
-              setResults([]);
-              setState("idle");
-            }
-          }}
-          onKeyDown={(e) => {
-            if (!showList || results.length === 0) return;
-            if (e.key === "ArrowDown") {
-              e.preventDefault();
-              setActive((a) => (a + 1) % results.length);
-            } else if (e.key === "ArrowUp") {
-              e.preventDefault();
-              setActive((a) => (a <= 0 ? results.length - 1 : a - 1));
-            } else if (e.key === "Enter" && active >= 0) {
-              e.preventDefault();
-              pick(results[active]);
-            } else if (e.key === "Escape") {
+      <div className="flex items-center gap-2">
+        <div className="relative min-w-0 flex-1">
+          <SearchIcon className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+          <Input
+            id={`${id}-input`}
+            type="search"
+            enterKeyHint="search"
+            aria-describedby={`${id}-help`}
+            aria-controls={showList ? listId : undefined}
+            dir="auto"
+            autoComplete="off"
+            value={query}
+            placeholder={t("searchPlaceholder")}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              if (state !== "loading") setState("idle");
               setOpen(false);
-            }
-          }}
-          onBlur={() => setTimeout(() => setOpen(false), 150)}
-          className="h-11 ps-9 pe-9 text-base"
-        />
-        {state === "loading" && (
-          <LoaderCircleIcon className="absolute end-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" aria-hidden />
-        )}
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                // Enter searches; it never submits the post form.
+                e.preventDefault();
+                void search();
+              } else if (e.key === "Escape") {
+                setOpen(false);
+              }
+            }}
+            className="h-11 ps-9 text-base [&::-webkit-search-cancel-button]:hidden"
+          />
+        </div>
+        <Button type="button" onClick={() => void search()} disabled={state === "loading"} className="h-11 shrink-0 px-4">
+          {state === "loading" ? <LoaderCircleIcon className="animate-spin" aria-hidden /> : null}
+          {tc("search")}
+        </Button>
       </div>
-      <p id={`${id}-help`} className="text-xs text-muted-foreground">
-        {state === "error" ? t("searchError") : t("searchHelp")}
+      <p id={`${id}-help`} className="text-xs text-muted-foreground" aria-live="polite">
+        {help}
       </p>
       {showList && (
-        <ul
-          id={listId}
-          role="listbox"
-          aria-label={t("searchResults")}
-          className="absolute inset-x-0 top-full z-[500] mt-1 max-h-72 overflow-y-auto rounded-xl border border-border bg-popover p-1 shadow-card-hover"
-        >
+        <ul id={listId} aria-label={t("searchResults")} className="grid gap-1 rounded-xl border border-border bg-popover p-1">
           {results.length === 0 ? (
-            <li className="px-3 py-2.5 text-sm text-muted-foreground" role="presentation">
-              {t("searchEmpty")}
-            </li>
+            <li className="px-3 py-2.5 text-sm text-muted-foreground">{t("searchEmpty")}</li>
           ) : (
-            results.map((result, index) => (
-              <li
-                key={result.place_id}
-                id={`${id}-opt-${index}`}
-                role="option"
-                aria-selected={index === active}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  pick(result);
-                }}
-                className={cn(
-                  "flex cursor-pointer items-start gap-2 rounded-lg px-3 py-2.5 text-sm",
-                  index === active ? "bg-secondary" : "hover:bg-muted",
-                )}
-              >
-                <MapPinIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
-                <span dir="auto" className="line-clamp-2">
-                  {result.display_name}
-                </span>
+            results.map((result) => (
+              <li key={result.id}>
+                <button
+                  type="button"
+                  onClick={() => pick(result)}
+                  className="flex min-h-11 w-full cursor-pointer items-start gap-2 rounded-lg px-3 py-2.5 text-start text-sm hover:bg-muted focus-visible:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
+                >
+                  <MapPinIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+                  <span dir="auto" className="line-clamp-2">
+                    {result.label}
+                  </span>
+                </button>
               </li>
             ))
           )}

@@ -42,7 +42,7 @@ export default async function LegalIndexPage({ params }: Props) {
               <li key={key}>
                 <Link
                   href={legalDocs[key].path}
-                  className="group flex h-full items-start gap-4 rounded-2xl border bg-card p-5 shadow-card transition-shadow hover:shadow-card-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:p-6"
+                  className="group flex h-full items-start gap-4 rounded-2xl border bg-card p-5 transition-colors hover:border-primary/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:p-6"
                 >
                   <span
                     aria-hidden="true"
@@ -51,7 +51,7 @@ export default async function LegalIndexPage({ params }: Props) {
                     <Icon className="size-6" strokeWidth={1.75} />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-1.5 text-lg font-semibold group-hover:text-primary">
+                    <span className="flex items-center gap-1.5 text-h2 group-hover:text-primary-text">
                       {t(`nav.${key}`)}
                       <ArrowRight aria-hidden="true" className="size-4 shrink-0 rtl:-scale-x-100" />
                     </span>

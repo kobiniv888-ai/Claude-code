@@ -4,6 +4,7 @@
  */
 import { siteConfig, type AppLocale } from "@/config/site";
 import { dirFor } from "@/i18n/locale";
+import { BOOKING_CODE_ALPHABET, BOOKING_CODE_LENGTH, BOOKING_CODE_PREFIX } from "@/lib/booking/constants";
 import { isolate, type EmailBlock, type EmailContent } from "./templates";
 
 export type LayoutContext = {
@@ -24,8 +25,14 @@ export function escapeHtml(value: string): string {
 }
 
 /** Escapes and keeps line breaks of user-written text. */
+/** A booking number ("BT-7K3Q9") never breaks at its hyphen. Runs on escaped HTML. */
+const BOOKING_CODE = new RegExp(`${BOOKING_CODE_PREFIX}[${BOOKING_CODE_ALPHABET}]{${BOOKING_CODE_LENGTH}}`, "g");
+export function keepCodesTogether(html: string): string {
+  return html.replace(BOOKING_CODE, (code) => `<span style="white-space:nowrap;">${code}</span>`);
+}
+
 function multiline(value: string): string {
-  return escapeHtml(value).replace(/\r?\n/g, "<br>");
+  return keepCodesTogether(escapeHtml(value)).replace(/\r?\n/g, "<br>");
 }
 
 /** Round-2 brand (src/config/site.ts): purple header band, white card, near-black text. */
@@ -90,7 +97,7 @@ function renderBlock(block: EmailBlock, align: "left" | "right"): string {
         .map(
           (row) =>
             `<tr><td style="padding:6px 0;padding-${align === "left" ? "right" : "left"}:16px;font-size:14px;color:${colors.muted};vertical-align:top;white-space:nowrap;">${escapeHtml(row.label)}</td>` +
-            `<td style="padding:6px 0;font-size:14px;color:${colors.text};vertical-align:top;"${row.ltr ? ' dir="ltr"' : ' dir="auto"'}>${escapeHtml(row.value)}</td></tr>`,
+            `<td style="padding:6px 0;font-size:14px;color:${colors.text};vertical-align:top;"${row.ltr ? ' dir="ltr"' : ' dir="auto"'}>${keepCodesTogether(escapeHtml(row.value))}</td></tr>`,
         )
         .join("");
       return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px;border-collapse:collapse;">${rows}</table>`;

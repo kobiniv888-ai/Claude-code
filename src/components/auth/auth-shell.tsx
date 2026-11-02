@@ -35,7 +35,7 @@ export function AuthShell({
         <div className="rounded-card border border-border bg-card p-5 sm:p-8">
           <div className="mb-6 grid gap-2 text-center">
             {icon && <div className="mx-auto mb-1">{icon}</div>}
-            <h1 className="text-2xl font-bold tracking-tight text-balance">{title}</h1>
+            <h1 className="text-h1 text-balance">{title}</h1>
             {description && <p className="text-sm text-pretty text-muted-foreground">{description}</p>}
           </div>
           {children}

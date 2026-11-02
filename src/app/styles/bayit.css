@@ -597,9 +597,14 @@ body:has([data-hide-bottom-nav]) [data-bottom-nav] {
     -webkit-tap-highlight-color: transparent;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Bug 8.4: one element wider than the screen makes a phone widen the page and zoom out, and
+       after rotating back it stays zoomed out. "clip" (unlike "hidden") keeps position: sticky. */
+    overflow-x: hidden;
+    overflow-x: clip;
   }
   body {
     @apply min-h-dvh bg-background text-foreground;
+    overflow-x: clip;
   }
   ::selection {
     background-color: color-mix(in oklab, var(--primary) 22%, transparent);

@@ -330,7 +330,7 @@ export const siteConfig = {
    * The Bayit welcome pledge every host accepts before publishing. The wording of each version
    * lives in messages/<locale>/pledge.json under "versions.v<N>". To change the wording: add
    * "versions.v2" in all five languages and set currentVersion to 2 — hosts are then asked to
-   * accept the new text (they keep the green badge while their version is at least the admin
+   * accept the new text (they keep the pledge line while their version is at least the admin
    * setting "pledgeRequiredVersion").
    */
   pledge: {

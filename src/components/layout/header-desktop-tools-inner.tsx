@@ -31,7 +31,7 @@ export function PostListingButton({ label, className }: { label: string; classNa
         className,
       )}
     >
-      <Link href="/post">
+      <Link href="/post" prefetch={false}>
         <Plus aria-hidden className="size-4" strokeWidth={2.5} />
         {label}
       </Link>

@@ -78,6 +78,7 @@ export function ListingCard({
   listing,
   variant = "grid",
   priority = false,
+  sizes,
   showCompare = false,
   nights = null,
   preferTags,
@@ -88,6 +89,11 @@ export function ListingCard({
   variant?: ListingCardVariant;
   /** Load the first photo eagerly (cards above the fold). */
   priority?: boolean;
+  /**
+   * next/image `sizes` for the photo when the card is narrower than the variant's default
+   * (e.g. a carousel row of ~66vw cards); otherwise the variant's grid/list/compact widths.
+   */
+  sizes?: string;
   /** The compare toggle (desktop list view only: nothing but the heart goes on the photo). */
   showCompare?: boolean;
   /** Nights of the searched stay: adds the stay total to a nightly price. */
@@ -141,7 +147,7 @@ export function ListingCard({
           photos={listing.photos}
           title={listing.title}
           href={listing.href}
-          sizes={isCompact ? COMPACT_SIZES : isList ? LIST_SIZES : GRID_SIZES}
+          sizes={sizes ?? (isCompact ? COMPACT_SIZES : isList ? LIST_SIZES : GRID_SIZES)}
           priority={priority}
           aspect={isCompact ? "h-full min-h-30" : isList ? "aspect-[4/3] sm:aspect-auto sm:h-full sm:min-h-56" : "aspect-[4/3]"}
         />

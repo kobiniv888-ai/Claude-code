@@ -2,9 +2,9 @@
 
 import { useEffect, useId, useState, type ComponentType, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { CheckIcon, CircleAlertIcon, MinusIcon, PlusIcon } from "lucide-react";
+import { CheckIcon, ChevronDownIcon, CircleAlertIcon, MinusIcon, PlusIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { formatNumber } from "@/lib/format";
+import { formatNumber, formatTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /**
@@ -592,22 +592,48 @@ export function Stepper({
   );
 }
 
-/** Time of day (HH:MM), always left-to-right. */
+/** Every quarter hour of the day: "00:00" … "23:45". */
+const QUARTER_HOURS = Array.from({ length: 96 }, (_, i) => `${String(Math.floor(i / 4)).padStart(2, "0")}:${String((i % 4) * 15).padStart(2, "0")}`);
+
+/** "14:00" in every language but English ("2:00 PM"), whatever the browser's own locale is. */
+export function timeOptionLabel(time: string, locale: string): string {
+  return locale === "en" ? formatTime(`2000-01-01T${time}:00Z`, locale, "UTC") : time;
+}
+
+/**
+ * Time of day (HH:MM) in quarter hours, always left-to-right. A select instead of
+ * `<input type="time">`, which follows the browser's locale ("02:00 PM" on the Hebrew site): this
+ * shows 24-hour times in he/ru/ar/ka and "2:00 PM" in English. An empty value shows "none".
+ */
 export function TimeInput({
   value,
   onChange,
+  className,
   ...props
-}: Omit<React.ComponentProps<"input">, "value" | "onChange"> & { value: string; onChange: (value: string) => void }) {
+}: Omit<React.ComponentProps<"select">, "value" | "onChange" | "children"> & { value: string; onChange: (value: string) => void }) {
+  const locale = useLocale();
+  const tc = useTranslations("common");
+  const options = value && !QUARTER_HOURS.includes(value) ? [...QUARTER_HOURS, value].sort() : QUARTER_HOURS;
   return (
-    <Input
-      {...props}
-      type="time"
-      dir="ltr"
-      step={900}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="h-11 w-full text-base tabular-nums"
-    />
+    <div dir="ltr" className="relative">
+      <select
+        {...props}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={cn(
+          "h-11 w-full min-w-0 cursor-pointer appearance-none rounded-input border border-border-strong bg-card ps-3 pe-9 text-base tabular-nums transition-colors outline-none focus-visible:border-primary-text focus-visible:ring-3 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:bg-surface-muted disabled:opacity-60 aria-invalid:border-error aria-invalid:ring-3 aria-invalid:ring-error/20",
+          className,
+        )}
+      >
+        <option value="">{tc("none")}</option>
+        {options.map((time) => (
+          <option key={time} value={time}>
+            {timeOptionLabel(time, locale)}
+          </option>
+        ))}
+      </select>
+      <ChevronDownIcon className="pointer-events-none absolute end-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+    </div>
   );
 }
 
