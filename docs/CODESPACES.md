@@ -137,6 +137,14 @@ skips it for the demo accounts, so approving there needs no app. In the **fast v
 To approve with your own account instead: as the demo admin, open **Admin panel → Roles**, find
 your account by phone or email and give it the **Admin** (or **Moderator**) role.
 
+**Why the first login can take minutes in the development version:** it builds every page the
+first time someone opens it, and a codespace is slow at that (the login, the signed-in pages and
+the admin panel are each built on first use). `start.sh --dev` now opens the main pages in the
+background right after it starts. Wait until `tail /tmp/bayit-warm.log` says **"Main pages ready"**
+(1–4 minutes), then log in: it takes seconds. Built pages are kept, so later starts are faster.
+The fast version (`start-prod.sh`) is built in advance, so its logins are always quick; there the
+admin panel asks for the authenticator app (see above).
+
 ## The fast version (production mode)
 
 Development mode compiles every page on its first visit (the round "N" button, "Compiling…",

@@ -138,6 +138,13 @@ for _ in $(seq 1 60); do
       # main pages, so the first visit on the phone does not wait for it (bug 8.10).
       setsid nohup node scripts/warm-images.mjs http://localhost:3000 > /tmp/bayit-warm.log 2>&1 < /dev/null &
       echo "Preparing the photos in the background (2–3 minutes; log: /tmp/bayit-warm.log)."
+    else
+      # The development server builds each page the first time it is opened (minutes in a
+      # codespace): open the main pages now — login and the admin panel included — so the first
+      # visit on the phone does not wait. Built pages are kept on disk for the next start too.
+      setsid nohup node scripts/warm-dev.mjs http://localhost:3000 > /tmp/bayit-warm.log 2>&1 < /dev/null &
+      echo "Preparing the main pages in the background (1–4 minutes; log: /tmp/bayit-warm.log)."
+      echo "Pages open faster after that — when the log says \"Main pages ready\": tail /tmp/bayit-warm.log"
     fi
     exit 0
   fi
