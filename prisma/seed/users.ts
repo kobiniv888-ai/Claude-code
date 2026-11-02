@@ -185,7 +185,29 @@ export async function seedUsers(db: PrismaClient, now: Date): Promise<number> {
       isDemo: true,
       createdAt: joined,
     };
+    await releaseDemoPhone(db, id, user.phone);
     await db.user.upsert({ where: { id }, create: { id, ...data }, update: data });
   }
   return DEMO_USERS.length;
+}
+
+/**
+ * Logging in with a demo phone number before the demo data exists creates an ordinary account
+ * that holds that number, and the demo user could then never be created (unique phone number).
+ * Such an account came from the phone login (placeholder e-mail), so it is removed; any other
+ * account keeps its data and only lets go of the number.
+ */
+async function releaseDemoPhone(db: PrismaClient, demoId: string, phone: string): Promise<void> {
+  const holder = await db.user.findUnique({
+    where: { phoneNumber: phone },
+    select: { id: true, email: true, isDemo: true },
+  });
+  if (!holder || holder.id === demoId) return;
+  if (!holder.isDemo && holder.email.endsWith("@phone.bayit.invalid")) {
+    await db.user.delete({ where: { id: holder.id } });
+    console.log(`  · removed an account created by logging in with the demo number ${phone}`);
+  } else {
+    await db.user.update({ where: { id: holder.id }, data: { phoneNumber: null, phoneNumberVerified: false } });
+    console.log(`  · detached the demo number ${phone} from another account`);
+  }
 }
