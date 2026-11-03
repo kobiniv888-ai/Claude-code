@@ -121,7 +121,7 @@ test("a new user signs up, posts a listing with photos and it goes into review",
   await expectStep(page, 14, "Preview and publish");
   await expect(page.getByRole("region", { name: "Before you can publish" })).toHaveCount(0);
   await page.getByRole("checkbox", { name: /I accept the listing rules/ }).check();
-  await page.getByRole("button", { name: "Publish listing" }).click();
+  await page.getByRole("button", { name: "Publish", exact: true }).click(); // the bottom bar (bug 2.7)
   await expect(page.getByRole("heading", { name: "We're checking your listing" })).toBeVisible({ timeout: 60_000 });
 
   const [row] = await sql<{ publicId: number; status: string; riskReasons: { code: string }[] }>(

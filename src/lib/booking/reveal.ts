@@ -3,7 +3,8 @@
  * The server decides WHEN to reveal (canRevealHostContact in ./policy); these helpers only shape
  * values it already chose to send.
  */
-import { e164, parseContactMethods } from "@/lib/contact/links";
+import { parseContactMethods } from "@/lib/contact/links";
+import { normalizePhone, whatsappHref } from "@/lib/phone";
 
 export type HostContact = {
   /** E.164 ("+995555123456"): a "call" link (tel:). */
@@ -14,25 +15,33 @@ export type HostContact = {
 
 /**
  * From the listing's contact methods (WHATSAPP, then PHONE / VIBER / SMS), falling back to the
- * host's verified account phone.
+ * host's verified account phone. Numbers come out in E.164 without a national 0 (src/lib/phone.ts):
+ * `defaultCountry` is the listing's (for numbers saved without a country code).
  */
-export function hostContactFor(contactMethods: unknown, verifiedOwnerPhone: string | null | undefined): HostContact {
+export function hostContactFor(
+  contactMethods: unknown,
+  verifiedOwnerPhone: string | null | undefined,
+  defaultCountry?: string | null,
+): HostContact {
   const methods = parseContactMethods(contactMethods);
   const valueOf = (...channels: string[]) => {
     for (const channel of channels) {
       const method = methods.find((m) => m.channel === channel);
-      const phone = method ? e164(method.value) : null;
+      const phone = method ? normalizePhone(method.value, defaultCountry) : null;
       if (phone) return phone;
     }
     return null;
   };
-  const owner = verifiedOwnerPhone ? e164(verifiedOwnerPhone) : null;
+  const owner = verifiedOwnerPhone ? normalizePhone(verifiedOwnerPhone) : null;
   const whatsapp = valueOf("WHATSAPP");
   const phone = valueOf("PHONE", "WHATSAPP", "VIBER", "SMS") ?? owner;
   return { phone, whatsapp };
 }
 
+/** https://wa.me/<digits> for an E.164 number (src/lib/phone.ts whatsappHref; digits only as a last resort). */
 export function whatsappUrl(phone: string, text?: string): string {
+  const href = whatsappHref(phone, text);
+  if (href) return href;
   const digits = phone.replace(/\D+/g, "");
   return text ? `https://wa.me/${digits}?text=${encodeURIComponent(text)}` : `https://wa.me/${digits}`;
 }

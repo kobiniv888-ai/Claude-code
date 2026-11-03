@@ -175,6 +175,7 @@ export function WizardNav({
   backDisabled,
   nextLabel,
   busy,
+  nextDisabled = false,
   hideNext,
   extra,
 }: {
@@ -182,7 +183,10 @@ export function WizardNav({
   onNext: () => void;
   backDisabled: boolean;
   nextLabel: string;
+  /** Moving to another step (saving first): spinner on Next, both buttons disabled. */
   busy: boolean;
+  /** Next waits: the step's saved answers are loading, or a save or upload is running. */
+  nextDisabled?: boolean;
   hideNext?: boolean;
   extra?: React.ReactNode;
 }) {
@@ -203,7 +207,13 @@ export function WizardNav({
         <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
           {extra}
           {!hideNext && (
-            <Button type="button" className="h-12 min-w-0 flex-1 px-5 sm:h-11 sm:max-w-60 sm:min-w-36" onClick={onNext} disabled={busy}>
+            <Button
+              type="button"
+              className="h-12 min-w-0 flex-1 px-5 sm:h-11 sm:max-w-60 sm:min-w-36"
+              onClick={onNext}
+              disabled={busy || nextDisabled}
+              aria-busy={busy || nextDisabled || undefined}
+            >
               {busy ? <LoaderCircleIcon className="animate-spin" aria-hidden /> : null}
               {nextLabel}
               {!busy && <ArrowRightIcon className="rtl:-scale-x-100" aria-hidden />}

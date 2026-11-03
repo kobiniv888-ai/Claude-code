@@ -25,6 +25,7 @@ import {
 } from "./policy";
 import { quoteStay, type Quote, type QuoteResult } from "./pricing";
 import { isInstantBookable, resolveTerms, toNumber, type BookableRoomType } from "./terms";
+import { normalizePhone } from "@/lib/phone";
 
 /**
  * The booking engine (server-only). No session checks here — callers (./actions.ts, cron routes,
@@ -284,8 +285,12 @@ export async function createBooking(params: CreateBookingParams): Promise<Create
   // WARNED accounts book like active ones (the same rule as for hosts' listings); SUSPENDED stays
   // refused until staff lift it, even after suspendedUntil (hardening B5).
   if (!isAccountInGoodStanding(guest.status)) throw new BookingError("not_allowed");
-  const verifiedPhone = verifiedPhoneOf(guest);
-  if (!verifiedPhone || (params.guestPhone && params.guestPhone !== verifiedPhone)) throw new BookingError("phone_not_verified");
+  // Stored and compared in E.164 without a national 0 (src/lib/phone.ts, brief 2.5).
+  const accountPhone = verifiedPhoneOf(guest);
+  const verifiedPhone = accountPhone ? (normalizePhone(accountPhone) ?? accountPhone) : null;
+  if (!verifiedPhone || (params.guestPhone && (normalizePhone(params.guestPhone) ?? params.guestPhone) !== verifiedPhone)) {
+    throw new BookingError("phone_not_verified");
+  }
 
   const listing = await loadListing(params.listingId);
   if (!listing || listing.deletedAt) throw new BookingError("not_bookable");

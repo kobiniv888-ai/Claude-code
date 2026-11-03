@@ -97,6 +97,8 @@ export type ListingPageData = {
   originalLocale: AppLocale;
   city: { slug: string; name: string; lat: number; lng: number; timezone: string } | null;
   neighborhoodName: string | null;
+  /** ISO 3166-1 alpha-2 (Listing.countryCode); missing on old fixtures = src/config/countries.ts DEFAULT_COUNTRY. */
+  countryCode?: string;
   /** Approximate map point only. */
   approx: { lat: number; lng: number } | null;
 

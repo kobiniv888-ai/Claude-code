@@ -64,7 +64,7 @@ test("scam phrases and a phone number in the description send a listing to revie
   await expect(page.getByRole("region", { name: "Before you can publish" })).toHaveCount(0);
   await settle(page);
   await page.getByRole("checkbox", { name: /I accept the listing rules/ }).click();
-  await page.getByRole("button", { name: "Publish listing" }).click();
+  await page.getByRole("button", { name: "Publish", exact: true }).click(); // the bottom bar (bug 2.7)
   await expect(page.getByRole("heading", { name: "We're checking your listing" })).toBeVisible({ timeout: 60_000 });
   expect(consoleErrors).toEqual([]);
   await context.close();

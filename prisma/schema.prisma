@@ -1112,6 +1112,9 @@ model JewishPlace {
   address     Json?
   cityId      String?
   city        City?           @relation(fields: [cityId], references: [id], onDelete: SetNull)
+  /// Round 3 ("country-ready"): ISO 3166-1 alpha-2, set from the place's city when it has one
+  /// (admin place form). Per-country values: src/config/countries.ts.
+  countryCode String          @default("GE")
   lat         Float
   lng         Float
   phone       String?
@@ -1134,6 +1137,7 @@ model JewishPlace {
 
   @@index([type, active])
   @@index([cityId])
+  @@index([countryCode])
 }
 
 /// Guide articles (Phase 2 content; table ready for the editor).

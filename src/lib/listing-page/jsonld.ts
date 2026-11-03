@@ -3,6 +3,7 @@
  * coordinates, the street address or contact details — only the city and neighborhood.
  */
 import type { PropertyType } from "@/generated/prisma/enums";
+import { countryConfig } from "@/config/countries";
 import type { ListingPageData } from "./types";
 
 const TYPE_BY_PROPERTY: Record<PropertyType, string> = {
@@ -65,7 +66,7 @@ export function buildListingJsonLd(
     ...(opts.images.length ? { image: opts.images.slice(0, 6) } : {}),
     address: {
       "@type": "PostalAddress",
-      addressCountry: "GE",
+      addressCountry: countryConfig(data.countryCode).code,
       ...(data.city ? { addressLocality: data.city.name } : {}),
       ...(data.neighborhoodName ? { addressRegion: data.neighborhoodName } : {}),
     },

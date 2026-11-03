@@ -136,6 +136,10 @@ docs/
 | Path | What it provides |
 |---|---|
 | `@/config/site` | `siteConfig`, `locales`, `AppLocale`, `CurrencyCode`, `Localized` |
+| `@/config/countries` | `countryConfig(code)` (time zone, map area, pin box, local currency, phone default, emergency number), `isInCountry`, `DEFAULT_COUNTRY`: THE place for per-country values (pure) |
+| `@/lib/phone` | `normalizePhone(raw, defaultCountry)` → E.164 without the national 0, `whatsappHref`, `telHref`, `smsHref`, `isValidPhone`, `planPhoneFix` (clean-up dry run). Every phone save path and wa.me/tel: link uses it (client-safe) |
+| `@/lib/text/emoji` | `stripTitleEmoji(title)`, `hasTitleEmoji` (titles only; descriptions keep emoji) |
+| `@/lib/auth/logout` | `logOut({ homeHref, everywhere })` (client): sign out, clear private device data (`@/lib/auth/device-data`), home with "התנתקתם" |
 | `@/i18n/locale` | `isRtl`, `dirFor`, `intlLocale`, `pickLocalized`, `isAppLocale` |
 | `@/i18n/navigation` | `Link`, `redirect`, `useRouter`, `usePathname`, `getPathname` |
 | `@/lib/db` | `db` (Prisma client, server-only) |

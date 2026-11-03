@@ -305,7 +305,8 @@
       "title": "Phone verified",
       "verified": "Verified number:",
       "lead": "Confirm your phone number with a one-time code. It's required to post a listing.",
-      "cta": "Verify my phone"
+      "cta": "Verify my phone",
+      "guestLead": "You verify your phone number once, when you book a place on the site."
     },
     "id": {
       "title": "ID verified",
@@ -449,7 +450,8 @@
         "AED": "UAE dirham"
       },
       "hebrewDates": "Show Hebrew dates",
-      "hebrewDatesHint": "Adds the Hebrew date next to dates, for example in calendars."
+      "hebrewDatesHint": "Adds the Hebrew date next to dates, for example in calendars.",
+      "currencyAuto": "Automatic (by language)"
     },
     "notifications": {
       "title": "Notifications",
@@ -518,6 +520,19 @@
       "confirm": "Delete forever",
       "deleting": "Deleting…",
       "staff": "Staff accounts can't be deleted from here. Please ask an administrator to remove your staff role first."
+    },
+    "logoutAll": {
+      "title": "Log out of all devices",
+      "lead": "For when you forgot to log out on someone else's phone or computer.",
+      "what": "Your account is logged out on every phone and computer, this one too. You'll need to log in again.",
+      "button": "Log out of all devices",
+      "dialogTitle": "Log out of all devices?",
+      "dialogBody": "Everyone logged in to this account, on any device, is logged out. You too, here. Your listings, bookings and saved places stay as they are.",
+      "confirm": "Yes, log out everywhere",
+      "cancel": "Cancel",
+      "pending": "Logging out…",
+      "error": "We couldn't log out all devices. Please try again.",
+      "rateLimited": "You've tried several times in a row. Try again in an hour."
     }
   }
 }

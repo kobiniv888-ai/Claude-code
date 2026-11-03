@@ -3,7 +3,7 @@
 import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { LoaderCircleIcon, MessageSquareTextIcon, TerminalIcon } from "lucide-react";
-import { formatPhoneNumberIntl, isValidPhoneNumber, parsePhoneNumber, type Country } from "react-phone-number-input";
+import { formatPhoneNumberIntl, isValidPhoneNumber, parsePhoneNumber, type Country } from "react-phone-number-input/input";
 import { Ltr } from "@/components/common/ltr";
 import { Turnstile, type TurnstileHandle } from "@/components/common/turnstile";
 import { PhoneInput } from "@/components/forms/phone-input";

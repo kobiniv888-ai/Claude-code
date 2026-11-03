@@ -42,8 +42,24 @@ export default async function PostWizardPage({ params, searchParams }: Props) {
 
   const data = await loadWizard(id, user, "create", locale);
   if (!data) notFound();
-  // Published listings are edited from "My listings" (same wizard, "Save changes" at the end).
   if (data.listing.status !== "DRAFT") {
+    // Just published (?published=1, bug 2.7): a reload — or Back from the listing page — shows the
+    // success screen again.
+    const { status, publicPath } = data.listing;
+    if (query.published === "1" && (status === "LIVE" || status === "IN_REVIEW")) {
+      return (
+        <>
+          <HideBottomNav />
+          <WizardShell
+            listing={data.listing}
+            context={data.context}
+            initialStep="publish"
+            initialResult={{ status, reasons: [], publicId: data.listing.publicId, publicPath }}
+          />
+        </>
+      );
+    }
+    // Published listings are edited from "My listings" (same wizard, "Save changes" at the end).
     return redirect({ href: `/account/listings/${data.listing.id}/edit`, locale });
   }
 

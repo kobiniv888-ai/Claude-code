@@ -28,7 +28,7 @@ export function DealStep({ values, set, errors, chosen, setChosen, context }: St
   const error = errors.dealType;
 
   return (
-    <fieldset className="grid gap-4" aria-describedby={error ? "deal-error" : undefined}>
+    <fieldset className="grid gap-4" aria-describedby={error ? "deal-error" : undefined} data-invalid={error ? true : undefined}>
       <legend className="sr-only">{t("legend")}</legend>
       <div className="grid grid-cols-2 gap-3 sm:gap-4">
         {DEAL_TYPES.map((deal) => {

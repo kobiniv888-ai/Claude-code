@@ -12,6 +12,9 @@
     "3000": { "label": "Bayit website", "onAutoForward": "notify" }
   },
   "postCreateCommand": "bash .devcontainer/setup.sh",
-  "postStartCommand": "bash .devcontainer/start.sh",
+  // Every start: the FAST version (production build; builds only when the code changed). The
+  // founder tests on a phone, where the development server is slow (round 3).
+  "postStartCommand": "bash .devcontainer/start-prod.sh",
+  // Opening the editor again: keeps the running site (waits for a start still in progress).
   "postAttachCommand": "bash .devcontainer/start.sh"
 }

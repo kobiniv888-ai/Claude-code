@@ -1,3 +1,4 @@
 {
-  "demoDataMissing": "სადემონსტრაციო მონაცემები არ ჩაიტვირთა — გაუშვით <code>npm run db:seed</code>"
+  "demoDataMissing": "სადემონსტრაციო მონაცემები არ ჩაიტვირთა — გაუშვით <code>npm run db:seed</code>",
+  "devServer": "დეველოპერული ვერსია (ნელი). სწრაფი ვერსიისთვის: <code>bash .devcontainer/start-prod.sh</code>"
 }

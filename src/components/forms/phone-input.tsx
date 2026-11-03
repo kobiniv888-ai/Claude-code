@@ -1,13 +1,26 @@
 "use client";
 
-import { useId, useMemo, useState, useSyncExternalStore, type ComponentProps } from "react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ClipboardEvent,
+  type ComponentProps,
+} from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { CheckIcon, ChevronsUpDownIcon, GlobeIcon } from "lucide-react";
-import PhoneNumberInput, {
+// The number field without the library's country select (we draw our own): smaller, and it shows
+// the number in international format WITHOUT the country code, which sits on the button instead.
+import PhoneDigitsInput, {
+  getCountries,
   getCountryCallingCode,
+  parsePhoneNumber,
   type Country,
   type Value,
-} from "react-phone-number-input";
+} from "react-phone-number-input/input";
 import englishLabels from "react-phone-number-input/locale/en.json";
 import { locales, siteConfig } from "@/config/site";
 import { Button } from "@/components/ui/button";
@@ -26,18 +39,23 @@ import {
   rememberPhoneCountry,
   type PhoneCountryPurpose,
 } from "@/lib/auth/phone-defaults";
+import { normalizePhone } from "@/lib/phone";
 import { normalizeSearchText } from "@/lib/search-text";
 import { cn } from "@/lib/utils";
 
 /**
- * International phone number input: country picker + national number, value in E.164
- * ("+995555123456"). Always left-to-right, also on Hebrew and Arabic pages.
+ * International phone number input: a country button ("+972") and the number in international
+ * format without the national 0 ("53 123 4567"); the value is E.164 ("+972531234567"). Always
+ * left-to-right, also on Hebrew and Arabic pages.
  *
  *   const [phone, setPhone] = useState<string | undefined>();
  *   <PhoneInput label={t("phone")} value={phone} onChange={setPhone} error={error} />
  *
- * Validate with `isValidPhoneNumber` from "react-phone-number-input" on the client and again
- * on the server.
+ * Someone who types the number the local way ("053-123-4567") still gets "+972531234567": the 0 is
+ * dropped from the value at once and from the field when it loses focus (brief round 3, 2.5).
+ * Pasting "+995 555 12 34 56" or "00972…" picks that country. Validate with `isValidPhone` from
+ * "@/lib/phone" (or `isValidPhoneNumber` from "react-phone-number-input/input") on the client and
+ * again on the server.
  *
  * The country list is searchable by name in any of our five languages, by dialing code ("972",
  * "+995") or ISO code. With `rememberAs`, the visitor's last pick is remembered (localStorage)
@@ -105,17 +123,15 @@ function subscribeToStorage(onChange: () => void) {
 
 type CountrySelectProps = {
   value?: Country;
-  onChange: (country?: Country) => void;
-  options: { value?: Country; label: string; divider?: boolean }[];
+  onChange: (country: Country) => void;
+  countries: readonly Country[];
   disabled?: boolean;
-  readOnly?: boolean;
-  /** Passed through `countrySelectProps`. */
   size: "default" | "lg";
   invalid?: boolean;
   rememberAs?: PhoneCountryPurpose;
 };
 
-function CountrySelect({ value, onChange, options, disabled, readOnly, size, invalid, rememberAs }: CountrySelectProps) {
+function CountrySelect({ value, onChange, countries: allowed, disabled, size, invalid, rememberAs }: CountrySelectProps) {
   const t = useTranslations("auth.country");
   const locale = useLocale();
   const nameOf = useCountryNames(locale);
@@ -124,16 +140,15 @@ function CountrySelect({ value, onChange, options, disabled, readOnly, size, inv
 
   const countries = useMemo(
     () =>
-      options
-        .filter((option): option is { value: Country; label: string } => !option.divider && !!option.value)
-        .map((option) => ({
-          country: option.value,
-          name: nameOf(option.value),
-          code: `+${getCountryCallingCode(option.value)}`,
-          searchText: `${searchNamesOf(option.value)} +${getCountryCallingCode(option.value)} ${option.value.toLowerCase()}`,
+      allowed
+        .map((country) => ({
+          country,
+          name: nameOf(country),
+          code: `+${getCountryCallingCode(country)}`,
+          searchText: `${searchNamesOf(country)} +${getCountryCallingCode(country)} ${country.toLowerCase()}`,
         }))
         .sort((a, b) => a.name.localeCompare(b.name, locale)),
-    [options, nameOf, searchNamesOf, locale],
+    [allowed, nameOf, searchNamesOf, locale],
   );
 
   const callingCode = value ? `+${getCountryCallingCode(value)}` : null;
@@ -144,7 +159,7 @@ function CountrySelect({ value, onChange, options, disabled, readOnly, size, inv
         <Button
           type="button"
           variant="outline"
-          disabled={disabled || readOnly}
+          disabled={disabled}
           aria-label={callingCode ? t("selected", { code: callingCode }) : t("label")}
           aria-invalid={invalid || undefined}
           className={cn(
@@ -211,6 +226,29 @@ function NumberField({ className, fieldSize = "default", ...props }: NumberField
   );
 }
 
+/** Every country the phone metadata knows, once (the list is long; computed on first use). */
+let allCountries: Country[] | null = null;
+function everyCountry(): Country[] {
+  allCountries ??= getCountries();
+  return allCountries;
+}
+
+/** The country of an E.164 value: from the number itself, else from its calling code (preferring `preferred`). */
+function countryOfValue(value: string | undefined, preferred: Country | undefined, allowed: readonly Country[]): Country | undefined {
+  if (!value) return undefined;
+  const fromNumber = parsePhoneNumber(value)?.country;
+  if (fromNumber) return fromNumber;
+  if (preferred && value.startsWith(`+${getCountryCallingCode(preferred)}`)) return preferred;
+  return allowed.find((country) => value.startsWith(`+${getCountryCallingCode(country)}`));
+}
+
+/** The digits after the calling code ("+972531234567", IL → "531234567"). */
+function nationalDigits(value: string | undefined, country: Country): string {
+  if (!value) return "";
+  const prefix = `+${getCountryCallingCode(country)}`;
+  return value.startsWith(prefix) ? value.slice(prefix.length) : "";
+}
+
 export type PhoneInputProps = {
   value: string | undefined;
   onChange: (value: string | undefined) => void;
@@ -262,15 +300,50 @@ export function PhoneInput({
   "aria-label": ariaLabel,
   onBlur,
 }: PhoneInputProps) {
-  const t = useTranslations("auth.country");
   const generatedId = useId();
   const inputId = id ?? `phone-${generatedId}`;
   const descriptionId = description ? `${inputId}-description` : undefined;
   const errorId = error ? `${inputId}-error` : undefined;
   const describedBy = [descriptionId, errorId].filter(Boolean).join(" ") || undefined;
   const remembered = useRememberedCountry(rememberAs);
+  const allowed = countries && countries.length > 0 ? countries : everyCountry();
   const startCountry =
-    remembered && (!countries || countries.includes(remembered)) ? remembered : defaultCountry;
+    remembered && allowed.includes(remembered) ? remembered : allowed.includes(defaultCountry) ? defaultCountry : allowed[0];
+  /** The visitor's pick in this field (null until they pick). */
+  const [picked, setPicked] = useState<Country | null>(null);
+  const country = countryOfValue(value, picked ?? startCountry, allowed) ?? picked ?? startCountry;
+  /** Bumped to redraw the field from `value` (drops a typed national 0 from the display). */
+  const [redraw, setRedraw] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Tell the parent which country is shown (the login form checks it against the SMS countries).
+  const reported = useRef<Country | undefined>(undefined);
+  useEffect(() => {
+    if (reported.current === country) return;
+    reported.current = country;
+    onCountryChange?.(country);
+  }, [country, onCountryChange]);
+
+  function selectCountry(next: Country) {
+    setPicked(next);
+    // Keep what was typed: "53 123 4567" under +995 becomes +972 53 123 4567 under +972.
+    const digits = nationalDigits(value, country);
+    const moved = digits ? normalizePhone(`+${getCountryCallingCode(next)}${digits}`) ?? `+${getCountryCallingCode(next)}${digits}` : undefined;
+    if (moved !== value) onChange(moved);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }
+
+  function onPaste(event: ClipboardEvent<HTMLInputElement>) {
+    const text = event.clipboardData.getData("text");
+    if (!/^\s*(\+|00)/.test(text)) return; // a local number: typed in as usual (its 0 is dropped)
+    const pasted = normalizePhone(text);
+    const pastedCountry = pasted ? countryOfValue(pasted, undefined, everyCountry()) : undefined;
+    if (!pasted || !pastedCountry) return;
+    event.preventDefault();
+    if (allowed.includes(pastedCountry)) setPicked(pastedCountry);
+    onChange(pasted);
+    setRedraw((n) => n + 1);
+  }
 
   return (
     <div className={cn("grid gap-2", className)}>
@@ -279,38 +352,49 @@ export function PhoneInput({
           {label}
         </Label>
       )}
-      <div dir="ltr">
-        <PhoneNumberInput
+      <div dir="ltr" className="flex w-full">
+        <CountrySelect
+          value={country}
+          onChange={selectCountry}
+          countries={allowed}
+          disabled={disabled}
+          size={size}
+          invalid={!!error}
+          rememberAs={rememberAs}
+        />
+        <PhoneDigitsInput
+          key={redraw}
+          ref={inputRef}
           value={(value || undefined) as Value | undefined}
           onChange={(next) => onChange(next || undefined)}
-          onCountryChange={onCountryChange}
-          defaultCountry={startCountry}
-          countries={countries}
-          international={false}
-          addInternationalOption={false}
-          countryCallingCodeEditable={false}
-          limitMaxLength
-          labels={{ country: t("label"), phone: label ?? ariaLabel ?? "" }}
-          className="flex w-full"
-          countrySelectComponent={CountrySelect}
-          countrySelectProps={{ size, invalid: !!error, rememberAs }}
+          country={country}
+          international
           inputComponent={NumberField}
-          numberInputProps={{
-            id: inputId,
-            name,
-            fieldSize: size,
-            required,
-            autoFocus,
-            placeholder,
-            autoComplete: "tel-national",
-            inputMode: "tel",
-            dir: "ltr",
-            "aria-label": label ? undefined : ariaLabel,
-            "aria-invalid": error ? true : undefined,
-            "aria-describedby": describedBy,
-          }}
-          onBlur={onBlur}
+          // NumberField props
+          fieldSize={size}
+          id={inputId}
+          name={name}
+          required={required}
+          // Only on the first draw: a redraw after blur must not pull the focus back.
+          autoFocus={autoFocus && redraw === 0}
+          placeholder={placeholder}
+          autoComplete="tel-national"
+          inputMode="tel"
+          dir="ltr"
+          aria-label={label ? undefined : ariaLabel}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={describedBy}
           disabled={disabled}
+          onPaste={onPaste}
+          onBlur={() => {
+            // A value in another form ("+9720531234567", saved before round 3) becomes E.164 without
+            // the national 0 once the visitor has touched the field (never by just opening a form).
+            const normal = value ? normalizePhone(value) : null;
+            if (normal && normal !== value) onChange(normal);
+            // "053 123 4567" typed the local way: the value is already +97253…; redraw the field.
+            if (value && inputRef.current && /^\s*0/.test(inputRef.current.value)) setRedraw((n) => n + 1);
+            onBlur?.();
+          }}
         />
       </div>
       {description && !error && (

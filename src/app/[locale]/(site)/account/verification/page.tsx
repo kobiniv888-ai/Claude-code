@@ -22,6 +22,7 @@ import { siteConfig } from "@/config/site";
 import { Link } from "@/i18n/navigation";
 import { getVerificationCenter, toSummaries, type VerificationRequestView } from "@/lib/account/queries";
 import { badgeState, latestRequest, type BadgeState } from "@/lib/account/verification";
+import { mayOfferPhoneCheck } from "@/lib/auth/phone-check-policy";
 import { requireUser } from "@/lib/auth/session";
 import { formatDate } from "@/lib/format";
 import { pageMetadata } from "@/lib/seo";
@@ -143,12 +144,15 @@ export default async function VerificationPage({ params }: Props) {
             <>
               {t("phone.verified")} <Ltr className="font-medium text-foreground">{center.phoneNumber}</Ltr>
             </>
-          ) : (
+          ) : center.isHost ? (
             t("phone.lead")
+          ) : (
+            // A guest: the phone is checked in the booking review, never offered here (paid SMS).
+            t("phone.guestLead")
           )
         }
       >
-        {center.phoneVerified ? null : (
+        {center.phoneVerified || !mayOfferPhoneCheck("account", { isHost: center.isHost }) ? null : (
           <div>
             <Button asChild className="h-11 rounded-xl px-5">
               <Link href={{ pathname: "/verify-phone", query: { next: nextHere } }}>

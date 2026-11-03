@@ -3,6 +3,7 @@
 import { useId, useRef, useState, useTransition, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { CameraIcon, CheckIcon, DownloadIcon, LinkIcon, LoaderIcon, Trash2Icon, UnlinkIcon, UserRoundIcon } from "lucide-react";
+import { clearPrivateDeviceData } from "@/lib/auth/device-data";
 import { toast } from "@/lib/toast";
 import { AppleIcon, GoogleIcon } from "@/components/common/brand-icons";
 import { Ltr } from "@/components/common/ltr";
@@ -449,8 +450,11 @@ export function PreferencesForm({ data }: { data: AccountSettingsData }) {
   const id = useId();
   const { pending, save } = useSave();
   const [locale, setLocale] = useState<AppLocale>(data.locale as AppLocale);
-  const display = useCurrency().currency;
-  const [currency, setCurrency] = useState<string>(data.currency ?? display ?? enabledCurrencies[0]);
+  const display = useCurrency();
+  // "auto" while prices follow the language (no choice yet); else the currency the visitor chose
+  // (the header's choice is a cookie and wins over the account setting, so show what is in effect).
+  const [initialCurrency] = useState<string>(display.chosen ? display.currency : "auto");
+  const [currency, setCurrency] = useState<string>(initialCurrency);
   const [hebrewDates, setHebrewDates] = useState(data.showHebrewDates);
 
   return (
@@ -459,7 +463,8 @@ export function PreferencesForm({ data }: { data: AccountSettingsData }) {
       onSubmit={(event) => {
         event.preventDefault();
         save(
-          () => updatePreferences({ locale, currency, showHebrewDates: hebrewDates }),
+          // The currency only when it was changed here (bug 2.8: a save used to pin the shown one).
+          () => updatePreferences({ locale, currency: currency !== initialCurrency ? currency : undefined, showHebrewDates: hebrewDates }),
           () => (locale !== current ? router.replace(pathname, { locale }) : router.refresh()),
         );
       }}
@@ -492,6 +497,12 @@ export function PreferencesForm({ data }: { data: AccountSettingsData }) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="auto">
+                {t("currencyAuto")} ·{" "}
+                <Ltr>
+                  {currencySymbol(display.automatic)} {display.automatic}
+                </Ltr>
+              </SelectItem>
               {enabledCurrencies.map((code) => (
                 <SelectItem key={code} value={code}>
                   <Ltr>
@@ -722,6 +733,8 @@ export function DeleteAccount({ isStaff }: { isStaff: boolean }) {
                   return;
                 }
                 // A full page load on purpose: the session is gone and every cached page must forget the user.
+                // This device's private data goes too (recently viewed, compare list…: round 3, bug 2.9).
+                clearPrivateDeviceData();
                 // eslint-disable-next-line @next/next/no-location-assign-relative-destination
                 window.location.assign(`/${locale}`);
               });

@@ -14,7 +14,7 @@ import { fail, ok, runAction, type ActionResult } from "@/lib/action";
 import { audit } from "@/lib/audit";
 import { requireUserForAction } from "@/lib/auth/session";
 import { auth } from "@/lib/auth/server";
-import { setDisplayCurrency } from "@/lib/currency/actions";
+import { clearDisplayCurrency, setDisplayCurrency } from "@/lib/currency/actions";
 import { db } from "@/lib/db";
 import { notificationEmailFor, sendEmail } from "@/lib/email";
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
@@ -281,12 +281,17 @@ export async function updatePreferences(input: unknown): Promise<ActionResult<{ 
     if (!parsed.success) return fail("invalid_input", z.flattenError(parsed.error).fieldErrors);
     await assertRateLimit(`account:settings:${user.id}`, SETTINGS_LIMIT);
     const { locale, currency, showHebrewDates } = parsed.data;
+    const currencyUpdate =
+      currency === undefined ? {} : { currency: currency === "auto" ? null : (currency as Prisma.UserUpdateInput["currency"]) };
     await db.user.update({
       where: { id: user.id },
-      data: { locale, currency: currency as Prisma.UserUpdateInput["currency"], showHebrewDates },
+      data: { locale, showHebrewDates, ...currencyUpdate },
     });
-    const cookie = await setDisplayCurrency(currency);
-    if (!cookie.ok) console.warn("[account] display currency cookie not set:", cookie.error);
+    // The cookie wins over the account setting, so it follows the change (or goes, for "auto").
+    if (currency !== undefined) {
+      const cookie = currency === "auto" ? await clearDisplayCurrency() : await setDisplayCurrency(currency);
+      if (!cookie.ok) console.warn("[account] display currency cookie not updated:", cookie.error);
+    }
     return ok({ locale });
   });
 }

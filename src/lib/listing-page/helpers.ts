@@ -2,6 +2,7 @@
  * Small pure helpers for the listing page and owner profile (client-safe).
  */
 import { haversineMeters, walkingMinutes, type LatLng } from "@/lib/geo";
+import { COUNTRIES, DEFAULT_COUNTRY } from "@/config/countries";
 import type { ContactChannelKey } from "@/lib/listing/fields";
 
 /** "Typically replies within …" bucket for User.avgReplyMinutes. */
@@ -45,7 +46,7 @@ export function needsShowMore(text: string, limit = 600): boolean {
 }
 
 /** Valid IANA time zone, else the fallback. */
-export function safeTimeZone(zone: string | null | undefined, fallback = "Asia/Tbilisi"): string {
+export function safeTimeZone(zone: string | null | undefined, fallback = COUNTRIES[DEFAULT_COUNTRY].timezone): string {
   if (!zone) return fallback;
   try {
     new Intl.DateTimeFormat("en", { timeZone: zone });

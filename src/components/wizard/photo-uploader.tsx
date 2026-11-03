@@ -8,6 +8,7 @@ import { siteConfig } from "@/config/site";
 import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { WizardPhoto } from "@/lib/wizard/types";
+import { useReportBusy } from "./busy-context";
 
 /**
  * Photo uploads for the wizard: compress in the browser (browser-image-compression, max 2400 px,
@@ -263,6 +264,8 @@ export function usePhotoUploads({
   }, []);
 
   const busy = items.some((i) => i.status === "queued" || i.status === "compressing" || i.status === "uploading");
+  // Next waits for running uploads.
+  useReportBusy(busy);
   return { items, add, retry, dismiss, busy, rejected, clearRejected: () => setRejected(null) };
 }
 

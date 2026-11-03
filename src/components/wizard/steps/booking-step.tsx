@@ -17,8 +17,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Ltr } from "@/components/common/ltr";
 import type { CurrencyCode } from "@/config/site";
 import type { CancellationPolicy } from "@/generated/prisma/enums";
-import { hostCalendarPath } from "@/components/host-calendar/paths";
-import { useRouter } from "@/i18n/navigation";
 import { CANCELLATION_POLICIES, MAX_STAY_NIGHTS, PAYMENT_METHODS, type PaymentMethod } from "@/lib/booking/constants";
 import { enabledCurrencies } from "@/lib/currency/convert";
 import { currencySymbol, formatMoney } from "@/lib/format";
@@ -32,21 +30,14 @@ import type { StepProps } from "../step-props";
  * policy and the payment methods accepted at check-in. Saving it (with a payment method) turns
  * instant booking on. It replaces the "price" step for these listings, so nothing is asked twice.
  */
-export function BookingStep({ listing, values, set, errors, kind, locale, flush }: StepProps) {
+export function BookingStep({ listing, values, set, errors, kind, locale, openCalendar }: StepProps) {
   const t = useTranslations("wizard.booking");
   const tb = useTranslations("booking");
-  const router = useRouter();
   const isHotel = kind.dealType === "HOTEL_ROOM";
   const symbol = currencySymbol(values.currency);
   // An older weekly price is not a nightly price: the field starts empty until one is entered.
   const nightly = values.pricePeriod === "NIGHT" ? values.price : null;
   const legacyPrice = values.pricePeriod !== "NIGHT" && values.price !== null && values.price > 0 ? values.price : null;
-
-  const openCalendar = async () => {
-    // Save this step first, then leave the wizard for the calendar page.
-    await flush();
-    router.push(hostCalendarPath(listing.id));
-  };
 
   return (
     <div className="grid gap-6">
@@ -219,7 +210,9 @@ export function BookingStep({ listing, values, set, errors, kind, locale, flush 
       <Section title={t("calendarTitle")} description={t("calendarDescription")} icon={CalendarDaysIcon}>
         <button
           type="button"
-          onClick={() => void openCalendar()}
+          // A full-screen sheet over the form (bug 2.10): the step and its scroll position stay.
+          onClick={openCalendar}
+          aria-haspopup="dialog"
           className="flex min-h-12 w-full items-center gap-3 rounded-xl border border-border-strong bg-card px-4 py-3 text-start font-medium transition-colors hover:bg-surface-muted focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
         >
           <span className="min-w-0 flex-1">{t("calendarLink")}</span>

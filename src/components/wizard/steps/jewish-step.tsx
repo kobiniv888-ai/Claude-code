@@ -32,6 +32,7 @@ import { CheckCards, ChoiceCards, Field, FieldError, Section } from "../fields";
 import { HOTEL_JEWISH_ICONS, JEWISH_ICONS, SHABBAT_ICONS } from "../icons";
 import { useOptionLabel } from "../labels";
 import type { StepProps } from "../step-props";
+import { useReportBusy } from "../busy-context";
 
 const HOST_FEATURES = new Set(["host_keeps_shabbat", "host_speaks_hebrew"]);
 
@@ -89,6 +90,7 @@ function KosherCertificateUpload({
   const [state, setState] = useState<"idle" | "uploading" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+  useReportBusy(state === "uploading");
 
   const upload = async (file: File) => {
     setState("uploading");

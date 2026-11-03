@@ -64,7 +64,8 @@
       "EUR": "Euro",
       "GBP": "British pound",
       "AED": "UAE dirham"
-    }
+    },
+    "auto": "Automatic (by language)"
   },
   "theme": {
     "label": "Appearance",

@@ -6,22 +6,29 @@
 # - always: updates the database tables (prisma db push, idempotent) and reloads the demo data
 #   when the database has no cities or no public listings (e.g. all demo listings expired), or
 #   when it was loaded by an older version of the demo data (prisma/seed/DEMO_DATA_VERSION)
-# - already running → just prints the address
+# - another start already running (the codespace starts this twice when it opens) → waits for it
 #
-#   bash .devcontainer/start.sh          development server (hot reload); keeps a running site as is
-#   bash .devcontainer/start.sh --dev    the same, but first stops the fast version if it runs
-#                                        (a production build never shows new code)
-#   bash .devcontainer/start.sh --prod   production build + server: the real speed, for phones
+#   bash .devcontainer/start.sh          keeps a running site as it is; nothing running → the FAST
+#                                        version (production build), like start-prod.sh
+#   bash .devcontainer/start.sh --dev    the development version (slow, hot reload); stops the fast
+#                                        version first if it runs (a production build never shows new code)
+#   bash .devcontainer/start.sh --prod   the fast version: builds only when the code changed since the
+#                                        last build (--rebuild: always), then serves it (= start-prod.sh)
 #
+# The codespace runs start-prod.sh when it starts (devcontainer.json), so the address it prints is
+# always the fast version unless someone asked for --dev.
 # Setup and seed output: /tmp/bayit-setup.log. Website log: /tmp/bayit-dev.log.
 cd "$(dirname "$0")/.."
 LOG=/tmp/bayit-setup.log
-MODE=dev
-SWITCH_TO_DEV=0
-case "${1:-}" in
-  --prod) MODE=prod ;;
-  --dev) SWITCH_TO_DEV=1 ;;
-esac
+MODE=auto
+REBUILD=0
+for arg in "$@"; do
+  case "$arg" in
+    --prod) MODE=prod ;;
+    --dev) MODE=dev ;;
+    --rebuild) REBUILD=1 ;;
+  esac
+done
 
 url="http://localhost:3000"
 if [ -n "${CODESPACE_NAME:-}" ]; then
@@ -31,6 +38,15 @@ fi
 answering() { curl -s -o /dev/null -m 10 http://localhost:3000/he; }
 setup_running() { ps -eo args | grep -v grep | grep -q "devcontainer/setup.sh"; }
 log() { echo "$*" | tee -a "$LOG"; }
+
+# One start at a time: when the codespace opens it runs start-prod.sh (postStartCommand) and this
+# script (postAttachCommand) together; the second one waits, then finds the site running.
+# (Background processes started below close fd 9, so a running server never holds the lock.)
+exec 9>/tmp/bayit-start.lock
+if ! flock -n 9; then
+  echo "Another start of the website is running — waiting for it (the first build takes 3–5 minutes)…"
+  flock 9
+fi
 
 if setup_running; then
   echo "Waiting for the first-run setup to finish (a few minutes)…"
@@ -94,55 +110,100 @@ if grep -q '^GOOGLE_TRANSLATE_API_KEY="[^"]' .env 2>/dev/null; then
   timeout 300 npm run --silent translate:missing 2>&1 | tail -n 3 | tee -a "$LOG"
 fi
 
+# What the fast version is built from: the commit, uncommitted changes, the NEXT_PUBLIC_* values
+# (baked into the build) and the packages. Same stamp as the last build → no need to build again.
+build_stamp() {
+  {
+    git rev-parse HEAD 2>/dev/null
+    git status --porcelain=v1 --untracked-files=all -- src messages prisma public next.config.ts package-lock.json 2>/dev/null
+    git diff HEAD -- src messages prisma public next.config.ts package-lock.json 2>/dev/null
+    git ls-files --others --exclude-standard -z -- src messages public 2>/dev/null | xargs -0 -r sha256sum 2>/dev/null
+    grep -E '^NEXT_PUBLIC_' .env 2>/dev/null
+  } | sha256sum | cut -d' ' -f1
+}
+STAMP_FILE=.next/bayit-build-stamp
+TEST_MODE="${AUTH_TEST_MODE:-true}"
+MODE_FILE=/tmp/bayit-prod-test-mode
+
+# Plain start.sh: keep whatever answers (a development server reloads by itself; a fast version
+# keeps running); nothing running → the fast version.
+if [ "$MODE" = "auto" ]; then
+  if answering; then
+    echo "Bayit is running: ${url}/he"
+    if site_running prod && [ "$(cat "$STAMP_FILE" 2>/dev/null)" != "$(build_stamp)" ]; then
+      echo "(The fast version was built from older code. To see the new code: bash .devcontainer/start-prod.sh)"
+    elif site_running dev; then
+      echo "(This is the slow development version. For the fast one: bash .devcontainer/start-prod.sh)"
+    fi
+    exit 0
+  fi
+  MODE=prod
+fi
+
 if [ "$MODE" = "prod" ]; then
+  stamp=$(build_stamp)
+  built=0
+  [ -f .next/BUILD_ID ] && [ "$(cat "$STAMP_FILE" 2>/dev/null)" = "$stamp" ] && built=1
+  [ "$REBUILD" = "1" ] && built=0
+  if [ "$built" = "1" ] && site_running prod && [ "$(cat "$MODE_FILE" 2>/dev/null)" = "$TEST_MODE" ] && answering; then
+    echo ""
+    echo "The fast version is already running and up to date."
+    echo "Bayit is ready: ${url}/he"
+    exit 0
+  fi
   if site_running any; then
     echo "Stopping the running website…"
     stop_site any
   fi
-  echo "Building for production (a few minutes)…"
-  npm run build >> /tmp/bayit-dev.log 2>&1 || { echo "Build failed:"; tail -n 30 /tmp/bayit-dev.log; exit 1; }
+  if [ "$built" = "1" ]; then
+    echo "The fast version is already built from this code — starting it (no new build needed)."
+  else
+    echo "Building the fast version (3–5 minutes)…"
+    rm -f "$STAMP_FILE"
+    npm run build >> /tmp/bayit-dev.log 2>&1 || { echo "Build failed:"; tail -n 30 /tmp/bayit-dev.log; exit 1; }
+    echo "$stamp" > "$STAMP_FILE"
+  fi
   echo "Starting the production server…"
   # Test mode: login codes on screen (src/lib/auth/code-display.ts). Honored only on localhost and
   # the Codespaces preview address, never on a real domain. AUTH_TEST_MODE=false turns it off.
-  echo "Login test mode: ${AUTH_TEST_MODE:-true} (codes shown on screen; set AUTH_TEST_MODE=false to turn off)"
-  AUTH_TEST_MODE="${AUTH_TEST_MODE:-true}" setsid nohup npm start > /tmp/bayit-dev.log 2>&1 < /dev/null &
+  echo "Login test mode: ${TEST_MODE} (codes shown on screen; set AUTH_TEST_MODE=false to turn off)"
+  echo "$TEST_MODE" > "$MODE_FILE"
+  AUTH_TEST_MODE="$TEST_MODE" setsid nohup npm start > /tmp/bayit-dev.log 2>&1 < /dev/null 9>&- &
 else
-  # The fast version (a production build) never picks up new code. --dev switches to the
-  # development server, which does; without it (e.g. when the codespace opens) the running site
-  # is kept. A running development server is always kept: it reloads by itself.
-  fast_running=0
-  site_running prod && fast_running=1
-  if [ "$fast_running" = "1" ] && [ "$SWITCH_TO_DEV" = "1" ]; then
+  # --dev: the development version (hot reload, slow on a phone). The fast version never picks up
+  # new code, so it is stopped first. A running development server is kept: it reloads by itself.
+  if site_running prod; then
     echo "Stopping the fast version (it does not show new code) to start the development version…"
     stop_site prod
-    fast_running=0
   fi
   if answering; then
-    echo "Bayit is running: ${url}/he"
-    if [ "$fast_running" = "1" ]; then
-      echo "(This is the fast version, built earlier: it does not show new code. To see new code run"
-      echo " bash .devcontainer/start-prod.sh   (fast, rebuilds)   or   bash .devcontainer/start.sh --dev)"
-    fi
+    echo "Bayit is running (development version): ${url}/he"
+    echo "(Slow on a phone. For the fast version: bash .devcontainer/start-prod.sh)"
     exit 0
   fi
-  echo "Starting the website…"
-  setsid nohup npm run dev > /tmp/bayit-dev.log 2>&1 < /dev/null &
+  echo "Starting the development version…"
+  setsid nohup npm run dev > /tmp/bayit-dev.log 2>&1 < /dev/null 9>&- &
 fi
 
 for _ in $(seq 1 60); do
   if answering; then
     echo ""
-    echo "Bayit is ready: ${url}/he"
+    if [ "$MODE" = "prod" ]; then
+      echo "Bayit is ready (the fast version). Open this address on your phone:"
+    else
+      echo "Bayit is ready (the slow development version). Open:"
+    fi
+    echo "  ${url}/he"
     if [ "$MODE" = "prod" ]; then
       # Photos are converted (AVIF/WebP, each width) on their first request; do that now for the
       # main pages, so the first visit on the phone does not wait for it (bug 8.10).
-      setsid nohup node scripts/warm-images.mjs http://localhost:3000 > /tmp/bayit-warm.log 2>&1 < /dev/null &
+      setsid nohup node scripts/warm-images.mjs http://localhost:3000 > /tmp/bayit-warm.log 2>&1 < /dev/null 9>&- &
       echo "Preparing the photos in the background (2–3 minutes; log: /tmp/bayit-warm.log)."
     else
       # The development server builds each page the first time it is opened (minutes in a
       # codespace): open the main pages now — login and the admin panel included — so the first
       # visit on the phone does not wait. Built pages are kept on disk for the next start too.
-      setsid nohup node scripts/warm-dev.mjs http://localhost:3000 > /tmp/bayit-warm.log 2>&1 < /dev/null &
+      setsid nohup node scripts/warm-dev.mjs http://localhost:3000 > /tmp/bayit-warm.log 2>&1 < /dev/null 9>&- &
       echo "Preparing the main pages in the background (1–4 minutes; log: /tmp/bayit-warm.log)."
       echo "Pages open faster after that — when the log says \"Main pages ready\": tail /tmp/bayit-warm.log"
     fi

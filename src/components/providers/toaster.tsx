@@ -12,6 +12,7 @@ const SonnerToaster = dynamic(() => import("./sonner-toaster"), { ssr: false });
  */
 export function AppToaster({ dir }: { dir: "ltr" | "rtl" }) {
   const t = useTranslations("common");
+  const tMenu = useTranslations("auth.menu");
   return (
     <SonnerToaster
       dir={dir}
@@ -20,6 +21,7 @@ export function AppToaster({ dir }: { dir: "ltr" | "rtl" }) {
       containerAriaLabel={t("notifications")}
       mobileOffset={{ bottom: "calc(var(--bottom-nav-height, 0px) + 12px)" }}
       toastOptions={{ closeButtonAriaLabel: t("close"), classNames: { toast: "cn-toast rounded-xl! shadow-float!" } }}
+      loggedOutMessage={tMenu("loggedOut")}
     />
   );
 }

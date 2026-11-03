@@ -18,7 +18,7 @@
       "price": "Your price and the dates it's available",
       "contact": "How guests should contact you"
     },
-    "trust": "Every listing is checked before it goes live. Your first listing is reviewed by a person — usually within a few hours.",
+    "trust": "Every listing is checked before it goes live. Your first listing is reviewed by a person — usually within a day.",
     "expiry": "Listings stay up for {days} days and can be renewed.",
     "draftsTitle": "Continue your draft",
     "draftUntitled": "Untitled draft",
@@ -33,7 +33,14 @@
     "deleteDraftConfirm": "Delete draft",
     "cancel": "Cancel",
     "deleted": "Draft deleted",
-    "pledgeNote": "Every host here promises to welcome Israeli and Jewish guests. You confirm it in the step before publishing, and get the “Welcomes Israelis” badge."
+    "pledgeNote": "Every host here promises to welcome Israeli and Jewish guests. You confirm it in the step before publishing, and get the “Welcomes Israelis” badge.",
+    "continueTitle": "Continue your draft",
+    "continueButton": "Continue the draft",
+    "moreDrafts": "Other drafts",
+    "confirmTitle": "Did you mean to continue your draft?",
+    "confirmBody": "You have a draft that isn't published yet: <title></title>. You can pick up where you left off, or start a new listing.",
+    "confirmBodyUntitled": "You have a draft that isn't published yet. You can pick up where you left off, or start a new listing.",
+    "confirmNew": "Start a new listing"
   },
   "shabbat": {
     "title": "Shabbat Shalom",
@@ -84,7 +91,11 @@
     "increase": "More: {label}",
     "charCount": "{count} of {max} characters",
     "loading": "Loading…",
-    "allSteps": "All steps"
+    "allSteps": "All steps",
+    "loadingAnswers": "Loading your saved answers…",
+    "loadFailed": "We couldn't load your saved answers. Check your connection and try again.",
+    "publish": "Publish",
+    "backToListing": "Back to the listing"
   },
   "errors": {
     "rate_limited": "You're going a bit fast. Please wait a minute and try again.",
@@ -345,7 +356,8 @@
     "geoFailed": "We couldn't find your location. Please search the address or tap the map.",
     "privacyNote": "Only the approximate area (about {meters} m) is shown publicly. You share the exact address after a guest contacts you.",
     "searchShort": "Type at least 3 letters, then press Search.",
-    "searchBusy": "Lots of searches right now. Try again in a few seconds, or tap the map."
+    "searchBusy": "Lots of searches right now. Try again in a few seconds, or tap the map.",
+    "addressFromSearch": "We filled in the street and house number. Add the entrance and apartment — only you see this address."
   },
   "details": {
     "rooms": "Rooms",
@@ -809,19 +821,20 @@
     "expiry": "Listings stay up for {days} days and can be renewed.",
     "rules": "I accept the <link>listing rules</link>: the place is real, the photos are mine, and I won't ask for money before guests have checked the place.",
     "rulesRequired": "Please accept the listing rules to publish.",
-    "reviewNote": "After you publish, our automatic checks run. Your first listing is always reviewed by a person — usually within a few hours.",
+    "reviewNote": "After you publish, our automatic checks run. Your first listing is always reviewed by a person — usually within a day.",
     "publish": "Publish listing",
     "publishing": "Publishing…",
     "publishBlocked": "{count, plural, one {1 thing is still missing before you can publish.} other {{count} things are still missing before you can publish.}}",
     "showMissing": "See what's missing",
-    "editNote": "Your changes are saved as you go. Press \"Save changes\" when you're done so we can check them again."
+    "editNote": "Your changes are saved as you go. Press \"Save changes\" when you're done so we can check them again.",
+    "publishHint": "Everything is ready. Tap “Publish” below."
   },
   "result": {
     "liveTitle": "Your listing is live",
     "liveEditedTitle": "Your changes are live",
     "liveBody": "Guests can find it now. Share it with friends and in groups to get your first messages faster.",
     "reviewTitle": "We're checking your listing",
-    "reviewBody": "We're checking your listing — usually within a few hours. We'll email you when it's live.",
+    "reviewBody": "Your listing goes live after a person on our team checks it — usually within a day. We'll email you when it's live.",
     "blockedTitle": "Your listing needs a few changes",
     "blockedBody": "Our automatic checks found something that has to be fixed before the listing can go live.",
     "savedTitle": "Changes saved",
@@ -884,6 +897,16 @@
         "title": "Something needs checking",
         "fix": "Please review your listing. If you're not sure what to change, contact support."
       }
-    }
+    },
+    "viewPreview": "View the listing",
+    "calendarTitle": "Connect your calendar",
+    "calendarBody": "Block the dates when the place isn't free, and connect your Airbnb and Booking.com calendars so you never get double bookings.",
+    "calendarAction": "Open the calendar"
+  },
+  "calendarSheet": {
+    "done": "Done",
+    "loading": "Loading the calendar…",
+    "loadFailed": "We couldn't load the calendar.",
+    "retry": "Try again"
   }
 }

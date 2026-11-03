@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { DEFAULT_COUNTRY } from "@/config/countries";
 import { Prisma } from "@/generated/prisma/client";
 import { fail, ok, type ActionResult } from "@/lib/action";
 import { audit } from "@/lib/audit";
@@ -45,9 +46,12 @@ export async function savePlace(input: unknown): Promise<ActionResult<{ id: stri
     const parsed = parseInput(placeSchema, raw.values);
     if (!parsed.ok) return parsed.result;
     const v = parsed.data;
+    // The place's country is its city's (src/config/countries.ts); without a city, the default.
+    let countryCode: string = DEFAULT_COUNTRY;
     if (v.cityId) {
-      const city = await db.city.findUnique({ where: { id: v.cityId }, select: { id: true } });
+      const city = await db.city.findUnique({ where: { id: v.cityId }, select: { id: true, countryCode: true } });
       if (!city) return fail("invalid_input", { cityId: ["invalid"] });
+      countryCode = city.countryCode;
     }
     const data = {
       type: v.type,
@@ -56,6 +60,7 @@ export async function savePlace(input: unknown): Promise<ActionResult<{ id: stri
       address: cleanLocalizedOrNull(v.address) ?? undefined,
       hours: cleanLocalizedOrNull(v.hours) ?? undefined,
       cityId: v.cityId || null,
+      countryCode,
       lat: v.lat,
       lng: v.lng,
       phone: v.phone || null,

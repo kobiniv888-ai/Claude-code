@@ -3,7 +3,7 @@
 import { getLocale } from "next-intl/server";
 import { z } from "zod";
 import type { Prisma } from "@/generated/prisma/client";
-import { locales, siteConfig, type AppLocale, type CurrencyCode, type Localized } from "@/config/site";
+import { locales, siteConfig, type AppLocale, type Localized } from "@/config/site";
 import { isAppLocale } from "@/i18n/locale";
 import { fail, ok, toActionError, type ActionResult } from "@/lib/action";
 import { requireUserForAction, type CurrentUser } from "@/lib/auth/session";
@@ -12,12 +12,7 @@ import { toUsd } from "@/lib/currency/convert";
 import { db } from "@/lib/db";
 import { NotFoundError } from "@/lib/errors";
 import { removeListingPhotoFiles } from "@/lib/images";
-import {
-  BUSINESS_PROPERTY_TYPES,
-  DEFAULT_PRICE_PERIOD,
-  PROPERTY_TYPES_BY_DEAL,
-  computeShabbatFriendly,
-} from "@/lib/listing/fields";
+import { computeShabbatFriendly } from "@/lib/listing/fields";
 import {
   prepareListingDerivedFields,
   publicMapPoint,
@@ -25,7 +20,6 @@ import {
   recordPriceChange,
   submitForPublication,
 } from "@/lib/listing/lifecycle";
-import { isOwnPrivateUpload } from "@/lib/media";
 import { getCityById, getNeighborhoods } from "@/lib/places";
 import { assertRateLimit } from "@/lib/rate-limit";
 import { detectContactInfo, hasContactInfo } from "@/lib/risk/contact-info";
@@ -34,23 +28,23 @@ import { assertNotShabbatMode } from "@/lib/settings";
 import { isTranslationEnabled, translateListing } from "@/lib/translate";
 import { assertTurnstile } from "@/lib/turnstile";
 import { normalizeRanges } from "./availability";
-import { hasCurrentPledge } from "@/lib/pledge/server";
+import { getPledgeStatus, hasCurrentPledge } from "@/lib/pledge/server";
+import { getHostCalendar, HOST_CALENDAR_MONTHS, type HostCalendarData } from "@/lib/booking/host-calendar";
 import { missingRequirements } from "./requirements";
+import { presentStepKeys } from "./patch";
+import { buildStepUpdate, type StepUpdate, type StepUpdateDeps } from "./step-update";
 import {
   availabilitySchema,
-  contactValueProblem,
-  isInGeorgia,
   photoAltSchema,
   photoIdsSchema,
-  PRICE_PERIODS_BY_DEAL,
   roomTypeSchema,
-  STEP_FIELDS,
   stepSaveSchemas,
   translationSchema,
   type ParsedStep,
 } from "./schemas";
 import {
   dayString,
+  loadWizardAnswers,
   nonApplicableResets,
   parseContactMethods,
   publicPathFor,
@@ -60,8 +54,8 @@ import {
   verifyEditToken,
   type ListingRow,
 } from "./server";
-import { applies, isBusinessListing, isSavableStep, stepsFor, usesBookingStep, type ListingKind, type SavableStepKey } from "./steps";
-import type { DayRange, PublishOutcome, WizardRoomType, WizardTranslation } from "./types";
+import { isBusinessListing, isSavableStep, stepsFor, type ListingKind, type SavableStepKey } from "./steps";
+import type { DayRange, PublishOutcome, WizardRoomType, WizardSnapshot, WizardTranslation } from "./types";
 
 /*
  * Server actions of the post-a-listing wizard. Every action: signed-in user with a verified
@@ -74,6 +68,9 @@ const SAVE_LIMIT = { limit: 120, windowSeconds: 600 };
 const CREATE_LIMIT = { limit: 10, windowSeconds: 3600 };
 const PUBLISH_LIMIT = { limit: 20, windowSeconds: 3600 };
 const TRANSLATE_LIMIT = { limit: 15, windowSeconds: 3600 };
+/** Reads: every mount of the form and every opening of the calendar sheet. */
+const LOAD_LIMIT = { limit: 300, windowSeconds: 600 };
+const CALENDAR_LIMIT = { limit: 60, windowSeconds: 600 };
 
 const listingIdSchema = z.string().trim().min(1).max(64);
 
@@ -87,8 +84,6 @@ async function ownerForMutation(rateKey: string, limit = SAVE_LIMIT): Promise<Cu
 function kindOf(listing: Pick<ListingRow, "dealType" | "propertyType">): ListingKind {
   return { dealType: listing.dealType, propertyType: listing.propertyType };
 }
-
-const orNull = (value: string) => (value.trim() === "" ? null : value.trim());
 
 /*
  * No revalidatePath() here: every page that shows an owner's listing is rendered per request,
@@ -141,276 +136,41 @@ export async function deleteDraft(listingId: string): Promise<ActionResult> {
 
 // ─── Save one step ────────────────────────────────────────────
 
-type StepUpdate = {
-  data: Prisma.ListingUpdateInput;
-  /** Content the public sees changed (re-check on "Save changes"). */
-  contentChanged: boolean;
-  /** The original title/description/language changed: machine translations are stale. */
-  textChanged: boolean;
-  userUpdate?: Prisma.UserUpdateInput;
-  fieldErrors?: Record<string, string[]>;
-  priceChange?: { oldPrice: number; newPrice: number; currency: CurrencyCode };
+/** Database lookups for buildStepUpdate (./step-update.ts, pure and unit-tested). */
+const stepUpdateDeps: StepUpdateDeps = {
+  getCity: (id) => getCityById(id),
+  getNeighborhoodIds: async (cityId) => (await getNeighborhoods(cityId)).map((n) => n.id),
+  getRates: () => getRates(),
+  mapPoint: (point, listingId) => publicMapPoint(point, listingId),
+  parseContactMethods,
 };
 
-const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
-
-async function buildStepUpdate<S extends SavableStepKey>(
-  step: S,
-  input: ParsedStep<S>,
-  listing: ListingRow,
-  user: CurrentUser,
-): Promise<StepUpdate> {
-  const kind = kindOf(listing);
-  switch (step) {
-    case "deal": {
-      const { dealType } = input as ParsedStep<"deal">;
-      const allowed = PROPERTY_TYPES_BY_DEAL[dealType];
-      const propertyType = allowed.includes(listing.propertyType) ? listing.propertyType : allowed[0];
-      const pricePeriod = PRICE_PERIODS_BY_DEAL[dealType].includes(listing.pricePeriod)
-        ? listing.pricePeriod
-        : DEFAULT_PRICE_PERIOD[dealType];
-      return {
-        // Monthly rentals and sales are never booked on the site (short stays and hotels turn
-        // instant booking on when their "הזמנות ומחיר" step is saved).
-        data: { dealType, propertyType, pricePeriod, ...(usesBookingStep({ dealType }) ? {} : { bookingMode: "CONTACT" as const }) },
-        contentChanged: dealType !== listing.dealType,
-        textChanged: false,
-      };
-    }
-    case "property": {
-      const { propertyType, businessName } = input as ParsedStep<"property">;
-      if (!PROPERTY_TYPES_BY_DEAL[listing.dealType].includes(propertyType)) {
-        return { data: {}, contentChanged: false, textChanged: false, fieldErrors: { propertyType: ["pickOne"] } };
-      }
-      const isBusiness = BUSINESS_PROPERTY_TYPES.includes(propertyType);
-      const userUpdate: Prisma.UserUpdateInput | undefined =
-        isBusiness && businessName && businessName !== (user.businessName ?? "") ? { businessName } : undefined;
-      return { data: { propertyType }, contentChanged: propertyType !== listing.propertyType, textChanged: false, userUpdate };
-    }
-    case "location": {
-      const v = input as ParsedStep<"location">;
-      let cityId: string | null = null;
-      let neighborhoodId: string | null = null;
-      if (v.cityId) {
-        const city = await getCityById(v.cityId);
-        if (!city) return { data: {}, contentChanged: false, textChanged: false, fieldErrors: { cityId: ["cityRequired"] } };
-        cityId = city.id;
-        if (v.neighborhoodId) {
-          const neighborhoods = await getNeighborhoods(city.id);
-          neighborhoodId = neighborhoods.some((n) => n.id === v.neighborhoodId) ? v.neighborhoodId : null;
-        }
-      }
-      const hasPin = v.lat !== null && v.lng !== null;
-      if (hasPin && !isInGeorgia(v.lat!, v.lng!)) {
-        return { data: {}, contentChanged: false, textChanged: false, fieldErrors: { lat: ["outsideGeorgia"] } };
-      }
-      const lat = hasPin ? Number(v.lat!.toFixed(6)) : null;
-      const lng = hasPin ? Number(v.lng!.toFixed(6)) : null;
-      const approx = hasPin ? publicMapPoint({ lat: lat!, lng: lng! }, listing.id) : null;
-      const data: Prisma.ListingUpdateInput = {
-        city: cityId ? { connect: { id: cityId } } : { disconnect: true },
-        neighborhood: neighborhoodId ? { connect: { id: neighborhoodId } } : { disconnect: true },
-        address: orNull(v.address),
-        lat,
-        lng,
-        approxLat: approx?.lat ?? null,
-        approxLng: approx?.lng ?? null,
-      };
-      const changed =
-        cityId !== listing.cityId || neighborhoodId !== listing.neighborhoodId || lat !== listing.lat || lng !== listing.lng;
-      return { data, contentChanged: changed, textChanged: false };
-    }
-    // Round 1's "details" step, split in four (brief 5.7): each saves only its own fields.
-    case "size":
-    case "building":
-    case "features":
-    case "text": {
-      const v = input as ParsedStep<"size"> & ParsedStep<"building"> & ParsedStep<"features"> & ParsedStep<"text">;
-      // How each field is stored (only this step's fields are read: the others are not in `input`).
-      const store: Record<string, () => unknown> = {
-        sharedRoomFor: () => (kind.propertyType === "ROOM" ? v.sharedRoomFor : null),
-        cadastralCode: () => orNull(v.cadastralCode),
-        videoUrl: () => orNull(v.videoUrl),
-        tour360Url: () => orNull(v.tour360Url),
-        title: () => v.title.trim(),
-        description: () => v.description.trim(),
-      };
-      const data: Record<string, unknown> = {};
-      for (const key of STEP_FIELDS[step as "size" | "building" | "features" | "text"]) {
-        data[key] = store[key] ? store[key]() : (v as Record<string, unknown>)[key];
-      }
-      const textChanged =
-        step === "text" &&
-        (v.title.trim() !== listing.title ||
-          v.description.trim() !== listing.description ||
-          v.originalLocale !== listing.originalLocale);
-      const before: Record<string, unknown> = listing;
-      const contentChanged = Object.entries(data).some(([key, value]) => !same(value, before[key]));
-      return { data: data as Prisma.ListingUpdateInput, contentChanged, textChanged };
-    }
-    case "amenities": {
-      const v = input as ParsedStep<"amenities">;
-      const data: Prisma.ListingUpdateInput = {
-        amenities: v.amenities,
-        petsAllowed: v.petsAllowed,
-        smokingAllowed: v.smokingAllowed,
-        partiesAllowed: v.partiesAllowed,
-        checkInFrom: orNull(v.checkInFrom),
-        checkOutUntil: orNull(v.checkOutUntil),
-        quietHoursFrom: orNull(v.quietHoursFrom),
-        quietHoursTo: orNull(v.quietHoursTo),
-      };
-      const before: Record<string, unknown> = listing;
-      return { data, contentChanged: Object.entries(data).some(([k, val]) => !same(val, before[k])), textChanged: false };
-    }
-    case "jewish": {
-      const v = input as ParsedStep<"jewish">;
-      let kosherCertPhotoKey = v.kosherCertPhotoKey;
-      if (kosherCertPhotoKey && kosherCertPhotoKey !== listing.kosherCertPhotoKey) {
-        if (!isOwnPrivateUpload(kosherCertPhotoKey, user.id, "verification")) {
-          return { data: {}, contentChanged: false, textChanged: false, fieldErrors: { kosherCertPhotoKey: ["invalid"] } };
-        }
-      }
-      if (!isBusinessListing(kind)) kosherCertPhotoKey = null;
-      const data: Prisma.ListingUpdateInput = {
-        kitchenKosher: v.kitchenKosher,
-        shabbatFeatures: v.shabbatFeatures,
-        isShabbatFriendly: computeShabbatFriendly(v.shabbatFeatures),
-        jewishFeatures: v.jewishFeatures,
-        hotelJewishFeatures: isBusinessListing(kind) ? v.hotelJewishFeatures : [],
-        kosherCertName: isBusinessListing(kind) ? orNull(v.kosherCertName) : null,
-        kosherCertPhotoKey,
-      };
-      const before: Record<string, unknown> = listing;
-      return { data, contentChanged: Object.entries(data).some(([k, val]) => !same(val, before[k])), textChanged: false };
-    }
-    case "price": {
-      const v = input as ParsedStep<"price">;
-      const pricePeriod = PRICE_PERIODS_BY_DEAL[kind.dealType].includes(v.pricePeriod)
-        ? v.pricePeriod
-        : DEFAULT_PRICE_PERIOD[kind.dealType];
-      const rates = await getRates();
-      const priceUsd = v.price !== null && v.price > 0 ? Math.round(toUsd(v.price, v.currency, rates) * 100) / 100 : null;
-      const data: Prisma.ListingUpdateInput = {
-        price: v.price,
-        currency: v.currency,
-        pricePeriod,
-        priceUsd,
-        deposit: v.deposit,
-        cleaningFee: v.cleaningFee,
-        utilitiesIncluded: v.utilitiesIncluded,
-        utilitiesEstimate: v.utilitiesIncluded ? null : v.utilitiesEstimate,
-        minStayNights: v.minStayNights,
-        weeklyDiscountPct: v.weeklyDiscountPct,
-        monthlyDiscountPct: v.monthlyDiscountPct,
-        icalImportUrls: v.icalImportUrls,
-      };
-      const oldPrice = listing.price === null ? null : Number(listing.price);
-      const priceChanged = oldPrice !== v.price || listing.currency !== v.currency;
-      const priceChange =
-        listing.status !== "DRAFT" && oldPrice !== null && v.price !== null && v.price > 0 && priceChanged
-          ? { oldPrice, newPrice: v.price, currency: v.currency }
-          : undefined;
-      const contentChanged =
-        priceChanged ||
-        !same(v.deposit, listing.deposit === null ? null : Number(listing.deposit)) ||
-        !same(v.cleaningFee, listing.cleaningFee === null ? null : Number(listing.cleaningFee)) ||
-        pricePeriod !== listing.pricePeriod;
-      return { data, contentChanged, textChanged: false, priceChange };
-    }
-    case "booking": {
-      // "הזמנות ומחיר" (short stays and hotels, brief 5.6). Prices are per night; saving the step
-      // with at least one payment method turns instant booking on.
-      const v = input as ParsedStep<"booking">;
-      const bookable = usesBookingStep(kind);
-      const rates = await getRates();
-      const priceUsd = v.price !== null && v.price > 0 ? Math.round(toUsd(v.price, v.currency, rates) * 100) / 100 : null;
-      const weekendPrice = v.weekendPrice !== null && v.weekendPrice > 0 ? v.weekendPrice : null;
-      // The step sends NIGHT once the host enters a nightly price; an older weekly price is kept as
-      // it was (never silently read as a nightly one) and the listing is not bookable until then.
-      const pricePeriod = PRICE_PERIODS_BY_DEAL[kind.dealType].includes(v.pricePeriod)
-        ? v.pricePeriod
-        : DEFAULT_PRICE_PERIOD[kind.dealType];
-      const data = {
-        price: v.price,
-        currency: v.currency,
-        pricePeriod,
-        priceUsd,
-        weekendPrice: bookable ? weekendPrice : null,
-        cleaningFee: applies("cleaningFee", kind) ? v.cleaningFee : null,
-        deposit: applies("deposit", kind) ? v.deposit : null,
-        minStayNights: v.minStayNights,
-        maxGuests: v.maxGuests,
-        checkInFrom: orNull(v.checkInFrom),
-        checkOutUntil: orNull(v.checkOutUntil),
-        cancellationPolicy: v.cancellationPolicy,
-        paymentMethodsAtCheckIn: v.paymentMethodsAtCheckIn,
-        // Not offered for booked stays (see FIELD_APPLIES.discounts).
-        weeklyDiscountPct: null,
-        monthlyDiscountPct: null,
-        bookingMode:
-          bookable && pricePeriod === "NIGHT" && v.paymentMethodsAtCheckIn.length > 0 ? ("INSTANT" as const) : ("CONTACT" as const),
-      } satisfies Prisma.ListingUpdateInput;
-      const oldPrice = listing.price === null ? null : Number(listing.price);
-      const priceChanged = oldPrice !== v.price || listing.currency !== v.currency;
-      const priceChange =
-        listing.status !== "DRAFT" && oldPrice !== null && v.price !== null && v.price > 0 && priceChanged
-          ? { oldPrice, newPrice: v.price, currency: v.currency }
-          : undefined;
-      // Money columns are Decimals in the row: compare them as numbers.
-      const money = new Set(["price", "weekendPrice", "cleaningFee", "deposit"]);
-      const before: Record<string, unknown> = listing;
-      const contentChanged = (Object.keys(data) as (keyof typeof data)[]).some((key) => {
-        if (key === "priceUsd") return false;
-        const old = before[key];
-        return !same(data[key], money.has(key) && old !== null && old !== undefined ? Number(old) : old);
-      });
-      return { data, contentChanged, textChanged: false, priceChange };
-    }
-    case "contact": {
-      const v = input as ParsedStep<"contact">;
-      // Live listings only ever store contact values that work; drafts may hold half-typed ones.
-      if (listing.status !== "DRAFT") {
-        const fieldErrors: Record<string, string[]> = {};
-        for (const method of v.contactMethods) {
-          const problem = contactValueProblem(method.channel, method.value);
-          if (problem) fieldErrors[`contact.${method.channel}`] = [problem];
-        }
-        if (Object.keys(fieldErrors).length > 0) return { data: {}, contentChanged: false, textChanged: false, fieldErrors };
-      }
-      const data: Prisma.ListingUpdateInput = {
-        contactMethods: v.contactMethods as unknown as Prisma.InputJsonValue,
-        contactHoursFrom: orNull(v.contactHoursFrom),
-        contactHoursTo: orNull(v.contactHoursTo),
-        noReplyOnShabbat: v.noReplyOnShabbat,
-      };
-      const contentChanged = !same(v.contactMethods, parseContactMethods(listing.contactMethods));
-      return { data, contentChanged, textChanged: false };
-    }
-  }
-  return { data: {}, contentChanged: false, textChanged: false };
-}
-
 /**
- * Auto-save: validates only this step's fields (types and limits — required fields are
- * checked on Next in the browser and on publish here) and stores them.
+ * Auto-save (bug 2.2: patch saves). `data` holds only the answers the person changed since the
+ * last save (see ./patch.ts); keys that are not sent are never written. They are validated with
+ * the step's schema picked to those keys (types and limits — required fields are checked on Next in
+ * the browser and on publish here). `data` may be empty: then only the step the owner is on is
+ * remembered (`options.wizardStep`, drafts only).
  */
 export async function updateDraft(
   listingId: string,
   step: string,
   data: unknown,
   options: { wizardStep?: number } = {},
-): Promise<ActionResult<{ savedAt: string }>> {
+): Promise<ActionResult<{ savedAt: string; updatedAt: string }>> {
   try {
     const user = await ownerForMutation("save");
     const id = listingIdSchema.parse(listingId);
     if (!isSavableStep(step)) return fail("invalid_input");
-    const schema: z.ZodType<unknown> = stepSaveSchemas[step];
-    const parsed = schema.safeParse(data);
+    if (data !== undefined && data !== null && (typeof data !== "object" || Array.isArray(data))) return fail("invalid_input");
+    const keys = presentStepKeys(step, data);
+    const mask = Object.fromEntries(keys.map((key) => [key, true])) as Record<string, true>;
+    const schema = (stepSaveSchemas[step] as z.ZodObject<z.ZodRawShape>).pick(mask);
+    const parsed = schema.safeParse(Object.fromEntries(keys.map((key) => [key, (data as Record<string, unknown>)[key]])));
     if (!parsed.success) return fail("invalid_input", z.flattenError(parsed.error).fieldErrors as Record<string, string[]>);
 
     const listing = await requireOwnedListing(id, user.id);
-    const update = await buildStepUpdate(step, parsed.data as ParsedStep<typeof step>, listing, user);
+    const update = await buildStepUpdate(step, parsed.data as Partial<ParsedStep<typeof step>>, listing, user, stepUpdateDeps);
     if (update.fieldErrors) return fail("invalid_input", update.fieldErrors);
 
     const wizardStep = z.number().int().min(1).max(20).optional().safeParse(options.wizardStep);
@@ -420,21 +180,25 @@ export async function updateDraft(
       ...(wizardStep.success && wizardStep.data !== undefined && listing.status === "DRAFT" ? { wizardStep: wizardStep.data } : {}),
       ...(update.contentChanged ? { contentUpdatedAt: now } : {}),
     };
+    if (Object.keys(listingData).length === 0 && !update.userUpdate) {
+      return ok({ savedAt: now.toISOString(), updatedAt: listing.updatedAt.toISOString() });
+    }
 
-    await db.$transaction(async (tx) => {
-      await tx.listing.update({ where: { id: listing.id, ownerId: user.id }, data: listingData });
+    const saved = await db.$transaction(async (tx) => {
+      const row = await tx.listing.update({ where: { id: listing.id, ownerId: user.id }, data: listingData, select: { updatedAt: true } });
       if (update.textChanged) {
         // The original changed: machine translations are out of date (owner-edited ones stay).
         await tx.listingTranslation.deleteMany({ where: { listingId: listing.id, isAuto: true, editedByOwner: false } });
       }
       if (update.userUpdate) await tx.user.update({ where: { id: user.id }, data: update.userUpdate });
+      return row;
     });
 
     if (update.priceChange) {
       const { oldPrice, newPrice, currency } = update.priceChange;
       await recordPriceChange(listing.id, oldPrice, newPrice, currency);
     }
-    if (listing.status === "LIVE" && (await needsImmediateRecheck(step, update, parsed.data))) {
+    if (listing.status === "LIVE" && (await needsImmediateRecheck(step, update, parsed.data, listing))) {
       // A live listing shows each auto-saved edit at once. New contact methods, or text with scam
       // phrases or hidden contact details, go through the automatic checks now (as "Save changes"
       // would), so they cannot stay public just because the owner never pressed that button.
@@ -443,19 +207,19 @@ export async function updateDraft(
       // A new price is public at once too: the risk checks run again now (e.g. "far below the area").
       await recheckLivePrice(listing.id, user.id);
     }
-    return ok({ savedAt: now.toISOString() });
+    return ok({ savedAt: now.toISOString(), updatedAt: saved.updatedAt.toISOString() });
   } catch (error) {
     return toActionError(error);
   }
 }
 
 /** True when an auto-saved edit of a live listing must be checked right away (see updateDraft). */
-async function needsImmediateRecheck(step: SavableStepKey, update: StepUpdate, input: unknown): Promise<boolean> {
+async function needsImmediateRecheck(step: SavableStepKey, update: StepUpdate, input: unknown, listing: ListingRow): Promise<boolean> {
   if (!update.contentChanged) return false;
   if (step === "contact") return true;
   if (step !== "text" || !update.textChanged) return false;
-  const { title, description } = input as ParsedStep<"text">;
-  return textNeedsRecheck(`${title}\n${description}`);
+  const { title, description } = input as Partial<ParsedStep<"text">>;
+  return textNeedsRecheck(`${title ?? listing.title}\n${description ?? listing.description}`);
 }
 
 /** Text with hidden contact details or scam phrases: a live listing must be checked again now. */
@@ -491,6 +255,44 @@ export async function saveWizardStep(listingId: string, wizardStep: number): Pro
     const step = z.number().int().min(1).max(20).parse(wizardStep);
     await db.listing.updateMany({ where: { id, ownerId: user.id, status: "DRAFT" }, data: { wizardStep: step } });
     return ok();
+  } catch (error) {
+    return toActionError(error);
+  }
+}
+
+/**
+ * The saved answers of one of the user's listings, as the form edits them (bug 2.2). The form calls
+ * this on every mount, after the browser restores the page from its cache, and when the tab comes
+ * back into view; until it answers the step is read-only and Next is disabled.
+ */
+export async function loadWizardSnapshot(listingId: string): Promise<ActionResult<WizardSnapshot>> {
+  try {
+    const user = await requireUserForAction({ phoneVerified: true });
+    await assertRateLimit(`wizard:load:${user.id}`, LOAD_LIMIT);
+    const listing = await requireOwnedListing(listingIdSchema.parse(listingId), user.id);
+    const [answers, pledge] = await Promise.all([loadWizardAnswers(listing, user.businessName), getPledgeStatus(user.id)]);
+    return ok({
+      ...answers,
+      user: { phoneVerified: user.phoneNumberVerified, pledge },
+      serverNow: new Date().toISOString(),
+    });
+  } catch (error) {
+    return toActionError(error);
+  }
+}
+
+/**
+ * The place calendar inside the form (bug 2.10: a full-screen sheet instead of another page): the
+ * same data as /account/listings/<id>/calendar, for the listing's owner only.
+ */
+export async function loadListingCalendar(listingId: string): Promise<ActionResult<HostCalendarData & { monthCount: number }>> {
+  try {
+    const user = await requireUserForAction();
+    await assertRateLimit(`wizard:calendar:${user.id}`, CALENDAR_LIMIT);
+    const locale = await getLocale();
+    const data = await getHostCalendar(user.id, listingIdSchema.parse(listingId), isAppLocale(locale) ? locale : siteConfig.i18n.primaryLocale);
+    if (!data || data.listing.dealType === "SALE") throw new NotFoundError();
+    return ok({ ...data, monthCount: HOST_CALENDAR_MONTHS });
   } catch (error) {
     return toActionError(error);
   }

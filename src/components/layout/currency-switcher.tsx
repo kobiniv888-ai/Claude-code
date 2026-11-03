@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Languages } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useCurrency } from "@/components/providers/currency-provider";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { siteConfig } from "@/config/site";
 import { cn } from "@/lib/utils";
-import { DISPLAY_CURRENCIES, useChangeCurrency } from "./currency-chips";
+import { AUTO, DISPLAY_CURRENCIES, useChangeCurrency } from "./currency-chips";
 
 export { CurrencyChips, DISPLAY_CURRENCIES } from "./currency-chips";
 
@@ -30,9 +30,10 @@ export function CurrencySwitcher({
   className?: string;
 }) {
   const t = useTranslations("nav.currency");
-  const { currency, isPending } = useCurrency();
+  const { currency, chosen, automatic, isPending } = useCurrency();
   const change = useChangeCurrency();
-  const symbol = siteConfig.currencies.list.find((c) => c.code === currency)?.symbol ?? currency;
+  const symbolOf = (code: string) => siteConfig.currencies.list.find((c) => c.code === code)?.symbol ?? code;
+  const symbol = symbolOf(currency);
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -58,7 +59,19 @@ export function CurrencySwitcher({
       </DropdownMenuTrigger>
       <DropdownMenuContent align={align} sideOffset={8} className="w-64 rounded-xl p-1.5">
         <DropdownMenuLabel className="px-2 text-xs font-medium text-muted-foreground">{t("label")}</DropdownMenuLabel>
-        <DropdownMenuRadioGroup value={currency} onValueChange={(value) => void change(value)}>
+        <DropdownMenuRadioGroup value={chosen ? currency : AUTO} onValueChange={(value) => void change(value)}>
+          {/* Round 3, bug 2.8: back to the language's currency (he/ru/ar ₪, en $, ka ₾). */}
+          <DropdownMenuRadioItem value={AUTO} className="gap-3 py-2 ps-2">
+            <span aria-hidden className="inline-flex size-7 shrink-0 items-center justify-center rounded-lg bg-muted">
+              <Languages className="size-4" />
+            </span>
+            <span className="grid">
+              <span className="font-medium">{t("auto")}</span>
+              <span className="text-xs text-muted-foreground" dir="ltr">
+                {symbolOf(automatic)} {automatic}
+              </span>
+            </span>
+          </DropdownMenuRadioItem>
           {DISPLAY_CURRENCIES.map((c) => (
             <DropdownMenuRadioItem key={c.code} value={c.code} className="gap-3 py-2 ps-2">
               <span

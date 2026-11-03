@@ -1,3 +1,4 @@
 {
-  "demoDataMissing": "נתוני הדמו לא נטענו — הריצו <code>npm run db:seed</code>"
+  "demoDataMissing": "נתוני הדמו לא נטענו — הריצו <code>npm run db:seed</code>",
+  "devServer": "גרסת פיתוח (איטית). לגרסה המהירה: <code>bash .devcontainer/start-prod.sh</code>"
 }

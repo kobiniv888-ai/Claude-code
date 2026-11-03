@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
   ArrowRightIcon,
@@ -20,12 +20,12 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Ltr } from "@/components/common/ltr";
-import { Turnstile, type TurnstileHandle } from "@/components/common/turnstile";
+import { Turnstile } from "@/components/common/turnstile";
 import { locales, siteConfig, type AppLocale } from "@/config/site";
 import { Link } from "@/i18n/navigation";
 import { formatArea, formatMoney, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { acceptRulesAndPublish, generateTranslations, saveTranslations } from "@/lib/wizard/actions";
+import { generateTranslations, saveTranslations } from "@/lib/wizard/actions";
 import { missingRequirements, type MissingRequirement } from "@/lib/wizard/requirements";
 import { LIMITS } from "@/lib/wizard/schemas";
 import { isBusinessListing, stepsFor } from "@/lib/wizard/steps";
@@ -35,7 +35,7 @@ import { CHANNEL_ICONS } from "../icons";
 import { useOptionLabel } from "../labels";
 import { displayPrice, PreviewCard } from "../preview-card";
 import type { StepProps } from "../step-props";
-import { scrollBehavior } from "@/lib/motion";
+import { revealAndFocus } from "../use-publish";
 
 function MissingList({
   missing,
@@ -349,17 +349,20 @@ function TranslationsPanel({ listing, context, values, translations, setTranslat
   );
 }
 
-/** Step 10 — preview, languages, listing rules and Publish (or "Save changes" when editing). */
+/** The invisible CAPTCHA of "פרסום" (its token is read by the bottom bar's button). */
+function PublishCaptcha({ controller }: { controller: NonNullable<StepProps["publish"]> }) {
+  const { captchaRef, onToken, onExpire } = controller;
+  return <Turnstile ref={captchaRef} action="publish" onToken={onToken} onExpire={onExpire} />;
+}
+
+/**
+ * The last step — preview, languages and the listing rules. "פרסום" is the big button in the
+ * bottom bar (bug 2.7, ./use-publish.ts); "Save changes" when editing.
+ */
 export function PublishStep(props: StepProps) {
-  const { listing, context, values, kind, photos, roomTypes, goTo, flush, onPublished, track, pledge } = props;
+  const { listing, context, values, kind, photos, roomTypes, goTo, pledge, publish: controller } = props;
   const t = useTranslations("wizard.publish");
-  const tw = useTranslations("wizard");
   const locale = useLocale();
-  const [accepted, setAccepted] = useState(listing.rulesAccepted);
-  const [publishing, setPublishing] = useState(false);
-  const [rulesError, setRulesError] = useState(false);
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
-  const captcha = useRef<TurnstileHandle>(null);
   const isEdit = context.mode === "edit";
   const steps = stepsFor(kind);
   const stepNumber = (s: NonNullable<MissingRequirement["step"]>) => steps.indexOf(s) + 1;
@@ -373,32 +376,8 @@ export function PublishStep(props: StepProps) {
   });
   const price = displayPrice(values, roomTypes);
   const verifyHref = `/verify-phone?next=${encodeURIComponent(`/post/${listing.id}?step=${steps.length}`)}`;
-
-  const publish = async () => {
-    if (!accepted) {
-      setRulesError(true);
-      document.getElementById("rules-checkbox")?.focus();
-      return;
-    }
-    setPublishing(true);
-    const saved = await flush();
-    if (!saved) {
-      setPublishing(false);
-      toast.error(tw("chrome.fixErrors"));
-      return;
-    }
-    const result = await track(acceptRulesAndPublish(listing.id, { rulesAccepted: true, turnstileToken: captchaToken })).catch(() => null);
-    setPublishing(false);
-    if (result?.ok) {
-      onPublished(result.data);
-      return;
-    }
-    // Turnstile tokens are single-use.
-    captcha.current?.reset();
-    if (!result) return;
-    const code = result.error;
-    toast.error(tw.has(`errors.${code}`) ? tw(`errors.${code}`) : tw("errors.server_error"));
-  };
+  const accepted = controller?.accepted ?? listing.rulesAccepted;
+  const rulesError = !!controller?.rulesError && !accepted;
 
   return (
     <div className="grid gap-6">
@@ -436,25 +415,23 @@ export function PublishStep(props: StepProps) {
           <CalendarClockIcon className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
           <p>{t("expiry", { days: context.listingExpiryDays })}</p>
         </div>
-        {!isEdit && (
+        {!isEdit && controller && (
           <>
             <div className="grid gap-2">
               <label
                 className={cn(
                   "flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50",
-                  rulesError && !accepted ? "border-destructive" : "border-border",
+                  rulesError ? "border-destructive" : "border-border",
                 )}
+                data-invalid={rulesError ? true : undefined}
               >
                 <input
                   id="rules-checkbox"
                   type="checkbox"
                   checked={accepted}
-                  onChange={(e) => {
-                    setAccepted(e.target.checked);
-                    if (e.target.checked) setRulesError(false);
-                  }}
-                  aria-invalid={rulesError && !accepted ? true : undefined}
-                  aria-describedby={rulesError && !accepted ? "rules-error" : undefined}
+                  onChange={(e) => controller.setAccepted(e.target.checked)}
+                  aria-invalid={rulesError ? true : undefined}
+                  aria-describedby={rulesError ? "rules-error" : undefined}
                   className="mt-0.5 size-5 shrink-0 accent-primary"
                 />
                 <span className="text-sm">
@@ -467,40 +444,26 @@ export function PublishStep(props: StepProps) {
                   })}
                 </span>
               </label>
-              {rulesError && !accepted && (
+              {rulesError && (
                 <p id="rules-error" className="text-sm font-medium text-destructive" role="alert">
                   {t("rulesRequired")}
                 </p>
               )}
             </div>
             <p className="text-sm text-muted-foreground">{t("reviewNote")}</p>
-            <Turnstile ref={captcha} action="publish" onToken={setCaptchaToken} onExpire={() => setCaptchaToken(null)} />
-            {missing.length === 0 ? (
-              <Button
-                type="button"
-                className="h-12 w-full text-base sm:w-auto sm:justify-self-end sm:px-8"
-                onClick={() => void publish()}
-                disabled={publishing}
-              >
-                {publishing ? <LoaderCircleIcon className="animate-spin" aria-hidden /> : <RocketIcon aria-hidden />}
-                {publishing ? t("publishing") : t("publish")}
-              </Button>
-            ) : (
+            <PublishCaptcha controller={controller} />
+            {missing.length > 0 ? (
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border-strong/40 bg-surface-muted p-3.5 dark:bg-surface-muted/10">
                 <p className="text-sm font-medium">{t("publishBlocked", { count: missing.length })}</p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const list = document.getElementById("missing-title");
-                    list?.scrollIntoView({ behavior: scrollBehavior(), block: "center" });
-                    list?.focus();
-                  }}
-                >
+                <Button type="button" variant="outline" size="sm" onClick={() => revealAndFocus("missing-title")}>
                   {t("showMissing")}
                 </Button>
               </div>
+            ) : (
+              <p className="flex items-start gap-2 text-sm text-pretty text-muted-foreground">
+                <RocketIcon className="mt-0.5 size-4 shrink-0 text-primary-text" aria-hidden />
+                {t("publishHint")}
+              </p>
             )}
           </>
         )}

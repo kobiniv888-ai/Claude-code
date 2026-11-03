@@ -1,3 +1,4 @@
 {
-  "demoDataMissing": "Демо-данные не загружены — выполните <code>npm run db:seed</code>"
+  "demoDataMissing": "Демо-данные не загружены — выполните <code>npm run db:seed</code>",
+  "devServer": "Версия для разработки (медленная). Быстрая версия: <code>bash .devcontainer/start-prod.sh</code>"
 }

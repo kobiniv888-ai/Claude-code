@@ -67,6 +67,8 @@ async function fetchNominatim(query: string, locale: string): Promise<GeocodeRes
   url.searchParams.set("format", "jsonv2");
   url.searchParams.set("countrycodes", "ge");
   url.searchParams.set("limit", String(GEOCODE_RESULTS_MAX));
+  // Street and house number apart from the place's name (bug 2.6): the form fills only those.
+  url.searchParams.set("addressdetails", "1");
   url.searchParams.set("accept-language", locale);
   url.searchParams.set("q", query);
   let response: Response;

@@ -4,7 +4,19 @@
  * No server-only imports, so it is unit-tested directly (`core.test.ts`).
  */
 
-export type GeocodeResult = { id: string; label: string; lat: number; lng: number };
+export type GeocodeResult = {
+  id: string;
+  /** The whole OpenStreetMap name, for the list of results only (it can start with a building's name). */
+  label: string;
+  /**
+   * Only the street and house number ("Sherif Khimshiashvili Street 7"), or null when the result
+   * has no street (a city, a landmark). This — never `label` — goes into the private address
+   * (bug 2.6: "Public Service Hall, 7, Sherif Khimshiashvili…" became someone's address).
+   */
+  street: string | null;
+  lat: number;
+  lng: number;
+};
 
 export const GEOCODE_QUERY_MIN = 3;
 export const GEOCODE_QUERY_MAX = 200;
@@ -18,12 +30,30 @@ export function normalizeGeocodeQuery(raw: unknown): string | null {
   return q.length >= GEOCODE_QUERY_MIN ? q : null;
 }
 
-/** Cache key: the same words in another case or spacing hit the same entry. */
+/** Cache key: the same words in another case or spacing hit the same entry (v2: results carry `street`). */
 export function geocodeCacheKey(query: string, locale: string): string {
-  return `${locale}|${query.toLocaleLowerCase("en")}`;
+  return `v2|${locale}|${query.toLocaleLowerCase("en")}`;
 }
 
-/** Nominatim jsonv2 → our results. Drops anything malformed. */
+/** Address parts that name a way (in this order); never a building, shop or office name. */
+const STREET_KEYS = ["road", "pedestrian", "footway", "residential", "living_street", "path", "square"] as const;
+const PART_MAX = 120;
+
+/**
+ * Street and house number from Nominatim's `address` details (addressdetails=1). Georgian
+ * addresses put the number after the street. No street → null (a bare number means nothing).
+ */
+export function streetAddress(address: unknown): string | null {
+  if (!address || typeof address !== "object") return null;
+  const parts = address as Record<string, unknown>;
+  const clean = (value: unknown) => (typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, PART_MAX) : "");
+  const street = STREET_KEYS.map((key) => clean(parts[key])).find(Boolean);
+  if (!street) return null;
+  const number = clean(parts.house_number);
+  return number ? `${street} ${number}` : street;
+}
+
+/** Nominatim jsonv2 (with addressdetails=1) → our results. Drops anything malformed. */
 export function parseNominatim(data: unknown): GeocodeResult[] {
   if (!Array.isArray(data)) return [];
   const results: GeocodeResult[] = [];
@@ -35,7 +65,7 @@ export function parseNominatim(data: unknown): GeocodeResult[] {
     const label = typeof row.display_name === "string" ? row.display_name.trim() : "";
     if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180 || !label) continue;
     const id = row.place_id ?? row.osm_id ?? `${lat},${lng}`;
-    results.push({ id: String(id), label: label.slice(0, LABEL_MAX), lat, lng });
+    results.push({ id: String(id), label: label.slice(0, LABEL_MAX), street: streetAddress(row.address), lat, lng });
     if (results.length >= GEOCODE_RESULTS_MAX) break;
   }
   return results;

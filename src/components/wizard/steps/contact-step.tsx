@@ -137,7 +137,7 @@ function MethodRow({
 }
 
 /** Step 9 — which contact methods to show, in which order, contact hours and Shabbat. */
-export function ContactStep({ listing, context, values, set, errors }: StepProps) {
+export function ContactStep({ listing, context, values, set, errors, ready }: StepProps) {
   const t = useTranslations("wizard.contact");
   const label = useOptionLabel();
   const methods = values.contactMethods;
@@ -161,11 +161,12 @@ export function ContactStep({ listing, context, values, set, errors }: StepProps
     return "";
   };
 
-  // A new listing starts with WhatsApp and a phone call on the verified number.
+  // A new listing starts with WhatsApp and a phone call on the verified number — decided once the
+  // saved answers have arrived (bug 2.2: never from answers the page may have restored from cache).
   useEffect(() => {
-    if (prefilled.has(listing.id)) return;
+    if (!ready || prefilled.has(listing.id)) return;
     prefilled.add(listing.id);
-    if (listing.values.contactMethods.length === 0 && values.contactMethods.length === 0 && defaultPhone) {
+    if (values.contactMethods.length === 0 && defaultPhone) {
       set({
         contactMethods: [
           { channel: "WHATSAPP", value: defaultPhone, order: 0 },
@@ -173,9 +174,9 @@ export function ContactStep({ listing, context, values, set, errors }: StepProps
         ],
       });
     }
-    // Runs once per listing.
+    // Runs once per listing, when its answers are in.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listing.id]);
+  }, [listing.id, ready]);
 
   const onDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;

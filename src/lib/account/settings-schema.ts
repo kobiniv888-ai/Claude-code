@@ -96,7 +96,14 @@ export const contactEmailSchema = z.object({
 
 export const preferencesSchema = z.object({
   locale: z.enum(locales),
-  currency: z.string().refine((v) => (enabledCurrencies as readonly string[]).includes(v), { message: "invalid" }),
+  /**
+   * Sent only when the visitor changed it (round 3, bug 2.8: saving the form used to pin whatever
+   * currency the page showed). "auto" = follow the language again (User.currency = null).
+   */
+  currency: z
+    .string()
+    .refine((v) => v === "auto" || (enabledCurrencies as readonly string[]).includes(v), { message: "invalid" })
+    .optional(),
   showHebrewDates: z.boolean(),
 });
 export type PreferencesInput = z.input<typeof preferencesSchema>;

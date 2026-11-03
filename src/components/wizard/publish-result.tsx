@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
   ArrowRightIcon,
+  CalendarDaysIcon,
   CircleCheckBigIcon,
+  EyeIcon,
   CopyIcon,
   HourglassIcon,
   ListIcon,
@@ -67,12 +69,15 @@ export function PublishResult({
   values,
   onFix,
   onContinue,
+  onOpenCalendar,
 }: {
   outcome: PublishOutcome | null;
   edited?: boolean;
   values: WizardValues;
   onFix: (step: WizardStepKey) => void;
   onContinue?: () => void;
+  /** "Connect your calendar" (short stays, bug 2.7): opens the place calendar over this screen. */
+  onOpenCalendar?: () => void;
 }) {
   const t = useTranslations("wizard.result");
   const tSteps = useTranslations("wizard.steps");
@@ -181,7 +186,36 @@ export function PublishResult({
             </Button>
           </>
         )}
-        <Button asChild variant={status === "LIVE" ? "ghost" : "default"} className="h-12 rounded-full px-6 text-base">
+        {status === "IN_REVIEW" && outcome?.publicPath && (
+          // Not public yet: the owner sees a preview with a "being checked" banner. Sharing waits.
+          <Button asChild variant="outline" className="h-12 rounded-full px-6 text-base">
+            <Link href={outcome.publicPath}>
+              <EyeIcon aria-hidden />
+              {t("viewPreview")}
+            </Link>
+          </Button>
+        )}
+      </div>
+
+      {onOpenCalendar && (status === "LIVE" || status === "IN_REVIEW") && (
+        <section aria-labelledby="result-calendar-title" className="flex flex-col gap-4 rounded-card bg-card p-5 shadow-card ring-1 ring-foreground/5 sm:flex-row sm:items-center">
+          <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary-tint text-primary-text">
+            <CalendarDaysIcon className="size-6" aria-hidden />
+          </span>
+          <div className="grid min-w-0 flex-1 gap-1">
+            <h2 id="result-calendar-title" className="text-body font-bold">
+              {t("calendarTitle")}
+            </h2>
+            <p className="text-small text-pretty text-muted-foreground">{t("calendarBody")}</p>
+          </div>
+          <Button type="button" variant="outline" className="h-12 shrink-0 rounded-full px-5 text-base" onClick={onOpenCalendar} aria-haspopup="dialog">
+            {t("calendarAction")}
+          </Button>
+        </section>
+      )}
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
+        <Button asChild variant={status === "LIVE" || status === "IN_REVIEW" ? "ghost" : "default"} className="h-12 rounded-full px-6 text-base">
           <Link href="/account/listings">
             <ListIcon aria-hidden />
             {t("myListings")}

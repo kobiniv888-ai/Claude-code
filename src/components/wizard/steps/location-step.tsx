@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { siteConfig } from "@/config/site";
 import { formatNumber } from "@/lib/format";
 import { haversineMeters, type LatLng } from "@/lib/geo";
+import { scrollBehavior } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { normalizeGeocodeQuery, type GeocodeResult } from "@/lib/geocode/core";
 import { isInGeorgia, LIMITS } from "@/lib/wizard/schemas";
@@ -52,7 +53,7 @@ function AddressSearch({
   onPick,
 }: {
   locale: string;
-  onPick: (result: { lat: number; lng: number; address: string }) => void;
+  onPick: (result: { lat: number; lng: number; street: string | null }) => void;
 }) {
   const t = useTranslations("wizard.location");
   const tc = useTranslations("common");
@@ -104,9 +105,14 @@ function AddressSearch({
   };
 
   const pick = (result: GeocodeResult) => {
-    onPick({ lat: result.lat, lng: result.lng, address: result.label.slice(0, LIMITS.addressMax) });
-    setQuery(result.label);
-    lastSearched.current = normalizeGeocodeQuery(result.label);
+    // Only the street and house number go into the private address, never the place's name
+    // (bug 2.6). Results cached before streets were parsed have none: the address stays as typed.
+    const street = typeof result.street === "string" && result.street.trim() ? result.street.slice(0, LIMITS.addressMax) : null;
+    onPick({ lat: result.lat, lng: result.lng, street });
+    // The search box shows what was picked — the street when there is one, not the place's name.
+    const shown = street ?? result.label;
+    setQuery(shown);
+    lastSearched.current = normalizeGeocodeQuery(shown);
     setOpen(false);
   };
 
@@ -192,7 +198,9 @@ export function LocationStep({ values, set, errors, context, locale }: StepProps
   const [focusKey, setFocusKey] = useState(0);
   const [locating, setLocating] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
+  const [filledFromSearch, setFilledFromSearch] = useState(false);
   const neighborhoodTouched = useRef(values.neighborhoodId !== null);
+  const addressId = useId();
 
   const cities = context.cities;
   const city: WizardCity | undefined = cities.find((c) => c.id === values.cityId);
@@ -317,16 +325,28 @@ export function LocationStep({ values, set, errors, context, locale }: StepProps
 
         <AddressSearch
           locale={locale}
-          onPick={({ lat, lng, address }) => {
+          onPick={({ lat, lng, street }) => {
             if (!isInGeorgia(lat, lng)) return;
-            placePin({ lat, lng }, { address });
+            // The pin goes on the chosen result; the address gets its street and number only.
+            placePin({ lat, lng }, street ? { address: street } : {});
             setFocusKey((k) => k + 1);
+            if (!street) return;
+            setFilledFromSearch(true);
+            // The host adds the entrance and apartment: the cursor waits at the end of the address.
+            requestAnimationFrame(() => {
+              const input = document.getElementById(addressId) as HTMLInputElement | null;
+              if (!input) return;
+              input.focus({ preventScroll: true });
+              input.scrollIntoView({ block: "center", behavior: scrollBehavior() });
+              input.setSelectionRange(input.value.length, input.value.length);
+            });
           }}
         />
 
         <Field
+          id={addressId}
           label={t("addressLabel")}
-          description={t("addressHelp")}
+          description={filledFromSearch ? t("addressFromSearch") : t("addressHelp")}
           optional
           labelAddon={
             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">

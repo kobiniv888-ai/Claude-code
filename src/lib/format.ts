@@ -5,6 +5,7 @@
  */
 import { siteConfig, type AppLocale, type CurrencyCode } from "@/config/site";
 import { intlLocale } from "@/i18n/locale";
+import { COUNTRIES, DEFAULT_COUNTRY } from "@/config/countries";
 import {
   GEORGIAN_DATE_BASE,
   GEORGIAN_NUMBER_BASE,
@@ -18,8 +19,8 @@ import {
 type Locale = AppLocale | string;
 export type DateInput = Date | string | number;
 
-/** The site's home time zone (also next-intl's default in src/i18n/request.ts). */
-export const DEFAULT_TIME_ZONE = "Asia/Tbilisi";
+/** The site's home time zone (also next-intl's default in src/i18n/request.ts): src/config/countries.ts. */
+export const DEFAULT_TIME_ZONE = COUNTRIES[DEFAULT_COUNTRY].timezone;
 
 const CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/;
 

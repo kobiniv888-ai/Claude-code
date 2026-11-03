@@ -9,6 +9,8 @@
  * stored in the database (SiteSetting) — the values here are only their defaults.
  */
 
+import { COUNTRIES, DEFAULT_COUNTRY, PLANNED_COUNTRIES, enabledCountryCodes } from "./countries";
+
 export const locales = ["he", "en", "ru", "ar", "ka"] as const;
 export type AppLocale = (typeof locales)[number];
 
@@ -113,7 +115,7 @@ export const siteConfig = {
       { code: "AED", symbol: "AED", enabled: false },
     ] satisfies { code: CurrencyCode; symbol: string; enabled: boolean }[],
     /** Default display currency by visitor country (ISO 3166-1 alpha-2). */
-    byCountry: { IL: "ILS", GE: "GEL" } as Record<string, CurrencyCode>,
+    byCountry: { IL: "ILS", GE: COUNTRIES.GE.localCurrency } as Record<string, CurrencyCode>,
     fallback: "USD" as CurrencyCode,
     /** Used only if the daily exchange-rate fetch has never succeeded. 1 USD = x. */
     fallbackRatesPerUsd: {
@@ -126,12 +128,13 @@ export const siteConfig = {
     } satisfies Record<CurrencyCode, number>,
   },
 
-  /** Countries where listings can be posted. Phase 3 adds US, GB and AE. */
+  /**
+   * Countries where listings can be posted (Phase 3 adds US, GB and AE). Per-country values (time
+   * zone, map area, currency, phone, emergency number) live in src/config/countries.ts.
+   */
   countries: [
-    { code: "GE", enabled: true },
-    { code: "US", enabled: false },
-    { code: "GB", enabled: false },
-    { code: "AE", enabled: false },
+    ...enabledCountryCodes().map((code) => ({ code, enabled: true })),
+    ...PLANNED_COUNTRIES.map((code) => ({ code, enabled: false })),
   ],
 
   /**
@@ -145,7 +148,7 @@ export const siteConfig = {
       aliases: ["tiflis", "tbilissi", "tblisi"],
       lat: 41.7151,
       lng: 44.8271,
-      timezone: "Asia/Tbilisi",
+      timezone: COUNTRIES.GE.timezone,
       airport: { code: "TBS", lat: 41.6692, lng: 44.9547 },
       popular: true,
     },
@@ -155,7 +158,7 @@ export const siteConfig = {
       aliases: ["batum", "batoumi"],
       lat: 41.6168,
       lng: 41.6367,
-      timezone: "Asia/Tbilisi",
+      timezone: COUNTRIES.GE.timezone,
       airport: { code: "BUS", lat: 41.6103, lng: 41.5997 },
       popular: true,
     },
@@ -165,7 +168,7 @@ export const siteConfig = {
       aliases: ["kutais"],
       lat: 42.2679,
       lng: 42.6946,
-      timezone: "Asia/Tbilisi",
+      timezone: COUNTRIES.GE.timezone,
       airport: { code: "KUT", lat: 42.1766, lng: 42.4826 },
       popular: true,
     },
@@ -175,7 +178,7 @@ export const siteConfig = {
       aliases: [],
       lat: 41.8214,
       lng: 41.7792,
-      timezone: "Asia/Tbilisi",
+      timezone: COUNTRIES.GE.timezone,
       airport: { code: "BUS", lat: 41.6103, lng: 41.5997 },
       popular: true,
     },
@@ -185,7 +188,7 @@ export const siteConfig = {
       aliases: [],
       lat: 42.4773,
       lng: 44.4778,
-      timezone: "Asia/Tbilisi",
+      timezone: COUNTRIES.GE.timezone,
       airport: { code: "TBS", lat: 41.6692, lng: 44.9547 },
       popular: true,
     },
@@ -195,7 +198,7 @@ export const siteConfig = {
       aliases: [],
       lat: 41.7497,
       lng: 43.5328,
-      timezone: "Asia/Tbilisi",
+      timezone: COUNTRIES.GE.timezone,
       airport: { code: "KUT", lat: 42.1766, lng: 42.4826 },
       popular: true,
     },
@@ -205,7 +208,7 @@ export const siteConfig = {
       aliases: [],
       lat: 41.8394,
       lng: 43.3788,
-      timezone: "Asia/Tbilisi",
+      timezone: COUNTRIES.GE.timezone,
       airport: { code: "KUT", lat: 42.1766, lng: 42.4826 },
       popular: true,
     },
@@ -215,7 +218,7 @@ export const siteConfig = {
       aliases: ["stepantsminda", "степанцминда", "სტეფანწმინდა"],
       lat: 42.6574,
       lng: 44.6433,
-      timezone: "Asia/Tbilisi",
+      timezone: COUNTRIES.GE.timezone,
       airport: { code: "TBS", lat: 41.6692, lng: 44.9547 },
       popular: true,
     },
@@ -225,7 +228,7 @@ export const siteConfig = {
       aliases: ["signagi", "sighnagi"],
       lat: 41.6205,
       lng: 45.9222,
-      timezone: "Asia/Tbilisi",
+      timezone: COUNTRIES.GE.timezone,
       airport: { code: "TBS", lat: 41.6692, lng: 44.9547 },
       popular: true,
     },
@@ -235,7 +238,7 @@ export const siteConfig = {
       aliases: ["mestiya"],
       lat: 43.0453,
       lng: 42.7266,
-      timezone: "Asia/Tbilisi",
+      timezone: COUNTRIES.GE.timezone,
       airport: { code: "KUT", lat: 42.1766, lng: 42.4826 },
       popular: true,
     },
@@ -286,7 +289,7 @@ export const siteConfig = {
      */
     defaultCountryByLocale: { he: "IL", en: "IL", ru: "IL", ar: "IL", ka: "GE" } satisfies Localized,
     /** The contact phone in "post a listing": most hosts have Georgian numbers. */
-    listingContactDefaultCountry: "GE",
+    listingContactDefaultCountry: COUNTRIES[DEFAULT_COUNTRY].defaultPhoneCountry,
     smsAllowedCountries: [
       "GE", "IL", "US", "CA", "GB", "FR", "DE", "NL", "BE", "IT", "ES", "UA",
       "RU", "BY", "KZ", "AZ", "AM", "TR", "AE", "AU",
@@ -309,17 +312,14 @@ export const siteConfig = {
      * Georgia's bounding box [[south, west], [north, east]]. With no city chosen and no results,
      * maps show this; the search map, location picker and places map cannot be dragged far away.
      */
-    georgiaBounds: [
-      [41.05, 40.0],
-      [43.6, 46.75],
-    ] as [[number, number], [number, number]],
+    georgiaBounds: COUNTRIES.GE.mapBounds,
     /** How far (degrees) panning may go past georgiaBounds. */
     boundsPadding: 1.5,
     /** Zoomed out further than this, Georgia is a speck. */
     minZoom: 6,
     /** Street level. Maps need it set even without tiles (Leaflet cannot fit bounds otherwise). */
     maxZoom: 19,
-    defaultCenter: { lat: 41.7151, lng: 44.8271 },
+    defaultCenter: COUNTRIES[DEFAULT_COUNTRY].mapCenter,
     defaultZoom: 12,
     /** Walking speed for "x min walk" estimates (meters per minute) and a detour factor for street routes. */
     walkingMetersPerMinute: 80,

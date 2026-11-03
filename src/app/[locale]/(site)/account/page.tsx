@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
+import { LogoutButton } from "@/components/auth/logout-button";
 import { PageHeader } from "@/components/common/page-header";
+import { buttonStyles } from "@/components/ds/button";
 import { AccountPledgeBanner } from "@/components/pledge/account-pledge-banner";
 import { AttentionList, ListingCountTiles, QuickActions, VerificationProgressCard } from "@/components/account/overview";
 import { siteConfig, type AppLocale } from "@/config/site";
@@ -59,6 +61,10 @@ export default async function AccountOverviewPage({ params }: Props) {
           </>
         )}
         <ListingCountTiles counts={overview.counts} />
+        {/* Round 3, bug 2.9: logging out at the bottom of the account page. */}
+        <div className="flex justify-center border-t pt-4 sm:justify-start">
+          <LogoutButton className={buttonStyles({ variant: "outline", size: "md", className: "w-full px-5 sm:w-fit" })} />
+        </div>
       </div>
     </div>
   );

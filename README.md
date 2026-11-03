@@ -12,18 +12,21 @@ Viber, Messenger, phone or email. There are no bookings or payments in Phase 1.
 * **Trust:** phone, ID and ownership verification, automatic scam checks on every listing,
   moderation, reports, and safety tips at the moment of contact.
 
-> **The fast version (production mode) — one command.** In the Codespace terminal run:
+> **Trying the site in the Codespace — one command, one link.** The codespace starts the fast
+> version (production mode) by itself when it opens. To start it (again) by hand, or after a
+> `git pull`, run this in the Codespace terminal:
 >
 > ```bash
 > bash .devcontainer/start-prod.sh
 > ```
 >
-> It stops the development server, builds the site (3–5 minutes), serves it on the **same port
-> 3000** (the same address you already open on your phone) and prepares the photos in the
-> background. No "Compiling…" or "Rendering…", and no "N" button: this is the speed visitors get.
-> Logging in still works (codes on screen). Changed code or switched branch? Run it again. Back to
-> development mode: `bash .devcontainer/start.sh --dev`. On your own computer: `npm run preview`.
-> Details: [docs/CODESPACES.md](docs/CODESPACES.md#the-fast-version-production-mode).
+> Then open the address it prints at the end, the one ending in **`-3000.app.github.dev/he`**
+> (for example `https://<your-codespace-name>-3000.app.github.dev/he`). It builds only when the code
+> changed (3–5 minutes; otherwise it starts in seconds), serves the site on port 3000 and
+> prepares the photos in the background. Logging in works (codes on screen). If a page shows a
+> strip **"גרסת פיתוח (איטית)"**, you are on the slow development version: run the command above.
+> Development version (hot reload, for programmers): `bash .devcontainer/start.sh --dev`. On your
+> own computer: `npm run preview`. Details: [docs/CODESPACES.md](docs/CODESPACES.md).
 
 "Bayit" is a working name. The name, logo, colors, cities, currencies, limits and paid-feature
 prices are all in **`src/config/site.ts`**. The logo files are in `public/brand/`.

@@ -15,6 +15,7 @@ import { buttonStyles } from "@/components/ds/button";
 import { Card } from "@/components/ds/card";
 import { Ltr } from "@/components/common/ltr";
 import { PageHeader } from "@/components/common/page-header";
+import { BackToListing } from "@/components/listing-form/back-to-listing";
 import { HostBookingActions } from "@/components/host-bookings/booking-actions";
 import { BookingStatusTag } from "@/components/host-bookings/booking-row";
 import { hostCalendarPath } from "@/components/host-calendar/paths";
@@ -25,10 +26,14 @@ import { requireUser } from "@/lib/auth/session";
 import { HOST_BOOKINGS_PATH, hostBookingPath, isPaymentMethod } from "@/lib/booking/constants";
 import { getHostBooking } from "@/lib/booking/queries";
 import { whatsappUrl } from "@/lib/booking/reveal";
+import { telHref } from "@/lib/phone";
 import { formatDate, formatDateRange, formatMoney, formatTime } from "@/lib/format";
 import { pageMetadata } from "@/lib/seo";
 
-type Props = { params: Promise<{ locale: string; code: string }> };
+type Props = {
+  params: Promise<{ locale: string; code: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale, code } = await params;
@@ -53,8 +58,10 @@ function Row({ icon: Icon, label, children }: { icon: typeof PhoneIcon; label: s
  * (for a confirmed or completed booking), the stay, what the guest pays at check-in, the policy,
  * and the host's actions (cancel with a reason, "לא הגיע").
  */
-export default async function HostBookingPage({ params }: Props) {
+export default async function HostBookingPage({ params, searchParams }: Props) {
   const { locale, code } = await params;
+  // Opened from the place calendar inside the post form (bug 2.10): "חזרה למודעה".
+  const { from } = await searchParams;
   setRequestLocale(locale);
   const user = await requireUser({ next: hostBookingPath(code) });
   const booking = await getHostBooking(user.id, code, locale as AppLocale);
@@ -85,6 +92,7 @@ export default async function HostBookingPage({ params }: Props) {
 
   return (
     <div className="grid gap-5 pb-10">
+      <BackToListing from={from} className="mt-4" />
       <PageHeader
         className="pb-0 sm:pb-0"
         breadcrumbs={[{ label: tl("title"), href: HOST_BOOKINGS_PATH }, { label: booking.code }]}
@@ -118,7 +126,7 @@ export default async function HostBookingPage({ params }: Props) {
                   <Ltr className="font-medium">{formatPhoneInternational(phone)}</Ltr>
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  <a href={`tel:${phone}`} className={buttonStyles({ variant: "outline", className: "min-w-0 flex-1 shrink sm:flex-none" })}>
+                  <a href={telHref(phone) ?? `tel:${phone}`} className={buttonStyles({ variant: "outline", className: "min-w-0 flex-1 shrink sm:flex-none" })}>
                     <PhoneIcon aria-hidden />
                     {t("call")}
                   </a>

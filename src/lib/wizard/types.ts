@@ -57,13 +57,12 @@ export type WizardCity = {
   neighborhoods: WizardNeighborhood[];
 };
 
-export type WizardListing = {
-  id: string;
-  publicId: number;
+/** What the form edits, as saved (the page's first render and every loadWizardSnapshot). */
+export type WizardAnswers = {
   status: ListingStatus;
   wizardStep: number;
-  /** A brand-new draft: nothing chosen yet on steps 1–2. */
-  fresh: boolean;
+  /** Steps 1–2 were answered (a new draft shows no selection there; see answeredChoices). */
+  chosen: { deal: boolean; property: boolean };
   values: WizardValues;
   photos: WizardPhoto[];
   roomTypes: WizardRoomType[];
@@ -72,11 +71,24 @@ export type WizardListing = {
   /** Days imported from Airbnb / Booking.com calendars (read-only here). */
   icalBlocked: DayRange[];
   translations: WizardTranslation[];
-  icalExportUrl: string;
   rulesAccepted: boolean;
   /** Public page path once published ("/listing/1234-…"), else null. */
   publicPath: string | null;
+  /** The listing row's updatedAt (ISO). */
   updatedAt: string;
+};
+
+export type WizardListing = WizardAnswers & {
+  id: string;
+  publicId: number;
+  icalExportUrl: string;
+};
+
+/** loadWizardSnapshot: the saved answers now, plus what may have changed on the account. */
+export type WizardSnapshot = WizardAnswers & {
+  user: { phoneVerified: boolean; pledge: PledgeStatus };
+  /** The server's clock (ISO), to compare with the browser's when restoring unsent changes. */
+  serverNow: string;
 };
 
 export type WizardUser = {

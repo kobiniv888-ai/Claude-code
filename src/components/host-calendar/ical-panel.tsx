@@ -89,12 +89,15 @@ export function IcalPanel({
   importUrls,
   syncedAt: initialSyncedAt,
   importedNights,
+  returnTo,
 }: {
   listingId: string;
   exportUrl: string;
   importUrls: string[];
   syncedAt: string | null;
   importedNights: Record<string, number>;
+  /** Shown inside the post form (bug 2.10): links out carry the way back to the form's step. */
+  returnTo?: string;
 }) {
   const t = useTranslations("hostBooking.ical");
   const locale = useLocale();
@@ -265,7 +268,10 @@ export function IcalPanel({
             <AlertTriangleIcon className="mt-0.5 size-4 shrink-0 text-destructive" aria-hidden />
             <span>
               {t("conflicts", { count: conflicts })}{" "}
-              <Link href={HOST_BOOKINGS_PATH} className="font-medium text-primary-text underline underline-offset-4">
+              <Link
+                href={returnTo ? { pathname: HOST_BOOKINGS_PATH, query: { from: returnTo } } : HOST_BOOKINGS_PATH}
+                className="font-medium text-primary-text underline underline-offset-4"
+              >
                 {t("conflictsLink")}
               </Link>
             </span>

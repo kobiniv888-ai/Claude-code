@@ -9,6 +9,7 @@ import {
   type Event,
 } from "@hebcal/core";
 import { siteConfig } from "@/config/site";
+import { COUNTRIES, DEFAULT_COUNTRY } from "@/config/countries";
 import { HEBCAL_HOLIDAY_KEYS, HOLIDAY_CATEGORY, parashaKey, type HolidayCategory, type HolidayKey } from "./keys";
 
 /**
@@ -25,7 +26,7 @@ export type GeoPoint = { lat: number; lng: number; timezone: string; name?: stri
 export type Ymd = { y: number; m: number; d: number };
 
 /** Georgia — used when a function has no place (holiday lists, Hebrew dates). */
-export const DEFAULT_TIME_ZONE = "Asia/Tbilisi";
+export const DEFAULT_TIME_ZONE = COUNTRIES[DEFAULT_COUNTRY].timezone;
 
 // ─── Civil date helpers ───────────────────────────────────────
 

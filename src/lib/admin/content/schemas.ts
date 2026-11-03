@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { COUNTRIES, DEFAULT_COUNTRY } from "@/config/countries";
+import { normalizePhone } from "@/lib/phone";
 import { locales, type AppLocale } from "@/config/site";
 import { REQUIRED_LOCALES } from "./localized";
 
@@ -146,11 +148,15 @@ export const optionalImageUrl = text(LIMITS.url)
   .default("")
   .refine((v) => v === "" || isImageUrl(v), "invalid_url");
 
-/** E.164 phone number as produced by PhoneInput ("" = none). */
+/**
+ * A phone number ("" = none), stored in E.164 without the national 0 (src/lib/phone.ts, brief
+ * 2.5): "+995 032 2 12 34 56" and "0322123456" both become "+995322123456".
+ */
 export const optionalPhone = z
   .string()
   .trim()
   .default("")
+  .transform((v) => (v === "" ? "" : (normalizePhone(v, COUNTRIES[DEFAULT_COUNTRY].defaultPhoneCountry) ?? v)))
   .refine((v) => v === "" || /^\+[1-9]\d{6,14}$/.test(v), "invalid_phone");
 
 const isoDate = z

@@ -50,6 +50,7 @@ export function HostCalendar({
   booked,
   imported,
   bookings,
+  returnTo,
 }: {
   listingId: string;
   today: string;
@@ -58,6 +59,8 @@ export function HostCalendar({
   booked: BookedRange[];
   imported: ImportedRange[];
   bookings: Record<string, HostCalendarBooking>;
+  /** Shown inside the post form (bug 2.10): a booking's page gets "חזרה למודעה" back to this path. */
+  returnTo?: string;
 }) {
   const t = useTranslations("hostBooking.calendar");
   const tb = useTranslations("booking");
@@ -352,7 +355,10 @@ export function HostCalendar({
                   <dd>{tb(`status.${booking.status}`)}</dd>
                 </div>
               </dl>
-              <Link href={booking.path} className={buttonStyles({ variant: "primary", block: true })}>
+              <Link
+                href={returnTo ? { pathname: booking.path, query: { from: returnTo } } : booking.path}
+                className={buttonStyles({ variant: "primary", block: true })}
+              >
                 {t("openBooking")}
                 <ChevronRightIcon className="rtl:-scale-x-100" aria-hidden />
               </Link>

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { CalendarCheck2Icon, CalendarXIcon, HistoryIcon, XIcon } from "lucide-react";
 import { PageHeader } from "@/components/common/page-header";
+import { BackToListing } from "@/components/listing-form/back-to-listing";
 import { EmptyState } from "@/components/common/states";
 import { HostBookingRow } from "@/components/host-bookings/booking-row";
 import type { AppLocale } from "@/config/site";
@@ -60,6 +61,8 @@ export default async function HostBookingsPage({ params, searchParams }: Props) 
 
   return (
     <div className="pb-10">
+      {/* Opened from the place calendar inside the post form (bug 2.10): "חזרה למודעה". */}
+      <BackToListing from={query.from} className="mt-4" />
       <PageHeader title={t("title")} description={t("lead")} />
 
       {all.length === 0 && !listingId ? (

@@ -113,6 +113,7 @@ export function FieldGroup({
       className={cn("grid min-w-0 gap-3", className)}
       aria-describedby={[errorId, descriptionId].filter(Boolean).join(" ") || undefined}
       aria-invalid={error ? true : undefined}
+      data-invalid={error ? true : undefined}
     >
       <legend className={cn("mb-1 text-body font-bold", legendClassName)}>
         {legend}

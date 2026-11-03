@@ -110,15 +110,31 @@ export async function refreshExchangeRates(): Promise<Rates> {
  * defaults to the request's locale (next-intl).
  */
 export async function getDisplayCurrency(userCurrency?: string | null, locale?: string): Promise<CurrencyCode> {
+  return (await getDisplayCurrencyState(userCurrency, locale)).currency;
+}
+
+/**
+ * getDisplayCurrency() plus where it came from: `chosen` when the visitor picked it (cookie or
+ * account setting), false when it is the automatic one (language, country, admin default). The
+ * switcher and the settings form show "Automatic (by language)" as selected when it is false.
+ */
+export async function getDisplayCurrencyState(
+  userCurrency?: string | null,
+  locale?: string,
+): Promise<{ currency: CurrencyCode; chosen: boolean }> {
   try {
     const fromCookie = (await cookies()).get(CURRENCY_COOKIE_NAME)?.value;
-    if (isEnabledCurrency(fromCookie)) return fromCookie;
+    if (isEnabledCurrency(fromCookie)) return { currency: fromCookie, chosen: true };
   } catch {
     // Outside a request (scripts): no cookie.
   }
 
-  if (isEnabledCurrency(userCurrency)) return userCurrency;
+  if (isEnabledCurrency(userCurrency)) return { currency: userCurrency, chosen: true };
+  return { currency: await automaticCurrency(locale), chosen: false };
+}
 
+/** The currency for a visitor who has not chosen one: language → country → admin default → USD. */
+async function automaticCurrency(locale?: string): Promise<CurrencyCode> {
   let pageLocale = locale;
   if (!pageLocale) {
     try {

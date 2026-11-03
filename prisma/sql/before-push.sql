@@ -48,3 +48,21 @@ BEGIN
     END IF;
   END IF;
 END $$;
+
+-- Round 3, phase 1 ("country-ready"): JewishPlace gains "countryCode" (default 'GE', like City and
+-- Listing). Adding it here first lets the push go through without a prompt, and a place that has a
+-- city takes its city's country (the admin place form keeps them in step from now on). Idempotent:
+-- once every place matches its city, the UPDATE changes nothing.
+DO $$
+BEGIN
+  IF to_regclass('public."JewishPlace"') IS NOT NULL THEN
+    ALTER TABLE "JewishPlace" ADD COLUMN IF NOT EXISTS "countryCode" TEXT NOT NULL DEFAULT 'GE';
+    CREATE INDEX IF NOT EXISTS "JewishPlace_countryCode_idx" ON "JewishPlace"("countryCode");
+    IF to_regclass('public."City"') IS NOT NULL THEN
+      UPDATE "JewishPlace" AS p
+      SET "countryCode" = c."countryCode"
+      FROM "City" AS c
+      WHERE p."cityId" = c."id" AND p."countryCode" IS DISTINCT FROM c."countryCode";
+    END IF;
+  END IF;
+END $$;

@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { LoginButton } from "@/components/auth/login-dialog";
+import { LogoutButton } from "@/components/auth/logout-button";
 import { Logo } from "@/components/brand/logo";
 import { ChevronEnd } from "@/components/common/directional-icon";
 import { buttonStyles } from "@/components/ds/button";
@@ -252,6 +253,15 @@ export function MobileMenuSheet({
               ))}
             </ul>
           </MenuGroup>
+
+          {/* Round 3, bug 2.9: logging out from the phone menu (signs out, clears this device's private data). */}
+          {isSignedIn ? (
+            <div className="mt-5 border-t pt-4">
+              <LogoutButton
+                className="flex min-h-12 w-full rounded-input px-3 text-body font-medium text-foreground outline-none transition-colors hover:bg-surface-muted focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-70 [&>svg]:text-muted-foreground"
+              />
+            </div>
+          ) : null}
       </>
   );
 

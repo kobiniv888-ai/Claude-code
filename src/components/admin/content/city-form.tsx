@@ -3,6 +3,7 @@
 import { ImageOff, ImageUp, Plane, Save } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
+import { COUNTRIES, DEFAULT_COUNTRY } from "@/config/countries";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,7 +39,7 @@ function newCityValues(): CityFormValues {
     aliases: "",
     slug: "",
     coords: coordText(null, null),
-    timezone: "Asia/Tbilisi",
+    timezone: COUNTRIES[DEFAULT_COUNTRY].timezone,
     airportCode: "",
     airport: coordText(null, null),
     isPopular: false,

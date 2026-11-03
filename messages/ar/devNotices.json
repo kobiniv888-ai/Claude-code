@@ -1,3 +1,4 @@
 {
-  "demoDataMissing": "لم تُحمَّل البيانات التجريبية — شغّل <code>npm run db:seed</code>"
+  "demoDataMissing": "لم تُحمَّل البيانات التجريبية — شغّل <code>npm run db:seed</code>",
+  "devServer": "نسخة التطوير (بطيئة). للنسخة السريعة: <code>bash .devcontainer/start-prod.sh</code>"
 }

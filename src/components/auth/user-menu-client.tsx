@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   HeartIcon,
   HouseIcon,
@@ -24,7 +24,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Link, useRouter } from "@/i18n/navigation";
+import { getPathname, Link } from "@/i18n/navigation";
+import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
 export type UserMenuUser = {
@@ -59,19 +60,18 @@ const LINKS = [
 
 export function UserMenuClient({ user }: { user: UserMenuUser }) {
   const t = useTranslations("auth.menu");
-  const router = useRouter();
+  const locale = useLocale();
   const [signingOut, setSigningOut] = useState(false);
 
+  // The shared logout (round 3, bug 2.9): signs out, clears this device's private data and opens
+  // the home page with "התנתקתם". Loaded on demand: not needed to show the menu.
   async function logOut() {
     setSigningOut(true);
-    try {
-      // Loaded on demand: Better Auth's client is not needed to show the menu.
-      const { signOut } = await import("@/lib/auth/client");
-      await signOut();
-      router.replace("/");
-      router.refresh();
-    } finally {
+    const { logOut: run } = await import("@/lib/auth/logout");
+    const result = await run({ homeHref: getPathname({ href: "/", locale }) });
+    if (!result.ok) {
       setSigningOut(false);
+      toast.error(t("logoutError"));
     }
   }
 

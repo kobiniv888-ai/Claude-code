@@ -22,6 +22,7 @@ import {
 } from "./listing-status";
 import { parseNotificationPrefs, type NotificationPrefs } from "./settings-schema";
 import { latestRequest, verificationProgress, type RequestSummary, type VerificationProgress } from "./verification";
+import { isHostAccount } from "@/lib/auth/phone-check-policy";
 
 /**
  * Read-side of the "My account" dashboard (server-only). Every query is scoped to the signed-in
@@ -270,6 +271,7 @@ export async function getAccountOverview(user: {
     openTickets,
     progress: verificationProgress({
       phoneVerified: user.phoneNumberVerified,
+      isHost: isHostAccount(counts.all),
       idVerified: !!user.idVerifiedAt,
       idLatest: latestRequest(requests, "ID"),
       hasListings: listingsToVerify > 0,
@@ -357,6 +359,8 @@ export type VerificationRequestView = {
 export type VerificationCenter = {
   phoneNumber: string | null;
   phoneVerified: boolean;
+  /** Has a listing, drafts included: may be offered the SMS phone check here (phone-check-policy). */
+  isHost: boolean;
   idVerifiedAt: string | null;
   businessVerifiedAt: string | null;
   accountType: AccountType;
@@ -365,7 +369,7 @@ export type VerificationCenter = {
 };
 
 export async function getVerificationCenter(userId: string): Promise<VerificationCenter> {
-  const [user, requests, listings] = await Promise.all([
+  const [user, requests, listings, listingCount] = await Promise.all([
     db.user.findUniqueOrThrow({
       where: { id: userId },
       select: { phoneNumber: true, phoneNumberVerified: true, idVerifiedAt: true, businessVerifiedAt: true, accountType: true },
@@ -391,10 +395,12 @@ export async function getVerificationCenter(userId: string): Promise<Verificatio
       take: 100,
       select: { id: true, publicId: true, title: true, status: true, ownerVerifiedAt: true, cadastralCode: true },
     }),
+    db.listing.count({ where: { ownerId: userId, deletedAt: null } }),
   ]);
   return {
     phoneNumber: user.phoneNumber,
     phoneVerified: !!user.phoneNumber && user.phoneNumberVerified === true,
+    isHost: isHostAccount(listingCount),
     idVerifiedAt: user.idVerifiedAt?.toISOString() ?? null,
     businessVerifiedAt: user.businessVerifiedAt?.toISOString() ?? null,
     accountType: user.accountType,

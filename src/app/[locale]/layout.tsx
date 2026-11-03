@@ -18,10 +18,11 @@ import { SHELL_MESSAGES, pickMessages } from "@/i18n/client-messages";
 import { dirFor } from "@/i18n/locale";
 import { routing } from "@/i18n/routing";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getDisplayCurrency, getRates } from "@/lib/currency";
+import { getDisplayCurrencyState, getRates } from "@/lib/currency";
 import { absoluteUrl, defaultOgImage, ogLocale, siteName } from "@/lib/seo";
 import { ZOD_JITLESS_SCRIPT } from "@/lib/zod-jitless";
 import { DemoDataBanner } from "@/components/dev/demo-data-banner";
+import { DevServerStrip } from "@/components/dev/dev-server-strip";
 import "../globals.css";
 
 export function generateStaticParams() {
@@ -84,7 +85,7 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
     getRates(),
     getMessages(),
   ]);
-  const currency = await getDisplayCurrency(user?.currency);
+  const { currency, chosen: currencyChosen } = await getDisplayCurrencyState(user?.currency);
 
   return (
     <html lang={locale} dir={dir} style={fontStyle} suppressHydrationWarning>
@@ -98,9 +99,10 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
           <DirectionProvider dir={dir}>
             {/* Only the shell's interface text; routes add theirs (src/i18n/client-messages.ts). */}
             <NextIntlClientProvider messages={pickMessages(messages, SHELL_MESSAGES)}>
-              <CurrencyProvider currency={currency} rates={rates}>
+              <CurrencyProvider currency={currency} chosen={currencyChosen} rates={rates}>
                 <LoginDialogProvider signedIn={!!user}>
                   <SkipLink />
+                  <DevServerStrip />
                   <DemoDataBanner />
                   {children}
                   <AppToaster dir={dir} />

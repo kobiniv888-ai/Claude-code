@@ -9,6 +9,7 @@ import { verifyTurnstile } from "@/lib/turnstile";
 import { codeDisplayForHeaders } from "./code-display";
 import { authErrorKey } from "./error-codes";
 import { limitLoginCodeChecks, limitPhoneCheckRequests } from "./login-rate-limit";
+import { normalizePhone } from "@/lib/phone";
 import { checkLoginPhoneNumber } from "./phone";
 import { isPhoneAlreadyVerified, phoneCheckStep } from "./phone-once";
 import { auth } from "./server";
@@ -50,7 +51,8 @@ export async function sendPhoneCheckCode(input: unknown): Promise<ActionResult<P
     const user = await requireUserForAction();
     const parsed = sendSchema.safeParse(input);
     if (!parsed.success) return fail("invalid_phone");
-    const check = checkLoginPhoneNumber(parsed.data.phoneNumber);
+    // "+972 053…" or "+9720…" → "+97253…" before the strict check (brief 2.5).
+    const check = checkLoginPhoneNumber(normalizePhone(parsed.data.phoneNumber) ?? parsed.data.phoneNumber);
     if (!check.ok) return fail(check.reason === "country_not_supported" ? "country_not_supported" : "invalid_phone");
     const phoneNumber = check.e164;
     // Reveals only this account's own state, so it may come before the limits.
@@ -88,7 +90,8 @@ export async function confirmPhoneCheckCode(input: unknown): Promise<ActionResul
     const user = await requireUserForAction();
     const parsed = confirmSchema.safeParse(input);
     if (!parsed.success) return fail("invalid_code");
-    const check = checkLoginPhoneNumber(parsed.data.phoneNumber);
+    // "+972 053…" or "+9720…" → "+97253…" before the strict check (brief 2.5).
+    const check = checkLoginPhoneNumber(normalizePhone(parsed.data.phoneNumber) ?? parsed.data.phoneNumber);
     if (!check.ok) return fail("invalid_phone");
     const phoneNumber = check.e164;
     if (isPhoneAlreadyVerified(user, phoneNumber)) return ok({ phoneNumber });

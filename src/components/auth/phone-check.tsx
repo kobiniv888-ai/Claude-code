@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { CircleCheckBigIcon, PhoneOffIcon } from "lucide-react";
-import { formatPhoneNumberIntl } from "react-phone-number-input";
+import { formatPhoneNumberIntl } from "react-phone-number-input/input";
 import { Ltr } from "@/components/common/ltr";
 import { Button } from "@/components/ui/button";
 import type { LoginConfig } from "@/lib/auth/config";

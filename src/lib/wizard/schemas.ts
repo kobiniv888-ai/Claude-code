@@ -9,8 +9,9 @@
  *
  * Error messages are message keys in messages/<locale>/wizard.json under "validation.*".
  */
-import { isValidPhoneNumber } from "libphonenumber-js";
 import { z } from "zod";
+import { COUNTRIES, isInCountry } from "@/config/countries";
+import { isValidPhone as isValidPhoneNumber, normalizePhone } from "@/lib/phone";
 import { locales, siteConfig, type AppLocale, type CurrencyCode } from "@/config/site";
 import type {
   BuildingAge,
@@ -180,11 +181,12 @@ export const LIMITS = {
   altMax: 200,
 } as const;
 
-/** Rough box around Georgia (the only country open for posting in Phase 1). */
-export const GEORGIA_BOUNDS = { north: 43.65, south: 41.0, east: 46.8, west: 39.9 } as const;
+/** Rough box around Georgia (the only country open for posting): src/config/countries.ts. */
+export const GEORGIA_BOUNDS = COUNTRIES.GE.pinBounds;
 
+/** A pin inside Georgia. For a listing in another country use isInCountry(code, lat, lng). */
 export function isInGeorgia(lat: number, lng: number): boolean {
-  return lat <= GEORGIA_BOUNDS.north && lat >= GEORGIA_BOUNDS.south && lng <= GEORGIA_BOUNDS.east && lng >= GEORGIA_BOUNDS.west;
+  return isInCountry("GE", lat, lng);
 }
 
 export const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -231,9 +233,15 @@ export function contactValueProblem(channel: ContactChannelKey, raw: string): st
   return null;
 }
 
-/** "https://m.me/john.doe" or "facebook.com/john.doe" → "john.doe"; "@name" stays as typed for Telegram. */
+/**
+ * "https://m.me/john.doe" or "facebook.com/john.doe" → "john.doe"; "@name" stays as typed for Telegram.
+ * Phone numbers → E.164 without the national 0 ("+972 053-…" → "+97253…", brief 2.5); a number
+ * typed without a country code is Georgian (the listing contact default, src/config/countries.ts).
+ */
 export function normalizeContactValue(channel: ContactChannelKey, raw: string): string {
   let value = raw.trim();
+  const phoneLike = PHONE_CHANNELS.includes(channel) || (channel === "TELEGRAM" && /^\+?[\d\s().-]+$/.test(value));
+  if (phoneLike && value) return normalizePhone(value, COUNTRIES.GE.defaultPhoneCountry) ?? value;
   if (channel === "MESSENGER") {
     value = value.replace(/^https?:\/\//i, "").replace(/^(www\.)?(m\.me|facebook\.com|fb\.com|messenger\.com\/t)\//i, "");
     value = value.replace(/[/?#].*$/, "");

@@ -23,10 +23,14 @@ import { listingPath } from "@/lib/listing/urls";
 import { assertRateLimit, rateLimit } from "@/lib/rate-limit";
 import { assertNotShabbatMode } from "@/lib/settings";
 import { assertTurnstile } from "@/lib/turnstile";
+import { countryConfig } from "@/config/countries";
+import { normalizePhone } from "@/lib/phone";
 import { parseContactMethods, revealedValue, type RevealedContact } from "./links";
 import { findContactableListing, isBlockedBetween, safetyTipSeen } from "./server";
 
 const HOUR = 3600;
+/** Channels whose value is always a phone number (a Telegram value may be one too). */
+const PHONE_VALUE_CHANNELS = new Set<string>(["WHATSAPP", "VIBER", "PHONE", "SMS"]);
 const DAY = 24 * HOUR;
 
 const listingIdSchema = z.string().trim().min(1).max(64);
@@ -76,9 +80,17 @@ export async function revealContact(listingId: string, turnstileToken?: string |
     const firstToday = await rateLimit(`contact-reveal:seen:${user.id}:${listing.id}`, { limit: 1, windowSeconds: DAY });
     if (firstToday.ok) await assertRateLimit(`contact-reveal:listing:${listing.id}`, { limit: 200, windowSeconds: DAY });
 
+    // Phone numbers leave the server in E.164 without a national 0 (brief 2.5), so the browser's
+    // wa.me / tel: links work also for values saved before round 3 ("+9720…").
+    const phoneCountry = countryConfig(listing.countryCode).defaultPhoneCountry;
     const methods = parseContactMethods(listing.contactMethods)
       .filter((m) => m.channel !== "EMAIL" || hasEmailDestination(m.value, listing.owner.email))
-      .map((m) => ({ channel: m.channel, value: revealedValue(m) }));
+      .map((m) => {
+        const value = revealedValue(m);
+        const isPhone = PHONE_VALUE_CHANNELS.has(m.channel) || (m.channel === "TELEGRAM" && /^\+?[\d\s()-]+$/.test(value ?? ""));
+        const phone = value && isPhone ? normalizePhone(value, phoneCountry) : null;
+        return { channel: m.channel, value: phone ?? value };
+      });
     return ok({
       methods,
       safetyTipSeen: await safetyTipSeen(user.id),

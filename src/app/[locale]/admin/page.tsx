@@ -2,6 +2,7 @@ import { BadgeCheck, Flag, Home, Inbox, LifeBuoy, MousePointerClick, UserPlus } 
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { AuditList } from "@/components/admin/audit-list";
+import { LoginMethodsBanner } from "@/components/auth/login-methods-banner";
 import { ClicksByChannelChart } from "@/components/admin/clicks-chart";
 import { KpiCard } from "@/components/admin/kpi-card";
 import { AdminPageHeader, AdminSection } from "@/components/admin/page-header";
@@ -38,6 +39,7 @@ export default async function AdminOverviewPage({ params }: PageProps<"/[locale]
   return (
     <>
       <AdminPageHeader title={t("title")} description={t("greeting", { name: staff.name })} />
+      <LoginMethodsBanner />
 
       <section aria-labelledby="kpis" className="mb-6">
         <h2 id="kpis" className="sr-only">

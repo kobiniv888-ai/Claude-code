@@ -1,3 +1,4 @@
+import type { TurnstileHandle } from "@/components/common/turnstile";
 import type { AppLocale } from "@/config/site";
 import type { PledgeStatus } from "@/lib/pledge";
 import type { StepIssues, WizardValues } from "@/lib/wizard/schemas";
@@ -46,4 +47,24 @@ export type StepProps = {
   /** The owner's Bayit welcome pledge (accepted in the pledge step; publishing needs the current version). */
   pledge: PledgeStatus;
   setPledge: (status: PledgeStatus) => void;
+  /** The saved answers have arrived (bug 2.2). Until then the step is read-only. */
+  ready: boolean;
+  /** Opens the place calendar in a full-screen sheet over the form (bug 2.10). */
+  openCalendar: () => void;
+  /** Publishing (create mode): the bottom bar's "פרסום" button and the rules checkbox share it. */
+  publish: PublishController | null;
+};
+
+/** State of "פרסום" (bug 2.7: the button lives in the bottom bar, the rules and CAPTCHA in the step). */
+export type PublishController = {
+  accepted: boolean;
+  setAccepted: (accepted: boolean) => void;
+  rulesError: boolean;
+  publishing: boolean;
+  /** Callback ref for the step's <Turnstile> (the hook resets it after a failed publish). */
+  captchaRef: (handle: TurnstileHandle | null) => void;
+  onToken: (token: string) => void;
+  onExpire: () => void;
+  /** Checks, saves, waits for the CAPTCHA and publishes. */
+  publish: () => Promise<void>;
 };

@@ -7,12 +7,15 @@
  * maps to `new Date("YYYY-MM-DDT00:00:00Z")` and back with toISOString().slice(0, 10).
  */
 
-export const BOOKING_TIME_ZONE = "Asia/Tbilisi";
+import { COUNTRIES, DEFAULT_COUNTRY } from "@/config/countries";
+
+/** Georgia's zone (src/config/countries.ts). Hotels and stays in another country will pass their own. */
+export const BOOKING_TIME_ZONE = COUNTRIES[DEFAULT_COUNTRY].timezone;
 
 const DAY_MS = 86_400_000;
 const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
-/** Georgia has used UTC+4 all year since 2005 (no daylight saving). */
+/** Georgia (BOOKING_TIME_ZONE) has used UTC+4 all year since 2005 (no daylight saving). */
 const TBILISI_OFFSET_MS = 4 * 3600 * 1000;
 
 /** True for a real calendar day "YYYY-MM-DD" (rejects 2026-02-30). */

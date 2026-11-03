@@ -10,6 +10,7 @@ import {
   ProfileForm,
   SettingsSection,
 } from "@/components/account/settings-forms";
+import { LogoutEverywhere } from "@/components/account/logout-everywhere";
 import { TwoFactorSettings } from "@/components/auth/two-factor-settings";
 import { Ltr } from "@/components/common/ltr";
 import { PageHeader } from "@/components/common/page-header";
@@ -71,8 +72,11 @@ export default async function SettingsPage({ params }: Props) {
         <NotificationsForm prefs={data.notifications} emailAvailable={!!(data.contactEmail || data.loginEmail)} />
       </SettingsSection>
 
-      <div id="security" className="scroll-mt-24">
+      <div id="security" className="grid scroll-mt-24 gap-4 sm:gap-6">
         <TwoFactorSettings enabled={data.twoFactorEnabled} isStaff={user.isStaff} returnTo="/account/settings#security" />
+        <SettingsSection id="logout-all" title={t("logoutAll.title")} lead={t("logoutAll.lead")}>
+          <LogoutEverywhere />
+        </SettingsSection>
       </div>
 
       {data.providers.length > 0 ? (

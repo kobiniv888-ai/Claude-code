@@ -5,8 +5,7 @@ import { Container } from "@/components/common/container";
 import { IconCircle } from "@/components/ds/icon-circle";
 import { WelcomeHomeIcon } from "@/components/ds/jewish-icons";
 import { PhotoSlot } from "@/components/photos/photo-slot";
-import { DraftCards } from "@/components/wizard/start-listing";
-import { StartListingButton } from "@/components/wizard/start-listing";
+import { ContinueDraftCard, DraftCards, StartListingButton } from "@/components/wizard/start-listing";
 import { ShabbatPaused } from "@/components/wizard/shabbat-paused";
 import { siteConfig, type AppLocale } from "@/config/site";
 import { requireUser } from "@/lib/auth/session";
@@ -54,26 +53,63 @@ export default async function PostPage({ params }: Props) {
     { key: "contact", icon: MessageCircleIcon },
   ] as const;
 
+  const cards = drafts.map((d) => ({ ...d, updatedLabel: t("draftUpdated", { time: formatRelativeTime(d.updatedAt, locale, now) }) }));
+  // Bug 2.7: with an unfinished draft, "המשך מהטיוטה" comes first (the newest one, big), then the
+  // other drafts, then a new listing — which asks first whether they meant to continue the draft.
+  const [newest, ...others] = cards;
+
   return (
     <Container size="narrow" className="grid gap-8 py-6 sm:py-12">
-      <section aria-labelledby="post-title" className="overflow-hidden rounded-card bg-card shadow-card ring-1 ring-foreground/5">
-        <div className="relative aspect-[16/9] sm:aspect-[21/9]">
-          <PhotoSlot slot="cta.listYourProperty" alt="" sizes="(min-width: 768px) 720px, 100vw" priority className="size-full" imageClassName="object-[50%_60%]" />
-          <span aria-hidden className="absolute inset-0 bg-linear-to-t from-black/45 to-transparent" />
-        </div>
-        <div className="grid gap-5 p-5 sm:p-8">
+      {newest && (
+        <>
           <header className="grid gap-2">
             <h1 id="post-title" className="text-h1 text-balance">
               {t("title")}
             </h1>
             <p className="max-w-prose text-body text-pretty text-muted-foreground">{t("subtitle")}</p>
           </header>
+          <section aria-labelledby="continue-title" className="grid gap-3">
+            <h2 id="continue-title" className="text-h2">
+              {t("continueTitle")}
+            </h2>
+            <ContinueDraftCard draft={newest} />
+          </section>
+          {others.length > 0 && <DraftCards drafts={others} title={t("moreDrafts")} />}
+        </>
+      )}
+
+      <section
+        aria-labelledby={newest ? "new-title" : "post-title"}
+        className="overflow-hidden rounded-card bg-card shadow-card ring-1 ring-foreground/5"
+      >
+        <div className={newest ? "relative aspect-[21/9] sm:aspect-[21/7]" : "relative aspect-[16/9] sm:aspect-[21/9]"}>
+          <PhotoSlot
+            slot="cta.listYourProperty"
+            alt=""
+            sizes="(min-width: 768px) 720px, 100vw"
+            priority={!newest}
+            className="size-full"
+            imageClassName="object-[50%_60%]"
+          />
+          <span aria-hidden className="absolute inset-0 bg-linear-to-t from-black/45 to-transparent" />
+        </div>
+        <div className="grid gap-5 p-5 sm:p-8">
+          {!newest && (
+            <header className="grid gap-2">
+              <h1 id="post-title" className="text-h1 text-balance">
+                {t("title")}
+              </h1>
+              <p className="max-w-prose text-body text-pretty text-muted-foreground">{t("subtitle")}</p>
+            </header>
+          )}
           <div className="grid gap-1.5">
-            <h2 className="text-h3">{t("newTitle")}</h2>
+            <h2 id="new-title" className="text-h3">
+              {t("newTitle")}
+            </h2>
             <p className="text-small text-pretty text-muted-foreground">{t("newDescription")}</p>
           </div>
           <div>
-            <StartListingButton />
+            <StartListingButton draft={newest ? { id: newest.id, title: newest.title, wizardStep: newest.wizardStep } : null} />
           </div>
           <div className="grid gap-3">
             <h3 className="text-small font-bold">{t("howTitle")}</h3>
@@ -102,10 +138,6 @@ export default async function PostPage({ params }: Props) {
           </div>
         </div>
       </section>
-
-      <DraftCards
-        drafts={drafts.map((d) => ({ ...d, updatedLabel: t("draftUpdated", { time: formatRelativeTime(d.updatedAt, locale, now) }) }))}
-      />
     </Container>
   );
 }

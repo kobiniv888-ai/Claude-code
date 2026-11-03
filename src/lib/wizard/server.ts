@@ -17,9 +17,11 @@ import { getSettings } from "@/lib/settings";
 import { isTranslationEnabled } from "@/lib/translate";
 import type { WizardValues } from "./schemas";
 import { applies, stepsFor, type ListingKind } from "./steps";
+import { answeredChoices } from "./patch";
 import type {
   DayRange,
   DraftSummary,
+  WizardAnswers,
   WizardCity,
   WizardContext,
   WizardListing,
@@ -241,16 +243,13 @@ export function publicPathFor(listing: { publicId: number; status: ListingStatus
   return `/listing/${listing.publicId}`;
 }
 
-export async function loadWizard(
-  listingId: string,
-  user: CurrentUser,
-  mode: WizardMode,
-  locale: AppLocale,
-): Promise<{ listing: WizardListing; context: WizardContext } | null> {
-  const listing = await findOwnedListing(listingId, user.id);
-  if (!listing) return null;
-
-  const [photos, roomTypes, blocks, translations, cities, settings, translationEnabled, pledge] = await Promise.all([
+/**
+ * The answers and media of a listing as the form edits them. Shared by the page and the
+ * loadWizardSnapshot action, which every mount of the form calls (bug 2.2: a page restored from
+ * the browser's cache must never show, or save, older answers).
+ */
+export async function loadWizardAnswers(listing: ListingRow, businessName: string | null): Promise<WizardAnswers> {
+  const [photos, roomTypes, blocks, translations] = await Promise.all([
     db.listingPhoto.findMany({
       where: { listingId: listing.id },
       select: photoSelect,
@@ -263,18 +262,10 @@ export async function loadWizard(
       take: 1000,
     }),
     db.listingTranslation.findMany({ where: { listingId: listing.id } }),
-    loadCities(locale),
-    getSettings(),
-    Promise.resolve(isTranslationEnabled()),
-    getPledgeStatus(user.id),
   ]);
 
   const mainPhotos = photos.filter((p) => !p.roomTypeId).map(toWizardPhoto);
-  const values = toWizardValues(listing, user.businessName);
-  const fresh =
-    listing.status === "DRAFT" &&
-    listing.wizardStep <= 1 &&
-    listing.updatedAt.getTime() - listing.createdAt.getTime() < 2000;
+  const values = toWizardValues(listing, businessName);
 
   const wizardRoomTypes: WizardRoomType[] = roomTypes.map((room) => ({
     id: room.id,
@@ -291,31 +282,60 @@ export async function loadWizard(
   }));
 
   return {
+    status: listing.status,
+    wizardStep: listing.wizardStep,
+    chosen: answeredChoices({
+      status: listing.status,
+      wizardStep: listing.wizardStep,
+      createdAt: listing.createdAt,
+      updatedAt: listing.updatedAt,
+      values,
+      photoCount: photos.length,
+    }),
+    values,
+    photos: mainPhotos,
+    roomTypes: wizardRoomTypes,
+    blocked: blocks.filter((b) => b.source === "OWNER").map((b) => toInclusiveRange(b.startDate, b.endDate)),
+    icalBlocked: blocks.filter((b) => b.source === "ICAL").map((b) => toInclusiveRange(b.startDate, b.endDate)),
+    translations: translations
+      .filter((t) => isAppLocale(t.locale))
+      .map((t) => ({
+        locale: t.locale as AppLocale,
+        title: t.title,
+        description: t.description,
+        isAuto: t.isAuto,
+        editedByOwner: t.editedByOwner,
+        updatedAt: t.updatedAt.toISOString(),
+      })),
+    rulesAccepted: listing.rulesAcceptedAt !== null,
+    publicPath: publicPathFor(listing),
+    updatedAt: listing.updatedAt.toISOString(),
+  };
+}
+
+export async function loadWizard(
+  listingId: string,
+  user: CurrentUser,
+  mode: WizardMode,
+  locale: AppLocale,
+): Promise<{ listing: WizardListing; context: WizardContext } | null> {
+  const listing = await findOwnedListing(listingId, user.id);
+  if (!listing) return null;
+
+  const [answers, cities, settings, translationEnabled, pledge] = await Promise.all([
+    loadWizardAnswers(listing, user.businessName),
+    loadCities(locale),
+    getSettings(),
+    Promise.resolve(isTranslationEnabled()),
+    getPledgeStatus(user.id),
+  ]);
+
+  return {
     listing: {
       id: listing.id,
       publicId: listing.publicId,
-      status: listing.status,
-      wizardStep: listing.wizardStep,
-      fresh,
-      values,
-      photos: mainPhotos,
-      roomTypes: wizardRoomTypes,
-      blocked: blocks.filter((b) => b.source === "OWNER").map((b) => toInclusiveRange(b.startDate, b.endDate)),
-      icalBlocked: blocks.filter((b) => b.source === "ICAL").map((b) => toInclusiveRange(b.startDate, b.endDate)),
-      translations: translations
-        .filter((t) => isAppLocale(t.locale))
-        .map((t) => ({
-          locale: t.locale as AppLocale,
-          title: t.title,
-          description: t.description,
-          isAuto: t.isAuto,
-          editedByOwner: t.editedByOwner,
-          updatedAt: t.updatedAt.toISOString(),
-        })),
+      ...answers,
       icalExportUrl: `${siteConfig.url.replace(/\/+$/, "")}/api/ical/${listing.icalToken}`,
-      rulesAccepted: listing.rulesAcceptedAt !== null,
-      publicPath: publicPathFor(listing),
-      updatedAt: listing.updatedAt.toISOString(),
     },
     context: {
       mode,

@@ -48,10 +48,13 @@ export const sectionCard = "rounded-2xl border bg-card p-4 shadow-xs sm:p-6";
 export function VerificationProgressCard({ progress }: { progress: AccountOverview["progress"] }) {
   const t = useTranslations("account.overview.verification");
   const locale = useLocale();
-  const rows: { key: "phone" | "id" | "owner"; icon: LucideIcon; state: BadgeState; href: string }[] = [
-    { key: "phone", icon: SmartphoneIcon, state: progress.phone, href: progress.phone === "verified" ? "/account/verification" : "/verify-phone" },
-    { key: "id", icon: BadgeCheckIcon, state: progress.id, href: "/account/verification#id" },
-  ];
+  const rows: { key: "phone" | "id" | "owner"; icon: LucideIcon; state: BadgeState; href: string }[] = [];
+  // No phone row for a guest without a verified phone: the paid SMS check is offered to guests
+  // only in the booking review (src/lib/auth/phone-check-policy.ts). A verified phone always shows.
+  if (progress.phone) {
+    rows.push({ key: "phone", icon: SmartphoneIcon, state: progress.phone, href: progress.phone === "verified" ? "/account/verification" : "/verify-phone" });
+  }
+  rows.push({ key: "id", icon: BadgeCheckIcon, state: progress.id, href: "/account/verification#id" });
   if (progress.owner) rows.push({ key: "owner", icon: ShieldCheckIcon, state: progress.owner, href: "/account/verification#owner" });
   const percent = progress.total ? Math.round((progress.done / progress.total) * 100) : 0;
 

@@ -32,6 +32,7 @@ import { DEFAULT_CHECK_IN_TIME } from "@/lib/booking/dates";
 import { clockText } from "@/lib/booking/guest";
 import { getGuestTrip } from "@/lib/booking/queries";
 import { whatsappUrl } from "@/lib/booking/reveal";
+import { telHref } from "@/lib/phone";
 import { formatDate, formatDateRange, formatMoney, formatTime } from "@/lib/format";
 import { pageMetadata } from "@/lib/seo";
 import { cn } from "@/lib/utils";
@@ -228,7 +229,7 @@ export default async function TripPage({ params, searchParams }: Props) {
                   </a>
                 ) : null}
                 {reveal.contact.phone ? (
-                  <a href={`tel:${reveal.contact.phone}`} className={buttonStyles({ variant: "outline" })}>
+                  <a href={telHref(reveal.contact.phone) ?? `tel:${reveal.contact.phone}`} className={buttonStyles({ variant: "outline" })}>
                     <PhoneIcon aria-hidden />
                     <span className="truncate">
                       {t("trip.call")} <Ltr>{formatPhoneInternational(reveal.contact.phone)}</Ltr>
