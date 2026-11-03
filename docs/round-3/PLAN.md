@@ -22,15 +22,24 @@ push, and a short summary with what to check on the phone.
 
 ## Founder's answers (binding)
 
-1. **Admin.** The founder's own account becomes the only real admin. Which account (email or
-   phone) is still to be confirmed by the founder. Google Authenticator (2-step login) is
-   **required** for the admin account, also in the codespace: the development shortcut that skips
-   2-step login may apply only to demo accounts, never to the founder's account.
+1. **Admin.** The founder's own site account becomes the only real admin. **Never write the
+   founder's email addresses or phone numbers into code, files, tests, docs or commits.** The admin
+   account and the address for admin alerts are set through PRIVATE settings that are never
+   committed: `BAYIT_ADMIN_EMAIL` and/or `BAYIT_ADMIN_PHONE` (the site account to make admin) and
+   `ADMIN_ALERT_EMAIL` (where admin alerts and the daily summary go — a different address from the
+   admin account). They live in `.env` (gitignored), filled from Codespaces secrets of the same
+   names. Google Authenticator (2-step login) is **required** for the admin account, also in the
+   codespace: the development shortcut that skips 2-step login may apply only to demo accounts,
+   never to the founder's account.
 2. **Translation: Microsoft Azure AI Translator.** Keep the provider behind one small interface
    (`src/lib/translate.ts`) so switching to Claude later is a configuration change plus one adapter,
    in case Hebrew–Georgian reads badly. Google stays as a second adapter.
 3. **Hotels.** Contact-only until phase 4 (so one booking can never block the whole hotel). In
-   phase 4, build **booking by room type**, then switch hotels back to instant booking:
+   phase 4, build **booking by room type** (database changes approved, see below), then switch
+   hotels back to instant booking. Label the number of rooms "כמה חדרים כאלה להציע בבית" (a hotel
+   may offer fewer rooms than it has, to lower the double-booking risk with other sites). The hotel
+   calendar shows a short note about the sync gap (Bayit checks every hour, other sites every few
+   hours) and suggests keeping a room or two off Bayit. Channel managers can come later.
    - A hotel has room types ("Double room, sea view"). Each has its own name, photos, beds, max
      guests, size, amenities, price per night (plus weekend and holiday prices) and the number of
      identical rooms of that type.
@@ -49,12 +58,15 @@ push, and a short summary with what to check on the phone.
      (free; on iPhone only after adding the site to the home screen). More than one can be on.
    - SMS and WhatsApp alerts: planned as paid options for later (WhatsApp needs a Business account
      and approved templates). No Viber alerts (Viber bots cost €100 a month).
-   - A booking goes through if **at least one** of the host's alert channels accepted the message
-     ("Resend accepted it" counts for email). If none did: refuse the booking and offer
-     "שאלה למארח".
+   - Instant booking needs at least one channel that **confirms delivery**: email ("Resend
+     accepted it" counts) or Telegram (the bot API accepted the message). Browser notifications
+     can't confirm the host saw the alert, so they never count on their own; they are an extra. If
+     no confirming channel accepted the alert: refuse the booking and offer "שאלה למארח".
    - If a message later bounces or fails: alert the founder and the guest right away. A bounced
-     email pauses new bookings for that host until their email works (with several channels: see
-     "Open questions").
+     email pauses **only the email channel**; bookings keep going while Telegram works. If browser
+     notifications are the only channel left, the host switches to "שאלה למארח" until email or
+     Telegram works again. Tell the host through every channel they have left, and tell the
+     founder.
    - Only the automatic alerts change. Guests still contact hosts every way the host chose in the
      contact step (WhatsApp, phone, Telegram, Viber, Messenger, SMS, email).
 5. **Verification: option (b).** No ID documents for now. Delete any ID or selfie photos already
@@ -98,15 +110,19 @@ Additive only; applied with `prisma/sql/before-push.sql` + `prisma db push`.
 - Already covered by existing tables: `ListingStatDaily` (stats), `AuditLog` (= AdminAction),
   `ListingTranslation` + `Listing.originalLocale`, `weeklyDiscountPct` / `monthlyDiscountPct`.
 
-**Not yet approved (proposed to the founder, wait for the OK):** the room-type booking changes and
-the alert-channel changes (Telegram link, browser push subscriptions, channel health).
+**Approved later (founder's answers of 3 November):**
+- Room types (phase 4): RoomType gets `bedsSofa`, `amenities`, `weekendPrice`, `quantity` required
+  (empty → 1; labelled "כמה חדרים כאלה להציע בבית"), `active`, `icalToken`, `icalImportUrls`,
+  `icalSyncedAt`; AvailabilityBlock gets `roomTypeId` + `rooms` (a block without a room type closes
+  the whole hotel); Booking gets `rooms`; DatePrice gets `roomTypeId`. A room type is free on a night
+  when its booked + blocked rooms are fewer than its quantity, checked in the same locked
+  transaction.
+- Booking alerts: a new `PushSubscription` table (one row per device), `User.telegramChatId` +
+  `User.telegramLinkedAt`, `Booking.hostNotifiedVia`; the host's channel choices and each channel's
+  status stay in the existing `User.notificationPrefs`. Library: `web-push`. Free VAPID keys
+  (generated, kept in `.env`). The Telegram bot is created by the founder with @BotFather later
+  (`TELEGRAM_BOT_TOKEN` in OWNER_TODO).
 
-## Open questions (asked, waiting)
+## Open questions
 
-- Which account is the admin (email or phone)?
-- OK for the room-type and alert-channel database changes, and for the `web-push` library (browser
-  notifications need encrypted, signed messages)?
-- With several alert channels: when a host's email bounces, pause only the email channel (bookings
-  continue while Telegram or browser notifications work), or pause all new bookings until the email
-  works? Working assumption: pause only that channel; a host with no working channel left goes to
-  "שאלה למארח" automatically until one works again.
+None at the moment.
