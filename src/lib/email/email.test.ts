@@ -20,7 +20,7 @@ vi.mock("@/lib/db", () => ({
   db: { emailOutbox: { create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => outbox.push(data)) } },
 }));
 
-const { EMAIL_TEMPLATES, isPlaceholderEmail, notificationEmailFor, renderEmail, sendEmail } = await import("./index");
+const { EMAIL_TEMPLATES, isPlaceholderEmail, notificationEmailFor, renderEmail, resendTags, sendEmail } = await import("./index");
 type Data = import("./templates").EmailData;
 
 const bookingStay = {
@@ -115,6 +115,25 @@ const samples: { [K in keyof Data]: Data[K] } = {
     searchUrl: "/search?deal=short-stay&checkIn=2026-11-12&checkOut=2026-11-15",
   },
   booking_completed: { code: "BT-7K3Q9", listingTitle: "Sunny flat in Vake", checkIn: "2026-11-12", checkOut: "2026-11-15", bookingUrl: "/account/trips/BT-7K3Q9", guestName: "Noa" },
+  booking_host_unreached_guest: {
+    ...bookingStay,
+    bookingUrl: "/account/trips/BT-7K3Q9",
+    guestName: "Noa",
+    hostName: "Yossi",
+    hostPhone: "+995555000011",
+    hostWhatsapp: "+995555000011",
+  },
+  admin_alert: {
+    kind: "host_alert_bounced",
+    reason: "bounced",
+    bookingCode: "BT-7K3Q9",
+    listingTitle: "Sunny flat in Vake",
+    listingPublicId: 1234,
+    hostName: "Yossi",
+    address: "yossi@example.com",
+    template: "booking_new_host",
+    adminUrl: "/admin/bookings",
+  },
 };
 
 afterEach(() => {
@@ -170,6 +189,26 @@ describe("renderEmail", () => {
   });
 });
 
+describe("alert emails", () => {
+  it("asks the guest to contact the host, with the host's phone", async () => {
+    const email = await renderEmail("booking_host_unreached_guest", "he", samples.booking_host_unreached_guest);
+    expect(email.subject).toContain("BT-7K3Q9");
+    expect(email.text).toContain("+995555000011");
+    expect(email.text).toMatch(/\/he\/account\/trips\/BT-7K3Q9/);
+  });
+
+  it("tells the founder what happened, for every kind", async () => {
+    for (const kind of ["host_unreachable", "host_alert_bounced", "email_bounced"] as const) {
+      const email = await renderEmail("admin_alert", "he", { ...samples.admin_alert, kind });
+      expect(email.subject.length, kind).toBeGreaterThan(5);
+      expect(email.text).toMatch(/\/he\/admin\/bookings/);
+    }
+    const unknownReason = await renderEmail("admin_alert", "en", { ...samples.admin_alert, reason: "<script>" });
+    expect(unknownReason.text).toContain("the email service didn't accept the message");
+    expect(translationErrors).toEqual([]);
+  });
+});
+
 describe("booking emails", () => {
   it("shows the stay, the pay-on-arrival line and the policy deadline in Hebrew", async () => {
     const email = await renderEmail("booking_confirmed_guest", "he", samples.booking_confirmed_guest);
@@ -204,7 +243,7 @@ describe("sendEmail", () => {
   it("logs to the outbox when Resend is not configured", async () => {
     const info = vi.spyOn(console, "info").mockImplementation(() => {});
     const result = await sendEmail({ to: "dana@example.com", template: "welcome", locale: "he", data: samples.welcome });
-    expect(result).toEqual({ ok: true });
+    expect(result).toEqual({ ok: true, delivery: "logged" });
     expect(outbox).toHaveLength(1);
     expect(outbox[0]).toMatchObject({ to: "dana@example.com", template: "welcome", locale: "he", status: "LOGGED" });
     expect(info).toHaveBeenCalled();
@@ -228,6 +267,21 @@ describe("sendEmail", () => {
     const row = outbox[0] as { subject: string; html: string; text: string };
     expect(`${row.subject}${row.html}${row.text}`).not.toContain("482913");
     expect(row.text).toContain("••••••");
+  });
+
+  it("keeps outbox-only emails in the outbox even with Resend set up (demo accounts)", async () => {
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    process.env.RESEND_API_KEY = "re_test_key";
+    const result = await sendEmail({ to: "yossi@demo.bayit.example", template: "welcome", locale: "he", data: samples.welcome, outboxOnly: true });
+    expect(result).toEqual({ ok: true, delivery: "logged" });
+    expect(outbox[0]).toMatchObject({ status: "LOGGED", provider: "outbox" });
+  });
+
+  it("tags emails for Resend, dropping tags Resend would refuse", () => {
+    expect(resendTags("booking_new_host", { booking: "BT-7K3Q9", "bad tag": "x", other: "a b", template: "nope" })).toEqual([
+      { name: "template", value: "booking_new_host" },
+      { name: "booking", value: "BT-7K3Q9" },
+    ]);
   });
 
   it("falls back to English for an unknown locale", async () => {

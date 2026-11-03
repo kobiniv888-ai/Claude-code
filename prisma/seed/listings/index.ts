@@ -127,7 +127,9 @@ async function seedListing(db: PrismaClient, seed: ListingSeed, places: PlaceIds
   for (const locale of locales) {
     const text = seed.text[locale];
     const isOriginal = locale === seed.originalLocale;
-    const translation = { title: text.title, description: text.description, isOriginal, isAuto: !isOriginal, editedByOwner: false };
+    // The demo texts were written by hand in all five languages (round 3, brief 2.4): the other
+    // languages show as the owner's own version ("Translated by the owner"), never as automatic.
+    const translation = { title: text.title, description: text.description, isOriginal, isAuto: false, editedByOwner: !isOriginal };
     await db.listingTranslation.upsert({
       where: { listingId_locale: { listingId: id, locale } },
       create: { listingId: id, locale, ...translation },

@@ -8,6 +8,7 @@ import { headers } from "next/headers";
 import { getLocale, getTranslations } from "next-intl/server";
 import { z } from "zod";
 import { siteConfig } from "@/config/site";
+import { documentChecksOn } from "@/config/verification";
 import type { Prisma } from "@/generated/prisma/client";
 import { isAppLocale } from "@/i18n/locale";
 import { fail, ok, runAction, type ActionResult } from "@/lib/action";
@@ -15,6 +16,7 @@ import { audit } from "@/lib/audit";
 import { requireUserForAction } from "@/lib/auth/session";
 import { auth } from "@/lib/auth/server";
 import { clearDisplayCurrency, setDisplayCurrency } from "@/lib/currency/actions";
+import { alertsPart } from "@/lib/booking/alert-rules";
 import { db } from "@/lib/db";
 import { notificationEmailFor, sendEmail } from "@/lib/email";
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
@@ -146,6 +148,8 @@ const VERIFICATION_LIMIT = { limit: 10, windowSeconds: 3600 };
 export async function submitIdVerification(input: unknown): Promise<ActionResult<{ id: string }>> {
   return runAction<{ id: string }>(async () => {
     const user = await requireUserForAction();
+    // No document checks for now (founder's answer 5, round 3; src/config/verification.ts).
+    if (!documentChecksOn()) return fail("documents_paused");
     const parsed = idVerificationSchema.safeParse(input);
     if (!parsed.success) return fail("invalid_input", z.flattenError(parsed.error).fieldErrors);
     await assertRateLimit(`account:verification:${user.id}`, VERIFICATION_LIMIT);
@@ -171,6 +175,8 @@ export async function submitIdVerification(input: unknown): Promise<ActionResult
 export async function submitOwnershipVerification(input: unknown): Promise<ActionResult<{ id: string }>> {
   return runAction<{ id: string }>(async () => {
     const user = await requireUserForAction();
+    // No document checks for now (founder's answer 5, round 3; src/config/verification.ts).
+    if (!documentChecksOn()) return fail("documents_paused");
     const parsed = ownershipVerificationSchema.safeParse(input);
     if (!parsed.success) return fail("invalid_input", z.flattenError(parsed.error).fieldErrors);
     await assertRateLimit(`account:verification:${user.id}`, VERIFICATION_LIMIT);
@@ -205,6 +211,8 @@ export async function submitOwnershipVerification(input: unknown): Promise<Actio
 export async function submitBusinessVerification(input: unknown): Promise<ActionResult<{ id: string }>> {
   return runAction<{ id: string }>(async () => {
     const user = await requireUserForAction();
+    // No document checks for now (founder's answer 5, round 3; src/config/verification.ts).
+    if (!documentChecksOn()) return fail("documents_paused");
     const parsed = businessVerificationSchema.safeParse(input);
     if (!parsed.success) return fail("invalid_input", z.flattenError(parsed.error).fieldErrors);
     await assertRateLimit(`account:verification:${user.id}`, VERIFICATION_LIMIT);
@@ -302,11 +310,15 @@ export async function updateNotifications(input: unknown): Promise<ActionResult>
     const parsed = notificationsSchema.safeParse(input);
     if (!parsed.success) return fail("invalid_input");
     await assertRateLimit(`account:settings:${user.id}`, SETTINGS_LIMIT);
+    // Keep the booking-alert channel states (a paused email address, src/lib/booking/alert-rules.ts).
+    const current = await db.user.findUnique({ where: { id: user.id }, select: { notificationPrefs: true } });
+    const alerts = alertsPart(current?.notificationPrefs);
     const prefs = {
       email: parsed.data.email,
       whatsapp: siteConfig.features.whatsappNotifications ? parsed.data.whatsapp : false,
+      ...(alerts ? { alerts } : {}),
     };
-    await db.user.update({ where: { id: user.id }, data: { notificationPrefs: prefs } });
+    await db.user.update({ where: { id: user.id }, data: { notificationPrefs: prefs as Prisma.InputJsonValue } });
     return ok();
   });
 }

@@ -64,7 +64,16 @@
     "byOwner": "Translated by the owner",
     "showOriginal": "Show original",
     "showTranslation": "Show translation",
-    "showingOriginal": "Original ({language})"
+    "showingOriginal": "Original ({language})",
+    "originalIn": {
+      "he": "Original in Hebrew",
+      "en": "Original in English",
+      "ru": "Original in Russian",
+      "ar": "Original in Arabic",
+      "ka": "Original in Georgian"
+    },
+    "translate": "Translate",
+    "translateHint": "(opens Google Translate)"
   },
   "gallery": {
     "label": "Photos of {title}",
@@ -352,5 +361,8 @@
     "paymentText": "You pay the host when you arrive. Bayit never takes payment.",
     "safety": "Before you pay anything",
     "videoTip": "Ask for a live video call that shows you the place and a sheet of paper with today's date and the listing number (<ltr>{id}</ltr>)."
+  },
+  "headline": {
+    "perSqm": "{price} / m²"
   }
 }

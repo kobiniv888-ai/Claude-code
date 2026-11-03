@@ -34,6 +34,8 @@ export const EMAIL_TEMPLATES = [
   "booking_cancelled_by_guest",
   "booking_cancelled_by_host",
   "booking_completed",
+  "booking_host_unreached_guest",
+  "admin_alert",
 ] as const;
 export type EmailTemplate = (typeof EMAIL_TEMPLATES)[number];
 
@@ -166,7 +168,37 @@ export type EmailData = {
   booking_completed: Pick<BookingEmailStay, "code" | "listingTitle" | "checkIn" | "checkOut" | "bookingUrl"> & {
     guestName?: string | null;
   };
+  /** The "new booking" alert to the host bounced: the guest should make sure the host expects them. */
+  booking_host_unreached_guest: BookingEmailStay &
+    Pick<BookingEmailArrival, "hostName" | "hostPhone" | "hostWhatsapp"> & { guestName?: string | null };
+  /** To the founder (ADMIN_ALERT_EMAIL, else the admin accounts): something about alerts went wrong. */
+  admin_alert: {
+    /** One of ADMIN_ALERT_KINDS. */
+    kind: AdminAlertKind;
+    /** host_unreachable: an AlertBlockReason or "failed"; bounces: "bounced" | "complained" | "failed". */
+    reason: string;
+    bookingCode?: string | null;
+    listingTitle?: string | null;
+    listingPublicId?: number | string | null;
+    hostName?: string | null;
+    /** The address the email went to (bounces). */
+    address?: string | null;
+    /** Which email bounced (an EmailTemplate name). */
+    template?: string | null;
+    /** A site path in the admin panel. */
+    adminUrl?: Url | null;
+  };
 };
+
+/**
+ * - host_unreachable: a booking was refused because no alert channel of the host accepted the alert
+ * - host_alert_bounced: the "new booking" alert to the host bounced later (the booking stands)
+ * - email_bounced: another email from the site bounced (or was marked as spam)
+ */
+export const ADMIN_ALERT_KINDS = ["host_unreachable", "host_alert_bounced", "email_bounced"] as const;
+export type AdminAlertKind = (typeof ADMIN_ALERT_KINDS)[number];
+
+const ADMIN_ALERT_REASONS = ["email_not_configured", "no_email", "email_failing", "no_channel", "failed", "bounced", "complained"];
 
 export type EmailBlock =
   | { type: "paragraph"; text: string }
@@ -799,6 +831,59 @@ const builders: { [K in EmailTemplate]: Builder<K> } = {
         { type: "paragraph", text: t("templates.booking_completed.body2", { brand }) },
       ],
       cta: { label: t("templates.booking_completed.cta"), url: url(data.bookingUrl) ?? ctx.page("/account") },
+      audience: "account",
+    };
+  },
+
+  booking_host_unreached_guest: (data, ctx) => {
+    const { t, url, brand } = ctx;
+    const title = isolate(clean(data.listingTitle));
+    const hostRows = arrivalRows({ hostName: data.hostName, hostPhone: data.hostPhone, hostWhatsapp: data.hostWhatsapp, paymentMethods: [] }, ctx);
+    return {
+      subject: t("templates.booking_host_unreached_guest.subject", { code: data.code, brand }),
+      preheader: t("templates.booking_host_unreached_guest.preheader"),
+      heading: t("templates.booking_host_unreached_guest.heading"),
+      greetingName: clean(data.guestName) || null,
+      blocks: [
+        { type: "paragraph", text: t("templates.booking_host_unreached_guest.body1", { code: data.code, title }) },
+        { type: "paragraph", text: t("templates.booking_host_unreached_guest.body2") },
+        { type: "details", rows: [...hostRows, ...stayRows(data, ctx)] },
+        { type: "notice", text: t("templates.booking_host_unreached_guest.body3", { brand }) },
+      ],
+      cta: { label: t("templates.booking_host_unreached_guest.cta"), url: url(data.bookingUrl) ?? ctx.page("/account/trips") },
+      audience: "account",
+    };
+  },
+
+  admin_alert: (data, ctx) => {
+    const { t, url, page } = ctx;
+    const kind = (ADMIN_ALERT_KINDS as readonly string[]).includes(data.kind) ? data.kind : "email_bounced";
+    const key = `templates.admin_alert.${kind}`;
+    const reason = t(`templates.admin_alert.reason.${ADMIN_ALERT_REASONS.includes(data.reason) ? data.reason : "failed"}`);
+    const code = clean(data.bookingCode);
+    const title = isolate(clean(data.listingTitle));
+    const address = clean(data.address);
+    const rows: DetailRow[] = [];
+    if (code) rows.push({ label: t("booking.codeLabel"), value: code, ltr: true });
+    if (clean(data.listingTitle)) {
+      const id = data.listingPublicId ? ` (ID ${data.listingPublicId})` : "";
+      rows.push({ label: t("booking.placeLabel"), value: `${clean(data.listingTitle)}${id}` });
+    }
+    if (clean(data.hostName)) rows.push({ label: t("booking.hostLabel"), value: clean(data.hostName) });
+    if (address) rows.push({ label: t("templates.admin_alert.addressLabel"), value: address, ltr: true });
+    if (clean(data.template)) rows.push({ label: t("templates.admin_alert.templateLabel"), value: clean(data.template), ltr: true });
+    rows.push({ label: t("templates.admin_alert.reasonLabel"), value: reason });
+    return {
+      subject: t(`${key}.subject`, { code: code || "-", address: address || "-" }),
+      preheader: t(`${key}.body`, { title, reason }),
+      heading: t(`${key}.heading`),
+      greetingName: null,
+      blocks: [
+        { type: "paragraph", text: t(`${key}.body`, { title, reason }) },
+        { type: "details", rows },
+        { type: "paragraph", text: t(`${key}.next`) },
+      ],
+      cta: { label: t("templates.admin_alert.cta"), url: url(data.adminUrl) ?? page("/admin") },
       audience: "account",
     };
   },

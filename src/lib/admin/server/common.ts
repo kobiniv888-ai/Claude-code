@@ -37,6 +37,10 @@ export const ADMIN_ERROR_CODES = [
   "account_blocked",
   "missing_listing",
   "role_unchanged",
+  "documents_paused",
+  "backup_required",
+  "cleanup_running",
+  "backup_failed",
 ] as const;
 export type AdminErrorCode = (typeof ADMIN_ERROR_CODES)[number];
 

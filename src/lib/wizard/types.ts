@@ -117,6 +117,8 @@ export type PublishOutcome = {
   /** Codes from the automatic checks (BLOCKED / IN_REVIEW). */
   reasons: string[];
   publicPath: string | null;
+  /** publicPath on the permanent address (SITE_URL, @/lib/site-url), for "share". */
+  publicUrl?: string | null;
   publicId: number;
 };
 

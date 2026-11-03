@@ -5,9 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import {
   AlertTriangleIcon,
   CheckCircle2Icon,
-  CheckIcon,
   ChevronDownIcon,
-  CopyIcon,
   DownloadIcon,
   PlusIcon,
   RefreshCwIcon,
@@ -16,6 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ds/button";
 import { Card } from "@/components/ds/card";
+import { CopyLinkField } from "@/components/common/copy-link-field";
 import { Ltr } from "@/components/common/ltr";
 import { Input } from "@/components/ui/input";
 import { Link } from "@/i18n/navigation";
@@ -37,34 +36,6 @@ function hostOf(url: string): string {
   } catch {
     return url;
   }
-}
-
-function CopyLink({ value, label }: { value: string; label: string }) {
-  const t = useTranslations("hostBooking.ical");
-  const [copied, setCopied] = useState(false);
-  return (
-    <div className="flex items-center gap-2">
-      <Input readOnly value={value} dir="ltr" aria-label={label} className="h-11 min-w-0 flex-1 font-mono text-sm" onFocus={(e) => e.target.select()} />
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="h-11"
-        onClick={async () => {
-          try {
-            await navigator.clipboard.writeText(value);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-          } catch {
-            toast.error(t("copyFailed"));
-          }
-        }}
-      >
-        {copied ? <CheckIcon aria-hidden /> : <CopyIcon aria-hidden />}
-        <span aria-live="polite">{copied ? t("copied") : t("copy")}</span>
-      </Button>
-    </div>
-  );
 }
 
 function HowTo({ site, steps }: { site: string; steps: string }) {
@@ -197,7 +168,7 @@ export function IcalPanel({
             <p className="text-small text-pretty text-muted-foreground">{t("exportBody")}</p>
           </div>
         </header>
-        <CopyLink value={exportUrl} label={t("exportTitle")} />
+        <CopyLinkField value={exportUrl} label={t("exportTitle")} />
         <p className="text-small text-pretty text-muted-foreground">{t("exportPrivacy")}</p>
         <div className="grid gap-2">
           <p className="text-small font-medium">{t("howTo")}</p>

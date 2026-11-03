@@ -1,0 +1,6 @@
+{
+  "copy": "Copy",
+  "copied": "Copied",
+  "copyFailed": "Couldn't copy. Select the link and copy it.",
+  "notPermanent": "The link will work once the site is on its permanent address"
+}

@@ -9,7 +9,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { createTranslator } from "use-intl/core";
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 process.env.TWILIO_ACCOUNT_SID = "";
 process.env.RESEND_API_KEY = "";
@@ -27,7 +27,11 @@ vi.mock("@/lib/request", () => ({ getIpHash: async () => "test-ip" }));
 type Sent = { to: string; template: string; locale: string; subject: string; text: string };
 const sent: Sent[] = [];
 /** Runs while an email is being "sent" (to act in the middle of a slow notification). */
-const hooks: { onEmail?: () => Promise<void> } = {};
+const hooks: {
+  onEmail?: () => Promise<void>;
+  /** What the "send" returns (default: kept in the outbox, as without RESEND_API_KEY). */
+  result?: (template: string) => { ok: boolean; delivery: "sent" | "logged" | "failed"; providerId?: string | null };
+} = {};
 vi.mock("@/lib/email", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/lib/email")>();
   return {
@@ -36,7 +40,7 @@ vi.mock("@/lib/email", async (importOriginal) => {
       await hooks.onEmail?.();
       const rendered = await real.renderEmail(input.template, input.locale, input.data as never);
       sent.push({ to: input.to, template: input.template, locale: String(input.locale), subject: rendered.subject, text: rendered.text });
-      return { ok: true };
+      return hooks.result?.(input.template) ?? { ok: true, delivery: "logged" as const };
     }),
   };
 });
@@ -53,10 +57,11 @@ const service = await import("./service");
 const { getUnavailableDates, isRangeFree } = await import("./availability");
 const { getGuestTrip, getGuestTrips, getHostBooking } = await import("./queries");
 const { BookingError } = await import("./errors");
+const { handleEmailBounce, handleEmailDelivered, hostInstantGate } = await import("./alerts");
 const { addDays, tbilisiToday } = await import("./dates");
 
 const prefix = `bk${randomUUID().replace(/-/g, "").slice(0, 10)}`;
-const ids = { city: "", listing: "", host: "", guestA: "", guestB: "", guestC: "", host2: "", listing2: "", guestD: "" };
+const ids = { city: "", listing: "", host: "", guestA: "", guestB: "", guestC: "", host2: "", listing2: "", guestD: "", users3: "", listing3: "", guestE: "" };
 const today = tbilisiToday();
 const day = (n: number) => addDays(today, n);
 
@@ -148,12 +153,15 @@ beforeEach(() => {
 });
 
 afterAll(async () => {
-  const users = [ids.host, ids.guestA, ids.guestB, ids.guestC, ids.host2, ids.guestD].filter(Boolean);
-  const listings = [ids.listing, ids.listing2].filter(Boolean);
+  const users = [ids.host, ids.guestA, ids.guestB, ids.guestC, ids.host2, ids.guestD, ids.users3, ids.guestE].filter(Boolean);
+  const listings = [ids.listing, ids.listing2, ids.listing3].filter(Boolean);
   await db.booking.deleteMany({ where: { listingId: { in: listings } } });
   await db.listing.deleteMany({ where: { id: { in: listings } } });
   await db.auditLog.deleteMany({ where: { actorId: { in: users } } });
+  await db.auditLog.deleteMany({ where: { targetId: { in: users } } });
   await db.rateLimit.deleteMany({ where: { key: { startsWith: "booking:create:" + prefix } } });
+  await db.rateLimit.deleteMany({ where: { key: { startsWith: "alert:host-unreachable:" + prefix } } });
+  await db.emailOutbox.deleteMany({ where: { providerId: { startsWith: prefix } } });
   await db.user.deleteMany({ where: { id: { in: users } } });
   await db.city.deleteMany({ where: { id: ids.city } });
 });
@@ -421,6 +429,120 @@ describe("hardening (round 2 review)", () => {
     expect(late).toMatchObject({ code: "not_bookable" });
     expect(await db.booking.count({ where: { listingId: ids.listing2, status: "CONFIRMED" } })).toBe(0);
     expect((await db.listing.findUniqueOrThrow({ where: { id: ids.listing2 } })).bookingMode).toBe("CONTACT");
+  });
+});
+
+describe("host alerts (round 3): a booking stands only once the host was told", () => {
+  const digits = () => `${(Date.now() + Math.floor(Math.random() * 1000)) % 1_000_000}`.padStart(6, "0");
+  let host3 = "";
+  let listing3 = "";
+  const REAL = { resend: true, outboxCounts: false };
+
+  beforeAll(async () => {
+    host3 = await makeUser("Gil", digits() + "7");
+    ids.users3 = host3;
+    ids.guestE = await makeUser("Rina", digits() + "8", "he");
+    const listing = await db.listing.create({
+      data: {
+        ownerId: host3,
+        status: "LIVE",
+        dealType: "SHORT_STAY",
+        propertyType: "APARTMENT",
+        pricePeriod: "NIGHT",
+        price: 60,
+        currency: "USD",
+        maxGuests: 4,
+        bookingMode: "INSTANT",
+        cancellationPolicy: "FLEXIBLE",
+        paymentMethodsAtCheckIn: ["cash"],
+        cityId: ids.city,
+        lat: 41.7103,
+        lng: 44.7704,
+        address: "3 Test Street, Tbilisi",
+        contactMethods: [{ channel: "WHATSAPP", value: "+995555123458", order: 0 }],
+        originalLocale: "en",
+        title: "Third flat for alert tests",
+        description: "A test listing.",
+      },
+    });
+    listing3 = listing.id;
+    ids.listing3 = listing3;
+  });
+
+  afterEach(() => {
+    hooks.result = undefined;
+  });
+
+  it("records when the host was told, then confirms to the guest", async () => {
+    hooks.result = (template) => (template === "booking_new_host" ? { ok: true, delivery: "sent", providerId: `${prefix}-ok` } : { ok: true, delivery: "sent" });
+    const created = await service.createBooking(stay(ids.guestA, day(150), day(152), { listingId: listing3, alerts: REAL }));
+    const booking = await db.booking.findUniqueOrThrow({ where: { id: created.id } });
+    expect(booking.hostNotifiedAt).toBeInstanceOf(Date);
+    // The host's alert goes first; the guest's confirmation only after it was accepted.
+    expect(sent.map((s) => s.template)).toEqual(["booking_new_host", "booking_confirmed_guest"]);
+  });
+
+  it("undoes the booking and its block when no channel accepted the alert, and tells the founder", async () => {
+    hooks.result = (template) => (template === "booking_new_host" ? { ok: false, delivery: "failed" } : { ok: true, delivery: "logged" });
+    await expectCode(service.createBooking(stay(ids.guestB, day(160), day(162), { listingId: listing3, alerts: REAL })), "host_unreachable");
+    expect(await db.booking.count({ where: { listingId: listing3, checkIn: dayToDateOf(day(160)) } })).toBe(0);
+    expect(await isRangeFree(listing3, day(160), day(162))).toBe(true);
+    expect(sent.map((s) => s.template)).not.toContain("booking_confirmed_guest");
+    expect(sent.map((s) => s.template)).toContain("admin_alert");
+    const log = await db.auditLog.findFirstOrThrow({ where: { action: "booking.host_unreachable", actorId: ids.guestB, targetId: listing3 } });
+    expect(log.details).toMatchObject({ stage: "after", reason: "failed" });
+  });
+
+  it("in development / test mode the outbox counts; on the real site without Resend instant booking is off", async () => {
+    const outbox = await service.createBooking(stay(ids.guestC, day(170), day(172), { listingId: listing3, alerts: { resend: false, outboxCounts: true } }));
+    expect((await db.booking.findUniqueOrThrow({ where: { id: outbox.id } })).hostNotifiedAt).not.toBeNull();
+    sent.length = 0;
+    await expectCode(
+      service.createBooking(stay(ids.guestC, day(180), day(182), { listingId: listing3, alerts: { resend: false, outboxCounts: false } })),
+      "host_unreachable",
+    );
+    // Refused before any nights were taken, and nothing was sent to the host.
+    expect(sent.map((s) => s.template)).not.toContain("booking_new_host");
+    expect(await isRangeFree(listing3, day(180), day(182))).toBe(true);
+  });
+
+  it("a host with only a phone (no real email) can't take instant bookings", async () => {
+    await db.user.update({ where: { id: host3 }, data: { email: `${digits()}@phone.bayit.invalid` } });
+    try {
+      expect(await hostInstantGate(host3, REAL)).toEqual({ ok: false, reason: "no_email" });
+      await expectCode(service.createBooking(stay(ids.guestA, day(190), day(192), { listingId: listing3, alerts: REAL })), "host_unreachable");
+    } finally {
+      await db.user.update({ where: { id: host3 }, data: { email: `${host3}@example.com` } });
+    }
+  });
+
+  it("a bounce pauses the host's email, tells the guest and the founder; a later delivery resumes it", async () => {
+    hooks.result = (template) => (template === "booking_new_host" ? { ok: true, delivery: "sent", providerId: `${prefix}-alert` } : { ok: true, delivery: "sent" });
+    const created = await service.createBooking(stay(ids.guestE, day(200), day(202), { listingId: listing3, alerts: REAL }));
+    const outboxRow = await db.emailOutbox.create({
+      data: { to: `${host3}@example.com`, template: "booking_new_host", locale: "en", subject: "New booking", html: "", text: `Booking number: ${created.code}`, status: "SENT", provider: "resend", providerId: `${prefix}-alert`, createdAt: new Date(Date.now() - 60_000) },
+    });
+    sent.length = 0;
+    const event = { kind: "bounced" as const, emailId: `${prefix}-alert`, to: [`${host3}@example.com`.toLowerCase()], tags: {}, detail: "Mailbox does not exist" };
+    const result = await handleEmailBounce(event);
+    expect(result).toMatchObject({ duplicate: false, paused: [host3], bookingCode: created.code });
+    expect(sent.map((s) => s.template).sort()).toEqual(["admin_alert", "booking_host_unreached_guest"]);
+    expect((await db.emailOutbox.findUniqueOrThrow({ where: { id: outboxRow.id } })).status).toBe("FAILED");
+    // The same event delivered twice changes nothing more.
+    sent.length = 0;
+    expect((await handleEmailBounce(event)).duplicate).toBe(true);
+    expect(sent).toHaveLength(0);
+    // The booking stands; new instant bookings for this host are paused.
+    expect((await db.booking.findUniqueOrThrow({ where: { id: created.id } })).status).toBe("CONFIRMED");
+    expect(await hostInstantGate(host3, REAL)).toEqual({ ok: false, reason: "email_failing" });
+    await expectCode(service.createBooking(stay(ids.guestE, day(210), day(212), { listingId: listing3, alerts: REAL })), "host_unreachable");
+
+    // A later email to the same address arrived: the channel works again.
+    await db.emailOutbox.create({
+      data: { to: `${host3}@example.com`, template: "booking_reminder_host", locale: "en", subject: "Reminder", html: "", status: "SENT", provider: "resend", providerId: `${prefix}-later`, createdAt: new Date(Date.now() + 1000) },
+    });
+    expect(await handleEmailDelivered({ kind: "delivered", emailId: `${prefix}-later`, to: [`${host3}@example.com`.toLowerCase()], tags: {} })).toEqual({ resumed: [host3] });
+    expect((await hostInstantGate(host3, REAL)).ok).toBe(true);
   });
 });
 

@@ -13,7 +13,8 @@ import { assertRateLimit, assertRateLimitByIp } from "@/lib/rate-limit";
 import { assertNotShabbatMode } from "@/lib/settings";
 import { isRangeFree } from "./availability";
 import { tripPath } from "./constants";
-import { notifyBookingCancelled, notifyBookingCreated } from "./notify";
+import { notifyBookingCancelled, notifyBookingConfirmed } from "./notify";
+import { alertEnvironment } from "./alerts";
 import { createBookingSchema, guestCancelSchema, hostCancelSchema, noShowSchema, quoteInputSchema } from "./schemas";
 import { createBooking, getBookingQuote, guestCancel, hostCancel, markNoShow, type BookingQuote } from "./service";
 
@@ -69,6 +70,9 @@ export async function createBookingAction(input: unknown): Promise<ActionResult<
     }
     const data = parsed.data;
     const locale = localeOr((input as { locale?: unknown }).locale, user.locale);
+    const requestHeaders = await headers();
+    // The host's alert is sent inside createBooking (the booking stands only once it was
+    // accepted); the guest's confirmation follows after the response.
     const booking = await createBooking({
       ...data,
       guestUserId: user.id,
@@ -76,10 +80,11 @@ export async function createBookingAction(input: unknown): Promise<ActionResult<
       locale,
       displayCurrency: await getDisplayCurrency(user.currency, locale),
       // Demo listings are made up: bookable only in development / test mode.
-      allowDemoListing: codeDisplayForHeaders(await headers()) !== null,
+      allowDemoListing: codeDisplayForHeaders(requestHeaders) !== null,
+      alerts: alertEnvironment(requestHeaders),
       notify: false,
     });
-    after(() => notifyBookingCreated(booking.id));
+    after(() => notifyBookingConfirmed(booking.id));
     return ok({ id: booking.id, code: booking.code, path: tripPath(booking.code) });
   });
 }

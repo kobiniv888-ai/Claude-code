@@ -3,7 +3,7 @@ import { Ltr } from "@/components/common/ltr";
 import { SpriteIcon } from "@/components/ds/sprite-icons";
 import type { SpriteIconName } from "@/components/ds/sprite-icons.generated";
 import { formatDate, formatMoney, formatNumber, formatTime } from "@/lib/format";
-import { clockDate, priceChangePercent, pricePerSqm } from "@/lib/listing-page/helpers";
+import { clockDate, priceChangePercent } from "@/lib/listing-page/helpers";
 import { houseRules, orderedAmenities, type Highlight, type HouseRule } from "@/lib/listing-page/highlights";
 import type { ListingPageData } from "@/lib/listing-page/types";
 import { AMENITY_SPRITE } from "./icons";
@@ -265,24 +265,18 @@ export function DetailsSection({ data }: { data: ListingPageData }) {
   );
 }
 
-/** Sales: the price per m², and the price history folded under "Price history". */
+/**
+ * Sales: the price history folded under "Price history". The full price and the price per m² are
+ * under the title (<HeadlinePrice>, round 3 brief 2.3).
+ */
 export function SalePriceSection({ data }: { data: ListingPageData }) {
   const t = useTranslations("listing.costs");
   const locale = useLocale();
-  const perSqm = pricePerSqm(data.price, data.sizeSqm);
   const history = data.priceChanges;
-  if (!perSqm && history.length === 0) return null;
+  if (history.length === 0) return null;
   return (
     <Section id="price" title={t("titleSale")}>
       <div className="grid gap-2">
-        {perSqm ? (
-          <p className="flex items-baseline justify-between gap-3 border-b border-border py-2.5">
-            <span className="text-muted-foreground">{t("pricePerSqm")}</span>
-            <span className="font-medium">
-              <Ltr>{t("perSqm", { price: formatMoney(perSqm, data.currency, locale) })}</Ltr>
-            </span>
-          </p>
-        ) : null}
         {history.length ? (
           <PriceHistoryFoldedSection value="history" title={t("priceHistory")}>
             <ol className="grid gap-2">

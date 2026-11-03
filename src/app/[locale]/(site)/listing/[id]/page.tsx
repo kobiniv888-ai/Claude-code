@@ -26,6 +26,8 @@ import { RoomTypesSection } from "@/components/listing-page/room-types";
 import { Section } from "@/components/listing-page/section";
 import { StatusBanner } from "@/components/listing-page/status-banner";
 import { StayProvider } from "@/components/listing-page/stay-dates";
+import { alertEnvironment, hostInstantGate } from "@/lib/booking/alerts";
+import { isInstantDealType } from "@/lib/booking/constants";
 import { bookRequestFrom } from "@/lib/booking/guest";
 import { ViewTracker } from "@/components/listing-page/view-tracker";
 import { ReportButton } from "@/components/report/report-dialog";
@@ -123,9 +125,14 @@ export default async function ListingPage({ params, searchParams }: Props) {
 
   const isPublic = access === "public";
   const isOwner = user?.id === ownerId;
-  const [t, nonce, shabbatMode, blocked, isFavorite, synagogue] = await Promise.all([
+  const requestHeaders = await headers();
+  const nonce = requestHeaders.get("x-nonce") ?? undefined;
+  // Instant booking: short stays only for now (hotels ask the host until booking by room type),
+  // and only while Bayit can alert the host about the booking (round 3, src/lib/booking/alerts.ts).
+  const instantCandidate = data.bookingMode === "INSTANT" && isInstantDealType(data.dealType);
+  const [t, instant, shabbatMode, blocked, isFavorite, synagogue] = await Promise.all([
     getTranslations({ locale, namespace: "listing" }),
-    headers().then((h) => h.get("x-nonce") ?? undefined),
+    instantCandidate ? hostInstantGate(ownerId, alertEnvironment(requestHeaders)).then((gate) => gate.ok) : Promise.resolve(false),
     isShabbatModeActive(),
     user && !isOwner ? isBlockedBetween(user.id, ownerId) : Promise.resolve(false),
     user ? isListingSaved(user.id, data.id) : Promise.resolve(false),
@@ -288,7 +295,7 @@ export default async function ListingPage({ params, searchParams }: Props) {
   );
 
   return (
-    <ListingTextProvider title={data.title} description={data.description} translated={data.isTranslated}>
+    <ListingTextProvider title={data.title} description={data.description} translated={data.isTranslated} originalLocale={data.originalLocale} pageUrl={shareUrl}>
       <ContactProvider
         listing={{ id: data.id, publicId: data.publicId, title: data.title.shown, url: shareUrl, dealType: data.dealType, channels: data.contactChannels }}
         availability={availability}
@@ -301,7 +308,7 @@ export default async function ListingPage({ params, searchParams }: Props) {
             guests={stay.guests}
             initialGuests={bookRequestFrom(query, data.maxGuests).guests}
             maxGuests={data.maxGuests}
-            instant={data.bookingMode === "INSTANT"}
+            instant={instant}
             blocks={data.blocks}
             today={today}
             minNights={data.minStayNights}

@@ -7,11 +7,13 @@ import type { Highlight } from "@/lib/listing-page/highlights";
 import type { ListingPageData } from "@/lib/listing-page/types";
 import { ownerPath } from "@/lib/listing/urls";
 import { HIGHLIGHT_SPRITE } from "./icons";
-import { ListingTitle } from "./listing-text";
+import { HeadlinePrice } from "./headline-price";
+import { ListingTitle, OriginalLanguageNote } from "./listing-text";
 import { OwnerAvatar } from "./owner-avatar";
 
 /**
- * The top of the listing: the title (22px, at most 3 lines), "Area · City", and ONE line of facts
+ * The top of the listing: the title (22px, at most 3 lines), the main price (round 3 brief 2.3:
+ * <HeadlinePrice>, for every viewer), "Area · City", and ONE line of facts
  * (guests · bedrooms · beds · baths; rooms and size for rentals and sales). Honest status tags
  * (demo, promoted) sit above the title, in grey. Real data only.
  */
@@ -43,6 +45,15 @@ export function TitleBlock({ data, tags }: { data: ListingPageData; tags: ("demo
         </div>
       ) : null}
       <ListingTitle />
+      <OriginalLanguageNote className="-mt-1" />
+      <HeadlinePrice
+        dealType={data.dealType}
+        price={data.price}
+        currency={data.currency}
+        pricePeriod={data.pricePeriod}
+        priceIsFrom={data.priceIsFrom}
+        sizeSqm={data.sizeSqm}
+      />
       {place ? <p className="text-body text-muted-foreground">{place}</p> : null}
       {facts.length ? (
         // Wraps between facts (never inside one), so long Georgian or Russian words never widen the page.

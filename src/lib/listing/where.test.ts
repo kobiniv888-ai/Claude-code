@@ -121,7 +121,7 @@ describe("buildListingWhere", () => {
     expect(
       parts({ verifiedOnly: true, ownerType: "business", hasPhotos: true, hasVideo: true, postedWithin: "24h" }),
     ).toEqual([
-      { OR: [{ ownerVerifiedAt: { not: null } }, { owner: { idVerifiedAt: { not: null } } }] },
+      // "Verified only" is ignored while there are no document checks (src/config/verification.ts).
       { owner: { accountType: "BUSINESS" } },
       { photos: { some: {} } },
       { videoUrl: { not: null } },

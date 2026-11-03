@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Ltr } from "@/components/common/ltr";
+import { HostInstantNotice } from "@/components/booking/host-instant-notice";
 import type { CurrencyCode } from "@/config/site";
 import type { CancellationPolicy } from "@/generated/prisma/enums";
 import { CANCELLATION_POLICIES, MAX_STAY_NIGHTS, PAYMENT_METHODS, type PaymentMethod } from "@/lib/booking/constants";
@@ -41,13 +42,21 @@ export function BookingStep({ listing, values, set, errors, kind, locale, openCa
 
   return (
     <div className="grid gap-6">
-      <div className="flex items-start gap-3 rounded-card border border-primary-tint-border bg-primary-tint p-4">
-        <ZapIcon className="mt-0.5 size-5 shrink-0 text-primary-text" aria-hidden />
-        <div className="grid min-w-0 gap-1">
-          <p className="text-body font-semibold">{t("instantTitle")}</p>
-          <p className="text-small text-pretty text-muted-foreground">{t("instantBody")}</p>
-        </div>
-      </div>
+      {/* Hotels: contact-only until booking by room type; others: why instant booking is off, if it is (round 3). */}
+      {isHotel ? (
+        <HostInstantNotice hotel />
+      ) : (
+        <>
+          <div className="flex items-start gap-3 rounded-card border border-primary-tint-border bg-primary-tint p-4">
+            <ZapIcon className="mt-0.5 size-5 shrink-0 text-primary-text" aria-hidden />
+            <div className="grid min-w-0 gap-1">
+              <p className="text-body font-semibold">{t("instantTitle")}</p>
+              <p className="text-small text-pretty text-muted-foreground">{t("instantBody")}</p>
+            </div>
+          </div>
+          <HostInstantNotice hotel={false} />
+        </>
+      )}
 
       <Section title={isHotel ? t("priceFromTitle") : t("priceTitle")} icon={WalletIcon}>
         <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto]">

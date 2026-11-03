@@ -19,7 +19,7 @@
  * the same value as S3_PUBLIC_URL, e.g. "https://media.bayit.example"), otherwise from
  * "/api/media/" (local storage; with the s3 driver that route redirects to the bucket).
  */
-import { siteConfig } from "@/config/site";
+import { absoluteUrl as siteAbsoluteUrl } from "@/lib/site-url";
 import { encodeKeyForUrl } from "@/lib/storage/keys";
 
 export const PHOTO_SIZES = ["sm", "md", "lg", "og"] as const;
@@ -92,8 +92,7 @@ export function photoUrl(photo: PhotoRef, size: PhotoSize): string {
 /** Absolute URL (for Open Graph tags, JSON-LD and emails). */
 export function absoluteMediaUrl(url: string): string {
   if (/^https?:\/\//i.test(url)) return url;
-  const base = siteConfig.url.replace(/\/+$/, "");
-  return `${base}${url.startsWith("/") ? "" : "/"}${url}`;
+  return siteAbsoluteUrl(url);
 }
 
 // ─── Private uploads ──────────────────────────────────────────

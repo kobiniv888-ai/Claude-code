@@ -6,7 +6,8 @@ import type { Locale, Prisma } from "@/generated/prisma/client";
 import { isAppLocale, pickLocalized } from "@/i18n/locale";
 import { can } from "@/lib/auth/permissions";
 import type { CurrentUser } from "@/lib/auth/session";
-import { isStaffTwoFactorSkipped } from "@/lib/auth/session";
+import { hasStaffRights } from "@/lib/auth/session";
+import { showsDocumentBadge } from "@/config/verification";
 import { parseContactMethods } from "@/lib/contact/links";
 import { db } from "@/lib/db";
 import { isPromoted, localizedTitle } from "@/lib/listing/mappers";
@@ -71,9 +72,10 @@ export function toOwnerSummary(owner: OwnerRow): OwnerSummary {
     image: owner.image,
     badges: {
       phoneVerified: owner.phoneNumberVerified === true,
-      idVerified: !!owner.idVerifiedAt,
+      // Document badges are hidden while there are no document checks (src/config/verification.ts).
+      idVerified: showsDocumentBadge(owner.idVerifiedAt),
       business,
-      businessVerified: business && !!owner.businessVerifiedAt,
+      businessVerified: business && showsDocumentBadge(owner.businessVerifiedAt),
       keepsShabbat: owner.keepsShabbat,
       demo: owner.isDemo,
     },
@@ -351,8 +353,8 @@ async function load(publicId: number, locale: AppLocale): Promise<LoadedListing 
     viewCount: row.viewCount,
     contentUpdatedAt: row.contentUpdatedAt.toISOString(),
     publishedAt: row.publishedAt?.toISOString() ?? null,
-    ownerVerified: !!row.ownerVerifiedAt,
-    propertyVerified: !!row.propertyVerifiedAt,
+    ownerVerified: showsDocumentBadge(row.ownerVerifiedAt),
+    propertyVerified: showsDocumentBadge(row.propertyVerifiedAt),
     promoted: isPromoted(row, undefined, now),
     isNew: !!row.publishedAt && now.getTime() - row.publishedAt.getTime() <= siteConfig.listings.newLabelDays * DAY_MS,
     photos,
@@ -413,7 +415,8 @@ export function listingPathsByLocale(row: {
 /** The viewer for listingAccess(): staff with moderation/reports/user rights may preview anything. */
 export function toListingViewer(user: CurrentUser | null): ListingViewer {
   if (!user) return null;
-  const staffReady = user.isStaff && ((user.twoFactorEnabled && user.twoFactorVerified) || isStaffTwoFactorSkipped());
+  // 2-step login done (only demo staff may skip it, in development); demo staff only on a test address.
+  const staffReady = hasStaffRights(user);
   const canPreviewAny = staffReady && (can(user.role, "moderation") || can(user.role, "reports.view") || can(user.role, "users.view"));
   return { id: user.id, canPreviewAny };
 }

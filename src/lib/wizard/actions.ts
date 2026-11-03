@@ -5,6 +5,7 @@ import { z } from "zod";
 import type { Prisma } from "@/generated/prisma/client";
 import { locales, siteConfig, type AppLocale, type Localized } from "@/config/site";
 import { isAppLocale } from "@/i18n/locale";
+import { absoluteUrl } from "@/lib/site-url";
 import { fail, ok, toActionError, type ActionResult } from "@/lib/action";
 import { requireUserForAction, type CurrentUser } from "@/lib/auth/session";
 import { getRates } from "@/lib/currency";
@@ -25,7 +26,8 @@ import { assertRateLimit } from "@/lib/rate-limit";
 import { detectContactInfo, hasContactInfo } from "@/lib/risk/contact-info";
 import { scanText } from "@/lib/risk/scan";
 import { assertNotShabbatMode } from "@/lib/settings";
-import { isTranslationEnabled, translateListing } from "@/lib/translate";
+import { stripTitleEmoji } from "@/lib/text/emoji";
+import { isTranslationEnabled, scheduleListingTranslation, translateListing } from "@/lib/translate";
 import { assertTurnstile } from "@/lib/turnstile";
 import { normalizeRanges } from "./availability";
 import { getPledgeStatus, hasCurrentPledge } from "@/lib/pledge/server";
@@ -194,6 +196,11 @@ export async function updateDraft(
       return row;
     });
 
+    if (update.textChanged && listing.status === "LIVE") {
+      // Brief 2.4: an autosaved edit of a live listing is public at once, so its translations are
+      // redone too (after the response, once the typing has settled).
+      scheduleListingTranslation(listing.id, update.contentChanged ? now : null);
+    }
     if (update.priceChange) {
       const { oldPrice, newPrice, currency } = update.priceChange;
       await recordPriceChange(listing.id, oldPrice, newPrice, currency);
@@ -567,7 +574,9 @@ export async function saveTranslations(
   try {
     const user = await ownerForMutation("save");
     const listing = await requireOwnedListing(listingIdSchema.parse(listingId), user.id);
-    const parsed = translationSchema.safeParse({ locale, ...input });
+    // Brief 2.4: titles are saved without emoji, in every language (descriptions keep theirs).
+    const title = typeof input?.title === "string" ? stripTitleEmoji(input.title) : input?.title;
+    const parsed = translationSchema.safeParse({ locale, ...input, title });
     if (!parsed.success) return fail("invalid_input", z.flattenError(parsed.error).fieldErrors);
     const v = parsed.data;
     if (v.locale === listing.originalLocale) return fail("edit_original_in_details");
@@ -693,11 +702,13 @@ function outcome(
   const reasons = (result.reasons ?? [])
     .map((r) => (typeof r === "string" ? r : r && typeof r === "object" && "code" in r ? String((r as { code: unknown }).code) : ""))
     .filter(Boolean);
+  const publicPath = result.status === "BLOCKED" ? null : publicPathFor({ ...listing, status: "LIVE" });
   return {
     status: result.status,
     reasons,
     publicId: listing.publicId,
-    publicPath: result.status === "BLOCKED" ? null : publicPathFor({ ...listing, status: "LIVE" }),
+    publicPath,
+    publicUrl: publicPath ? absoluteUrl(publicPath) : null,
   };
 }
 

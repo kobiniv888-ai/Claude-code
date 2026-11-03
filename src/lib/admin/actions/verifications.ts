@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { documentChecksOn } from "@/config/verification";
 import type { Prisma } from "@/generated/prisma/client";
 import { fail, ok, type ActionResult } from "@/lib/action";
 import { audit } from "@/lib/audit";
@@ -60,6 +61,8 @@ async function clearDocuments(id: string, documents: unknown): Promise<number> {
 
 export async function approveVerification(input: unknown): Promise<ActionResult<{ status: string }>> {
   return runStaffAction("verifications", "verification.approve", async (staff) => {
+    // No document checks for now (founder's answer 5, round 3): old decisions are read-only.
+    if (!documentChecksOn()) throw new AdminActionError("documents_paused", 409);
     const parsed = z.object({ requestId }).safeParse(input);
     if (!parsed.success) return fail("invalid_input");
     const request = await loadPending(parsed.data.requestId);
@@ -116,6 +119,8 @@ export async function approveVerification(input: unknown): Promise<ActionResult<
 
 export async function rejectVerification(input: unknown): Promise<ActionResult<{ status: string }>> {
   return runStaffAction("verifications", "verification.reject", async (staff) => {
+    // No document checks for now (founder's answer 5, round 3): old decisions are read-only.
+    if (!documentChecksOn()) throw new AdminActionError("documents_paused", 409);
     const parsed = z
       .object({
         requestId,

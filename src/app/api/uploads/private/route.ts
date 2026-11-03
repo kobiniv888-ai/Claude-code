@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { siteConfig } from "@/config/site";
+import { documentChecksOn } from "@/config/verification";
 import { requireUserForAction } from "@/lib/auth/session";
 import { randomToken } from "@/lib/crypto";
 import { db } from "@/lib/db";
@@ -55,6 +56,10 @@ export async function POST(request: Request) {
     assertContentLength(request, siteConfig.listings.maxPhotoBytes + MULTIPART_OVERHEAD_BYTES);
     const form = await readForm(request, siteConfig.listings.maxPhotoBytes + MULTIPART_OVERHEAD_BYTES);
     const { purpose } = parseFields(fieldsSchema, { purpose: textField(form, "purpose") });
+    // No ID / ownership documents for now (founder's answer 5, round 3; src/config/verification.ts).
+    if (purpose === "verification" && !documentChecksOn()) {
+      throw new AppError("documents_paused", "Verification documents are not accepted", { status: 403 });
+    }
     // Support pauses for Shabbat (admin setting); verification documents can always be sent.
     if (purpose === "ticket") await assertNotShabbatMode();
     await assertRateLimit(`upload:private:${user.id}`, UPLOAD_LIMIT);

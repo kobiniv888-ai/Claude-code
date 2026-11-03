@@ -126,6 +126,8 @@ describe("buildStepUpdate per step", () => {
     const result = await update("text", { title: "  Sea view flat near the promenade  " });
     expect(result.data).toEqual({ title: "Sea view flat near the promenade" });
     expect(result.textChanged).toBe(true);
+    const emoji = await update("text", { title: "🏖️ Sea view flat 📍 Batumi 🎉", description: "Five minutes from the sea 🌊" });
+    expect(emoji.data).toEqual({ title: "Sea view flat Batumi", description: "Five minutes from the sea 🌊" });
     const unchanged = await update("text", { description: listing.description });
     expect(unchanged.textChanged).toBe(false);
   });

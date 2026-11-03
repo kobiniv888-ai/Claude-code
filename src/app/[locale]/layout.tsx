@@ -19,7 +19,7 @@ import { dirFor } from "@/i18n/locale";
 import { routing } from "@/i18n/routing";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getDisplayCurrencyState, getRates } from "@/lib/currency";
-import { absoluteUrl, defaultOgImage, ogLocale, siteName } from "@/lib/seo";
+import { absoluteUrl, defaultOgImage, ogLocale, siteName, siteOrigin } from "@/lib/seo";
 import { ZOD_JITLESS_SCRIPT } from "@/lib/zod-jitless";
 import { DemoDataBanner } from "@/components/dev/demo-data-banner";
 import { DevServerStrip } from "@/components/dev/dev-server-strip";
@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: LayoutProps<"/[locale]">): Pr
   const name = siteName(locale);
   const description = t("meta.description");
   return {
-    metadataBase: new URL(siteConfig.url),
+    metadataBase: new URL(siteOrigin()),
     applicationName: siteConfig.name,
     title: { default: `${name} · ${t("siteTagline")}`, template: `%s · ${name}` },
     description,

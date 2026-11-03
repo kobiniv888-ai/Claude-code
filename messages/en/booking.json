@@ -97,7 +97,8 @@
     "reason_text_required": "Please write a few words about the reason.",
     "no_show_not_allowed": "You can report that a guest didn't arrive from the day after the arrival date until a week after departure.",
     "payment_method_required": "Please choose at least one payment method.",
-    "terms_changed": "The host changed the price or the cancellation terms while you were filling in your details. The new terms are shown now: please check them and confirm again."
+    "terms_changed": "The host changed the price or the cancellation terms while you were filling in your details. The new terms are shown now: please check them and confirm again.",
+    "host_unreachable": "We couldn't tell the host about this booking, so it wasn't saved. You can ask the host directly."
   },
   "ics": {
     "summary": "{title} · {code}",
@@ -170,7 +171,9 @@
     "takenText": "Someone booked them a moment ago. The calendar is up to date, so you can pick other dates.",
     "pickOther": "Choose other dates",
     "verifyFirst": "Please verify your phone number to continue.",
-    "busyText": "Someone has already booked some of these nights. Pick other dates in the calendar."
+    "busyText": "Someone has already booked some of these nights. Pick other dates in the calendar.",
+    "unreachableTitle": "We couldn't reach the host",
+    "unreachableText": "The booking wasn't saved and nothing was charged. Ask the host directly whether the place is free on your dates."
   },
   "closed": {
     "notBookableTitle": "This place can't be booked on the site",
@@ -239,5 +242,17 @@
     "notFoundTitle": "We couldn't find this booking",
     "notFoundText": "It may belong to another account. All your bookings are in My trips.",
     "viewListing": "View listing"
+  },
+  "hostAlerts": {
+    "hotelLaterTitle": "Instant booking for hotels is coming soon",
+    "hotelLaterBody": "We're building booking by room type, so one booking never blocks the whole hotel. Until then guests contact you directly, and the check-in and check-out times and rules you fill in here show on your listing.",
+    "offTitle": "Instant booking is off for now",
+    "reason": {
+      "email_not_configured": "The site isn't connected to an email service yet, so we can't make sure you hear about every booking. Until then guests contact you directly (Ask the host).",
+      "no_email": "Instant booking needs an email address, where we tell you about every booking. Until you add one, guests contact you directly (Ask the host).",
+      "email_failing": "Our emails to <address></address> bounce. Until you update it to an address that works, guests contact you directly (Ask the host).",
+      "no_channel": "We have no way to tell you about a new booking. Until then guests contact you directly (Ask the host)."
+    },
+    "fixEmail": "Update your email address"
   }
 }

@@ -83,7 +83,9 @@ const CHANNELS = new Set<string>([...CONTACT_CHANNELS, "CHAT"]);
 
 /**
  * One tap on a contact button of a LIVE listing: a ContactClick row, Listing.contactCount and
- * the day's contacts per channel. Taps by the owner are not counted.
+ * the day's contacts per channel. Taps by the owner are not counted. `userId` is used ONLY for
+ * that owner check: the row keeps the channel and the time, never who tapped (founder's OK,
+ * round 3; older rows are cleared by the clean-up "contact-taps" in Admin → Maintenance).
  */
 export async function recordContactClick(
   listingId: string,
@@ -99,7 +101,7 @@ export async function recordContactClick(
     if (count === 0) return false;
     const day = georgiaDay();
     await db.$transaction([
-      db.contactClick.create({ data: { listingId, channel, userId } }),
+      db.contactClick.create({ data: { listingId, channel } }),
       db.$executeRaw`
         INSERT INTO "ListingStatDaily" ("listingId", "date", "contacts", "contactsByChannel")
         VALUES (${listingId}, ${dayValue(day)}::date, 1, jsonb_build_object(${channel}::text, 1))

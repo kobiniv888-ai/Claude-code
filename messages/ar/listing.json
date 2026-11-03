@@ -64,7 +64,16 @@
     "byOwner": "ترجمة يدوية",
     "showOriginal": "عرض النص الأصلي",
     "showTranslation": "عرض الترجمة",
-    "showingOriginal": "النص الأصلي ({language})"
+    "showingOriginal": "النص الأصلي ({language})",
+    "originalIn": {
+      "he": "النص الأصلي بالعبرية",
+      "en": "النص الأصلي بالإنجليزية",
+      "ru": "النص الأصلي بالروسية",
+      "ar": "النص الأصلي بالعربية",
+      "ka": "النص الأصلي بالجورجية"
+    },
+    "translate": "ترجمة",
+    "translateHint": "(تُفتح في ترجمة Google)"
   },
   "gallery": {
     "label": "صور {title}",
@@ -352,5 +361,8 @@
     "paymentText": "تدفع للمضيف عند الوصول. Bayit لا يتقاضى أي مبلغ.",
     "safety": "قبل أي دفع",
     "videoTip": "اطلب مكالمة فيديو مباشرة تُظهر لك المكان وورقة عليها تاريخ اليوم ورقم الإعلان (<ltr>{id}</ltr>)."
+  },
+  "headline": {
+    "perSqm": "{price} / م²"
   }
 }

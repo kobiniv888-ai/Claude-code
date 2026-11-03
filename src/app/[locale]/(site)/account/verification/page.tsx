@@ -7,6 +7,7 @@ import {
   FileTextIcon,
   HomeIcon,
   LockKeyholeIcon,
+  MapPinCheckIcon,
   PlusIcon,
   ShieldCheckIcon,
   SmartphoneIcon,
@@ -19,6 +20,7 @@ import { Ltr } from "@/components/common/ltr";
 import { PageHeader } from "@/components/common/page-header";
 import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/config/site";
+import { documentChecksOn } from "@/config/verification";
 import { Link } from "@/i18n/navigation";
 import { getVerificationCenter, toSummaries, type VerificationRequestView } from "@/lib/account/queries";
 import { badgeState, latestRequest, type BadgeState } from "@/lib/account/verification";
@@ -71,7 +73,12 @@ function Section({
   );
 }
 
-/** /account/verification — phone, ID, owner (per listing), business and (Phase 2) property badges. */
+/**
+ * /account/verification — the phone check, and (only while document checks are on,
+ * src/config/verification.ts) the ID, owner (per listing), business and property badges.
+ * Founder's answer 5 (round 3): no documents for now; the page explains it and shows the
+ * coming "We visited" badge instead.
+ */
 export default async function VerificationPage({ params }: Props) {
   const { locale } = await params;
   setRequestLocale(locale);
@@ -117,10 +124,64 @@ export default async function VerificationPage({ params }: Props) {
   const businessLatest = latestRequest(summaries, "BUSINESS");
   const businessState = badgeState(!!center.businessVerifiedAt, businessLatest);
   const nextHere = "/account/verification";
+  const siteName = siteConfig.localizedName[locale as keyof typeof siteConfig.localizedName] ?? siteConfig.name;
+  const documents = documentChecksOn();
+
+  const phoneSection = (
+    <Section
+      id="phone"
+      icon={SmartphoneIcon}
+      title={t("phone.title")}
+      state={center.phoneVerified ? "verified" : "notStarted"}
+      lead={
+        center.phoneVerified && center.phoneNumber ? (
+          <>
+            {t("phone.verified")} <Ltr className="font-medium text-foreground">{center.phoneNumber}</Ltr>
+          </>
+        ) : center.isHost ? (
+          t("phone.lead")
+        ) : (
+          // A guest: the phone is checked in the booking review, never offered here (paid SMS).
+          t("phone.guestLead")
+        )
+      }
+    >
+      {center.phoneVerified || !mayOfferPhoneCheck("account", { isHost: center.isHost }) ? null : (
+        <div>
+          <Button asChild className="h-11 rounded-xl px-5">
+            <Link href={{ pathname: "/verify-phone", query: { next: nextHere } }}>
+              <SmartphoneIcon aria-hidden="true" />
+              {t("phone.cta")}
+            </Link>
+          </Button>
+        </div>
+      )}
+    </Section>
+  );
+
+  if (!documents) {
+    // Documents sent before the change are deleted by the clean-up (Admin → Maintenance).
+    const sentBefore = center.requests.length > 0;
+    return (
+      <div className="grid gap-4 sm:gap-6">
+        <PageHeader title={t("title")} description={t("noDocuments.lead", { siteName })} className="pb-0 sm:pb-0" />
+        {phoneSection}
+        <Section id="documents" icon={ShieldCheckIcon} title={t("noDocuments.title")} lead={t("noDocuments.body")}>
+          {sentBefore ? <p className="rounded-xl bg-surface-muted px-3 py-3 text-sm">{t("noDocuments.earlier")}</p> : null}
+        </Section>
+        <Section id="visited" icon={MapPinCheckIcon} title={t("visited.title")} lead={t("visited.lead", { siteName })}>
+          <p className="inline-flex items-center gap-2 justify-self-start rounded-full bg-muted px-3 py-1.5 text-sm font-medium text-muted-foreground">
+            <ShieldCheckIcon className="size-4" aria-hidden="true" />
+            {t("visited.soon")}
+          </p>
+        </Section>
+      </div>
+    );
+  }
 
   return (
     <div className="grid gap-4 sm:gap-6">
-      <PageHeader title={t("title")} description={t("lead", { siteName: siteConfig.localizedName[locale as keyof typeof siteConfig.localizedName] ?? siteConfig.name })} className="pb-0 sm:pb-0" />
+      <PageHeader title={t("title")} description={t("lead", { siteName })} className="pb-0 sm:pb-0" />
 
       <aside className="flex gap-3 rounded-2xl border border-primary/20 bg-secondary/60 p-4 text-sm">
         <LockKeyholeIcon className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden="true" />
@@ -134,35 +195,7 @@ export default async function VerificationPage({ params }: Props) {
         </div>
       </aside>
 
-      <Section
-        id="phone"
-        icon={SmartphoneIcon}
-        title={t("phone.title")}
-        state={center.phoneVerified ? "verified" : "notStarted"}
-        lead={
-          center.phoneVerified && center.phoneNumber ? (
-            <>
-              {t("phone.verified")} <Ltr className="font-medium text-foreground">{center.phoneNumber}</Ltr>
-            </>
-          ) : center.isHost ? (
-            t("phone.lead")
-          ) : (
-            // A guest: the phone is checked in the booking review, never offered here (paid SMS).
-            t("phone.guestLead")
-          )
-        }
-      >
-        {center.phoneVerified || !mayOfferPhoneCheck("account", { isHost: center.isHost }) ? null : (
-          <div>
-            <Button asChild className="h-11 rounded-xl px-5">
-              <Link href={{ pathname: "/verify-phone", query: { next: nextHere } }}>
-                <SmartphoneIcon aria-hidden="true" />
-                {t("phone.cta")}
-              </Link>
-            </Button>
-          </div>
-        )}
-      </Section>
+      {phoneSection}
 
       <Section
         id="id"

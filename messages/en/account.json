@@ -40,7 +40,8 @@
     "not_business": "Business verification is for business accounts. Switch your account type in Settings first.",
     "last_sign_in_method": "This is the only way you can sign in, so it can't be removed. Verify a phone number or connect another account first.",
     "confirmation_mismatch": "The word you typed doesn't match. Please type it exactly as shown.",
-    "staff_account": "Staff accounts can't be deleted here. Please ask an administrator."
+    "staff_account": "Staff accounts can't be deleted here. Please ask an administrator.",
+    "documents_paused": "We're not accepting verification documents right now. A verified phone number is enough."
   },
   "badgeState": {
     "verified": "Verified",
@@ -377,6 +378,17 @@
           "hint": "PDF or a clear photo of the registration document."
         }
       }
+    },
+    "noDocuments": {
+      "lead": "Guests on {siteName} see that your phone number is verified. That's all you need for now.",
+      "title": "No ID or documents needed",
+      "body": "We don't ask for an ID, a selfie or ownership papers. Trust on the site comes from a verified phone number and, later, the “We visited” badge.",
+      "earlier": "Documents you sent before will be deleted from our storage. You don't need to send them again."
+    },
+    "visited": {
+      "title": "We visited",
+      "lead": "The {siteName} team will visit places and mark them with this badge and the month of the visit. You don't need to ask for it.",
+      "soon": "Coming soon"
     }
   },
   "settings": {

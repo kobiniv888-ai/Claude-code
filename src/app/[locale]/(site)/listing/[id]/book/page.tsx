@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { AskHostButton } from "@/components/booking/ask-host-button";
@@ -14,6 +15,7 @@ import { isAppLocale } from "@/i18n/locale";
 import { Link, redirect } from "@/i18n/navigation";
 import { firstNameOf, personName } from "@/lib/auth/first-name";
 import { getLoginConfig } from "@/lib/auth/config";
+import { alertEnvironment } from "@/lib/booking/alerts";
 import { getUnavailableDates } from "@/lib/booking/availability";
 import { tbilisiToday } from "@/lib/booking/dates";
 import { bookRequestFrom, clockText, withBookParams } from "@/lib/booking/guest";
@@ -102,7 +104,7 @@ export default async function BookPage({ params, searchParams }: Props) {
 
   const isOwner = user?.id === ownerId;
   const [terms, t, loginConfig, shabbat, blocked] = await Promise.all([
-    getGuestBookingTerms(data.id),
+    headers().then((h) => getGuestBookingTerms(data.id, { alerts: alertEnvironment(h) })),
     getTranslations({ locale, namespace: "booking" }),
     getLoginConfig(locale),
     isShabbatModeActive(),

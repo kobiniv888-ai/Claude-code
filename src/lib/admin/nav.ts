@@ -31,7 +31,8 @@ export type AdminNavKey =
   | "settings"
   | "roles"
   | "audit"
-  | "outbox";
+  | "outbox"
+  | "maintenance";
 
 export type AdminContentKey =
   | "home"
@@ -91,6 +92,8 @@ export const ADMIN_NAV: readonly AdminNavItem[] = [
   { key: "roles", href: "/admin/roles", permission: "roles", group: "system" },
   { key: "audit", href: "/admin/audit", permission: "audit", group: "system" },
   { key: "outbox", href: "/admin/outbox", permission: "settings", group: "system" },
+  // Full backup and the data clean-ups (ADMIN only; src/lib/admin/maintenance).
+  { key: "maintenance", href: "/admin/maintenance", permission: "settings", group: "system" },
 ];
 
 /** The sections a role may open, in menu order. */

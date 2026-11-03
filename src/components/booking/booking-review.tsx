@@ -217,6 +217,8 @@ function ReviewForm({
   const [accepted, setAccepted] = useState(false);
   const [errors, setErrors] = useState<{ name?: string; phone?: string; rules?: string }>({});
   const [taken, setTaken] = useState(false);
+  // None of the host's alert channels accepted the booking alert: the booking was undone (round 3).
+  const [unreachable, setUnreachable] = useState(false);
   const [pending, startTransition] = useTransition();
   const phoneBlocked = !!user && !phone && !phoneConfig.available;
 
@@ -254,6 +256,7 @@ function ReviewForm({
       return;
     }
     setTaken(false);
+    setUnreachable(false);
     startTransition(async () => {
       const result = await createBookingAction({
         listingId: terms.id,
@@ -303,6 +306,11 @@ function ReviewForm({
           break;
         case "auth_required":
           void requireLogin(async () => router.refresh());
+          break;
+        case "host_unreachable":
+          setUnreachable(true);
+          router.refresh();
+          focus(`${ids}-stay`);
           break;
         default:
           toast.error(errorText(result.error));
@@ -412,7 +420,11 @@ function ReviewForm({
         </fieldset>
       ) : null}
       <div id={`${ids}-stay`} tabIndex={-1} className="outline-none" aria-live="polite">
-        {taken || busy ? (
+        {unreachable ? (
+          <Alert title={t("review.unreachableTitle")} text={t("review.unreachableText")}>
+            <AskHostButton variant="secondary" className="justify-self-start" />
+          </Alert>
+        ) : taken || busy ? (
           <Alert title={taken ? t("review.takenTitle") : t("review.busyTitle")} text={taken ? t("review.takenText") : t("review.busyText")}>
             <Button variant="secondary" size="sm" className="justify-self-start" onClick={() => setSheetOpen(true)}>
               <CalendarDaysIcon aria-hidden />

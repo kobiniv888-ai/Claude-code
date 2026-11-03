@@ -4,6 +4,7 @@ import { AlertTriangle, BadgeCheck, Ban, BadgeX, Clock, ShieldCheck, Undo2 } fro
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "@/lib/toast";
+import { documentChecksOn } from "@/config/verification";
 import type { UserRole, UserStatus } from "@/generated/prisma/enums";
 import {
   banUserAction,
@@ -53,7 +54,7 @@ export function UserActions({
 
   return (
     <div className="flex flex-wrap gap-2">
-      {idVerified ? (
+      {!documentChecksOn() ? null : idVerified ? (
         <ActionDialog
           triggerLabel={t("unverify")}
           triggerIcon={BadgeX}

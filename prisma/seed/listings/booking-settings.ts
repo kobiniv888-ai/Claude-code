@@ -1,12 +1,13 @@
 /**
- * Booking settings of the demo listings (round 2): every demo short stay and hotel takes instant
- * bookings, with a mix of cancellation policies, payment methods at check-in and a few weekend
+ * Booking settings of the demo listings (round 2): every demo short stay takes instant bookings
+ * (hotels keep their booking terms but are contact-only until booking by room type, round 3:
+ * INSTANT_DEAL_TYPES), with a mix of cancellation policies, payment methods at check-in and a few weekend
  * prices. Monthly rentals and sales stay CONTACT. Booked stays get no weekly/monthly discount (the
  * booking total doesn't apply one, and the host's "הזמנות ומחיר" step clears them), so the seed
  * clears the discounts of bookable listings too: their pages must not promise one.
  */
 import type { BookingMode, CancellationPolicy } from "@/generated/prisma/enums";
-import { isBookableDealType, type PaymentMethod } from "@/lib/booking/constants";
+import { isBookableDealType, isInstantDealType, type PaymentMethod } from "@/lib/booking/constants";
 import type { ListingSeed } from "./types";
 
 type Settings = { policy: CancellationPolicy; pay: PaymentMethod[]; weekendPrice?: number };
@@ -41,7 +42,7 @@ export function bookingSettingsFor(seed: ListingSeed): DemoBookingSettings {
   }
   const settings = SETTINGS[seed.n] ?? { policy: "MODERATE", pay: ["cash"] };
   return {
-    bookingMode: "INSTANT",
+    bookingMode: isInstantDealType(seed.fields.dealType) ? "INSTANT" : "CONTACT",
     cancellationPolicy: settings.policy,
     paymentMethodsAtCheckIn: settings.pay,
     weekendPrice: settings.weekendPrice ?? null,

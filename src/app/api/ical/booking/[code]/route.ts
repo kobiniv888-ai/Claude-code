@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getGuestTrip } from "@/lib/booking/queries";
 import { formatDate, formatMoney } from "@/lib/format";
 import { buildBookingIcs } from "@/lib/ical";
+import { absoluteUrl } from "@/lib/site-url";
 import { rateLimitByIp, rateLimitHeaders } from "@/lib/rate-limit";
 
 /**
@@ -43,8 +44,7 @@ export async function GET(request: Request, context: Context) {
 
     const t = await getTranslations({ locale, namespace: "booking" });
     const brand = siteConfig.localizedName[locale] ?? siteConfig.name;
-    const base = siteConfig.url.replace(/\/+$/, "");
-    const url = `${base}/${locale}${trip.path}`;
+    const url = absoluteUrl(`/${locale}${trip.path}`);
     const { reveal } = trip;
     const phone = reveal.contact.phone ?? reveal.contact.whatsapp;
     const description = [

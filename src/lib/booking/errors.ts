@@ -23,6 +23,8 @@ export const BOOKING_ERROR_CODES = [
   "no_show_not_allowed",
   "payment_method_required",
   "terms_changed",
+  /** None of the host's alert channels accepted the "new booking" alert: ask the host instead. */
+  "host_unreachable",
 ] as const;
 export type BookingErrorCode = (typeof BOOKING_ERROR_CODES)[number];
 

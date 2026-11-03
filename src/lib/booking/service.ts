@@ -14,7 +14,9 @@ import { cleanPaymentMethods, REMINDER_DAYS_BEFORE, type GuestCancelReason, type
 import { addDays, dateToDay, dayToDate, daysBetween, tbilisiToday } from "./dates";
 import { BookingError } from "./errors";
 import { findBlockingRange } from "./availability";
-import { notifyBookingCancelled, notifyBookingCompleted, notifyBookingCreated, notifyBookingReminder } from "./notify";
+import { notifyBookingCancelled, notifyBookingCompleted, notifyBookingConfirmed, notifyBookingReminder } from "./notify";
+import { alertEnvironment, confirmWithHostAlert, hostInstantGate, reportHostUnreachable } from "./alerts";
+import type { AlertEnvironment } from "./alert-rules";
 import {
   canGuestCancel,
   canHostCancel,
@@ -187,8 +189,13 @@ export type CreateBookingParams = StayParams & {
    * accounts), never by a real guest on the real site.
    */
   allowDemoListing?: boolean;
-  /** false: the caller sends the notifications itself (e.g. with after()). Default true. */
+  /**
+   * false: the caller sends the guest's confirmation itself (notifyBookingConfirmed, e.g. with
+   * after()). The host's alert is ALWAYS sent here: the booking stands only when it was accepted.
+   */
   notify?: boolean;
+  /** Where the code runs, for the host alert rules (alertEnvironment(await headers())). */
+  alerts?: AlertEnvironment;
   now?: Date;
   /**
    * What the review page showed the guest. When given and the listing's terms have changed since,
@@ -264,7 +271,9 @@ function failQuote(result: Exclude<BookingQuoteResult, { ok: true }>): never {
  * Books a stay (instant booking). Throws BookingError (a code from BOOKING_ERROR_CODES),
  * RateLimitError or NotFoundError. Requires: listing LIVE with bookingMode INSTANT, a guest
  * account that is active and has a verified phone, accepted house rules, not the guest's own
- * listing, no block between guest and host, and free dates.
+ * listing, no block between guest and host, free dates, and a host who can be alerted (round 3):
+ * right after the transaction the host's alert goes out; when no alert channel accepted it, the
+ * booking is undone and "host_unreachable" is thrown (src/lib/booking/alerts.ts).
  */
 export async function createBooking(params: CreateBookingParams): Promise<CreatedBooking> {
   const now = params.now ?? new Date();
@@ -324,6 +333,24 @@ export async function createBooking(params: CreateBookingParams): Promise<Create
     now,
   });
   if (!first.ok) failQuote(first);
+
+  // The host must be reachable before any nights are taken (the listing then shows "Ask the host").
+  const alerts = params.alerts ?? alertEnvironment();
+  const gate = await hostInstantGate(listing.ownerId, alerts);
+  if (!gate.ok) {
+    await reportHostUnreachable({
+      guestUserId: guest.id,
+      hostUserId: listing.ownerId,
+      listingId: listing.id,
+      listingTitle: listing.title,
+      listingPublicId: listing.publicId,
+      bookingCode: null,
+      reason: gate.reason,
+      stage: "before",
+    });
+    throw new BookingError("host_unreachable");
+  }
+
 
   await assertRateLimit(`booking:create:${guest.id}`, CREATE_LIMIT);
 
@@ -408,7 +435,17 @@ export async function createBooking(params: CreateBookingParams): Promise<Create
     ),
   );
 
-  if (params.notify !== false) await notifyBookingCreated(created.id, now);
+  // The host first: the booking stands only once one of their alert channels accepted the alert.
+  await confirmWithHostAlert(created, {
+    guestUserId: guest.id,
+    hostUserId: listing.ownerId,
+    listingId: listing.id,
+    listingTitle: listing.title,
+    listingPublicId: listing.publicId,
+    env: alerts,
+    now,
+  });
+  if (params.notify !== false) await notifyBookingConfirmed(created.id, now);
   return created;
 }
 

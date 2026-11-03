@@ -102,7 +102,11 @@ export async function revealContact(listingId: string, turnstileToken?: string |
 
 const tapSchema = z.object({ listingId: listingIdSchema, channel: z.enum(CONTACT_CHANNELS) });
 
-/** Counts one tap on a channel button for the owner's stats (owners' own taps are not counted). */
+/**
+ * Counts one tap on a channel button for the owner's stats (owners' own taps are not counted).
+ * Only the channel and the time are stored, never who tapped: the user id goes to
+ * recordContactClick for the owner check only.
+ */
 export async function recordContactTap(listingId: string, channel: string): Promise<ActionResult<{ recorded: boolean }>> {
   return runAction<{ recorded: boolean }>(async () => {
     const user = await requireUserForAction();

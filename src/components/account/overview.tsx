@@ -17,6 +17,7 @@ import {
 import { ChevronEnd } from "@/components/common/directional-icon";
 import { Ltr } from "@/components/common/ltr";
 import { Progress } from "@/components/ui/progress";
+import { documentChecksOn } from "@/config/verification";
 import { Link } from "@/i18n/navigation";
 import type { ListingFilter } from "@/lib/account/listing-status";
 import { daysUntil } from "@/lib/account/listing-status";
@@ -54,8 +55,10 @@ export function VerificationProgressCard({ progress }: { progress: AccountOvervi
   if (progress.phone) {
     rows.push({ key: "phone", icon: SmartphoneIcon, state: progress.phone, href: progress.phone === "verified" ? "/account/verification" : "/verify-phone" });
   }
-  rows.push({ key: "id", icon: BadgeCheckIcon, state: progress.id, href: "/account/verification#id" });
+  if (progress.id) rows.push({ key: "id", icon: BadgeCheckIcon, state: progress.id, href: "/account/verification#id" });
   if (progress.owner) rows.push({ key: "owner", icon: ShieldCheckIcon, state: progress.owner, href: "/account/verification#owner" });
+  // Nothing to show (a guest, while there are no document checks): no card.
+  if (rows.length === 0) return null;
   const percent = progress.total ? Math.round((progress.done / progress.total) * 100) : 0;
 
   return (
@@ -287,7 +290,8 @@ export function QuickActions({ idVerified, favorites, openTickets }: { idVerifie
   const locale = useLocale();
   const actions: { href: string; icon: LucideIcon; label: string; hint: string; primary?: boolean }[] = [
     { href: "/post", icon: PlusIcon, label: t("post"), hint: t("postHint"), primary: true },
-    ...(idVerified ? [] : [{ href: "/account/verification#id", icon: BadgeCheckIcon, label: t("verify"), hint: t("verifyHint") }]),
+    // No "verify your ID" while there are no document checks (src/config/verification.ts).
+    ...(idVerified || !documentChecksOn() ? [] : [{ href: "/account/verification#id", icon: BadgeCheckIcon, label: t("verify"), hint: t("verifyHint") }]),
     { href: "/account/favorites", icon: HeartIcon, label: t("favorites"), hint: t("favoritesHint", { count: favorites, countText: formatNumber(favorites, locale) }) },
     { href: "/account/tickets", icon: LifeBuoyIcon, label: t("support"), hint: t("supportHint", { count: openTickets, countText: formatNumber(openTickets, locale) }) },
   ];

@@ -78,6 +78,7 @@ export const ROUTE_MESSAGES = {
     "listing.calendar",
     "listing.description",
     "listing.gallery",
+    "listing.headline",
     "listing.map",
     "listing.share",
     "listing.translation",

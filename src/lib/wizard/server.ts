@@ -14,6 +14,7 @@ import { photoUrl } from "@/lib/media";
 import { getCities, getNeighborhoods } from "@/lib/places";
 import { getPledgeStatus } from "@/lib/pledge/server";
 import { getSettings } from "@/lib/settings";
+import { absoluteUrl } from "@/lib/site-url";
 import { isTranslationEnabled } from "@/lib/translate";
 import type { WizardValues } from "./schemas";
 import { applies, stepsFor, type ListingKind } from "./steps";
@@ -335,7 +336,8 @@ export async function loadWizard(
       id: listing.id,
       publicId: listing.publicId,
       ...answers,
-      icalExportUrl: `${siteConfig.url.replace(/\/+$/, "")}/api/ical/${listing.icalToken}`,
+      // The same address as icalExportUrl() in @/lib/ical (not imported: it loads node-ical).
+      icalExportUrl: absoluteUrl(`/api/ical/${encodeURIComponent(listing.icalToken)}.ics`),
     },
     context: {
       mode,

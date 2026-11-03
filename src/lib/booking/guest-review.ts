@@ -4,6 +4,8 @@ import type { BookingMode, CancellationPolicy, DealType, ListingStatus, PricePer
 import { db } from "@/lib/db";
 import { cleanPaymentMethods, type PaymentMethod } from "./constants";
 import { bookableRoomTypes, isInstantBookable, toNumber } from "./terms";
+import { alertEnvironment, hostAlertSelect, hostAlertTarget } from "./alerts";
+import { hostAlertChannels, instantBookingGate, type AlertEnvironment } from "./alert-rules";
 
 /**
  * What the guest's review page ("אישור הזמנה") needs to price a stay in the browser exactly as
@@ -26,7 +28,10 @@ export type GuestBookingTerms = {
   deletedAt: null;
   dealType: DealType;
   bookingMode: BookingMode;
-  /** Instant booking is on and the listing is live (isInstantBookable). */
+  /**
+   * Instant booking is on, the listing is live (isInstantBookable) and the host can be alerted
+   * about the booking (src/lib/booking/alerts.ts). Otherwise the page offers "Ask the host".
+   */
   instant: boolean;
   price: number | null;
   pricePeriod: PricePeriod;
@@ -44,7 +49,10 @@ export type GuestBookingTerms = {
   roomTypes: GuestRoomType[];
 };
 
-export async function getGuestBookingTerms(listingId: string): Promise<GuestBookingTerms | null> {
+export async function getGuestBookingTerms(
+  listingId: string,
+  opts: { alerts?: AlertEnvironment } = {},
+): Promise<GuestBookingTerms | null> {
   const row = await db.listing.findUnique({
     where: { id: listingId },
     select: {
@@ -65,6 +73,7 @@ export async function getGuestBookingTerms(listingId: string): Promise<GuestBook
       checkInFrom: true,
       checkOutUntil: true,
       isDemo: true,
+      owner: { select: hostAlertSelect },
       roomTypes: {
         select: { id: true, names: true, price: true, currency: true, pricePeriod: true, maxGuests: true },
         orderBy: { sortOrder: "asc" },
@@ -86,7 +95,7 @@ export async function getGuestBookingTerms(listingId: string): Promise<GuestBook
     deletedAt: null,
     dealType: row.dealType,
     bookingMode: row.bookingMode,
-    instant: isInstantBookable(row),
+    instant: isInstantBookable(row) && instantBookingGate(hostAlertChannels(hostAlertTarget(row.owner), opts.alerts ?? alertEnvironment())).ok,
     price: toNumber(row.price),
     pricePeriod: row.pricePeriod,
     currency: row.currency,

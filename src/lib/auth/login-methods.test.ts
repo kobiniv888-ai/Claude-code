@@ -56,7 +56,7 @@ describe("the paid SMS phone check is offered only where the founder allowed it"
 describe("the account overview's verification card (verificationProgress)", () => {
   it("a guest without a verified phone gets no phone row; a host and a verified phone do", async () => {
     const { verificationProgress } = await import("@/lib/account/verification");
-    const base = { idVerified: false, idLatest: null, hasListings: false, ownerVerifiedListings: 0, ownershipLatest: null };
+    const base = { idVerified: false, idLatest: null, hasListings: false, ownerVerifiedListings: 0, ownershipLatest: null, documentChecks: true };
     expect(verificationProgress({ ...base, phoneVerified: false, isHost: false })).toMatchObject({ phone: null, total: 1 });
     expect(verificationProgress({ ...base, phoneVerified: false, isHost: true })).toMatchObject({ phone: "notStarted", total: 2 });
     expect(verificationProgress({ ...base, phoneVerified: true, isHost: false })).toMatchObject({ phone: "verified", done: 1, total: 2 });

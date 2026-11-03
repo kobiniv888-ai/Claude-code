@@ -5,6 +5,7 @@ import https from "node:https";
 import net from "node:net";
 import ical, { type CalendarResponse, type DateWithTimeZone, type VEvent } from "node-ical";
 import { siteConfig } from "@/config/site";
+import { absoluteUrl, siteUrl } from "@/lib/site-url";
 import { db } from "@/lib/db";
 
 /**
@@ -42,15 +43,18 @@ export type IcsBlock = { id: string; startDate: Date; endDate: Date; source?: "O
 
 function siteHost(): string {
   try {
-    return new URL(siteConfig.url).hostname || "bayit.example";
+    return new URL(siteUrl()).hostname || "bayit.example";
   } catch {
     return "bayit.example";
   }
 }
 
-/** Absolute export URL the owner pastes into Airbnb / Booking.com. */
+/**
+ * Absolute export URL the owner pastes into Airbnb / Booking.com, on the permanent address
+ * (SITE_URL). Show it with <CopyLinkField>, which refuses to copy a temporary address.
+ */
 export function icalExportUrl(icalToken: string): string {
-  return `${siteConfig.url.replace(/\/+$/, "")}/api/ical/${encodeURIComponent(icalToken)}.ics`;
+  return absoluteUrl(`/api/ical/${encodeURIComponent(icalToken)}.ics`);
 }
 
 /** TEXT value escaping (RFC 5545 §3.3.11). */
@@ -363,7 +367,7 @@ function requestOnce(url: URL, signal: AbortSignal): Promise<FeedResponse> {
         signal,
         headers: {
           Accept: "text/calendar, text/plain;q=0.9, */*;q=0.1",
-          "User-Agent": `${siteConfig.name}-calendar-sync/1.0 (+${siteConfig.url})`,
+          "User-Agent": `${siteConfig.name}-calendar-sync/1.0 (+${siteUrl()})`,
         },
       },
       (response) => {

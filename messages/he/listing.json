@@ -64,7 +64,16 @@
     "byOwner": "תורגם ידנית",
     "showOriginal": "הצגת המקור",
     "showTranslation": "הצגת התרגום",
-    "showingOriginal": "מקור ({language})"
+    "showingOriginal": "מקור ({language})",
+    "originalIn": {
+      "he": "המקור בעברית",
+      "en": "המקור באנגלית",
+      "ru": "המקור ברוסית",
+      "ar": "המקור בערבית",
+      "ka": "המקור בגאורגית"
+    },
+    "translate": "תרגום",
+    "translateHint": "(נפתח ב-Google Translate)"
   },
   "gallery": {
     "label": "תמונות של {title}",
@@ -352,5 +361,8 @@
     "paymentText": "משלמים למארח בהגעה. בית לא גובה תשלום.",
     "safety": "לפני כל תשלום",
     "videoTip": "בקשו שיחת וידאו חיה שבה מראים לכם את המקום ודף עם התאריך של היום ומספר המודעה (<ltr>{id}</ltr>)."
+  },
+  "headline": {
+    "perSqm": "{price} למ״ר"
   }
 }

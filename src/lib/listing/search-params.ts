@@ -13,6 +13,7 @@
  * equal URLs (good for caching and canonical links).
  */
 import { siteConfig } from "@/config/site";
+import { documentChecksOn } from "@/config/verification";
 import type {
   BuildingAge,
   DealType,
@@ -443,7 +444,8 @@ export function parseSearchParams(input: SearchParamsInput | null | undefined): 
   filters.synagogueMaxWalk = SYNAGOGUE_WALK_OPTIONS.find((m) => m === walk) ?? null;
   filters.bigFamily = flag(one("bigFamily"));
   filters.sharedRoomFor = pickOne(one("sharedRoomFor"), SHARED_ROOM_FOR, enumKey);
-  filters.verifiedOnly = flag(one("verifiedOnly"));
+  // Hidden with the document badges (src/config/verification.ts): an old link with it is ignored.
+  filters.verifiedOnly = documentChecksOn() && flag(one("verifiedOnly"));
   filters.ownerType = pickOne(one("ownerType"), OWNER_TYPES, exactKey);
   filters.hasPhotos = flag(one("hasPhotos"));
   filters.hasVideo = flag(one("hasVideo"));

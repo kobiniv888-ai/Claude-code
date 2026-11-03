@@ -156,8 +156,13 @@ describe("verification rules", () => {
       hasListings: false,
       ownerVerifiedListings: 0,
       ownershipLatest: null,
+      documentChecks: true,
     });
     expect(progress).toEqual({ phone: "verified", id: "pending", owner: null, done: 1, total: 2 });
+    // Founder's answer 5 (round 3): no document checks → only the phone row.
+    expect(
+      verificationProgress({ phoneVerified: true, idVerified: true, idLatest: null, hasListings: true, ownerVerifiedListings: 1, ownershipLatest: null }),
+    ).toEqual({ phone: "verified", id: null, owner: null, done: 1, total: 1 });
   });
 });
 

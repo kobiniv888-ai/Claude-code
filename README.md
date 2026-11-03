@@ -80,8 +80,11 @@ code (test mode)" under the email form; see `docs/DEMO-DATA.md`):
 | +995 555 000 011 – 016 | Demo owners |
 | +995 555 000 021 | Demo guest |
 
-Staff must use 2-step login (an authenticator app) to open `/admin`. To skip it **in
-development only**, set `DEV_SKIP_STAFF_2FA="true"` in `.env`. It is ignored in production.
+Staff must use 2-step login (an authenticator app such as Google Authenticator) to open `/admin`.
+`DEV_SKIP_STAFF_2FA="true"` in `.env` skips it **for the demo staff accounts only, in development
+only**; a real staff account always needs its code, and the setting is ignored in production.
+Demo staff accounts can open the admin panel only on localhost or a Codespaces address, never on the
+site's permanent address (`src/lib/auth/staff-access.ts`).
 
 Emails are not sent until Resend is configured. You can read them under **Admin → Email outbox**.
 
@@ -98,6 +101,10 @@ Emails are not sent until Resend is configured. You can read them under **Admin 
 | `npm run test:e2e` | End-to-end tests (Playwright) |
 | `npm run db:seed` | Seed or refresh demo data (safe to run again) |
 | `npm run demo:remove -- --yes` | Delete all demo data permanently |
+| `npm run admin:grant -- --email you@example.com` | Make an existing account the admin (logged; refuses demo accounts) |
+| `npm run db:backup` | Full database backup to `backups/<time>/` (also **Admin → Maintenance**) |
+| `RESTORE_TARGET_URL=<empty database url> npm run db:restore -- backups/<time> --create-schema` | Restore a backup into a new, empty database (refuses one with rows) |
+| `npm run cleanup -- <name> --dry-run` / `--run` | Data clean-ups (phones, title emojis, contact taps, ID files); `--run` needs a backup from the last hour |
 | `npm run db:studio` | Browse the database |
 
 ### End-to-end tests
@@ -218,9 +225,14 @@ Turn `DB_PUSH_ON_BUILD` and `SEED_ON_BUILD` off once the preview is set up.
     restrict the key to your production domain and `*.app.github.dev`. The provider and key live
     in one file, `src/config/map.ts`: to switch providers later, add one entry there and set
     `NEXT_PUBLIC_MAP_TILE_PROVIDER`. Never use `tile.openstreetmap.org` (its policy forbids apps).
-11. **First admin.** Log in once with your phone, then promote yourself in the database:
-    `UPDATE "User" SET role = 'ADMIN' WHERE "phoneNumber" = '+972…';`. Open `/admin`. It asks you to
-    set up 2-step login, and after that you can give roles to others in **Admin → Roles**.
+11. **First admin.** Sign in on the site once with the account that should be the admin (Google or
+    an email code; phone login is off on the real site). Then, with that database's
+    `DATABASE_URL`, run `npm run admin:grant -- --email you@example.com` (or `--phone +972…`, or put
+    the address in `BAYIT_ADMIN_EMAIL` / `BAYIT_ADMIN_PHONE` in `.env` and run `npm run admin:grant`).
+    It refuses demo accounts and writes the change to the audit log. Open `/admin`: it asks you to
+    scan a QR code with Google Authenticator (2-step login is required for the admin), and after
+    that you can give roles to others in **Admin → Roles**. Never put the admin's email or phone in
+    code, docs or commits.
 12. **Before announcing:** have a lawyer review the legal pages, have native speakers review the
     Georgian, Arabic and Russian text, replace the demo data with real content, and read
     `docs/SECURITY-REPORT.md`.
@@ -267,7 +279,8 @@ Turn `DB_PUSH_ON_BUILD` and `SEED_ON_BUILD` off once the preview is set up.
 | `CLIENT_IP_HEADER` | Trusted header with the visitor IP (e.g. `cf-connecting-ip`) | Standard proxy headers |
 | `MALWARE_SCAN_URL`, `MALWARE_SCAN_TOKEN` | External malware scanner for uploads | Built-in checks only |
 | `SENTRY_DSN` (+ optional `SENTRY_ENVIRONMENT`, `SENTRY_RELEASE`) | Error monitoring: server crashes, failed actions and failed scheduled jobs go to Sentry (no SDK; path without query, no user data) | Errors only in the server log |
-| `DEV_SKIP_STAFF_2FA` | Skip staff 2-step login (development only) | Off; ignored in production |
+| `DEV_SKIP_STAFF_2FA` | Skip 2-step login for the demo staff accounts (development only; never for a real account) | Off; ignored in production |
+| `BAYIT_ADMIN_EMAIL`, `BAYIT_ADMIN_PHONE` | The account `npm run admin:grant` makes admin when no option is given (private, never committed) | Give `--email` / `--phone` |
 | `NEXT_DIST_DIR` | Separate build folder (only for running several dev servers) | `.next` |
 
 ---

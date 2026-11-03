@@ -8,6 +8,7 @@ import { ListingThumb, PublicId, WhenText } from "@/components/admin/listing-bit
 import { AdminPageHeader, AdminSection, FactList } from "@/components/admin/page-header";
 import { VerificationActions } from "@/components/admin/verification-actions";
 import { Ltr } from "@/components/common/ltr";
+import { documentChecksOn } from "@/config/verification";
 import { Link } from "@/i18n/navigation";
 import { cityName, coverUrl, realEmail } from "@/lib/admin/server/shared";
 import { getVerificationDetail } from "@/lib/admin/server/verifications";
@@ -50,7 +51,16 @@ export default async function VerificationDetailPage({ params }: PageProps<"/[lo
         }
       />
 
-      {pending ? (
+      {pending && !documentChecksOn() ? (
+        // Founder's answer 5 (round 3): no document checks for now; the request stays as it was.
+        <p className="mb-5 flex items-start gap-2 rounded-xl border border-primary/20 bg-secondary/60 p-3 text-sm">
+          <Info aria-hidden className="mt-0.5 size-4 shrink-0 text-primary" />
+          <span>
+            <span className="block font-medium">{t("paused.title")}</span>
+            <span className="block text-muted-foreground">{t("paused.body")}</span>
+          </span>
+        </p>
+      ) : pending ? (
         <div className="mb-5 rounded-xl border bg-card p-3 shadow-xs">
           <VerificationActions requestId={request.id} typeLabel={typeLabel} name={user.name} canApprove={canApprove} />
           <p className="mt-2 flex items-start gap-1.5 text-xs text-muted-foreground">

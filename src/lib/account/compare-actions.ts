@@ -7,6 +7,7 @@
 import { getLocale } from "next-intl/server";
 import { z } from "zod";
 import { siteConfig, type AppLocale, type CurrencyCode } from "@/config/site";
+import { showsDocumentBadge } from "@/config/verification";
 import type { DealType, KitchenKosher, Locale, PricePeriod, PropertyType } from "@/generated/prisma/enums";
 import { isAppLocale, pickLocalized } from "@/i18n/locale";
 import { fail, ok, runAction, type ActionResult } from "@/lib/action";
@@ -151,7 +152,7 @@ export async function getCompareItems(publicIds: unknown): Promise<ActionResult<
           propertyType: row.propertyType,
           place: place || null,
           price,
-          verified: !!row.owner.idVerifiedAt || !!row.ownerVerifiedAt,
+          verified: showsDocumentBadge(row.owner.idVerifiedAt) || showsDocumentBadge(row.ownerVerifiedAt),
           facts: {
             rooms: row.rooms,
             bedrooms: row.bedrooms,

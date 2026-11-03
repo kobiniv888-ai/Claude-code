@@ -37,6 +37,7 @@ import { VerificationBadgeGrid } from "@/components/content/verification-badges"
 import { buttonStyles } from "@/components/ds/button";
 import { chipStyles } from "@/components/ds/chip";
 import { IconCircle } from "@/components/ds/icon-circle";
+import { documentChecksOn } from "@/config/verification";
 import { Link } from "@/i18n/navigation";
 import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -273,8 +274,13 @@ export default async function SafetyPage({ params }: Props) {
               className="mt-4 sm:grid-cols-1 xl:grid-cols-2"
               items={[
                 { icon: Smartphone, label: t("badges.phone.label"), body: t("badges.phone.body") },
-                { icon: IdCard, label: t("badges.id.label"), body: t("badges.id.body") },
-                { icon: UserRoundCheck, label: t("badges.owner.label"), body: t("badges.owner.body") },
+                // No ID or ownership documents for now (src/config/verification.ts).
+                ...(documentChecksOn()
+                  ? [
+                      { icon: IdCard, label: t("badges.id.label"), body: t("badges.id.body") },
+                      { icon: UserRoundCheck, label: t("badges.owner.label"), body: t("badges.owner.body") },
+                    ]
+                  : []),
                 {
                   icon: Video,
                   label: t("badges.property.label"),

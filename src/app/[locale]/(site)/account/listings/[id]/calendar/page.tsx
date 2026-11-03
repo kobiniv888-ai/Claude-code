@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
+import { HostInstantNotice } from "@/components/booking/host-instant-notice";
+import { hostAlertStatus } from "@/lib/booking/alerts";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { CalendarClockIcon, InboxIcon, PencilIcon, ZapIcon } from "lucide-react";
 import { buttonStyles } from "@/components/ds/button";
@@ -12,7 +15,7 @@ import { IcalPanel } from "@/components/host-calendar/ical-panel";
 import type { AppLocale } from "@/config/site";
 import { Link } from "@/i18n/navigation";
 import { requireUser } from "@/lib/auth/session";
-import { HOST_BOOKINGS_PATH } from "@/lib/booking/constants";
+import { HOST_BOOKINGS_PATH, isInstantDealType } from "@/lib/booking/constants";
 import { getHostCalendar, HOST_CALENDAR_MONTHS } from "@/lib/booking/host-calendar";
 import { getHostBookings } from "@/lib/booking/queries";
 import { pageMetadata } from "@/lib/seo";
@@ -40,7 +43,11 @@ export default async function ListingCalendarPage({ params }: Props) {
   const upcoming = listing.bookable
     ? (await getHostBookings(user.id, locale as AppLocale, { listingId: listing.id, scope: "upcoming" })).slice(0, 5)
     : [];
-  const needsSettings = listing.bookable && listing.bookingMode !== "INSTANT";
+  // Hotels are contact-only until booking by room type (round 3); short stays need the booking step
+  // saved, and a host Bayit can alert about a booking (alert gate).
+  const isHotel = listing.dealType === "HOTEL_ROOM";
+  const needsSettings = listing.bookable && isInstantDealType(listing.dealType) && listing.bookingMode !== "INSTANT";
+  const alertStatus = listing.bookable && !isHotel && !needsSettings ? await hostAlertStatus(user.id, await headers()) : null;
 
   return (
     <div className="grid gap-6 pb-10">
@@ -65,6 +72,8 @@ export default async function ListingCalendarPage({ params }: Props) {
           </Link>
         }
       />
+
+      {listing.bookable && (isHotel || alertStatus) ? <HostInstantNotice hotel={isHotel} status={alertStatus ?? undefined} /> : null}
 
       {needsSettings && (
         <div className="flex flex-col gap-3 rounded-card border border-primary-tint-border bg-primary-tint p-4 sm:flex-row sm:items-center">

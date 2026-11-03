@@ -1,86 +1,52 @@
 import "server-only";
+import { after } from "next/server";
 import { locales, type AppLocale } from "@/config/site";
 import { isAppLocale } from "@/i18n/locale";
 import { db } from "@/lib/db";
 import { normalizeSearchText, SEARCH_TEXT_SEPARATOR, splitSearchText } from "@/lib/search-text";
+import { stripTitleEmoji } from "@/lib/text/emoji";
+import type { TranslatedText } from "@/lib/translate/provider";
+import { activeTranslationProvider } from "@/lib/translate/registry";
 
 /**
- * Automatic translation of listings (server-only) with Google Cloud Translation v2 (REST).
+ * Automatic translation of listings (server-only), through one small provider interface
+ * (src/lib/translate/provider.ts): Microsoft Azure AI Translator (the founder's choice) or Google
+ * Cloud Translation, picked by TRANSLATE_PROVIDER / AZURE_TRANSLATOR_KEY / GOOGLE_TRANSLATE_API_KEY
+ * (src/lib/translate/registry.ts). Switching to another service (Claude) = one adapter file.
  *
- * GOOGLE_TRANSLATE_API_KEY — an API key restricted to the "Cloud Translation API". Without it
- * translation is OFF: a listing only has its original-language row and every page shows the
- * owner's text (with a "not translated yet" note). Hebrew, Russian, Arabic and Georgian are all
- * supported by v2. The key is sent in the X-Goog-Api-Key header, never in the URL.
+ * Without a key translation is OFF: a listing only has its original-language row and every page
+ * shows the owner's text with "Original in …" and a "Translate" link (Google Translate in the
+ * browser). Titles AND descriptions are translated; machine-translated titles lose their emoji
+ * like the owner's (stripTitleEmoji). Results are cached in ListingTranslation and redone when
+ * the original changes.
  *
  *   await translateListing(listing.id);                 // after the owner saves text
  *   await translateListing(listing.id, { force: true }); // admin: "translate again"
+ *   scheduleListingTranslation(listing.id, stamp);       // autosaved edit of a live listing
  *   const { text, translated } = await translateForLocale(note, owner.locale);
  */
 
-const API_URL = "https://translation.googleapis.com/language/translate/v2";
-const TIMEOUT_MS = 15_000;
-/** Google recommends ≤ 30k characters per request; listings are far below. */
-const MAX_CHARS = 30_000;
-
 export function isTranslationEnabled(): boolean {
-  return Boolean(process.env.GOOGLE_TRANSLATE_API_KEY?.trim());
+  return activeTranslationProvider() !== null;
 }
 
-/** Google still answers "iw" for Hebrew in detectedSourceLanguage. */
-function fromGoogleLanguage(code: string | undefined): string | undefined {
-  if (!code) return undefined;
-  const base = code.toLowerCase().split("-")[0];
-  return base === "iw" ? "he" : base;
+/** "azure" | "google" | null (for the admin settings page and logs). */
+export function translationProviderId(): string | null {
+  return activeTranslationProvider()?.id ?? null;
 }
-
-type GoogleResponse = {
-  data?: { translations?: { translatedText?: string; detectedSourceLanguage?: string }[] };
-  error?: { message?: string };
-};
 
 /**
- * Translates several texts in one request. Empty texts stay empty. `from` omitted = auto-detect.
- * Returns null when translation is off or the request failed (logged).
+ * Translates several texts into several languages in as few requests as the service allows.
+ * Null when translation is off or the request failed (logged).
  */
-async function translateBatch(
-  texts: string[],
-  to: AppLocale,
-  from?: AppLocale,
-): Promise<{ text: string; detected?: string }[] | null> {
-  const key = process.env.GOOGLE_TRANSLATE_API_KEY?.trim();
-  if (!key) return null;
-  const indexes = texts.map((t, i) => (t.trim() ? i : -1)).filter((i) => i >= 0);
-  const out = texts.map((text) => ({ text, detected: undefined as string | undefined }));
-  if (indexes.length === 0) return out;
-  const q = indexes.map((i) => texts[i]);
-  if (q.reduce((sum, t) => sum + t.length, 0) > MAX_CHARS) {
-    console.error("[translate] text too long to translate in one request");
-    return null;
-  }
+async function translateMany(texts: string[], targets: AppLocale[], from?: AppLocale): Promise<Map<AppLocale, TranslatedText[]> | null> {
+  const provider = activeTranslationProvider();
+  if (!provider || targets.length === 0) return null;
+  return provider.translate(texts, targets, from);
+}
 
-  try {
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json; charset=utf-8", "X-Goog-Api-Key": key },
-      body: JSON.stringify({ q, target: to, format: "text", ...(from ? { source: from } : {}) }),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-      cache: "no-store",
-    });
-    const data = (await res.json().catch(() => ({}))) as GoogleResponse;
-    if (!res.ok) throw new Error(`HTTP ${res.status}: ${data.error?.message ?? "no details"}`);
-    const translations = data.data?.translations ?? [];
-    if (translations.length !== q.length) throw new Error("unexpected number of translations");
-    indexes.forEach((textIndex, i) => {
-      out[textIndex] = {
-        text: translations[i].translatedText ?? "",
-        detected: fromGoogleLanguage(translations[i].detectedSourceLanguage),
-      };
-    });
-    return out;
-  } catch (error) {
-    console.error(`[translate] translation to "${to}" failed:`, error);
-    return null;
-  }
+async function translateBatch(texts: string[], to: AppLocale, from?: AppLocale): Promise<TranslatedText[] | null> {
+  return (await translateMany(texts, [to], from))?.get(to) ?? null;
 }
 
 /** One text from one language to another. Null when translation is off or failed. */
@@ -157,40 +123,76 @@ export async function translateListing(
 
   const result: TranslateListingResult = { enabled, translated: [], keptOwnerEdits: [] };
   const targets = locales.filter((locale) => locale !== original);
+  const needed: AppLocale[] = [];
+  const outdated: { id: string }[] = [];
 
-  await Promise.all(
-    targets.map(async (locale) => {
-      const row = rows.get(locale);
-      if (row?.editedByOwner) {
-        if (row.isOriginal) {
-          await db.listingTranslation.update({ where: { id: row.id }, data: { isOriginal: false } });
-        }
-        result.keptOwnerEdits.push(locale);
-        return;
-      }
-      // A former original (the owner switched language) is treated like an automatic row.
-      const stale = !!row && (sourceChanged || row.isOriginal || !!opts.force);
-      if (row && !stale && row.isAuto) return;
+  for (const locale of targets) {
+    const row = rows.get(locale);
+    if (row?.editedByOwner) {
+      if (row.isOriginal) await db.listingTranslation.update({ where: { id: row.id }, data: { isOriginal: false } });
+      result.keptOwnerEdits.push(locale);
+      continue;
+    }
+    // A former original (the owner switched language) is treated like an automatic row.
+    const stale = !!row && (sourceChanged || row.isOriginal || !!opts.force);
+    if (row && !stale && row.isAuto) continue;
+    needed.push(locale);
+    if (row && (stale || !row.isAuto)) outdated.push({ id: row.id });
+  }
 
-      const translated = enabled && (listing.title || listing.description)
-        ? await translateBatch([listing.title, listing.description], locale, original)
-        : null;
-      if (translated) {
-        const data = { title: translated[0].text, description: translated[1].text, isOriginal: false, isAuto: true, editedByOwner: false };
+  // One request for every language that needs it (Azure takes them all at once).
+  const translated = enabled && needed.length > 0 && (listing.title || listing.description)
+    ? await translateMany([listing.title, listing.description], needed, original)
+    : null;
+
+  if (translated) {
+    await Promise.all(
+      needed.map(async (locale) => {
+        const [title, description] = translated.get(locale) ?? [];
+        if (!title || !description) return;
+        const data = { title: stripTitleEmoji(title.text), description: description.text, isOriginal: false, isAuto: true, editedByOwner: false };
         await db.listingTranslation.upsert({
           where: { listingId_locale: { listingId, locale } },
           create: { listingId, locale, ...data },
           update: data,
         });
         result.translated.push(locale);
-      } else if (row && (stale || !row.isAuto)) {
-        await db.listingTranslation.delete({ where: { id: row.id } }).catch(() => undefined);
-      }
-    }),
-  );
+      }),
+    );
+  } else if (outdated.length > 0) {
+    // Translation off or failed: no stale text is shown (the page shows the original with a label).
+    await db.listingTranslation.deleteMany({ where: { id: { in: outdated.map((row) => row.id) } } });
+  }
 
   await updateListingSearchText(listingId);
   return result;
+}
+
+/** Autosaves come every few seconds while the host types: translate once the text has settled. */
+const SETTLE_MS = 3000;
+
+/**
+ * Re-translates a LIVE listing after an autosaved text edit (the host never has to press "Save
+ * changes"), after the response (next/server after()). Deduplicated by Listing.contentUpdatedAt:
+ * when a newer edit arrived in the meantime, that edit's own run does the work. `stamp` is the
+ * contentUpdatedAt this edit wrote (null: no dedupe). Never throws.
+ */
+export function scheduleListingTranslation(listingId: string, stamp: Date | null): void {
+  if (!isTranslationEnabled()) return;
+  const run = async () => {
+    await new Promise((resolve) => setTimeout(resolve, SETTLE_MS));
+    const row = await db.listing.findUnique({ where: { id: listingId }, select: { status: true, contentUpdatedAt: true } });
+    if (!row || row.status !== "LIVE") return;
+    if (stamp && row.contentUpdatedAt && row.contentUpdatedAt.getTime() !== stamp.getTime()) return;
+    await translateListing(listingId);
+  };
+  const safe = () => run().catch((error) => console.error(`[translate] re-translation of ${listingId} failed:`, error));
+  try {
+    after(safe);
+  } catch {
+    // Outside a request (a script): run it now, without waiting.
+    void safe();
+  }
 }
 
 /** Listing statuses worth translating: everything a visitor or a moderator can read (not drafts). */

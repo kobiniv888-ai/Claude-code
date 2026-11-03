@@ -11,6 +11,18 @@ export function isBookableDealType(deal: DealType | string): boolean {
   return (BOOKABLE_DEAL_TYPES as readonly string[]).includes(deal);
 }
 
+/**
+ * Deal types that take INSTANT bookings. Hotels are contact-only until booking by room type
+ * exists (round 3, founder's answer 3, phase 4): today one booking would block the whole hotel.
+ * They keep the booking step (check-in/out times, rules, payment) and the calendar; guests ask
+ * the host. Add "HOTEL_ROOM" back here when room-type availability is built.
+ */
+export const INSTANT_DEAL_TYPES = ["SHORT_STAY"] as const satisfies readonly DealType[];
+
+export function isInstantDealType(deal: DealType | string): boolean {
+  return (INSTANT_DEAL_TYPES as readonly string[]).includes(deal);
+}
+
 /** Paid to the host at check-in, in the host's currency (Listing.paymentMethodsAtCheckIn). */
 export const PAYMENT_METHODS = ["cash", "card", "bank_transfer"] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];

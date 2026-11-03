@@ -1,5 +1,6 @@
 import "server-only";
 import { siteConfig } from "@/config/site";
+import { siteUrl } from "@/lib/site-url";
 import { db } from "@/lib/db";
 import { isPlaceholderEmail } from "@/lib/email";
 import { absoluteMediaUrl, photoUrl } from "@/lib/media";
@@ -219,7 +220,7 @@ export async function buildAccountExport(userId: string) {
   return {
     format: EXPORT_FORMAT_VERSION,
     site: siteConfig.name,
-    siteUrl: siteConfig.url,
+    siteUrl: siteUrl(),
     exportedAt: new Date().toISOString(),
     profile: {
       ...profile,

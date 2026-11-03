@@ -42,7 +42,8 @@
       "translations": "Translations",
       "alerts": "Scam alerts",
       "bannedWords": "Banned words"
-    }
+    },
+    "maintenance": "Maintenance"
   },
   "roles": {
     "USER": "User",
@@ -150,7 +151,11 @@
     "invalid_assignee": "This person can't be assigned tickets.",
     "account_blocked": "This account is suspended or banned. Reactivate it first.",
     "missing_listing": "There is no listing linked to this item.",
-    "role_unchanged": "The account already has this role."
+    "role_unchanged": "The account already has this role.",
+    "documents_paused": "There are no document checks for now: earlier decisions are read-only.",
+    "backup_required": "Make a full backup first (one from the last hour is needed). Tap “Back up now” and try again.",
+    "cleanup_running": "This clean-up is already running. Wait for it to finish and refresh the page.",
+    "backup_failed": "The backup failed and nothing was saved. If the site runs on hosting without a permanent disk, back up with npm run db:backup or the database host's backups."
   },
   "errorPage": {
     "title": "This admin page couldn't load",
@@ -787,6 +792,10 @@
       "rejectDescription": "The user gets the reason by email. The documents are deleted.",
       "rejectConfirm": "Reject",
       "rejected": "The request was rejected."
+    },
+    "paused": {
+      "title": "No document checks for now",
+      "body": "By the owner's decision, the site doesn't ask for an ID, a selfie or ownership papers, and the “ID verified” and “Owner verified” badges are hidden. Earlier requests stay read-only. The files are deleted on the Maintenance page, after a backup."
     }
   },
   "tickets": {
@@ -859,6 +868,109 @@
       "me": "{name} (me)",
       "assigned": "The ticket was assigned.",
       "assignMe": "Assign to me"
+    }
+  },
+  "maintenance": {
+    "title": "Maintenance",
+    "description": "Full backup and data clean-ups. Every action is written to the audit log.",
+    "backup": {
+      "title": "Full backup",
+      "lead": "Saves every table of the database to the backups folder on the server, as one consistent snapshot. It can be restored into an empty database.",
+      "cta": "Back up now",
+      "running": "Backing up…",
+      "done": "The backup is done",
+      "latest": "Latest backups",
+      "none": "No backups yet.",
+      "size": "{size} MB",
+      "rows": "{count, plural, one {1 row} other {{countText} rows}}",
+      "pgDump": "with pg_dump",
+      "viaAdmin": "from the panel",
+      "viaCli": "from the command line",
+      "fresh": "There is a backup from the last hour, so clean-ups can run.",
+      "stale": "A clean-up can run only after a full backup from the last hour.",
+      "restore": "Restore (from a computer)",
+      "restoreCommand": "RESTORE_TARGET_URL=… npm run db:restore -- backups/BACKUP_NAME --create-schema",
+      "hostNote": "On hosting without a permanent disk (like Vercel) backups can't be kept here. Use the database host's backups there."
+    },
+    "cleanups": {
+      "title": "Data clean-ups",
+      "lead": "First a check, which changes nothing, then the run. A run needs a full backup from the last hour, and running it again is safe.",
+      "dryRun": "Check (no changes)",
+      "checking": "Checking…",
+      "run": "Run",
+      "runTitle": "Run “{name}”?",
+      "runDescription": "{count, plural, one {1 change will be made} other {{countText} changes will be made}}. It is written to the audit log and can be restored from the {time} backup.",
+      "filesWarning": "The files themselves can't be restored from the backup: it holds the database only.",
+      "runConfirm": "Run",
+      "done": "The clean-up is done",
+      "nothing": "Nothing to change.",
+      "needsBackup": "Needs a backup from the last hour",
+      "lastRun": "Last run: {date}",
+      "neverRun": "Not run yet",
+      "willChange": "What will change",
+      "changed": "What changed",
+      "total": "Total changes",
+      "examples": "Examples (partly hidden)",
+      "before": "Before",
+      "after": "After",
+      "checkedAt": "Checked at {time}"
+    },
+    "names": {
+      "phones": {
+        "title": "Phone numbers in international format",
+        "lead": "<ltr>+972 53…</ltr> and <ltr>+995 5…</ltr>, without the 0 after the country code. A number without a country code is not changed, and a number that would clash with another account is never merged."
+      },
+      "titleEmoji": {
+        "title": "Emojis out of titles",
+        "lead": "Removes emojis from listing titles and their translations, and refreshes search. Descriptions are not changed."
+      },
+      "contactTaps": {
+        "title": "Contact taps without who tapped",
+        "lead": "Keeps only the channel and the time. Hosts' stats don't change."
+      },
+      "verificationFiles": {
+        "title": "Delete ID and selfie files",
+        "lead": "Deletes the stored verification files: IDs, selfies and ownership papers. The decisions stay, marked “documents deleted”."
+      }
+    },
+    "lines": {
+      "phones": {
+        "users": "Sign-in numbers of accounts",
+        "usersCollision": "Accounts left as they are: the number already belongs to another account",
+        "usersNoCountry": "Sign-in numbers without a country code (check by hand)",
+        "usersInvalid": "Invalid sign-in numbers (check by hand)",
+        "listings": "Listings with a contact phone to fix",
+        "contactValues": "Contact numbers inside the listings",
+        "contactNoCountry": "Listing numbers without a country code (check by hand)",
+        "contactInvalid": "Invalid listing numbers (check by hand)",
+        "bookings": "Guest phones in bookings",
+        "bookingsNoCountry": "Booking phones without a country code (check by hand)",
+        "bookingsInvalid": "Invalid booking phones (check by hand)",
+        "places": "Community place phones",
+        "placesInvalid": "Invalid place phones (check by hand)",
+        "lookups": "Old rows in the number-check cache (deleted)"
+      },
+      "titles": {
+        "listings": "Listing titles",
+        "translations": "Translated titles",
+        "empty": "Titles that would become empty (left as they are)"
+      },
+      "taps": {
+        "withUser": "Taps that store who tapped"
+      },
+      "files": {
+        "idFront": "ID, front",
+        "idBack": "ID, back",
+        "selfie": "Selfies",
+        "ownership": "Ownership papers (registry extract)",
+        "business": "Business registration papers",
+        "other": "Other files",
+        "unattached": "Files uploaded but never sent",
+        "orphans": "Files on disk without a row",
+        "requests": "Verification requests (the decision stays, the documents go)",
+        "accounts": "Accounts",
+        "failed": "Files not deleted (tried again on the next run)"
+      }
     }
   }
 }

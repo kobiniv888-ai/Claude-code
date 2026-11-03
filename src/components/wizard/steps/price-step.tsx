@@ -2,13 +2,14 @@
 
 import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { CalendarDaysIcon, CheckIcon, CopyIcon, LinkIcon, PercentIcon, PlusIcon, ReceiptIcon, Trash2Icon, WalletIcon } from "lucide-react";
+import { CalendarDaysIcon, LinkIcon, PercentIcon, PlusIcon, ReceiptIcon, Trash2Icon, WalletIcon } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Ltr } from "@/components/common/ltr";
+import { CopyLinkField } from "@/components/common/copy-link-field";
 import type { CurrencyCode } from "@/config/site";
 import type { PricePeriod } from "@/generated/prisma/enums";
 import { enabledCurrencies } from "@/lib/currency/convert";
@@ -21,33 +22,6 @@ import { AvailabilityCalendar } from "../availability-calendar";
 import { Field, NumberInput, Section, Stepper } from "../fields";
 import { useOptionLabel } from "../labels";
 import type { StepProps } from "../step-props";
-
-function CopyField({ value, label }: { value: string; label: string }) {
-  const t = useTranslations("wizard.price");
-  const [copied, setCopied] = useState(false);
-  return (
-    <div className="flex items-center gap-2">
-      <Input readOnly value={value} dir="ltr" aria-label={label} className="h-11 font-mono text-sm" onFocus={(e) => e.target.select()} />
-      <Button
-        type="button"
-        variant="outline"
-        className="h-11 shrink-0"
-        onClick={async () => {
-          try {
-            await navigator.clipboard.writeText(value);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-          } catch {
-            toast.error(t("copyFailed"));
-          }
-        }}
-      >
-        {copied ? <CheckIcon aria-hidden /> : <CopyIcon aria-hidden />}
-        {copied ? t("copied") : t("copy")}
-      </Button>
-    </div>
-  );
-}
 
 /** Step 8 — price, currency, period, fees, discounts, availability calendar and iCal sync. */
 export function PriceStep({ listing, values, set, errors, kind, locale, blocked, setBlocked, track }: StepProps) {
@@ -262,7 +236,7 @@ export function PriceStep({ listing, values, set, errors, kind, locale, blocked,
         <Section title={t("icalTitle")} description={t("icalDescription")} icon={LinkIcon}>
           <div className="grid gap-2">
             <p className="text-sm font-medium">{t("icalExport")}</p>
-            <CopyField value={listing.icalExportUrl} label={t("icalExport")} />
+            <CopyLinkField value={listing.icalExportUrl} label={t("icalExport")} />
             <p className="text-xs text-muted-foreground">{t("icalExportHelp")}</p>
           </div>
           <fieldset className="grid gap-3">

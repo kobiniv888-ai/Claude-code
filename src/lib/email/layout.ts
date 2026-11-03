@@ -3,6 +3,7 @@
  * and the matching plain-text version. Pure — no server imports.
  */
 import { siteConfig, type AppLocale } from "@/config/site";
+import { siteUrl } from "@/lib/site-url";
 import { dirFor } from "@/i18n/locale";
 import { BOOKING_CODE_ALPHABET, BOOKING_CODE_LENGTH, BOOKING_CODE_PREFIX } from "@/lib/booking/constants";
 import { isolate, type EmailBlock, type EmailContent } from "./templates";
@@ -63,7 +64,7 @@ const MARK_WIDTH = 30;
 /** The purple band: the white mark first in reading order, then the name in the email's language. */
 function renderHeader(ctx: LayoutContext, dir: "rtl" | "ltr", align: "left" | "right"): string {
   const { brand, t, page } = ctx;
-  const origin = siteConfig.url.replace(/\/+$/, "");
+  const origin = siteUrl();
   const gap = dir === "rtl" ? "padding-left:6px;" : "padding-right:6px;";
   const tracking = ctx.locale === "he" ? "" : "letter-spacing:-0.01em;";
   return `<tr><td class="px" dir="${dir}" style="background:${colors.primary};padding:20px 32px;text-align:${align};">

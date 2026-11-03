@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { locales, siteConfig, type AppLocale } from "@/config/site";
 import { isAppLocale } from "@/i18n/locale";
+import { absoluteUrl as siteAbsoluteUrl, siteUrl } from "@/lib/site-url";
 
 /**
  * SEO helpers for generateMetadata — canonical URLs, hreflang alternates, Open Graph and
@@ -46,16 +47,14 @@ export function siteName(locale: AppLocale | string): string {
   return isAppLocale(locale) ? siteConfig.localizedName[locale] : siteConfig.name;
 }
 
-/** The site's public address (NEXT_PUBLIC_SITE_URL), without a trailing slash. */
+/** The site's public address (SITE_URL, see @/lib/site-url), without a trailing slash. */
 export function siteOrigin(): string {
-  return siteConfig.url.replace(/\/+$/, "");
+  return siteUrl();
 }
 
 /** "/about" → "https://bayit.example/about". Absolute URLs are returned unchanged. */
 export function absoluteUrl(path: string = "/"): string {
-  if (/^https?:\/\//i.test(path)) return path;
-  const clean = path.startsWith("/") ? path : `/${path}`;
-  return `${siteOrigin()}${clean}`;
+  return siteAbsoluteUrl(path);
 }
 
 /** "/about" in Hebrew → "/he/about"; "/" → "/he". Keeps a query string or hash. */

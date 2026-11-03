@@ -10,9 +10,11 @@ import { AppError, AuthRequiredError, ForbiddenError } from "@/lib/errors";
 import { isAccountBlocked } from "./account-status";
 import { safeNextPath, withNext } from "./next-path";
 import { needsFirstName } from "./first-name";
+import { requestHostsOf } from "./code-display";
 import { can, isStaffRole, type Permission } from "./permissions";
 import { isPlaceholderEmail } from "./phone";
 import { auth } from "./server";
+import { canSkipStaffTwoFactor, demoStaffAllowed, staffAccess, type StaffAccess, type StaffAccessEnv } from "./staff-access";
 
 /**
  * The signed-in user for Server Components, server actions and route handlers.
@@ -121,9 +123,29 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   };
 });
 
-/** Staff may skip 2-step login in local development only (DEV_SKIP_STAFF_2FA=true). */
-export function isStaffTwoFactorSkipped(): boolean {
-  return process.env.NODE_ENV !== "production" && process.env.DEV_SKIP_STAFF_2FA === "true";
+/**
+ * The development shortcut (DEV_SKIP_STAFF_2FA=true, never in production) skips 2-step login for
+ * DEMO staff accounts only. A real staff account always needs its authenticator code
+ * (founder's answer 1, round 3; the rule is in ./staff-access.ts).
+ */
+export function isStaffTwoFactorSkipped(user: Pick<CurrentUser, "isDemo">): boolean {
+  return canSkipStaffTwoFactor(process.env as StaffAccessEnv, user);
+}
+
+/** The admin-panel rule for this request (configured address + Host / X-Forwarded-Host). */
+async function staffAccessForRequest(user: CurrentUser): Promise<StaffAccess> {
+  return staffAccess(process.env as StaffAccessEnv, requestHostsOf(await headers()), user);
+}
+
+/**
+ * Staff rights outside the panel (previewing a hidden listing, a ticket attachment), where no
+ * redirect is possible: staff with 2-step login done, and demo staff only on a test address.
+ */
+export function hasStaffRights(user: CurrentUser): boolean {
+  if (!user.isStaff) return false;
+  if (user.isDemo && !demoStaffAllowed(process.env as StaffAccessEnv, null)) return false;
+  if (user.twoFactorEnabled) return user.twoFactorVerified;
+  return isStaffTwoFactorSkipped(user);
 }
 
 // ── Page helpers (redirect) ──
@@ -165,8 +187,9 @@ export async function requireUser(
 }
 
 /**
- * For admin pages. Non-staff get a 404 (the admin panel does not reveal itself); staff must
- * have 2-step login enabled and verified in this session; a missing permission is a 404 too.
+ * For admin pages. Non-staff get a 404 (the admin panel does not reveal itself), and so do demo
+ * staff accounts on the permanent address; staff must have 2-step login enabled and verified in
+ * this session (only demo accounts may skip it, in development); a missing permission is a 404 too.
  */
 export async function requireStaff(
   permission?: Permission,
@@ -174,17 +197,10 @@ export async function requireStaff(
 ): Promise<CurrentUser> {
   const user = await getCurrentUser();
   if (!user) return redirectWithNext("/login", await resolveNext(opts.next, "/admin"));
-  if (!user.isStaff) notFound();
-  if (!isStaffTwoFactorSkipped()) {
-    if (!user.twoFactorEnabled) {
-      return redirectWithNext("/two-factor/setup", await resolveNext(opts.next, "/admin"));
-    }
-    if (!user.twoFactorVerified) {
-      return redirectWithNext("/two-factor", await resolveNext(opts.next, "/admin"));
-    }
-  } else if (user.twoFactorEnabled && !user.twoFactorVerified) {
-    return redirectWithNext("/two-factor", await resolveNext(opts.next, "/admin"));
-  }
+  const access = await staffAccessForRequest(user);
+  if (access === "not_staff" || access === "demo_blocked") notFound();
+  if (access === "needs_setup") return redirectWithNext("/two-factor/setup", await resolveNext(opts.next, "/admin"));
+  if (access === "needs_code") return redirectWithNext("/two-factor", await resolveNext(opts.next, "/admin"));
   if (permission && !can(user.role, permission)) notFound();
   return user;
 }
@@ -212,13 +228,13 @@ export async function requireUserForAction(
   return user;
 }
 
-/** Like requireStaff, but throws (ForbiddenError) — for admin server actions. */
+/** Like requireStaff, but throws (ForbiddenError) — for admin server actions and routes. */
 export async function requireStaffForAction(permission: Permission): Promise<CurrentUser> {
   const user = await requireUserForAction();
-  if (!user.isStaff) throw new ForbiddenError();
-  if (!isStaffTwoFactorSkipped() && !user.twoFactorEnabled) {
-    throw new ForbiddenError("2-step login must be enabled for staff");
-  }
+  const access = await staffAccessForRequest(user);
+  if (access === "not_staff" || access === "demo_blocked") throw new ForbiddenError();
+  if (access === "needs_setup") throw new ForbiddenError("2-step login must be enabled for staff");
+  if (access === "needs_code") throw new AuthRequiredError("2-step login required");
   if (!can(user.role, permission)) throw new ForbiddenError();
   return user;
 }

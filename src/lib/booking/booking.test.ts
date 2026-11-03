@@ -238,12 +238,13 @@ describe("listing terms", () => {
     roomTypes: [],
   };
 
-  it("books only live short stays and hotels with instant booking on", () => {
+  it("books only live short stays with instant booking on (hotels: contact-only for now)", () => {
     expect(isInstantBookable(listing)).toBe(true);
     expect(isInstantBookable({ ...listing, bookingMode: "CONTACT" })).toBe(false);
     expect(isInstantBookable({ ...listing, status: "PAUSED" })).toBe(false);
     expect(isInstantBookable({ ...listing, dealType: "MONTHLY_RENT" })).toBe(false);
-    expect(isInstantBookable({ ...listing, dealType: "HOTEL_ROOM" })).toBe(true);
+    // Hotels are contact-only until booking by room type (round 3), even when saved as INSTANT.
+    expect(isInstantBookable({ ...listing, dealType: "HOTEL_ROOM" })).toBe(false);
   });
 
   it("uses the chosen room type's price for hotels (one unit, no weekend price)", () => {

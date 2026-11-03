@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { documentChecksOn } from "@/config/verification";
 import { fail, ok, type ActionResult } from "@/lib/action";
 import { isStaffRole } from "@/lib/auth/permissions";
 import { audit } from "@/lib/audit";
@@ -38,6 +39,8 @@ async function loadUser(id: string) {
 
 export async function setIdVerified(input: unknown): Promise<ActionResult<{ verified: boolean }>> {
   return runStaffAction("users.manage", "user.verify_id", async (staff) => {
+    // No document checks for now (founder's answer 5, round 3): old decisions are read-only.
+    if (!documentChecksOn()) throw new AdminActionError("documents_paused", 409);
     const parsed = z.object({ userId, verified: z.boolean() }).safeParse(input);
     if (!parsed.success) return fail("invalid_input");
     const user = await loadUser(parsed.data.userId);

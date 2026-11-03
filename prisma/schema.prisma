@@ -843,6 +843,10 @@ model Booking {
   rulesAcceptedAt    DateTime
   /// The 3-days-before reminder went out (cron /api/cron/booking-reminders).
   reminderSentAt     DateTime?
+  /// When one of the host's alert channels ACCEPTED the "new booking" alert (Resend returned an
+  /// id; the dev outbox in development / test mode). A booking only stands once the host was told
+  /// (round 3, src/lib/booking/alerts.ts). Null on bookings made before round 3.
+  hostNotifiedAt     DateTime?
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
   block              AvailabilityBlock?

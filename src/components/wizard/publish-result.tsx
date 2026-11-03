@@ -17,7 +17,6 @@ import {
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { Ltr } from "@/components/common/ltr";
-import { siteConfig } from "@/config/site";
 import { Link } from "@/i18n/navigation";
 import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -86,7 +85,8 @@ export function PublishResult({
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => heading.current?.focus(), []);
   const status = outcome?.status ?? "SAVED";
-  const absoluteUrl = outcome?.publicPath ? `${siteConfig.url.replace(/\/+$/, "")}${outcome.publicPath}` : null;
+  // Built on the server from SITE_URL (the browser never reads it).
+  const absoluteUrl = outcome?.publicUrl ?? null;
   const fixable = (outcome?.reasons ?? []).filter((code) => code !== "first_listing");
 
   const share = async () => {

@@ -3,6 +3,7 @@
  * Used by @/lib/listing/queries. Every public listing query starts from `publicListingWhere`.
  */
 import type { CurrencyCode } from "@/config/site";
+import { documentChecksOn } from "@/config/verification";
 import type { Prisma } from "@/generated/prisma/client";
 import { toUsd, type Rates } from "@/lib/currency/convert";
 import { AMENITIES, BIG_FAMILY_MIN_GUESTS, type Amenity } from "@/lib/listing/fields";
@@ -137,7 +138,8 @@ export function buildListingWhere(filters: SearchFilters, ctx: ListingWhereConte
   if (filters.sharedRoomFor) and.push({ sharedRoomFor: filters.sharedRoomFor });
 
   // Trust and media
-  if (filters.verifiedOnly) {
+  // No document checks for now (src/config/verification.ts): the filter is off and ignored.
+  if (filters.verifiedOnly && documentChecksOn()) {
     and.push({ OR: [{ ownerVerifiedAt: { not: null } }, { owner: { idVerifiedAt: { not: null } } }] });
   }
   if (filters.ownerType) {

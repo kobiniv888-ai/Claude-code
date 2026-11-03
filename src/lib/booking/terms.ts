@@ -8,7 +8,7 @@
  */
 import type { CurrencyCode } from "@/config/site";
 import type { BookingMode, DealType, ListingStatus, PricePeriod } from "@/generated/prisma/enums";
-import { isBookableDealType } from "./constants";
+import { isInstantDealType } from "./constants";
 import type { BookingErrorCode } from "./errors";
 import type { PricingTerms } from "./pricing";
 
@@ -44,13 +44,16 @@ export type BookableListing = {
   roomTypes: BookableRoomType[];
 };
 
-/** Instant booking is on, the listing is live, and it is a short stay or a hotel. */
+/**
+ * Instant booking is on, the listing is live, and it is a short stay. Hotels are contact-only for
+ * now (INSTANT_DEAL_TYPES), even when an older save left them INSTANT.
+ */
 export function isInstantBookable(listing: Pick<BookableListing, "status" | "deletedAt" | "dealType" | "bookingMode">): boolean {
   return (
     listing.status === "LIVE" &&
     listing.deletedAt === null &&
     listing.bookingMode === "INSTANT" &&
-    isBookableDealType(listing.dealType)
+    isInstantDealType(listing.dealType)
   );
 }
 

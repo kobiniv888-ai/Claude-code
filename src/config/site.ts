@@ -45,6 +45,11 @@ export const siteConfig = {
     ar: "Bayit",
     ka: "Bayit",
   } satisfies Localized,
+  /**
+   * The address the site runs on (NEXT_PUBLIC_SITE_URL; the browser can read it). Links that LEAVE
+   * the site (calendar export, emails, share links, sitemap) use siteUrl() from @/lib/site-url,
+   * which prefers the permanent SITE_URL.
+   */
   url: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
   supportEmail: process.env.SUPPORT_EMAIL ?? "support@bayit.example",
   /**

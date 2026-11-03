@@ -5,6 +5,7 @@ import { locales, siteConfig, type AppLocale } from "@/config/site";
 import { db } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { isAppLocale } from "@/i18n/locale";
+import { siteUrl } from "@/lib/site-url";
 import type { EmailStatus } from "@/generated/prisma/enums";
 import { renderEmailHtml, renderEmailText, type LayoutContext } from "./layout";
 import { buildEmailContent, type EmailData, type EmailTemplate, type TemplateContext } from "./templates";
@@ -58,14 +59,31 @@ export type SendEmailInput<K extends EmailTemplate> = {
    * (staff can read the outbox) and in production logs.
    */
   redact?: string[];
+  /** Keep it in the outbox only, never send it (demo accounts, whose addresses are made up). */
+  outboxOnly?: boolean;
+  /**
+   * Resend tags, e.g. { booking: "BT-7K3Q9" }: a bounce report (src/app/api/webhooks/resend)
+   * carries them back. Names and values: ASCII letters, digits, "_" and "-" (others are dropped).
+   */
+  tags?: Record<string, string>;
 };
+
+/**
+ * What happened to an email:
+ * - "sent": Resend accepted it (it returned an id) — this counts as "the recipient was told";
+ * - "logged": kept in the outbox only (no RESEND_API_KEY, or outboxOnly);
+ * - "failed": not sent (bad address, Resend refused it, rendering failed).
+ * `ok` is false only for "failed".
+ */
+export type SendEmailResult = { ok: boolean; delivery: "sent" | "logged" | "failed"; providerId?: string | null };
 
 export type RenderedEmail = { subject: string; html: string; text: string };
 
 // ─── Rendering ────────────────────────────────────────────────
 
+/** Links in emails use the permanent address (SITE_URL, @/lib/site-url). */
 function siteBase(): string {
-  return siteConfig.url.replace(/\/+$/, "");
+  return siteUrl();
 }
 
 const LOCALE_PREFIX = new RegExp(`^/(${locales.join("|")})(/|$)`);
@@ -190,7 +208,9 @@ export async function sendEmail<K extends EmailTemplate>({
   data,
   replyTo,
   redact,
-}: SendEmailInput<K>): Promise<{ ok: boolean }> {
+  outboxOnly,
+  tags,
+}: SendEmailInput<K>): Promise<SendEmailResult> {
   const locale: AppLocale = isAppLocale(localeInput) ? localeInput : siteConfig.i18n.fallbackLocale;
   const recipient = (to ?? "").trim();
 
@@ -207,7 +227,7 @@ export async function sendEmail<K extends EmailTemplate>({
       status: "FAILED",
       error: `render: ${(error as Error)?.message ?? String(error)}`,
     });
-    return { ok: false };
+    return { ok: false, delivery: "failed" };
   }
 
   // What the outbox (and a production log) may keep: secrets masked.
@@ -222,18 +242,18 @@ export async function sendEmail<K extends EmailTemplate>({
       status: "FAILED",
       error: isPlaceholderEmail(recipient) ? "placeholder address (phone-only account)" : "invalid address",
     });
-    return { ok: false };
+    return { ok: false, delivery: "failed" };
   }
 
-  const client = resend();
+  const client = outboxOnly ? null : resend();
   if (!client) {
     const logged = process.env.NODE_ENV === "production" ? stored : rendered;
     console.info(
       `[email] RESEND_API_KEY is not set — not sent (see the admin email outbox).\n` +
         `  to: ${recipient}\n  template: ${template} (${locale})\n  subject: ${logged.subject}\n\n${logged.text}\n`,
     );
-    await recordOutbox({ to: recipient, template, locale, rendered: stored, status: "LOGGED", provider: "console" });
-    return { ok: true };
+    await recordOutbox({ to: recipient, template, locale, rendered: stored, status: "LOGGED", provider: outboxOnly ? "outbox" : "console" });
+    return { ok: true, delivery: "logged" };
   }
 
   const reply = replyTo?.trim();
@@ -245,12 +265,17 @@ export async function sendEmail<K extends EmailTemplate>({
       html: rendered.html,
       text: rendered.text,
       replyTo: reply && isEmailAddress(reply) ? reply : undefined,
-      tags: [{ name: "template", value: template }],
+      tags: resendTags(template, tags),
     });
     if (error) {
       console.error(`[email] Resend rejected "${template}" to ${recipient}:`, error.message);
       await recordOutbox({ to: recipient, template, locale, rendered: stored, status: "FAILED", provider: "resend", error: error.message });
-      return { ok: false };
+      return { ok: false, delivery: "failed" };
+    }
+    // Resend accepted it only when it returned an id.
+    if (!sent?.id) {
+      await recordOutbox({ to: recipient, template, locale, rendered: stored, status: "FAILED", provider: "resend", error: "no id returned" });
+      return { ok: false, delivery: "failed" };
     }
     await recordOutbox({
       to: recipient,
@@ -259,9 +284,9 @@ export async function sendEmail<K extends EmailTemplate>({
       rendered: stored,
       status: "SENT",
       provider: "resend",
-      providerId: sent?.id ?? null,
+      providerId: sent.id,
     });
-    return { ok: true };
+    return { ok: true, delivery: "sent", providerId: sent.id };
   } catch (error) {
     console.error(`[email] sending "${template}" failed:`, error);
     await recordOutbox({
@@ -273,6 +298,17 @@ export async function sendEmail<K extends EmailTemplate>({
       provider: "resend",
       error: (error as Error)?.message ?? String(error),
     });
-    return { ok: false };
+    return { ok: false, delivery: "failed" };
   }
+}
+
+const TAG_PART = /^[A-Za-z0-9_-]{1,256}$/;
+
+/** Resend's tags: the template, plus the caller's (invalid names or values are dropped). */
+export function resendTags(template: EmailTemplate, extra: Record<string, string> | undefined): { name: string; value: string }[] {
+  const tags: { name: string; value: string }[] = [{ name: "template", value: template }];
+  for (const [name, value] of Object.entries(extra ?? {})) {
+    if (name !== "template" && TAG_PART.test(name) && TAG_PART.test(value)) tags.push({ name, value });
+  }
+  return tags;
 }

@@ -23,6 +23,10 @@
     "db:studio": "prisma studio",
     "demo:remove": "tsx --require ./scripts/server-script.cjs scripts/demo-remove.ts",
     "translate:missing": "tsx --require ./scripts/server-script.cjs scripts/translate-missing.ts",
+    "admin:grant": "tsx --require ./scripts/server-script.cjs scripts/admin-grant.ts",
+    "db:backup": "tsx --require ./scripts/server-script.cjs scripts/db-backup.ts",
+    "db:restore": "tsx --require ./scripts/server-script.cjs scripts/db-restore.ts",
+    "cleanup": "tsx --require ./scripts/server-script.cjs scripts/cleanup.ts",
     "vercel-build": "node scripts/vercel-build.mjs"
   },
   "dependencies": {

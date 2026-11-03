@@ -96,7 +96,8 @@ describe("toListingCard", () => {
       speaksHebrew: false,
       keepsShabbat: false,
       kosherMeals: false,
-      verified: true,
+      // No document checks for now (founder's answer 5, round 3): the ID/owner badge is hidden.
+      verified: false,
       business: false,
       shabbatFriendly: true,
       kosherKitchen: true,

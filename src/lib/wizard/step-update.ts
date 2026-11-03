@@ -18,6 +18,8 @@ import { toUsd, type Rates } from "@/lib/currency/convert";
 import type { LatLng } from "@/lib/geo";
 import { BUSINESS_PROPERTY_TYPES, DEFAULT_PRICE_PERIOD, PROPERTY_TYPES_BY_DEAL, computeShabbatFriendly, type ContactMethod } from "@/lib/listing/fields";
 import { isOwnPrivateUpload } from "@/lib/media";
+import { isInstantDealType } from "@/lib/booking/constants";
+import { stripTitleEmoji } from "@/lib/text/emoji";
 import { contactValueProblem, PRICE_PERIODS_BY_DEAL, type ParsedStep } from "./schemas";
 import { applies, isBusinessListing, usesBookingStep, type ListingKind, type SavableStepKey } from "./steps";
 
@@ -223,7 +225,8 @@ export async function buildStepUpdate<S extends SavableStepKey>(
         cadastralCode: () => orNull(v.cadastralCode ?? ""),
         videoUrl: () => orNull(v.videoUrl ?? ""),
         tour360Url: () => orNull(v.tour360Url ?? ""),
-        title: () => (v.title ?? "").trim(),
+        // Brief 2.4: titles are saved without emoji (descriptions keep theirs).
+        title: () => stripTitleEmoji((v.title ?? "").trim()),
         description: () => (v.description ?? "").trim(),
       });
       const textChanged =
@@ -291,7 +294,8 @@ export async function buildStepUpdate<S extends SavableStepKey>(
         data.monthlyDiscountPct = null;
         const period = has(v, "pricePeriod") ? v.pricePeriod : listing.pricePeriod;
         const methods = has(v, "paymentMethodsAtCheckIn") ? v.paymentMethodsAtCheckIn! : listing.paymentMethodsAtCheckIn;
-        data.bookingMode = bookable && period === "NIGHT" && methods.length > 0 ? "INSTANT" : "CONTACT";
+        // Hotels stay contact-only until booking by room type (round 3): isInstantDealType.
+        data.bookingMode = bookable && isInstantDealType(kind.dealType) && period === "NIGHT" && methods.length > 0 ? "INSTANT" : "CONTACT";
       }
       return { data: data as Prisma.ListingUpdateInput, contentChanged: before, textChanged: false, priceChange: priceChangeOf(v, listing) };
     }

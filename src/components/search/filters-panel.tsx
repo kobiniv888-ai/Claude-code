@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { ChevronDownIcon } from "lucide-react";
 import { KosherStampIcon, type IconComponent } from "@/components/ds/jewish-icons";
+import { documentChecksOn } from "@/config/verification";
 import { SegmentedControl } from "@/components/ds/segmented-control";
 import {
   HOTEL_JEWISH_FEATURE_ICONS,
@@ -254,12 +255,14 @@ export function FiltersPanel({ filters, onChange, holidays, histogram, className
       ) : null}
 
       <CollapsibleSection id="owner" filters={filters} title={t("sections.owner")}>
-        <CheckRow
-          checked={filters.verifiedOnly}
-          onChange={(verifiedOnly) => onChange({ verifiedOnly })}
-          label={f("filter.verifiedOnly")}
-          hint={t("verifiedHint")}
-        />
+        {documentChecksOn() ? (
+          <CheckRow
+            checked={filters.verifiedOnly}
+            onChange={(verifiedOnly) => onChange({ verifiedOnly })}
+            label={f("filter.verifiedOnly")}
+            hint={t("verifiedHint")}
+          />
+        ) : null}
         <Field label={t("ownerType")}>
           <ChoiceChips
             value={filters.ownerType}

@@ -126,6 +126,9 @@ export async function seedBookings(db: PrismaClient, now: Date): Promise<number>
       rulesAcceptedAt: createdAt,
       // The reminder job may pick up the upcoming one; demo accounts only get logged texts and outbox emails.
       reminderSentAt: null,
+      // The host's alert went to the dev outbox when it was "booked" (round 3: a booking stands
+      // only once the host was told, src/lib/booking/alerts.ts).
+      hostNotifiedAt: createdAt,
       createdAt,
     } satisfies Prisma.BookingUncheckedCreateInput;
 

@@ -4,6 +4,7 @@
  * values, so they cannot leak into search results.
  */
 import { siteConfig, type AppLocale, type CurrencyCode } from "@/config/site";
+import { showsDocumentBadge } from "@/config/verification";
 import type { Prisma } from "@/generated/prisma/client";
 import type { Locale } from "@/generated/prisma/enums";
 import { pickLocalized } from "@/i18n/locale";
@@ -216,7 +217,8 @@ export function toListingCard(row: ListingCardRow, ctx: CardMapContext): Listing
     beds: bedCount(row),
     badges: {
       ...jewishBadges(row, ctx.pledgeRequiredVersion),
-      verified: !!row.owner.idVerifiedAt || !!row.ownerVerifiedAt,
+      // Hidden while there are no document checks (src/config/verification.ts).
+      verified: showsDocumentBadge(row.owner.idVerifiedAt) || showsDocumentBadge(row.ownerVerifiedAt),
       business: row.owner.accountType === "BUSINESS",
       shabbatFriendly: row.isShabbatFriendly,
       kosherKitchen: row.kitchenKosher === "KOSHER",

@@ -22,9 +22,9 @@ function originOf(value: string | null | undefined): string | null {
   }
 }
 
-/** The site's own origins: NEXT_PUBLIC_SITE_URL and BETTER_AUTH_URL (when set). */
+/** The site's own origins: SITE_URL, NEXT_PUBLIC_SITE_URL and BETTER_AUTH_URL (when set). */
 export function siteOrigins(env: Record<string, string | undefined> = process.env): string[] {
-  return [env.NEXT_PUBLIC_SITE_URL, env.BETTER_AUTH_URL]
+  return [env.SITE_URL, env.NEXT_PUBLIC_SITE_URL, env.BETTER_AUTH_URL]
     .map((value) => originOf(value?.trim()))
     .filter((value): value is string => !!value);
 }

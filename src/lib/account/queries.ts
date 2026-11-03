@@ -2,6 +2,7 @@ import "server-only";
 import { safeDisplayName } from "@/lib/auth/first-name";
 import { settingsFirstName } from "./greeting";
 import type { AppLocale, CurrencyCode } from "@/config/site";
+import { showsDocumentBadge } from "@/config/verification";
 import type { Prisma } from "@/generated/prisma/client";
 import type { AccountType, DealType, ListingStatus, Locale, PricePeriod, VerificationStatus, VerificationType } from "@/generated/prisma/enums";
 import { pickLocalized } from "@/i18n/locale";
@@ -156,7 +157,7 @@ function toMyListing(row: MyListingRow, locale: AppLocale): MyListing {
     moderationReason: row.moderationReason,
     moderationNote: row.moderationNote?.trim() || null,
     wizardStep: row.wizardStep,
-    ownerVerified: !!row.ownerVerifiedAt,
+    ownerVerified: showsDocumentBadge(row.ownerVerifiedAt),
   };
 }
 

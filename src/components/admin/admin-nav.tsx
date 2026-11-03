@@ -3,6 +3,7 @@
 import {
   BadgeCheck,
   CalendarCheck2,
+  DatabaseBackup,
   ExternalLink,
   FileText,
   Flag,
@@ -50,6 +51,7 @@ const ICONS: Record<AdminNavKey, LucideIcon> = {
   roles: ShieldCheck,
   audit: ScrollText,
   outbox: Mail,
+  maintenance: DatabaseBackup,
 };
 
 function NavBadge({ item, counts }: { item: AdminNavItem; counts: AdminCounts | null }) {
