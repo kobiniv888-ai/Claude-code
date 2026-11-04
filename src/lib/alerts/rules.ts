@@ -222,6 +222,15 @@ export function emailChannelStatus(target: HostAlertTarget, env: AlertEnvironmen
   return status("email", "not_configured");
 }
 
+/**
+ * Did the email channel really take the message? Sent by the provider, or kept in the outbox when
+ * the outbox is this host's transport (a demo host, the dev outbox). An email only "logged"
+ * because Resend isn't set up reached nobody: the other channels must be tried.
+ */
+export function emailDeliveryAccepted(delivery: "sent" | "logged" | "failed", transport: EmailTransport | undefined): boolean {
+  return delivery === "sent" || (transport === "outbox" && delivery === "logged");
+}
+
 /** The Telegram channel for one host. */
 export function telegramChannelStatus(target: HostAlertTarget, env: AlertEnvironment, prefs = parseAlertPrefs(target.prefs)): ChannelStatus {
   if (!env.telegram) return status("telegram", "not_configured");

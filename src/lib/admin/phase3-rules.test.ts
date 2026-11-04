@@ -331,7 +331,8 @@ describe("reference prices", () => {
 });
 
 describe("outbox 'send again'", () => {
-  const row = { status: "LOGGED", provider: "console", template: "listing_approved", to: "host@example.com" };
+  // A deliverable-looking address (pure test: nothing is sent); reserved domains are refused below.
+  const row = { status: "LOGGED", provider: "console", template: "listing_approved", to: "host@mail.example-host.co" };
 
   it("is offered only once Resend is set up, for kept emails that can really go out", () => {
     expect(resendBlock(row, true)).toBeNull();
@@ -344,6 +345,18 @@ describe("outbox 'send again'", () => {
     expect(resendBlock({ ...row, to: "995555000011@phone.bayit.invalid" }, true)).toBe("bad_address");
     expect(resendBlock({ ...row, to: "admin-alerts@outbox.invalid" }, true)).toBe("bad_address");
     expect(resendBlock({ ...row, to: "not an email" }, true)).toBe("bad_address");
+  });
+
+  it("never to demo or reserved test domains, whatever sender logged them", () => {
+    expect(resendBlock({ ...row, to: "noa@demo.bayit.example" }, true)).toBe("demo_or_test");
+    expect(resendBlock({ ...row, template: "welcome", to: "x@example.test" }, true)).toBe("demo_or_test");
+    expect(resendBlock({ ...row, to: "host@example.com" }, true)).toBe("demo_or_test");
+    expect(resendBlock({ ...row, to: "host@EXAMPLE.org" }, true)).toBe("demo_or_test");
+    expect(resendBlock({ ...row, to: "dev@localhost" }, true)).toBe("bad_address");
+  });
+
+  it("never an email whose Reply-To the outbox didn't keep (the host's reply would miss the guest)", () => {
+    expect(resendBlock({ ...row, template: "contact_owner" }, true)).toBe("reply_to_lost");
   });
 });
 

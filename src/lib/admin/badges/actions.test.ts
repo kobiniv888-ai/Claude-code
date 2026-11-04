@@ -30,6 +30,8 @@ const state = vi.hoisted(() => ({
   listing: null as ListingRow | null,
   updates: [] as { where: unknown; data: Record<string, unknown> }[],
   audits: [] as { action: string; targetId?: string | null; details?: Record<string, unknown> | null }[],
+  /** "listing.visited_set" audit rows the snapshot is read back from. */
+  setEntries: [] as { targetId: string; details: unknown }[],
 }));
 
 vi.mock("server-only", () => ({}));
@@ -56,6 +58,7 @@ vi.mock("@/lib/audit", () => ({
 }));
 vi.mock("@/lib/db", () => ({
   db: {
+    auditLog: { findMany: async () => state.setEntries },
     listing: {
       findUnique: async () => (state.listing ? structuredClone(state.listing) : null),
       update: async (args: { where: unknown; data: Record<string, unknown> }) => {
@@ -100,6 +103,7 @@ beforeEach(() => {
   state.listing = realListing();
   state.updates = [];
   state.audits = [];
+  state.setEntries = [];
 });
 
 describe("setVisitedAction", () => {
@@ -159,6 +163,37 @@ describe("setVisitedAction", () => {
     state.listing = realListing({ visitedAt: new Date("2026-09-01T00:00:00Z"), visitedNote: "Old note", visitedById: "admin_0" });
     await setVisitedAction(input());
     expect(state.audits[0].details?.previous).toEqual({ visitedOn: "2026-09-01", note: "Old note", enteredById: "admin_0" });
+  });
+});
+
+describe("editing a visit (same date)", () => {
+  const visitSnapshot = { location: "loc-at-visit", photoIds: ["p0"] };
+
+  it("copies the snapshot of the visit instead of taking a new one (the change warning stays)", async () => {
+    const day = "2026-09-01";
+    state.listing = realListing({ visitedAt: new Date(`${day}T00:00:00Z`), visitedNote: "Old note", visitedById: "admin_0" });
+    state.setEntries = [{ targetId: "lst_1", details: { snapshot: visitSnapshot } }];
+    expect(await setVisitedAction(input({ visitedOn: day, note: "Fixed the typo" }))).toEqual({ ok: true, data: { visitedOn: day } });
+    expect(state.audits[0].details).toMatchObject({ snapshot: visitSnapshot, edit: true });
+  });
+
+  it("an old visit (over two years) can still be edited", async () => {
+    const day = "2024-06-01";
+    state.listing = realListing({ visitedAt: new Date(`${day}T00:00:00Z`), visitedNote: "Old", visitedById: "admin_0" });
+    state.setEntries = [{ targetId: "lst_1", details: { snapshot: visitSnapshot } }];
+    expect(await setVisitedAction(input({ visitedOn: day }))).toEqual({ ok: true, data: { visitedOn: day } });
+    // A new date that old is still refused.
+    state.listing = realListing({ visitedAt: new Date("2026-09-01T00:00:00Z") });
+    expect(await setVisitedAction(input({ visitedOn: day }))).toEqual({ ok: false, error: "visit_date_too_old" });
+  });
+
+  it("a new visit date takes a fresh snapshot", async () => {
+    state.listing = realListing({ visitedAt: new Date("2026-09-01T00:00:00Z") });
+    state.setEntries = [{ targetId: "lst_1", details: { snapshot: visitSnapshot } }];
+    await setVisitedAction(input());
+    const snapshot = state.audits[0].details?.snapshot as { photoIds: string[] };
+    expect(snapshot.photoIds).toEqual(["p1", "p2"]);
+    expect(state.audits[0].details?.edit).toBeUndefined();
   });
 });
 

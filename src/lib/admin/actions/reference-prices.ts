@@ -27,11 +27,11 @@ export async function saveReferencePriceAction(input: unknown): Promise<ActionRe
       const parsed = referencePriceSchema.safeParse(raw.values);
       if (!parsed.success) return fail("invalid_input", referenceFieldErrors(parsed.error));
       const value = parsed.data;
-      const monthProblem = sourceMonthProblem(value.sourceMonth);
-      if (monthProblem) return fail("invalid_input", { sourceMonth: [monthProblem] });
-
       const city = await db.city.findUnique({ where: { id: value.cityId }, select: { id: true, countryCode: true } });
       if (!city) return fail("invalid_input", { cityId: ["required"] });
+      // The month in the city's own time zone.
+      const monthProblem = sourceMonthProblem(value.sourceMonth, new Date(), city.countryCode);
+      if (monthProblem) return fail("invalid_input", { sourceMonth: [monthProblem] });
       if (value.neighborhoodId) {
         const neighborhood = await db.neighborhood.findUnique({ where: { id: value.neighborhoodId }, select: { cityId: true } });
         if (!neighborhood || neighborhood.cityId !== city.id) return fail("invalid_input", { neighborhoodId: ["neighborhood_mismatch"] });

@@ -7,6 +7,7 @@ import { photoUrl } from "@/lib/media";
 import { getSettings } from "@/lib/settings";
 import { extractAliases } from "../localized";
 import { FAQ_CATEGORIES } from "../schemas";
+import { outboxListWhere } from "../../outbox";
 
 /** Data for the admin content, settings and outbox pages (server-only). */
 
@@ -271,12 +272,9 @@ export type AdminBannedWord = Awaited<ReturnType<typeof listBannedWords>>["rows"
 
 export const OUTBOX_PAGE_SIZE = 30;
 
-export async function listOutbox(filters: { status?: EmailStatus; template?: string; to?: string }, page: number) {
-  const where: Prisma.EmailOutboxWhereInput = {
-    ...(filters.status ? { status: filters.status } : {}),
-    ...(filters.template ? { template: filters.template } : {}),
-    ...(filters.to ? { to: { contains: filters.to, mode: "insensitive" } } : {}),
-  };
+export async function listOutbox(filters: { status?: EmailStatus; template?: string; to?: string; waiting?: boolean; recentDays?: number }, page: number) {
+  // The same filter the admin home's outbox rows count with (src/lib/admin/outbox.ts).
+  const where: Prisma.EmailOutboxWhereInput = outboxListWhere(filters);
   const [rows, total] = await Promise.all([
     db.emailOutbox.findMany({
       where,

@@ -48,12 +48,22 @@ export function ReportScreenshots({
   const [items, setItems] = useState<Item[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
   const itemsRef = useRef(items);
+  const focusAfterRemove = useRef(false);
 
   useEffect(() => {
     itemsRef.current = items;
     onChange(items.flatMap((i) => (i.state === "done" && i.attachment ? [i.attachment] : [])));
     onBusyChange(items.some((i) => i.state === "uploading"));
   }, [items, onChange, onBusyChange]);
+
+  // After a removal, focus goes to "Add screenshots" once it is rendered: with 5 attached it was
+  // still disabled when the "×" was pressed (a disabled field can't take focus), and the "×"
+  // itself is gone, so focusing right away would drop focus to the top of the sheet.
+  useEffect(() => {
+    if (!focusAfterRemove.current) return;
+    focusAfterRemove.current = false;
+    inputRef.current?.focus();
+  }, [items]);
 
   // Free the object URLs when the form goes away.
   useEffect(() => () => itemsRef.current.forEach((i) => URL.revokeObjectURL(i.preview)), []);
@@ -113,7 +123,7 @@ export function ReportScreenshots({
       if (item) URL.revokeObjectURL(item.preview);
       return current.filter((i) => i.id !== id);
     });
-    inputRef.current?.focus();
+    focusAfterRemove.current = true;
   }
 
   function retry(item: Item) {

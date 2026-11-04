@@ -85,6 +85,8 @@ export function daysBetween(a: string, b: string): number {
  * The days a summary sent on `today` covers, both ends included, up to yesterday:
  *   - from `previousDay`, the day the previous summary went out (it covered up to the day before
  *     it), when that is known and within MAX_PERIOD_DAYS;
+ *   - the last MAX_PERIOD_DAYS days when the previous summary is older than that ("the days you
+ *     missed, up to a week": no cliff where 8 missed days would cover only yesterday);
  *   - otherwise from yesterday, walking back over mornings that had no summary (Shabbat, Yom Tov).
  */
 export function summaryPeriod(
@@ -97,6 +99,8 @@ export function summaryPeriod(
   const gap = previousDay ? daysBetween(previousDay, today) : 0;
   if (previousDay && gap >= 1 && gap <= MAX_PERIOD_DAYS) {
     fromDay = previousDay;
+  } else if (previousDay && gap > MAX_PERIOD_DAYS) {
+    fromDay = addDays(today, -MAX_PERIOD_DAYS);
   } else {
     // Walk back over the mornings that had no summary (Shabbat, Yom Tov).
     for (let i = 0; i < MAX_PERIOD_DAYS - 1 && isRestTime(summaryMoment(fromDay)); i++) fromDay = addDays(fromDay, -1);

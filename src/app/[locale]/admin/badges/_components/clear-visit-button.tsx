@@ -16,6 +16,7 @@ export function ClearVisitButton({ listingId, listingLabel }: { listingId: strin
       triggerLabel={t("trigger")}
       triggerIcon={MapPinX}
       triggerVariant="ghost"
+      triggerSize="sm"
       triggerClassName="h-8 text-destructive hover:text-destructive"
       title={t("title")}
       description={t("description", { listing: listingLabel })}

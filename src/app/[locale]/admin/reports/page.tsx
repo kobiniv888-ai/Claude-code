@@ -15,7 +15,7 @@ import { listReports, REPORT_REASON_FILTERS, REPORT_STATUS_FILTERS, REPORT_TABS,
 import { ADMIN_PAGE_SIZE, coverUrl, localizedTitle } from "@/lib/admin/server/shared";
 import { requireStaff } from "@/lib/auth/session";
 import { dateToDay } from "@/lib/booking/dates";
-import { formatDate } from "@/lib/format";
+import { formatDate, isolate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/admin/reports">): Promise<Metadata> {
@@ -183,9 +183,9 @@ export default async function ReportsPage({ params, searchParams }: PageProps<"/
                     </p>
                   ) : null}
                   <p className="text-xs text-muted-foreground">
-                    {t("reportedBy", { name: row.reporter?.name ?? tAdmin("common.guest") })} · <WhenText date={row.createdAt} />
+                    {t("reportedBy", { name: isolate(row.reporter?.name ?? tAdmin("common.guest")) })} · <WhenText date={row.createdAt} />
                     {row.actionTaken ? <> · {t(`actionTaken.${row.actionTaken as "resolved"}`)}</> : null}
-                    {row.handledBy ? <> · {t("handledBy", { name: row.handledBy.name })}</> : null}
+                    {row.handledBy ? <> · {t("handledBy", { name: isolate(row.handledBy.name) })}</> : null}
                   </p>
                 </div>
               </li>

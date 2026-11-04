@@ -12,6 +12,7 @@ import {
 } from "@/lib/admin/actions/moderation";
 import { ADMIN_TEXT_LIMITS } from "@/lib/admin/reasons";
 import { MODERATION_REASONS } from "@/lib/listing/fields";
+import { toast } from "@/lib/toast";
 import { ActionDialog } from "./action-dialog";
 import { useAdminAction } from "./use-admin-action";
 
@@ -65,6 +66,12 @@ export function ModerationActions({
     hint: t("noteHint", { language: ownerLocaleLabel }),
   };
 
+  // The host saved a change since this page was opened (or the checks, run again, found something
+  // new): show the fresh page instead of deciding on the old one.
+  const refreshOnChange = (code: string) => {
+    if (code === "content_changed") router.refresh();
+  };
+
   if (own) return <p className="text-sm text-muted-foreground">{t("ownListing")}</p>;
 
   return (
@@ -79,7 +86,11 @@ export function ModerationActions({
           description={t("approveDescription", { title })}
           confirmLabel={t("approveConfirm")}
           onConfirm={() =>
-            run(() => approveListingAction({ listingId, contentUpdatedAt }), { success: t("approved"), onSuccess: (d) => goNext(d.next) })
+            run(() => approveListingAction({ listingId, contentUpdatedAt }), {
+              success: t("approved"),
+              onSuccess: (d) => goNext(d.next),
+              onError: refreshOnChange,
+            })
           }
         />
       ) : null}
@@ -92,7 +103,13 @@ export function ModerationActions({
           title={t("restoreTitle")}
           description={t("restoreDescription")}
           confirmLabel={t("restoreConfirm")}
-          onConfirm={() => run(() => restoreListingAction({ listingId, contentUpdatedAt }), { success: t("restored") })}
+          onConfirm={() =>
+            run(() => restoreListingAction({ listingId, contentUpdatedAt }), {
+              // Edited while hidden and the checks want a person: it waits for review instead.
+              onSuccess: (d) => toast.success(d.status === "IN_REVIEW" ? t("restoredToReview") : t("restored")),
+              onError: refreshOnChange,
+            })
+          }
         />
       ) : null}
       {CAN_REQUEST_CHANGES.includes(status) ? (

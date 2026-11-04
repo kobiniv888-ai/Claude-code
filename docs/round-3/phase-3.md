@@ -94,7 +94,8 @@ always asks for **Google Authenticator** (2-step login), also for the demo admin
   - **הסרת המארח** (remove the host): the account is blocked and signed out, and its listings
     paused. The host gets an email.
   - **לספר למארח מי דיווח** (tell the host who reported): a separate step, only when you decide
-    it's needed. The host gets only the guest's first name.
+    it's needed: only an admin (you) sees this button, a moderator never does. The host gets only
+    the guest's first name.
 - **Screenshots** can be opened only by staff with the right permission, one tap at a time, and
   every opening is in the audit log. They are deleted 180 days after your decision.
 - **Automatic flags:** a host with 2 or more reports in 12 months, or a host who cancelled within
@@ -205,9 +206,6 @@ always asks for **Google Authenticator** (2-step login), also for the demo admin
 
 ## Open issues
 
-- **The audit log shows some older actions by their technical name**, for example "faq.delete"
-  or "place.create" (editing content, places, FAQ, cities, maintenance, Telegram links). They are
-  all recorded; only the readable name is missing. The phase-3 actions all have names.
 - **The daily summary can't be tried in the codespace:** the codespace runs no scheduled jobs. On
   the real site it runs by itself (with `CRON_SECRET`, see `OWNER_TODO.md`).
 - **Emails stay in the outbox** ("תיבת דואר יוצא") until Resend is connected (item 3 in
@@ -232,9 +230,20 @@ always asks for **Google Authenticator** (2-step login), also for the demo admin
   - Warning, hiding all listings and removing the host each need a reason and email the host,
     without naming the guest. Removing a host also needs the permission to manage users. Hiding
     all listings takes only the live ones off the site; bookings already made stay.
-  - Telling the host who reported is a separate step, once per report, for turned-away reports
-    only, never after a dismissal, and gives the guest's first name only. It doesn't close the
-    report.
+  - Telling the host who reported is a separate step, admins only, once per report, for
+    turned-away reports only, never after a dismissal, never for a guest who deleted their
+    account, and only when the host has an email address (otherwise nothing is recorded). It gives
+    the guest's first name only and doesn't close the report; a revealed report can't be dismissed
+    any more (close it with "סימון כטופל").
+  - Every decision claims the report first, so two people deciding at once never both act. Staff
+    other than an admin never decide a report about themselves (or one they sent), never approve
+    or restore their own listing, and nobody marks their own booking or host flag reviewed.
+  - After "hide all their listings" or "remove the host", the host stays flagged until someone
+    marks them reviewed: a paused, expired or new listing waits for review instead of going live.
+    Removing a host pauses only live listings; hidden ones stay hidden until a moderator restores
+    them.
+  - Approve and restore publish the listing as the moderator saw it: when the host saved a change
+    after the automatic checks ran, the checks run again first (the review page warns about it).
 - **Guests' reports:** one open report per guest, host and booking; at most 5 reports a day per
   guest; the date must be within the last year. Screenshots are deleted 180 days after your
   decision; the report itself and its text stay.
@@ -250,3 +259,135 @@ always asks for **Google Authenticator** (2-step login), also for the demo admin
 - **Reference prices:** a range belongs to a city (and, if you choose, a neighborhood); deleting a
   city that has no listings also deletes its ranges. The month of a report is kept as its first
   day.
+
+## Security and quality check after phase 3
+
+After phase 3 was built, five separate reviews went through it, each looking for one kind of
+problem: who can see and do what, personal data, two people acting at the same moment, the admin
+pages on a phone, and the wording in all five languages. Everything they confirmed was fixed, and
+then the whole site was checked again in production mode.
+
+### What was found and fixed (most important first)
+
+**Who can see and do what**
+- Only an admin (you) can tell a host which guest reported them. Before, a moderator could do it
+  too. A moderator now sees a short note instead of the button, and the site refuses the step for
+  anyone who isn't an admin, whatever way it is asked.
+- Staff other than an admin no longer decide anything about themselves: a report about them or one
+  they sent, or approving or restoring their own listing. Nobody, you included, marks their own
+  booking or host flag as reviewed.
+- A host is never told the name of a guest who deleted their account. If the host has no email
+  address that works, nothing is recorded, so you can try again later.
+
+**Personal data**
+- "Download my data" no longer includes the team's internal visit note, who visited or the internal
+  report count. Any new kind of listing information must now be decided on before it can appear in
+  the download.
+- Every opening of a report screenshot by staff is in the audit log (once per 10 minutes, like
+  documents), and a problem with the log never stops the screenshot from opening.
+
+**Two people, or two taps, at the same moment**
+- Each decision on a report "takes" the report first. If two staff members decide at the same
+  moment, only one decision goes through, and the host is never warned or emailed twice. If the
+  step on the host's account fails, the report goes back to open.
+- "Tell the host who reported" and "dismiss" can no longer both happen to the same report.
+- A guest who taps "send" twice gets one report, and can't get past the 5-a-day limit that way.
+- If a new report about a host arrives while the flags page is open, "mark reviewed" asks you to
+  look again first.
+- Approving or restoring a listing the host changed after the automatic checks ran: the checks run
+  again first, and the review page warns you.
+
+**Hosts after a decision**
+- After "hide all their listings" or "remove the host", the host stays flagged until someone marks
+  them reviewed: a listing they bring back, renew or post waits for review instead of going live.
+- Removing a host pauses only their live listings; hidden ones stay hidden.
+- Edits to a live listing are always checked (also when the host clears the price), and if the
+  check can't run, the listing waits for review. A hidden listing that now contains a blocked word
+  goes to review instead of back online.
+
+**Uploads, limits and night jobs**
+- Screenshot uploads: the "too many uploads" limit is checked before the file is even read, and a
+  report screenshot can be at most 5 MB.
+- Turned-away reports have their own email allowance, so an urgent one reaches you even in a busy
+  hour.
+- The night clean-up: one failing step no longer stops the others, and two runs at once no longer
+  trip over each other.
+- "Delete all demo data" now also deletes the screenshots and attachments only demo rows used.
+
+**Your emails and the daily summary**
+- An email that only waits in the outbox (while Resend isn't connected) no longer counts as
+  delivered, so Telegram and phone notifications are tried too.
+- The email about a host's first listing no longer says "the checks found a risk" when they found
+  nothing.
+- When the hourly email limit holds back a "waiting for review" email, that listing isn't silenced
+  for the next 6 hours.
+- "Send again" in the outbox is refused for demo and test addresses, demo or deleted accounts, and
+  guest-to-host messages (their reply address isn't kept).
+- The daily summary: after more than a week without one, the next covers the last 7 days; a run
+  that stopped half-way is taken over after 5 minutes; and it is tried every hour that morning, so
+  one failed send is tried again.
+
+**Admin lists and numbers**
+- Search finds a pasted phone number even with hidden marks, Arabic-Indic digits, a phone or
+  WhatsApp link or a leading 0, and booking numbers with hidden marks. Searching by name or email
+  no longer stops at 200 people.
+- "דורש טיפול": when a number couldn't be counted, the block says so instead of "all clear" (and
+  the daily summary waits for the next run). Each row opens a list counted the same way, and the
+  flags number no longer counts guests who didn't arrive.
+- Reference prices: "45,5" is read as 45.5 and "1,500" as 1,500; "1.500" is refused.
+- Saving the same "ביקרנו במקום" date again keeps what was recorded at the visit.
+- How many hours a host took to cancel is rounded the same way on every page, and a report's
+  decision date is the day it was in Georgia.
+
+**Forms, phones and languages**
+- The report form's date is now a calendar in the page's language ("4 בנובמבר 2026"), not the
+  phone's own date field, which could show 11/03 for 3 November.
+- After a mistake in the report form, the screen moves to the field to fix; after sending, to
+  "סגירה"; after removing a screenshot, back to "add screenshots". Admin dialogs announce a
+  missing field and move to it.
+- On a phone, admin tabs wrap onto a second line instead of scrolling sideways, and row buttons are
+  at least 44 px tall.
+- Names and "+30 נקודות" no longer jump around inside Hebrew sentences; Hebrew wording follows the
+  site's style ("הכל", "דמו"); a Russian plural was fixed; and the audit log now shows readable
+  names for the older actions too (content, places, FAQ, cities, maintenance, Telegram links).
+
+### What this final check fixed itself
+- **Georgian on a phone:** on "מחירי ייחוס" (and any admin page with a button next to its title), a
+  long button covered the title and squeezed the description into a narrow column. The button now
+  moves under the title when there is no room.
+- **Hebrew search boxes in the admin panel** (bookings, outbox and the other lists) showed their
+  grey example text from the left, with "#1234" in front. It now starts on the right.
+- **Filter boxes on a phone:** the last drop-down was a little narrower than the one above it.
+  They are now the same width.
+- **A moderator's report page** said "only you can decide to tell them" who reported. It now says
+  only an admin can.
+- Two automatic tests were brought up to date with the changes (the new calendar, and the "…" menu
+  that is now called "אפשרויות נוספות"), and one new test checks the moderator rules with a real
+  moderator account and real 2-step login: no "tell the host who reported" button, and no
+  decisions on a report about their own listing or on their own listing waiting for review, while
+  the admin sees both.
+
+### How it was checked
+- **Automatic checks, all green:** database schema check, type check, code check, translation
+  check (44 groups × 5 languages) and 1,571 unit tests (about 90 of them new in this check).
+- **End-to-end tests in production mode: all 89 passed** in one clean run, nothing re-run, with
+  staff using the real 2-step login.
+- **Screenshots** in production mode of every page the fixes touched, at 390×844 in Hebrew (light
+  and dark) and 1440×900 in English, plus Georgian at 360 px where the layout changed: the admin
+  home, the reports list, an open and a decided report, the "warn the host" dialog, flags, bookings
+  and a booking, the outbox, reference prices and the form, "ביקרנו במקום", a user's page, a
+  listing review, the guest's report form (with its calendar and an error), the listing's "…" menu
+  and the host's statistics.
+- Test accounts, listings, reports, sessions and files were removed afterwards.
+
+### Still open
+- **Demo listings waiting for review** show "the results may be out of date" on the review page,
+  because the demo data has no time for its checks. Approving runs the checks again, so nothing
+  goes wrong; real listings don't show it.
+- **The date filters in the admin panel** (for example on "הזמנות") still use the phone's own date
+  field, so an English phone shows mm/dd/yyyy. Only staff use them; they can get the same calendar
+  as the report form later.
+- **Leftovers from earlier test runs** are still in this computer's database (not on the real
+  site): two "Gate" test accounts with made-up @example.test addresses and their outbox emails, an
+  account named after a phone number from 31 October, and two deleted "(test)" listings. They
+  disappear with the next database reset (`npm run db:reset`).

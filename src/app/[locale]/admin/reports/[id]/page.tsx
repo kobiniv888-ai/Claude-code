@@ -9,14 +9,15 @@ import { ReportActions } from "@/components/admin/report-actions";
 import { Ltr } from "@/components/common/ltr";
 import { Link } from "@/i18n/navigation";
 import { auditActionKey } from "@/lib/admin/audit-labels";
+import { isOwnItem } from "@/lib/admin/server/common";
 import { hostFlagSummary } from "@/lib/admin/server/flags";
 import { getReportDetail } from "@/lib/admin/server/reports";
 import { cityName, coverUrl, localizedTitle } from "@/lib/admin/server/shared";
 import { can } from "@/lib/auth/permissions";
 import { requireStaff } from "@/lib/auth/session";
-import { formatDate, formatNumber, formatRelativeTime } from "@/lib/format";
+import { formatDate, formatNumber, formatRelativeTime, isolate } from "@/lib/format";
 import { listingPath } from "@/lib/listing/urls";
-import { reporterNameForHost } from "@/lib/reports/turned-away";
+import { canRevealReporter, reporterNameForHost } from "@/lib/reports/turned-away";
 import { ReportNoteForm } from "../_components/report-note-form";
 import { ReportScreenshotsViewer } from "../_components/report-screenshots-viewer";
 
@@ -62,9 +63,14 @@ export default async function ReportDetailPage({ params }: PageProps<"/[locale]/
   const blocked = !account || account.status === "BANNED" || account.status === "DELETED";
   const manageable = !!account && account.id !== staff.id && (account.role === "USER" || staff.role === "ADMIN");
   const hostName = account ? account.businessName || account.name : "";
-  const revealName = turnedAway && !report.reporterRevealedAt && report.status !== "DISMISSED" && report.reporter
+  // About the staff member or sent by them: someone else decides (an ADMIN excepted).
+  const own = isOwnItem(staff, [account?.id, report.reporter?.id]);
+  // Null for a reporter who deleted their account (no name left to tell).
+  const revealableName = turnedAway && !report.reporterRevealedAt && report.status !== "DISMISSED" && report.reporter
     ? reporterNameForHost({ reporterRevealedAt: new Date(), reporter: report.reporter })
     : null;
+  // Telling the host who reported is the founder's decision (PLAN.md answer 10): ADMIN only.
+  const revealName = revealableName && canRevealReporter(staff.role) ? revealableName : null;
 
   return (
     <>
@@ -92,7 +98,7 @@ export default async function ReportDetailPage({ params }: PageProps<"/[locale]/
           {report.status !== "OPEN" ? (
             <p className="mb-3 text-sm">
               <span className="font-medium">{report.actionTaken ? t(`actionTaken.${report.actionTaken as "resolved"}`) : tAdmin(`reportStatus.${report.status}`)}</span>
-              {report.handledAt ? <span className="text-muted-foreground"> · {t("handledValue", { name: report.handledBy?.name ?? "—", date: day(report.handledAt) })}</span> : null}
+              {report.handledAt ? <span className="text-muted-foreground"> · {t("handledValue", { name: isolate(report.handledBy?.name ?? "—"), date: day(report.handledAt) })}</span> : null}
             </p>
           ) : null}
           <ReportActions
@@ -113,6 +119,9 @@ export default async function ReportDetailPage({ params }: PageProps<"/[locale]/
             }
             canRemove={can(staff.role, "users.manage")}
             reveal={revealName ? { reporterName: revealName } : null}
+            revealed={!!report.reporterRevealedAt}
+            own={own}
+            revealAdminOnly={!!revealableName && !revealName}
           />
           {listing?.status === "HIDDEN" && report.kind === "GENERAL" ? <p className="mt-2 text-xs text-muted-foreground">{t("restoreHint")}</p> : null}
         </section>
@@ -149,7 +158,7 @@ export default async function ReportDetailPage({ params }: PageProps<"/[locale]/
                 { label: t("created"), value: formatDate(report.createdAt, locale) },
                 {
                   label: t("handled"),
-                  value: report.handledAt ? t("handledValue", { name: report.handledBy?.name ?? "—", date: formatDate(report.handledAt, locale) }) : "—",
+                  value: report.handledAt ? t("handledValue", { name: isolate(report.handledBy?.name ?? "—"), date: formatDate(report.handledAt, locale) }) : "—",
                 },
               ]}
             />
@@ -172,7 +181,9 @@ export default async function ReportDetailPage({ params }: PageProps<"/[locale]/
                 <LockKeyhole aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                 {report.reporterRevealedAt
                   ? t("reporterRevealed", { date: formatDate(report.reporterRevealedAt, locale) })
-                  : t("reporterHidden")}
+                  : canRevealReporter(staff.role)
+                    ? t("reporterHidden")
+                    : t("reporterHiddenStaff")}
               </p>
             ) : null}
           </AdminSection>

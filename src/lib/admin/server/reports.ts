@@ -6,6 +6,7 @@ import { siteConfig } from "@/config/site";
 import { dateToDay, tbilisiToday } from "@/lib/booking/dates";
 import { db } from "@/lib/db";
 import { REPORT_REASONS } from "@/lib/listing/fields";
+import { hostCancelHours } from "@/lib/listing/host-flags";
 import { countOpenReports } from "@/lib/reports/queries";
 import { parseReportAttachments, screenshotsDeleteAt, TURNED_AWAY_REASONS } from "@/lib/reports/turned-away";
 import { ADMIN_PAGE_SIZE, coverPhotoSelect, ownerBadgeSelect } from "./shared";
@@ -56,7 +57,8 @@ const listingPreviewSelect = (locale: string) =>
     owner: { select: { id: true, name: true, businessName: true, status: true } },
   }) satisfies Prisma.ListingSelect;
 
-function tabWhere(tab: ReportTab): Prisma.ReportWhereInput {
+/** The reports one tab of Admin → Reports lists (also what the admin home's report rows count). */
+export function reportTabWhere(tab: ReportTab): Prisma.ReportWhereInput {
   switch (tab) {
     case "turnedAway":
       return { kind: "TURNED_AWAY" };
@@ -71,7 +73,7 @@ function tabWhere(tab: ReportTab): Prisma.ReportWhereInput {
 
 export function reportWhere(filters: ReportFilters): Prisma.ReportWhereInput {
   return {
-    ...tabWhere(filters.tab),
+    ...reportTabWhere(filters.tab),
     ...(filters.status !== "all" ? { status: filters.status } : {}),
     ...(filters.reason ? { reason: filters.reason } : {}),
   };
@@ -254,10 +256,7 @@ export async function getReportDetail(id: string, locale: string) {
         checkIn: dateToDay(report.booking.checkIn),
         checkOut: dateToDay(report.booking.checkOut),
         /** Hours from the booking to the host's cancellation (the 48-hour flag rule). */
-        hoursToCancel:
-          report.booking.status === "CANCELLED_BY_HOST" && report.booking.cancelledAt
-            ? Math.max(0, Math.round((report.booking.cancelledAt.getTime() - report.booking.createdAt.getTime()) / 3_600_000))
-            : null,
+        hoursToCancel: hostCancelHours(report.booking),
       }
     : null;
 

@@ -16,7 +16,7 @@
 import os from "node:os";
 import path from "node:path";
 import { expect, type Page } from "@playwright/test";
-import { newId, sql, TEST_EMAIL_DOMAIN, TEST_PHONE_PREFIX } from "./db";
+import { freshPhone, newId, sql, TEST_EMAIL_DOMAIN, TEST_PHONE_PREFIX } from "./db";
 import { E2E_PORT } from "./env";
 import { decryptSecret, encryptSecret, newTotpSecret, nextCodeStep, totpCodeAt } from "./totp";
 
@@ -48,12 +48,30 @@ export async function createTestAdmin(): Promise<{ id: string; phone: string }> 
 }
 
 /**
- * A code the server will accept now: the current time step, or a later one when that step was
- * already used (the server accepts one step ahead, and never the same step twice).
+ * Another staff account for role checks (e.g. a MODERATOR), with 2-step login on and its own random
+ * secret, like the test admin. A test phone and a test email address, so cleanupTestData() removes
+ * it; it signs in with an email code (loginByEmail) and then `verifyTwoFactor(page, next, phone)`.
  */
-export async function adminCode(): Promise<string> {
-  const [admin] = await sql<{ id: string; totpSecret: string | null }>(`SELECT id, "totpSecret" FROM "User" WHERE "phoneNumber" = $1`, [TEST_ADMIN_PHONE]);
-  if (!admin?.totpSecret) throw new Error("The test admin is missing: the global setup creates it (tests/e2e/global-setup.ts)");
+export async function createTestStaff(opts: { role: "MODERATOR" | "SUPPORT" | "EDITOR"; name: string }): Promise<{ id: string; phone: string; email: string; name: string }> {
+  const id = newId();
+  const phone = await freshPhone();
+  const email = `${phone.slice(1)}@${TEST_EMAIL_DOMAIN}`;
+  await sql(
+    `INSERT INTO "User" (id, name, "firstName", email, "emailVerified", "phoneNumber", "phoneNumberVerified", role, locale, "twoFactorEnabled", "totpSecret", "updatedAt")
+     VALUES ($1, $2, $3, $4, false, $5, true, $6::"UserRole", 'en', true, $7, now())`,
+    [id, opts.name, opts.name.split(" ").pop(), email, phone, opts.role, encryptSecret(newTotpSecret())],
+  );
+  return { id, phone, email, name: opts.name };
+}
+
+/**
+ * A code the server will accept now for the staff account with `phone` (the test admin by
+ * default): the current time step, or a later one when that step was already used (the server
+ * accepts one step ahead, and never the same step twice).
+ */
+export async function adminCode(phone = TEST_ADMIN_PHONE): Promise<string> {
+  const [admin] = await sql<{ id: string; totpSecret: string | null }>(`SELECT id, "totpSecret" FROM "User" WHERE "phoneNumber" = $1`, [phone]);
+  if (!admin?.totpSecret) throw new Error(`No staff account with 2-step login for ${phone} (the global setup creates the test admin, tests/e2e/global-setup.ts)`);
   const secret = decryptSecret(admin.totpSecret);
   const [last] = await sql<{ value: string }>(
     `SELECT value FROM "Verification" WHERE identifier = $1 ORDER BY "createdAt" DESC LIMIT 1`,
@@ -67,12 +85,12 @@ export async function adminCode(): Promise<string> {
 
 /**
  * The second step of logging in, as a person does it: /two-factor, the 6-digit code from the app
- * (the form submits by itself), then on to `next`.
+ * (the form submits by itself), then on to `next`. `phone`: whose app (the test admin by default).
  */
-export async function verifyTwoFactor(page: Page, next = "/en/admin") {
+export async function verifyTwoFactor(page: Page, next = "/en/admin", phone = TEST_ADMIN_PHONE) {
   await page.goto(`/en/two-factor?next=${encodeURIComponent(next)}`);
   const field = page.getByLabel("Authenticator code");
   await expect(field).toBeVisible();
-  await field.fill(await adminCode());
+  await field.fill(await adminCode(phone));
   await page.waitForURL((url) => url.pathname === next, { timeout: 60_000 });
 }

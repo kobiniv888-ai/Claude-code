@@ -22,7 +22,8 @@ export const getAdminCounts = cache(async (): Promise<AdminCounts> => {
     inReview,
     openReports,
     urgentReports,
-    openFlags: flags.cancellations + flags.noShows + flags.hosts,
+    // No-shows are "for information" (the admin home doesn't count them either).
+    openFlags: flags.cancellations + flags.hosts,
     activeTickets,
     urgentTickets,
     pendingVerifications,

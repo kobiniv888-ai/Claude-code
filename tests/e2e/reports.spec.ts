@@ -14,6 +14,8 @@ import { TEST_ADMIN_PHONE } from "./helpers/staff";
 const GUEST = { id: "demo-user-guest", email: "guest@demo.bayit.example" };
 /** A demo short stay of another demo host (Rivka), with the booking bar and its "…" menu. */
 const LISTING_PUBLIC_ID = 108;
+/** A 1×1 PNG. */
+const PNG_1PX = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
 const DETAILS = `E2E turned away ${Date.now().toString(36)}: the host asked where my family is from.`;
 
 async function removeTestReports() {
@@ -54,15 +56,55 @@ test.describe("turned-away report", () => {
     const sheet = page.getByRole("dialog", { name: "דיווח על המארח" });
     await expect(sheet).toBeVisible();
     await expect(sheet.getByText("המארח לא יודע מי דיווח", { exact: false }).first()).toBeVisible();
-    // Nothing chosen yet: the form says what is missing.
+    // Nothing chosen yet, scrolled down to the screenshots: the form says what is missing and
+    // takes the guest there (focus on the first choice, scrolled into view).
+    await sheet.locator("form").evaluate((form) => {
+      const body = form.parentElement; // the sheet's scrolling body
+      if (body) body.scrollTop = body.scrollHeight;
+    });
     await sheet.getByRole("button", { name: "שליחת הדיווח" }).click();
     await expect(sheet.getByRole("alert")).toHaveText("נא לבחור מה קרה.");
+    const firstReason = sheet.getByRole("radio").first();
+    await expect(firstReason).toBeFocused();
+    await expect(firstReason).toBeInViewport();
     await sheet.getByRole("radio", { name: "המארח שאל על הדת שלי או מאיפה אני" }).click();
-    await expect(sheet.getByLabel("מתי זה קרה?")).toHaveValue(/^\d{4}-\d{2}-\d{2}$/);
+    // The day in the page's language (never a device-formatted "11/03/2026"), picked from the
+    // site's calendar.
+    const dateButton = sheet.getByRole("button", { name: /^מתי זה קרה\?/ });
+    await expect(dateButton).toHaveText(/^\d{1,2} ב\S+ \d{4}$/);
+    const shownDay = await dateButton.textContent();
+    await dateButton.click();
+    const calendar = sheet.getByRole("grid");
+    await expect(calendar).toBeVisible();
+    await calendar.locator("td:not([data-selected]) button:enabled").first().click();
+    await expect(calendar).toBeHidden();
+    await expect(dateButton).toBeFocused();
+    await expect(dateButton).not.toHaveText(shownDay ?? "");
+    await expect(dateButton).toHaveText(/^\d{1,2} ב\S+ \d{4}$/);
+
+    // Five screenshots (the uploads answered here, so nothing is stored): removing one of the five
+    // leaves keyboard focus on "Add screenshots", not at the top of the sheet.
+    await page.route("**/api/uploads/private**", (route) =>
+      route.fulfill({ status: 201, json: { key: `private/report/${GUEST.id}/e2e${Date.now()}.jpg`, mime: "image/jpeg", bytes: 68, name: "shot.jpg" } }),
+    );
+    const addShots = sheet.getByLabel("הוספת צילומי מסך");
+    await addShots.setInputFiles(Array.from({ length: 5 }, (_, i) => ({ name: `shot-${i + 1}.png`, mimeType: "image/png", buffer: Buffer.from(PNG_1PX, "base64") })));
+    await expect(sheet.getByText("5 מתוך 5")).toBeVisible();
+    await expect(addShots).toBeDisabled();
+    await sheet.getByRole("button", { name: "הסרת צילום מסך 3" }).focus();
+    await page.keyboard.press("Enter");
+    await expect(sheet.getByText("4 מתוך 5")).toBeVisible();
+    await expect(addShots).toBeFocused();
+    // None of them goes with the report (their keys are made up).
+    for (let left = 4; left > 0; left--) await sheet.getByRole("button", { name: "הסרת צילום מסך 1" }).click();
+    await expect(sheet.getByText("0 מתוך 5")).toBeVisible();
+    await page.unroute("**/api/uploads/private**");
     await sheet.getByRole("textbox", { name: /במילים שלכם/ }).fill(DETAILS);
     await sheet.getByRole("button", { name: "שליחת הדיווח" }).click();
     await expect(page.getByRole("dialog", { name: "תודה שסיפרתם לנו" })).toBeVisible();
     await expect(page.getByText("המארח לא יודע שדיווחתם.")).toBeVisible();
+    // The send button became "Close": focus is on it, not lost to the sheet.
+    await expect(page.getByRole("dialog", { name: "תודה שסיפרתם לנו" }).getByRole("button").filter({ hasText: "סגירה" })).toBeFocused();
 
     // Saved as urgent and about the host; nothing was hidden.
     const [report] = await sql<{ id: string; kind: string; priority: string; status: string; targetType: string; targetUserId: string; listingStatus: string }>(

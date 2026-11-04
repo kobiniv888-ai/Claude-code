@@ -29,8 +29,12 @@ export type BookingSearchFilters = {
   to: Date | null;
 };
 
-/** The users a search text can mean (name, business name, email, phone, listing number). */
-async function matchingUserIds(q: string): Promise<string[]> {
+/**
+ * The user filter a search text can mean (name, business name, email, phone, user id), or null.
+ * Used as a relation filter on the booking's guest and host, so every matching user counts (no
+ * capped pre-fetch of user ids).
+ */
+export function userSearchWhere(q: string): Prisma.UserWhereInput | null {
   const terms = parseBookingSearch(q).people;
   const or: Prisma.UserWhereInput[] = [];
   if (terms.text && terms.text.length >= 2) {
@@ -46,9 +50,7 @@ async function matchingUserIds(q: string): Promise<string[]> {
   if (terms.phones.length) or.push({ phoneNumber: { in: terms.phones } });
   if (terms.phoneDigits) or.push({ phoneNumber: { contains: terms.phoneDigits } });
   if (terms.userId) or.push({ id: terms.userId });
-  if (or.length === 0) return [];
-  const users = await db.user.findMany({ where: { OR: or }, select: { id: true }, take: 200 });
-  return users.map((u) => u.id);
+  return or.length ? { OR: or } : null;
 }
 
 export async function bookingSearchWhere(filters: BookingSearchFilters): Promise<Prisma.BookingWhereInput> {
@@ -62,8 +64,8 @@ export async function bookingSearchWhere(filters: BookingSearchFilters): Promise
     if (people.text && people.text.length >= 2) or.push({ guestName: { contains: people.text, mode: "insensitive" } });
     if (people.phones.length) or.push({ guestPhone: { in: people.phones } });
     if (people.phoneDigits) or.push({ guestPhone: { contains: people.phoneDigits } });
-    const userIds = await matchingUserIds(q);
-    if (userIds.length) or.push({ guestUserId: { in: userIds } }, { hostUserId: { in: userIds } });
+    const users = userSearchWhere(q);
+    if (users) or.push({ guest: users }, { host: users });
     // Something was typed but nothing can match it.
     and.push(or.length ? { OR: or } : { id: "__none__" });
   }

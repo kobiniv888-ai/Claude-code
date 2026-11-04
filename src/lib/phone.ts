@@ -54,6 +54,20 @@ function cleanInput(raw: string): string {
   return text.replace(/^\+\s+/, "+");
 }
 
+/** The text without bidi marks and zero-width characters (pasted from RTL apps along with numbers or codes). */
+export function stripInvisible(text: string): string {
+  return text.replace(INVISIBLE, "");
+}
+
+/**
+ * A pasted search query as a phone number reads (the admin search): invisible marks gone,
+ * fullwidth and Arabic-Indic digits as 0-9, "tel:" / "sms:" / wa.me links reduced to the number,
+ * "00…" as "+…". Not a validation: the caller decides whether it looks like a number.
+ */
+export function cleanPhoneQuery(raw: string): string {
+  return cleanInput(raw);
+}
+
 function parse(raw: unknown, defaultCountry?: string | null): PhoneNumber | undefined {
   if (typeof raw !== "string") return undefined;
   const text = cleanInput(raw);

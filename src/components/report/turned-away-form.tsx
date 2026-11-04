@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useId, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { CircleCheckBigIcon, ShieldCheckIcon } from "lucide-react";
 import { Ltr } from "@/components/common/ltr";
@@ -24,6 +24,7 @@ import {
   type TurnedAwayReason,
 } from "@/lib/reports/turned-away";
 import { cn } from "@/lib/utils";
+import { HappenedOnPicker } from "./happened-on-picker";
 import { ReportScreenshots } from "./report-screenshots";
 
 /**
@@ -80,6 +81,12 @@ export function TurnedAwayForm({
   const [done, setDone] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const captcha = useRef<TurnstileHandle>(null);
+  // Where a problem is: focusing the field also scrolls it into view inside the sheet's scrolling
+  // body (the send button is pinned below it, so the message could otherwise be out of sight).
+  const firstReason = useRef<HTMLButtonElement>(null);
+  const dateButton = useRef<HTMLButtonElement>(null);
+  const detailsField = useRef<HTMLTextAreaElement>(null);
+  const closeButton = useRef<HTMLButtonElement>(null);
   const onAttachments = useCallback((list: ReportAttachment[]) => setAttachments(list), []);
   const onBusy = useCallback((busy: boolean) => setUploading(busy), []);
 
@@ -89,14 +96,26 @@ export function TurnedAwayForm({
     return te(errorMessageKey(code));
   }
 
+  // The send button is replaced by "Close" on success: focus moves there, not to the sheet.
+  useEffect(() => {
+    if (done) closeButton.current?.focus();
+  }, [done]);
+
+  function showError(field: "reason" | "date" | "details" | "form", text: string) {
+    setError({ field, text });
+    const target = field === "reason" ? firstReason : field === "date" ? dateButton : field === "details" ? detailsField : null;
+    // After the render that shows the message (and marks the field invalid).
+    if (target) requestAnimationFrame(() => target.current?.focus());
+  }
+
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending) return;
-    if (!reason) return setError({ field: "reason", text: t("errors.reason") });
+    if (!reason) return showError("reason", t("errors.reason"));
     const dateProblem = happenedOnProblem(happenedOn, today);
-    if (dateProblem) return setError({ field: "date", text: errorText(dateProblem) });
+    if (dateProblem) return showError("date", errorText(dateProblem));
     if (reason === "OTHER" && details.trim().length < REPORT_OTHER_MIN) {
-      return setError({ field: "details", text: errorText("details_required") });
+      return showError("details", errorText("details_required"));
     }
     if (uploading) return setError({ field: "form", text: t("errors.uploading") });
     setPending(true);
@@ -116,8 +135,8 @@ export function TurnedAwayForm({
         return;
       }
       captcha.current?.reset(); // Turnstile tokens are single-use.
-      const field = result.error.startsWith("date_") ? "date" : "form";
-      setError({ field, text: errorText(result.error) });
+      if (result.error.startsWith("date_")) showError("date", errorText(result.error));
+      else setError({ field: "form", text: errorText(result.error) });
     } catch {
       captcha.current?.reset();
       setError({ field: "form", text: te("network") });
@@ -148,7 +167,7 @@ export function TurnedAwayForm({
       description={done ? undefined : t("intro")}
       footer={
         done ? (
-          <Button type="button" variant="secondary" block onClick={() => close(false)}>
+          <Button ref={closeButton} type="button" variant="secondary" block onClick={() => close(false)}>
             {t("close")}
           </Button>
         ) : (
@@ -175,14 +194,26 @@ export function TurnedAwayForm({
 
           <fieldset className="grid gap-2" aria-describedby={error?.field === "reason" ? `${id}-reason-error` : undefined}>
             <legend className="mb-2 text-small font-semibold">{t("whatLabel")}</legend>
-            <RadioGroup value={reason} onValueChange={(v) => setReason(v as TurnedAwayReason)} className="grid gap-2">
-              {TURNED_AWAY_REASONS.map((key) => (
+            <RadioGroup
+              value={reason}
+              onValueChange={(v) => {
+                setReason(v as TurnedAwayReason);
+                if (error?.field === "reason") setError(null);
+              }}
+              className="grid gap-2"
+            >
+              {TURNED_AWAY_REASONS.map((key, index) => (
                 <Label
                   key={key}
                   htmlFor={`${id}-${key}`}
                   className="flex min-h-12 cursor-pointer items-center gap-3 rounded-xl border border-border px-3 py-2.5 text-small font-normal leading-snug has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary-tint"
                 >
-                  <RadioGroupItem id={`${id}-${key}`} value={key} aria-invalid={error?.field === "reason" || undefined} />
+                  <RadioGroupItem
+                    ref={index === 0 ? firstReason : undefined}
+                    id={`${id}-${key}`}
+                    value={key}
+                    aria-invalid={error?.field === "reason" || undefined}
+                  />
                   <span>{t(`reasons.${key}`)}</span>
                 </Label>
               ))}
@@ -195,20 +226,22 @@ export function TurnedAwayForm({
           </fieldset>
 
           <div className="grid gap-1.5">
-            <Label htmlFor={`${id}-date`} className="text-small font-semibold">
+            <Label id={`${id}-date-label`} htmlFor={`${id}-date`} className="text-small font-semibold">
               {t("whenLabel")}
             </Label>
-            <input
+            <HappenedOnPicker
+              ref={dateButton}
               id={`${id}-date`}
-              type="date"
-              dir="ltr"
+              labelId={`${id}-date-label`}
+              value={happenedOn}
               min={bounds.min}
               max={bounds.max}
-              value={happenedOn}
-              onChange={(e) => setHappenedOn(e.target.value)}
-              aria-invalid={error?.field === "date" || undefined}
-              aria-describedby={error?.field === "date" ? `${id}-date-error` : undefined}
-              className="h-12 w-full rounded-input border border-border-strong bg-card px-3 text-body text-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive sm:w-60"
+              onChange={(day) => {
+                setHappenedOn(day);
+                if (error?.field === "date") setError(null);
+              }}
+              invalid={error?.field === "date"}
+              describedBy={error?.field === "date" ? `${id}-date-error` : undefined}
             />
             {error?.field === "date" ? (
               <p id={`${id}-date-error`} role="alert" className="text-small text-destructive">
@@ -222,6 +255,7 @@ export function TurnedAwayForm({
               {reason === "OTHER" ? t("detailsRequired") : t("detailsOptional")}
             </Label>
             <Textarea
+              ref={detailsField}
               id={`${id}-details`}
               value={details}
               onChange={(e) => setDetails(e.target.value)}

@@ -210,6 +210,10 @@ and verified in the current session to open `/admin`. Every admin action is writ
 | tickets | ✓ | | ✓ | |
 | content (home, cities, places, FAQ, alerts, banned words, translations) | ✓ | | | ✓ |
 | settings, roles, audit log | ✓ | | | |
+| tell the host who reported (turned-away reports) | ✓ | | | |
+
+Staff other than an ADMIN never decide about their own items (a report about them or sent by them,
+their own listing); nobody marks their own booking or host flag reviewed.
 
 ## Listing lifecycle
 

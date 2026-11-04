@@ -37,10 +37,11 @@ const userIdSchema = z.string().trim().min(1).max(64);
  * Serialises one reporter's report submits: a second submit waits here until the first one's
  * transaction ends, then sees its report. There is no database constraint for "one open report
  * per target" (a report can be decided and a new one sent), so the check and the insert must not
- * interleave.
+ * interleave. FOR NO KEY UPDATE: it waits only for another lockReporter, not for rows elsewhere
+ * that merely reference the user (their foreign-key checks take a key-share lock).
  */
 async function lockReporter(tx: Prisma.TransactionClient, userId: string): Promise<void> {
-  await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${userId} FOR UPDATE`;
+  await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${userId} FOR NO KEY UPDATE`;
 }
 
 export async function createReport(input: unknown): Promise<ActionResult> {
@@ -71,16 +72,16 @@ export async function createReport(input: unknown): Promise<ActionResult> {
       targetUserId = target.id;
     }
 
+    const openReport = { reporterId: user.id, status: "OPEN" as const, targetType, ...(listingId ? { listingId } : { targetUserId }) };
+    // A repeat is answered before the rate limit, so it doesn't use up one of the five.
+    if (await db.report.findFirst({ where: openReport, select: { id: true } })) return fail("already_reported");
+    await assertRateLimit(`report:${user.id}`, { limit: 5, windowSeconds: DAY });
+
     const report = await db.$transaction(async (tx) => {
-      // One reporter's submits run one at a time (see lockReporter), so "one OPEN report per target"
-      // holds even for two at once.
+      // One reporter's submits run one at a time (see lockReporter), so "one OPEN report per
+      // target" holds even for two at once: the second one sees the first one's report here.
       await lockReporter(tx, user.id);
-      const existing = await tx.report.findFirst({
-        where: { reporterId: user.id, status: "OPEN", targetType, ...(listingId ? { listingId } : { targetUserId }) },
-        select: { id: true },
-      });
-      if (existing) return null;
-      await assertRateLimit(`report:${user.id}`, { limit: 5, windowSeconds: DAY });
+      if (await tx.report.findFirst({ where: openReport, select: { id: true } })) return null;
       return tx.report.create({
         data: { targetType, listingId, targetUserId, reporterId: user.id, reason, details },
         select: { id: true },
@@ -116,18 +117,18 @@ export async function createTurnedAwayReport(input: unknown): Promise<ActionResu
     if (!resolved.ok) return fail(resolved.error);
     const { target } = resolved;
 
-    const created = await db.$transaction(async (tx) => {
+    const openReport = { reporterId: user.id, kind: "TURNED_AWAY" as const, status: "OPEN" as const, targetUserId: target.hostId, bookingId: target.bookingId };
+    // A repeat is answered before the rate limit, so it doesn't use up one of the five.
+    if (await db.report.findFirst({ where: openReport, select: { id: true } })) return fail("already_reported");
+    await assertRateLimit(`report:${user.id}`, { limit: 5, windowSeconds: DAY });
+
+    type Created = { report: { id: string } } | { error: "already_reported" | "attachment_invalid" };
+    const created = await db.$transaction(async (tx): Promise<Created> => {
       // One at a time per guest: "one open report per guest, host and booking" and "a screenshot
       // goes on one report" are checked and written as one step (two tabs, or a script, can't
-      // both pass the checks).
+      // both pass the checks; the second one sees the first one's report here).
       await lockReporter(tx, user.id);
-      const existing = await tx.report.findFirst({
-        where: { reporterId: user.id, kind: "TURNED_AWAY", status: "OPEN", targetUserId: target.hostId, bookingId: target.bookingId },
-        select: { id: true },
-      });
-      if (existing) return { error: "already_reported" as const };
-
-      await assertRateLimit(`report:${user.id}`, { limit: 5, windowSeconds: DAY });
+      if (await tx.report.findFirst({ where: openReport, select: { id: true } })) return { error: "already_reported" as const };
       const attachments = await checkReportAttachments(user.id, data.attachments, tx);
       if (!attachments) return { error: "attachment_invalid" as const };
 

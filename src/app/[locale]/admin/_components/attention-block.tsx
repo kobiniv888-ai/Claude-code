@@ -1,4 +1,5 @@
 import {
+  AlertTriangle,
   BellOff,
   CalendarX2,
   CheckCircle2,
@@ -14,7 +15,7 @@ import {
 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
-import { ATTENTION_EVENT_DAYS, attentionRows, attentionTotal, type AttentionCounts, type AttentionKey } from "@/lib/admin/attention";
+import { ATTENTION_EVENT_DAYS, attentionRows, attentionState, attentionTotal, type AttentionKey, type AttentionSnapshot } from "@/lib/admin/attention";
 import { HOST_REPORT_FLAG_MIN } from "@/lib/admin/flags";
 import { isEmailDeliveryConfigured } from "@/lib/email";
 import { formatNumber } from "@/lib/format";
@@ -35,11 +36,13 @@ const ICONS: Record<AttentionKey, LucideIcon> = {
 /**
  * Admin home "דורש טיפול" (round 3, brief 9): what waits for staff, one row per queue with its
  * count and a link, urgent first (turned-away reports). Only rows the role may open, only
- * non-zero ones; "all clear" otherwise.
+ * non-zero ones; "all clear" only when every count loaded (attentionState), else a "couldn't
+ * count everything" line next to whatever did load.
  */
-export async function AttentionBlock({ counts, role, locale }: { counts: AttentionCounts | null; role: string; locale: string }) {
+export async function AttentionBlock({ counts, role, locale }: { counts: AttentionSnapshot | null; role: string; locale: string }) {
   const t = await getTranslations("admin.overview.attention");
   const rows = attentionRows(counts, role);
+  const state = attentionState(counts, role);
   const total = attentionTotal(rows);
   const resend = isEmailDeliveryConfigured();
 
@@ -58,7 +61,13 @@ export async function AttentionBlock({ counts, role, locale }: { counts: Attenti
           </span>
         ) : null}
       </div>
-      {rows.length === 0 ? (
+      {state === "partial" ? (
+        <p role="status" className="flex items-start gap-3 border-b px-4 py-3 text-sm last:border-b-0">
+          <AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0 text-destructive" />
+          <span>{t("partial")}</span>
+        </p>
+      ) : null}
+      {state === "clear" ? (
         <div className="flex items-center gap-3 px-4 py-5">
           <CheckCircle2 aria-hidden className="size-6 shrink-0 text-success" />
           <div className="min-w-0">
@@ -66,7 +75,7 @@ export async function AttentionBlock({ counts, role, locale }: { counts: Attenti
             <p className="text-xs text-muted-foreground">{t("clearDescription")}</p>
           </div>
         </div>
-      ) : (
+      ) : rows.length === 0 ? null : (
         <ul className="divide-y">
           {rows.map((row) => {
             const Icon = ICONS[row.key];

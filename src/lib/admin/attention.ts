@@ -20,25 +20,28 @@ export const ATTENTION_KEYS = [
 ] as const;
 export type AttentionKey = (typeof ATTENTION_KEYS)[number];
 export type AttentionCounts = Record<AttentionKey, number>;
+/** The counts, and the ones that could not be loaded (they read 0 in `counts`). */
+export type AttentionSnapshot = AttentionCounts & { failed: AttentionKey[] };
 
 export type AttentionTone = "urgent" | "attention" | "info";
 
 type RowSpec = { permission: Permission; href: string; tone: AttentionTone };
 
+/** How far back the event rows (unreachable hosts, failed and waiting emails) look. */
+export const ATTENTION_EVENT_DAYS = 7;
+
 const ROWS: Record<AttentionKey, RowSpec> = {
   turnedAwayReports: { permission: "reports.view", href: "/admin/reports?tab=turnedAway", tone: "urgent" },
   inReview: { permission: "moderation", href: "/admin/moderation", tone: "attention" },
-  otherReports: { permission: "reports.view", href: "/admin/reports", tone: "attention" },
+  otherReports: { permission: "reports.view", href: "/admin/reports?tab=listings", tone: "attention" },
   flagCancellations: { permission: "moderation", href: "/admin/flags", tone: "attention" },
   flagHosts: { permission: "moderation", href: "/admin/flags?view=hosts", tone: "attention" },
   flagNoShows: { permission: "moderation", href: "/admin/flags?view=noShows", tone: "info" },
   hostUnreachable: { permission: "moderation", href: "/admin/bookings?view=unreachable", tone: "attention" },
-  failedEmails: { permission: "settings", href: "/admin/outbox?status=FAILED", tone: "attention" },
-  outboxWaiting: { permission: "settings", href: "/admin/outbox?status=LOGGED", tone: "info" },
+  failedEmails: { permission: "settings", href: `/admin/outbox?status=FAILED&recent=${ATTENTION_EVENT_DAYS}`, tone: "attention" },
+  outboxWaiting: { permission: "settings", href: `/admin/outbox?waiting=1&recent=${ATTENTION_EVENT_DAYS}`, tone: "info" },
 };
 
-/** How far back the event rows (unreachable hosts, failed and waiting emails) look. */
-export const ATTENTION_EVENT_DAYS = 7;
 
 export type AttentionRow = { key: AttentionKey; count: number; href: string; tone: AttentionTone };
 
@@ -57,4 +60,16 @@ export function attentionRows(counts: Partial<AttentionCounts> | null, role: str
 /** Total of what needs a person (info rows such as the outbox are left out). */
 export function attentionTotal(rows: readonly AttentionRow[]): number {
   return rows.filter((r) => r.tone !== "info").reduce((sum, r) => sum + r.count, 0);
+}
+
+/**
+ * What the block shows: "unavailable" (nothing could be loaded), "partial" (some counts failed:
+ * never "all clear", whatever loaded is still listed), "clear" (everything counted and nothing
+ * waits) or "rows". Only failures of rows the role may see count.
+ */
+export function attentionState(counts: Partial<AttentionSnapshot> | null, role: string | null | undefined): "unavailable" | "partial" | "clear" | "rows" {
+  if (!counts) return "unavailable";
+  const failed = (counts.failed ?? []).filter((key) => can(role, ROWS[key].permission));
+  if (failed.length) return "partial";
+  return attentionRows(counts, role).length ? "rows" : "clear";
 }

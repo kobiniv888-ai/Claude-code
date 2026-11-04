@@ -3,7 +3,7 @@ import { siteConfig } from "@/config/site";
 import type { AdminEmailData } from "./founder-email-templates";
 import { db } from "@/lib/db";
 import { sendEmail, type EmailData, type EmailTemplate } from "@/lib/email";
-import { rateLimit } from "@/lib/rate-limit";
+import { rateLimit, resetRateLimit } from "@/lib/rate-limit";
 import { FOUNDER_OUTBOX_ADDRESS, founderAlertRecipients } from "./founder";
 
 /**
@@ -58,10 +58,15 @@ export async function notifyFounderListingInReview(listingId: string, why: reado
       },
     });
     if (!listing || listing.isDemo || listing.owner.isDemo || listing.status !== "IN_REVIEW") return;
-    const perListing = await rateLimit(`founder:review:${listing.id}`, { limit: 1, windowSeconds: REVIEW_EMAIL_HOURS * 3600 }).catch(() => ({ ok: true }));
+    const listingKey = `founder:review:${listing.id}`;
+    const perListing = await rateLimit(listingKey, { limit: 1, windowSeconds: REVIEW_EMAIL_HOURS * 3600 }).catch(() => ({ ok: true }));
     if (!perListing.ok) return;
     const overall = await rateLimit("founder:review:all", { limit: REVIEW_EMAILS_PER_HOUR, windowSeconds: 3600 }).catch(() => ({ ok: true }));
-    if (!overall.ok) return;
+    if (!overall.ok) {
+      // No email went out for this listing: its slot stays free, so its next time in review emails.
+      await resetRateLimit(listingKey);
+      return;
+    }
     const data: AdminEmailData["admin_review_needed"] = {
       listingTitle: listing.title,
       listingPublicId: listing.publicId,

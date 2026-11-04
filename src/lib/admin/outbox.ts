@@ -5,12 +5,20 @@
  *
  * Never sent again: emails that were already sent or failed, the demo accounts' emails (provider
  * "outbox": their addresses are made up), login codes (masked in the outbox and expired anyway),
- * and addresses that cannot receive mail (phone-only placeholders, the founder-alert stand-in).
+ * addresses that cannot receive mail (phone-only placeholders, the founder-alert stand-in),
+ * reserved demo and test domains (demo.bayit.example, example.com, *.test …: whatever sender
+ * logged them, they would bounce and hurt the sender's reputation), and emails that were sent
+ * with a Reply-To the outbox doesn't keep (contact_owner: the host's reply would miss the guest).
+ * The action also refuses demo and deleted accounts (src/lib/admin/actions/outbox.ts).
  */
 
-export type ResendBlock = "not_configured" | "not_logged" | "outbox_only" | "login_code" | "bad_address";
+export type ResendBlock = "not_configured" | "not_logged" | "outbox_only" | "login_code" | "bad_address" | "demo_or_test" | "reply_to_lost";
 
 const UNDELIVERABLE = /@(phone\.bayit\.invalid|outbox\.invalid)$|\.invalid$/i;
+/** Reserved for documentation and tests (RFC 2606 / 6761), the demo domain included. */
+const RESERVED = /\.(example|test|localhost|invalid)$|@(example\.(com|net|org)|localhost)$/i;
+/** Templates sent with a Reply-To (src/lib/contact/actions.ts): the outbox keeps no Reply-To. */
+const REPLY_TO_TEMPLATES = new Set(["contact_owner"]);
 const EMAIL = /^[^\s@<>()[\]\\,;:"]+@[^\s@<>()[\]\\,;:"]+\.[^\s@<>()[\]\\,;:"]+$/;
 
 export function resendBlock(
@@ -23,5 +31,37 @@ export function resendBlock(
   if (row.template === "login_code") return "login_code";
   const to = row.to.trim();
   if (!EMAIL.test(to) || to.length > 254 || UNDELIVERABLE.test(to)) return "bad_address";
+  if (RESERVED.test(to)) return "demo_or_test";
+  if (REPLY_TO_TEMPLATES.has(row.template)) return "reply_to_lost";
   return null;
+}
+
+// ─── The outbox list and the admin home counts (one filter for both) ───────
+
+/** "Kept and not sent": LOGGED, never a demo account's "outbox" email or a login code. */
+export const OUTBOX_WAITING_WHERE = { status: "LOGGED", provider: { not: "outbox" }, template: { not: "login_code" } } as const;
+
+export type OutboxListFilters = {
+  status?: "QUEUED" | "SENT" | "FAILED" | "LOGGED";
+  template?: string;
+  to?: string;
+  /** Only emails still waiting to be sent for real (OUTBOX_WAITING_WHERE). */
+  waiting?: boolean;
+  /** Only the last N days. */
+  recentDays?: number;
+};
+
+/**
+ * The outbox list's filter (src/lib/admin/content/server/queries.ts listOutbox). The admin home's
+ * "failed" and "waiting" rows count with the same filter and link to the same list
+ * (?status=FAILED&recent=7, ?waiting=1&recent=7), so the number and the list always agree.
+ */
+export function outboxListWhere(filters: OutboxListFilters, now: Date = new Date()) {
+  return {
+    ...(filters.waiting ? OUTBOX_WAITING_WHERE : {}),
+    ...(filters.status && !filters.waiting ? { status: filters.status } : {}),
+    ...(filters.template ? { template: filters.template } : {}),
+    ...(filters.to ? { to: { contains: filters.to, mode: "insensitive" as const } } : {}),
+    ...(filters.recentDays ? { createdAt: { gte: new Date(now.getTime() - filters.recentDays * 86_400_000) } } : {}),
+  };
 }

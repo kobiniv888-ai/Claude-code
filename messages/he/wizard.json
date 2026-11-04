@@ -429,7 +429,7 @@
   },
   "features": {
     "title": "מצב ומאפיינים",
-    "subtitle": "הכול כאן לא חובה. פתחו רק את מה שרלוונטי למקום שלכם.",
+    "subtitle": "הכל כאן לא חובה. פתחו רק את מה שרלוונטי למקום שלכם.",
     "notSet": "לא נבחר",
     "unfurnished": "לא מרוהט",
     "selectedCount": "{count, plural, one {נבחר אחד} other {{countText} נבחרו}}"

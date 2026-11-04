@@ -14,12 +14,16 @@ import {
   visitDateProblem,
   visitRefusal,
 } from "./rules";
-import { VISIT_CLEAR_ACTION, VISIT_SET_ACTION, visitSnapshot, visitTodayFor } from "./server";
+import { latestVisitSnapshot, VISIT_CLEAR_ACTION, VISIT_SET_ACTION, visitSnapshot, visitTodayFor } from "./server";
 
 /**
  * Admin → Badges: set or clear "ביקרנו במקום" (round 3, brief 8.3). ADMIN only (moderators see
  * the page read-only); demo listings are refused; every change is audited with the previous
  * values. The internal note goes to Listing.visitedNote and the audit entry, both staff-only.
+ *
+ * Saving the same visit date again is an EDIT (a typo in the note): the place is not visited
+ * again, so the snapshot of the visit is copied (the "changed since the visit" warning stays) and
+ * an old visit can still be edited (only a new date must be within the last two years).
  */
 
 const LIMIT = { limit: 60, windowSeconds: 60 };
@@ -53,10 +57,11 @@ export async function setVisitedAction(input: unknown): Promise<ActionResult<{ v
       });
       const refusal = visitRefusal(listing);
       if (refusal || !listing) return fail(refusal ?? "listing_not_found");
+      const edit = !!listing.visitedAt && dayString(listing.visitedAt) === visitedOn;
       const problem = visitDateProblem(visitedOn, visitTodayFor(listing.countryCode));
-      if (problem) return fail(visitDateErrorCode(problem));
+      if (problem && !(edit && problem === "too_old")) return fail(visitDateErrorCode(problem));
 
-      const snapshot = await visitSnapshot(listing.id);
+      const snapshot = (edit ? await latestVisitSnapshot(listing.id) : null) ?? (await visitSnapshot(listing.id));
       await db.listing.update({
         where: { id: listing.id },
         data: { visitedAt: new Date(`${visitedOn}T00:00:00.000Z`), visitedNote: note, visitedById: staff.id },
@@ -74,6 +79,7 @@ export async function setVisitedAction(input: unknown): Promise<ActionResult<{ v
             ? { visitedOn: dayString(listing.visitedAt), note: listing.visitedNote, enteredById: listing.visitedById }
             : null,
           snapshot,
+          ...(edit ? { edit: true } : {}),
         },
       });
       return ok({ visitedOn });

@@ -130,7 +130,7 @@ export default async function ReferencePricesPage({ params, searchParams }: Prop
                   ) : null}
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Button asChild variant="outline" size="sm" className="h-8">
+                  <Button asChild variant="outline" size="sm" className="h-8 min-h-11 sm:min-h-0">
                     <Link href={`/admin/reference-prices/${row.id}`}>{t("edit")}</Link>
                   </Button>
                   <ReferenceActiveButton id={row.id} active={row.active} label={where} />

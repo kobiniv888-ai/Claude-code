@@ -28,6 +28,13 @@ export async function resendOutboxEmailAction(input: unknown): Promise<ActionRes
       const block = resendBlock(row, isEmailDeliveryConfigured());
       if (block === "not_configured") throw new AdminActionError("resend_not_configured", 409);
       if (block) throw new AdminActionError("cannot_resend", 409);
+      // Never to a demo account or one deleted since (whatever address it had then).
+      const to = row.to.trim();
+      const recipient = await db.user.findFirst({
+        where: { OR: [{ email: { equals: to, mode: "insensitive" } }, { contactEmail: { equals: to, mode: "insensitive" } }] },
+        select: { isDemo: true, deletedAt: true, status: true },
+      });
+      if (recipient && (recipient.isDemo || recipient.deletedAt || recipient.status === "DELETED")) throw new AdminActionError("cannot_resend", 409);
 
       // Claim the row first, so two clicks cannot send it twice.
       const { count } = await db.emailOutbox.updateMany({ where: { id: row.id, status: "LOGGED" }, data: { status: "QUEUED", error: null } });

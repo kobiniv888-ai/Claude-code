@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { countryConfig } from "@/config/countries";
 import { currencyCodes } from "@/config/site";
 import type { DealType, PricePeriod, PropertyType } from "@/generated/prisma/enums";
 import { DEAL_TYPES, PROPERTY_TYPES } from "@/lib/listing/fields";
@@ -55,20 +56,49 @@ function emptyToNull(value: unknown): unknown {
   return value;
 }
 
+/** Thousands written with commas or spaces ("1,500", "1 500 000"), with an optional ".50". */
+const THOUSANDS = /^\d{1,3}(?:[,\s\u00A0\u202F]\d{3})+(?:\.\d{1,2})?$/;
+/** A decimal comma ("45,5", "45,50"), as ru / ka keyboards type it. */
+const DECIMAL_COMMA = /^\d+,\d{1,2}$/;
+/** A plain number with an optional decimal point ("45", "45.5", "0.004"). */
+const PLAIN = /^\d+(?:\.\d+)?$/;
+/** "1.500", "12.345": a dot before exactly three digits may be European thousands, so it is refused. */
+const DOT_THOUSANDS = /^[1-9]\d{0,2}(?:\.\d{3})+$/;
+
+/**
+ * A typed amount → a number, or NaN when it is ambiguous or not a number. Shared by the schema and
+ * the form's preview. A single "," or "." followed by one or two digits is the decimal point;
+ * "1,500" and "1 500" are thousands; "1.500" is refused (it means 1500 in Europe, 1.5 elsewhere).
+ */
+export function parseAmount(raw: string): number {
+  const text = raw.trim();
+  if (DOT_THOUSANDS.test(text)) return Number.NaN;
+  if (THOUSANDS.test(text)) return Number(text.replace(/[,\s\u00A0\u202F]/g, ""));
+  if (DECIMAL_COMMA.test(text)) return Number(text.replace(",", "."));
+  if (PLAIN.test(text)) return Number(text);
+  return Number.NaN;
+}
+
 function toNumber(value: unknown): unknown {
   const v = emptyToNull(value);
   if (v === null) return v;
   if (typeof v === "number") return v;
-  if (typeof v === "string") {
-    const n = Number(v.replace(/[\s,]/g, ""));
-    return Number.isFinite(n) ? n : Number.NaN;
-  }
+  if (typeof v === "string") return parseAmount(v);
   return Number.NaN;
+}
+
+/** At most two decimals (the columns are Decimal(14,2): "0.004" would be stored as 0.00). */
+function hasCents(n: number): boolean {
+  return Math.abs(n * 100 - Math.round(n * 100)) < 1e-6;
 }
 
 const price = z.preprocess(
   toNumber,
-  z.number({ message: "required" }).refine((n) => Number.isFinite(n), "invalid_number").refine((n) => n > 0 && n <= REFERENCE_LIMITS.maxPrice, "out_of_range"),
+  z
+    // An empty field is "required"; text that isn't a number (NaN, e.g. "1.500") is "invalid_number".
+    .number({ error: (issue) => (issue.input === null || issue.input === undefined ? "required" : "invalid_number") })
+    .refine((n) => Number.isFinite(n), "invalid_number")
+    .refine((n) => n >= 0.01 && n <= REFERENCE_LIMITS.maxPrice && hasCents(n), "out_of_range"),
 );
 
 const httpsUrl = z.preprocess(
@@ -121,12 +151,23 @@ export const referencePriceSchema = z
 
 export type ReferencePriceInput = z.output<typeof referencePriceSchema>;
 
-/** "2026-10" is not after the current month (reports describe the past). */
-export function sourceMonthProblem(month: string, now: Date = new Date()): "date_in_future" | "invalid_date" | null {
+/** "YYYY-MM" of `now` in a time zone. */
+function monthIn(timeZone: string, now: Date): string {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit" }).formatToParts(now);
+  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}`;
+}
+
+/**
+ * "2026-10" is not after the current month (reports describe the past). The month is the city's
+ * (its country's time zone, Georgia by default): at 01:00 on the 1st in Tbilisi it is already the
+ * new month there, though not in UTC.
+ */
+export function sourceMonthProblem(month: string, now: Date = new Date(), countryCode?: string | null): "date_in_future" | "invalid_date" | null {
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) return "invalid_date";
   const year = Number(month.slice(0, 4));
   if (year < 2000) return "invalid_date";
-  const current = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+  const current = monthIn(countryConfig(countryCode).timezone, now);
   return month > current ? "date_in_future" : null;
 }
 

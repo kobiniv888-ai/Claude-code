@@ -180,7 +180,8 @@ describe("bookings search and the staff booking page", () => {
 
 describe("admin home counts", () => {
   it("loads every count in one go", async () => {
-    const counts = await loadAttentionCounts();
+    const { failed, ...counts } = await loadAttentionCounts();
+    expect(failed).toEqual([]);
     for (const value of Object.values(counts)) expect(Number.isInteger(value) && value >= 0).toBe(true);
     expect(counts.turnedAwayReports).toBeGreaterThanOrEqual(1);
   });

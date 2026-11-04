@@ -109,7 +109,8 @@ export type BadgeRow = {
 async function latestSnapshots(listingIds: string[]): Promise<Map<string, VisitSnapshot | null>> {
   const map = new Map<string, VisitSnapshot | null>();
   if (listingIds.length === 0) return map;
-  // One row per listing: the latest "set" entry (an edit takes a new snapshot).
+  // One row per listing: the latest "set" entry (a new visit date takes a new snapshot; a note
+  // edit copies the previous one, see ./actions.ts).
   const entries = await db.auditLog.findMany({
     where: { action: VISIT_SET_ACTION, targetType: "Listing", targetId: { in: listingIds } },
     orderBy: [{ targetId: "asc" }, { createdAt: "desc" }],
@@ -120,6 +121,11 @@ async function latestSnapshots(listingIds: string[]): Promise<Map<string, VisitS
     if (entry.targetId && !map.has(entry.targetId)) map.set(entry.targetId, snapshotFromDetails(entry.details));
   }
   return map;
+}
+
+/** The snapshot taken when the current visit was entered (null when there is none). */
+export async function latestVisitSnapshot(listingId: string): Promise<VisitSnapshot | null> {
+  return (await latestSnapshots([listingId])).get(listingId) ?? null;
 }
 
 async function present(where: Prisma.ListingWhereInput, locale: string, opts: { skip?: number; take: number; orderBy: Prisma.ListingOrderByWithRelationInput[] }): Promise<BadgeRow[]> {

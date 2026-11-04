@@ -57,6 +57,7 @@
       "OTHER": "משהו אחר"
     },
     "whenLabel": "מתי זה קרה?",
+    "pickDate": "בחירת תאריך",
     "detailsOptional": "מה קרה, במילים שלכם (לא חובה)",
     "detailsRequired": "מה קרה, במילים שלכם",
     "detailsPlaceholder": "מה המארח כתב או אמר? כל פרט יעזור לנו לבדוק.",

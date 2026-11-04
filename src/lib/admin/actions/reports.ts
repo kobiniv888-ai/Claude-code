@@ -102,6 +102,11 @@ function assertOpen(report: LoadedReport) {
   if (report.status !== "OPEN") throw new AdminActionError("already_decided");
 }
 
+async function isStillOpen(reportId: string): Promise<boolean> {
+  const fresh = await db.report.findUnique({ where: { id: reportId }, select: { status: true } });
+  return fresh?.status === "OPEN";
+}
+
 type Decision = {
   status: "RESOLVED" | "DISMISSED";
   actionTaken: "resolved" | "dismissed" | "warned" | "listings_hidden" | "host_removed";
@@ -126,8 +131,7 @@ async function claimReport(staff: CurrentUser, report: LoadedReport, decision: D
     },
   });
   if (count === 1) return;
-  const fresh = await db.report.findUnique({ where: { id: report.id }, select: { status: true } });
-  throw new AdminActionError(fresh?.status === "OPEN" ? "invalid_status" : "already_decided");
+  throw new AdminActionError((await isStillOpen(report.id)) ? "invalid_status" : "already_decided");
 }
 
 /** Puts a claimed report back to open (the account action after the claim failed). */
@@ -239,7 +243,8 @@ export async function hideHostListings(input: unknown): Promise<ActionResult<{ h
     if (!host || host.status === "DELETED") throw new AdminActionError("user_not_found", 404);
     assertCanManage(staff, host);
     const live = await db.listing.findMany({ where: { ownerId: hostId, status: "LIVE" }, select: { id: true, publicId: true } });
-    if (live.length === 0) throw new AdminActionError("invalid_status");
+    // Nothing live (any more): someone else may have decided meanwhile.
+    if (live.length === 0) throw new AdminActionError((await isStillOpen(report.id)) ? "invalid_status" : "already_decided");
     const decision: Decision = { status: "RESOLVED", actionTaken: "listings_hidden", resolution: parsed.data.note };
     const count = await decide(staff, report, decision, async () => {
       const { count: hidden } = await db.listing.updateMany({ where: { id: { in: live.map((l) => l.id) }, status: "LIVE" }, data: { status: "HIDDEN" } });

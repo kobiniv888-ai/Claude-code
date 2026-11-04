@@ -16,7 +16,7 @@ import { ATTENTION_EVENT_DAYS } from "@/lib/admin/attention";
 import { enumParam, pageParam, param } from "@/lib/admin/params";
 import { ADMIN_BOOKING_VIEWS, ADMIN_BOOKINGS_PAGE_SIZE, listHostUnreachable, searchBookings } from "@/lib/admin/server/bookings";
 import { requireStaff } from "@/lib/auth/session";
-import { formatDate, formatDateRange, formatMoney, formatTime } from "@/lib/format";
+import { formatDate, formatDateRange, formatMoney, formatTime, isolate } from "@/lib/format";
 
 const STATUS_TONE: Record<BookingStatus, PillTone> = {
   CONFIRMED: "success",
@@ -119,7 +119,7 @@ export default async function AdminBookingsPage({ params, searchParams }: PagePr
                     </span>
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {t("hostGuest", { host: row.host.name || t("noName"), guest: row.guest.name || t("noName") })}
+                    {t("hostGuest", { host: isolate(row.host.name || t("noName")), guest: isolate(row.guest.name || t("noName")) })}
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {formatDateRange(row.checkIn, row.checkOut, locale)} · {tb("nights", { count: row.nights })} · {tb("guests.total", { count: row.guests })} ·{" "}

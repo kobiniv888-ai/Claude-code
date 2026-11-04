@@ -73,7 +73,7 @@ export function VisitDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
-        <Button type="button" variant={current ? "outline" : "default"} size="sm" className="h-8">
+        <Button type="button" variant={current ? "outline" : "default"} size="sm" className="h-8 min-h-11 sm:min-h-0">
           {current ? <Pencil aria-hidden /> : <MapPinCheck aria-hidden />}
           {current ? t("editTrigger") : t("setTrigger")}
         </Button>

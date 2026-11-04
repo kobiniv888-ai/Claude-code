@@ -647,7 +647,7 @@
       "entry": "Contact {number}",
       "label": "Label in each language",
       "phone": "Phone",
-      "phoneHint": "As it should be dialed, e.g. +995 32 255 65 00",
+      "phoneHint": "As it should be dialed, e.g. +995 32 2XX XX XX",
       "url": "Website",
       "add": "Add contact",
       "moveUp": "Move contact {number} up",
@@ -757,9 +757,14 @@
         "not_logged": "Only emails that were kept and not sent can be sent again.",
         "outbox_only": "A demo account's email: the address is made up, so it is never sent.",
         "login_code": "A login code is no longer valid, so it is not sent again.",
-        "bad_address": "Email can't be sent to this address."
+        "bad_address": "Email can't be sent to this address.",
+        "demo_or_test": "A demo or test address (such as example.com): it doesn't really exist, so nothing is sent to it.",
+        "reply_to_lost": "This email was first sent with the guest's reply address, which wasn't kept. Sent again, the host's reply wouldn't reach the guest."
       }
-    }
+    },
+    "waitingOnly": "Only emails not really sent yet",
+    "recentOnly": "{days, plural, one {From the last day} other {From the last {days} days}}",
+    "showAll": "Show all"
   },
   "savedReplies": {
     "title": "Saved replies",

@@ -14,7 +14,7 @@ import { currencyCodes, type CurrencyCode } from "@/config/site";
 import type { DealType } from "@/generated/prisma/enums";
 import { useRouter } from "@/i18n/navigation";
 import { saveReferencePriceAction } from "@/lib/admin/actions/reference-prices";
-import { REFERENCE_LIMITS, referenceFieldErrors, referencePriceSchema, sourceMonthProblem, UNIT_BY_DEAL } from "@/lib/admin/reference-prices";
+import { parseAmount, REFERENCE_LIMITS, referenceFieldErrors, referencePriceSchema, sourceMonthProblem, UNIT_BY_DEAL } from "@/lib/admin/reference-prices";
 import { formatDate, formatMoney } from "@/lib/format";
 import { DEAL_TYPES, PROPERTY_TYPES } from "@/lib/listing/fields";
 import { toast } from "@/lib/toast";
@@ -89,8 +89,9 @@ export function ReferencePriceForm({ id, initial, cities }: { id: string | null;
     note: values.note,
   });
 
-  const lowNumber = Number(values.low.replace(/[\s,]/g, ""));
-  const highNumber = Number(values.high.replace(/[\s,]/g, ""));
+  // The same reading of "45,5" / "1,500" as the server (src/lib/admin/reference-prices.ts).
+  const lowNumber = parseAmount(values.low);
+  const highNumber = parseAmount(values.high);
   const previewReady = values.sourceName.trim() && /^\d{4}-\d{2}$/.test(values.sourceMonth) && lowNumber > 0 && highNumber > 0;
 
   return (

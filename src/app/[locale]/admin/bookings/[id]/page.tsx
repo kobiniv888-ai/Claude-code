@@ -14,7 +14,7 @@ import { Link } from "@/i18n/navigation";
 import { auditActionKey } from "@/lib/admin/audit-labels";
 import { getAdminBooking } from "@/lib/admin/server/bookings";
 import { requireStaff } from "@/lib/auth/session";
-import { formatDate, formatMoney, formatTime } from "@/lib/format";
+import { formatDate, formatMoney, formatTime, isolate } from "@/lib/format";
 import { FlagReviewButton } from "../../flags/_components/flag-review-button";
 
 const STATUS_TONE: Record<BookingStatus, PillTone> = {
@@ -44,7 +44,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function AdminBookingPage({ params }: Props) {
   const { locale, id } = await params;
   setRequestLocale(locale);
-  await requireStaff("moderation");
+  const staff = await requireStaff("moderation");
   const data = await getAdminBooking(id, locale as AppLocale);
   if (!data) notFound();
   const { booking, lines, history } = data;
@@ -98,11 +98,14 @@ export default async function AdminBookingPage({ params }: Props) {
             <span>
               {t(`flagExplain.${booking.flag}`)}
               {booking.flagReviewedAt ? (
-                <span className="block text-xs text-muted-foreground">{t("reviewedBy", { name: booking.flagReviewedBy ?? "—", when: when(booking.flagReviewedAt) })}</span>
+                <span className="block text-xs text-muted-foreground">{t("reviewedBy", { name: isolate(booking.flagReviewedBy ?? "—"), when: when(booking.flagReviewedAt) })}</span>
               ) : null}
             </span>
           </p>
-          {!booking.flagReviewedAt ? <FlagReviewButton target={{ bookingId: booking.id }} label={booking.code} /> : null}
+          {/* Nobody reviews the flag of a booking they are part of (as host or guest). */}
+          {!booking.flagReviewedAt && booking.host.id !== staff.id && booking.guest.id !== staff.id ? (
+            <FlagReviewButton target={{ bookingId: booking.id }} label={booking.code} />
+          ) : null}
         </div>
       ) : null}
 

@@ -18,6 +18,7 @@ import { isPushConfigured, pushToUser } from "./push";
 import {
   afterChannelFailure,
   currentFailure,
+  emailDeliveryAccepted,
   hostAlertChannels,
   instantBookingGate,
   parseAlertPrefs,
@@ -117,7 +118,7 @@ export type AlertHostOptions = {
 };
 
 function emailAccepted(sent: SendEmailResult, transport: ChannelStatus["transport"]): boolean {
-  return sent.delivery === "sent" || (transport === "outbox" && sent.delivery === "logged");
+  return emailDeliveryAccepted(sent.delivery, transport);
 }
 
 async function emailFor(host: AlertHost, alert: HostAlert, transport: ChannelStatus["transport"], env: AlertEnvironment): Promise<SendEmailResult> {

@@ -93,3 +93,11 @@ export function hoursFromBookingToCancel(createdAt: Date, cancelledAt: Date | nu
   if (!cancelledAt) return null;
   return Math.max(0, Math.floor((cancelledAt.getTime() - createdAt.getTime()) / 3_600_000));
 }
+
+/**
+ * The same hours for a booking the host cancelled, else null: one rounding (down) for every page
+ * that shows it (the report page, the booking page, the flags list).
+ */
+export function hostCancelHours(booking: { status: string; createdAt: Date; cancelledAt: Date | null }): number | null {
+  return booking.status === "CANCELLED_BY_HOST" ? hoursFromBookingToCancel(booking.createdAt, booking.cancelledAt) : null;
+}

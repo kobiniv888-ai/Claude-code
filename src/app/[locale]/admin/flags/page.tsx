@@ -15,7 +15,7 @@ import { HOST_REPORT_FLAG_MIN } from "@/lib/admin/flags";
 import { enumParam, pageParam } from "@/lib/admin/params";
 import { FLAG_STATES, FLAG_VIEWS, FLAGS_PAGE_SIZE, listFlags, type FlagState, type FlagView } from "@/lib/admin/server/flags";
 import { requireStaff } from "@/lib/auth/session";
-import { formatDate, formatDateRange, formatMoney, formatNumber, formatTime } from "@/lib/format";
+import { formatDate, formatDateRange, formatMoney, formatNumber, formatTime, isolate } from "@/lib/format";
 import { FlagReviewButton } from "./_components/flag-review-button";
 
 const STATUS_TONE: Record<BookingStatus, PillTone> = {
@@ -54,7 +54,7 @@ function hrefFor(view: FlagView, state: FlagState): string {
 export default async function FlagsPage({ params, searchParams }: Props) {
   const { locale } = await params;
   setRequestLocale(locale);
-  await requireStaff("moderation");
+  const staff = await requireStaff("moderation");
   const query = await searchParams;
   const view = enumParam(query, "view", FLAG_VIEWS, "cancellations");
   const state = enumParam(query, "state", FLAG_STATES, "open");
@@ -93,8 +93,8 @@ export default async function FlagsPage({ params, searchParams }: Props) {
             aria-current={key === state ? "page" : undefined}
             className={
               key === state
-                ? "rounded-full bg-foreground px-3 py-1 font-medium text-background"
-                : "rounded-full border px-3 py-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                ? "inline-flex min-h-11 items-center rounded-full bg-foreground px-3 py-1 font-medium text-background sm:min-h-0"
+                : "inline-flex min-h-11 items-center rounded-full border px-3 py-1 text-muted-foreground hover:bg-muted hover:text-foreground sm:min-h-0"
             }
           >
             {t(`states.${key}`)}
@@ -127,11 +127,13 @@ export default async function FlagsPage({ params, searchParams }: Props) {
                 {host.reviewedAt ? <> · {t("lastReviewed", { when: when(host.reviewedAt) })}</> : null}
               </p>
               <div className="flex flex-wrap items-center gap-2">
-                {state === "open" ? <FlagReviewButton target={{ userId: host.id }} label={host.name} /> : null}
-                <Link href={`/admin/users/${host.id}#reports`} className="inline-flex h-8 items-center rounded-md px-2 text-sm font-medium text-primary hover:underline">
+                {state === "open" && host.id !== staff.id ? (
+                  <FlagReviewButton target={{ userId: host.id, seenLatest: host.latestReportAt.toISOString() }} label={host.name} />
+                ) : null}
+                <Link href={`/admin/users/${host.id}#reports`} className="inline-flex h-8 min-h-11 items-center rounded-md px-2 text-sm font-medium text-primary hover:underline sm:min-h-0">
                   {t("openReports")}
                 </Link>
-                <Link href={`/admin/users/${host.id}#actions`} className="inline-flex h-8 items-center rounded-md px-2 text-sm font-medium text-primary hover:underline">
+                <Link href={`/admin/users/${host.id}#actions`} className="inline-flex h-8 min-h-11 items-center rounded-md px-2 text-sm font-medium text-primary hover:underline sm:min-h-0">
                   {t("hostActions")}
                 </Link>
               </div>
@@ -195,15 +197,15 @@ export default async function FlagsPage({ params, searchParams }: Props) {
                 {row.noShowReportedAt ? <p className="text-sm">{t("noShowAt", { when: when(row.noShowReportedAt) })}</p> : null}
                 <div className="flex flex-wrap items-center gap-2">
                   {row.flagReviewedAt ? (
-                    <span className="text-xs text-muted-foreground">{t("reviewedBy", { name: row.reviewedBy ?? "—", when: when(row.flagReviewedAt) })}</span>
-                  ) : (
+                    <span className="text-xs text-muted-foreground">{t("reviewedBy", { name: isolate(row.reviewedBy ?? "—"), when: when(row.flagReviewedAt) })}</span>
+                  ) : row.host.id === staff.id || row.guest.id === staff.id ? null : (
                     <FlagReviewButton target={{ bookingId: row.id }} label={row.code} />
                   )}
-                  <Link href={`/admin/bookings/${row.id}`} className="inline-flex h-8 items-center rounded-md px-2 text-sm font-medium text-primary hover:underline">
+                  <Link href={`/admin/bookings/${row.id}`} className="inline-flex h-8 min-h-11 items-center rounded-md px-2 text-sm font-medium text-primary hover:underline sm:min-h-0">
                     {t("openBooking")}
                   </Link>
                   {row.kind === "host_cancellation" ? (
-                    <Link href={`/admin/users/${row.host.id}#actions`} className="inline-flex h-8 items-center rounded-md px-2 text-sm font-medium text-primary hover:underline">
+                    <Link href={`/admin/users/${row.host.id}#actions`} className="inline-flex h-8 min-h-11 items-center rounded-md px-2 text-sm font-medium text-primary hover:underline sm:min-h-0">
                       {t("hostActions")}
                     </Link>
                   ) : null}

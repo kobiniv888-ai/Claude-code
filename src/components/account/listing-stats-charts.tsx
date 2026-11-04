@@ -171,23 +171,26 @@ function ChannelChart({ stats }: { stats: ListingStats }) {
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <table className="sr-only">
-            <caption>{t("channels.title")}</caption>
-            <thead>
-              <tr>
-                <th scope="col">{t("channels.channel")}</th>
-                <th scope="col">{t("metrics.contacts")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.channel}>
-                  <th scope="row">{row.name}</th>
-                  <td>{formatNumber(row.count, locale)}</td>
+          {/* sr-only on a wrapper: a table ignores the 1px width and would widen the page (long Georgian caption). */}
+          <div className="sr-only">
+            <table>
+              <caption>{t("channels.title")}</caption>
+              <thead>
+                <tr>
+                  <th scope="col">{t("channels.channel")}</th>
+                  <th scope="col">{t("metrics.contacts")}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row.channel}>
+                    <th scope="row">{row.name}</th>
+                    <td>{formatNumber(row.count, locale)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </>
       )}
     </section>

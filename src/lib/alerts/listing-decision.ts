@@ -6,13 +6,15 @@ import { notificationEmailFor, sendEmail, type EmailData, type EmailTemplate } f
 import { alertEnvironment, hostAlertTarget, loadAlertHost, localeOfUser } from "./host";
 import { fallbackChannels, planListingDecision, type DecisionChannel } from "./listing-decision-rules";
 import { pushToUser } from "./push";
-import { currentFailure, hostAlertChannels, parseAlertPrefs } from "./rules";
+import { currentFailure, emailChannelStatus, emailDeliveryAccepted, hostAlertChannels, parseAlertPrefs } from "./rules";
 import { sendTelegramMessage } from "./telegram";
 
 /**
  * Tells a host about a staff decision on their listing (the rules: ./listing-decision-rules.ts):
  * the decision email, and when email is not available or fails, Telegram and app/browser
- * notifications. Demo hosts' emails stay in the outbox. Never throws; returns what went out.
+ * notifications. Demo hosts' emails stay in the outbox. An email only logged because Resend
+ * isn't set up doesn't count as delivered (the other channels are tried). Never throws; returns
+ * what went out.
  */
 
 export type ListingDecisionKind = "approved" | "needs_changes" | "rejected";
@@ -32,16 +34,18 @@ export async function notifyListingDecision<K extends EmailTemplate>(input: {
     const host = await loadAlertHost(input.ownerId);
     if (!host) return result;
     const target = hostAlertTarget(host);
+    const env = alertEnvironment();
     const to = notificationEmailFor(host);
     const plan = planListingDecision({
       email: to,
       emailFailing: !!currentFailure(parseAlertPrefs(host.notificationPrefs), "email", target),
-      channels: hostAlertChannels(target, alertEnvironment()),
+      channels: hostAlertChannels(target, env),
     });
 
     if (plan.email && to) {
+      // Always sent (a logged email stays in the outbox, to be sent again once Resend is set up).
       const sent = await sendEmail({ to, template: input.email.template, locale: host.locale, data: input.email.data, outboxOnly: host.isDemo });
-      result.email = sent.ok;
+      result.email = sent.ok && emailDeliveryAccepted(sent.delivery, emailChannelStatus(target, env).transport);
     }
     const channels = fallbackChannels(plan, result.email);
     if (channels.length === 0) return result;

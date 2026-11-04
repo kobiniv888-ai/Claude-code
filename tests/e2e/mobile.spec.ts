@@ -160,7 +160,8 @@ test("the listing's sticky-bar … opens its menu at the first tap (the menu cod
   await page.goto("/en/listing/105");
   await settle(page);
   const bar = page.locator("[data-sticky-bar]");
-  const more = bar.getByRole("button", { name: "More ways to contact" });
+  // "More options": besides the other ways to contact, the menu holds "Report the host".
+  const more = bar.getByRole("button", { name: "More options" });
   await whenHydrated(more);
   // A plain button until the first tap: the Radix dropdown is not part of the page's first load.
   await expect(bar.locator("[data-slot=dropdown-menu-trigger]")).toHaveCount(0);

@@ -19,54 +19,73 @@ vi.mock("next-intl/server", () => ({
 }));
 
 // ─── Mocks for the daily summary and the decision alerts ───────────────
-const claims = new Set<string>();
+/** The RateLimit claim rows: key → { count (0 pending, 1 sent), resetAt }. */
+const claims = new Map<string, { count: number; resetAt: Date }>();
+const sentAudits: { details: { day: string } }[] = [];
 const db = {
   rateLimit: {
-    createMany: vi.fn(async ({ data }: { data: { key: string }[] }) => {
-      const key = data[0].key;
-      if (claims.has(key)) return { count: 0 };
-      claims.add(key);
+    createMany: vi.fn(async ({ data }: { data: { key: string; count: number; resetAt: Date }[] }) => {
+      const row = data[0];
+      if (claims.has(row.key)) return { count: 0 };
+      claims.set(row.key, { count: row.count, resetAt: row.resetAt });
+      return { count: 1 };
+    }),
+    updateMany: vi.fn(async ({ where, data }: { where: { key: string; count?: number; resetAt?: { lt: Date } }; data: { count?: number; resetAt?: Date } }) => {
+      const row = claims.get(where.key);
+      if (!row) return { count: 0 };
+      if (where.count !== undefined && row.count !== where.count) return { count: 0 };
+      if (where.resetAt && !(row.resetAt < where.resetAt.lt)) return { count: 0 };
+      claims.set(where.key, { ...row, ...data });
       return { count: 1 };
     }),
     deleteMany: vi.fn(async ({ where }: { where: { key: string } }) => {
       claims.delete(where.key);
       return { count: 1 };
     }),
-    findFirst: vi.fn(async ({ where }: { where: { key: { lt: string } } }) => {
-      const before = [...claims].filter((k) => k < where.key.lt).sort();
+    findFirst: vi.fn(async ({ where }: { where: { key: { lt: string }; count?: { gte: number } } }) => {
+      const before = [...claims.entries()]
+        .filter(([k, row]) => k < where.key.lt && (!where.count || row.count >= where.count.gte))
+        .map(([k]) => k)
+        .sort();
       return before.length ? { key: before.at(-1)! } : null;
     }),
   },
   booking: { count: vi.fn(async () => 1) },
   report: { count: vi.fn(async () => 0) },
-  auditLog: { count: vi.fn(async () => 0) },
+  auditLog: { count: vi.fn(async () => 0), findMany: vi.fn(async () => [...sentAudits].reverse()) },
 };
 vi.mock("@/lib/db", () => ({ db }));
-const audit = vi.fn(async () => undefined);
+const audit = vi.fn(async (entry: { action: string; details?: { day?: string } }) => {
+  if (entry.action === "summary.daily_sent" && entry.details?.day) sentAudits.push({ details: { day: entry.details.day } });
+});
 vi.mock("@/lib/audit", () => ({ audit }));
+const loadAttentionCounts = vi.fn(async () => ({
+  failed: [] as string[],
+  turnedAwayReports: 1,
+  inReview: 2,
+  otherReports: 0,
+  flagCancellations: 0,
+  flagHosts: 0,
+  flagNoShows: 0,
+  hostUnreachable: 0,
+  failedEmails: 0,
+  outboxWaiting: 3,
+}));
 vi.mock("@/lib/admin/server/attention", () => ({
   HOST_UNREACHABLE_ACTION: "booking.host_unreachable",
-  loadAttentionCounts: vi.fn(async () => ({
-    turnedAwayReports: 1,
-    inReview: 2,
-    otherReports: 0,
-    flagCancellations: 0,
-    flagHosts: 0,
-    flagNoShows: 0,
-    hostUnreachable: 0,
-    failedEmails: 0,
-    outboxWaiting: 3,
-  })),
+  loadAttentionCounts,
 }));
 const sendFounderEmail = vi.fn<(template: string, data: unknown) => Promise<boolean>>(async () => true);
 vi.mock("./founder-admin", () => ({ sendFounderEmail }));
 
 type Host = { id: string; email: string | null; locale: string; isDemo: boolean; notificationPrefs: unknown; telegramChatId: string | null; pushDevices: number };
 let host: Host | null = null;
+const fullEnv = { resend: true, outboxCounts: false, telegram: true, push: true };
+let env = { ...fullEnv };
 vi.mock("./host", () => ({
   loadAlertHost: async () => host,
   hostAlertTarget: (h: Host) => ({ email: h.email, isDemo: h.isDemo, prefs: h.notificationPrefs, telegramChatId: h.telegramChatId, pushDevices: h.pushDevices }),
-  alertEnvironment: () => ({ resend: true, outboxCounts: false, telegram: true, push: true }),
+  alertEnvironment: () => env,
   localeOfUser: (h: Host) => h.locale,
 }));
 const sendEmail = vi.fn<(input: unknown) => Promise<{ ok: boolean; delivery: string }>>(async () => ({ ok: true, delivery: "sent" }));
@@ -77,7 +96,7 @@ const sendTelegramMessage = vi.fn<(chatId: string, text: string) => Promise<{ ok
 vi.mock("./telegram", () => ({ sendTelegramMessage }));
 
 const { addDays, daysBetween, summaryDue, summaryMoment, summaryPeriod, zonedClock, zonedDayStart, SUMMARY_LAST_HOUR } = await import("./summary-schedule");
-const { isIsraelRestTime, runDailySummary } = await import("./daily-summary");
+const { isIsraelRestTime, runDailySummary, SEND_TIMEOUT_MS } = await import("./daily-summary");
 const { fallbackChannels, planListingDecision } = await import("./listing-decision-rules");
 const { notifyListingDecision } = await import("./listing-decision");
 const { adminEmailBuilders } = await import("./founder-email-templates");
@@ -86,8 +105,10 @@ const notRest = () => false;
 
 beforeEach(() => {
   claims.clear();
+  sentAudits.length = 0;
   vi.clearAllMocks();
   host = null;
+  env = { ...fullEnv };
 });
 
 describe("daily summary schedule (08:00 Israel time)", () => {
@@ -138,9 +159,34 @@ describe("daily summary schedule (08:00 Israel time)", () => {
 
   it("starts from the previous summary that went out, when known", () => {
     expect(summaryPeriod("2026-11-05", notRest, "2026-11-02")).toMatchObject({ fromDay: "2026-11-02", toDay: "2026-11-04" });
-    // Too old or not before today: the normal walk back.
-    expect(summaryPeriod("2026-11-20", notRest, "2026-11-02")).toMatchObject({ fromDay: "2026-11-19" });
+    // Older than a week: the last 7 days (no cliff between 7 and 8 missed days).
+    expect(summaryPeriod("2026-11-20", notRest, "2026-11-13")).toMatchObject({ fromDay: "2026-11-13", toDay: "2026-11-19" });
+    expect(summaryPeriod("2026-11-20", notRest, "2026-11-12")).toMatchObject({ fromDay: "2026-11-13", toDay: "2026-11-19" });
+    expect(summaryPeriod("2026-11-20", notRest, "2026-11-02")).toMatchObject({ fromDay: "2026-11-13", toDay: "2026-11-19" });
+    // Not before today: the normal walk back.
     expect(summaryPeriod("2026-11-05", notRest, "2026-11-05")).toMatchObject({ fromDay: "2026-11-04" });
+  });
+});
+
+describe("the daily summary's cron schedule (vercel.json)", () => {
+  const schedule = (): { minute: number; hours: number[] } => {
+    const config = JSON.parse(fs.readFileSync(path.join(process.cwd(), "vercel.json"), "utf8")) as { crons: { path: string; schedule: string }[] };
+    const cron = config.crons.find((c) => c.path === "/api/cron/daily-summary");
+    if (!cron) throw new Error("no daily-summary cron");
+    const [minute, hour] = cron.schedule.split(" ");
+    const hours = hour.split(",").flatMap((part) => {
+      const [a, b] = part.split("-").map(Number);
+      return b === undefined ? [a] : Array.from({ length: b - a + 1 }, (_, i) => a + i);
+    });
+    return { minute: Number(minute), hours };
+  };
+
+  it("has at least two runs inside the sending window in winter and in summer (a failed send is retried)", () => {
+    const { minute, hours } = schedule();
+    for (const day of ["2026-12-09", "2026-06-10"]) {
+      const sending = hours.filter((h) => summaryDue(new Date(`${day}T${String(h).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00Z`), notRest).send);
+      expect(sending.length, day).toBeGreaterThanOrEqual(2);
+    }
   });
 });
 
@@ -170,6 +216,54 @@ describe("runDailySummary", () => {
   it("releases the day when nothing could be sent, so the next run tries again", async () => {
     sendFounderEmail.mockResolvedValueOnce(false);
     expect((await runDailySummary(new Date("2026-11-04T06:03:00Z"), notRest)).status).toBe("failed");
+    expect(claims.size).toBe(0);
+    expect((await runDailySummary(new Date("2026-11-04T07:03:00Z"), notRest)).status).toBe("sent");
+  });
+
+  it("a run killed while sending leaves a pending claim: a run 6 minutes later takes it over and sends", async () => {
+    // The killed run: claimed 2026-11-04 at 06:03, never marked it sent, never audited.
+    const killedAt = new Date("2026-11-04T06:03:00Z");
+    claims.set("founder-summary:2026-11-04", { count: 0, resetAt: new Date(killedAt.getTime() + 8 * 86_400_000) });
+    // Two minutes later it may still be running: nothing is sent twice.
+    expect((await runDailySummary(new Date("2026-11-04T06:05:00Z"), notRest)).status).toBe("already_sent");
+    const later = await runDailySummary(new Date("2026-11-04T06:09:00Z"), notRest);
+    expect(later.status).toBe("sent");
+    expect(sendFounderEmail).toHaveBeenCalledTimes(1);
+    expect(claims.get("founder-summary:2026-11-04")?.count).toBe(1);
+  });
+
+  it("the next summary starts at the last day a summary really went out", async () => {
+    await runDailySummary(new Date("2026-11-02T06:03:00Z"), notRest);
+    // 2026-11-03: claimed, then killed (pending, never sent).
+    claims.set("founder-summary:2026-11-03", { count: 0, resetAt: new Date("2026-11-11T06:03:00Z") });
+    const result = await runDailySummary(new Date("2026-11-04T06:03:00Z"), notRest);
+    expect(result).toEqual({ status: "sent", day: "2026-11-04", fromDay: "2026-11-02", toDay: "2026-11-03" });
+  });
+
+  it("once the claims are pruned, the audit entry of the last summary sent is the start", async () => {
+    sentAudits.push({ details: { day: "2026-10-30" } });
+    const result = await runDailySummary(new Date("2026-11-04T06:03:00Z"), notRest);
+    expect(result).toEqual({ status: "sent", day: "2026-11-04", fromDay: "2026-10-30", toDay: "2026-11-03" });
+  });
+
+  it("an email that hangs is given up after the timeout and the day released", async () => {
+    vi.useFakeTimers();
+    try {
+      sendFounderEmail.mockImplementationOnce(() => new Promise<boolean>(() => undefined));
+      const run = runDailySummary(new Date("2026-11-04T06:03:00Z"), notRest);
+      await vi.advanceTimersByTimeAsync(SEND_TIMEOUT_MS + 1);
+      expect((await run).status).toBe("failed");
+      expect(claims.size).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a waiting count that failed would read 'nothing waiting': no summary now, the day stays open", async () => {
+    loadAttentionCounts.mockResolvedValueOnce({ ...(await loadAttentionCounts()), failed: ["turnedAwayReports"] });
+    loadAttentionCounts.mockClear();
+    expect((await runDailySummary(new Date("2026-11-04T06:03:00Z"), notRest)).status).toBe("failed");
+    expect(sendFounderEmail).not.toHaveBeenCalled();
     expect(claims.size).toBe(0);
     expect((await runDailySummary(new Date("2026-11-04T07:03:00Z"), notRest)).status).toBe("sent");
   });
@@ -278,6 +372,37 @@ describe("how a host hears about a decision on their listing", () => {
       email: { template: "listing_rejected", data: { ownerName: "Yossi", listingTitle: "Flat", reasonText: "x" } },
     });
     expect(result).toEqual({ email: false, telegram: false, push: true });
+  });
+
+  it("an email only logged (Resend not set up) is no delivery: Telegram and notifications are tried", async () => {
+    env = { resend: false, outboxCounts: false, telegram: true, push: true };
+    host = { id: "h5", email: "host@example.com", locale: "he", isDemo: false, notificationPrefs: {}, telegramChatId: "42", pushDevices: 1 };
+    sendEmail.mockResolvedValueOnce({ ok: true, delivery: "logged" });
+    const result = await notifyListingDecision({
+      ownerId: "h5",
+      kind: "approved",
+      listingTitle: "Flat",
+      path: "/listing/1234-flat",
+      email: { template: "listing_approved", data: { ownerName: "Yossi", listingTitle: "Flat", listingUrl: "/listing/1234-flat" } },
+    });
+    // The email is still written to the outbox (to send again later).
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ email: false, telegram: true, push: true });
+  });
+
+  it("a demo host's logged email counts (the outbox is their channel): no fallback", async () => {
+    env = { resend: false, outboxCounts: false, telegram: true, push: true };
+    host = { id: "h6", email: "demo@example.com", locale: "he", isDemo: true, notificationPrefs: {}, telegramChatId: "42", pushDevices: 1 };
+    sendEmail.mockResolvedValueOnce({ ok: true, delivery: "logged" });
+    const result = await notifyListingDecision({
+      ownerId: "h6",
+      kind: "approved",
+      listingTitle: "Flat",
+      path: "/listing/1-flat",
+      email: { template: "listing_approved", data: { ownerName: "Demo", listingTitle: "Flat", listingUrl: "/listing/1-flat" } },
+    });
+    expect(result).toEqual({ email: true, telegram: false, push: false });
+    expect(sendTelegramMessage).not.toHaveBeenCalled();
   });
 
   it("keeps a demo host's email in the outbox", async () => {

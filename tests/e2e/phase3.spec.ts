@@ -4,7 +4,7 @@ import { expect, openAs, settle, test } from "./fixtures";
 import { loginByEmail } from "./helpers/auth";
 import { createReport, createTestListing, createTestUser, listingByPublicId, newId, sql, TEST_EMAIL_DOMAIN } from "./helpers/db";
 import { makePhotos } from "./helpers/photos";
-import { TEST_ADMIN_PHONE } from "./helpers/staff";
+import { createTestStaff, TEST_ADMIN_PHONE, verifyTwoFactor } from "./helpers/staff";
 
 /**
  * Round 3, phase 3 together, in production mode: the admin panel (brief 9), turned-away reports
@@ -180,8 +180,8 @@ async function createCancelledBooking(opts: { listingId: string; guest: TestUser
 }
 
 const dayBefore = (day: string) => new Date(Date.parse(`${day}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
-const longDate = (day: string) =>
-  new Intl.DateTimeFormat("en-u-nu-latn", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${day}T00:00:00Z`));
+const longDate = (day: string, locale = "en") =>
+  new Intl.DateTimeFormat(`${locale}-u-nu-latn`, { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${day}T00:00:00Z`));
 
 test.describe("turned-away report from a cancelled booking (brief 8.2, test 13.3)", () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, locale: "he-IL" });
@@ -204,11 +204,20 @@ test.describe("turned-away report from a cancelled booking (brief 8.2, test 13.3
     const sheet = page.getByRole("dialog", { name: "דיווח על המארח" });
     await expect(sheet).toBeVisible();
     await expect(sheet).toContainText(booking.code);
-    // The date starts on the day the host cancelled; the guest picks the day it really happened.
-    const when = sheet.getByLabel("מתי זה קרה?");
-    await expect(when).toHaveValue(booking.cancelledDay);
+    // The date starts on the day the host cancelled (in Hebrew, never a device-formatted
+    // "11/03/2026"); the guest picks the day it really happened from the site's calendar.
+    const when = sheet.getByRole("button", { name: /^מתי זה קרה\?/ });
+    await expect(when).toHaveText(longDate(booking.cancelledDay, "he"));
     await sheet.getByRole("radio", { name: "המארח ביטל בגלל מי שאני" }).click();
-    await when.fill(happened);
+    await when.click();
+    const calendar = sheet.getByRole("grid");
+    await expect(calendar).toBeVisible();
+    const day = sheet.locator(`button[data-day="${happened}"]`);
+    // The day before the 1st is in the previous month (not always shown as an outside day).
+    if ((await day.count()) === 0) await sheet.locator(".rdp-button_previous, button[class*='button_previous']").first().click();
+    await day.first().click();
+    await expect(calendar).toBeHidden();
+    await expect(when).toHaveText(longDate(happened, "he"));
     await sheet.getByRole("textbox", { name: /במילים שלכם/ }).fill(details);
     const [shot] = await makePhotos(1);
     await sheet.locator('input[type="file"]').setInputFiles({ name: "chat.jpg", mimeType: shot.mimeType, buffer: shot.buffer });
@@ -288,7 +297,7 @@ test.describe("admin home “דורש טיפול” (brief 9)", () => {
     const [row] = await sql<{ inReview: number; turnedAway: number; other: number }>(
       `SELECT (SELECT count(*) FROM "Listing" WHERE status = 'IN_REVIEW')::int AS "inReview",
               (SELECT count(*) FROM "Report" WHERE status = 'OPEN' AND kind = 'TURNED_AWAY')::int AS "turnedAway",
-              (SELECT count(*) FROM "Report" WHERE status = 'OPEN' AND kind <> 'TURNED_AWAY')::int AS other`,
+              (SELECT count(*) FROM "Report" WHERE status = 'OPEN' AND kind = 'GENERAL' AND "targetType" IN ('LISTING', 'USER', 'MESSAGE'))::int AS other`,
     );
     return row;
   }
@@ -324,7 +333,8 @@ test.describe("admin home “דורש טיפול” (brief 9)", () => {
           const shown = {
             inReview: await shownCount(page, "/en/admin/moderation"),
             turnedAway: await shownCount(page, "/en/admin/reports?tab=turnedAway"),
-            other: await shownCount(page, "/en/admin/reports"),
+            // The "listings and profiles" tab, counted with that tab's filter.
+            other: await shownCount(page, "/en/admin/reports?tab=listings"),
           };
           const expected = await waitingInDatabase();
           return JSON.stringify(shown) === JSON.stringify(expected) ? "match" : `page ${JSON.stringify(shown)} · database ${JSON.stringify(expected)}`;
@@ -440,6 +450,77 @@ test.describe("“ביקרנו במקום” badge (brief 8.3)", () => {
     expect(admin.consoleErrors).toEqual([]);
     await admin.context.close();
     await visitor.context.close();
+  });
+});
+
+test.describe("who decides (phase 3 security check)", () => {
+  test("a moderator never sees “tell the host who reported”, and decides nothing about a report about them or their own listing", async ({ browser }) => {
+    test.slow();
+    const host = await createHost("E2E Phase3 Rami");
+    const listing = await createTestListing({ ownerId: host.id, title: `E2E Turned away stay ${stamp()}` });
+    const guest = await createTestUser({ name: "E2E Dana Guest" });
+    await sql(`UPDATE "User" SET "firstName" = 'Dana' WHERE id = $1`, [guest.id]);
+    const booking = await createCancelledBooking({ listingId: listing.id, guest, hostId: host.id });
+    // A moderator with real 2-step login (its own authenticator secret), who is also a host.
+    const moderator = await createTestStaff({ role: "MODERATOR", name: "E2E Moderator Lea" });
+    const ownLive = await createTestListing({ ownerId: moderator.id, title: `E2E Moderator's own stay ${stamp()}` });
+    const ownInReview = await createTestListing({ ownerId: moderator.id, title: `E2E Moderator's waiting stay ${stamp()}`, status: "IN_REVIEW" });
+
+    // A turned-away report about the test host (as the form saves it) and a listing report about
+    // the moderator's own listing.
+    const turnedAwayId = newId();
+    await sql(
+      `INSERT INTO "Report" (id, kind, "targetType", "targetUserId", "listingId", "bookingId", "reporterId", reason, details, "happenedOn", priority)
+       VALUES ($1, 'TURNED_AWAY', 'USER', $2, $3, $4, $5, 'CANCELLED_FOR_IDENTITY', $6, current_date - 1, 'URGENT')`,
+      [turnedAwayId, host.id, listing.id, booking.id, guest.id, `E2E turned away ${stamp()}`],
+    );
+    const aboutModeratorId = await createReport({ listingId: ownLive.id, reporterId: guest.id, details: `E2E about the moderator ${stamp()}` });
+
+    const mod = await openAs(browser, null);
+    await loginByEmail(mod.page, moderator.email);
+    await verifyTwoFactor(mod.page, `/en/admin/reports/${turnedAwayId}`, moderator.phone);
+    const main = mod.page.getByRole("main");
+    await expect(main.getByRole("heading", { level: 1, name: "Host cancelled because of who the guest is" })).toBeVisible();
+    // The moderator decides the report (warn, dismiss…) but never names the guest to the host.
+    await expect(main.getByRole("button", { name: "Warn the host" })).toBeVisible();
+    await expect(main.getByRole("button", { name: "Dismiss" })).toBeVisible();
+    await expect(main.getByRole("button", { name: "Tell the host who reported" })).toHaveCount(0);
+    await expect(main.getByText("Only an administrator can tell the host who reported.")).toBeVisible();
+    // …and the report's note doesn't tell them it is their decision.
+    await expect(main.getByText("The host doesn't know who reported. Only an administrator can decide to tell them.")).toBeVisible();
+    await expect(main.getByText("Only you can decide to tell them.", { exact: false })).toHaveCount(0);
+
+    // A report about their own listing: someone else decides it.
+    await mod.page.goto(`/en/admin/reports/${aboutModeratorId}`);
+    await expect(main.getByText("This report is about you, or you sent it, so someone else on the team decides it.")).toBeVisible();
+    for (const name of ["Resolve", "Dismiss", "Hide listing", "Warn the host"]) {
+      await expect(main.getByRole("button", { name, exact: true }), name).toHaveCount(0);
+    }
+    // Their own listing waiting for review: no approve / reject.
+    await mod.page.goto(`/en/admin/moderation/${ownInReview.id}`);
+    await expect(main.getByText("This is your own listing, so someone else on the team decides it.")).toBeVisible();
+    await expect(main.getByRole("button", { name: "Approve", exact: true })).toHaveCount(0);
+    await expect(main.getByRole("button", { name: "Reject", exact: true })).toHaveCount(0);
+    expect(mod.consoleErrors).toEqual([]);
+    await mod.context.close();
+
+    // The admin (the founder) sees the reveal step, and may decide about the moderator's listing.
+    const admin = await openAs(browser, TEST_ADMIN_PHONE);
+    await admin.page.goto(`/en/admin/reports/${turnedAwayId}`);
+    await expect(admin.page.getByRole("main").getByRole("button", { name: "Tell the host who reported" })).toBeVisible();
+    await expect(admin.page.getByText("Only an administrator can tell the host who reported.")).toHaveCount(0);
+    await admin.page.goto(`/en/admin/moderation/${ownInReview.id}`);
+    await expect(admin.page.getByRole("main").getByRole("button", { name: "Approve", exact: true })).toBeVisible();
+    expect(admin.consoleErrors).toEqual([]);
+    await admin.context.close();
+
+    // Nothing was decided: no report changed, the listing still waits.
+    const decided = await sql(`SELECT 1 FROM "Report" WHERE id = ANY($1) AND (status <> 'OPEN' OR "reporterRevealedAt" IS NOT NULL)`, [[turnedAwayId, aboutModeratorId]]);
+    expect(decided).toHaveLength(0);
+    expect((await listingByPublicId(ownInReview.publicId)).status).toBe("IN_REVIEW");
+    // Out of the shared queues for the rest of the run (the teardown deletes the rows).
+    await sql(`UPDATE "Report" SET status = 'DISMISSED' WHERE id = ANY($1)`, [[turnedAwayId, aboutModeratorId]]);
+    await sql(`UPDATE "Listing" SET status = 'DRAFT' WHERE id = $1`, [ownInReview.id]);
   });
 });
 

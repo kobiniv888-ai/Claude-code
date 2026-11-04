@@ -57,6 +57,7 @@
       "OTHER": "Something else"
     },
     "whenLabel": "When did it happen?",
+    "pickDate": "Choose a date",
     "detailsOptional": "What happened, in your words (optional)",
     "detailsRequired": "What happened, in your words",
     "detailsPlaceholder": "What did the host write or say? Every detail helps us check.",

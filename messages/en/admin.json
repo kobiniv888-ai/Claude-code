@@ -169,7 +169,10 @@
     "cannot_resend": "This email can't be sent again.",
     "visited_demo": "Demo listings can't get the “We visited” badge.",
     "visit_date_future": "The visit date can't be in the future.",
-    "visit_date_too_old": "The visit date is too far back. Check the year."
+    "visit_date_too_old": "The visit date is too far back. Check the year.",
+    "no_channel": "The host has no email address we can write to, so they can't be told. Nothing was saved.",
+    "content_changed": "The listing changed since this page was opened, or the automatic checks found something new. The page was refreshed — check again before deciding.",
+    "changed_since_view": "A new report arrived since this page was opened. The page was refreshed — look at it, then mark reviewed."
   },
   "errorPage": {
     "title": "This admin page couldn't load",
@@ -324,7 +327,8 @@
         "failedEmails": "In the last {days} days. The error is shown in the outbox.",
         "outboxWaitingResend": "Kept before the email service was connected. You can send them now from the outbox.",
         "outboxWaitingNoResend": "The email service (Resend) is not connected yet, so emails are only kept here."
-      }
+      },
+      "partial": "We couldn't count everything that is waiting, so something may be missing here. Reload the page in a moment."
     }
   },
   "audit": {
@@ -408,7 +412,53 @@
       "summary_daily_sent": "Daily summary sent",
       "verification_document_view": "Verification document opened",
       "listing_visited_set": "“We visited” badge set",
-      "listing_visited_clear": "“We visited” badge removed"
+      "listing_visited_clear": "“We visited” badge removed",
+      "alerts_email_paused": "Host's email alerts paused",
+      "alerts_email_resumed": "Host's email alerts resumed",
+      "alerts_telegram_paused": "Host's Telegram alerts paused",
+      "alerts_telegram_resumed": "Host's Telegram alerts resumed",
+      "alerts_telegram_connected": "Host connected Telegram",
+      "alerts_telegram_disconnected": "Host disconnected Telegram",
+      "article_create": "Article added",
+      "article_update": "Article updated",
+      "article_publish": "Article published",
+      "article_unpublish": "Article unpublished",
+      "article_delete": "Article deleted",
+      "auth_logout_all_devices": "Signed out on all devices",
+      "banned_word_create": "Banned word added",
+      "banned_word_update": "Banned word updated",
+      "banned_word_bulk_create": "Banned words added in bulk",
+      "banned_word_delete": "Banned word deleted",
+      "city_create": "City added",
+      "city_update": "City updated",
+      "city_delete": "City deleted",
+      "city_photo_upload": "City photo uploaded",
+      "demo_remove": "Demo data removed",
+      "email_bounced": "Email bounced",
+      "email_complained": "Recipient marked an email as spam",
+      "faq_create": "FAQ added",
+      "faq_update": "FAQ updated",
+      "faq_delete": "FAQ deleted",
+      "faq_reorder": "FAQ order changed",
+      "listing_feature": "Listing featured",
+      "listing_unfeature": "Listing no longer featured",
+      "listing_unfeature_ended": "Listing's featured period ended",
+      "maintenance_backup": "Backup made",
+      "maintenance_cleanup": "Clean-up run",
+      "neighborhood_create": "Neighborhood added",
+      "neighborhood_update": "Neighborhood updated",
+      "neighborhood_delete": "Neighborhood deleted",
+      "place_create": "Jewish place added",
+      "place_update": "Jewish place updated",
+      "place_delete": "Jewish place deleted",
+      "saved_reply_create": "Saved reply added",
+      "saved_reply_update": "Saved reply updated",
+      "saved_reply_delete": "Saved reply deleted",
+      "scam_alert_create": "Scam alert added",
+      "scam_alert_update": "Scam alert updated",
+      "scam_alert_delete": "Scam alert deleted",
+      "translation_override": "Translation edited by hand",
+      "translation_reset": "Translation reset to automatic"
     }
   },
   "moderation": {
@@ -586,7 +636,9 @@
       "rejectTitle": "Reject this listing?",
       "rejectDescription": "The listing can't be published. The owner gets the reason by email.",
       "rejectConfirm": "Reject listing",
-      "rejected": "The listing was rejected."
+      "rejected": "The listing was rejected.",
+      "ownListing": "This is your own listing, so someone else on the team decides it.",
+      "restoredToReview": "The listing changed while it was hidden and the checks found something, so it went to review instead of back online."
     },
     "gate": {
       "label": "Why this listing waits",
@@ -615,7 +667,8 @@
         "info": "For information",
         "unchecked": "Not checked yet"
       },
-      "footnote": "Next, the host's mistake check will be added here too: what is missing, inconsistent or unclear."
+      "footnote": "Next, the host's mistake check will be added here too: what is missing, inconsistent or unclear.",
+      "stale": "The host saved changes after the automatic checks ran, so these results may be out of date. Approving or restoring runs the checks again, and if they find something new the page updates."
     }
   },
   "reports": {
@@ -708,7 +761,9 @@
       "revealTitle": "Tell the host who reported?",
       "revealDescription": "The host gets an email with the reporter's first name: {name}. This can't be undone. Do it only when it is really needed.",
       "revealConfirm": "Tell the host",
-      "revealed": "The host was told who reported."
+      "revealed": "The host was told who reported.",
+      "ownReport": "This report is about you, or you sent it, so someone else on the team decides it.",
+      "revealAdminOnly": "Only an administrator can tell the host who reported."
     },
     "tabs": {
       "label": "Report types",
@@ -738,6 +793,7 @@
     "happenedOn": "When it happened",
     "reporterRevealed": "The host was told the reporter's first name on {date}.",
     "reporterHidden": "The host doesn't know who reported. Only you can decide to tell them.",
+    "reporterHiddenStaff": "The host doesn't know who reported. Only an administrator can decide to tell them.",
     "booking": {
       "title": "The booking",
       "open": "Open the booking",
@@ -812,7 +868,7 @@
     },
     "detailTitle": "User",
     "backToList": "Back to users",
-    "joinedOn": "Joined on {date} ({age})",
+    "joinedOn": "Joined on {date} · {age}",
     "selfHint": "This is your own account. Another staff member has to change it.",
     "statusReason": "Reason: {reason}",
     "suspendedUntil": "suspended until {date}",
@@ -928,7 +984,8 @@
       "cancellations": "{count, plural, one {1 cancellation within 48 hours waiting for review} other {{count} cancellations within 48 hours waiting for review}}",
       "noShows": "{count, plural, one {1 guest no-show (for information)} other {{count} guest no-shows (for information)}}",
       "reviewedAt": "Last reviewed on {date}",
-      "reviewRule": "While the flag is open, the host's new listings wait for review."
+      "reviewRule": "While the flag is open, the host's new listings wait for review.",
+      "sanctioned": "After a report, all their listings were hidden or they were removed: listings they bring back and new ones wait for review until marked reviewed."
     },
     "turnedAway": "Turned away",
     "kind": {

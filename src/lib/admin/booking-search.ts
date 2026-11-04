@@ -1,4 +1,5 @@
 import { normalizeBookingCode } from "@/lib/booking/code";
+import { stripInvisible } from "@/lib/phone";
 import { parseUserSearch, type UserSearchTerms } from "./search";
 
 /**
@@ -18,7 +19,8 @@ export type BookingSearchTerms = {
 };
 
 export function parseBookingSearch(input: string | null | undefined): BookingSearchTerms {
-  const query = (input ?? "").trim().slice(0, 120);
+  // A code or number pasted from RTL text often carries an invisible direction mark.
+  const query = stripInvisible(input ?? "").trim().slice(0, 120);
   return { code: query ? normalizeBookingCode(query) : null, people: parseUserSearch(query) };
 }
 

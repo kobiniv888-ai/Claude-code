@@ -15,8 +15,10 @@ import { NotFoundError } from "@/lib/errors";
 import { removeListingPhotoFiles } from "@/lib/images";
 import { computeShabbatFriendly } from "@/lib/listing/fields";
 import {
+  holdLiveListingForReview,
   prepareListingDerivedFields,
   publicMapPoint,
+  recheckLiveListingAfterEdit,
   recheckLiveListingAfterPriceChange,
   recordPriceChange,
   submitForPublication,
@@ -235,21 +237,27 @@ async function textNeedsRecheck(text: string): Promise<boolean> {
   return (await scanText(text)).hits.length > 0;
 }
 
-/** Runs the automatic checks on a live listing right away (see updateDraft); never throws. */
+/**
+ * Runs the automatic checks on a live listing right away (see updateDraft), without the
+ * publishing requirements (a cleared price must not switch the check off). Never throws, and
+ * FAILS CLOSED: when the checks can't run, the listing waits for a person.
+ */
 async function recheckLiveListing(listingId: string, ownerId: string): Promise<void> {
   try {
-    await submitForPublication(listingId, ownerId);
+    await recheckLiveListingAfterEdit(listingId, ownerId);
   } catch (error) {
-    console.error(`[wizard] re-check of live listing ${listingId} failed:`, error);
+    console.error(`[wizard] re-check of live listing ${listingId} failed, it waits for review:`, error);
+    await holdLiveListingForReview(listingId, ownerId);
   }
 }
 
-/** Re-runs the risk checks after a price change of a live listing (see updateDraft); never throws. */
+/** Re-runs the risk checks after a price change of a live listing (see updateDraft); never throws, fails closed. */
 async function recheckLivePrice(listingId: string, ownerId: string): Promise<void> {
   try {
     await recheckLiveListingAfterPriceChange(listingId, ownerId);
   } catch (error) {
-    console.error(`[wizard] price re-check of live listing ${listingId} failed:`, error);
+    console.error(`[wizard] price re-check of live listing ${listingId} failed, it waits for review:`, error);
+    await holdLiveListingForReview(listingId, ownerId);
   }
 }
 

@@ -322,6 +322,7 @@ export default async function UserDetailPage({ params }: PageProps<"/[locale]/ad
                 <li className="font-medium">{flags.flagged ? t("flags.flagged") : t("flags.notFlagged")}</li>
                 <li>{t("flags.reports", { count: flags.countingReports })}</li>
                 {flags.turnedAway > 0 ? <li className="text-destructive">{t("flags.turnedAway", { count: flags.turnedAway })}</li> : null}
+                {flags.sanctioned ? <li className="text-destructive">{t("flags.sanctioned")}</li> : null}
                 {flags.openCancellations > 0 ? <li>{t("flags.cancellations", { count: flags.openCancellations })}</li> : null}
                 {flags.openNoShows > 0 ? <li>{t("flags.noShows", { count: flags.openNoShows })}</li> : null}
                 {flags.reviewedAt ? (
@@ -329,9 +330,12 @@ export default async function UserDetailPage({ params }: PageProps<"/[locale]/ad
                 ) : null}
               </ul>
               {flags.flagged ? <p className="mt-2 text-xs text-muted-foreground">{t("flags.reviewRule")}</p> : null}
-              {canModerate && flags.reportFlagOpen && !self ? (
+              {canModerate && (flags.reportFlagOpen || flags.sanctioned) && !self ? (
                 <div className="mt-3">
-                  <FlagReviewButton target={{ userId: user.id }} label={user.businessName || user.name} />
+                  <FlagReviewButton
+                    target={{ userId: user.id, seenLatest: flags.latestReportAt ? flags.latestReportAt.toISOString() : null }}
+                    label={user.businessName || user.name}
+                  />
                 </div>
               ) : null}
             </AdminSection>

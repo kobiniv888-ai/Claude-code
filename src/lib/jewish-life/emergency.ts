@@ -3,7 +3,7 @@
  *
  * Admins store them in SiteSetting key "emergencyContacts" as a JSON array:
  *   [{ "label": { "he": "…", "en": "Embassy of Israel", "ru": "…", "ar": "…", "ka": "…" },
- *      "phone": "+995 32 255 65 00", "url": "https://…" }]
+ *      "phone": "+995 32 2XX XX XX", "url": "https://…" }]
  * Each entry needs a label and a phone number or a URL. Invalid entries are skipped.
  */
 import { z } from "zod";
