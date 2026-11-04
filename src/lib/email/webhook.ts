@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
-import type { EmailEvent } from "@/lib/booking/alert-rules";
+import type { EmailEvent } from "@/lib/alerts/rules";
 
 /**
  * Resend webhooks (sent through Svix): signature check and payload parsing. Pure (node:crypto, no

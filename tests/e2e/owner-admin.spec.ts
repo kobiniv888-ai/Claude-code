@@ -1,6 +1,7 @@
 import type { BrowserContext, Page } from "@playwright/test";
 import { expect, openAs, settle, test } from "./fixtures";
-import { DEMO, loginThroughForm } from "./helpers/auth";
+import { loginThroughForm } from "./helpers/auth";
+import { TEST_ADMIN_PHONE } from "./helpers/staff";
 import { createTestListing, freshPhone, listingByPublicId, sql, userIdByPhone } from "./helpers/db";
 import { makePhotos } from "./helpers/photos";
 
@@ -152,7 +153,7 @@ test("a new user signs up, posts a listing with photos and it goes into review",
 
 test("an admin approves the listing and it becomes public", async ({ browser }) => {
   test.skip(!posted, "needs the listing from the previous test");
-  const admin = await openAs(browser, DEMO.admin);
+  const admin = await openAs(browser, TEST_ADMIN_PHONE);
   const page = admin.page;
   await page.goto("/en/admin/moderation");
   await page.getByRole("link", { name: posted.title }).click();
@@ -185,7 +186,7 @@ test("an admin asks for changes and the owner sees the reason", async ({ browser
   const second = await createTestListing({ ownerId, title: `E2E Second flat ${Date.now().toString(36)}`, status: "IN_REVIEW" });
   const [{ title }] = await sql<{ title: string }>(`SELECT title FROM "Listing" WHERE id = $1`, [second.id]);
 
-  const admin = await openAs(browser, DEMO.admin);
+  const admin = await openAs(browser, TEST_ADMIN_PHONE);
   await admin.page.goto(`/en/admin/moderation/${second.id}`);
   await expect(admin.page.getByRole("heading", { level: 1, name: title })).toBeVisible();
   await settle(admin.page);

@@ -101,7 +101,7 @@ Emails are not sent until Resend is configured. You can read them under **Admin 
 | `npm run test:e2e` | End-to-end tests (Playwright) |
 | `npm run db:seed` | Seed or refresh demo data (safe to run again) |
 | `npm run demo:remove -- --yes` | Delete all demo data permanently |
-| `npm run admin:grant -- --email you@example.com` | Make an existing account the admin (logged; refuses demo accounts) |
+| `npm run admin:grant -- --from-env` | Make the account in `BAYIT_ADMIN_EMAIL` / `BAYIT_ADMIN_PHONE` the admin (logged; refuses demo accounts; silent while unset). `--email` / `--phone` work too |
 | `npm run db:backup` | Full database backup to `backups/<time>/` (also **Admin → Maintenance**) |
 | `RESTORE_TARGET_URL=<empty database url> npm run db:restore -- backups/<time> --create-schema` | Restore a backup into a new, empty database (refuses one with rows) |
 | `npm run cleanup -- <name> --dry-run` / `--run` | Data clean-ups (phones, title emojis, contact taps, ID files); `--run` needs a backup from the last hour |
@@ -113,12 +113,25 @@ The Playwright tests in `tests/e2e/` walk through the "Definition of done" (brie
 languages and right-to-left, guest search and WhatsApp contact, posting a listing, moderation,
 reports, tickets, scam checks, favorites, Jewish Life, help and the contact form.
 
-1. Local database with demo data (`npm run db:seed`), demo data visible, and
-   `DEV_SKIP_STAFF_2FA="true"` in `.env`. No Twilio: the tests read login codes from
-   `GET /api/dev/last-otp`.
+1. Local database with demo data (`npm run db:seed`) and demo data visible. No Twilio: the tests
+   read login codes from `GET /api/dev/last-otp`. Staff tests log in with real 2-step login: the
+   test setup creates a test admin with an authenticator secret and computes its codes (no
+   shortcut flag is needed or used).
 2. `npm run test:e2e` — starts a development server on port 3601 (build folder `.next-3601`), or
    reuses one already running there. One file: `npx playwright test tests/e2e/guest.spec.ts`.
    Report: `npx playwright show-report`; traces of failed tests are in `test-results/`.
+3. **Production mode** (what each phase is checked with): build, start the production server with
+   login test mode on, and point the tests at it:
+
+   ```
+   NEXT_DIST_DIR=.next-4615 NEXT_PUBLIC_SITE_URL=http://localhost:4615 BETTER_AUTH_URL=http://localhost:4615 npx next build
+   NEXT_DIST_DIR=.next-4615 NEXT_PUBLIC_SITE_URL=http://localhost:4615 BETTER_AUTH_URL=http://localhost:4615 AUTH_TEST_MODE=true npx next start -p 4615
+   E2E_PORT=4615 npx playwright test
+   ```
+
+   In production the login library allows 10 phone-login requests a minute per address, and every
+   test runs from the same one: the tests wait the seconds the server names and try again, so a
+   full run takes a few minutes longer than against the development server.
 
 The tests create their own users (phones `+995 555 99x xxx`) and listings named "E2E …", and
 delete them, with the demo listings' view and contact counters, when the run ends.
@@ -149,6 +162,7 @@ In a codespace:
   computer: `npm run preview`.
 * Map key: add a Codespaces secret named `NEXT_PUBLIC_MAP_TILE_KEY` (or set it in `.env`); see
   [docs/CODESPACES.md](docs/CODESPACES.md#map-key-so-the-maps-show-streets).
+* Your admin account: see "Going live", step 11 (three private Codespaces secrets).
 
 **A public preview on Vercel (about 20 minutes, free accounts):**
 
@@ -225,14 +239,29 @@ Turn `DB_PUSH_ON_BUILD` and `SEED_ON_BUILD` off once the preview is set up.
     restrict the key to your production domain and `*.app.github.dev`. The provider and key live
     in one file, `src/config/map.ts`: to switch providers later, add one entry there and set
     `NEXT_PUBLIC_MAP_TILE_PROVIDER`. Never use `tile.openstreetmap.org` (its policy forbids apps).
-11. **First admin.** Sign in on the site once with the account that should be the admin (Google or
-    an email code; phone login is off on the real site). Then, with that database's
-    `DATABASE_URL`, run `npm run admin:grant -- --email you@example.com` (or `--phone +972…`, or put
-    the address in `BAYIT_ADMIN_EMAIL` / `BAYIT_ADMIN_PHONE` in `.env` and run `npm run admin:grant`).
-    It refuses demo accounts and writes the change to the audit log. Open `/admin`: it asks you to
-    scan a QR code with Google Authenticator (2-step login is required for the admin), and after
-    that you can give roles to others in **Admin → Roles**. Never put the admin's email or phone in
-    code, docs or commits.
+11. **First admin (only the founder's account).** The admin account and the alert address are
+    PRIVATE settings: never put the email or phone in code, docs, tests or commits.
+    1. Sign in on the site once with the account that should be the admin (Google or an email
+       code; phone login is off on the real site). The account must exist before it can be made
+       admin.
+    2. **In the codespace**, add three Codespaces secrets on github.com → your picture →
+       **Settings → Codespaces → Secrets → New secret** (give each one access to this repository):
+       - `BAYIT_ADMIN_EMAIL`: the email of that site account (or `BAYIT_ADMIN_PHONE`: its phone in
+         international format, `+972…`; the email is used first when both are set)
+       - `ADMIN_ALERT_EMAIL`: where admin alerts and the daily summary go (a different address)
+
+       Then restart the codespace (or run `bash .devcontainer/start.sh`): `.devcontainer/env-sync.sh`
+       copies the secrets into `.env` and `npm run admin:grant -- --from-env` makes the account
+       admin. It prints only a masked address (`s•••@g•••.com`), refuses demo accounts, writes the
+       change to the audit log, and says nothing while the secrets are empty or the account does
+       not exist yet (sign in, then run `npm run admin:grant -- --from-env` again).
+    3. **On the real host**, put the same names in its environment settings and run
+       `npm run admin:grant -- --from-env` once with that database's `DATABASE_URL` (or
+       `--email …` / `--phone …` directly).
+    4. Open `/admin`: it asks you to scan a QR code with **Google Authenticator** (2-step login is
+       required for the admin, also in the codespace) and to keep the backup codes. After that you
+       can give roles to others in **Admin → Roles**. The demo staff accounts never open the panel
+       on the site's permanent address.
 12. **Before announcing:** have a lawyer review the legal pages, have native speakers review the
     Georgian, Arabic and Russian text, replace the demo data with real content, and read
     `docs/SECURITY-REPORT.md`.
@@ -280,7 +309,9 @@ Turn `DB_PUSH_ON_BUILD` and `SEED_ON_BUILD` off once the preview is set up.
 | `MALWARE_SCAN_URL`, `MALWARE_SCAN_TOKEN` | External malware scanner for uploads | Built-in checks only |
 | `SENTRY_DSN` (+ optional `SENTRY_ENVIRONMENT`, `SENTRY_RELEASE`) | Error monitoring: server crashes, failed actions and failed scheduled jobs go to Sentry (no SDK; path without query, no user data) | Errors only in the server log |
 | `DEV_SKIP_STAFF_2FA` | Skip 2-step login for the demo staff accounts (development only; never for a real account) | Off; ignored in production |
-| `BAYIT_ADMIN_EMAIL`, `BAYIT_ADMIN_PHONE` | The account `npm run admin:grant` makes admin when no option is given (private, never committed) | Give `--email` / `--phone` |
+| `BAYIT_ADMIN_EMAIL`, `BAYIT_ADMIN_PHONE` | PRIVATE: the account `npm run admin:grant -- --from-env` makes admin (also at every codespace start); Codespaces secrets of the same names | Nobody is made admin |
+| `ADMIN_ALERT_EMAIL` | PRIVATE: where admin alerts and the daily summary go (a Codespaces secret of the same name) | The real admins' email addresses, else the outbox |
+| `BACKUP_DIR` | Folder for full backups (Admin → Maintenance, `npm run db:backup`) | `./backups` (git-ignored) |
 | `NEXT_DIST_DIR` | Separate build folder (only for running several dev servers) | `.next` |
 
 ---

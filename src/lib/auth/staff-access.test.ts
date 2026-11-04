@@ -54,6 +54,12 @@ describe("permanent site address", () => {
     expect(isPermanentSiteAddress(DEV_LOCAL)).toBe(false);
   });
 
+  it("treats previews and tunnels as permanent too (stricter than the links rule)", () => {
+    expect(isPermanentSiteAddress({ NODE_ENV: "production", NEXT_PUBLIC_SITE_URL: "https://bayit-git-main.vercel.app" })).toBe(true);
+    expect(isPermanentSiteAddress({ NODE_ENV: "development", NEXT_PUBLIC_SITE_URL: "https://abc.trycloudflare.com" })).toBe(true);
+    expect(isPermanentSiteAddress({ NODE_ENV: "production", NEXT_PUBLIC_SITE_URL: "http://192.168.1.5:3000" })).toBe(true);
+  });
+
   it("treats production without any configured address as permanent (conservative)", () => {
     expect(isPermanentSiteAddress({ NODE_ENV: "production" })).toBe(true);
     expect(isPermanentSiteAddress({ NODE_ENV: "development" })).toBe(false);

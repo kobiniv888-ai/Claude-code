@@ -13,12 +13,18 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 
 process.env.TWILIO_ACCOUNT_SID = "";
 process.env.RESEND_API_KEY = "";
+// Founder alerts go here (a made-up address; the real one is a private setting).
+process.env.ADMIN_ALERT_EMAIL = "founder-alerts@example.com";
+delete process.env.TELEGRAM_BOT_TOKEN;
+delete process.env.VAPID_PUBLIC_KEY;
 
 vi.mock("server-only", () => ({}));
 vi.mock("next-intl/server", () => ({
   getTranslations: async ({ locale, namespace }: { locale: string; namespace: string }) => {
-    const file = path.join(process.cwd(), "messages", locale, `${namespace}.json`);
-    const messages = { [namespace]: JSON.parse(fs.readFileSync(file, "utf8")) };
+    // "alerts.message" → messages/<locale>/alerts.json, read at "message".
+    const root = namespace.split(".")[0];
+    const file = path.join(process.cwd(), "messages", locale, `${root}.json`);
+    const messages = { [root]: JSON.parse(fs.readFileSync(file, "utf8")) };
     return createTranslator({ locale, messages, namespace });
   },
 }));
@@ -46,6 +52,7 @@ vi.mock("@/lib/email", async (importOriginal) => {
 });
 const texts: { to: string; body: string; logOnly?: boolean }[] = [];
 vi.mock("@/lib/sms", () => ({
+  isSmsConfigured: () => false,
   sendSms: vi.fn(async (input: { to: string; body: string; logOnly?: boolean }) => {
     texts.push(input);
     return { ok: true, delivered: false };
@@ -61,7 +68,7 @@ const { handleEmailBounce, handleEmailDelivered, hostInstantGate } = await impor
 const { addDays, tbilisiToday } = await import("./dates");
 
 const prefix = `bk${randomUUID().replace(/-/g, "").slice(0, 10)}`;
-const ids = { city: "", listing: "", host: "", guestA: "", guestB: "", guestC: "", host2: "", listing2: "", guestD: "", users3: "", listing3: "", guestE: "" };
+const ids = { city: "", listing: "", host: "", guestA: "", guestB: "", guestC: "", host2: "", listing2: "", guestD: "", users3: "", listing3: "", guestE: "", host4: "", listing4: "", guestF: "" };
 const today = tbilisiToday();
 const day = (n: number) => addDays(today, n);
 
@@ -153,14 +160,15 @@ beforeEach(() => {
 });
 
 afterAll(async () => {
-  const users = [ids.host, ids.guestA, ids.guestB, ids.guestC, ids.host2, ids.guestD, ids.users3, ids.guestE].filter(Boolean);
-  const listings = [ids.listing, ids.listing2, ids.listing3].filter(Boolean);
+  const users = [ids.host, ids.guestA, ids.guestB, ids.guestC, ids.host2, ids.guestD, ids.users3, ids.guestE, ids.host4, ids.guestF].filter(Boolean);
+  const listings = [ids.listing, ids.listing2, ids.listing3, ids.listing4].filter(Boolean);
   await db.booking.deleteMany({ where: { listingId: { in: listings } } });
   await db.listing.deleteMany({ where: { id: { in: listings } } });
   await db.auditLog.deleteMany({ where: { actorId: { in: users } } });
   await db.auditLog.deleteMany({ where: { targetId: { in: users } } });
   await db.rateLimit.deleteMany({ where: { key: { startsWith: "booking:create:" + prefix } } });
   await db.rateLimit.deleteMany({ where: { key: { startsWith: "alert:host-unreachable:" + prefix } } });
+  await db.rateLimit.deleteMany({ where: { key: { startsWith: "alert:channel-paused:" + prefix } } });
   await db.emailOutbox.deleteMany({ where: { providerId: { startsWith: prefix } } });
   await db.user.deleteMany({ where: { id: { in: users } } });
   await db.city.deleteMany({ where: { id: ids.city } });
@@ -436,7 +444,7 @@ describe("host alerts (round 3): a booking stands only once the host was told", 
   const digits = () => `${(Date.now() + Math.floor(Math.random() * 1000)) % 1_000_000}`.padStart(6, "0");
   let host3 = "";
   let listing3 = "";
-  const REAL = { resend: true, outboxCounts: false };
+  const REAL = { resend: true, outboxCounts: false, telegram: false, push: false };
 
   beforeAll(async () => {
     host3 = await makeUser("Gil", digits() + "7");
@@ -494,11 +502,11 @@ describe("host alerts (round 3): a booking stands only once the host was told", 
   });
 
   it("in development / test mode the outbox counts; on the real site without Resend instant booking is off", async () => {
-    const outbox = await service.createBooking(stay(ids.guestC, day(170), day(172), { listingId: listing3, alerts: { resend: false, outboxCounts: true } }));
+    const outbox = await service.createBooking(stay(ids.guestC, day(170), day(172), { listingId: listing3, alerts: { resend: false, outboxCounts: true, telegram: false, push: false } }));
     expect((await db.booking.findUniqueOrThrow({ where: { id: outbox.id } })).hostNotifiedAt).not.toBeNull();
     sent.length = 0;
     await expectCode(
-      service.createBooking(stay(ids.guestC, day(180), day(182), { listingId: listing3, alerts: { resend: false, outboxCounts: false } })),
+      service.createBooking(stay(ids.guestC, day(180), day(182), { listingId: listing3, alerts: { resend: false, outboxCounts: false, telegram: false, push: false } })),
       "host_unreachable",
     );
     // Refused before any nights were taken, and nothing was sent to the host.
@@ -543,6 +551,160 @@ describe("host alerts (round 3): a booking stands only once the host was told", 
     });
     expect(await handleEmailDelivered({ kind: "delivered", emailId: `${prefix}-later`, to: [`${host3}@example.com`.toLowerCase()], tags: {} })).toEqual({ resumed: [host3] });
     expect((await hostInstantGate(host3, REAL)).ok).toBe(true);
+  });
+});
+
+describe("alert channels (round 3): Telegram, notifications, cancellations", () => {
+  const digits = () => `${(Date.now() + Math.floor(Math.random() * 1000)) % 1_000_000}`.padStart(6, "0");
+  const CHAT = `99${digits()}01`;
+  const ENV = { resend: true, outboxCounts: false, telegram: true, push: false };
+  const EMAIL_OFF = { alerts: { channels: { email: false } } };
+  type TelegramReply = { status: number; body: Record<string, unknown> };
+  const telegram: { calls: { chat_id: string; text: string }[]; next: TelegramReply } = { calls: [], next: { status: 200, body: { ok: true } } };
+  const realFetch = globalThis.fetch;
+  let host4 = "";
+  let listing4 = "";
+  let guest = "";
+
+  beforeAll(async () => {
+    process.env.TELEGRAM_BOT_TOKEN = "123456:test-token";
+    process.env.TELEGRAM_BOT_USERNAME = "BayitTestBot";
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (!url.startsWith("https://api.telegram.org/")) return realFetch(input, init);
+      const body = JSON.parse(String(init?.body ?? "{}")) as { chat_id: string; text: string };
+      telegram.calls.push(body);
+      return new Response(JSON.stringify(telegram.next.body), { status: telegram.next.status, headers: { "Content-Type": "application/json" } });
+    }) as typeof fetch;
+    host4 = await makeUser("Tal", digits() + "9");
+    ids.host4 = host4;
+    // Connected an hour ago.
+    await db.user.update({ where: { id: host4 }, data: { telegramChatId: CHAT, telegramLinkedAt: new Date(Date.now() - 3600_000), notificationPrefs: EMAIL_OFF } });
+    guest = await makeUser("Ziva", digits() + "5");
+    ids.guestF = guest;
+    const listing = await db.listing.create({
+      data: {
+        ownerId: host4,
+        status: "LIVE",
+        dealType: "SHORT_STAY",
+        propertyType: "APARTMENT",
+        pricePeriod: "NIGHT",
+        price: 70,
+        currency: "USD",
+        maxGuests: 4,
+        bookingMode: "INSTANT",
+        cancellationPolicy: "FLEXIBLE",
+        paymentMethodsAtCheckIn: ["cash"],
+        cityId: ids.city,
+        lat: 41.7104,
+        lng: 44.7705,
+        address: "4 Test Street, Tbilisi",
+        contactMethods: [{ channel: "WHATSAPP", value: "+995555123459", order: 0 }],
+        originalLocale: "en",
+        title: "Fourth flat for channel tests",
+        description: "A test listing.",
+      },
+    });
+    listing4 = listing.id;
+    ids.listing4 = listing4;
+  });
+
+  afterAll(async () => {
+    globalThis.fetch = realFetch;
+    delete process.env.TELEGRAM_BOT_TOKEN;
+    delete process.env.TELEGRAM_BOT_USERNAME;
+    await db.pushSubscription.deleteMany({ where: { userId: host4 } });
+  });
+
+  beforeEach(() => {
+    telegram.calls.length = 0;
+    telegram.next = { status: 200, body: { ok: true, result: { message_id: 7 } } };
+  });
+
+  afterEach(() => {
+    hooks.result = undefined;
+  });
+
+  it("Telegram only: the bot's ok confirms the booking, and no email goes to the host", async () => {
+    const created = await service.createBooking(stay(guest, day(220), day(222), { listingId: listing4, alerts: ENV }));
+    const booking = await db.booking.findUniqueOrThrow({ where: { id: created.id } });
+    expect(booking).toMatchObject({ hostNotifiedVia: "telegram" });
+    expect(booking.hostNotifiedAt).toBeInstanceOf(Date);
+    expect(telegram.calls).toHaveLength(1);
+    expect(telegram.calls[0]).toMatchObject({ chat_id: CHAT });
+    expect(telegram.calls[0].text).toContain(created.code);
+    expect(sent.map((s) => s.template)).toEqual(["booking_confirmed_guest"]);
+  });
+
+  it("a 403 (bot blocked) undoes the booking when Telegram was the only confirming channel, pauses Telegram and tells the founder", async () => {
+    telegram.next = { status: 403, body: { ok: false, error_code: 403, description: "Forbidden: bot was blocked by the user" } };
+    await expectCode(service.createBooking(stay(ids.guestB, day(230), day(232), { listingId: listing4, alerts: ENV })), "host_unreachable");
+    expect(await isRangeFree(listing4, day(230), day(232))).toBe(true);
+    expect(sent.map((s) => s.template)).not.toContain("booking_confirmed_guest");
+    const founder = sent.filter((s) => s.template === "admin_alert");
+    expect(founder.map((s) => s.to)).toEqual(["founder-alerts@example.com", "founder-alerts@example.com"]);
+    const user = await db.user.findUniqueOrThrow({ where: { id: host4 }, select: { notificationPrefs: true } });
+    expect(user.notificationPrefs).toMatchObject({ alerts: { channels: { email: false }, telegram: { failing: { chatId: CHAT, reason: "blocked" } } } });
+    expect(await hostInstantGate(host4, ENV)).toEqual({ ok: false, reason: "telegram_failing" });
+    expect(await db.auditLog.count({ where: { action: "alerts.telegram_paused", targetId: host4 } })).toBe(1);
+  });
+
+  it("a re-connect from the settings link (/start <token>) clears the pause", async () => {
+    const { telegramLinkToken } = await import("@/lib/alerts/telegram-token");
+    const { handleTelegramCommand } = await import("@/lib/alerts/telegram-bot");
+    const secret = process.env.BETTER_AUTH_SECRET ?? "";
+    expect(secret.length).toBeGreaterThan(0);
+    expect(await handleTelegramCommand({ kind: "start", chatId: CHAT, token: "garbage_1_xxxxxxxxxxxxxxxx", locale: "en" })).toBe("expired");
+    const token = telegramLinkToken(host4, secret, new Date())!;
+    expect(await handleTelegramCommand({ kind: "start", chatId: CHAT, token, locale: "en" })).toBe("linked");
+    // The same link again is spent.
+    expect(await handleTelegramCommand({ kind: "start", chatId: `${CHAT}9`, token, locale: "en" })).toBe("expired");
+    expect(await hostInstantGate(host4, ENV)).toEqual({ ok: true, channels: ["telegram"] });
+    expect(telegram.calls.map((c) => c.chat_id)).toEqual([CHAT, CHAT, `${CHAT}9`]);
+  });
+
+  it("browser notifications alone never allow instant booking", async () => {
+    await db.user.update({ where: { id: host4 }, data: { telegramChatId: null } });
+    await db.pushSubscription.create({
+      data: { userId: host4, endpoint: `https://fcm.googleapis.com/fcm/send/${prefix}`, p256dh: "x".repeat(87), auth: "y".repeat(22) },
+    });
+    try {
+      expect(await hostInstantGate(host4, { ...ENV, push: true })).toEqual({ ok: false, reason: "no_channel" });
+      await expectCode(service.createBooking(stay(ids.guestC, day(240), day(242), { listingId: listing4, alerts: { ...ENV, push: true } })), "host_unreachable");
+      expect(telegram.calls).toHaveLength(0);
+      expect(await isRangeFree(listing4, day(240), day(242))).toBe(true);
+    } finally {
+      await db.pushSubscription.deleteMany({ where: { userId: host4 } });
+      await db.user.update({ where: { id: host4 }, data: { telegramChatId: CHAT } });
+    }
+  });
+
+  it("email + Telegram: both get the booking and the guest's cancellation; a later bounce doesn't alarm the guest", async () => {
+    await db.user.update({ where: { id: host4 }, data: { notificationPrefs: { alerts: { channels: { email: true } } } } });
+    hooks.result = (template) => (template === "booking_new_host" ? { ok: true, delivery: "sent", providerId: `${prefix}-both` } : { ok: true, delivery: "sent" });
+    const created = await service.createBooking(stay(ids.guestE, day(250), day(252), { listingId: listing4, alerts: ENV }));
+    expect(await db.booking.findUniqueOrThrow({ where: { id: created.id } })).toMatchObject({ hostNotifiedVia: "email,telegram" });
+    expect(sent.map((s) => s.template)).toEqual(["booking_new_host", "booking_confirmed_guest"]);
+
+    // The email bounces later: Telegram had it too, so the guest is not told; email is paused, Telegram tells the host.
+    await db.emailOutbox.create({
+      data: { to: `${host4}@example.com`, template: "booking_new_host", locale: "en", subject: "New booking", html: "", text: `Booking number: ${created.code}`, status: "SENT", provider: "resend", providerId: `${prefix}-both`, createdAt: new Date(Date.now() - 60_000) },
+    });
+    sent.length = 0;
+    telegram.calls.length = 0;
+    await handleEmailBounce({ kind: "bounced", emailId: `${prefix}-both`, to: [`${host4}@example.com`.toLowerCase()], tags: {}, detail: "Mailbox full" });
+    expect(sent.map((s) => s.template)).toEqual(["admin_alert"]);
+    expect(sent[0].subject).not.toContain(created.code);
+    expect(telegram.calls).toHaveLength(1);
+    expect(await hostInstantGate(host4, ENV)).toEqual({ ok: true, channels: ["telegram"] });
+
+    // The guest cancels: the host hears about it on Telegram (email is paused).
+    sent.length = 0;
+    telegram.calls.length = 0;
+    await service.guestCancel({ bookingId: created.id, guestUserId: ids.guestE, reasonCode: "CHANGE_OF_PLANS" });
+    expect(telegram.calls).toHaveLength(1);
+    expect(telegram.calls[0].text).toContain(created.code);
+    expect(sent.map((s) => s.template)).not.toContain("booking_cancelled_by_guest");
   });
 });
 

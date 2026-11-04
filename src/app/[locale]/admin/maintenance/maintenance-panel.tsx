@@ -113,9 +113,9 @@ function BackupCard({
           {backups.map((b) => (
             <li key={b.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2.5 text-sm">
               <span className="font-medium">{when(b.createdAt)}</span>
-              <span className="text-muted-foreground">
+              <Ltr className="text-muted-foreground">
                 {t("size", { size: formatNumber(b.totalBytes / 1024 / 1024, locale, { maximumFractionDigits: 2, minimumFractionDigits: 2 }) })}
-              </span>
+              </Ltr>
               <span className="text-muted-foreground">{t("rows", { count: b.totalRows, countText: formatNumber(b.totalRows, locale) })}</span>
               <span className="flex flex-wrap gap-1.5">
                 <Pill tone="muted">{b.via === "cli" ? t("viaCli") : t("viaAdmin")}</Pill>
@@ -128,7 +128,8 @@ function BackupCard({
       <div className="mt-3 grid gap-1 text-xs text-muted-foreground">
         <span>{t("restore")}</span>
         <code dir="ltr" className="block rounded-md bg-muted px-2 py-1.5 font-mono text-start break-all text-foreground">
-          {t("restoreCommand")}
+          {/* A shell command, not interface text: with the newest backup's name when there is one. */}
+          {backups[0] ? `RESTORE_TARGET_URL=… npm run db:restore -- ${backups[0].id} --create-schema` : t("restoreCommand")}
         </code>
       </div>
       <p className="mt-1 text-xs text-muted-foreground">{t("hostNote")}</p>

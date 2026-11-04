@@ -81,3 +81,27 @@ describe("siteUrlProblem / siteUrlWarning (production guard)", () => {
     expect(siteUrlWarning({ NODE_ENV: "development" })).toBeNull();
   });
 });
+
+describe("every link that leaves the site is built from SITE_URL (brief 2.1)", () => {
+  it("no code builds absolute links from siteConfig.url (the running address)", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const src = path.resolve(__dirname, "..");
+    // siteConfig.url itself, and the login origin (BETTER_AUTH_URL stays the running address).
+    const allowed = new Set(["config/site.ts", "lib/auth/server.ts"]);
+    const offenders: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          if (entry.name !== "generated" && entry.name !== "node_modules") walk(full);
+        } else if (/\.(ts|tsx)$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name)) {
+          const rel = path.relative(src, full).split(path.sep).join("/");
+          if (!allowed.has(rel) && fs.readFileSync(full, "utf8").includes("siteConfig.url")) offenders.push(rel);
+        }
+      }
+    };
+    walk(src);
+    expect(offenders, "use siteUrl() / absoluteUrl() from @/lib/site-url").toEqual([]);
+  });
+});

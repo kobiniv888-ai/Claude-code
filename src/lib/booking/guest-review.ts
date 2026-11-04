@@ -4,8 +4,8 @@ import type { BookingMode, CancellationPolicy, DealType, ListingStatus, PricePer
 import { db } from "@/lib/db";
 import { cleanPaymentMethods, type PaymentMethod } from "./constants";
 import { bookableRoomTypes, isInstantBookable, toNumber } from "./terms";
-import { alertEnvironment, hostAlertSelect, hostAlertTarget } from "./alerts";
-import { hostAlertChannels, instantBookingGate, type AlertEnvironment } from "./alert-rules";
+import { alertEnvironment, hostAlertSelect, hostAlertTarget } from "@/lib/alerts/host";
+import { hostAlertChannels, instantBookingGate, type AlertEnvironment } from "@/lib/alerts/rules";
 
 /**
  * What the guest's review page ("אישור הזמנה") needs to price a stay in the browser exactly as
@@ -30,7 +30,7 @@ export type GuestBookingTerms = {
   bookingMode: BookingMode;
   /**
    * Instant booking is on, the listing is live (isInstantBookable) and the host can be alerted
-   * about the booking (src/lib/booking/alerts.ts). Otherwise the page offers "Ask the host".
+   * about the booking on a confirming channel (src/lib/alerts). Otherwise the page offers "Ask the host".
    */
   instant: boolean;
   price: number | null;

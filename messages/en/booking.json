@@ -242,17 +242,5 @@
     "notFoundTitle": "We couldn't find this booking",
     "notFoundText": "It may belong to another account. All your bookings are in My trips.",
     "viewListing": "View listing"
-  },
-  "hostAlerts": {
-    "hotelLaterTitle": "Instant booking for hotels is coming soon",
-    "hotelLaterBody": "We're building booking by room type, so one booking never blocks the whole hotel. Until then guests contact you directly, and the check-in and check-out times and rules you fill in here show on your listing.",
-    "offTitle": "Instant booking is off for now",
-    "reason": {
-      "email_not_configured": "The site isn't connected to an email service yet, so we can't make sure you hear about every booking. Until then guests contact you directly (Ask the host).",
-      "no_email": "Instant booking needs an email address, where we tell you about every booking. Until you add one, guests contact you directly (Ask the host).",
-      "email_failing": "Our emails to <address></address> bounce. Until you update it to an address that works, guests contact you directly (Ask the host).",
-      "no_channel": "We have no way to tell you about a new booking. Until then guests contact you directly (Ask the host)."
-    },
-    "fixEmail": "Update your email address"
   }
 }

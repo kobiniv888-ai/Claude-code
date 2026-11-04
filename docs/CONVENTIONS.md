@@ -16,7 +16,7 @@ Read this before changing code. It is the contract every part of the site follow
 | Images | sharp (re-encode to WebP, strip EXIF, watermark, perceptual hash) |
 | Email | Resend (falls back to the dev outbox) |
 | SMS / VoIP check | Twilio Verify + Lookup (falls back to a dev code in the server log) |
-| Translation | Google Cloud Translation v2 (falls back to "not translated yet") |
+| Translation | Microsoft Azure AI Translator v3 (default) or Google Cloud Translation v2, behind one interface in `src/lib/translate/` (`TRANSLATE_PROVIDER`); without a key the owner's text shows with "Original in …" and a Google Translate link |
 | CAPTCHA | Cloudflare Turnstile (skipped when not configured) |
 
 Next.js 16 notes: `middleware.ts` is now `src/proxy.ts`; `params`, `searchParams`, `cookies()` and
@@ -153,7 +153,8 @@ docs/
 | `@/lib/settings` | `getSettings()`, `updateSettings()`, `isShabbatModeActive()`, `assertNotShabbatMode()` |
 | `@/lib/audit` | `audit({ actorId, action, targetType, targetId, details })` |
 | `@/lib/email` | `sendEmail({ to, template, locale, data })` — templates translated via `emails` namespace |
-| `@/lib/translate` | `translateText`, `translateListing(listingId)` |
+| `@/lib/translate` | `translateText`, `translateListing(listingId)`, `scheduleListingTranslation(id, contentUpdatedAt)` (after an autosaved edit of a live listing); adapters in `@/lib/translate/{azure,google}` implement `TranslationProvider` (`./provider.ts`), picked in `./registry.ts` |
+| `@/lib/site-url` | `siteUrl()`, `absoluteUrl(path)`, `isPermanentSiteUrl(url)` (client-safe): EVERY link that leaves the site (calendar export, emails, SMS, share links, sitemap, canonical) is built from `SITE_URL`; `BETTER_AUTH_URL` stays the running origin. Show copyable links with `<CopyLinkField>` (`@/components/common/copy-link-field`), which disables Copy on a temporary address |
 | `@/lib/storage` | `putObject`, `getObject`, `deleteObject`, `publicUrl`, encrypted private files |
 | `@/lib/crypto` | `encrypt`, `decrypt`, `hmacHash`, `randomToken` |
 | `@/lib/images` | `processListingPhoto`, `processPrivateImage`, `perceptualHash`, `hammingDistance` |

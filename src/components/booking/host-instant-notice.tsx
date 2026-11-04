@@ -9,13 +9,17 @@ import { Link } from "@/i18n/navigation";
 import { hostAlertStatusAction } from "@/lib/booking/alert-actions";
 import type { HostAlertStatus } from "@/lib/booking/alerts";
 
+/** The "Booking alerts" section of the account settings (src/components/account/booking-alerts.tsx). */
+const ALERT_SETTINGS_HREF = "/account/settings#booking-alerts";
+
 /**
  * What the host sees about instant booking (round 3) in the "הזמנות ומחיר" step and on the place
  * calendar:
  * - hotels: instant booking for hotels is coming (booking by room type, phase 4); guests ask the
  *   host until then, and the check-in/out times and rules filled in here still show;
- * - a host Bayit can't alert (no email address, emails bounce, the site's email service is not
- *   connected): why instant booking is off, and where to fix it.
+ * - a host Bayit can't alert on a channel that confirms delivery (no email address, emails bounce,
+ *   Telegram blocked, the site's email service not connected): why instant booking is off, and a
+ *   link to the booking alert settings.
  * Nothing when instant booking works.
  *
  *   <HostInstantNotice hotel={isHotel} />                 // fetches the host's status
@@ -38,41 +42,41 @@ export function HostInstantNotice({ hotel, status: given }: { hotel: boolean; st
   if (hotel) return <HotelInstantLater />;
   const status = given ?? fetched;
   if (!status || status.ok) return null;
-  return <InstantOff reason={status.reason} address={status.address} />;
+  return <InstantOff status={status} />;
 }
 
 function HotelInstantLater() {
-  const t = useTranslations("booking.hostAlerts");
+  const t = useTranslations("alerts.notice");
   return (
     <div className="flex items-start gap-3 rounded-card border border-primary-tint-border bg-primary-tint p-4">
       <HotelIcon className="mt-0.5 size-5 shrink-0 text-primary-text" aria-hidden />
       <div className="grid min-w-0 gap-1">
-        <p className="text-body font-semibold">{t("hotelLaterTitle")}</p>
-        <p className="text-small text-pretty text-muted-foreground">{t("hotelLaterBody")}</p>
+        <p className="text-body font-semibold">{t("hotelTitle")}</p>
+        <p className="text-small text-pretty text-muted-foreground">{t("hotelBody")}</p>
       </div>
     </div>
   );
 }
 
-function InstantOff({ reason, address }: { reason: Exclude<HostAlertStatus, { ok: true }>["reason"]; address: string | null }) {
-  const t = useTranslations("booking.hostAlerts");
-  const fixable = reason === "no_email" || reason === "email_failing";
+function InstantOff({ status }: { status: Extract<HostAlertStatus, { ok: false }> }) {
+  const t = useTranslations("alerts");
   return (
     <div role="status" className="grid gap-3 rounded-card border border-border-strong bg-surface-muted p-4">
       <div className="flex items-start gap-3">
         <BellOffIcon className="mt-0.5 size-5 shrink-0 text-foreground" aria-hidden />
         <div className="grid min-w-0 gap-1">
-          <p className="text-body font-semibold">{t("offTitle")}</p>
+          <p className="text-body font-semibold">{t("notice.offTitle")}</p>
           <p className="text-small text-pretty text-muted-foreground">
-            {t.rich(`reason.${reason}`, { address: () => <Ltr className="font-medium text-foreground">{address ?? ""}</Ltr> })}
+            {t.rich(`reason.${status.reason}`, {
+              telegram: status.telegram ? "yes" : "no",
+              address: () => <Ltr className="font-medium wrap-anywhere text-foreground">{status.address ?? ""}</Ltr>,
+            })}
           </p>
         </div>
       </div>
-      {fixable ? (
-        <Link href="/account/settings" className={buttonStyles({ variant: "secondary", className: "justify-self-start" })}>
-          {t("fixEmail")}
-        </Link>
-      ) : null}
+      <Link href={ALERT_SETTINGS_HREF} className={buttonStyles({ variant: "secondary", className: "justify-self-start" })}>
+        {t("notice.fix")}
+      </Link>
     </div>
   );
 }

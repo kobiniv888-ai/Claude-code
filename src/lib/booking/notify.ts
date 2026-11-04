@@ -23,9 +23,12 @@ import { toNumber } from "./terms";
  * the guest in Booking.locale, the host in their account language. Demo accounts never get a real
  * text (their numbers are made up). Never throws.
  *
- * A new booking (round 3): first the host's alert (emailHostNewBooking, through
- * src/lib/booking/alerts.ts — the booking is undone when no channel accepted it), and only then
- * the guest's confirmation (notifyBookingConfirmed).
+ * Round 3: the HOST's alerts about new bookings and cancellations go through the channels the host
+ * chose (src/lib/alerts: email, Telegram, browser notifications; orchestrated by
+ * src/lib/booking/alerts.ts). This file builds the host's emails for them (emailHostNewBooking,
+ * emailHostCancelledByGuest) and the summary the other channels show (hostBookingSummary). A new
+ * booking: first the host's alert (the booking is undone when no confirming channel accepted it),
+ * and only then the guest's confirmation (notifyBookingConfirmed).
  *
  * Texts: messages/<locale>/emails.json (templates.booking_*, sms.booking_*).
  */
@@ -152,6 +155,53 @@ async function text(booking: LoadedBooking, side: Side, key: SmsKey, extra: Reco
   await sendSms({ to: r.phone, body, logAs: `${key} ${booking.code}`, logOnly: r.user.isDemo });
 }
 
+/** A text to the host about this booking (when Twilio is set up; demo hosts: log only). Never throws. */
+export async function textHost(bookingId: string, key: "booking_new_host" | "booking_cancelled_by_guest"): Promise<void> {
+  try {
+    const booking = await loadBooking(bookingId);
+    if (booking) await text(booking, "host", key);
+  } catch (error) {
+    console.error(`[booking] host text for ${bookingId} failed:`, error);
+  }
+}
+
+export type HostBookingSummary = {
+  code: string;
+  status: LoadedBooking["status"];
+  /** The host's language. */
+  locale: AppLocale;
+  /** The listing title in the host's language. */
+  title: string;
+  guest: string;
+  /** "3–5 Nov" in the host's language. */
+  dates: string;
+  /** "2 guests" in the host's language. */
+  guests: string;
+  /** The host's booking page, absolute (Telegram) and as a site path (notifications). */
+  url: string;
+  path: string;
+};
+
+/** What a Telegram message or a browser notification about this booking says (host's language). */
+export async function hostBookingSummary(bookingId: string): Promise<HostBookingSummary | null> {
+  const booking = await loadBooking(bookingId);
+  if (!booking) return null;
+  const host = recipient(booking, "host");
+  const tb = await getTranslations({ locale: host.locale, namespace: "booking" });
+  const title = titleIn(booking, host.locale);
+  return {
+    code: booking.code,
+    status: booking.status,
+    locale: host.locale,
+    title: title.length > 80 ? `${title.slice(0, 79)}…` : title,
+    guest: booking.guestName,
+    dates: formatDateRange(dateToDay(booking.checkIn), dateToDay(booking.checkOut), host.locale, { day: "numeric", month: "short" }),
+    guests: tb("guests.total", { count: booking.adults + booking.children }),
+    url: absoluteUrl(host.locale, host.path),
+    path: `/${host.locale}${host.path}`,
+  };
+}
+
 async function safely(label: string, bookingId: string, task: () => Promise<unknown>): Promise<void> {
   try {
     await task();
@@ -161,9 +211,10 @@ async function safely(label: string, bookingId: string, task: () => Promise<unkn
 }
 
 /**
- * The "new booking" alert to the host by EMAIL: one channel of src/lib/booking/alerts.ts, which
- * decides whether the booking stands. Returns what happened (never throws). `outboxOnly`: keep it
- * in the dev outbox (demo hosts). Tagged with the booking code, so a later bounce finds the booking.
+ * The "new booking" alert to the host by EMAIL: one channel of src/lib/alerts (the booking stands
+ * once a confirming channel accepted its alert). Returns what happened (never throws).
+ * `outboxOnly`: keep it in the dev outbox (demo hosts). Tagged with the booking code, so a later
+ * bounce finds the booking.
  */
 export async function emailHostNewBooking(bookingId: string, opts: { outboxOnly?: boolean } = {}): Promise<SendEmailResult> {
   try {
@@ -194,7 +245,8 @@ export async function emailHostNewBooking(bookingId: string, opts: { outboxOnly?
 
 /**
  * Once the host was told (Booking.hostNotifiedAt): the confirmation to the guest (email + text),
- * and a text to the host as an extra (it does not count as an alert channel).
+ * and a text to the host as an extra (it does not count as an alert channel). The host's browser
+ * notification goes out from src/lib/booking/alerts.ts (afterBookingConfirmed).
  */
 export async function notifyBookingConfirmed(bookingId: string, now: Date = new Date()): Promise<void> {
   await safely("confirmed", bookingId, async () => {
@@ -257,32 +309,49 @@ export async function notifyGuestHostUnreached(bookingId: string): Promise<void>
   });
 }
 
-/** A cancelled booking: the other side hears about it. */
+/**
+ * The guest cancelled: the alert to the host by EMAIL (one channel of src/lib/alerts; the other
+ * channels and the text go out from src/lib/booking/alerts.ts, notifyCancellation). Never throws.
+ */
+export async function emailHostCancelledByGuest(bookingId: string, opts: { outboxOnly?: boolean } = {}): Promise<SendEmailResult> {
+  try {
+    const booking = await loadBooking(bookingId);
+    if (!booking || booking.status !== "CANCELLED_BY_GUEST") return { ok: false, delivery: "failed" };
+    const host = recipient(booking, "host");
+    const to = notificationEmailFor(booking.host);
+    if (!to) return { ok: false, delivery: "failed" };
+    const checkIn = dateToDay(booking.checkIn);
+    return await sendEmail({
+      to,
+      locale: host.locale,
+      template: "booking_cancelled_by_guest",
+      outboxOnly: opts.outboxOnly || booking.host.isDemo,
+      tags: { booking: booking.code },
+      data: {
+        ...stayFor(booking, host.locale, host.path),
+        hostName: personName(booking.host),
+        guestName: booking.guestName,
+        reasonCode: booking.cancelReasonCode ?? "OTHER",
+        reasonText: booking.cancelReason,
+        late: isLateCancellation(booking.cancellationPolicy, checkIn, booking.cancelledAt ?? new Date(), booking.listing.checkInFrom),
+      },
+    });
+  } catch (error) {
+    console.error(`[booking] host cancellation email for ${bookingId} failed:`, error);
+    return { ok: false, delivery: "failed" };
+  }
+}
+
+/**
+ * The host cancelled: the guest hears about it (email + text). A guest's cancellation reaches the
+ * host through their alert channels instead (src/lib/booking/alerts.ts, notifyCancellation).
+ */
 export async function notifyBookingCancelled(bookingId: string): Promise<void> {
   await safely("cancelled", bookingId, async () => {
     const booking = await loadBooking(bookingId);
     if (!booking) return;
     const checkIn = dateToDay(booking.checkIn);
-    if (booking.status === "CANCELLED_BY_GUEST") {
-      const host = recipient(booking, "host");
-      await Promise.all([
-        host.email &&
-          sendEmail({
-            to: host.email,
-            locale: host.locale,
-            template: "booking_cancelled_by_guest",
-            data: {
-              ...stayFor(booking, host.locale, host.path),
-              hostName: personName(booking.host),
-              guestName: booking.guestName,
-              reasonCode: booking.cancelReasonCode ?? "OTHER",
-              reasonText: booking.cancelReason,
-              late: isLateCancellation(booking.cancellationPolicy, checkIn, booking.cancelledAt ?? new Date(), booking.listing.checkInFrom),
-            },
-          }),
-        text(booking, "host", "booking_cancelled_by_guest"),
-      ]);
-    } else if (booking.status === "CANCELLED_BY_HOST") {
+    if (booking.status === "CANCELLED_BY_HOST") {
       const guest = recipient(booking, "guest");
       const checkOut = dateToDay(booking.checkOut);
       const deal = booking.listing.dealType === "HOTEL_ROOM" ? "hotels" : "short-stay";

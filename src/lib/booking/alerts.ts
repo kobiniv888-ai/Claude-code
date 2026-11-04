@@ -1,107 +1,91 @@
 import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
-import { codeDisplayForHeaders, codeDisplayMode, type CodeDisplayEnv } from "@/lib/auth/code-display";
-import { verifiedPhoneOf } from "@/lib/auth/phone-once";
 import { audit } from "@/lib/audit";
 import { db } from "@/lib/db";
-import { isEmailDeliveryConfigured, notificationEmailFor } from "@/lib/email";
-import { sendAdminAlert } from "@/lib/email/admin-alert";
-import { rateLimit } from "@/lib/rate-limit";
-import { absoluteUrl } from "@/lib/site-url";
-import { sendSms } from "@/lib/sms";
-import { getTranslations } from "next-intl/server";
-import { siteConfig } from "@/config/site";
-import { isAppLocale } from "@/i18n/locale";
+import { notificationEmailFor } from "@/lib/email";
+import { personName } from "@/lib/auth/first-name";
+import { sendFounderAlert } from "@/lib/alerts/founder";
+import {
+  alertEnvironment,
+  alertHost,
+  clearChannelFailure,
+  hostAlertTarget,
+  hostInstantGate,
+  loadAlertHost,
+  reportChannelFailure,
+} from "@/lib/alerts/host";
 import {
   alertAccepted,
+  bookingAffectedByFailure,
   bookingCodeIn,
+  currentFailure,
   hostAlertChannels,
   instantBookingGate,
+  notifiedVia,
   parseAlertPrefs,
-  withEmailFailing,
+  resumesFailure,
   type AlertAttempt,
   type AlertBlockReason,
   type AlertEnvironment,
+  type ChannelStatus,
   type EmailEvent,
-  type FailingEmail,
-  type HostAlertTarget,
-  type InstantGate,
-} from "./alert-rules";
-import { BOOKABLE_DEAL_TYPES } from "./constants";
+} from "@/lib/alerts/rules";
+import { rateLimit } from "@/lib/rate-limit";
 import { BookingError } from "./errors";
-import { emailHostNewBooking, notifyGuestHostUnreached } from "./notify";
+import { emailHostCancelledByGuest, notifyBookingCancelled, notifyBookingConfirmed, notifyGuestHostUnreached, textHost } from "./notify";
 
 /**
- * Booking alerts on the server (round 3, founder's answer 4; the rules are in ./alert-rules.ts).
+ * Booking alerts on the booking side (round 3, founder's answer 4; channels and rules are in
+ * src/lib/alerts).
  *
  *   const env = alertEnvironment(await headers());          // where the code runs
  *   const gate = await hostInstantGate(listing.ownerId, env); // { ok } or { ok: false, reason }
  *
  * createBooking (./service.ts) checks the gate before its transaction, then alerts the host right
- * after it (confirmWithHostAlert): when no channel accepted the alert, the booking and its block
- * are removed again in a compensating transaction, "booking.host_unreachable" is audited, the
- * founder is told and the guest gets "host_unreachable" (the review page offers "שאלה למארח").
+ * after it on the CONFIRMING channels (email, Telegram; confirmWithHostAlert): when none accepted
+ * the alert, the booking and its block are removed again in a compensating transaction,
+ * "booking.host_unreachable" is audited, the founder is told and the guest gets "host_unreachable"
+ * (the review page offers "שאלה למארח"). Otherwise Booking.hostNotifiedAt / hostNotifiedVia are
+ * recorded and the guest's confirmation and the host's browser notification follow
+ * (afterBookingConfirmed). A guest's cancellation reaches the host the same way (no undo).
  * Bounces and spam complaints come back through the Resend webhook (handleEmailBounce).
  */
 
-/** Where the code runs, for the email channel. Without headers: development counts, production not. */
-export function alertEnvironment(requestHeaders?: Pick<Headers, "get"> | null): AlertEnvironment {
-  const mode = requestHeaders ? codeDisplayForHeaders(requestHeaders) : codeDisplayMode(process.env as CodeDisplayEnv, []);
-  return { resend: isEmailDeliveryConfigured(), outboxCounts: mode !== null };
-}
+export { alertEnvironment, hostInstantGate };
 
-/** What the alert rules read about a host. */
-export const hostAlertSelect = {
-  email: true,
-  contactEmail: true,
-  isDemo: true,
-  notificationPrefs: true,
-} as const satisfies Prisma.UserSelect;
-
-export function hostAlertTarget(user: Prisma.UserGetPayload<{ select: typeof hostAlertSelect }>): HostAlertTarget {
-  return { email: notificationEmailFor(user), isDemo: user.isDemo, prefs: user.notificationPrefs };
-}
-
-/** May this host take instant bookings here and now? */
-export async function hostInstantGate(hostUserId: string, env: AlertEnvironment): Promise<InstantGate> {
-  const host = await db.user.findUnique({ where: { id: hostUserId }, select: hostAlertSelect });
-  if (!host) return { ok: false, reason: "no_channel" };
-  return instantBookingGate(hostAlertChannels(hostAlertTarget(host), env));
-}
-
-export type HostAlertStatus = { ok: true } | { ok: false; reason: AlertBlockReason; address: string | null };
+export type HostAlertStatus =
+  | { ok: true; channels: ChannelStatus["channel"][] }
+  | {
+      ok: false;
+      reason: AlertBlockReason;
+      /** The paused address (email_failing), for the host's own view only. */
+      address: string | null;
+      /** The site's Telegram bot is set up (the notice can suggest connecting it). */
+      telegram: boolean;
+    };
 
 /** Why a host can't take instant bookings, with the paused address (the host's own view only). */
 export async function hostAlertStatus(userId: string, requestHeaders: Pick<Headers, "get"> | null): Promise<HostAlertStatus> {
-  const gate = await hostInstantGate(userId, alertEnvironment(requestHeaders));
-  if (gate.ok) return { ok: true };
-  const user = gate.reason === "email_failing" ? await db.user.findUnique({ where: { id: userId }, select: { email: true, contactEmail: true } }) : null;
-  return { ok: false, reason: gate.reason, address: user ? notificationEmailFor(user) : null };
+  const env = alertEnvironment(requestHeaders);
+  const host = await loadAlertHost(userId);
+  if (!host) return { ok: false, reason: "no_channel", address: null, telegram: env.telegram };
+  const target = hostAlertTarget(host);
+  const gate = instantBookingGate(hostAlertChannels(target, env));
+  if (gate.ok) return { ok: true, channels: gate.channels };
+  return { ok: false, reason: gate.reason, address: gate.reason === "email_failing" ? target.email : null, telegram: env.telegram };
 }
 
 export type HostAlertResult = { accepted: boolean; attempts: AlertAttempt[]; reason: AlertBlockReason | "failed" | null };
 
 /**
- * Sends the "new booking" alert on every ready channel of the host (email for now). Never throws.
- * Accepted: Resend returned an id, or (development / test mode, demo hosts) it is in the outbox.
+ * The "new booking" alert on the host's CONFIRMING channels (email and Telegram, together).
+ * Never throws. Browser notifications follow only once the booking stands.
  */
 export async function alertHostNewBooking(bookingId: string, hostUserId: string, env: AlertEnvironment): Promise<HostAlertResult> {
-  const host = await db.user.findUnique({ where: { id: hostUserId }, select: hostAlertSelect }).catch(() => null);
+  const host = await loadAlertHost(hostUserId);
   if (!host) return { accepted: false, attempts: [], reason: "no_channel" };
-  const channels = hostAlertChannels(hostAlertTarget(host), env);
-  const gate = instantBookingGate(channels);
-  const attempts: AlertAttempt[] = [];
-  for (const channel of channels) {
-    if (!channel.ready) continue;
-    if (channel.channel === "email") {
-      const outbox = channel.transport === "outbox";
-      const sent = await emailHostNewBooking(bookingId, { outboxOnly: outbox && env.resend });
-      const accepted = sent.delivery === "sent" || (outbox && sent.delivery === "logged");
-      attempts.push({ channel: "email", accepted, providerId: sent.providerId ?? null, error: accepted ? null : sent.delivery });
-    }
-    // Telegram (bot API accepted the message) and browser notifications (never confirming) plug
-    // in here once their tables are approved.
-  }
+  const gate = instantBookingGate(hostAlertChannels(hostAlertTarget(host), env));
+  const attempts = await alertHost(host, { kind: "new_booking", bookingId }, env, { channels: ["email", "telegram"] });
   const accepted = alertAccepted(attempts);
   return { accepted, attempts, reason: accepted ? null : gate.ok ? "failed" : gate.reason };
 }
@@ -143,25 +127,31 @@ export async function reportHostUnreachable(ctx: UnreachableContext): Promise<vo
     action: "booking.host_unreachable",
     targetType: "Listing",
     targetId: ctx.listingId,
-    details: { stage: ctx.stage, reason: ctx.reason, bookingCode: ctx.bookingCode, hostUserId: ctx.hostUserId, attempts: ctx.attempts ?? [] },
+    details: {
+      stage: ctx.stage,
+      reason: ctx.reason,
+      bookingCode: ctx.bookingCode,
+      hostUserId: ctx.hostUserId,
+      attempts: (ctx.attempts ?? []).map((a) => ({ channel: a.channel, accepted: a.accepted, error: a.error ?? null })),
+    },
   });
   const quota = await rateLimit(`alert:host-unreachable:${ctx.hostUserId}`, { limit: 1, windowSeconds: UNREACHABLE_ALERT_HOURS * 3600 }).catch(() => ({ ok: true }));
   if (!quota.ok) return;
   const host = await db.user.findUnique({ where: { id: ctx.hostUserId }, select: { name: true, firstName: true } }).catch(() => null);
-  await sendAdminAlert({
+  await sendFounderAlert({
     kind: "host_unreachable",
     reason: ctx.reason,
     bookingCode: ctx.bookingCode,
     listingTitle: ctx.listingTitle,
     listingPublicId: ctx.listingPublicId,
-    hostName: host?.firstName || host?.name || null,
+    hostName: host ? personName(host) : null,
     adminUrl: "/admin/bookings",
   });
 }
 
 /**
  * Right after the booking transaction: alert the host, then either confirm the booking
- * (hostNotifiedAt) or undo it and throw BookingError("host_unreachable").
+ * (hostNotifiedAt + hostNotifiedVia) or undo it and throw BookingError("host_unreachable").
  */
 export async function confirmWithHostAlert(
   created: { id: string; code: string },
@@ -169,7 +159,10 @@ export async function confirmWithHostAlert(
 ): Promise<void> {
   const result = await alertHostNewBooking(created.id, ctx.hostUserId, ctx.env);
   if (result.accepted) {
-    await db.booking.update({ where: { id: created.id }, data: { hostNotifiedAt: ctx.now ?? new Date() } });
+    await db.booking.update({
+      where: { id: created.id },
+      data: { hostNotifiedAt: ctx.now ?? new Date(), hostNotifiedVia: notifiedVia(result.attempts) },
+    });
     return;
   }
   // Undo (one retry): the guest is told either way, and a booking left over is in the audit log.
@@ -191,6 +184,55 @@ export async function confirmWithHostAlert(
   throw new BookingError("host_unreachable");
 }
 
+/**
+ * Once the booking stands: the guest's confirmation (email + text, ./notify.ts) and the host's
+ * browser notification (an extra: never what confirmed the booking). Never throws.
+ */
+export async function afterBookingConfirmed(bookingId: string, now: Date = new Date(), env: AlertEnvironment = alertEnvironment()): Promise<void> {
+  await notifyBookingConfirmed(bookingId, now);
+  try {
+    const booking = await db.booking.findUnique({ where: { id: bookingId }, select: { hostUserId: true, hostNotifiedAt: true, status: true } });
+    if (!booking?.hostNotifiedAt || booking.status !== "CONFIRMED") return;
+    const host = await loadAlertHost(booking.hostUserId);
+    if (host) await alertHost(host, { kind: "new_booking", bookingId }, env, { channels: ["push"] });
+  } catch (error) {
+    console.error(`[booking] host notification for ${bookingId} failed:`, error);
+  }
+}
+
+/**
+ * A cancelled booking: the other side hears about it. A guest's cancellation reaches the host on
+ * every channel they chose (email, Telegram, notifications; no undo) plus a text; when none of
+ * them took it, the email goes out anyway as a fallback. A host's cancellation: the guest's
+ * email and text (./notify.ts). Never throws.
+ */
+export async function notifyCancellation(bookingId: string, env?: AlertEnvironment): Promise<void> {
+  try {
+    const booking = await db.booking.findUnique({ where: { id: bookingId }, select: { status: true, hostUserId: true } });
+    if (!booking) return;
+    if (booking.status !== "CANCELLED_BY_GUEST") {
+      await notifyBookingCancelled(bookingId);
+      return;
+    }
+    const host = await loadAlertHost(booking.hostUserId);
+    if (!host) return;
+    // Without Resend the email lands in the outbox, which is what a cancellation needs (no undo).
+    const environment = { ...(env ?? alertEnvironment()), outboxCounts: true };
+    const attempts = await alertHost(host, { kind: "cancelled", bookingId }, environment);
+    const emailTried = attempts.some((a) => a.channel === "email");
+    if (!emailTried && !attempts.some((a) => a.accepted)) {
+      // Every channel is off or broken: the email is the last resort (unless that address bounces).
+      const target = hostAlertTarget(host);
+      if (target.email && !currentFailure(parseAlertPrefs(host.notificationPrefs), "email", target)) {
+        await emailHostCancelledByGuest(bookingId);
+      }
+    }
+    await textHost(bookingId, "booking_cancelled_by_guest");
+  } catch (error) {
+    console.error(`[booking] cancellation alert for ${bookingId} failed:`, error);
+  }
+}
+
 // ─── Bounces (Resend webhook) ─────────────────────────────────
 
 const userAlertSelect = {
@@ -200,8 +242,6 @@ const userAlertSelect = {
   isDemo: true,
   notificationPrefs: true,
   locale: true,
-  phoneNumber: true,
-  phoneNumberVerified: true,
 } as const satisfies Prisma.UserSelect;
 
 async function usersWithAddress(addresses: string[]) {
@@ -224,24 +264,13 @@ async function usersWithAddress(addresses: string[]) {
   });
 }
 
-/** "Our emails bounce, instant booking is paused" to a host, by text (when Twilio is set up). */
-async function textHostAlertsPaused(user: Prisma.UserGetPayload<{ select: typeof userAlertSelect }>): Promise<void> {
-  const phone = verifiedPhoneOf(user);
-  if (!phone) return;
-  const locale = isAppLocale(user.locale) ? user.locale : siteConfig.i18n.primaryLocale;
-  const t = await getTranslations({ locale, namespace: "emails" });
-  const body = t("sms.host_alerts_paused", {
-    brand: siteConfig.localizedName[locale] ?? siteConfig.name,
-    url: absoluteUrl(`/${locale}/account/settings`),
-  });
-  await sendSms({ to: phone, body, logAs: "host_alerts_paused", logOnly: user.isDemo });
-}
-
 /**
- * A bounce or a spam complaint: mark the email channel of every account using that address as
- * failing (a host without another channel goes to "שאלה למארח"), tell the guest when it was a
- * host's "new booking" alert, tell the host by text, and tell the founder. Duplicate deliveries
- * of the same event are ignored. Returns what it did (for the webhook's response and tests).
+ * A bounce or a spam complaint: pause the email channel of every account using that address (a
+ * host keeps taking instant bookings while Telegram works; with only notifications left, the
+ * listing goes to "שאלה למארח"), tell those hosts on every channel they have left, tell the guest
+ * when it was a host's "new booking" alert that no other channel delivered, and tell the founder.
+ * Duplicate deliveries of the same event are ignored. Returns what it did (for the webhook's
+ * response and tests).
  */
 export async function handleEmailBounce(event: EmailEvent): Promise<{ duplicate: boolean; paused: string[]; bookingCode: string | null }> {
   const at = event.at ?? new Date();
@@ -257,57 +286,52 @@ export async function handleEmailBounce(event: EmailEvent): Promise<{ duplicate:
 
   const addresses = [...new Set([...event.to, outbox?.to ?? ""].map((a) => a.trim().toLowerCase()).filter(Boolean))];
   const users = await usersWithAddress(addresses);
-  const failing = (address: string): FailingEmail => ({ address, reason: kind, since: at.toISOString() });
+  const template = outbox?.template ?? event.tags.template ?? null;
   const paused: string[] = [];
   for (const user of users) {
     const address = notificationEmailFor(user)!.toLowerCase();
-    await db.user.update({
-      where: { id: user.id },
-      data: { notificationPrefs: withEmailFailing(user.notificationPrefs, failing(address)) as Prisma.InputJsonValue },
-    });
-    paused.push(user.id);
     await audit({
       actorId: null,
       action: `email.${kind}`,
       targetType: "User",
       targetId: user.id,
-      details: { template: outbox?.template ?? event.tags.template ?? null, emailId: event.emailId },
+      details: { template, emailId: event.emailId },
     });
+    // Paused now (or already, by an earlier bounce of the same address).
+    await reportChannelFailure({ userId: user.id, channel: "email", reason: kind, address, at, tellFounder: false });
+    paused.push(user.id);
   }
 
-  const template = outbox?.template ?? event.tags.template ?? null;
   const code = event.tags.booking ?? bookingCodeIn(outbox?.text) ?? null;
   const booking =
     template === "booking_new_host" && code
       ? await db.booking.findUnique({
           where: { code },
-          select: { id: true, code: true, status: true, hostUserId: true, listing: { select: { title: true, publicId: true } }, host: { select: { name: true, firstName: true } } },
+          select: {
+            id: true,
+            code: true,
+            status: true,
+            hostNotifiedVia: true,
+            listing: { select: { title: true, publicId: true } },
+            host: { select: { name: true, firstName: true } },
+          },
         })
       : null;
 
-  // The host's "new booking" alert bounced: the guest should make sure the host expects them.
-  if (booking && booking.status === "CONFIRMED") await notifyGuestHostUnreached(booking.id);
+  // The host's "new booking" alert bounced and no other channel delivered it: the guest should
+  // make sure the host expects them (email, and a text when Twilio is set up). The booking stands.
+  const affected = booking && booking.status === "CONFIRMED" && bookingAffectedByFailure(booking.hostNotifiedVia, "email") ? booking : null;
+  if (affected) await notifyGuestHostUnreached(affected.id);
 
-  // Tell the hosts by the channels they have left (a text; email is the one that bounced).
-  const hostIds = new Set(
-    (
-      await db.listing.findMany({
-        where: { ownerId: { in: users.map((u) => u.id) }, deletedAt: null, dealType: { in: [...BOOKABLE_DEAL_TYPES] } },
-        select: { ownerId: true },
-      })
-    ).map((l) => l.ownerId),
-  );
-  await Promise.all(users.filter((u) => hostIds.has(u.id)).map((u) => textHostAlertsPaused(u).catch(() => undefined)));
-
-  await sendAdminAlert(
-    booking
+  await sendFounderAlert(
+    affected
       ? {
           kind: "host_alert_bounced",
           reason: kind,
-          bookingCode: booking.code,
-          listingTitle: booking.listing.title,
-          listingPublicId: booking.listing.publicId,
-          hostName: booking.host.firstName || booking.host.name || null,
+          bookingCode: affected.code,
+          listingTitle: affected.listing.title,
+          listingPublicId: affected.listing.publicId,
+          hostName: personName(affected.host),
           address: addresses[0] ?? null,
           template,
           adminUrl: "/admin/bookings",
@@ -328,14 +352,10 @@ export async function handleEmailDelivered(event: EmailEvent): Promise<{ resumed
   const resumed: string[] = [];
   for (const user of await usersWithAddress(addresses)) {
     const failing = parseAlertPrefs(user.notificationPrefs).email.failing;
-    if (!failing || !addresses.includes(failing.address)) continue;
-    if (failing.since && outbox.createdAt.getTime() <= Date.parse(failing.since)) continue;
-    await db.user.update({
-      where: { id: user.id },
-      data: { notificationPrefs: withEmailFailing(user.notificationPrefs, null) as Prisma.InputJsonValue },
-    });
-    await audit({ actorId: null, action: "email.resumed", targetType: "User", targetId: user.id, details: { emailId: event.emailId } });
-    resumed.push(user.id);
+    const address = notificationEmailFor(user)?.toLowerCase() ?? null;
+    if (!resumesFailure(failing, { channel: "email", sentAt: outbox.createdAt, address })) continue;
+    if (await clearChannelFailure(user.id, "email", "delivered")) resumed.push(user.id);
   }
   return { resumed };
 }
+

@@ -36,6 +36,18 @@ export async function sql<T extends pg.QueryResultRow = Record<string, unknown>>
   return result.rows;
 }
 
+/** Runs `fn` while holding a Postgres advisory lock: one worker at a time (e.g. the admin's 2-step login). */
+export async function withAdvisoryLock<T>(key: number, fn: () => Promise<T>): Promise<T> {
+  const client = await getPool().connect();
+  try {
+    await client.query("SELECT pg_advisory_lock($1)", [key]);
+    return await fn();
+  } finally {
+    await client.query("SELECT pg_advisory_unlock($1)", [key]).catch(() => undefined);
+    client.release();
+  }
+}
+
 export async function closeDb() {
   await pool?.end();
   pool = null;
@@ -178,7 +190,7 @@ export async function listingByPublicId(publicId: number) {
 
 type CounterRow = { id: string; viewCount: number; contactCount: number; saveCount: number; reportCount: number };
 type StatRow = { listingId: string; date: string; views: number; contacts: number; saves: number; contactsByChannel: unknown };
-export type CounterSnapshot = { listings: CounterRow[]; stats: StatRow[]; startedAt: Date };
+export type CounterSnapshot = { listings: CounterRow[]; stats: StatRow[]; contactTaps: string[]; startedAt: Date };
 
 export async function snapshotCounters(): Promise<CounterSnapshot> {
   const listings = await sql<CounterRow>(`SELECT id, "viewCount", "contactCount", "saveCount", "reportCount" FROM "Listing"`);
@@ -186,10 +198,17 @@ export async function snapshotCounters(): Promise<CounterSnapshot> {
     `SELECT "listingId", to_char(date, 'YYYY-MM-DD') AS date, views, contacts, saves, "contactsByChannel" FROM "ListingStatDaily"
      WHERE date >= current_date - 2`,
   );
-  return { listings, stats, startedAt: new Date() };
+  // Contact taps no longer name who tapped (round 3), so the run's taps on demo listings are found
+  // as the anonymous rows that were not there before it.
+  const taps = await sql<{ id: string }>(`SELECT id FROM "ContactClick" WHERE "userId" IS NULL`);
+  return { listings, stats, contactTaps: taps.map((t) => t.id), startedAt: new Date() };
 }
 
 export async function restoreCounters(snapshot: CounterSnapshot) {
+  await sql(
+    `DELETE FROM "ContactClick" WHERE "userId" IS NULL AND id <> ALL($1::text[]) AND "listingId" IN (SELECT id FROM "Listing" WHERE "isDemo")`,
+    [snapshot.contactTaps],
+  );
   for (const row of snapshot.listings) {
     await sql(
       `UPDATE "Listing" SET "viewCount" = $2, "contactCount" = $3, "saveCount" = $4, "reportCount" = $5
@@ -259,6 +278,8 @@ export async function cleanupTestData(opts: { since?: Date } = {}) {
   await sql(`DELETE FROM "ContactClick" WHERE "userId" = ANY($1)`, [userIds]);
   await sql(`DELETE FROM "EmailOutbox" WHERE "to" = ANY($1) OR "to" LIKE $2`, [users.map((u) => u.email), `%@${TEST_EMAIL_DOMAIN}`]);
   await sql(`DELETE FROM "Verification" WHERE identifier LIKE $1 OR identifier LIKE $2`, [`${TEST_PHONE_PREFIX}%`, `%@${TEST_EMAIL_DOMAIN}`]);
+  // 2-step login rows of test accounts (the test admin's last accepted code, a pending set-up).
+  await sql(`DELETE FROM "Verification" WHERE identifier = ANY($1)`, [userIds.flatMap((id) => [`totp-last:${id}`, `totp-enroll:${id}`])]);
   await sql(`DELETE FROM "Listing" WHERE id = ANY($1)`, [listingIds]);
   await sql(`DELETE FROM "User" WHERE id = ANY($1)`, [userIds]);
   // Sessions the tests opened for demo users (admin, guest…), recognised by the user agent.

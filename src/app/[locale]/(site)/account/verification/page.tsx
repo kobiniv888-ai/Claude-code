@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/config/site";
 import { documentChecksOn } from "@/config/verification";
 import { Link } from "@/i18n/navigation";
+import { formatPhoneForDisplay } from "@/lib/phone";
 import { getVerificationCenter, toSummaries, type VerificationRequestView } from "@/lib/account/queries";
 import { badgeState, latestRequest, type BadgeState } from "@/lib/account/verification";
 import { mayOfferPhoneCheck } from "@/lib/auth/phone-check-policy";
@@ -136,7 +137,7 @@ export default async function VerificationPage({ params }: Props) {
       lead={
         center.phoneVerified && center.phoneNumber ? (
           <>
-            {t("phone.verified")} <Ltr className="font-medium text-foreground">{center.phoneNumber}</Ltr>
+            {t("phone.verified")} <Ltr className="font-medium whitespace-nowrap text-foreground">{formatPhoneForDisplay(center.phoneNumber)}</Ltr>
           </>
         ) : center.isHost ? (
           t("phone.lead")

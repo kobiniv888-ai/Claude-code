@@ -5,9 +5,12 @@ import { BASE_URL, E2E_PORT, E2E_USER_AGENT_TAG } from "./tests/e2e/helpers/env"
  * End-to-end tests (BRIEF section 15, "Definition of done"). See README → "End-to-end tests".
  *
  * The tests run against a development server on port 3601 with its own build folder, so they can
- * run next to `npm run dev`. An already running server on that port is reused. The server needs
- * the local database (with `npm run db:seed`) and the development login codes
- * (no Twilio, `GET /api/dev/last-otp`), plus `DEV_SKIP_STAFF_2FA=true` in `.env` for the admin tests.
+ * run next to `npm run dev`. An already running server on that port is reused, so the same tests
+ * run in PRODUCTION mode against a `next start` with `AUTH_TEST_MODE=true` on that port (or on
+ * `E2E_PORT`, see README → "End-to-end tests"). The server needs the local database (with
+ * `npm run db:seed`) and the login codes on screen (development or test mode, no Twilio,
+ * `GET /api/dev/last-otp`). Staff tests use real 2-step login: the global setup creates a test
+ * admin with an authenticator secret and the tests compute its codes (tests/e2e/helpers/staff.ts).
  */
 const PORT = E2E_PORT;
 const baseURL = BASE_URL;

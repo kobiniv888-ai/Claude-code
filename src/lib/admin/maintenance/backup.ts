@@ -220,8 +220,8 @@ export async function readBackupMeta(dir: string): Promise<BackupMeta | null> {
   }
 }
 
-/** The newest complete backups first. */
-export async function listBackups(limit = 10): Promise<BackupSummary[]> {
+/** The newest complete backups first; with `database`, only the backups of that database. */
+export async function listBackups(limit = 10, database?: string): Promise<BackupSummary[]> {
   const root = backupRoot();
   let names: string[];
   try {
@@ -233,14 +233,14 @@ export async function listBackups(limit = 10): Promise<BackupSummary[]> {
   const out: BackupSummary[] = [];
   for (const id of ids) {
     const meta = await readBackupMeta(path.join(root, id));
-    if (meta && meta.id === id) out.push(summarize(meta));
+    if (meta && meta.id === id && (database === undefined || meta.database?.name === database)) out.push(summarize(meta));
     if (out.length >= limit) break;
   }
   return out;
 }
 
-export async function latestBackup(): Promise<BackupSummary | null> {
-  return (await listBackups(1))[0] ?? null;
+export async function latestBackup(database?: string): Promise<BackupSummary | null> {
+  return (await listBackups(1, database))[0] ?? null;
 }
 
 /** Checks every table file against its checksum. Returns the names of the files that do not match. */

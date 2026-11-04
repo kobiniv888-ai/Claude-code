@@ -2,6 +2,7 @@ import "server-only";
 import { locales, siteConfig, type Localized } from "@/config/site";
 import { Prisma, type JewishPlaceType } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
+import { siteUrl } from "@/lib/site-url";
 import { haversineMeters, walkingMinutes, type LatLng } from "@/lib/geo";
 
 /**
@@ -207,7 +208,7 @@ async function fetchOsmNearby(point: LatLng): Promise<Pick<NearbyInfo, "supermar
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
         Accept: "application/json",
-        "User-Agent": `${siteConfig.name}/1.0 (+${siteConfig.url})`,
+        "User-Agent": `${siteConfig.name}/1.0 (+${siteUrl()})`,
       },
       body: new URLSearchParams({ data: overpassQuery(point) }),
       signal: AbortSignal.timeout(OVERPASS_TIMEOUT_MS),

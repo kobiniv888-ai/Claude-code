@@ -1,5 +1,8 @@
+import fs from "node:fs";
 import { test as base, expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
 import { acceptCookies, loginByPhone } from "./helpers/auth";
+import { withAdvisoryLock } from "./helpers/db";
+import { ADMIN_STATE_FILE, TEST_ADMIN_PHONE, verifyTwoFactor } from "./helpers/staff";
 
 /** Console noise that is not an app error (external photos that cannot load offline, dev HMR). */
 const IGNORED_CONSOLE = [/Failed to load resource/i, /\[HMR\]/, /\[Fast Refresh\]/, /Download the React DevTools/];
@@ -66,12 +69,38 @@ type StorageState = Awaited<ReturnType<BrowserContext["storageState"]>>;
 const sessions = new Map<string, StorageState>();
 
 /**
+ * The test admin's signed-in, 2-step-verified browser state, shared by every worker of the run
+ * (a file the global setup clears): each authenticator code costs one of the 5 tries the server
+ * allows per 10 minutes, so the admin logs in once per run, under a database lock.
+ */
+async function adminState(browser: Browser): Promise<StorageState> {
+  const cached = sessions.get(TEST_ADMIN_PHONE);
+  if (cached) return cached;
+  const state = await withAdvisoryLock(4615_0001, async () => {
+    if (fs.existsSync(ADMIN_STATE_FILE)) return JSON.parse(fs.readFileSync(ADMIN_STATE_FILE, "utf8")) as StorageState;
+    const use = test.info().project.use;
+    const context = await browser.newContext({ baseURL: use.baseURL, userAgent: use.userAgent, viewport: use.viewport, locale: use.locale });
+    const page = await context.newPage();
+    await acceptCookies(page);
+    await loginByPhone(page, TEST_ADMIN_PHONE);
+    await verifyTwoFactor(page);
+    const fresh = await context.storageState();
+    await context.close();
+    fs.writeFileSync(ADMIN_STATE_FILE, JSON.stringify(fresh));
+    return fresh;
+  });
+  sessions.set(TEST_ADMIN_PHONE, state);
+  return state;
+}
+
+/**
  * A second browser (its own cookies) with the project's settings, signed in with `phone` when
- * given, e.g. the admin next to the owner. Close it with `context.close()`.
+ * given, e.g. the admin next to the owner. Close it with `context.close()`. The test admin
+ * (TEST_ADMIN_PHONE) comes with its 2-step login done (helpers/staff.ts).
  */
 export async function openAs(browser: Browser, phone: string | null, storageState?: StorageState) {
   const use = test.info().project.use;
-  const cached = phone ? sessions.get(phone) : undefined;
+  const cached = phone === TEST_ADMIN_PHONE && !storageState ? await adminState(browser) : phone ? sessions.get(phone) : undefined;
   const context = await browser.newContext({
     baseURL: use.baseURL,
     userAgent: use.userAgent,

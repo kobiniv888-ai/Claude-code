@@ -123,6 +123,8 @@ const samples: { [K in keyof Data]: Data[K] } = {
     hostPhone: "+995555000011",
     hostWhatsapp: "+995555000011",
   },
+  host_alert_test: { hostName: "Yossi", settingsUrl: "/account/settings#booking-alerts" },
+  host_alerts_paused: { hostName: "Yossi", channel: "telegram", stillInstant: true, settingsUrl: "/account/settings#booking-alerts" },
   admin_alert: {
     kind: "host_alert_bounced",
     reason: "bounced",

@@ -13,7 +13,7 @@
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 type FakeUser = {
   id: string;
@@ -80,7 +80,7 @@ vi.mock("@/lib/db", () => {
           if (name === "session" && method === "findUnique") {
             return async () => (state.user ? { twoFactorVerifiedAt: state.twoFactorVerifiedAt, user: state.user } : null);
           }
-          return (..._args: unknown[]) => {
+          return () => {
             state.dbTouched.push(`${name}.${String(method)}`);
             throw new Error(`database touched before the staff check: ${name}.${String(method)}`);
           };
@@ -202,6 +202,12 @@ const SCENARIOS: Scenario[] = [
 const modules = actionModules();
 
 describe("admin server actions refuse accounts without panel access", () => {
+  // Loading every admin module the first time takes several seconds (cold transform).
+  beforeAll(async () => {
+    for (const file of modules) await import(file);
+    await import("@/app/api/admin/documents/[requestId]/[index]/route");
+  }, 120_000);
+
   beforeEach(() => {
     state.dbTouched = [];
   });

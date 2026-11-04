@@ -20,6 +20,7 @@ if [ ! -f .env ]; then
   sed -i "s|^DEV_SKIP_STAFF_2FA=.*|DEV_SKIP_STAFF_2FA=\"true\"|" .env
 fi
 sync_env
+node scripts/ensure-vapid.mjs || true  # browser-notification keys for booking alerts (kept once made)
 
 npm ci --no-audit --no-fund
 sha256sum package-lock.json | cut -d' ' -f1 > node_modules/.bayit-lock-hash
@@ -32,5 +33,8 @@ npx prisma db execute --file prisma/sql/before-push.sql
 npx prisma db push
 npm run db:seed
 cp prisma/seed/DEMO_DATA_VERSION .devcontainer/.demo-data-version
+# The founder's account becomes the admin once it exists (private BAYIT_ADMIN_* secrets; silent
+# while they are empty or the account is not made yet).
+npm run --silent admin:grant -- --from-env || true
 touch .devcontainer/.setup-done
 echo "Setup finished."

@@ -3,7 +3,7 @@
 import { Check, ChevronDown, Link2, LifeBuoy, MessageSquarePlus, Search, SearchX, X } from "lucide-react";
 import { Accordion as AccordionPrimitive } from "radix-ui";
 import { useLocale, useTranslations } from "next-intl";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Chip } from "@/components/ds/chip";
 import { EmptyState } from "@/components/ds/empty-state";
 import { IconCircle } from "@/components/ds/icon-circle";
@@ -19,6 +19,12 @@ export type HelpFaqItem = FaqEntry & { category: FaqCategory };
 type Filter = FaqCategory | "ALL";
 
 const HASH_PREFIX = "#faq-";
+
+/**
+ * The help page's address on the permanent site address (SITE_URL, built on the server with
+ * @/lib/site-url), so a copied question link keeps working (round 3 brief 2.1). Null: this page.
+ */
+const ShareBaseContext = createContext<string | null>(null);
 
 function Highlighted({ text, tokens }: { text: string; tokens: string[] }) {
   const parts = useMemo(() => highlightParts(text, tokens), [text, tokens]);
@@ -39,6 +45,7 @@ function Highlighted({ text, tokens }: { text: string; tokens: string[] }) {
 
 function CopyLinkButton({ id }: { id: string }) {
   const t = useTranslations("help.faq");
+  const shareBase = useContext(ShareBaseContext);
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
@@ -46,7 +53,7 @@ function CopyLinkButton({ id }: { id: string }) {
   }, []);
 
   async function copy() {
-    const url = `${window.location.origin}${window.location.pathname}${HASH_PREFIX}${id}`;
+    const url = `${shareBase ?? `${window.location.origin}${window.location.pathname}`}${HASH_PREFIX}${id}`;
     window.history.replaceState(window.history.state, "", `${HASH_PREFIX}${id}`);
     try {
       await navigator.clipboard.writeText(url);
@@ -143,7 +150,7 @@ const emptyCard = "rounded-card border border-dashed bg-card/60 px-6";
  * The help center: big instant search, six topics and the FAQ accordion.
  * Questions have deep links (#faq-<id>) that open and scroll to the answer.
  */
-export function HelpCenter({ items }: { items: HelpFaqItem[] }) {
+export function HelpCenter({ items, pageUrl = null }: { items: HelpFaqItem[]; /** This page on the permanent address. */ pageUrl?: string | null }) {
   const t = useTranslations("help");
   const tCat = useTranslations("help.categories");
   const locale = useLocale();
@@ -219,7 +226,7 @@ export function HelpCenter({ items }: { items: HelpFaqItem[] }) {
   const n = (value: number) => formatNumber(value, locale);
 
   return (
-    <>
+    <ShareBaseContext.Provider value={pageUrl}>
       {/* Hero with the search box */}
       <section className="border-b border-border bg-background">
         <div className="mx-auto w-full max-w-3xl px-gutter pt-8 pb-8 text-center sm:pt-14 sm:pb-10">
@@ -430,6 +437,6 @@ export function HelpCenter({ items }: { items: HelpFaqItem[] }) {
           </>
         )}
       </div>
-    </>
+    </ShareBaseContext.Provider>
   );
 }

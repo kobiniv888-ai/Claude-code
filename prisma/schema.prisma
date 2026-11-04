@@ -355,6 +355,10 @@ model User {
   replyRate               Int?
   isDemo                  Boolean     @default(false)
   deletedAt               DateTime?
+  /// Booking alerts by Telegram (round 3, src/lib/alerts/telegram.ts): the private chat with the
+  /// Bayit bot, set when the host opens the bot's "/start <token>" link from the settings page.
+  telegramChatId          String?     @unique
+  telegramLinkedAt        DateTime?
 
   sessions              Session[]
   accounts              Account[]
@@ -380,10 +384,33 @@ model User {
   bookingsAsGuest       Booking[]             @relation("BookingGuest")
   bookingsAsHost        Booking[]             @relation("BookingHost")
   bookingsCancelled     Booking[]             @relation("BookingCanceller")
+  pushSubscriptions     PushSubscription[]
 
   @@index([role])
   @@index([status])
   @@index([createdAt])
+}
+
+/// Browser / app notifications for booking alerts (round 3, src/lib/alerts/push.ts): one row per
+/// device that turned them on in the account settings. Never counts as a confirmed alert on its
+/// own (it can't confirm the host saw it). A 404/410 from the push service deletes the row.
+model PushSubscription {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// The push service URL (only known push services are accepted).
+  endpoint  String    @unique
+  p256dh    String
+  auth      String
+  /// "iPhone · Safari" style hint for the settings list (trimmed User-Agent).
+  userAgent String?
+  createdAt DateTime  @default(now())
+  /// The last notification the push service accepted.
+  lastOkAt  DateTime?
+  /// The last failed send (other than 404/410, which delete the row).
+  failedAt  DateTime?
+
+  @@index([userId])
 }
 
 model Session {
@@ -843,10 +870,14 @@ model Booking {
   rulesAcceptedAt    DateTime
   /// The 3-days-before reminder went out (cron /api/cron/booking-reminders).
   reminderSentAt     DateTime?
-  /// When one of the host's alert channels ACCEPTED the "new booking" alert (Resend returned an
-  /// id; the dev outbox in development / test mode). A booking only stands once the host was told
-  /// (round 3, src/lib/booking/alerts.ts). Null on bookings made before round 3.
+  /// When one of the host's CONFIRMING alert channels accepted the "new booking" alert (Resend
+  /// returned an id, or the Telegram bot's message went through; the dev outbox in development /
+  /// test mode). A booking only stands once the host was told (round 3, src/lib/alerts). Null on
+  /// bookings made before round 3.
   hostNotifiedAt     DateTime?
+  /// Which confirming channels accepted it, comma-separated: "email", "telegram" or
+  /// "email,telegram" (browser notifications never count, so they are not listed).
+  hostNotifiedVia    String?
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
   block              AvailabilityBlock?

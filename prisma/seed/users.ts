@@ -179,6 +179,10 @@ export async function seedUsers(db: PrismaClient, now: Date): Promise<number> {
       // No invented response times or reply rates on the site, not even for demo hosts.
       avgReplyMinutes: null,
       replyRate: null,
+      // Booking alerts (round 3, src/lib/alerts): demo hosts get them by email, which for demo
+      // accounts stays in the dev outbox and counts as delivered (instant booking works in the
+      // codespace). Telegram and browser notifications are on as soon as someone connects them.
+      notificationPrefs: isHost ? { alerts: { channels: { email: true, telegram: true, push: true } } } : undefined,
       welcomePledgeVersion: isHost ? PLEDGE_CURRENT_VERSION : null,
       welcomePledgeAcceptedAt: isHost ? daysFromNow(-user.joinedDaysAgo + 1, now, 10) : null,
       lastSeenAt: daysFromNow(-(user.joinedDaysAgo % 3), now, 8),

@@ -24,11 +24,12 @@ export default async function HelpPage({ params }: Props) {
   const { locale } = await params;
   setRequestLocale(locale);
   const items = await getPublishedFaq(locale);
+  const pageUrl = absoluteUrl(localizedPath(locale, "/help"));
 
   return (
     <div className="pb-16">
-      <FaqJsonLd items={items} url={absoluteUrl(localizedPath(locale, "/help"))} />
-      <HelpCenter items={items} />
+      <FaqJsonLd items={items} url={pageUrl} />
+      <HelpCenter items={items} pageUrl={pageUrl} />
       <Container size="default" className="max-w-6xl pt-12">
         <ContactOptions />
       </Container>

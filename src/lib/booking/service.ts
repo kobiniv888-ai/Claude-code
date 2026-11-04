@@ -14,9 +14,9 @@ import { cleanPaymentMethods, REMINDER_DAYS_BEFORE, type GuestCancelReason, type
 import { addDays, dateToDay, dayToDate, daysBetween, tbilisiToday } from "./dates";
 import { BookingError } from "./errors";
 import { findBlockingRange } from "./availability";
-import { notifyBookingCancelled, notifyBookingCompleted, notifyBookingConfirmed, notifyBookingReminder } from "./notify";
-import { alertEnvironment, confirmWithHostAlert, hostInstantGate, reportHostUnreachable } from "./alerts";
-import type { AlertEnvironment } from "./alert-rules";
+import { notifyBookingCompleted, notifyBookingReminder } from "./notify";
+import { afterBookingConfirmed, alertEnvironment, confirmWithHostAlert, hostInstantGate, notifyCancellation, reportHostUnreachable } from "./alerts";
+import type { AlertEnvironment } from "@/lib/alerts/rules";
 import {
   canGuestCancel,
   canHostCancel,
@@ -190,8 +190,9 @@ export type CreateBookingParams = StayParams & {
    */
   allowDemoListing?: boolean;
   /**
-   * false: the caller sends the guest's confirmation itself (notifyBookingConfirmed, e.g. with
-   * after()). The host's alert is ALWAYS sent here: the booking stands only when it was accepted.
+   * false: the caller sends the guest's confirmation and the host's browser notification itself
+   * (afterBookingConfirmed, e.g. with after()). The host's alert on the confirming channels is
+   * ALWAYS sent here: the booking stands only when one of them accepted it.
    */
   notify?: boolean;
   /** Where the code runs, for the host alert rules (alertEnvironment(await headers())). */
@@ -445,7 +446,7 @@ export async function createBooking(params: CreateBookingParams): Promise<Create
     env: alerts,
     now,
   });
-  if (params.notify !== false) await notifyBookingConfirmed(created.id, now);
+  if (params.notify !== false) await afterBookingConfirmed(created.id, now, alerts);
   return created;
 }
 
@@ -533,7 +534,7 @@ export async function guestCancel(params: {
       flagged,
     },
   });
-  if (params.notify !== false) await notifyBookingCancelled(booking.id);
+  if (params.notify !== false) await notifyCancellation(booking.id);
   return { code: booking.code, late, flagged };
 }
 
@@ -582,7 +583,7 @@ export async function hostCancel(params: {
       daysBeforeCheckIn: daysBetween(tbilisiToday(now), dateToDay(booking.checkIn)),
     },
   });
-  if (params.notify !== false) await notifyBookingCancelled(booking.id);
+  if (params.notify !== false) await notifyCancellation(booking.id);
   return { code: booking.code, late, flagged };
 }
 
@@ -718,7 +719,7 @@ export async function releaseBookingsOfDeletedAccount(userId: string, now: Date 
       targetId: booking.id,
       details: { code: booking.code, side: asGuest ? "guest" : "host" },
     });
-    await notifyBookingCancelled(booking.id);
+    await notifyCancellation(booking.id);
   }
   await db.booking.updateMany({ where: { guestUserId: userId }, data: { guestName: "—", guestPhone: "", messageToHost: null } });
   // The guest's own words when they cancelled (hosts' reasons stay for staff review; the reason

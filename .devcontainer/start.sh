@@ -63,6 +63,7 @@ source .devcontainer/env-sync.sh
 # shellcheck source=site-procs.sh
 source .devcontainer/site-procs.sh
 sync_env | tee -a "$LOG"
+node scripts/ensure-vapid.mjs 2>&1 | tee -a "$LOG" || true
 log "── start $(date -u +%FT%TZ) ──"
 
 # Packages: the same as package-lock.json. The marker holds the lock file's hash from the last
@@ -104,9 +105,14 @@ if [ "$status" = "10" ] && [ "${BAYIT_SKIP_AUTO_SEED:-}" != "1" ]; then
   fi
 fi
 
+# The founder's account becomes the admin once it exists (BAYIT_ADMIN_EMAIL / BAYIT_ADMIN_PHONE,
+# private Codespaces secrets). Says nothing while they are empty or the account is not made yet;
+# never prints the address. 2-step login is still asked for at the first visit to /admin.
+npm run --silent admin:grant -- --from-env 2>&1 | tee -a "$LOG" || true
+
 # Translation key set → listings sent before it was set get their other languages now (listings
 # that already have all five are skipped, so this costs nothing on later starts).
-if grep -q '^GOOGLE_TRANSLATE_API_KEY="[^"]' .env 2>/dev/null; then
+if grep -qE '^(AZURE_TRANSLATOR_KEY|GOOGLE_TRANSLATE_API_KEY)="[^"]' .env 2>/dev/null; then
   timeout 300 npm run --silent translate:missing 2>&1 | tail -n 3 | tee -a "$LOG"
 fi
 

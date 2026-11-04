@@ -131,6 +131,16 @@ test.describe("guest contact", () => {
     // Never leave the test machine: answer wa.me ourselves.
     await context.route(/https:\/\/(api\.)?(wa\.me|whatsapp\.com)\//, (route) => route.fulfill({ status: 200, contentType: "text/plain", body: "WhatsApp" }));
 
+    const whatsappTaps = async () =>
+      Number(
+        (
+          await sql<{ count: string }>(
+            `SELECT count(*)::text AS count FROM "ContactClick" c JOIN "Listing" l ON l.id = c."listingId" WHERE l."publicId" = 91 AND c.channel = 'WHATSAPP'`,
+          )
+        )[0].count,
+      );
+    const tapsBefore = await whatsappTaps();
+
     await page.goto("/en/search?city=tbilisi&deal=short-stay");
     const card = results(page).filter({ hasText: "Kosher apartment in a historic house in Sololaki" });
     await card.getByRole("link").first().click();
@@ -170,11 +180,11 @@ test.describe("guest contact", () => {
     expect([title, listing.title].some((t) => text.includes(t)), `message "${text}" names the listing`).toBe(true);
     await popup.close();
 
-    // The tap is recorded for the owner's stats.
+    // The tap is counted for the owner's stats, without who tapped (founder's answer 8, round 3:
+    // contact taps keep only the listing, the channel and the time).
     const [{ id: userId }] = await sql<{ id: string }>(`SELECT id FROM "User" WHERE email = $1`, [email]);
-    await expect
-      .poll(async () => (await sql(`SELECT 1 FROM "ContactClick" c JOIN "Listing" l ON l.id = c."listingId" WHERE c."userId" = $1 AND l."publicId" = 91 AND c.channel = 'WHATSAPP'`, [userId])).length)
-      .toBe(1);
+    await expect.poll(whatsappTaps).toBeGreaterThan(tapsBefore);
+    expect(await sql(`SELECT 1 FROM "ContactClick" WHERE "userId" = $1`, [userId])).toHaveLength(0);
     // The safety tip is shown once: the next tap goes straight to WhatsApp.
     const second = page.waitForEvent("popup");
     await whatsapp.click();

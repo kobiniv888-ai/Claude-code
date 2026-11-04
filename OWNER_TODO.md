@@ -1,8 +1,82 @@
 # Things only you can do or decide
 
-This list is kept up to date as the work goes on. It was last updated at the end of redesign
-round 2. The round-2 summary, the "Done when" checklist and what to check on your phone are in
-`docs/redesign-2/final.md`.
+This list is kept up to date as the work goes on. It was last updated in round 3, phase 1. The
+round-2 summary, the "Done when" checklist and what to check on your phone are in
+`docs/redesign-2/final.md`; round 3's plan and your answers are in `docs/round-3/PLAN.md`.
+
+## לפני ההשקה (before launch)
+Do these in this order. Without Resend (3) or Google (4), nobody can log in on the real site.
+
+1. [ ] **Buy the domain** (you are doing this now). Tell us the name: calendar links, Google
+       pages, share links and emails are all built from it.
+2. [ ] **Choose hosting.** The default is **A**. All three allow a business site. Prices were
+       checked on 3 November 2026, without VAT and without per-use costs (SMS, translation):
+       - **A. Vercel Pro + Neon (database) + Cloudflare R2 (photos):** about **$25–45 a month**.
+         The least work: the site is already set up for it. Vercel's free Hobby plan is not
+         allowed for a business and can't run the hourly jobs.
+       - **B. Railway Pro:** about **$20–30 a month**, one bill and one always-on server. Some
+         setup work (scheduled jobs, database backups).
+       - **C. A Hetzner server with Coolify:** about **€11–12 a month**, the cheapest, but you (or
+         someone you pay) look after the server: updates, backups and security.
+
+       On A, the "גיבוי מלא" button in Admin → תחזוקה can't keep its files (there is no lasting
+       disk), so Neon's own backups do that job there. Run the data clean-ups (item 9) in the
+       codespace before the data moves.
+3. [ ] **Resend (email).** Sign up, add the domain and its DNS records until it says "Verified",
+       create an API key, and set `RESEND_API_KEY` and `EMAIL_FROM`. Then **Resend → Webhooks →
+       Add endpoint** `https://<your domain>/api/webhooks/resend` with the events
+       `email.bounced`, `email.complained` and `email.delivered`, and set its signing secret as
+       `RESEND_WEBHOOK_SECRET` (a bounced booking email then alerts you and the guest). Steps and
+       prices: "Login & messages" below.
+4. [ ] **Google login keys** (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`; free). Steps: "Login &
+       messages" below. Until Resend or Google is set, the real site's admin panel shows a red
+       warning.
+5. [ ] **Azure translator key** (your choice for translating listings). portal.azure.com →
+       Create a resource → **Translator** → pricing tier **F0** (free, 2 million characters a
+       month) → **Keys and Endpoint**: copy KEY 1 and the Location (region). Set
+       `AZURE_TRANSLATOR_KEY` and `AZURE_TRANSLATOR_REGION`. Above the free tier it costs about $10
+       per million characters (check Azure's price page). Without it, each listing shows only the
+       language its owner wrote it in.
+6. [ ] **`SITE_URL`** = `https://<your domain>`, in the hosting's settings (not needed in the
+       codespace). Until it is set, hosts can't copy their calendar link and the server prints a
+       warning at start.
+7. [ ] **Telegram bot for booking alerts (free).** In Telegram, open **@BotFather** → `/newbot` →
+       a name ("Bayit") and a username that ends in "bot". It gives you a token. Add three
+       Codespaces secrets (and the same names on the hosting): `TELEGRAM_BOT_TOKEN` (the token),
+       `TELEGRAM_BOT_USERNAME` (the username, without @) and `TELEGRAM_WEBHOOK_SECRET` (any long
+       random text). Then, once the site is on its domain, open this address once in the phone's
+       browser (with your token, domain and secret in place of the words in capitals):
+       `https://api.telegram.org/botTOKEN/setWebhook?url=https://DOMAIN/api/webhooks/telegram&secret_token=SECRET`.
+       It should answer `"ok":true`. Until the token is set, Telegram shows "בקרוב" in the hosts'
+       alert settings and alerts go by email.
+       **Browser notifications** need no account: the codespace made a free key pair
+       (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` in `.env`). Copy the same two values to the
+       hosting's settings and never change them (phones that turned notifications on would stop
+       getting them).
+8. [ ] **Your admin account and the alert address.** These are private: never put them in a
+       message, a file or a commit. On github.com → your picture → **Settings → Codespaces →
+       Secrets → New secret**, add:
+       - `BAYIT_ADMIN_EMAIL`: the email you log in with (or `BAYIT_ADMIN_PHONE`: your phone, +972…)
+       - `ADMIN_ALERT_EMAIL`: where admin alerts and the daily summary go (a different address)
+
+       Log in on the site once with that account, then restart the codespace: the account becomes
+       the admin. Open `/admin` and set up **Google Authenticator** (scan the QR code, keep the
+       backup codes). It is required for your account, also in the codespace. On the hosting, add
+       the same three names to its settings.
+9. [ ] **Data clean-ups (in the codespace, from your phone).** Admin → **תחזוקה**: tap "גיבוי מלא
+       עכשיו", then "בדיקה (בלי שינוי)" on each clean-up to see the counts, then "הרצה". The four
+       clean-ups: phone numbers to international format, emojis out of titles, contact taps stop
+       storing who tapped, and the stored ID and selfie photos deleted. A run needs a backup from
+       the last hour, and each one can safely be run again.
+10. [ ] **Fix your listing 44:** the check-in and check-out times, max guests and bathrooms; move
+        the late-checkout fine into the house rules, in lari; add photos of the kitchen, the
+        balcony and the building entrance (only your own photos). We don't change your listing.
+11. [ ] **Listing 43:** write a Hebrew title and description, without emojis.
+12. [ ] **Footer line:** it becomes "נבנה על ידי משפחה ישראלית". Confirm it or send another line.
+13. [ ] **Verification, later.** Decided: no ID documents for now. The ID and owner badges are
+        hidden; trust comes from the verified phone and, later, the "ביקרנו במקום" badge. When you
+        want ID checks, choose a paid service (Veriff, Persona or Sumsub, roughly $1–2 a check) and
+        tell us: the badges come back without a database change.
 
 ## Content and wording
 - [ ] **About page story (phase 5).** The About page (linked as "הסיפור שלנו" from the footer and
@@ -71,23 +145,11 @@ round 2. The round-2 summary, the "Done when" checklist and what to check on you
 - [ ] **CARTO map key.** Confirm it is registered for commercial use (free up to 1 million tiles a
       month), then add it as the Codespaces secret `NEXT_PUBLIC_MAP_TILE_KEY` (and on Vercel later).
 - [ ] **SMS (Twilio) and email (Resend):** see "Login & messages" below.
-- [ ] **Translation of listings (Google Cloud Translation).** Every listing's title and description
-      is translated into the other four languages automatically when the owner sends it, edits it,
-      and when a moderator approves it, but only once this key exists. Without it, each listing
-      shows only the language the owner wrote it in. Setup, about 10 minutes:
-      1. Go to console.cloud.google.com and create a project (for example "bayit"). Google asks for
-         a billing account (a card) even for the free part.
-      2. Enable the **Cloud Translation API** (APIs & Services → Library).
-      3. Create a key (APIs & Services → Credentials → Create credentials → API key). Then
-         **restrict it**: under "API restrictions" choose only "Cloud Translation API".
-      4. On github.com → your photo → Settings → Codespaces → Secrets → **New secret**: name
-         `GOOGLE_TRANSLATE_API_KEY`, value = the key, repository = this one. Restart the codespace.
-         The next `bash .devcontainer/start-prod.sh` copies it in and translates the listings that
-         are already waiting (also by hand: `npm run translate:missing`).
-      - **Cost (estimate, check cloud.google.com/translate/pricing):** the first 500,000 characters
-        a month are free, then about $20 per million characters. One listing (about 1,500
-        characters) into 4 languages is about 6,000 characters, so roughly 80 new or edited listings
-        a month are free.
+- [ ] **Translation of listings:** Azure is the choice (see "לפני ההשקה", item 5). Google Cloud
+      Translation stays as a second option (`GOOGLE_TRANSLATE_API_KEY`, with
+      `TRANSLATE_PROVIDER="google"`): console.cloud.google.com → a project → enable the **Cloud
+      Translation API** → Credentials → API key, restricted to that API. The first 500,000
+      characters a month are free, then about $20 per million.
 
 ## Login & messages
 How people log in now (your request after the brief): **Google** (when set up), a **6-digit code by

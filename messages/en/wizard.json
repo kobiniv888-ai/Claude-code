@@ -405,6 +405,7 @@
     "writingInHelp": "The language of your title and description.",
     "titleLabel": "Title",
     "titleHelp": "Short and clear, for example \"Sunny 2-room apartment near Vake Park\".",
+    "titleEmojiRemoved": "We removed the emoji from the title. They're fine in the description.",
     "titlePlaceholder": "Sunny 2-room apartment near the park",
     "descriptionLabel": "Description",
     "descriptionHelp": "What makes it special, the neighborhood, how to get there. Don't add phone numbers or links — guests contact you with the buttons.",

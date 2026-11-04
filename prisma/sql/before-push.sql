@@ -66,3 +66,17 @@ BEGIN
     END IF;
   END IF;
 END $$;
+
+-- Round 3, phase 1 (booking alerts, src/lib/alerts): User gains "telegramChatId" with a unique
+-- index (and "telegramLinkedAt"). On a database that already has users, "prisma db push" stops and
+-- asks for --accept-data-loss before adding a unique index to an existing table. The column is new
+-- and empty, so adding it and its index first loses nothing and lets the push go through.
+-- Idempotent.
+DO $$
+BEGIN
+  IF to_regclass('public."User"') IS NOT NULL THEN
+    ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "telegramChatId" TEXT;
+    ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "telegramLinkedAt" TIMESTAMP(3);
+    CREATE UNIQUE INDEX IF NOT EXISTS "User_telegramChatId_key" ON "User"("telegramChatId");
+  END IF;
+END $$;

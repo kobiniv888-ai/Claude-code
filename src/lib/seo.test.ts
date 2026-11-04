@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { siteConfig } from "@/config/site";
+import { siteUrl } from "@/lib/site-url";
 import { absoluteUrl, localizedAlternates, localizedPath, ogLocale, pageMetadata, siteName } from "./seo";
 
-const origin = siteConfig.url.replace(/\/+$/, "");
+// The permanent address (SITE_URL, else NEXT_PUBLIC_SITE_URL): @/lib/site-url.
+const origin = siteUrl();
 
 describe("absoluteUrl", () => {
   it("prefixes the site origin", () => {

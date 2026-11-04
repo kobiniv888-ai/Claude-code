@@ -135,6 +135,16 @@ test.describe("booking", () => {
       [code],
     );
     expect(booking).toMatchObject({ status: "CONFIRMED", total: "160.00", nights: 2, messageToHost: MESSAGE });
+    // The host was alerted on a channel that confirms delivery (round 3): email, accepted by the
+    // outbox in test mode. A booking no confirming channel accepted would have been undone.
+    const [alerted] = await sql<{ via: string | null; at: Date | null }>(`SELECT "hostNotifiedVia" AS via, "hostNotifiedAt" AS at FROM "Booking" WHERE id = $1`, [booking.id]);
+    expect(alerted.via).toBe("email");
+    expect(alerted.at).not.toBeNull();
+    const [hostEmail] = await sql<{ count: string }>(
+      `SELECT count(*)::text AS count FROM "EmailOutbox" WHERE template = 'booking_new_host' AND html LIKE '%' || $1 || '%'`,
+      [code],
+    );
+    expect(Number(hostEmail.count)).toBeGreaterThanOrEqual(1);
 
     // "הוספה ליומן": the guest's own .ics with the stay.
     const addToCalendar = page.getByRole("link", { name: "הוספה ליומן" });

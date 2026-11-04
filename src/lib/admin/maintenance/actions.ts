@@ -4,9 +4,9 @@ import { z } from "zod";
 import { fail, ok, type ActionResult } from "@/lib/action";
 import { audit } from "@/lib/audit";
 import { AdminActionError, runStaffAction } from "../server/common";
-import { createBackup, listBackups } from "./backup";
+import { createBackup } from "./backup";
 import { summarize, type BackupSummary } from "./backup-format";
-import { dryRunCleanup, runCleanup, type CleanupReport } from "./cleanups";
+import { backupGate, dryRunCleanup, runCleanup, type CleanupReport } from "./cleanups";
 import { CLEANUP_NAMES } from "./plan";
 
 /**
@@ -39,7 +39,7 @@ export async function createBackupAction(): Promise<ActionResult<{ backup: Backu
         targetId: backup.id,
         details: { tables: backup.tables, rows: backup.totalRows, bytes: backup.totalBytes, pgDump: backup.pgDump },
       });
-      return ok({ backup, backups: await listBackups(5) });
+      return ok({ backup, backups: (await backupGate(5)).backups });
     },
     { limit: 6, windowSeconds: 3600 },
   );

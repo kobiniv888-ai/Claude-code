@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { getTranslations, setRequestLocale } from "next-intl/server";
+import { headers } from "next/headers";
+import { getFormatter, getTranslations, setRequestLocale } from "next-intl/server";
 import {
   ConnectedAccounts,
   ContactEmailForm,
@@ -10,11 +11,13 @@ import {
   ProfileForm,
   SettingsSection,
 } from "@/components/account/settings-forms";
+import { BookingAlerts } from "@/components/account/booking-alerts";
 import { LogoutEverywhere } from "@/components/account/logout-everywhere";
 import { TwoFactorSettings } from "@/components/auth/two-factor-settings";
 import { Ltr } from "@/components/common/ltr";
 import { PageHeader } from "@/components/common/page-header";
 import { getAccountSettings } from "@/lib/account/queries";
+import { getBookingAlertSettings } from "@/lib/alerts/settings";
 import { SPOKEN_LANGUAGE_OPTIONS } from "@/lib/account/settings-schema";
 import { requireUser } from "@/lib/auth/session";
 import { languageName } from "@/lib/listing-page/helpers";
@@ -28,13 +31,22 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return pageMetadata({ locale, path: "/account/settings", title: t("settings"), description: t("description"), noIndex: true });
 }
 
-/** /account/settings — profile, contact email, language & currency, notifications, security and privacy. */
+/** /account/settings — profile, contact email, language & currency, notifications, booking alerts (hosts), security and privacy. */
 export default async function SettingsPage({ params }: Props) {
   const { locale } = await params;
   setRequestLocale(locale);
   const user = await requireUser({ next: "/account/settings" });
   const t = await getTranslations("account.settings");
-  const data = await getAccountSettings(user.id);
+  const [data, alerts, tAlerts, format] = await Promise.all([
+    getAccountSettings(user.id),
+    // Booking alerts (round 3): shown to hosts of short stays and hotels.
+    headers().then((h) => getBookingAlertSettings(user.id, h)),
+    getTranslations("alerts"),
+    getFormatter(),
+  ]);
+  // "email and Telegram", formatted here so the browser's language data can't change it.
+  const alertChannelsText =
+    alerts && alerts.gate.ok ? format.list(alerts.gate.channels.map((c) => tAlerts(`channelShort.${c}`)), { type: "conjunction" }) : null;
   // Named here: browsers without Georgian Intl data would name them in English and break hydration.
   const languageNames = Object.fromEntries(
     [...new Set([...SPOKEN_LANGUAGE_OPTIONS, ...data.spokenLanguages])].map((code) => [code, languageName(code, locale)]),
@@ -71,6 +83,12 @@ export default async function SettingsPage({ params }: Props) {
       <SettingsSection id="notifications" title={t("notifications.title")} lead={t("notifications.lead")}>
         <NotificationsForm prefs={data.notifications} emailAvailable={!!(data.contactEmail || data.loginEmail)} />
       </SettingsSection>
+
+      {alerts?.show ? (
+        <SettingsSection id="booking-alerts" title={tAlerts("settings.title")} lead={tAlerts("settings.lead")}>
+          <BookingAlerts data={alerts} channelsText={alertChannelsText} />
+        </SettingsSection>
+      ) : null}
 
       <div id="security" className="grid scroll-mt-24 gap-4 sm:gap-6">
         <TwoFactorSettings enabled={data.twoFactorEnabled} isStaff={user.isStaff} returnTo="/account/settings#security" />

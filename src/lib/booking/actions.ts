@@ -13,8 +13,7 @@ import { assertRateLimit, assertRateLimitByIp } from "@/lib/rate-limit";
 import { assertNotShabbatMode } from "@/lib/settings";
 import { isRangeFree } from "./availability";
 import { tripPath } from "./constants";
-import { notifyBookingCancelled, notifyBookingConfirmed } from "./notify";
-import { alertEnvironment } from "./alerts";
+import { afterBookingConfirmed, alertEnvironment, notifyCancellation } from "./alerts";
 import { createBookingSchema, guestCancelSchema, hostCancelSchema, noShowSchema, quoteInputSchema } from "./schemas";
 import { createBooking, getBookingQuote, guestCancel, hostCancel, markNoShow, type BookingQuote } from "./service";
 
@@ -71,8 +70,10 @@ export async function createBookingAction(input: unknown): Promise<ActionResult<
     const data = parsed.data;
     const locale = localeOr((input as { locale?: unknown }).locale, user.locale);
     const requestHeaders = await headers();
-    // The host's alert is sent inside createBooking (the booking stands only once it was
-    // accepted); the guest's confirmation follows after the response.
+    const alerts = alertEnvironment(requestHeaders);
+    // The host's alert is sent inside createBooking (the booking stands only once a confirming
+    // channel accepted it); the guest's confirmation and the host's notification follow after
+    // the response.
     const booking = await createBooking({
       ...data,
       guestUserId: user.id,
@@ -81,10 +82,10 @@ export async function createBookingAction(input: unknown): Promise<ActionResult<
       displayCurrency: await getDisplayCurrency(user.currency, locale),
       // Demo listings are made up: bookable only in development / test mode.
       allowDemoListing: codeDisplayForHeaders(requestHeaders) !== null,
-      alerts: alertEnvironment(requestHeaders),
+      alerts,
       notify: false,
     });
-    after(() => notifyBookingConfirmed(booking.id));
+    after(() => afterBookingConfirmed(booking.id, new Date(), alerts));
     return ok({ id: booking.id, code: booking.code, path: tripPath(booking.code) });
   });
 }
@@ -97,7 +98,8 @@ export async function cancelBookingAsGuestAction(input: unknown): Promise<Action
     const parsed = guestCancelSchema.safeParse(input);
     if (!parsed.success) return fail("invalid_input", flattenError(parsed.error).fieldErrors);
     const result = await guestCancel({ ...parsed.data, guestUserId: user.id, notify: false });
-    after(() => notifyBookingCancelled(parsed.data.bookingId));
+    const alerts = alertEnvironment(await headers());
+    after(() => notifyCancellation(parsed.data.bookingId, alerts));
     return ok({ code: result.code, late: result.late });
   });
 }
@@ -110,7 +112,7 @@ export async function cancelBookingAsHostAction(input: unknown): Promise<ActionR
     const parsed = hostCancelSchema.safeParse(input);
     if (!parsed.success) return fail("invalid_input", flattenError(parsed.error).fieldErrors);
     const result = await hostCancel({ ...parsed.data, hostUserId: user.id, notify: false });
-    after(() => notifyBookingCancelled(parsed.data.bookingId));
+    after(() => notifyCancellation(parsed.data.bookingId));
     return ok({ code: result.code });
   });
 }

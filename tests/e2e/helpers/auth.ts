@@ -37,17 +37,33 @@ async function pollDevCode(request: APIRequestContext, query: string): Promise<s
   return code as unknown as string;
 }
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * A Better Auth call that waits out its rate limit. In production mode (`next start`) Better Auth
+ * allows 10 phone-login requests a minute per IP, and every test runs from 127.0.0.1: on 429 the
+ * test waits the X-Retry-After seconds the server names and tries again, like a patient person.
+ */
+async function authPost(request: APIRequestContext, path: string, data: Record<string, unknown>) {
+  const headers = { origin: BASE_URL, "content-type": "application/json" };
+  for (let attempt = 0; ; attempt += 1) {
+    const response = await request.post(path, { data, headers });
+    if (response.status() !== 429 || attempt >= 3) return response;
+    const wait = Number(response.headers()["x-retry-after"] ?? "60");
+    await sleep((Math.min(Number.isFinite(wait) ? wait : 60, 65) + 1) * 1000);
+  }
+}
+
 /**
  * Signs the page's browser context in with a phone code through the Better Auth API (the same
  * calls the login form makes). Creates the account when the phone is new.
  */
 export async function loginByPhone(page: Page, phone: string) {
   const request = page.context().request;
-  const headers = { origin: BASE_URL, "content-type": "application/json" };
-  const send = await request.post("/api/auth/phone-number/send-otp", { data: { phoneNumber: phone }, headers });
+  const send = await authPost(request, "/api/auth/phone-number/send-otp", { phoneNumber: phone });
   expect(send.status(), `send-otp: ${await send.text()}`).toBe(200);
   const code = await devOtp(request, phone);
-  const verify = await request.post("/api/auth/phone-number/verify", { data: { phoneNumber: phone, code }, headers });
+  const verify = await authPost(request, "/api/auth/phone-number/verify", { phoneNumber: phone, code });
   expect(verify.status(), `verify: ${await verify.text()}`).toBe(200);
 }
 
@@ -57,11 +73,10 @@ export async function loginByPhone(page: Page, phone: string) {
  */
 export async function loginByEmail(page: Page, email: string, opts: { firstName?: string } = {}) {
   const request = page.context().request;
-  const headers = { origin: BASE_URL, "content-type": "application/json" };
-  const send = await request.post("/api/auth/email-otp/send-verification-otp", { data: { email, type: "sign-in" }, headers });
+  const send = await authPost(request, "/api/auth/email-otp/send-verification-otp", { email, type: "sign-in" });
   expect(send.status(), `send email code: ${await send.text()}`).toBe(200);
   const otp = await devEmailOtp(request, email);
-  const verify = await request.post("/api/auth/sign-in/email-otp", { data: { email, otp }, headers });
+  const verify = await authPost(request, "/api/auth/sign-in/email-otp", { email, otp });
   expect(verify.status(), `sign in: ${await verify.text()}`).toBe(200);
   if (opts.firstName) {
     const { sql } = await import("./db");
@@ -80,6 +95,22 @@ export async function acceptCookies(page: Page) {
   ]);
 }
 
+/**
+ * Presses "Send code" and waits for the code field. If the server's rate limit answers instead
+ * (production mode: 10 phone-login requests a minute per IP, all tests share 127.0.0.1), waits a
+ * minute and presses it again, like a person would after "Please wait a few minutes".
+ */
+async function sendCodeWaitingOutLimit(scope: Page | Locator, button: Locator) {
+  const codeField = scope.getByLabel("6-digit code");
+  const limited = scope.getByText("Too many attempts. Please wait a few minutes and try again.");
+  for (let attempt = 0; ; attempt += 1) {
+    await button.click();
+    await expect(codeField.or(limited).first()).toBeVisible({ timeout: 30_000 });
+    if (!(await limited.isVisible()) || attempt >= 2) return;
+    await sleep(61_000);
+  }
+}
+
 /** A brand-new account answers the first-name step that follows its first sign-in. */
 async function answerFirstName(scope: Page | Locator, firstName: string | undefined) {
   if (!firstName) return;
@@ -95,7 +126,7 @@ async function answerFirstName(scope: Page | Locator, firstName: string | undefi
  */
 export async function loginThroughEmailForm(page: Page, email: string, scope: Page | Locator = page, opts: { firstName?: string } = {}) {
   await scope.getByRole("textbox", { name: "Email" }).fill(email);
-  await scope.getByRole("button", { name: "Email me a code" }).click();
+  await sendCodeWaitingOutLimit(scope, scope.getByRole("button", { name: "Email me a code" }));
   const code = await devEmailOtp(page.context().request, email);
   await scope.getByLabel("6-digit code").fill(code);
   await answerFirstName(scope, opts.firstName);
@@ -117,7 +148,7 @@ export async function loginThroughForm(page: Page, phone: string, scope: Page | 
     await page.getByRole("option", { name: /\+995/ }).click();
   }
   await scope.getByRole("textbox", { name: "Phone number" }).fill(national);
-  await scope.getByRole("button", { name: "Send code" }).click();
+  await sendCodeWaitingOutLimit(scope, scope.getByRole("button", { name: "Send code" }));
   const code = await devOtp(page.context().request, phone);
   // The form submits by itself once the 6 digits are in.
   await scope.getByLabel("6-digit code").fill(code);

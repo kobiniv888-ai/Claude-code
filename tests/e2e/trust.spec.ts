@@ -1,5 +1,5 @@
 import { expect, openAs, settle, test } from "./fixtures";
-import { DEMO } from "./helpers/auth";
+import { TEST_ADMIN_PHONE } from "./helpers/staff";
 import { createReport, createTestListing, createTestUser, listingByPublicId, sql } from "./helpers/db";
 
 /** Definition of done: report buttons, safety tips and the automatic scam checks all work. */
@@ -80,7 +80,7 @@ test("scam phrases and a phone number in the description send a listing to revie
   expect(scam.detail?.toLowerCase()).toContain("western union");
 
   // The moderator sees the score and the reasons.
-  const admin = await openAs(browser, DEMO.admin);
+  const admin = await openAs(browser, TEST_ADMIN_PHONE);
   await admin.page.goto(`/en/admin/moderation/${listing.id}`);
   const risk = admin.page.getByRole("region", { name: "Automatic risk check" }).or(admin.page.locator("section", { has: admin.page.getByRole("heading", { name: "Automatic risk check" }) }));
   await expect(risk.first()).toContainText("Scam phrases");

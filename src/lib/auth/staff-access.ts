@@ -1,3 +1,4 @@
+import { isPermanentSiteUrl, siteUrl } from "@/lib/site-url";
 import { isTestHost, normalizeHost } from "./code-display";
 
 /**
@@ -10,10 +11,12 @@ import { isTestHost, normalizeHost } from "./code-display";
  *   development they may skip 2-step login with DEV_SKIP_STAFF_2FA=true; in production mode
  *   (`npm start` in the codespace) they need it like everyone else.
  *
- * "Permanent address": any configured site address (SITE_URL, NEXT_PUBLIC_SITE_URL,
- * BETTER_AUTH_URL) that is not a test host, or, in production, no configured address at all. The
- * request's own Host / X-Forwarded-Host must be test hosts too, so a wrong setting can never let a
- * demo account in on the real domain.
+ * "Permanent address": the links address is permanent (isPermanentSiteUrl, src/lib/site-url.ts),
+ * or any configured site address (SITE_URL, NEXT_PUBLIC_SITE_URL, BETTER_AUTH_URL) is not a test
+ * host, or, in production, no address is configured at all. This is stricter than the links rule
+ * on purpose: a Vercel preview or a tunnel also counts as "permanent" here, so demo staff work
+ * only on localhost and Codespaces. The request's own Host / X-Forwarded-Host must be test hosts
+ * too, so a wrong setting can never let a demo account in on the real domain.
  */
 
 export type StaffAccessEnv = {
@@ -60,6 +63,7 @@ export function configuredSiteHosts(env: StaffAccessEnv): string[] {
 
 /** Does the site run on its permanent (real) address? Production without an address counts as yes. */
 export function isPermanentSiteAddress(env: StaffAccessEnv): boolean {
+  if (isPermanentSiteUrl(siteUrl(env))) return true;
   const hosts = configuredSiteHosts(env);
   if (hosts.length === 0) return env.NODE_ENV === "production";
   return hosts.some((host) => !isTestHost(host));

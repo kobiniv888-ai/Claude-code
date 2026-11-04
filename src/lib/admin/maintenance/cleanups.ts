@@ -9,7 +9,8 @@ import { deletePrivate, isValidStorageKey, storageDriver } from "@/lib/storage";
 import { localPath } from "@/lib/storage/local";
 import { updateListingSearchText } from "@/lib/translate";
 import { AdminActionError } from "../server/common";
-import { latestBackup } from "./backup";
+import { latestBackup, listBackups } from "./backup";
+import type { BackupSummary } from "./backup-format";
 import {
   EXAMPLE_LIMIT,
   isBackupFresh,
@@ -349,9 +350,24 @@ export async function dryRunCleanup(name: CleanupName): Promise<CleanupReport> {
   }
 }
 
-/** Throws "backup_required" unless a complete backup from the last hour exists. Returns its id. */
+/** The name of the database this server uses (a backup must come from the same one). */
+export async function currentDatabaseName(): Promise<string> {
+  const rows = await db.$queryRaw<{ name: string }[]>`SELECT current_database() AS name`;
+  return rows[0]?.name ?? "";
+}
+
+/** This database's backups (newest first) and whether the newest is fresh enough for a run. */
+export async function backupGate(limit = 5, now: Date = new Date()): Promise<{ backups: BackupSummary[]; fresh: boolean }> {
+  const backups = await listBackups(limit, await currentDatabaseName());
+  return { backups, fresh: isBackupFresh(backups[0]?.createdAt, now) };
+}
+
+/**
+ * Throws "backup_required" unless a complete backup OF THIS DATABASE from the last hour exists
+ * (a backup of another database, such as a test copy, never counts). Returns its id.
+ */
 export async function assertFreshBackup(now: Date = new Date()): Promise<string> {
-  const latest = await latestBackup();
+  const latest = await latestBackup(await currentDatabaseName());
   if (!latest || !isBackupFresh(latest.createdAt, now)) throw new AdminActionError("backup_required", 409);
   return latest.id;
 }

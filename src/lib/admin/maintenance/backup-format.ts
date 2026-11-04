@@ -51,6 +51,8 @@ export type BackupSummary = {
   tables: number;
   pgDump: boolean;
   via: "admin" | "cli";
+  /** The database it was made from (current_database()); a run only counts a backup of its own database. */
+  database: string;
 };
 
 const ID_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z-[a-z0-9]{4}$/;
@@ -85,6 +87,7 @@ export function summarize(meta: BackupMeta): BackupSummary {
     tables: meta.tables.length,
     pgDump: !!meta.pgDump && "file" in meta.pgDump,
     via: meta.createdBy.via,
+    database: meta.database?.name ?? "",
   };
 }
 

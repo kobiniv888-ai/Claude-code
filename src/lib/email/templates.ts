@@ -35,6 +35,8 @@ export const EMAIL_TEMPLATES = [
   "booking_cancelled_by_host",
   "booking_completed",
   "booking_host_unreached_guest",
+  "host_alert_test",
+  "host_alerts_paused",
   "admin_alert",
 ] as const;
 export type EmailTemplate = (typeof EMAIL_TEMPLATES)[number];
@@ -171,6 +173,13 @@ export type EmailData = {
   /** The "new booking" alert to the host bounced: the guest should make sure the host expects them. */
   booking_host_unreached_guest: BookingEmailStay &
     Pick<BookingEmailArrival, "hostName" | "hostPhone" | "hostWhatsapp"> & { guestName?: string | null };
+  /** The host pressed "Send a test alert" in the settings (src/lib/alerts). */
+  host_alert_test: { hostName?: string | null; settingsUrl: Url };
+  /**
+   * One of the host's alert channels was paused (here: Telegram, the bot was blocked); sent by
+   * email because email still works. `stillInstant`: another confirming channel still works.
+   */
+  host_alerts_paused: { hostName?: string | null; channel: "email" | "telegram"; stillInstant: boolean; settingsUrl: Url };
   /** To the founder (ADMIN_ALERT_EMAIL, else the admin accounts): something about alerts went wrong. */
   admin_alert: {
     /** One of ADMIN_ALERT_KINDS. */
@@ -187,6 +196,10 @@ export type EmailData = {
     template?: string | null;
     /** A site path in the admin panel. */
     adminUrl?: Url | null;
+    /** host_channel_paused: which channel ("email" | "telegram"). */
+    channel?: string | null;
+    /** host_channel_paused: the host still takes instant bookings through another channel. */
+    stillInstant?: boolean | null;
   };
 };
 
@@ -194,11 +207,22 @@ export type EmailData = {
  * - host_unreachable: a booking was refused because no alert channel of the host accepted the alert
  * - host_alert_bounced: the "new booking" alert to the host bounced later (the booking stands)
  * - email_bounced: another email from the site bounced (or was marked as spam)
+ * - host_channel_paused: one of a host's alert channels was paused (a blocked Telegram bot)
  */
-export const ADMIN_ALERT_KINDS = ["host_unreachable", "host_alert_bounced", "email_bounced"] as const;
+export const ADMIN_ALERT_KINDS = ["host_unreachable", "host_alert_bounced", "email_bounced", "host_channel_paused"] as const;
 export type AdminAlertKind = (typeof ADMIN_ALERT_KINDS)[number];
 
-const ADMIN_ALERT_REASONS = ["email_not_configured", "no_email", "email_failing", "no_channel", "failed", "bounced", "complained"];
+const ADMIN_ALERT_REASONS = [
+  "email_not_configured",
+  "no_email",
+  "email_failing",
+  "telegram_failing",
+  "no_channel",
+  "failed",
+  "bounced",
+  "complained",
+  "blocked",
+];
 
 export type EmailBlock =
   | { type: "paragraph"; text: string }
@@ -855,6 +879,36 @@ const builders: { [K in EmailTemplate]: Builder<K> } = {
     };
   },
 
+  host_alert_test: (data, { t, url, page, brand }) => ({
+    subject: t("templates.host_alert_test.subject", { brand }),
+    preheader: t("templates.host_alert_test.preheader"),
+    heading: t("templates.host_alert_test.heading"),
+    greetingName: clean(data.hostName) || null,
+    blocks: [
+      { type: "paragraph", text: t("templates.host_alert_test.body1", { brand }) },
+      { type: "paragraph", text: t("templates.host_alert_test.body2") },
+    ],
+    cta: { label: t("templates.host_alert_test.cta"), url: url(data.settingsUrl) ?? page("/account/settings") },
+    audience: "account",
+  }),
+
+  host_alerts_paused: (data, { t, url, page, brand }) => {
+    const channel = data.channel === "email" ? "email" : "telegram";
+    return {
+      subject: t(`templates.host_alerts_paused.subject.${channel}`, { brand }),
+      preheader: t(`templates.host_alerts_paused.body.${channel}`, { brand }),
+      heading: t("templates.host_alerts_paused.heading"),
+      greetingName: clean(data.hostName) || null,
+      blocks: [
+        { type: "paragraph", text: t(`templates.host_alerts_paused.body.${channel}`, { brand }) },
+        { type: "paragraph", text: t(data.stillInstant ? "templates.host_alerts_paused.stillInstant" : "templates.host_alerts_paused.contactOnly") },
+        { type: "notice", text: t(`templates.host_alerts_paused.fix.${channel}`) },
+      ],
+      cta: { label: t("templates.host_alerts_paused.cta"), url: url(data.settingsUrl) ?? page("/account/settings") },
+      audience: "account",
+    };
+  },
+
   admin_alert: (data, ctx) => {
     const { t, url, page } = ctx;
     const kind = (ADMIN_ALERT_KINDS as readonly string[]).includes(data.kind) ? data.kind : "email_bounced";
@@ -872,7 +926,15 @@ const builders: { [K in EmailTemplate]: Builder<K> } = {
     if (clean(data.hostName)) rows.push({ label: t("booking.hostLabel"), value: clean(data.hostName) });
     if (address) rows.push({ label: t("templates.admin_alert.addressLabel"), value: address, ltr: true });
     if (clean(data.template)) rows.push({ label: t("templates.admin_alert.templateLabel"), value: clean(data.template), ltr: true });
+    const channel = data.channel === "email" || data.channel === "telegram" ? data.channel : null;
+    if (channel) rows.push({ label: t("templates.admin_alert.channelLabel"), value: t(`templates.admin_alert.channel.${channel}`) });
     rows.push({ label: t("templates.admin_alert.reasonLabel"), value: reason });
+    if (kind === "host_channel_paused" && typeof data.stillInstant === "boolean") {
+      rows.push({
+        label: t("templates.admin_alert.instantLabel"),
+        value: t(data.stillInstant ? "templates.admin_alert.instantOn" : "templates.admin_alert.instantOff"),
+      });
+    }
     return {
       subject: t(`${key}.subject`, { code: code || "-", address: address || "-" }),
       preheader: t(`${key}.body`, { title, reason }),

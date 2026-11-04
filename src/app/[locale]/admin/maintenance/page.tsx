@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { AdminPageHeader } from "@/components/admin/page-header";
-import { listBackups } from "@/lib/admin/maintenance/backup";
-import { maintenanceHistory } from "@/lib/admin/maintenance/cleanups";
-import { CLEANUP_NAMES, isBackupFresh } from "@/lib/admin/maintenance/plan";
+import { backupGate, maintenanceHistory } from "@/lib/admin/maintenance/cleanups";
+import { CLEANUP_NAMES } from "@/lib/admin/maintenance/plan";
 import { requireStaff } from "@/lib/auth/session";
 import { MaintenancePanel } from "./maintenance-panel";
 
@@ -23,17 +22,17 @@ export default async function MaintenancePage({ params }: Props) {
   const { locale } = await params;
   setRequestLocale(locale);
   await requireStaff("settings");
-  const [t, backups, history] = await Promise.all([
+  const [t, gate, history] = await Promise.all([
     getTranslations("admin.maintenance"),
-    listBackups(5).catch(() => []),
+    backupGate(5).catch(() => ({ backups: [], fresh: false })),
     maintenanceHistory(),
   ]);
   return (
     <>
       <AdminPageHeader title={t("title")} description={t("description")} />
       <MaintenancePanel
-        initialBackups={backups}
-        initialFresh={isBackupFresh(backups[0]?.createdAt)}
+        initialBackups={gate.backups}
+        initialFresh={gate.fresh}
         names={[...CLEANUP_NAMES]}
         lastRuns={history.runs}
       />

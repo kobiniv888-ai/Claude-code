@@ -254,24 +254,56 @@
       "body3": "We've told the {brand} team, and we're trying to reach the host too. {brand} never asks you to pay in advance.",
       "cta": "Booking details"
     },
+    "host_alert_test": {
+      "subject": "{brand}: a test booking alert",
+      "preheader": "This is how we'll tell you about new bookings.",
+      "heading": "Your booking alerts work",
+      "body1": "This is a test alert from {brand}. This is how we'll tell you about new bookings and cancellations.",
+      "body2": "Nothing else to do. You can change your alert channels at any time in your settings.",
+      "cta": "Booking alert settings"
+    },
+    "host_alerts_paused": {
+      "subject": {
+        "email": "{brand}: email alerts are paused",
+        "telegram": "{brand}: Telegram alerts are paused"
+      },
+      "heading": "An alert channel is paused",
+      "body": {
+        "email": "Our emails to you bounce, so we paused email alerts.",
+        "telegram": "Telegram doesn't accept our messages (maybe the {brand} bot was blocked), so we paused Telegram alerts."
+      },
+      "stillInstant": "Instant bookings continue: we alert you about every booking on your other channels.",
+      "contactOnly": "Until email or Telegram works again, guests ask you directly instead of booking instantly.",
+      "fix": {
+        "email": "Change your email address in the settings, or connect Telegram.",
+        "telegram": "Open the bot in Telegram and tap Start, or connect it again in the settings."
+      },
+      "cta": "Booking alert settings"
+    },
     "admin_alert": {
       "host_unreachable": {
         "subject": "Booking not saved: the host got no alert ({code})",
         "heading": "A booking was not saved",
         "body": "A guest tried to book {title}, but none of the host's alert channels accepted the message ({reason}). The booking was undone right away, and the guest was offered to ask the host instead.",
-        "next": "Check the host's email address and the site's email service."
+        "next": "Check the host's email address, their Telegram connection and the site's email service."
       },
       "host_alert_bounced": {
         "subject": "The host's alert for booking {code} bounced",
         "heading": "The host's alert didn't arrive",
         "body": "The new-booking message for {title} didn't reach the host ({reason}). The booking stands, and the guest was asked to contact the host directly.",
-        "next": "The host's instant bookings are paused until they have an email address that works. Consider contacting them."
+        "next": "Email alerts to this host are paused until an email to them arrives again or they change the address. While Telegram works, their instant bookings continue; otherwise their listings show \"Ask the host\"."
       },
       "email_bounced": {
         "subject": "An email from the site bounced: {address}",
         "heading": "An email from the site didn't arrive",
         "body": "An email from the site didn't reach its recipient ({reason}).",
-        "next": "If this is a host, their instant bookings are paused until they have an email address that works."
+        "next": "If this is a host, their email alerts are paused until an email to them arrives again. While Telegram works, their instant bookings continue."
+      },
+      "host_channel_paused": {
+        "subject": "A host's alert channel was paused",
+        "heading": "A host's alert channel was paused",
+        "body": "One of the host's booking alert channels stopped working ({reason}) and was paused.",
+        "next": "If the host has no other channel that confirms delivery, their listings show \"Ask the host\" until it works again. Consider contacting them."
       },
       "reason": {
         "email_not_configured": "the email service (Resend) is not connected yet",
@@ -280,12 +312,22 @@
         "no_channel": "the host has no working alert channel",
         "failed": "the email service didn't accept the message",
         "bounced": "the recipient's mail server rejected the email",
-        "complained": "the recipient marked the email as spam"
+        "complained": "the recipient marked the email as spam",
+        "telegram_failing": "Telegram doesn't accept messages to the host",
+        "blocked": "the host blocked the Telegram bot"
       },
       "addressLabel": "Email address",
       "templateLabel": "Email type",
       "reasonLabel": "What happened",
-      "cta": "Open the admin panel"
+      "cta": "Open the admin panel",
+      "channelLabel": "Channel",
+      "channel": {
+        "email": "Email",
+        "telegram": "Telegram"
+      },
+      "instantLabel": "Instant booking",
+      "instantOn": "continues through another channel",
+      "instantOff": "off until a channel works again"
     }
   },
   "ticketStatus": {
@@ -342,7 +384,6 @@
     "booking_reminder_host": "{brand}: {guest} arrives {count, plural, =0 {today} =1 {tomorrow} other {in {count} days}} (booking {code}). {url}",
     "booking_cancelled_by_guest": "{brand}: booking {code} ({dates}) was cancelled by the guest. The dates are free again. {url}",
     "booking_cancelled_by_host": "{brand}: the host cancelled booking {code} ({dates}). You were not charged anything. {url}",
-    "booking_host_unreached_guest": "{brand}: our message about booking {code} didn't reach the host. Please contact them to make sure they expect you: {url}",
-    "host_alerts_paused": "{brand}: our emails to you bounce, so instant booking is paused. Add an email address that works: {url}"
+    "booking_host_unreached_guest": "{brand}: our message about booking {code} didn't reach the host. Please contact them to make sure they expect you: {url}"
   }
 }

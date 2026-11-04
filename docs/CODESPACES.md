@@ -124,9 +124,19 @@ On Vercel, add the same variable under **Settings → Environment Variables** an
 
 They work the same way as the map key: add a **Codespaces secret** with the exact name and restart
 the codespace. `start.sh` copies these names into `.env`: `GOOGLE_TRANSLATE_API_KEY`,
-`RESEND_API_KEY`, `EMAIL_FROM`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `TWILIO_ACCOUNT_SID`,
+`AZURE_TRANSLATOR_KEY`, `AZURE_TRANSLATOR_REGION`, `RESEND_API_KEY`, `EMAIL_FROM`,
+`RESEND_WEBHOOK_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `TWILIO_ACCOUNT_SID`,
 `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID`, `TWILIO_MESSAGING_SERVICE_SID`,
-`TWILIO_FROM_NUMBER`. Where to get each one and what it costs: `OWNER_TODO.md`.
+`TWILIO_FROM_NUMBER`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_WEBHOOK_SECRET`,
+and the private admin settings `BAYIT_ADMIN_EMAIL`, `BAYIT_ADMIN_PHONE` and `ADMIN_ALERT_EMAIL`
+(only the names are printed, never a value). Where to get each one and what it costs:
+`OWNER_TODO.md`.
+
+**Your admin account:** set `BAYIT_ADMIN_EMAIL` (the email you sign in with; or
+`BAYIT_ADMIN_PHONE`) and `ADMIN_ALERT_EMAIL` (where admin alerts go) as Codespaces secrets, sign
+in on the site once with that account, and restart the codespace: the start makes the account
+admin (`npm run admin:grant -- --from-env`). The first visit to `/admin` asks you to set up Google
+Authenticator; that is required for your account, also in the codespace.
 
 With `GOOGLE_TRANSLATE_API_KEY` set, every start also translates the listings that are still
 missing languages (`npm run translate:missing` does the same by hand).

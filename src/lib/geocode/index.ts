@@ -1,6 +1,7 @@
 import "server-only";
 import { siteConfig } from "@/config/site";
 import { rateLimit } from "@/lib/rate-limit";
+import { siteUrl } from "@/lib/site-url";
 import {
   GEOCODE_RESULTS_MAX,
   LruCache,
@@ -46,7 +47,7 @@ const queue = createSerialQueue({ intervalMs: INTERVAL_MS, maxPending: 8 });
 export const OSM_ATTRIBUTION = "© OpenStreetMap contributors (ODbL)";
 
 function userAgent(): string {
-  return `${siteConfig.name}/1.0 (+${siteConfig.url}; ${siteConfig.supportEmail})`;
+  return `${siteConfig.name}/1.0 (+${siteUrl()}; ${siteConfig.supportEmail})`;
 }
 
 /** Waits for the site-wide slot (1 request per second across all server instances). */
@@ -74,7 +75,7 @@ async function fetchNominatim(query: string, locale: string): Promise<GeocodeRes
   let response: Response;
   try {
     response = await fetch(url, {
-      headers: { Accept: "application/json", "User-Agent": userAgent(), Referer: `${siteConfig.url}/` },
+      headers: { Accept: "application/json", "User-Agent": userAgent(), Referer: `${siteUrl()}/` },
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
       cache: "no-store",
     });
