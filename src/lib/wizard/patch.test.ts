@@ -52,6 +52,8 @@ const empty: WizardValues = {
   partiesAllowed: null,
   checkInFrom: "",
   checkOutUntil: "",
+  checkInFlexible: false,
+  checkOutFlexible: false,
   quietHoursFrom: "",
   quietHoursTo: "",
   kitchenKosher: null,

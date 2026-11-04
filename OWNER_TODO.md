@@ -72,7 +72,8 @@ Do these in this order. Without Resend (3) or Google (4), nobody can log in on t
         the late-checkout fine into the house rules, in lari; add photos of the kitchen, the
         balcony and the building entrance (only your own photos). We don't change your listing.
 11. [ ] **Listing 43:** write a Hebrew title and description, without emojis.
-12. [ ] **Footer line:** it becomes "נבנה על ידי משפחה ישראלית". Confirm it or send another line.
+12. [ ] **Footer line:** "נבנה על ידי משפחה ישראלית" is live since round 3, phase 2 (in all five
+        languages). Confirm it or send another line.
 13. [ ] **Verification, later.** Decided: no ID documents for now. The ID and owner badges are
         hidden; trust comes from the verified phone and, later, the "ביקרנו במקום" badge. When you
         want ID checks, choose a paid service (Veriff, Persona or Sumsub, roughly $1–2 a check) and
@@ -279,5 +280,6 @@ so look again before you pay.
       links (Shabbat times, calendar, community map, emergency numbers, guides), no big photo or
       zoom, and on phones the month list shows only days with times or holidays (with "show every
       day") and the holidays list shows four (with "N more"). All the content is still there.
-- [ ] **Footer tagline.** It still says the site has "kosher and Shabbat details". Say if you want
-      it to talk about the pledge or booking instead.
+- [ ] **Footer tagline (round 3, phase 2).** It is now your text: "בתים בגאורגיה, אצל מארחים
+      שהתחייבו לקבל ישראלים בברכה. מזמינים באתר ומשלמים כשמגיעים." The Russian, Arabic and Georgian
+      versions are our translations: please have a native speaker check them.

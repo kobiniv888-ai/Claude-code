@@ -13,9 +13,11 @@ import { SearchResults } from "@/components/search/search-results";
 import { SearchSheets } from "@/components/search/search-sheets";
 import { SearchTopBar } from "@/components/search/search-top-bar";
 import { Container } from "@/components/common/container";
+import { LastSearchRecorder } from "@/components/home/last-search-recorder";
 import type { AppLocale } from "@/config/site";
 import { isAppLocale } from "@/i18n/locale";
 import { formatNumber } from "@/lib/format";
+import { lastSearchDraft } from "@/lib/home/last-search-draft";
 import { getMapPoints, searchListings } from "@/lib/listing/queries";
 import { parseSearchParams, serializeSearchParams, serializeSearchQuery } from "@/lib/listing/search-params";
 import { getSearchContext } from "@/lib/search/context";
@@ -78,9 +80,12 @@ export default async function SearchPage({ params, searchParams }: Props) {
   const barKey = [filters.deal, filters.city, filters.neighborhood, filters.q, filters.checkIn, filters.checkOut, filters.guests].join("|");
   const fitKey = serializeSearchQuery({ ...filters, bounds: null, page: 1, sort: "recommended", view: "grid" });
   const popular = cities.map(({ slug, name }) => ({ slug, name }));
+  // "המשך מאיפה שעצרתם" on the home page (round 3, brief 4): this search, on this device.
+  const lastSearch = lastSearchDraft(filters, place, locale);
 
   return (
     <SearchProvider filters={filters} total={result.total} holidays={holidays}>
+      {lastSearch ? <LastSearchRecorder draft={lastSearch} /> : null}
       <SearchSheets popular={popular} placeNames={names}>
         {/* Tablets and desktops: the full search bar (it scrolls away; the chip row below stays). */}
         <Container size="wide" className="hidden pt-4 pb-1 md:block" data-search-bar="">

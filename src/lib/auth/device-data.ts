@@ -4,8 +4,9 @@
  *
  * A feature that stores something personal in localStorage adds its key (or prefix) HERE, so
  * logout clears it too:
- *   - recently viewed and the compare list (src/hooks/use-recently-viewed.ts, use-compare.ts)
- *   - the last search and the device copy of saved lists (round 3, phases 2 and 5: use these names)
+ *   - recently viewed and the compare list (src/lib/recently-viewed/device.ts, src/hooks/use-compare.ts)
+ *   - the last search (src/lib/home/last-search-store.ts) and the device copy of saved lists (phase 5)
+ *   (sessionStorage is cleared whole, including the "merged into the account" flag of recently viewed)
  *   - the remembered phone country (src/lib/auth/phone-defaults.ts)
  * Not private, so kept: the theme (next-themes "theme"), "bayit:consent", dismissed alerts and the
  * demo banner, "bayit:safety-tip-seen" (a device hint, not personal data). The language and

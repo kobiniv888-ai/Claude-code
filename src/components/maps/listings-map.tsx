@@ -25,7 +25,7 @@ import type { ListingCardData, ListingMapPoint } from "@/lib/listing/types";
 import { georgiaBounds, paddedGeorgiaBounds } from "@/lib/map-bounds";
 import type { CommunityPlace } from "@/lib/map/community";
 import { pricePillLabel } from "@/lib/map/price-label";
-import { countInBounds, searchAreaTarget, type FocusPlace, type MapTarget } from "@/lib/map/view";
+import { countInBounds, fitBoundsOptions, hiddenBelowFold, MAP_ZOOM_SNAP, searchAreaTarget, type FocusPlace, type MapTarget } from "@/lib/map/view";
 import { prefersReducedMotion } from "@/lib/motion";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
@@ -107,9 +107,6 @@ function subscribeWide(onChange: () => void) {
 function useWideScreen(): boolean {
   return useSyncExternalStore(subscribeWide, () => window.matchMedia(WIDE_QUERY).matches, () => false);
 }
-/** Room the controls take at the top and the "List" pill at the bottom when fitting the results. */
-const FIT_PADDING_TOP_LEFT: L.PointTuple = [32, 120];
-const FIT_PADDING_BOTTOM_RIGHT: L.PointTuple = [32, 72];
 
 function toBounds(map: L.Map): Bounds {
   const b = map.getBounds();
@@ -147,18 +144,17 @@ function useQuietMoves(): QuietMoves {
   );
 }
 
+/**
+ * Results and Georgia are fitted with padding (round 3: Georgia used to touch the map's edges),
+ * into the part of the map that is on screen (the computer layout's map reaches below the fold).
+ */
 function moveTo(map: L.Map, target: MapTarget, animate: boolean) {
   if (target.kind === "center") {
     map.setView(target.center, target.zoom, { animate });
-  } else if (target.maxZoom) {
-    map.fitBounds(target.bounds, {
-      maxZoom: target.maxZoom,
-      paddingTopLeft: FIT_PADDING_TOP_LEFT,
-      paddingBottomRight: FIT_PADDING_BOTTOM_RIGHT,
-      animate,
-    });
   } else {
-    map.fitBounds(target.bounds, { animate });
+    const box = map.getContainer().getBoundingClientRect();
+    const hiddenBottom = hiddenBelowFold(box.top, box.bottom, window.innerHeight);
+    map.fitBounds(target.bounds, { ...fitBoundsOptions(target, { hiddenBottom }), animate });
   }
 }
 
@@ -491,6 +487,9 @@ export default function ListingsMap({
         bounds={georgiaBounds()}
         minZoom={siteConfig.map.minZoom}
         maxZoom={siteConfig.map.maxZoom}
+        // Fitting results lands between whole zoom steps (a tighter view on phones); buttons zoom by 1.
+        zoomSnap={MAP_ZOOM_SNAP}
+        zoomDelta={1}
         maxBounds={paddedGeorgiaBounds()}
         maxBoundsViscosity={0.9}
         scrollWheelZoom

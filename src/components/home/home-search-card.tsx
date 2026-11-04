@@ -11,11 +11,11 @@ import { useCurrency } from "@/components/providers/currency-provider";
 import { PlaceCombobox, type PopularPlace } from "@/components/search/place-combobox";
 import { useRouter } from "@/i18n/navigation";
 import { currencySymbol, formatDate, formatNumber } from "@/lib/format";
-import { asksForDates, HOME_ROOM_OPTIONS, homeSearchFilters, parseBudget, type HomeSearchState } from "@/lib/home/search-card";
-import { formatStay } from "@/lib/search/format-stay";
+import { asksForDates, compactStay, HOME_ROOM_OPTIONS, homeSearchFilters, parseBudget, type HomeSearchState } from "@/lib/home/search-card";
 import type { HolidayMark } from "@/lib/search/holiday-marks";
 import { MAX_GUESTS, SEARCH_BAR_DEALS, type SearchBarDeal } from "@/lib/search/search-bar";
 import { cn } from "@/lib/utils";
+import { useHomeTab } from "./home-tab";
 
 // The search address builder (the whole filter serializer) is only needed on submit: it loads when
 // the form is first touched, not with the home page.
@@ -83,7 +83,10 @@ export function HomeSearchCard({
   const router = useRouter();
   const locale = useLocale();
   const { currency } = useCurrency();
-  const [state, setState] = useState<HomeSearchState>(INITIAL);
+  const [local, setState] = useState<HomeSearchState>(INITIAL);
+  // The tab is shared with "מקומות מומלצים" (round 3, brief 4): switching it switches that row.
+  const tab = useHomeTab();
+  const state: HomeSearchState = tab ? { ...local, deal: tab.deal } : local;
   const [budgetText, setBudgetText] = useState("");
   const [datesOpen, setDatesOpen] = useState(false);
   const [datesLoaded, setDatesLoaded] = useState(false);
@@ -128,7 +131,7 @@ export function HomeSearchCard({
         aria-label={labels.dealLabel}
         options={SEARCH_BAR_DEALS.map((deal) => ({ value: deal, label: labels.deals[deal] }))}
         value={state.deal}
-        onValueChange={(deal) => patch({ deal })}
+        onValueChange={(deal) => (tab ? tab.setDeal(deal) : patch({ deal }))}
         // Russian, Georgian and English labels are long ("Short stay" wrapped onto two lines):
         // smaller text on narrow phones so all four fit on one line.
         className={cn(
@@ -245,12 +248,6 @@ export function HomeSearchCard({
       ) : null}
     </form>
   );
-}
-
-/** "11–14 Nov" within one month, else the shared "11 Nov – 2 Dec". */
-function compactStay(checkIn: string, checkOut: string, locale: string): string {
-  if (checkIn.slice(0, 7) !== checkOut.slice(0, 7)) return formatStay(checkIn, checkOut, locale);
-  return `${formatNumber(Number(checkIn.slice(8, 10)), locale)}–${formatDate(checkOut, locale, { day: "numeric", month: "short" })}`;
 }
 
 const fieldClass =

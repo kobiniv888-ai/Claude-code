@@ -7,7 +7,7 @@ import { SiteShell } from "@/components/layout/site-shell";
 import { Link } from "@/i18n/navigation";
 import { siteName } from "@/lib/seo";
 
-const SUGGESTIONS = ["rent", "buy", "hotels", "jewishLife"] as const;
+const SUGGESTIONS = ["shortStay", "monthly", "buy", "hotels", "jewishLife"] as const;
 
 /** The designed 404 page, inside the full site frame (any notFound() and unknown addresses). */
 export default async function NotFound() {

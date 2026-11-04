@@ -26,6 +26,11 @@
     "approxHint": "تقريبي، بسعر صرف اليوم. سعر المالك هو {price}.",
     "total": "{price} الإجمالي"
   },
+  "deal": {
+    "MONTHLY_RENT": "شهري",
+    "SALE": "للبيع",
+    "HOTEL_ROOM": "فندق"
+  },
   "favorite": {
     "save": "حفظ {title}",
     "unsave": "إزالة {title} من المحفوظات",

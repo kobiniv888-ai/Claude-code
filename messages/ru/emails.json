@@ -363,6 +363,8 @@
     "departureLabel": "Время выезда",
     "fromTime": "с {time}",
     "untilTime": "до {time}",
+    "checkInFlexible": "Гибкое время заезда",
+    "checkOutFlexible": "Гибкое время выезда",
     "addressLabel": "Адрес",
     "hostLabel": "Хозяин",
     "hostPhoneLabel": "Телефон хозяина",

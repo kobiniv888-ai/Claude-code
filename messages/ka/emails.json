@@ -363,6 +363,8 @@
     "departureLabel": "წასვლის დრო",
     "fromTime": "{time}-დან",
     "untilTime": "{time}-მდე",
+    "checkInFlexible": "მოქნილი შესვლა",
+    "checkOutFlexible": "მოქნილი გასვლა",
     "addressLabel": "მისამართი",
     "hostLabel": "მასპინძელი",
     "hostPhoneLabel": "მასპინძლის ტელეფონი",

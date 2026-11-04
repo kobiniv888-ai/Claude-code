@@ -168,14 +168,15 @@ export default async function TripPage({ params, searchParams }: Props) {
         </Link>
         <dl className="grid divide-y divide-border border-t border-border sm:grid-cols-2 sm:divide-y-0">
           <Row label={t("trip.arrival")}>
-            {day(trip.checkIn)} · <bdi>{t("trip.fromTime", { time: checkInTime })}</bdi>
+            {day(trip.checkIn)} ·{" "}
+            <bdi>{trip.checkInFlexible ? t("checkTimes.flexibleIn") : t("trip.fromTime", { time: checkInTime })}</bdi>
           </Row>
           <Row label={t("trip.departure")}>
             {day(trip.checkOut)}
-            {checkOutTime ? (
+            {trip.checkOutFlexible || checkOutTime ? (
               <>
                 {" "}
-                · <bdi>{t("trip.untilTime", { time: checkOutTime })}</bdi>
+                · <bdi>{trip.checkOutFlexible ? t("checkTimes.flexibleOut") : t("trip.untilTime", { time: checkOutTime ?? "" })}</bdi>
               </>
             ) : null}
           </Row>
@@ -262,7 +263,11 @@ export default async function TripPage({ params, searchParams }: Props) {
             {t("trip.whatNext")}
           </h2>
           <ol className="grid gap-3">
-            {[t("trip.step1"), t("trip.step2", { time: checkInTime }), t("trip.step3", { amount: `⁦${total}⁩` })].map((step, i) => (
+            {[
+              t("trip.step1"),
+              trip.checkInFlexible ? t("trip.step2Flexible") : t("trip.step2", { time: checkInTime }),
+              t("trip.step3", { amount: `⁦${total}⁩` }),
+            ].map((step, i) => (
               <li key={i} className="flex items-start gap-3 text-small">
                 <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary-tint text-caption font-semibold text-primary-text" aria-hidden>
                   {i + 1}

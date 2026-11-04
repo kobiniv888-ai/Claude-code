@@ -8,7 +8,12 @@
  * - Under the price: at most TWO small grey text tags, from מטבח כשר · מתאים לשבת ·
  *   "X דק׳ לבית כנסת" (only when the nearest synagogue is a real, verified place) · דובר עברית.
  *   A tag the visitor filtered by comes first.
+ *
+ * Round 3 (brief section 3): every card that isn't a short stay names its type on the price line —
+ * "למכירה", "חודשי" or "מלון" (guesthouses share HOTEL_ROOM) — so a sale price never reads like a
+ * nightly one. It is not one of the two tags.
  */
+import type { DealType } from "@/generated/prisma/enums";
 import type { ListingCardBadges } from "@/lib/listing/types";
 import type { SearchFilters } from "@/lib/listing/search-params";
 
@@ -23,6 +28,13 @@ type PhotoSource = Partial<Pick<ListingCardBadges, "demo" | "promoted" | "isNew"
 type TagSource = Partial<
   Pick<ListingCardBadges, "kosherKitchen" | "shabbatFriendly" | "synagogueWalkMin" | "synagogueVerified" | "speaksHebrew">
 >;
+
+export type CardDealLabel = Exclude<DealType, "SHORT_STAY">;
+
+/** The deal type named on the card's price line: every type except short stays, which are the default. */
+export function cardDealLabel(dealType: DealType): CardDealLabel | null {
+  return dealType === "SHORT_STAY" ? null : dealType;
+}
 
 /** The one tag on the photo, or null. */
 export function cardPhotoTag(badges: PhotoSource): CardPhotoTag | null {

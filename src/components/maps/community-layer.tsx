@@ -106,16 +106,19 @@ function PlacePopup({ place }: { place: CommunityPlace }) {
           {t("demoNote")}
         </div>
       ) : null}
-      <a
-        href={walkingDirectionsUrl(place)}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label={t("walkLabel", { name: place.name })}
-        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground! no-underline! outline-none hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/50"
-      >
-        <FootprintsIcon className="size-4" aria-hidden="true" />
-        {t("walk")}
-      </a>
+      {/* A demo place is not a real address: no walking route to it (round 3). */}
+      {place.isDemo ? null : (
+        <a
+          href={walkingDirectionsUrl(place)}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={t("walkLabel", { name: place.name })}
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground! no-underline! outline-none hover:bg-primary/90 focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          <FootprintsIcon className="size-4" aria-hidden="true" />
+          {t("walk")}
+        </a>
+      )}
     </div>
   );
 }

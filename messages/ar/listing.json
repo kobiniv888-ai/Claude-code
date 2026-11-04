@@ -163,7 +163,9 @@
       "no": "بدون حفلات أو مناسبات"
     },
     "checkInFrom": "تسجيل الوصول من {time}",
-    "checkOutUntil": "المغادرة حتى {time}"
+    "checkOutUntil": "المغادرة حتى {time}",
+    "checkInFlexible": "تسجيل وصول مرن",
+    "checkOutFlexible": "تسجيل مغادرة مرن"
   },
   "costs": {
     "titleSale": "تفاصيل السعر",
@@ -231,8 +233,13 @@
     "note": "أوقات المشي تقديرية بحسب الخريطة.",
     "supermarket": "سوبرماركت",
     "airport": "المطار",
+    "airports": {
+      "TBS": "مطار تبليسي",
+      "BUS": "مطار باتومي",
+      "KUT": "مطار كوتايسي"
+    },
     "walk": "{count, plural, one {دقيقة سيرًا} two {دقيقتان سيرًا} few {{count} دقائق سيرًا} other {{count} دقيقة سيرًا}}",
-    "km": "{km} كم ({code})",
+    "km": "{km} كم",
     "transport": {
       "metro": "محطة مترو",
       "train": "محطة قطار",

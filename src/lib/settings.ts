@@ -19,21 +19,14 @@ import { isShabbatOrHolidayNow } from "@/lib/hebcal";
 
 /**
  * Home page sections that admins can switch off or reorder (Admin → Content → Home), in their
- * default order (brief round 2, 5.2). The hero band, the search card and the promise line under it
- * always show; see app/[locale]/(site)/page.tsx.
- *   categories → the category chips · featured → "Recommended places" (promoted, then newest) ·
- *   recentlyViewed · cities → "Where to?" · howItWorks → the 3-step row ·
- *   jewishLife → the slim "Jewish life in Georgia" card · listCta → the host card.
+ * default order (round 3, brief 4: a lighter home page). The hero band, the search card, the
+ * promise line and, for returning visitors, "המשך מאיפה שעצרתם" always show; see
+ * app/[locale]/(site)/page.tsx.
+ *   categories → the category chips · featured → "Recommended places" (the selected tab's type:
+ *   promoted, then newest) · cities → "Where to?" · howItWorks → the 3-step row ·
+ *   listCta → the host card.
  */
-export const HOME_SECTION_KEYS = [
-  "categories",
-  "featured",
-  "recentlyViewed",
-  "cities",
-  "howItWorks",
-  "jewishLife",
-  "listCta",
-] as const;
+export const HOME_SECTION_KEYS = ["categories", "featured", "cities", "howItWorks", "listCta"] as const;
 export type HomeSectionKey = (typeof HOME_SECTION_KEYS)[number];
 
 export type PaidFeatureKey = keyof typeof siteConfig.paidFeatures;
@@ -117,12 +110,16 @@ const SETTING_KEYS = Object.keys(settingSchemas) as (keyof SiteSettings)[];
 
 /** Keeps saved order, drops unknown sections and appends sections added in a later release. */
 /**
- * Round-1 keys in stored settings: "shabbatTimes" became "jewishLife" (keeps its place and switch);
- * "newest" merged into "featured"; "whyUs" and "safetyStrip" left the home page. Unknown keys are
- * dropped, so an old stored list still validates instead of falling back to the defaults.
+ * Older keys in stored settings: "newest" merged into "featured"; "whyUs", "safetyStrip" (round 1),
+ * "shabbatTimes"/"jewishLife" and "recentlyViewed" (round 3: Jewish life stays in the menu, the
+ * footer and the "כשר ושבת" chip; recently viewed moved into "המשך מאיפה שעצרתם" under the search
+ * card) left the list. Unknown keys are dropped, so an old stored list still validates instead of
+ * falling back to the defaults.
  */
 const LEGACY_HOME_SECTIONS: Record<string, HomeSectionKey | null> = {
-  shabbatTimes: "jewishLife",
+  shabbatTimes: null,
+  jewishLife: null,
+  recentlyViewed: null,
   newest: null,
   whyUs: null,
   safetyStrip: null,

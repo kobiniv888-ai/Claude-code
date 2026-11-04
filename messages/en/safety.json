@@ -13,6 +13,10 @@
     "body": "Never pay before you've checked the owner and seen the place — in person or on a live video call.",
     "noLinks": "{siteName} will never send you a payment link in a chat."
   },
+  "emergency": {
+    "title": "Emergency and embassy contacts",
+    "lead": "Tap a card to call."
+  },
   "alerts": {
     "title": "Current scam alerts",
     "lead": "Warnings from our team about scams we are seeing right now.",
@@ -161,6 +165,7 @@
   },
   "jump": {
     "label": "On this page",
+    "emergency": "Emergency numbers",
     "alerts": "Alerts",
     "spot": "Warning signs",
     "guests": "For guests",

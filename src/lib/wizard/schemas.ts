@@ -91,6 +91,9 @@ export type WizardValues = {
   partiesAllowed: boolean | null;
   checkInFrom: string;
   checkOutUntil: string;
+  /** "גמיש" in the check-in / check-out picker (round 3); the time is "" then. */
+  checkInFlexible: boolean;
+  checkOutFlexible: boolean;
   quietHoursFrom: string;
   quietHoursTo: string;
   // 6
@@ -137,7 +140,7 @@ export const STEP_FIELDS = {
   text: ["originalLocale", "title", "description"],
   amenities: [
     "amenities", "petsAllowed", "smokingAllowed", "partiesAllowed", "checkInFrom", "checkOutUntil",
-    "quietHoursFrom", "quietHoursTo",
+    "checkInFlexible", "checkOutFlexible", "quietHoursFrom", "quietHoursTo",
   ],
   jewish: ["kitchenKosher", "shabbatFeatures", "jewishFeatures", "hotelJewishFeatures", "kosherCertName", "kosherCertPhotoKey"],
   price: [
@@ -147,7 +150,7 @@ export const STEP_FIELDS = {
   // iCal links are not here: they are managed on the listing's calendar page.
   booking: [
     "price", "currency", "pricePeriod", "weekendPrice", "cleaningFee", "deposit", "minStayNights", "maxGuests",
-    "checkInFrom", "checkOutUntil", "cancellationPolicy", "paymentMethodsAtCheckIn",
+    "checkInFrom", "checkOutUntil", "checkInFlexible", "checkOutFlexible", "cancellationPolicy", "paymentMethodsAtCheckIn",
   ],
   contact: ["contactMethods", "contactHoursFrom", "contactHoursTo", "noReplyOnShabbat"],
 } as const satisfies Record<SavableStepKey, readonly (keyof WizardValues)[]>;
@@ -380,6 +383,8 @@ export const amenitiesStepSchema = z.object({
   partiesAllowed: bool,
   checkInFrom: time,
   checkOutUntil: time,
+  checkInFlexible: z.boolean(),
+  checkOutFlexible: z.boolean(),
   quietHoursFrom: time,
   quietHoursTo: time,
 });
@@ -427,6 +432,8 @@ export const bookingStepSchema = z.object({
   maxGuests: int(1, 100),
   checkInFrom: time,
   checkOutUntil: time,
+  checkInFlexible: z.boolean(),
+  checkOutFlexible: z.boolean(),
   cancellationPolicy: z.enum(CANCELLATION_POLICIES, "pickOne"),
   paymentMethodsAtCheckIn: uniqueKeys(PAYMENT_METHODS),
 });

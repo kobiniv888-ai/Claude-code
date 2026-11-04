@@ -3,6 +3,7 @@ import { Ltr } from "@/components/common/ltr";
 import { SpriteIcon } from "@/components/ds/sprite-icons";
 import type { SpriteIconName } from "@/components/ds/sprite-icons.generated";
 import { formatDate, formatMoney, formatNumber, formatTime } from "@/lib/format";
+import { checkTimeDisplay } from "@/lib/listing/check-times";
 import { clockDate, priceChangePercent } from "@/lib/listing-page/helpers";
 import { houseRules, orderedAmenities, type Highlight, type HouseRule } from "@/lib/listing-page/highlights";
 import type { ListingPageData } from "@/lib/listing-page/types";
@@ -100,8 +101,11 @@ export function ImportantToKnow({ data }: { data: ListingPageData }) {
   const money = (amount: number) => <Ltr>{formatMoney(amount, data.currency, locale)}</Ltr>;
   const rows: Row[] = [];
 
-  const checkIn = clock(data.checkInFrom);
-  const checkOut = clock(data.checkOutUntil);
+  // "צ׳ק-אין גמיש" / "צ׳ק-אאוט גמיש" when the host chose "גמיש" (round 3).
+  const checkInTime = checkTimeDisplay(data.checkInFrom, data.checkInFlexible);
+  const checkOutTime = checkTimeDisplay(data.checkOutUntil, data.checkOutFlexible);
+  const checkIn = checkInTime && (checkInTime.flexible ? tr("checkInFlexible") : tr("checkInFrom", { time: clock(checkInTime.time) ?? "" }));
+  const checkOut = checkOutTime && (checkOutTime.flexible ? tr("checkOutFlexible") : tr("checkOutUntil", { time: clock(checkOutTime.time) ?? "" }));
   if (!sale && (checkIn || checkOut)) {
     rows.push({
       key: "times",
@@ -109,9 +113,9 @@ export function ImportantToKnow({ data }: { data: ListingPageData }) {
       label: t("times"),
       children: (
         <p>
-          {checkIn ? tr("checkInFrom", { time: checkIn }) : null}
+          {checkIn}
           {checkIn && checkOut ? <span aria-hidden="true" className="px-1.5">·</span> : null}
-          {checkOut ? tr("checkOutUntil", { time: checkOut }) : null}
+          {checkOut}
         </p>
       ),
     });

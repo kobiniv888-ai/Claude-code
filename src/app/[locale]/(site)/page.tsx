@@ -3,21 +3,22 @@ import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { CategoryChips } from "@/components/home/category-chips";
+import { ContinueSection } from "@/components/home/continue-section";
 import { Destinations } from "@/components/home/destinations";
 import { HomeHero } from "@/components/home/home-hero";
 import { HomeJsonLd } from "@/components/home/home-json-ld";
 import { HomeSearchCard, type HomeSearchLabels } from "@/components/home/home-search-card";
+import { HomeTabProvider } from "@/components/home/home-tab";
 import { HowItWorks } from "@/components/home/how-it-works";
-import { JewishLifeCard } from "@/components/home/jewish-life-card";
 import { ListCta } from "@/components/home/list-cta";
 import { RecommendedListings } from "@/components/home/recommended-listings";
-import { RecentlyViewed } from "@/components/listing/recently-viewed";
 import type { AppLocale } from "@/config/site";
 import { isAppLocale } from "@/i18n/locale";
+import { getCurrentUser } from "@/lib/auth/session";
 import { getHomeCities, type HomeCity } from "@/lib/home/cities";
-import { HOME_RECOMMENDED_CARDS, mergeRecommended } from "@/lib/home/recommended";
+import { HOME_DEFAULT_DEAL } from "@/lib/home/recommended";
+import { getHomeRecommended } from "@/lib/home/recommended-server";
 import { HOME_ROOM_OPTIONS } from "@/lib/home/search-card";
-import { getFeaturedListings, getNewestListings } from "@/lib/listing/queries";
 import type { ListingCardData } from "@/lib/listing/types";
 import { getSearchContext } from "@/lib/search/context";
 import { getHolidayMarks } from "@/lib/search/home";
@@ -74,13 +75,10 @@ async function searchLabels(locale: AppLocale): Promise<HomeSearchLabels> {
   };
 }
 
-/** The Container's width and gutters, on the row itself. */
-const RECENT_CONTAINER = "mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8";
-
 /**
  * Below-the-fold sections the browser may skip styling and laying out until they come near the
  * screen (content-visibility); the size is a placeholder until the real height is known. Not on
- * "recently viewed" (often empty) or the short rows.
+ * the short rows.
  */
 const DEFERRED_SIZE: Partial<Record<HomeSectionKey, string>> = {
   featured: "[content-visibility:auto] [contain-intrinsic-size:auto_24rem]",
@@ -88,12 +86,14 @@ const DEFERRED_SIZE: Partial<Record<HomeSectionKey, string>> = {
 };
 
 /**
- * The home page, short and clear (brief round 2, 5.2): the purple band with the title, the search
- * card overlapping it and the promise line, then the sections admins can switch off or reorder in
- * Admin → Content → Home (settings.homeSections, default order): category chips, "Recommended
- * places" (promoted, then newest), "Recently viewed" (only with history), "Where to?", the 3-step
- * "How it works", the slim Jewish life card and the host card. The footer comes from the layout.
- * Server components only; the search card is the one client island above the fold.
+ * The home page, light for a first visit (round 3, brief 4, replacing round 2's 5.2): the purple
+ * band with the title, the search card overlapping it and the promise line; for returning visitors
+ * "המשך מאיפה שעצרתם" right under it (last search, saved places, recently viewed: nothing at all
+ * on a first visit); then the sections admins can switch off or reorder in Admin → Content → Home
+ * (settings.homeSections, default order): category chips, "Recommended places" (at most 6 of the
+ * selected tab's type), "Where to?", the 3-step "How it works" and the host card. The footer comes
+ * from the layout. The Jewish life card left the home page (it stays in the menu, the footer and
+ * the "כשר ושבת" chip). The search card and the recommended row share the selected tab.
  */
 export default async function HomePage({ params }: Props) {
   const { locale: rawLocale } = await params;
@@ -103,32 +103,30 @@ export default async function HomePage({ params }: Props) {
 
   const settings = await getSettings();
   const enabled = new Set(settings.homeSections.filter((s) => s.enabled).map((s) => s.key));
-  const ctx = await getSearchContext(locale);
+  const [ctx, user] = await Promise.all([getSearchContext(locale), getCurrentUser().catch(() => null)]);
+  // The account's history only for a full sign-in (past 2-step login where the account has it).
+  const historyUserId = user?.twoFactorVerified ? user.id : null;
   const none: ListingCardData[] = [];
   const noCities: HomeCity[] = [];
   const wantsListings = enabled.has("featured");
 
-  const [cities, holidays, promoted, newest, labels] = await Promise.all([
+  const [cities, holidays, recommended, labels] = await Promise.all([
     safely("cities", () => getHomeCities(locale), noCities),
     getHolidayMarks(locale),
-    wantsListings ? safely("featured listings", () => getFeaturedListings(ctx, HOME_RECOMMENDED_CARDS), none) : none,
-    wantsListings ? safely("newest listings", () => getNewestListings(ctx, HOME_RECOMMENDED_CARDS), none) : none,
+    wantsListings ? safely("recommended listings", () => getHomeRecommended(ctx, HOME_DEFAULT_DEAL), none) : none,
     searchLabels(locale),
   ]);
 
   const sections: Record<HomeSectionKey, () => ReactNode> = {
     categories: () => <CategoryChips locale={locale} />,
-    featured: () => <RecommendedListings locale={locale} listings={mergeRecommended(promoted, newest)} />,
-    // Renders nothing without history, so its wrapper stays :empty and takes no gap.
-    recentlyViewed: () => <RecentlyViewed className={RECENT_CONTAINER} />,
+    featured: () => <RecommendedListings locale={locale} listings={recommended} />,
     cities: () => <Destinations locale={locale} cities={cities} />,
     howItWorks: () => <HowItWorks locale={locale} />,
-    jewishLife: () => <JewishLifeCard locale={locale} />,
     listCta: () => <ListCta locale={locale} />,
   };
 
   return (
-    <>
+    <HomeTabProvider>
       <HomeJsonLd locale={locale} />
       <HomeHero
         locale={locale}
@@ -136,8 +134,10 @@ export default async function HomePage({ params }: Props) {
           <HomeSearchCard labels={labels} popular={cities.map(({ slug, name }) => ({ slug, name }))} holidays={holidays} />
         }
       />
-      {/* 32px between sections on phones (--section-space); empty sections (no history, no cities)
-          render nothing or an empty wrapper that the gap skips. */}
+      {/* Returning visitors only: renders nothing (and reserves nothing) on a first visit. */}
+      <ContinueSection locale={locale} userId={historyUserId} deals={labels.deals} guestCounts={labels.guestCounts} />
+      {/* 32px between sections on phones (--section-space); empty sections (no cities) render
+          nothing or an empty wrapper that the gap skips. */}
       <div className="mt-6 flex flex-col gap-section pb-section">
         {settings.homeSections
           .filter((section) => section.enabled)
@@ -147,6 +147,6 @@ export default async function HomePage({ params }: Props) {
             </div>
           ))}
       </div>
-    </>
+    </HomeTabProvider>
   );
 }

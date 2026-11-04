@@ -11,7 +11,7 @@
  */
 import "server-only";
 import { siteConfig, type AppLocale, type CurrencyCode } from "@/config/site";
-import type { Prisma } from "@/generated/prisma/client";
+import type { DealType, Prisma } from "@/generated/prisma/client";
 import type { Rates } from "@/lib/currency/convert";
 import { db } from "@/lib/db";
 import { listingCardSelect, listingMapSelect, toListingCard, toListingMapPoint, type ListingCardRow } from "@/lib/listing/mappers";
@@ -196,11 +196,20 @@ export async function getListingCards(
   return ordered;
 }
 
+/** Only these deal types (the home page's selected tab); all when omitted. */
+function dealTypesWhere(dealTypes?: readonly DealType[]): Prisma.ListingWhereInput {
+  return dealTypes ? { dealType: { in: [...dealTypes] } } : {};
+}
+
 /** "Featured" on the home page: hand-picked listings in the admin's order, then paid featured ones. */
-export async function getFeaturedListings(ctx: ListingQueryContext, limit = 8): Promise<ListingCardData[]> {
+export async function getFeaturedListings(
+  ctx: ListingQueryContext,
+  limit = 8,
+  { dealTypes }: { dealTypes?: readonly DealType[] } = {},
+): Promise<ListingCardData[]> {
   const rt = await runtime();
   const rows = await findCardRows(
-    publicWhere(rt, promotedWhere(rt.featuredIds, rt.now)),
+    publicWhere(rt, promotedWhere(rt.featuredIds, rt.now), dealTypesWhere(dealTypes)),
     buildListingOrderBy("recommended"),
     ctx.locale,
     0,
@@ -218,10 +227,14 @@ export async function getFeaturedListings(ctx: ListingQueryContext, limit = 8): 
   return toCards(sorted, ctx, rt);
 }
 
-/** The newest public listings. */
-export async function getNewestListings(ctx: ListingQueryContext, limit = 8): Promise<ListingCardData[]> {
+/** The newest public listings (of these deal types, when given). */
+export async function getNewestListings(
+  ctx: ListingQueryContext,
+  limit = 8,
+  { dealTypes }: { dealTypes?: readonly DealType[] } = {},
+): Promise<ListingCardData[]> {
   const rt = await runtime();
-  const rows = await findCardRows(publicWhere(rt), buildListingOrderBy("newest"), ctx.locale, 0, limit);
+  const rows = await findCardRows(publicWhere(rt, dealTypesWhere(dealTypes)), buildListingOrderBy("newest"), ctx.locale, 0, limit);
   return toCards(rows, ctx, rt);
 }
 

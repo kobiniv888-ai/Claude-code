@@ -4,7 +4,7 @@ import { useTranslations } from "next-intl";
 import { ClockIcon, ListChecksIcon, PartyPopperIcon, PawPrintIcon, CigaretteIcon, MoonIcon } from "lucide-react";
 import { AMENITIES } from "@/lib/listing/fields";
 import { applies, usesBookingStep } from "@/lib/wizard/steps";
-import { CheckCards, Field, Section, TimeInput, YesNo } from "../fields";
+import { CheckCards, CheckTimeSelect, Field, Section, TimeInput, YesNo } from "../fields";
 import { AMENITY_ICONS } from "../icons";
 import { useOptionLabel } from "../labels";
 import type { StepProps } from "../step-props";
@@ -57,12 +57,24 @@ export function AmenitiesStep({ values, set, errors, kind }: StepProps) {
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label={t("checkIn")} error={errors.checkInFrom} optional>
                 {(props) => (
-                  <TimeInput {...props} value={values.checkInFrom} onChange={(checkInFrom) => set({ checkInFrom })} />
+                  <CheckTimeSelect
+                    {...props}
+                    kind="checkIn"
+                    time={values.checkInFrom}
+                    flexible={values.checkInFlexible}
+                    onChange={(choice) => set({ checkInFrom: choice.time, checkInFlexible: choice.flexible })}
+                  />
                 )}
               </Field>
               <Field label={t("checkOut")} error={errors.checkOutUntil} optional>
                 {(props) => (
-                  <TimeInput {...props} value={values.checkOutUntil} onChange={(checkOutUntil) => set({ checkOutUntil })} />
+                  <CheckTimeSelect
+                    {...props}
+                    kind="checkOut"
+                    time={values.checkOutUntil}
+                    flexible={values.checkOutFlexible}
+                    onChange={(choice) => set({ checkOutUntil: choice.time, checkOutFlexible: choice.flexible })}
+                  />
                 )}
               </Field>
             </div>

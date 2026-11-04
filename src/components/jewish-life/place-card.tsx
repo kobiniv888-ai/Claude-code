@@ -120,17 +120,20 @@ export function PlaceCard({
       </dl>
 
       <div className="mt-4 flex flex-wrap gap-2">
-        <a
-          href={place.directionsUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-3 text-sm font-semibold whitespace-nowrap text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-        >
-          <Navigation aria-hidden="true" className="size-4" />
-          {t("directions")}
-          <ExternalLink aria-hidden="true" className="size-3.5 opacity-80" />
-          <span className="sr-only">{t("opensInNewTab")}</span>
-        </a>
+        {/* A demo place is not a real address: no directions to it (round 3). */}
+        {place.isDemo ? null : (
+          <a
+            href={place.directionsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-primary px-3 text-sm font-semibold whitespace-nowrap text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          >
+            <Navigation aria-hidden="true" className="size-4" />
+            {t("directions")}
+            <ExternalLink aria-hidden="true" className="size-3.5 opacity-80" />
+            <span className="sr-only">{t("opensInNewTab")}</span>
+          </a>
+        )}
         <button
           type="button"
           onClick={onShowOnMap}

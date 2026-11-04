@@ -5,16 +5,16 @@ import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
-import { activeNavKey, NAV_ITEMS, type NavKey } from "./nav-items";
+import { activeNavKey, DESKTOP_TAB_ITEMS, type NavKey } from "./nav-items";
 
-/** Desktop tab row on the purple header: Rent · Buy · Hotels · Map · Jewish Life · About · Help.
+/** Desktop tab row on the purple header: Short stay · Monthly · Buy · Hotels · Map · Jewish Life · Help.
  * White links (lavender for the current one in dark mode) with a bar under the current one. */
 function Tabs({ active }: { active: NavKey | null }) {
   const t = useTranslations("nav");
   return (
     <nav aria-label={t("mainNav")} className="-ms-3">
       <ul className="flex items-center gap-0.5">
-        {NAV_ITEMS.map(({ key, href, icon: Icon }) => {
+        {DESKTOP_TAB_ITEMS.map(({ key, href, icon: Icon }) => {
           const current = key === active;
           return (
             <li key={key}>

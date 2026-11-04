@@ -73,7 +73,7 @@
     },
     "IN_REVIEW": {
       "label": "In review",
-      "description": "We're checking your listing — usually within a few hours."
+      "description": "We're checking your listing — usually within a day."
     },
     "NEEDS_CHANGES": {
       "label": "Needs changes",
@@ -114,7 +114,7 @@
   },
   "inReview": {
     "title": "We're checking your listing",
-    "message": "We're checking your listing — usually within a few hours."
+    "message": "We're checking your listing — usually within a day."
   },
   "errors": {
     "invalid_status": "This can't be done while the listing is in its current status. Please refresh the page and try again.",

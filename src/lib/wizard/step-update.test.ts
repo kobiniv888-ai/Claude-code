@@ -137,6 +137,33 @@ describe("buildStepUpdate per step", () => {
     expect((await update("amenities", { checkInFrom: "" })).data).toEqual({ checkInFrom: null });
   });
 
+  // Round 3: "גמיש" in the check-in / check-out pickers (Listing.checkInFlexible / checkOutFlexible).
+  it.each(["amenities", "booking"] as const)("%s: flexible empties the time, a time turns flexible off", async (step) => {
+    // What the picker sends for "גמיש": the flag and an empty time.
+    expect((await update(step, { checkInFlexible: true, checkInFrom: "" })).data).toMatchObject({ checkInFlexible: true, checkInFrom: null });
+    // The flag alone still empties a saved time (never both).
+    expect((await update(step, { checkInFlexible: true })).data).toMatchObject({ checkInFlexible: true, checkInFrom: null });
+    // A time picked after "גמיש": the flag goes off.
+    expect((await update(step, { checkOutUntil: "10:30", checkOutFlexible: false })).data).toMatchObject({ checkOutUntil: "10:30", checkOutFlexible: false });
+    expect((await update(step, { checkOutUntil: "10:30" }, { checkOutFlexible: true })).data).toMatchObject({ checkOutUntil: "10:30", checkOutFlexible: false });
+    // "Not set" clears both.
+    expect((await update(step, { checkInFrom: "", checkInFlexible: false })).data).toMatchObject({ checkInFrom: null, checkInFlexible: false });
+  });
+
+  it("amenities: a time alone writes no flag when it was already off, and the other half is untouched", async () => {
+    expect((await update("amenities", { checkInFrom: "15:00" }, { checkInFlexible: false })).data).toEqual({ checkInFrom: "15:00" });
+    expect((await update("amenities", { checkOutFlexible: true }, { checkOutUntil: null })).data).toEqual({ checkOutFlexible: true });
+    const outOnly = (await update("amenities", { checkOutFlexible: true }, { checkOutUntil: "11:00" })).data;
+    expect(outOnly).toEqual({ checkOutFlexible: true, checkOutUntil: null });
+    expect(outOnly).not.toHaveProperty("checkInFrom");
+  });
+
+  it("a saved time outside the usual list (10:00 check-in) is kept by an unrelated save", async () => {
+    const result = await update("booking", { cleaningFee: 25 }, { checkInFrom: "10:00" });
+    expect(result.data).not.toHaveProperty("checkInFrom");
+    expect(result.data).not.toHaveProperty("checkInFlexible");
+  });
+
   it("jewish: Shabbat features recompute the badge; hotel-only fields stay empty for homes", async () => {
     const result = await update("jewish", { shabbatFeatures: ["mechanical_key", "no_motion_sensors", "hot_plate"] });
     expect(result.data).toEqual({ shabbatFeatures: ["mechanical_key", "no_motion_sensors", "hot_plate"], isShabbatFriendly: true });

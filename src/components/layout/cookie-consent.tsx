@@ -6,7 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
-import { ALL_CONSENT, makeConsent, NECESSARY_ONLY, writeConsent, type Consent } from "@/lib/consent-cookie";
+import { ALL_CONSENT, CONSENT_EVENT, makeConsent, NECESSARY_ONLY, writeConsent, type Consent } from "@/lib/consent-cookie";
 import { siteName } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 
@@ -16,7 +16,7 @@ const loadSwitch = () => import("@/components/ui/switch");
 const Switch = lazy(() => loadSwitch().then((m) => ({ default: m.Switch })));
 
 /** Fired on window after the visitor saves a choice (analytics loaders can listen for it). */
-export const CONSENT_EVENT = "bayit:consent";
+export { CONSENT_EVENT };
 
 /**
  * Cookie banner: a bottom sheet above the phone navigation bar, a card in the corner on larger

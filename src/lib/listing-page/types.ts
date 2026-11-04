@@ -153,6 +153,9 @@ export type ListingPageData = {
 
   checkInFrom: string | null;
   checkOutUntil: string | null;
+  /** "גמיש" (round 3): shown as "צ׳ק-אין גמיש" / "צ׳ק-אאוט גמיש". */
+  checkInFlexible: boolean;
+  checkOutFlexible: boolean;
   /** The booking cancellation policy (round 2, phase 4 schema); null = not set yet. */
   cancellationPolicy: CancellationPolicyKey | null;
   smokingAllowed: boolean | null;

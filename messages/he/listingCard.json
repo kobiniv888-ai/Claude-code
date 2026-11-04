@@ -26,6 +26,11 @@
     "approxHint": "בקירוב, לפי שער החליפין של היום. המחיר של הבעלים הוא {price}.",
     "total": "{price} סה״כ"
   },
+  "deal": {
+    "MONTHLY_RENT": "חודשי",
+    "SALE": "למכירה",
+    "HOTEL_ROOM": "מלון"
+  },
   "favorite": {
     "save": "שמירת {title}",
     "unsave": "הסרת {title} מהשמורים",

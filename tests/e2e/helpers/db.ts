@@ -190,7 +190,8 @@ export async function listingByPublicId(publicId: number) {
 
 type CounterRow = { id: string; viewCount: number; contactCount: number; saveCount: number; reportCount: number };
 type StatRow = { listingId: string; date: string; views: number; contacts: number; saves: number; contactsByChannel: unknown };
-export type CounterSnapshot = { listings: CounterRow[]; stats: StatRow[]; contactTaps: string[]; startedAt: Date };
+type ViewRow = { userId: string; listingId: string; viewedAt: Date };
+export type CounterSnapshot = { listings: CounterRow[]; stats: StatRow[]; contactTaps: string[]; demoViews: ViewRow[]; startedAt: Date };
 
 export async function snapshotCounters(): Promise<CounterSnapshot> {
   const listings = await sql<CounterRow>(`SELECT id, "viewCount", "contactCount", "saveCount", "reportCount" FROM "Listing"`);
@@ -201,7 +202,12 @@ export async function snapshotCounters(): Promise<CounterSnapshot> {
   // Contact taps no longer name who tapped (round 3), so the run's taps on demo listings are found
   // as the anonymous rows that were not there before it.
   const taps = await sql<{ id: string }>(`SELECT id FROM "ContactClick" WHERE "userId" IS NULL`);
-  return { listings, stats, contactTaps: taps.map((t) => t.id), startedAt: new Date() };
+  // The demo users' "Recently viewed" in their accounts (round 3): a test that signs in as the demo
+  // guest and opens a listing writes a row there; the teardown puts the list back as it was.
+  const demoViews = await sql<ViewRow>(
+    `SELECT "userId", "listingId", "viewedAt" FROM "RecentlyViewed" WHERE "userId" IN (SELECT id FROM "User" WHERE "isDemo")`,
+  );
+  return { listings, stats, contactTaps: taps.map((t) => t.id), demoViews, startedAt: new Date() };
 }
 
 export async function restoreCounters(snapshot: CounterSnapshot) {
@@ -214,6 +220,14 @@ export async function restoreCounters(snapshot: CounterSnapshot) {
       `UPDATE "Listing" SET "viewCount" = $2, "contactCount" = $3, "saveCount" = $4, "reportCount" = $5
        WHERE id = $1 AND ("viewCount", "contactCount", "saveCount", "reportCount") IS DISTINCT FROM ($2, $3, $4, $5)`,
       [row.id, row.viewCount, row.contactCount, row.saveCount, row.reportCount],
+    );
+  }
+  await sql(`DELETE FROM "RecentlyViewed" WHERE "userId" IN (SELECT id FROM "User" WHERE "isDemo")`);
+  for (const row of snapshot.demoViews) {
+    await sql(
+      `INSERT INTO "RecentlyViewed" (id, "userId", "listingId", "viewedAt") VALUES ($1, $2, $3, $4)
+       ON CONFLICT ("userId", "listingId") DO UPDATE SET "viewedAt" = EXCLUDED."viewedAt"`,
+      [newId(), row.userId, row.listingId, row.viewedAt],
     );
   }
   const known = new Set(snapshot.listings.map((l) => l.id));
@@ -292,7 +306,7 @@ export async function cleanupTestData(opts: { since?: Date } = {}) {
   }
   // Rate-limit windows the tests filled (login codes, contact form, staff actions, per-user keys).
   await sql(
-    `DELETE FROM "RateLimit" WHERE key LIKE 'auth:otp-%' OR key LIKE 'ticket:contact%' OR key LIKE 'admin:%' OR key LIKE 'booking:%'
+    `DELETE FROM "RateLimit" WHERE key LIKE 'auth:otp-%' OR key LIKE 'auth:email-otp-%' OR key LIKE 'ticket:contact%' OR key LIKE 'admin:%' OR key LIKE 'booking:%'
        OR key LIKE 'contact-reveal:listing:%' OR key LIKE 'auth:totp:%' OR EXISTS (SELECT 1 FROM unnest($1::text[]) u WHERE key LIKE '%' || u || '%')`,
     [userIds],
   );

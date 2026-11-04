@@ -163,7 +163,9 @@
       "no": "წვეულებებისა და ღონისძიებების გარეშე"
     },
     "checkInFrom": "შესვლა {time}-დან",
-    "checkOutUntil": "გასვლა {time}-მდე"
+    "checkOutUntil": "გასვლა {time}-მდე",
+    "checkInFlexible": "მოქნილი შესვლა",
+    "checkOutFlexible": "მოქნილი გასვლა"
   },
   "costs": {
     "titleSale": "ფასის დეტალები",
@@ -231,8 +233,13 @@
     "note": "ფეხით სავალი დრო რუკის მიხედვით მიახლოებითია.",
     "supermarket": "სუპერმარკეტი",
     "airport": "აეროპორტი",
+    "airports": {
+      "TBS": "თბილისის აეროპორტი",
+      "BUS": "ბათუმის აეროპორტი",
+      "KUT": "ქუთაისის აეროპორტი"
+    },
     "walk": "{count, plural, one {{count} წთ ფეხით} other {{count} წთ ფეხით}}",
-    "km": "{km} კმ ({code})",
+    "km": "{km} კმ",
     "transport": {
       "metro": "მეტროს სადგური",
       "train": "რკინიგზის სადგური",

@@ -11,6 +11,8 @@ export const CONSENT_COOKIE_NAME = "bayit_consent";
 export const CONSENT_VERSION = 1;
 /** 180 days, in seconds. */
 export const CONSENT_MAX_AGE_SECONDS = 180 * 24 * 60 * 60;
+/** Fired on window after the visitor saves a choice (the banner sends it; stores and loaders listen). */
+export const CONSENT_EVENT = "bayit:consent";
 
 export type ConsentCategory = "necessary" | "preferences" | "analytics";
 

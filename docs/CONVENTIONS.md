@@ -172,6 +172,8 @@ docs/
 | `@/lib/listing/search-params` | parse/serialize search filters (shared by home search bar, search page, filters) |
 | `@/lib/listing/queries` | `searchListings`, `countListings`, `getListingCards`, `getListingByPublicId`, `getSimilarListings` |
 | `@/lib/listing/urls` | `listingPath(publicId, title)` → `/listing/1234-sunny-flat-in-vake` |
+| `@/lib/home/history-store` | `createHistoryStore` (client): the visitor's history in localStorage, kept **only with "preferences" cookie consent** (removed on "necessary only"; its keys are in `PRIVATE_STORAGE_KEYS`, so logout clears them). Used by recently viewed and the last search (`@/lib/home/last-search-store`) |
+| `@/lib/recently-viewed/*` | "נצפו לאחרונה": `core` (merge, limits 50 kept / 10 shown, consent rule; pure), `device` (the device copy; hooks in `@/hooks/use-recently-viewed`), `server` (`recordAccountView`, `mergeDeviceViews`, `getAccountViews`: the account copy, table `RecentlyViewed`), `client.mergeDeviceIntoAccount()` (once per tab after sign-in). `trackListingView` writes signed-in views through |
 | `@/components/listing/*` | `ListingCard`, `ListingCardSkeleton`, `ListingGrid`, `Price`, `ListingBadges`, `FavoriteButton`, field icons |
 
 ## Server actions

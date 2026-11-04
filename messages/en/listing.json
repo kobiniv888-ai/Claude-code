@@ -163,7 +163,9 @@
       "no": "No parties or events"
     },
     "checkInFrom": "Check-in from {time}",
-    "checkOutUntil": "Check-out by {time}"
+    "checkOutUntil": "Check-out by {time}",
+    "checkInFlexible": "Flexible check-in",
+    "checkOutFlexible": "Flexible check-out"
   },
   "costs": {
     "titleSale": "Price details",
@@ -231,8 +233,13 @@
     "note": "Walking times are estimates from the map.",
     "supermarket": "Supermarket",
     "airport": "Airport",
+    "airports": {
+      "TBS": "Tbilisi Airport",
+      "BUS": "Batumi Airport",
+      "KUT": "Kutaisi Airport"
+    },
     "walk": "{count, plural, one {{count} min walk} other {{count} min walk}}",
-    "km": "{km} km ({code})",
+    "km": "{km} km",
     "transport": {
       "metro": "Metro station",
       "train": "Train station",

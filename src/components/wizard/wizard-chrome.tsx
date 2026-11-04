@@ -16,7 +16,7 @@ import { Button } from "@/components/ds/button";
 import { BottomSheet } from "@/components/ds/bottom-sheet";
 import { formatNumber, formatTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { WizardStepKey } from "@/lib/wizard/steps";
+import { isOptionalStep, type WizardStepKey } from "@/lib/wizard/steps";
 import type { SaveState } from "./use-autosave";
 
 export function SaveIndicator({ state, onRetry }: { state: SaveState; onRetry: () => void }) {
@@ -156,7 +156,12 @@ export function WizardProgress({
                   >
                     {done ? <CheckIcon className="size-4" strokeWidth={3} /> : formatNumber(i + 1, locale)}
                   </span>
-                  <span className="min-w-0 flex-1">{t(`steps.${step}`)}</span>
+                  <span className="min-w-0 flex-1">
+                    {t(`steps.${step}`)}
+                    {isOptionalStep(step) && (
+                      <span className="ms-2 text-caption font-normal text-muted-foreground">{t("chrome.optionalStep")}</span>
+                    )}
+                  </span>
                   {done && <span className="sr-only">{t("chrome.completed")}</span>}
                 </button>
               </li>

@@ -26,6 +26,11 @@
     "approxHint": "Примерно, по сегодняшнему курсу. Цена владельца — {price}.",
     "total": "{price} всего"
   },
+  "deal": {
+    "MONTHLY_RENT": "Помесячно",
+    "SALE": "Продажа",
+    "HOTEL_ROOM": "Отель"
+  },
   "favorite": {
     "save": "Сохранить: {title}",
     "unsave": "Убрать из сохранённых: {title}",

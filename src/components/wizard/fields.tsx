@@ -4,7 +4,16 @@ import { useEffect, useId, useState, type ComponentType, type ReactNode } from "
 import { useLocale, useTranslations } from "next-intl";
 import { CheckIcon, ChevronDownIcon, CircleAlertIcon, MinusIcon, PlusIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { formatNumber, formatTime } from "@/lib/format";
+import { formatNumber } from "@/lib/format";
+import {
+  checkTimeFromSelect,
+  checkTimeOptions,
+  checkTimeSelectValue,
+  clockLabel,
+  FLEXIBLE_VALUE,
+  type CheckTimeChoice,
+  type CheckTimeKind,
+} from "@/lib/listing/check-times";
 import { cn } from "@/lib/utils";
 
 /**
@@ -593,18 +602,28 @@ export function Stepper({
   );
 }
 
-/** Every quarter hour of the day: "00:00" … "23:45". */
+/** Every quarter hour of the day: "00:00" … "23:45" (quiet hours, contact hours). */
 const QUARTER_HOURS = Array.from({ length: 96 }, (_, i) => `${String(Math.floor(i / 4)).padStart(2, "0")}:${String((i % 4) * 15).padStart(2, "0")}`);
 
-/** "14:00" in every language but English ("2:00 PM"), whatever the browser's own locale is. */
+/**
+ * A time in the language's usual format (round 3): "14:00" in Hebrew, Russian and Georgian,
+ * "2:00 PM" in English, "2:00 م" in Arabic, whatever the browser's own locale is.
+ */
 export function timeOptionLabel(time: string, locale: string): string {
-  return locale === "en" ? formatTime(`2000-01-01T${time}:00Z`, locale, "UTC") : time;
+  return clockLabel(time, locale);
+}
+
+const SELECT_CLASS =
+  "h-11 w-full min-w-0 cursor-pointer appearance-none rounded-input border border-border-strong bg-card ps-3 pe-9 text-base tabular-nums transition-colors outline-none focus-visible:border-primary-text focus-visible:ring-3 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:bg-surface-muted disabled:opacity-60 aria-invalid:border-error aria-invalid:ring-3 aria-invalid:ring-error/20";
+
+function SelectChevron() {
+  return <ChevronDownIcon className="pointer-events-none absolute end-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />;
 }
 
 /**
- * Time of day (HH:MM) in quarter hours, always left-to-right. A select instead of
- * `<input type="time">`, which follows the browser's locale ("02:00 PM" on the Hebrew site): this
- * shows 24-hour times in he/ru/ar/ka and "2:00 PM" in English. An empty value shows "none".
+ * Time of day (HH:MM) in quarter hours. A select instead of `<input type="time">`, which follows
+ * the browser's locale ("02:00 PM" on the Hebrew site): the labels follow the site's language
+ * (timeOptionLabel). An empty value shows "none"; a saved time off the list stays an option.
  */
 export function TimeInput({
   value,
@@ -616,16 +635,8 @@ export function TimeInput({
   const tc = useTranslations("common");
   const options = value && !QUARTER_HOURS.includes(value) ? [...QUARTER_HOURS, value].sort() : QUARTER_HOURS;
   return (
-    <div dir="ltr" className="relative">
-      <select
-        {...props}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className={cn(
-          "h-11 w-full min-w-0 cursor-pointer appearance-none rounded-input border border-border-strong bg-card ps-3 pe-9 text-base tabular-nums transition-colors outline-none focus-visible:border-primary-text focus-visible:ring-3 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:bg-surface-muted disabled:opacity-60 aria-invalid:border-error aria-invalid:ring-3 aria-invalid:ring-error/20",
-          className,
-        )}
-      >
+    <div className="relative">
+      <select {...props} value={value} onChange={(e) => onChange(e.target.value)} className={cn(SELECT_CLASS, className)}>
         <option value="">{tc("none")}</option>
         {options.map((time) => (
           <option key={time} value={time}>
@@ -633,7 +644,49 @@ export function TimeInput({
           </option>
         ))}
       </select>
-      <ChevronDownIcon className="pointer-events-none absolute end-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+      <SelectChevron />
+    </div>
+  );
+}
+
+/**
+ * Check-in / check-out (round 3, brief 3): only the usual times every 30 minutes (check-in
+ * 12:00–22:00, check-out 07:00–14:00) plus "גמיש" and "not set". A time saved before that is not
+ * in the list (a 10:00 check-in) stays a selectable option and is never changed by itself.
+ */
+export function CheckTimeSelect({
+  kind,
+  time,
+  flexible,
+  onChange,
+  className,
+  ...props
+}: Omit<React.ComponentProps<"select">, "value" | "onChange" | "children"> & {
+  kind: CheckTimeKind;
+  time: string;
+  flexible: boolean;
+  onChange: (choice: CheckTimeChoice) => void;
+}) {
+  const locale = useLocale();
+  const t = useTranslations("wizard.times");
+  const options = checkTimeOptions(kind, time);
+  return (
+    <div className="relative">
+      <select
+        {...props}
+        value={checkTimeSelectValue({ time, flexible })}
+        onChange={(e) => onChange(checkTimeFromSelect(e.target.value))}
+        className={cn(SELECT_CLASS, className)}
+      >
+        <option value="">{t("notSet")}</option>
+        <option value={FLEXIBLE_VALUE}>{t("flexible")}</option>
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {timeOptionLabel(option, locale)}
+          </option>
+        ))}
+      </select>
+      <SelectChevron />
     </div>
   );
 }

@@ -239,6 +239,28 @@ describe("booking emails", () => {
     const late = await renderEmail("booking_cancelled_by_guest", "ar", samples.booking_cancelled_by_guest);
     expect(late.text).toContain("Family event");
   });
+
+  // Round 3: "גמיש" check-in / check-out, and times in each language's usual format.
+  it("says flexible check-in / check-out instead of a time, and formats times per language", async () => {
+    const flexible = await renderEmail("booking_confirmed_guest", "he", {
+      ...samples.booking_confirmed_guest,
+      checkInFrom: null,
+      checkInFlexible: true,
+      checkOutFlexible: true,
+    });
+    expect(flexible.text).toContain("צ׳ק-אין גמיש");
+    expect(flexible.text).toContain("צ׳ק-אאוט גמיש");
+    expect(flexible.text).not.toContain("עד 11:00");
+    const he = await renderEmail("booking_confirmed_guest", "he", samples.booking_confirmed_guest);
+    expect(he.text).toContain("מ-14:00");
+    expect(he.text).toContain("עד 11:00");
+    const en = await renderEmail("booking_confirmed_guest", "en", samples.booking_confirmed_guest);
+    expect(en.text).toContain("from 2:00 PM");
+    expect(en.text).toContain("until 11:00 AM");
+    const ar = await renderEmail("booking_confirmed_guest", "ar", { ...samples.booking_confirmed_guest, checkOutFlexible: true });
+    expect(ar.text).toContain("2:00 م");
+    expect(ar.text).toContain("تسجيل مغادرة مرن");
+  });
 });
 
 describe("sendEmail", () => {

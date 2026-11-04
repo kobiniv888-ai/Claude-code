@@ -389,9 +389,16 @@ function ReviewForm({
           <dd className="col-start-2 row-span-2 row-start-1">{changeButton(t("review.changeGuests"))}</dd>
         </div>
       </dl>
-      {terms.checkInFrom || terms.checkOutUntil ? (
+      {terms.checkInFrom || terms.checkOutUntil || terms.checkInFlexible || terms.checkOutFlexible ? (
         <p className="text-caption text-muted-foreground">
-          {t("review.times", { in: clockText(terms.checkInFrom ?? DEFAULT_CHECK_IN_TIME, locale) ?? "", out: clockText(terms.checkOutUntil ?? "11:00", locale) ?? "" })}
+          {/* "גמיש" shows as "צ׳ק-אין גמיש" / "צ׳ק-אאוט גמיש" (round 3); a time not set keeps the usual default. */}
+          {terms.checkInFlexible
+            ? t("checkTimes.flexibleIn")
+            : t("review.timeIn", { time: clockText(terms.checkInFrom ?? DEFAULT_CHECK_IN_TIME, locale) ?? "" })}
+          {" · "}
+          {terms.checkOutFlexible
+            ? t("checkTimes.flexibleOut")
+            : t("review.timeOut", { time: clockText(terms.checkOutUntil ?? "11:00", locale) ?? "" })}
         </p>
       ) : null}
       {terms.roomTypes.length > 0 ? (

@@ -32,7 +32,7 @@ async function removeFiles(keys: string[], remove: (key: string) => Promise<void
  *    user's bookings is cleared (releaseBookingsOfDeletedAccount, docs/redesign-2/booking.md);
  *  - every listing → DELETED (soft) with its contact details, exact address/map point, cadastral
  *    code, kosher certificate photo and calendar imports cleared;
- *  - favorites (save counters adjusted), sessions, social/password accounts, device links,
+ *  - favorites (save counters adjusted), recently viewed places, sessions, social/password accounts, device links,
  *    blocks are deleted;
  *  - verification documents and the user's ticket attachments are deleted from private storage
  *    (decided requests keep only their status; undecided ones are removed);
@@ -95,6 +95,7 @@ export async function deleteAccountData(userId: string): Promise<void> {
       data: { saveCount: { decrement: 1 } },
     }),
     db.favorite.deleteMany({ where: { userId } }),
+    db.recentlyViewed.deleteMany({ where: { userId } }),
     db.session.deleteMany({ where: { userId } }),
     db.account.deleteMany({ where: { userId } }),
     db.deviceLink.deleteMany({ where: { userId } }),

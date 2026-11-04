@@ -363,6 +363,8 @@
     "departureLabel": "Check-out time",
     "fromTime": "from {time}",
     "untilTime": "until {time}",
+    "checkInFlexible": "Flexible check-in",
+    "checkOutFlexible": "Flexible check-out",
     "addressLabel": "Address",
     "hostLabel": "Host",
     "hostPhoneLabel": "Host's phone",

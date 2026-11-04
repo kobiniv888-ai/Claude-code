@@ -385,6 +385,7 @@ model User {
   bookingsAsHost        Booking[]             @relation("BookingHost")
   bookingsCancelled     Booking[]             @relation("BookingCanceller")
   pushSubscriptions     PushSubscription[]
+  recentlyViewed        RecentlyViewed[]
 
   @@index([role])
   @@index([status])
@@ -616,13 +617,18 @@ model Listing {
   paymentMethodsAtCheckIn String[]           @default([])
 
   // House rules
-  checkInFrom    String? // "14:00"
-  checkOutUntil  String? // "11:00"
-  smokingAllowed Boolean?
-  petsAllowed    Boolean?
-  partiesAllowed Boolean?
-  quietHoursFrom String?
-  quietHoursTo   String?
+  checkInFrom      String? // "14:00"
+  checkOutUntil    String? // "11:00"
+  /// "צ׳ק-אין גמיש" / "צ׳ק-אאוט גמיש" (round 3, brief 3): the host chose "גמיש" in the picker.
+  /// The time column is then empty; readers that need a clock (free-cancellation deadline) use
+  /// the default check-in time. src/lib/listing/check-times.ts.
+  checkInFlexible  Boolean  @default(false)
+  checkOutFlexible Boolean  @default(false)
+  smokingAllowed   Boolean?
+  petsAllowed      Boolean?
+  partiesAllowed   Boolean?
+  quietHoursFrom   String?
+  quietHoursTo     String?
 
   // Media
   videoUrl   String?
@@ -695,6 +701,7 @@ model Listing {
   tickets       Ticket[]
   promotions    Promotion[]
   bookings      Booking[]
+  viewedBy      RecentlyViewed[]
 
   @@index([status, cityId, dealType])
   @@index([status, bumpedAt])
@@ -900,6 +907,22 @@ model Favorite {
   createdAt DateTime @default(now())
 
   @@unique([userId, listingId])
+}
+
+/// "נצפו לאחרונה" synced to the account (round 3, brief 4; src/lib/recently-viewed). Guests keep
+/// the list on their device only; signed-in users get the device list merged in at sign-in and
+/// every view written through. Up to 50 rows per user (the oldest are trimmed), the home page
+/// shows 10. Rows of listings that are no longer public stay but are never shown.
+model RecentlyViewed {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  viewedAt  DateTime
+
+  @@unique([userId, listingId])
+  @@index([userId, viewedAt])
 }
 
 /// One row per tap on a contact button (for the owner's stats).

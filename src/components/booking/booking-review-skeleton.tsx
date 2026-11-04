@@ -1,5 +1,6 @@
 import { Container } from "@/components/common/container";
 import { SkeletonBlock } from "@/components/common/skeletons";
+import { HideFooter } from "@/components/layout/hide-footer";
 
 /**
  * "אישור הזמנה" (the booking review) while it loads: the same layout as the page (stay, price, then
@@ -8,6 +9,8 @@ import { SkeletonBlock } from "@/components/common/skeletons";
 export function BookingReviewSkeleton() {
   return (
     <Container className="grid max-w-5xl gap-4 pt-3 pb-6 lg:gap-6 lg:pt-6" aria-hidden>
+      {/* Like the page itself (listing/[id]/book/layout.tsx): no site footer in the booking flow. */}
+      <HideFooter />
       <div className="grid gap-2">
         <SkeletonBlock className="h-5 w-28" />
         <SkeletonBlock className="h-7 w-48" />

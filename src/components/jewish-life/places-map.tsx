@@ -192,16 +192,19 @@ export default function PlacesMap({
                     </p>
                   ) : null}
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1">
-                    <a
-                      href={place.directionsUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-[#4B2A8C]! underline-offset-2 hover:underline"
-                    >
-                      {t("directions")}
-                      <ExternalLink aria-hidden="true" className="size-3" />
-                      <span className="sr-only">{t("opensInNewTab")}</span>
-                    </a>
+                    {/* A demo place is not a real address: no directions to it (round 3). */}
+                    {place.isDemo ? null : (
+                      <a
+                        href={place.directionsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-[#4B2A8C]! underline-offset-2 hover:underline"
+                      >
+                        {t("directions")}
+                        <ExternalLink aria-hidden="true" className="size-3" />
+                        <span className="sr-only">{t("opensInNewTab")}</span>
+                      </a>
+                    )}
                     <button
                       type="button"
                       onClick={() => onShowInList(place.id)}

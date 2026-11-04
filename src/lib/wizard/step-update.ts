@@ -112,6 +112,31 @@ function allowedPeriod<T extends { pricePeriod?: PricePeriod }>(patch: T, kind: 
   return { ...patch, pricePeriod: DEFAULT_PRICE_PERIOD[kind.dealType] };
 }
 
+/**
+ * "גמיש" and a time never both hold (round 3): "גמיש" empties the time, a time turns "גמיש" off.
+ * Only the halves present in the patch decide, and a derived column is written only when the saved
+ * row needs it (an untouched answer is never written).
+ */
+function flexibleTimes(
+  patch: { checkInFrom?: string; checkOutUntil?: string; checkInFlexible?: boolean; checkOutFlexible?: boolean },
+  listing: StepUpdateListing,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [timeKey, flexKey] of [
+    ["checkInFrom", "checkInFlexible"],
+    ["checkOutUntil", "checkOutFlexible"],
+  ] as const) {
+    const flexible = has(patch, flexKey) && patch[flexKey] === true;
+    const time = has(patch, timeKey) ? orNull(patch[timeKey] ?? "") : undefined;
+    if (flexible) {
+      if (time !== undefined ? time !== null : listing[timeKey] != null) out[timeKey] = null;
+    } else if (time) {
+      if (has(patch, flexKey) || listing[flexKey] === true) out[flexKey] = false;
+    }
+  }
+  return out;
+}
+
 /** Column → value for the keys present in `patch`, through `store` (default: as sent). */
 function columns<T extends object>(patch: T, store: Partial<Record<keyof T, () => unknown>> = {}): Record<string, unknown> {
   const out: Record<string, unknown> = {};
@@ -244,6 +269,7 @@ export async function buildStepUpdate<S extends SavableStepKey>(
         quietHoursFrom: () => orNull(v.quietHoursFrom ?? ""),
         quietHoursTo: () => orNull(v.quietHoursTo ?? ""),
       });
+      Object.assign(data, flexibleTimes(v, listing));
       return { data: data as Prisma.ListingUpdateInput, contentChanged: differs(data, listing), textChanged: false };
     }
     case "jewish": {
@@ -286,6 +312,7 @@ export async function buildStepUpdate<S extends SavableStepKey>(
         checkInFrom: () => orNull(v.checkInFrom ?? ""),
         checkOutUntil: () => orNull(v.checkOutUntil ?? ""),
       });
+      Object.assign(data, flexibleTimes(v, listing));
       const before = differs(data, listing, ["price", "weekendPrice", "cleaningFee", "deposit"]);
       if (Object.keys(data).length > 0) {
         if (has(v, "price") || has(v, "currency")) data.priceUsd = await usdPrice(v, listing, deps);

@@ -5,8 +5,8 @@ export type LegalDocKey = (typeof legalDocKeys)[number];
 
 export const legalDocs: Record<LegalDocKey, { path: string; icon: LucideIcon; lastUpdated: string }> = {
   terms: { path: "/legal/terms", icon: FileText, lastUpdated: "2026-11-02" },
-  privacy: { path: "/legal/privacy", icon: ShieldCheck, lastUpdated: "2026-10-31" },
-  cookies: { path: "/legal/cookies", icon: Cookie, lastUpdated: "2026-10-31" },
+  privacy: { path: "/legal/privacy", icon: ShieldCheck, lastUpdated: "2026-11-04" },
+  cookies: { path: "/legal/cookies", icon: Cookie, lastUpdated: "2026-11-04" },
   listingRules: { path: "/legal/listing-rules", icon: ListChecks, lastUpdated: "2026-10-31" },
   accessibility: { path: "/legal/accessibility", icon: Accessibility, lastUpdated: "2026-10-31" },
 };

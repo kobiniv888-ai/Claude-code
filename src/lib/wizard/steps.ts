@@ -57,6 +57,23 @@ export function isWizardStepKey(step: string): step is WizardStepKey {
   return (WIZARD_STEP_KEYS as readonly string[]).includes(step);
 }
 
+/**
+ * Steps marked "אופציונלי" with a "דילוג" button (round 3, brief 3: the Jewish-friendly details).
+ * Nothing on them is required; Skip saves what was already ticked and moves on, like a jump.
+ */
+export const OPTIONAL_STEPS: readonly WizardStepKey[] = ["jewish"];
+
+export function isOptionalStep(step: WizardStepKey): boolean {
+  return OPTIONAL_STEPS.includes(step);
+}
+
+/** The step after `step` for this listing (null on the last step): where "דילוג" goes. */
+export function stepAfter(step: WizardStepKey, kind: ListingKind): WizardStepKey | null {
+  const steps = stepsFor(kind);
+  const index = steps.indexOf(step);
+  return index === -1 || index >= steps.length - 1 ? null : steps[index + 1];
+}
+
 /** Step keys from older links (?step=details, round 1) and the step that took their place. */
 const LEGACY_STEP_KEYS: Record<string, WizardStepKey> = { details: "size" };
 

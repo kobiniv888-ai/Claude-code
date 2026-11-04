@@ -33,7 +33,7 @@
     "deleteDraftConfirm": "Delete draft",
     "cancel": "Cancel",
     "deleted": "Draft deleted",
-    "pledgeNote": "Every host here promises to welcome Israeli and Jewish guests. You confirm it in the step before publishing, and get the “Welcomes Israelis” badge.",
+    "pledgeNote": "Every host here promises to welcome Israeli and Jewish guests. You'll confirm this before publishing.",
     "continueTitle": "Continue your draft",
     "continueButton": "Continue the draft",
     "moreDrafts": "Other drafts",
@@ -77,6 +77,8 @@
     "completed": "(completed)",
     "back": "Back",
     "next": "Next",
+    "skip": "Skip",
+    "optionalStep": "Optional",
     "toPreview": "Preview",
     "saving": "Saving…",
     "savedAt": "Saved at {time}",
@@ -446,8 +448,8 @@
     "pets": "Pets allowed",
     "smoking": "Smoking allowed",
     "parties": "Parties or events allowed",
-    "checkIn": "Check-in from",
-    "checkOut": "Check-out until",
+    "checkIn": "Check-in time",
+    "checkOut": "Check-out time",
     "quietHours": "Quiet hours",
     "optional": "Optional",
     "quietFrom": "From",
@@ -456,7 +458,7 @@
   },
   "jewish": {
     "title": "Jewish-friendly details",
-    "subtitle": "This is what makes the site different — families look for exactly these details.",
+    "subtitle": "Fill in only what the place has. Guests who keep kosher or Shabbat filter by these details.",
     "kitchenTitle": "Kitchen",
     "kitchenLegend": "Is the kitchen kosher?",
     "kitchenHelp": {
@@ -678,9 +680,9 @@
     "maxGuests": "Maximum guests",
     "maxGuestsHelp": "Adults and children. Infants under 2 don't count.",
     "maxGuestsHotelHelp": "Optional: each room type can have its own number.",
-    "checkInFrom": "Check-in from",
-    "checkOutUntil": "Check-out until",
-    "timesHelp": "Without a check-in time, the free-cancellation deadline is counted from 14:00.",
+    "checkInFrom": "Check-in time",
+    "checkOutUntil": "Check-out time",
+    "timesHelp": "Check-in: the earliest time guests can arrive. Check-out: the latest time they leave. Without a check-in time, or with “Flexible”, the free-cancellation deadline is counted from {time}.",
     "policyTitle": "Cancellation policy",
     "policyDescription": "Choose one of three options. Guests see it before they book.",
     "policyNote": "Guests pay only on arrival, so nobody is charged for cancelling. A cancellation after the deadline is recorded as late.",
@@ -742,8 +744,7 @@
       "whyTitle": "Why it matters",
       "reasons": {
         "guests": "Israeli and Jewish guests know they are welcome at your place, and contact you with peace of mind.",
-        "everyone": "Every host here makes the same promise.",
-        "badge": "Your listings get this badge:"
+        "everyone": "Every host here makes the same promise."
       }
     }
   },
@@ -909,5 +910,9 @@
     "loading": "Loading the calendar…",
     "loadFailed": "We couldn't load the calendar.",
     "retry": "Try again"
+  },
+  "times": {
+    "flexible": "Flexible",
+    "notSet": "Not set"
   }
 }

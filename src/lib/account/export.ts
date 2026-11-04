@@ -72,7 +72,7 @@ function exportBooking(row: {
 }
 
 export async function buildAccountExport(userId: string) {
-  const [user, listings, favorites, tickets, reports, contactClicks, verifications, sessions, tripsAsGuest, bookingsAsHost] = await Promise.all([
+  const [user, listings, favorites, tickets, reports, contactClicks, verifications, sessions, tripsAsGuest, bookingsAsHost, recentlyViewed] = await Promise.all([
     db.user.findUniqueOrThrow({
       where: { id: userId },
       select: {
@@ -214,6 +214,13 @@ export async function buildAccountExport(userId: string) {
       take: MAX_ROWS,
       select: { ...BOOKING_EXPORT_SELECT, cancelReason: true, cancelledById: true },
     }),
+    // "נצפו לאחרונה" kept in the account (round 3, src/lib/recently-viewed).
+    db.recentlyViewed.findMany({
+      where: { userId },
+      orderBy: { viewedAt: "desc" },
+      take: MAX_ROWS,
+      select: { viewedAt: true, listing: { select: { publicId: true, title: true } } },
+    }),
   ]);
 
   const { accounts, ...profile } = user;
@@ -244,6 +251,11 @@ export async function buildAccountExport(userId: string) {
       listingTitle: f.listing.title,
       note: f.note,
       savedAt: f.createdAt,
+    })),
+    recentlyViewed: recentlyViewed.map((r) => ({
+      listingId: r.listing.publicId,
+      listingTitle: r.listing.title,
+      viewedAt: r.viewedAt,
     })),
     tickets: tickets.map(({ listing, messages, ...ticket }) => ({
       ...ticket,

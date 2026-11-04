@@ -226,6 +226,8 @@ const reviewSelect = {
   monthlyDiscountPct: true,
   checkInFrom: true,
   checkOutUntil: true,
+  checkInFlexible: true,
+  checkOutFlexible: true,
   smokingAllowed: true,
   petsAllowed: true,
   partiesAllowed: true,

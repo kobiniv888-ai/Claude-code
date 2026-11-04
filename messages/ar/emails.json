@@ -363,6 +363,8 @@
     "departureLabel": "وقت المغادرة",
     "fromTime": "من الساعة {time}",
     "untilTime": "حتى الساعة {time}",
+    "checkInFlexible": "تسجيل وصول مرن",
+    "checkOutFlexible": "تسجيل مغادرة مرن",
     "addressLabel": "العنوان",
     "hostLabel": "المضيف",
     "hostPhoneLabel": "هاتف المضيف",

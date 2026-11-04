@@ -163,7 +163,9 @@
       "no": "בלי מסיבות ואירועים"
     },
     "checkInFrom": "צ׳ק-אין החל מ-{time}",
-    "checkOutUntil": "צ׳ק-אאוט עד {time}"
+    "checkOutUntil": "צ׳ק-אאוט עד {time}",
+    "checkInFlexible": "צ׳ק-אין גמיש",
+    "checkOutFlexible": "צ׳ק-אאוט גמיש"
   },
   "costs": {
     "titleSale": "פרטי המחיר",
@@ -231,8 +233,13 @@
     "note": "זמני ההליכה הם הערכה לפי המפה.",
     "supermarket": "סופרמרקט",
     "airport": "שדה תעופה",
+    "airports": {
+      "TBS": "שדה התעופה של טביליסי",
+      "BUS": "שדה התעופה של בטומי",
+      "KUT": "שדה התעופה של קוטאיסי"
+    },
     "walk": "{count, plural, one {דקת הליכה} other {{count} דק׳ הליכה}}",
-    "km": "{km} ק״מ ({code})",
+    "km": "{km} ק״מ",
     "transport": {
       "metro": "תחנת מטרו",
       "train": "תחנת רכבת",

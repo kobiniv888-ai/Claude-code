@@ -105,6 +105,8 @@
     "booking": "הזמנה {code} באתר {brand}",
     "checkIn": "הגעה: {date} מ-{time}",
     "checkOut": "עזיבה: {date} עד {time}",
+    "checkInFlexible": "הגעה: {date}, צ׳ק-אין גמיש",
+    "checkOutFlexible": "עזיבה: {date}, צ׳ק-אאוט גמיש",
     "host": "מארח: {name}",
     "phone": "טלפון: {phone}",
     "pay": "תשלום למארח בהגעה: {amount}",
@@ -137,7 +139,8 @@
     "changeGuests": "שינוי מספר האורחים",
     "chooseDates": "בחירת תאריכים",
     "noDates": "בחרו תאריך הגעה ותאריך עזיבה כדי להמשיך.",
-    "times": "הגעה מ-{in} · עזיבה עד {out}",
+    "timeIn": "צ׳ק-אין החל מ-{time}",
+    "timeOut": "צ׳ק-אאוט עד {time}",
     "room": "סוג חדר",
     "roomPerNight": "{price} ללילה",
     "roomGuests": "{count, plural, one {אורח אחד} two {עד 2 אורחים} other {עד {count} אורחים}}",
@@ -222,6 +225,7 @@
     "whatNext": "מה עכשיו",
     "step1": "כתבו למארח בוואטסאפ מתי בערך תגיעו.",
     "step2": "ביום ההגעה: צ׳ק-אין החל מ-{time}, בכתובת שלמעלה.",
+    "step2Flexible": "ביום ההגעה: צ׳ק-אין גמיש. תאמו את השעה עם המארח, בכתובת שלמעלה.",
     "step3": "משלמים למארח {amount} בהגעה, ולא מראש.",
     "payTitle": "תשלום בהגעה",
     "yourMessage": "ההודעה שלכם למארח",
@@ -242,5 +246,9 @@
     "notFoundTitle": "לא מצאנו את ההזמנה",
     "notFoundText": "ייתכן שהיא שייכת לחשבון אחר. כל ההזמנות שלכם נמצאות ב״הנסיעות שלי״.",
     "viewListing": "למודעה"
+  },
+  "checkTimes": {
+    "flexibleIn": "צ׳ק-אין גמיש",
+    "flexibleOut": "צ׳ק-אאוט גמיש"
   }
 }

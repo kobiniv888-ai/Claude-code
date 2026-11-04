@@ -58,6 +58,8 @@ async function loadBooking(bookingId: string) {
           address: true,
           checkInFrom: true,
           checkOutUntil: true,
+          checkInFlexible: true,
+          checkOutFlexible: true,
           contactMethods: true,
           translations: { select: { locale: true, title: true } },
         },
@@ -104,6 +106,8 @@ function arrivalFor(booking: LoadedBooking): BookingEmailArrival {
   return {
     checkInFrom: booking.listing.checkInFrom,
     checkOutUntil: booking.listing.checkOutUntil,
+    checkInFlexible: booking.listing.checkInFlexible,
+    checkOutFlexible: booking.listing.checkOutFlexible,
     address: booking.listing.address,
     hostName: personName(booking.host),
     hostPhone: contact.phone,

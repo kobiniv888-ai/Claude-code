@@ -5,6 +5,7 @@ import type { SpriteIconName } from "@/components/ds/sprite-icons.generated";
 import { pickLocalized } from "@/i18n/locale";
 import { formatNumber } from "@/lib/format";
 import type { NearbyInfo } from "@/lib/nearby";
+import { namedAirport } from "@/lib/nearby-airports";
 
 type Row = { key: string; icon: SpriteIconName; label: string; name: string | null; value: string };
 
@@ -16,7 +17,8 @@ const TRANSPORT_ICON: Record<NonNullable<NearbyInfo["transport"]>["kind"], Sprit
 };
 
 /**
- * What is nearby, with walking times, and the distance to the airport (under the location map).
+ * What is nearby, with walking times, and the distance to the airport (under the location map):
+ * "שדה התעופה של בטומי · 4 ק״מ", named by the airport's city, never by its IATA code (round 3).
  * Synagogues and kosher places are not repeated here: the nearest verified synagogue is in the
  * folded "Kosher and Shabbat" section (each place once).
  */
@@ -45,12 +47,13 @@ export function NearbyList({ nearby }: { nearby: NearbyInfo }) {
     });
   }
   if (nearby.airport) {
+    const airport = namedAirport(nearby.airport.code);
     rows.push({
       key: "airport",
       icon: "plane",
-      label: t("airport"),
+      label: airport ? t(`airports.${airport}`) : t("airport"),
       name: null,
-      value: t("km", { km: formatNumber(nearby.airport.km, locale), code: nearby.airport.code }),
+      value: t("km", { km: formatNumber(nearby.airport.km, locale) }),
     });
   }
   if (rows.length === 0) return null;

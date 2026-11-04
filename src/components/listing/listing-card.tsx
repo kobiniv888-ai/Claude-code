@@ -5,7 +5,7 @@ import { Link } from "@/i18n/navigation";
 import { formatArea, formatNumber } from "@/lib/format";
 import type { ListingCardData } from "@/lib/listing/types";
 import { cn } from "@/lib/utils";
-import { cardPhotoTag, cardTags, type CardTagKind } from "./card-tags";
+import { cardDealLabel, cardPhotoTag, cardTags, type CardTagKind } from "./card-tags";
 import { CompareToggle } from "./compare-toggle";
 import { FavoriteButton } from "./favorite-button";
 import { PhotoCarousel } from "./photo-carousel";
@@ -61,8 +61,9 @@ function useFacts(listing: ListingCardData): string[] {
  * - A 4:3 swipeable photo (at most 5 dots) with only the heart (top, end side) and at most one
  *   tag: "דמו" (grey), "מקודם" or "חדש" (purple tint).
  * - Under it: the title (1 line), "אזור · עיר" (grey), one facts line, the price line (one price,
- *   in the visitor's currency, "≈" when converted; "₪1,260 סה״כ" with `nights`), and at most two
- *   small grey tags (kosher kitchen, Shabbat-friendly, a verified synagogue's walk, Hebrew).
+ *   in the visitor's currency, "≈" when converted; "₪1,260 סה״כ" with `nights`; round 3: plus a
+ *   small outlined type label — "למכירה", "חודשי", "מלון" — on every card but short stays), and at
+ *   most two small grey tags (kosher kitchen, Shabbat-friendly, a verified synagogue's walk, Hebrew).
  * - A white (surface) card with a 1px border, 16px corners and no shadow.
  *
  * The title link covers the whole card (and is prefetched); the heart and photo buttons sit above
@@ -112,6 +113,7 @@ export function ListingCard({
   const titleId = `listing-${listing.publicId}-title`;
   const photoTag = cardPhotoTag(listing.badges);
   const tags = cardTags(listing.badges, preferTags);
+  const dealLabel = cardDealLabel(listing.dealType);
 
   return (
     <article
@@ -206,7 +208,7 @@ export function ListingCard({
           </p>
         ) : null}
 
-        <div className={cn("min-w-0", isCompact ? "mt-0.5" : "mt-1")}>
+        <div className={cn("flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1", isCompact ? "mt-0.5" : "mt-1")}>
           <Price
             amount={listing.price}
             currency={listing.currency}
@@ -217,6 +219,12 @@ export function ListingCard({
             compact="auto"
             nights={nights}
           />
+          {dealLabel ? (
+            // Outlined, so it never reads as one of the grey tags below.
+            <Tag size="sm" className="border border-border-strong bg-transparent text-muted-foreground">
+              {t(`deal.${dealLabel}`)}
+            </Tag>
+          ) : null}
         </div>
 
         {tags.length > 0 || (isList && showCompare) ? (

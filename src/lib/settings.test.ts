@@ -51,7 +51,7 @@ describe("mergeSettings", () => {
     expect(settings.homeSections.map((s) => s.key).sort()).toEqual([...HOME_SECTION_KEYS].sort());
   });
 
-  it("migrates round-1 home section keys instead of dropping the saved list", () => {
+  it("migrates older home section keys instead of dropping the saved list", () => {
     const settings = mergeSettings([
       {
         key: "homeSections",
@@ -66,12 +66,40 @@ describe("mergeSettings", () => {
         ],
       },
     ]);
-    expect(settings.homeSections.slice(0, 3)).toEqual([
+    expect(settings.homeSections.slice(0, 2)).toEqual([
       { key: "cities", enabled: true },
-      { key: "jewishLife", enabled: false },
       { key: "featured", enabled: true },
     ]);
     expect(settings.homeSections.map((s) => s.key).sort()).toEqual([...HOME_SECTION_KEYS].sort());
+  });
+
+  it("round 3: the default order is the lighter home page, without Jewish life or recently viewed", () => {
+    expect(DEFAULT_SETTINGS.homeSections.map((s) => s.key)).toEqual(["categories", "featured", "cities", "howItWorks", "listCta"]);
+    expect(DEFAULT_SETTINGS.homeSections.every((s) => s.enabled)).toBe(true);
+  });
+
+  it("round 3: a stored round-2 list keeps its switches and drops the two sections that left", () => {
+    const settings = mergeSettings([
+      {
+        key: "homeSections",
+        value: [
+          { key: "categories", enabled: true },
+          { key: "featured", enabled: true },
+          { key: "recentlyViewed", enabled: true },
+          { key: "cities", enabled: false },
+          { key: "howItWorks", enabled: true },
+          { key: "jewishLife", enabled: true },
+          { key: "listCta", enabled: false },
+        ],
+      },
+    ]);
+    expect(settings.homeSections).toEqual([
+      { key: "categories", enabled: true },
+      { key: "featured", enabled: true },
+      { key: "cities", enabled: false },
+      { key: "howItWorks", enabled: true },
+      { key: "listCta", enabled: false },
+    ]);
   });
 });
 

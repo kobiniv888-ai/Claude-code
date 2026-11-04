@@ -163,7 +163,7 @@
       "collect": {
         "title": "What we collect",
         "list": {
-          "a": "<b>Account data</b> — your name, email address, photo (if you add one), language and currency, and how you sign in (Google, Apple or phone).",
+          "a": "<b>Account data</b> — your name, email address, photo (if you add one), language and currency, and how you sign in (Google, Apple or phone). When you are signed in, the places you viewed recently (up to 50) are also kept in your account, so you can find them on any device. You can clear them at any time on the home page.",
           "b": "<b>Phone number</b> — to verify your account with a code and, if you are an owner, so guests can contact you. We check whether a number is virtual (VoIP) to prevent fraud.",
           "c": "<b>Listing data</b> — everything you enter when you post: the property's details, photos, prices, availability and exact address. The exact address is never shown publicly; the map shows an approximate location.",
           "d": "<b>Contact clicks</b> — when someone taps “Show contact” or a contact button, we record it, to show owners their statistics and to detect abuse.",
@@ -274,7 +274,7 @@
         "title": "The kinds of cookies we use",
         "list": {
           "a": "<b>Strictly necessary</b> — needed for the site to work and stay secure: signing in, security and fraud prevention, and remembering your cookie choice. These are always on.",
-          "b": "<b>Preferences</b> — remember your language and currency, so you don't have to choose them again.",
+          "b": "<b>Preferences</b> — remember your language and currency, so you don't have to choose them again, and, on this device only, the places you viewed recently and your last search, so the home page can offer them again.",
           "c": "<b>Analytics</b> — help us understand how the site is used, so we can improve it. Only with your consent. <todo>Name of the analytics tool, if any</todo>"
         }
       },

@@ -26,6 +26,11 @@
     "approxHint": "Approximate, at today's exchange rate. The owner's price is {price}.",
     "total": "{price} total"
   },
+  "deal": {
+    "MONTHLY_RENT": "Monthly",
+    "SALE": "For sale",
+    "HOTEL_ROOM": "Hotel"
+  },
   "favorite": {
     "save": "Save {title}",
     "unsave": "Remove {title} from saved",

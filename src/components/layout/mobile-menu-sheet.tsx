@@ -3,13 +3,11 @@
 import { Suspense, useId, type ReactNode, type RefObject } from "react";
 import { useSearchParams } from "next/navigation";
 import {
-  CalendarDays,
   Compass,
   Heart,
   Info,
   LifeBuoy,
   Mail,
-  MapPinned,
   Phone,
   Plus,
   ShieldCheck,
@@ -22,7 +20,7 @@ import { LogoutButton } from "@/components/auth/logout-button";
 import { Logo } from "@/components/brand/logo";
 import { ChevronEnd } from "@/components/common/directional-icon";
 import { buttonStyles } from "@/components/ds/button";
-import { ShabbatCandlesIcon, SynagogueIcon, type IconComponent } from "@/components/ds/jewish-icons";
+import { SynagogueIcon, type IconComponent } from "@/components/ds/jewish-icons";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -37,7 +35,7 @@ import { isRtl } from "@/i18n/locale";
 import { cn } from "@/lib/utils";
 import { CurrencyChips } from "./currency-chips";
 import { LanguageList } from "./language-list";
-import { activeNavKey, NAV_ITEMS, normalizePath, type NavKey } from "./nav-items";
+import { activeNavKey, DEAL_NAV_KEYS, NAV_ITEMS, normalizePath, type NavKey } from "./nav-items";
 import { ThemeSegmented } from "./theme-segmented";
 
 type Row = { id: string; href: string; label: string; icon: IconComponent; current?: boolean };
@@ -82,9 +80,12 @@ function MenuGroup({ title, children, className }: { title: string; children: Re
   );
 }
 
-const SEARCH_KEYS: readonly NavKey[] = ["rent", "buy", "hotels", "map"];
+const SEARCH_KEYS: readonly NavKey[] = [...DEAL_NAV_KEYS, "map"];
 
-/** "Find a place": rent, buy, hotels, map (matched with the query, like the desktop tabs) and saved. */
+/**
+ * "Find a place": the home page's four deal tabs (short stay, monthly, buy, hotels), the map — all
+ * matched with the query, like the desktop tabs — and saved.
+ */
 function SearchRows({ active, onNavigate }: { active: NavKey | null; onNavigate: () => void }) {
   const t = useTranslations("nav");
   const path = normalizePath(usePathname());
@@ -130,9 +131,9 @@ const legalLinks = [
 ] as const;
 
 /**
- * Phone header: the side menu. Post and log in (or My account) on top, then grouped rows with an
- * icon in a tinted circle — find a place, Jewish life, help & safety — the language, currency and
- * theme pickers, and the legal pages.
+ * Phone header: the side menu. Post and log in (or My account) on top, then grouped rows — find a
+ * place, one "Jewish life in Georgia" row (the hub has its own tabs), help & safety with the
+ * emergency numbers — the language, currency and theme pickers, and the legal pages.
  *
  * Loaded on demand by <MobileMenu> (./mobile-menu), which renders the trigger button: Radix Dialog
  * and the rows' icons are not part of every page's first load. Focus goes back to that button
@@ -161,16 +162,19 @@ export function MobileMenuSheet({
   const close = () => setOpen(false);
   const path = normalizePath(usePathname());
 
-  const jewishRows: Row[] = [
-    { id: "home", href: "/jewish-life", label: t("menu.links.jewishLifeHome"), icon: SynagogueIcon, current: path === "/jewish-life" },
-    { id: "times", href: "/jewish-life#shabbat-times", label: t("menu.links.shabbatTimes"), icon: ShabbatCandlesIcon },
-    { id: "calendar", href: "/jewish-life#calendar", label: t("menu.links.calendar"), icon: CalendarDays },
-    { id: "places", href: "/jewish-life#places", label: t("menu.links.communityMap"), icon: MapPinned },
-    { id: "emergency", href: "/jewish-life#emergency", label: t("menu.links.emergency"), icon: Phone },
-  ];
+  // Round 3: one row for Jewish life (it was five); its sub-pages count as the current page.
+  const jewishRow: Row = {
+    id: "jewish-life",
+    href: "/jewish-life",
+    label: t("menu.links.jewishLifeHome"),
+    icon: SynagogueIcon,
+    current: path === "/jewish-life" || path.startsWith("/jewish-life/"),
+  };
+  // Emergency numbers live on the safety page too (/safety#emergency): every traveller needs them.
   const helpRows: Row[] = [
     { id: "help", href: "/help", label: t("tabs.help"), icon: LifeBuoy },
     { id: "safety", href: "/safety", label: t("safety"), icon: ShieldCheck },
+    { id: "emergency", href: "/safety#emergency", label: t("menu.links.emergency"), icon: Phone },
     { id: "contact", href: "/contact", label: t("contact"), icon: Mail },
     { id: "about", href: "/about", label: t("menu.links.ourStory"), icon: Info },
     { id: "how", href: "/how-it-works", label: t("menu.links.howItWorks"), icon: Compass },
@@ -209,13 +213,9 @@ export function MobileMenuSheet({
               </Suspense>
             </MenuGroup>
 
-            <MenuGroup title={t("menu.groups.jewish")}>
-              <ul className="grid grid-cols-1 gap-0.5">
-                {jewishRows.map((row) => (
-                  <MenuRow key={row.id} row={row} onNavigate={close} />
-                ))}
-              </ul>
-            </MenuGroup>
+            <ul className="grid grid-cols-1 gap-0.5">
+              <MenuRow row={jewishRow} onNavigate={close} />
+            </ul>
 
             <MenuGroup title={t("menu.groups.help")}>
               <ul className="grid grid-cols-1 gap-0.5">

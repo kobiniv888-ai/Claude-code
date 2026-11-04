@@ -181,6 +181,9 @@ export type GuestTrip = BookingSummary & {
   canCancel: boolean;
   checkInFrom: string | null;
   checkOutUntil: string | null;
+  /** "גמיש" (round 3): "צ׳ק-אין גמיש" / "צ׳ק-אאוט גמיש" on the trip page and the calendar file. */
+  checkInFlexible: boolean;
+  checkOutFlexible: boolean;
   /** Shown only to the guest of a confirmed or completed booking; null otherwise. */
   reveal: {
     address: string | null;
@@ -216,6 +219,8 @@ export async function getGuestTrip(
         select: {
           ...summarySelect.listing.select,
           checkOutUntil: true,
+          checkInFlexible: true,
+          checkOutFlexible: true,
           address: true,
           lat: true,
           lng: true,
@@ -252,6 +257,8 @@ export async function getGuestTrip(
     canCancel: canGuestCancel(state, now),
     checkInFrom: row.listing.checkInFrom,
     checkOutUntil: row.listing.checkOutUntil,
+    checkInFlexible: row.listing.checkInFlexible,
+    checkOutFlexible: row.listing.checkOutFlexible,
     reveal,
     icsPath: row.status === "CONFIRMED" ? bookingIcsPath(row.code) : null,
     path: tripPath(row.code),

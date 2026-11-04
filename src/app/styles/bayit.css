@@ -490,6 +490,11 @@ body:has([data-hide-bottom-nav]) {
 body:has([data-hide-bottom-nav]) [data-bottom-nav] {
   display: none;
 }
+/* <HideFooter /> (src/components/layout/hide-footer.tsx): no site footer in the post form and the
+   booking flow (round 3). */
+body:has([data-hide-footer]) [data-site-footer] {
+  display: none;
+}
 /* The listing page's contact bar (src/components/contact/mobile-contact-bar.tsx) takes the bottom bar's
    place. Also matched by a marker in the listing skeleton (listing/[id]/loading.tsx), so the space is
    the same before and after the page streams in (the cookie banner sits on this variable). */

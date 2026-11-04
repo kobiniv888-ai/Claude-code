@@ -3,9 +3,10 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { CheckCheckIcon, CircleAlertIcon, LoaderCircleIcon, LogOutIcon, RefreshCwIcon, RocketIcon } from "lucide-react";
+import { CheckCheckIcon, ChevronRightIcon, CircleAlertIcon, LoaderCircleIcon, LogOutIcon, RefreshCwIcon, RocketIcon } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ds/button";
+import { Tag } from "@/components/ds/tag";
 import { Ltr } from "@/components/common/ltr";
 import type { AppLocale } from "@/config/site";
 import { Link, useRouter } from "@/i18n/navigation";
@@ -15,8 +16,10 @@ import { isFieldKey, mergeAnswers, sameAnswer, unsentIsNewer, type FieldKey } fr
 import { missingRequirements } from "@/lib/wizard/requirements";
 import { PRICE_PERIODS_BY_DEAL, REQUIRED_CODES, stepIssues, type StepIssues, type WizardValues } from "@/lib/wizard/schemas";
 import {
+  isOptionalStep,
   isSavableStep,
   parseStepParam,
+  stepAfter,
   stepsFor,
   type ListingKind,
   type WizardStepKey,
@@ -341,6 +344,13 @@ export function WizardShell({
   const back = () => {
     if (position <= 1) return;
     void goTo(steps[position - 2]);
+  };
+
+  // "דילוג" on an optional step (step 9, round 3): no check, nothing cleared. goTo saves what was
+  // already ticked and remembers the next step, exactly like a jump from the steps list.
+  const skipTarget = isOptionalStep(step) ? stepAfter(step, kind) : null;
+  const skip = () => {
+    if (skipTarget) void goTo(skipTarget);
   };
 
   // "Some details need your attention": the first highlighted field comes into view, focused.
@@ -714,10 +724,21 @@ export function WizardShell({
         {/* key: each step fades up a little as it comes in (transform/opacity; off with reduced motion). */}
         <div key={step} className="mt-6 grid animate-fade-up gap-6 [&>*]:min-w-0" data-wizard-step={step}>
           <div className="grid gap-1.5">
-            {/* The step title is the page's main heading (the wizard has no other <h1>). */}
-            <h1 ref={headingRef} tabIndex={-1} className="text-h1 text-balance text-foreground outline-none">
-              {t(`${step}.title`)}
-            </h1>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+              {/* The step title is the page's main heading (the wizard has no other <h1>). */}
+              <h1 ref={headingRef} tabIndex={-1} className="min-w-0 text-h1 text-balance text-foreground outline-none">
+                {t(`${step}.title`)}
+              </h1>
+              {isOptionalStep(step) && <Tag className="h-7 px-3 text-small">{t("chrome.optionalStep")}</Tag>}
+              {/* "דילוג" at the top end of the step, where phones expect Skip (the bottom bar keeps
+                  Back and Next only: three buttons do not fit at 360px in Georgian or Russian). */}
+              {skipTarget && (
+                <Button type="button" variant="secondary" size="sm" className="ms-auto" onClick={skip} disabled={waiting}>
+                  {t("chrome.skip")}
+                  <ChevronRightIcon className="rtl:-scale-x-100" aria-hidden />
+                </Button>
+              )}
+            </div>
             <p className="text-body text-pretty text-muted-foreground">{t(`${step}.subtitle`)}</p>
           </div>
           {loadState === "slow" && (

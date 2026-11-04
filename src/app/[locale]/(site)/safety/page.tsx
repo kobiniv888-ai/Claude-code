@@ -37,6 +37,8 @@ import { VerificationBadgeGrid } from "@/components/content/verification-badges"
 import { buttonStyles } from "@/components/ds/button";
 import { chipStyles } from "@/components/ds/chip";
 import { IconCircle } from "@/components/ds/icon-circle";
+import { EmergencyContacts } from "@/components/jewish-life/emergency-contacts";
+import type { AppLocale } from "@/config/site";
 import { documentChecksOn } from "@/config/verification";
 import { Link } from "@/i18n/navigation";
 import { formatNumber } from "@/lib/format";
@@ -91,7 +93,8 @@ function Section({
  * /safety — the Safety Center. Phones see one idea per row: red flags and owner tips are short
  * rows that open on tap, and "on this page" chips jump between sections. Every text and function of
  * the earlier page is kept: the urgent scam report, current scam alerts, tips, verification and the
- * steps to take after a scam.
+ * steps to take after a scam. Round 3: the emergency numbers (the same cards as on the Jewish life
+ * page) are here too, at #emergency, which the menu's "Emergency numbers" row opens.
  */
 export default async function SafetyPage({ params }: Props) {
   const { locale } = await params;
@@ -128,6 +131,7 @@ export default async function SafetyPage({ params }: Props) {
   ] as const;
 
   const jump = [
+    { id: "emergency", label: t("jump.emergency") },
     { id: "alerts", label: t("jump.alerts") },
     { id: "spot", label: t("jump.spot") },
     { id: "guests", label: t("jump.guests") },
@@ -197,6 +201,11 @@ export default async function SafetyPage({ params }: Props) {
           </div>
         </aside>
       </ContentContainer>
+
+      {/* Emergency numbers: tap a card to call (admins add embassy and community numbers) */}
+      <Section id="emergency" title={t("emergency.title")} lead={t("emergency.lead")} className="bg-muted/40">
+        <EmergencyContacts locale={locale as AppLocale} />
+      </Section>
 
       {/* Current scam alerts */}
       <Section id="alerts" title={t("alerts.title")} lead={t("alerts.lead")}>

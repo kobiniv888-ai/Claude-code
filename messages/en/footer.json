@@ -1,5 +1,5 @@
 {
-  "mission": "A trusted place to find and list homes in Georgia — with Jewish-friendly details, verified owners and direct contact with no booking fees.",
+  "mission": "Homes in Georgia from hosts who promise to welcome Israelis. Book on the site and pay when you arrive.",
   "columns": {
     "explore": "Explore",
     "company": "About {name}",
@@ -7,9 +7,10 @@
     "legal": "Legal"
   },
   "links": {
-    "rent": "Homes for rent",
-    "buy": "Property for sale",
-    "hotels": "Hotels & guesthouses",
+    "shortStay": "Short stay",
+    "monthly": "Monthly",
+    "buy": "Buy",
+    "hotels": "Hotels",
     "map": "Search on the map",
     "jewishLife": "Jewish Life",
     "post": "List your property",
@@ -18,6 +19,7 @@
     "contact": "Contact us",
     "help": "Help & support",
     "safety": "Safety Center",
+    "emergency": "Emergency numbers",
     "listingRules": "Listing rules",
     "terms": "Terms of use",
     "privacy": "Privacy policy",
@@ -34,5 +36,5 @@
   },
   "preferences": "Language and currency",
   "copyright": "© {year} {name}. All rights reserved.",
-  "madeFor": "Made for the Jewish community in Georgia and around the world."
+  "builtBy": "Built by an Israeli family."
 }

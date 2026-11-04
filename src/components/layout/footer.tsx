@@ -11,8 +11,10 @@ import { FooterPickers } from "./footer-pickers";
 const COLUMNS = [
   {
     key: "explore",
+    // The home page's four deal tabs, with the same names (round 3, section 3).
     links: [
-      { key: "rent", href: "/search?deal=rent" },
+      { key: "shortStay", href: "/search?deal=short-stay" },
+      { key: "monthly", href: "/search?deal=monthly" },
       { key: "buy", href: "/search?deal=buy" },
       { key: "hotels", href: "/search?deal=hotels" },
       { key: "map", href: "/search?view=map" },
@@ -33,6 +35,7 @@ const COLUMNS = [
     links: [
       { key: "help", href: "/help" },
       { key: "safety", href: "/safety" },
+      { key: "emergency", href: "/safety#emergency" },
       { key: "listingRules", href: "/legal/listing-rules" },
     ],
   },
@@ -142,7 +145,7 @@ export async function Footer() {
         <div className="mt-8 flex flex-col-reverse gap-6 border-t pt-6 sm:mt-12 sm:flex-row sm:items-center sm:justify-between">
           <div className="grid gap-1 text-xs text-muted-foreground">
             <p>{t("copyright", { year: String(new Date().getFullYear()), name })}</p>
-            <p>{t("madeFor")}</p>
+            <p>{t("builtBy")}</p>
             <p>
               {/* Required by the CC BY / CC BY-SA photo licenses. */}
               <Link

@@ -3,6 +3,7 @@ import { siteConfig, type AppLocale } from "@/config/site";
 import { isAppLocale } from "@/i18n/locale";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getGuestTrip } from "@/lib/booking/queries";
+import { clockLabel } from "@/lib/listing/check-times";
 import { formatDate, formatMoney } from "@/lib/format";
 import { buildBookingIcs } from "@/lib/ical";
 import { absoluteUrl } from "@/lib/site-url";
@@ -49,8 +50,16 @@ export async function GET(request: Request, context: Context) {
     const phone = reveal.contact.phone ?? reveal.contact.whatsapp;
     const description = [
       t("ics.booking", { code: trip.code, brand }),
-      trip.checkInFrom ? t("ics.checkIn", { date: formatDate(trip.checkIn, locale), time: trip.checkInFrom }) : "",
-      trip.checkOutUntil ? t("ics.checkOut", { date: formatDate(trip.checkOut, locale), time: trip.checkOutUntil }) : "",
+      trip.checkInFlexible
+        ? t("ics.checkInFlexible", { date: formatDate(trip.checkIn, locale) })
+        : trip.checkInFrom
+          ? t("ics.checkIn", { date: formatDate(trip.checkIn, locale), time: clockLabel(trip.checkInFrom, locale) })
+          : "",
+      trip.checkOutFlexible
+        ? t("ics.checkOutFlexible", { date: formatDate(trip.checkOut, locale) })
+        : trip.checkOutUntil
+          ? t("ics.checkOut", { date: formatDate(trip.checkOut, locale), time: clockLabel(trip.checkOutUntil, locale) })
+          : "",
       reveal.hostName ? t("ics.host", { name: reveal.hostName }) : "",
       phone ? t("ics.phone", { phone }) : "",
       t("ics.pay", { amount: formatMoney(trip.total, trip.currency, locale) }),

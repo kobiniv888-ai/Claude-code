@@ -1,4 +1,5 @@
 import {
+  CalendarRange,
   CircleUserRound,
   HandCoins,
   Heart,
@@ -19,12 +20,17 @@ import {
  * Pure — the matching rules are unit-tested in nav-items.test.ts.
  */
 
-export type NavKey = "rent" | "buy" | "hotels" | "map" | "jewishLife" | "about" | "help";
+export type NavKey = "shortStay" | "monthly" | "buy" | "hotels" | "map" | "jewishLife" | "about" | "help";
 
 export type NavItem = { key: NavKey; href: string; icon: LucideIcon };
 
+/**
+ * Every main destination. The four deal tabs carry the same names as the home page's search tabs
+ * (round 3, section 3: "לטווח קצר, חודשי, קנייה, מלונות"; nav-messages.test.ts keeps them equal).
+ */
 export const NAV_ITEMS: readonly NavItem[] = [
-  { key: "rent", href: "/search?deal=rent", icon: KeyRound },
+  { key: "shortStay", href: "/search?deal=short-stay", icon: CalendarRange },
+  { key: "monthly", href: "/search?deal=monthly", icon: KeyRound },
   { key: "buy", href: "/search?deal=buy", icon: HandCoins },
   { key: "hotels", href: "/search?deal=hotels", icon: Hotel },
   { key: "map", href: "/search?view=map", icon: Map },
@@ -32,6 +38,15 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { key: "about", href: "/about", icon: Info },
   { key: "help", href: "/help", icon: LifeBuoy },
 ];
+
+/** The deal tabs, in the home page's order (the phone menu's "Find a place" rows start with them). */
+export const DEAL_NAV_KEYS = ["shortStay", "monthly", "buy", "hotels"] as const satisfies readonly NavKey[];
+
+/**
+ * The desktop tab row. "About" is left out: eight tabs did not fit one row at 1024 px in Georgian
+ * (measured: 972 px of tabs in a 960 px row). About stays in the phone menu and the footer (round 3).
+ */
+export const DESKTOP_TAB_ITEMS: readonly NavItem[] = NAV_ITEMS.filter((item) => item.key !== "about");
 
 export type BottomNavKey = "home" | "search" | "post" | "saved" | "profile";
 
@@ -56,12 +71,20 @@ function under(pathname: string, base: string): boolean {
   return pathname === base || pathname.startsWith(`${base}/`);
 }
 
-const RENT_DEALS = new Set(["rent", "short-stay", "monthly"]);
+/** The search page's ?deal= value for each deal tab. */
+const DEAL_TABS: Readonly<Record<string, NavKey>> = {
+  "short-stay": "shortStay",
+  monthly: "monthly",
+  buy: "buy",
+  hotels: "hotels",
+};
 
 /**
  * The main tab for a page (pathname without the locale), or null.
- * Search pages are matched by their filters: ?view=map → Map, ?deal=rent|short-stay|monthly → Rent,
- * ?deal=buy → Buy, ?deal=hotels → Hotels. The shortcut pages /rent, /buy and /hotels match too.
+ * Search pages are matched by their filters: ?view=map → Map, ?deal=short-stay → Short stay,
+ * ?deal=monthly → Monthly, ?deal=buy → Buy, ?deal=hotels → Hotels. ?deal=rent (short stays and
+ * monthly together, from old links and /rent) has no tab of its own. The shortcut pages /buy and
+ * /hotels match too.
  */
 export function activeNavKey(pathname: string, search: URLSearchParams | string = ""): NavKey | null {
   const path = normalizePath(pathname);
@@ -70,12 +93,8 @@ export function activeNavKey(pathname: string, search: URLSearchParams | string 
   if (under(path, "/search")) {
     if (params.get("view") === "map") return "map";
     const deal = params.get("deal");
-    if (deal && RENT_DEALS.has(deal)) return "rent";
-    if (deal === "buy") return "buy";
-    if (deal === "hotels") return "hotels";
-    return null;
+    return deal && Object.hasOwn(DEAL_TABS, deal) ? DEAL_TABS[deal] : null;
   }
-  if (under(path, "/rent")) return "rent";
   if (under(path, "/buy")) return "buy";
   if (under(path, "/hotels")) return "hotels";
   if (under(path, "/map")) return "map";

@@ -4,7 +4,8 @@
   "mainNav": "Main",
   "breadcrumb": "Breadcrumb",
   "tabs": {
-    "rent": "Rent",
+    "shortStay": "Short stay",
+    "monthly": "Monthly",
     "buy": "Buy",
     "hotels": "Hotels",
     "map": "Map",
@@ -28,16 +29,12 @@
     "more": "More",
     "groups": {
       "search": "Find a place",
-      "jewish": "Jewish life",
       "help": "Help & safety",
       "settings": "Settings",
       "legal": "Legal"
     },
     "links": {
       "jewishLifeHome": "Jewish life in Georgia",
-      "shabbatTimes": "Shabbat times",
-      "calendar": "Jewish calendar",
-      "communityMap": "Community map",
       "emergency": "Emergency numbers",
       "howItWorks": "How it works",
       "listingRules": "Listing rules",
@@ -83,16 +80,5 @@
     "saved": "Saved",
     "profile": "Profile",
     "login": "Log in"
-  },
-  "home": {
-    "eyebrow": "Tbilisi · Batumi · Kutaisi and beyond",
-    "lead": "Apartments, houses, hotels and property for sale — with kosher and Shabbat-friendly details, verified owners and direct contact. No booking fees.",
-    "popular": "Popular destinations",
-    "points": {
-      "verified": "Verified owners",
-      "jewish": "Jewish-friendly details",
-      "direct": "Direct contact, no fees",
-      "languages": "Support in 5 languages"
-    }
   }
 }

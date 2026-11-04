@@ -6,6 +6,7 @@
 import type { AppLocale, CurrencyCode } from "@/config/site";
 import type { CancellationPolicy, TicketStatus, VerificationType } from "@/generated/prisma/enums";
 import { formatDateRange, formatMoney, formatTime } from "@/lib/format";
+import { checkTimeDisplay, clockLabel } from "@/lib/listing/check-times";
 
 export const EMAIL_TEMPLATES = [
   "login_code",
@@ -69,6 +70,9 @@ export type BookingEmailStay = {
 export type BookingEmailArrival = {
   checkInFrom?: string | null;
   checkOutUntil?: string | null;
+  /** "גמיש" (round 3): the row says "צ׳ק-אין גמיש" / "צ׳ק-אאוט גמיש" instead of a time. */
+  checkInFlexible?: boolean;
+  checkOutFlexible?: boolean;
   address?: string | null;
   hostName?: string | null;
   hostPhone?: string | null;
@@ -309,10 +313,23 @@ function stayRows(data: BookingEmailStay, ctx: TemplateContext): DetailRow[] {
 }
 
 function arrivalRows(data: BookingEmailArrival, ctx: TemplateContext): DetailRow[] {
-  const { t } = ctx;
+  const { t, locale } = ctx;
   const rows: DetailRow[] = [];
-  if (clean(data.checkInFrom)) rows.push({ label: t("booking.arrivalLabel"), value: t("booking.fromTime", { time: clean(data.checkInFrom) }) });
-  if (clean(data.checkOutUntil)) rows.push({ label: t("booking.departureLabel"), value: t("booking.untilTime", { time: clean(data.checkOutUntil) }) });
+  // Times in the reader's usual format ("14:00", "2:00 PM", "2:00 م"); "גמיש" in words (round 3).
+  const checkIn = checkTimeDisplay(clean(data.checkInFrom), data.checkInFlexible);
+  const checkOut = checkTimeDisplay(clean(data.checkOutUntil), data.checkOutFlexible);
+  if (checkIn) {
+    rows.push({
+      label: t("booking.arrivalLabel"),
+      value: checkIn.flexible ? t("booking.checkInFlexible") : t("booking.fromTime", { time: clockLabel(checkIn.time, locale) }),
+    });
+  }
+  if (checkOut) {
+    rows.push({
+      label: t("booking.departureLabel"),
+      value: checkOut.flexible ? t("booking.checkOutFlexible") : t("booking.untilTime", { time: clockLabel(checkOut.time, locale) }),
+    });
+  }
   if (clean(data.address)) rows.push({ label: t("booking.addressLabel"), value: clean(data.address) });
   if (clean(data.hostName)) rows.push({ label: t("booking.hostLabel"), value: clean(data.hostName) });
   if (clean(data.hostPhone)) rows.push({ label: t("booking.hostPhoneLabel"), value: clean(data.hostPhone), ltr: true });

@@ -38,6 +38,17 @@
     "submit": "Search"
   },
   "promise": "Here, no one will turn you away for who you are",
+  "continue": {
+    "title": "Pick up where you left off",
+    "lastSearch": "Your last search",
+    "saved": "{count, plural, one {Saved · 1 place} other {Saved · {count} places}}",
+    "recent": "Recently viewed",
+    "clear": "Clear",
+    "clearLabel": "Clear the “Recently viewed” list",
+    "cleared": "“Recently viewed” was cleared",
+    "undo": "Undo",
+    "error": "We couldn't load the places you viewed."
+  },
   "categories": {
     "label": "Types of places",
     "apartments": "Apartments",
@@ -50,9 +61,15 @@
   "recommended": {
     "title": "Recommended places",
     "all": "All",
-    "emptyTitle": "The first places are on their way",
+    "empty": {
+      "short-stay": "No short stays here yet",
+      "monthly": "No monthly rentals here yet",
+      "buy": "No places for sale here yet",
+      "hotels": "No hotels here yet"
+    },
     "emptyText": "Have a place in Georgia? List it for free.",
-    "emptyAction": "List a place"
+    "emptyAction": "List a place",
+    "error": "We couldn't load these places. Check your connection and try again."
   },
   "cities": {
     "title": "Where to?",
@@ -65,10 +82,6 @@
       "book": "Book on the site",
       "pay": "Pay the host when you arrive"
     }
-  },
-  "jewishLife": {
-    "title": "Jewish life in Georgia",
-    "text": "Shabbat times, synagogues, kosher food"
   },
   "listCta": {
     "title": "Have a place in Georgia? List it for free",

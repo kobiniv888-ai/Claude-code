@@ -44,6 +44,9 @@ export type GuestBookingTerms = {
   paymentMethods: PaymentMethod[];
   checkInFrom: string | null;
   checkOutUntil: string | null;
+  /** "גמיש" (round 3): the review says "צ׳ק-אין גמיש" / "צ׳ק-אאוט גמיש". */
+  checkInFlexible: boolean;
+  checkOutFlexible: boolean;
   isDemo: boolean;
   /** Bookable room types (priced per night), in the host's order. */
   roomTypes: GuestRoomType[];
@@ -72,6 +75,8 @@ export async function getGuestBookingTerms(
       paymentMethodsAtCheckIn: true,
       checkInFrom: true,
       checkOutUntil: true,
+      checkInFlexible: true,
+      checkOutFlexible: true,
       isDemo: true,
       owner: { select: hostAlertSelect },
       roomTypes: {
@@ -107,6 +112,8 @@ export async function getGuestBookingTerms(
     paymentMethods: cleanPaymentMethods(row.paymentMethodsAtCheckIn),
     checkInFrom: row.checkInFrom,
     checkOutUntil: row.checkOutUntil,
+    checkInFlexible: row.checkInFlexible,
+    checkOutFlexible: row.checkOutFlexible,
     isDemo: row.isDemo,
     roomTypes: rooms,
   };

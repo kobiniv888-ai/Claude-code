@@ -39,13 +39,14 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
   if (!data) notFound();
   const { listing } = data;
 
-  const [t, tf, tFields, tMod, tRisk, tAdmin, settings, next] = await Promise.all([
+  const [t, tf, tFields, tMod, tRisk, tAdmin, tTimes, settings, next] = await Promise.all([
     getTranslations("admin.moderation"),
     getTranslations("admin.moderation.fields"),
     getTranslations("listingFields"),
     getTranslations("moderation"),
     getTranslations("moderation.risk"),
     getTranslations("admin"),
+    getTranslations("wizard.times"),
     getSettings(),
     listing.status === "IN_REVIEW" ? nextInReview(listing.id) : Promise.resolve(null),
   ]);
@@ -114,7 +115,11 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
     },
     {
       label: tf("checkInOut"),
-      value: listing.checkInFrom || listing.checkOutUntil ? <Ltr>{`${listing.checkInFrom ?? "—"} / ${listing.checkOutUntil ?? "—"}`}</Ltr> : null,
+      // "גמיש" (round 3) in words, from the post form's own label.
+      value:
+        listing.checkInFrom || listing.checkOutUntil || listing.checkInFlexible || listing.checkOutFlexible ? (
+          <Ltr>{`${listing.checkInFlexible ? tTimes("flexible") : (listing.checkInFrom ?? "—")} / ${listing.checkOutFlexible ? tTimes("flexible") : (listing.checkOutUntil ?? "—")}`}</Ltr>
+        ) : null,
     },
     {
       label: tf("rules"),

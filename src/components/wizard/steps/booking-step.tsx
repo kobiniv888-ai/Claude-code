@@ -19,10 +19,12 @@ import { HostInstantNotice } from "@/components/booking/host-instant-notice";
 import type { CurrencyCode } from "@/config/site";
 import type { CancellationPolicy } from "@/generated/prisma/enums";
 import { CANCELLATION_POLICIES, MAX_STAY_NIGHTS, PAYMENT_METHODS, type PaymentMethod } from "@/lib/booking/constants";
+import { DEFAULT_CHECK_IN_TIME } from "@/lib/booking/dates";
 import { enabledCurrencies } from "@/lib/currency/convert";
 import { currencySymbol, formatMoney } from "@/lib/format";
+import { clockLabel } from "@/lib/listing/check-times";
 import { applies } from "@/lib/wizard/steps";
-import { CheckCards, ChoiceCards, Field, NumberInput, Section, Stepper, TimeInput } from "../fields";
+import { CheckCards, CheckTimeSelect, ChoiceCards, Field, NumberInput, Section, Stepper } from "../fields";
 import type { StepProps } from "../step-props";
 
 /**
@@ -169,15 +171,31 @@ export function BookingStep({ listing, values, set, errors, kind, locale, openCa
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={t("checkInFrom")} error={errors.checkInFrom} optional>
-            {(props) => <TimeInput {...props} value={values.checkInFrom} onChange={(checkInFrom) => set({ checkInFrom })} />}
+            {(props) => (
+              <CheckTimeSelect
+                {...props}
+                kind="checkIn"
+                time={values.checkInFrom}
+                flexible={values.checkInFlexible}
+                onChange={(choice) => set({ checkInFrom: choice.time, checkInFlexible: choice.flexible })}
+              />
+            )}
           </Field>
           <Field label={t("checkOutUntil")} error={errors.checkOutUntil} optional>
-            {(props) => <TimeInput {...props} value={values.checkOutUntil} onChange={(checkOutUntil) => set({ checkOutUntil })} />}
+            {(props) => (
+              <CheckTimeSelect
+                {...props}
+                kind="checkOut"
+                time={values.checkOutUntil}
+                flexible={values.checkOutFlexible}
+                onChange={(choice) => set({ checkOutUntil: choice.time, checkOutFlexible: choice.flexible })}
+              />
+            )}
           </Field>
         </div>
         <p className="flex items-start gap-2 text-sm text-pretty text-muted-foreground">
           <ClockIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
-          {t("timesHelp")}
+          {t("timesHelp", { time: clockLabel(DEFAULT_CHECK_IN_TIME, locale) })}
         </p>
       </Section>
 

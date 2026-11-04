@@ -363,6 +363,8 @@
     "departureLabel": "שעת עזיבה",
     "fromTime": "מ-{time}",
     "untilTime": "עד {time}",
+    "checkInFlexible": "צ׳ק-אין גמיש",
+    "checkOutFlexible": "צ׳ק-אאוט גמיש",
     "addressLabel": "כתובת",
     "hostLabel": "מארח",
     "hostPhoneLabel": "טלפון המארח",

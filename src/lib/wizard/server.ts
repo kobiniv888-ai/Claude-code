@@ -157,6 +157,8 @@ export function toWizardValues(listing: ListingRow, businessName: string | null)
     partiesAllowed: listing.partiesAllowed,
     checkInFrom: listing.checkInFrom ?? "",
     checkOutUntil: listing.checkOutUntil ?? "",
+    checkInFlexible: listing.checkInFlexible,
+    checkOutFlexible: listing.checkOutFlexible,
     quietHoursFrom: listing.quietHoursFrom ?? "",
     quietHoursTo: listing.quietHoursTo ?? "",
     kitchenKosher: listing.kitchenKosher,
@@ -423,7 +425,7 @@ export function nonApplicableResets(kind: ListingKind): Prisma.ListingUpdateInpu
   if (off("houseRules")) {
     Object.assign(reset, { petsAllowed: null, smokingAllowed: null, quietHoursFrom: null, quietHoursTo: null });
   }
-  if (off("checkInOut")) Object.assign(reset, { checkInFrom: null, checkOutUntil: null });
+  if (off("checkInOut")) Object.assign(reset, { checkInFrom: null, checkOutUntil: null, checkInFlexible: false, checkOutFlexible: false });
   if (off("partiesAllowed")) reset.partiesAllowed = null;
   if (off("shabbatFeatures")) Object.assign(reset, { shabbatFeatures: [], isShabbatFriendly: false });
   if (off("hotelJewishFeatures")) reset.hotelJewishFeatures = [];

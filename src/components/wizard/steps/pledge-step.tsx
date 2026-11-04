@@ -3,7 +3,6 @@
 import { useId, useState } from "react";
 import { useTranslations } from "next-intl";
 import { CheckIcon, HeartHandshakeIcon, LoaderCircleIcon, UsersIcon } from "lucide-react";
-import { BayitBadge } from "@/components/ds/badges";
 import { Button } from "@/components/ds/button";
 import { WelcomeHomeIcon } from "@/components/ds/jewish-icons";
 import { PledgeAccepted } from "@/components/pledge/pledge-form";
@@ -52,7 +51,8 @@ const PLEDGE_MOTION_CSS = `
 
 /**
  * The Bayit welcome pledge (required before publishing) as a warm, clear moment: the promise in
- * big letters, why it matters (with the badge guests will see), and one accept button.
+ * big letters, why it matters, and one accept button. (Round 3: the "Welcomes Israelis" badge is
+ * gone from cards, so it is no longer offered as a reason.)
  * It is saved on the account, not on the listing (acceptPledge stores the accepted version):
  * once the current version is accepted, every later listing shows the confirmed state.
  */
@@ -138,15 +138,6 @@ export function PledgeStep({ pledge, setPledge, errors }: StepProps) {
               <span className="min-w-0 pt-2 text-small font-semibold text-pretty">{t(`reasons.${key}`)}</span>
             </li>
           ))}
-          <li className="flex items-start gap-3">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-tint text-primary-text">
-              <WelcomeHomeIcon className="size-5" aria-hidden />
-            </span>
-            <span className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2 pt-2">
-              <span className="text-small font-semibold text-pretty">{t("reasons.badge")}</span>
-              <BayitBadge kind="welcomes" size="md" variant="solid" className="w-fit max-w-full" />
-            </span>
-          </li>
         </ul>
       </section>
 

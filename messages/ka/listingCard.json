@@ -26,6 +26,11 @@
     "approxHint": "მიახლოებით, დღევანდელი კურსით. მესაკუთრის ფასია {price}.",
     "total": "სულ {price}"
   },
+  "deal": {
+    "MONTHLY_RENT": "თვიურად",
+    "SALE": "იყიდება",
+    "HOTEL_ROOM": "სასტუმრო"
+  },
   "favorite": {
     "save": "შენახვა: {title}",
     "unsave": "შენახულებიდან წაშლა: {title}",

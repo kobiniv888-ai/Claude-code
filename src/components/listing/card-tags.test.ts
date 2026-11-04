@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { emptyFilters } from "@/lib/listing/search-params";
-import { cardPhotoTag, cardTags, preferredCardTags, stayNights } from "./card-tags";
+import { cardDealLabel, cardPhotoTag, cardTags, MAX_CARD_TAGS, preferredCardTags, stayNights } from "./card-tags";
 
 describe("cardPhotoTag", () => {
   it("shows at most one tag: demo, then promoted, then new", () => {
@@ -8,6 +8,20 @@ describe("cardPhotoTag", () => {
     expect(cardPhotoTag({ promoted: true, isNew: true })).toBe("promoted");
     expect(cardPhotoTag({ isNew: true })).toBe("new");
     expect(cardPhotoTag({})).toBeNull();
+  });
+});
+
+describe("cardDealLabel", () => {
+  it("names every type but short stays (round 3: למכירה, חודשי, מלון)", () => {
+    expect(cardDealLabel("SHORT_STAY")).toBeNull();
+    expect(cardDealLabel("MONTHLY_RENT")).toBe("MONTHLY_RENT");
+    expect(cardDealLabel("SALE")).toBe("SALE");
+    expect(cardDealLabel("HOTEL_ROOM")).toBe("HOTEL_ROOM");
+  });
+
+  it("is not one of the two tags", () => {
+    const all = { kosherKitchen: true, shabbatFriendly: true, speaksHebrew: true };
+    expect(cardTags(all)).toHaveLength(MAX_CARD_TAGS);
   });
 });
 

@@ -105,6 +105,8 @@
     "booking": "Booking {code} on {brand}",
     "checkIn": "Arrival: {date} from {time}",
     "checkOut": "Departure: {date} until {time}",
+    "checkInFlexible": "Arrival: {date}, flexible check-in",
+    "checkOutFlexible": "Departure: {date}, flexible check-out",
     "host": "Host: {name}",
     "phone": "Phone: {phone}",
     "pay": "Pay the host on arrival: {amount}",
@@ -137,7 +139,8 @@
     "changeGuests": "Change guests",
     "chooseDates": "Choose dates",
     "noDates": "Choose an arrival and a departure date to continue.",
-    "times": "Arrival from {in} · Departure by {out}",
+    "timeIn": "Check-in from {time}",
+    "timeOut": "Check-out by {time}",
     "room": "Room type",
     "roomPerNight": "{price} a night",
     "roomGuests": "{count, plural, one {Up to {count} guest} other {Up to {count} guests}}",
@@ -222,6 +225,7 @@
     "whatNext": "What's next",
     "step1": "Message the host on WhatsApp with your rough arrival time.",
     "step2": "On arrival day: check-in from {time}, at the address above.",
+    "step2Flexible": "On arrival day: flexible check-in. Agree on the time with the host; the address is above.",
     "step3": "Pay the host {amount} on arrival, never in advance.",
     "payTitle": "Payment on arrival",
     "yourMessage": "Your message to the host",
@@ -242,5 +246,9 @@
     "notFoundTitle": "We couldn't find this booking",
     "notFoundText": "It may belong to another account. All your bookings are in My trips.",
     "viewListing": "View listing"
+  },
+  "checkTimes": {
+    "flexibleIn": "Flexible check-in",
+    "flexibleOut": "Flexible check-out"
   }
 }
