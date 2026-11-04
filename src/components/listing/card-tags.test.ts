@@ -58,3 +58,27 @@ describe("stayNights", () => {
     expect(stayNights("2026-12-15", "2026-12-12")).toBeNull();
   });
 });
+
+describe("the visited tag (round 3, brief 8.3)", () => {
+  const all = { kosherKitchen: true, shabbatFriendly: true, speaksHebrew: true, synagogueWalkMin: 6, synagogueVerified: true };
+
+  it("comes first and counts toward the two-tag limit", () => {
+    expect(cardTags({ ...all, visited: true })).toEqual([{ kind: "visited" }, { kind: "kosherKitchen" }]);
+    expect(cardTags({ visited: true })).toEqual([{ kind: "visited" }]);
+    expect(cardTags({ ...all, visited: true })).toHaveLength(MAX_CARD_TAGS);
+  });
+
+  it("stays first even before the visitor's filters", () => {
+    expect(cardTags({ ...all, visited: true }, ["hebrew"])).toEqual([{ kind: "visited" }, { kind: "hebrew" }]);
+    expect(cardTags({ ...all, visited: true }, ["synagogue", "hebrew"])).toEqual([{ kind: "visited" }, { kind: "synagogue", minutes: 6 }]);
+  });
+
+  it("is absent without the badge", () => {
+    expect(cardTags({ ...all, visited: false })).toEqual([{ kind: "kosherKitchen" }, { kind: "shabbatFriendly" }]);
+    expect(cardTags(all, ["visited"])).toEqual([{ kind: "kosherKitchen" }, { kind: "shabbatFriendly" }]);
+  });
+
+  it("the visited filter asks for it too", () => {
+    expect(preferredCardTags({ ...emptyFilters(), visited: true })).toEqual(["visited"]);
+  });
+});

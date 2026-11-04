@@ -30,6 +30,7 @@ function row(overrides: Partial<ListingCardRow> = {}): ListingCardRow {
     featuredUntil: null,
     isDemo: false,
     ownerVerifiedAt: null,
+    visitedAt: null,
     approxLat: 41.71,
     approxLng: 44.76,
     owner: { accountType: "PRIVATE", idVerifiedAt: daysAgo(100), welcomePledgeVersion: 1, keepsShabbat: false, spokenLanguages: ["en"] },
@@ -98,6 +99,8 @@ describe("toListingCard", () => {
       kosherMeals: false,
       // No document checks for now (founder's answer 5, round 3): the ID/owner badge is hidden.
       verified: false,
+      // "ביקרנו במקום" (round 3, brief 8.3): no visit on this row.
+      visited: false,
       business: false,
       shabbatFriendly: true,
       kosherKitchen: true,

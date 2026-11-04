@@ -8,6 +8,7 @@ import { can } from "@/lib/auth/permissions";
 import type { CurrentUser } from "@/lib/auth/session";
 import { hasStaffRights } from "@/lib/auth/session";
 import { showsDocumentBadge } from "@/config/verification";
+import { visitedMonth } from "@/lib/listing/visited";
 import { parseContactMethods } from "@/lib/contact/links";
 import { db } from "@/lib/db";
 import { isPromoted, localizedTitle } from "@/lib/listing/mappers";
@@ -179,6 +180,8 @@ function listingSelect(locale: AppLocale, today: Date, until: Date) {
     featuredUntil: true,
     ownerVerifiedAt: true,
     propertyVerifiedAt: true,
+    // "ביקרנו במקום": the date only; visitedNote and visitedById are staff-only and never selected here.
+    visitedAt: true,
     owner: { select: OWNER_PUBLIC_SELECT },
     city: { select: { slug: true, names: true, lat: true, lng: true, timezone: true } },
     neighborhood: { select: { names: true } },
@@ -359,6 +362,7 @@ async function load(publicId: number, locale: AppLocale): Promise<LoadedListing 
     publishedAt: row.publishedAt?.toISOString() ?? null,
     ownerVerified: showsDocumentBadge(row.ownerVerifiedAt),
     propertyVerified: showsDocumentBadge(row.propertyVerifiedAt),
+    visitedMonth: visitedMonth(row),
     promoted: isPromoted(row, undefined, now),
     isNew: !!row.publishedAt && now.getTime() - row.publishedAt.getTime() <= siteConfig.listings.newLabelDays * DAY_MS,
     photos,

@@ -43,7 +43,10 @@
       "alerts": "Scam alerts",
       "bannedWords": "Banned words"
     },
-    "maintenance": "Maintenance"
+    "maintenance": "Maintenance",
+    "flags": "Flags",
+    "badges": "We visited",
+    "referencePrices": "Reference prices"
   },
   "roles": {
     "USER": "User",
@@ -155,7 +158,18 @@
     "documents_paused": "There are no document checks for now: earlier decisions are read-only.",
     "backup_required": "Make a full backup first (one from the last hour is needed). Tap “Back up now” and try again.",
     "cleanup_running": "This clean-up is already running. Wait for it to finish and refresh the page.",
-    "backup_failed": "The backup failed and nothing was saved. If the site runs on hosting without a permanent disk, back up with npm run db:backup or the database host's backups."
+    "backup_failed": "The backup failed and nothing was saved. If the site runs on hosting without a permanent disk, back up with npm run db:backup or the database host's backups.",
+    "booking_not_found": "The booking was not found.",
+    "not_flagged": "There is no open flag to review here.",
+    "reference_price_not_found": "The price range was not found.",
+    "neighborhood_mismatch": "The neighborhood is not in the chosen city.",
+    "city_not_found": "The city was not found.",
+    "email_not_found": "The email was not found.",
+    "resend_not_configured": "The email service is not connected yet, so emails can't be sent again.",
+    "cannot_resend": "This email can't be sent again.",
+    "visited_demo": "Demo listings can't get the “We visited” badge.",
+    "visit_date_future": "The visit date can't be in the future.",
+    "visit_date_too_old": "The visit date is too far back. Check the year."
   },
   "errorPage": {
     "title": "This admin page couldn't load",
@@ -192,6 +206,10 @@
     "discrimination": {
       "label": "Discrimination",
       "explanation": "Your listings or messages limit who may rent or buy. Every person must be treated equally."
+    },
+    "turned_away": {
+      "label": "Turning guests away",
+      "explanation": "A guest told us that because of who they are, their booking was cancelled, they were refused, or they were asked about their religion or origin. Every host on our site promises to welcome Israeli and Jewish guests."
     },
     "multiple_accounts": {
       "label": "Several accounts",
@@ -276,7 +294,38 @@
     "noCities": "No live listings yet.",
     "recentActivity": "Recent staff activity",
     "myActivity": "Your recent actions",
-    "openAudit": "Open the audit log"
+    "openAudit": "Open the audit log",
+    "attention": {
+      "title": "Needs attention",
+      "description": "What is waiting for staff right now, most urgent first.",
+      "unavailable": "We couldn't load the numbers. Try reloading the page.",
+      "clearTitle": "All clear",
+      "clearDescription": "No listings waiting for review, no open reports and no new flags.",
+      "urgent": "Urgent",
+      "rows": {
+        "turnedAwayReports": "{count, plural, one {1 turned-away report} other {{count} turned-away reports}}",
+        "inReview": "{count, plural, one {1 listing waiting for review} other {{count} listings waiting for review}}",
+        "otherReports": "{count, plural, one {1 open report} other {{count} open reports}}",
+        "flagCancellations": "{count, plural, one {1 host cancellation within 48 hours} other {{count} host cancellations within 48 hours}}",
+        "flagHosts": "{count, plural, one {1 host with several reports} other {{count} hosts with several reports}}",
+        "flagNoShows": "{count, plural, one {1 guest no-show} other {{count} guest no-shows}}",
+        "hostUnreachable": "{count, plural, one {1 booking not saved: the host got no alert} other {{count} bookings not saved: the host got no alert}}",
+        "failedEmails": "{count, plural, one {1 email failed} other {{count} emails failed}}",
+        "outboxWaiting": "{count, plural, one {1 email waiting in the outbox} other {{count} emails waiting in the outbox}}"
+      },
+      "hints": {
+        "turnedAwayReports": "A guest says a host cancelled, refused or asked questions because of who they are. Check today.",
+        "inReview": "Hosts' first listings, listings the automatic checks marked, and listings of flagged hosts.",
+        "otherReports": "Reports about listings, profiles and reviews.",
+        "flagCancellations": "The host cancelled within 48 hours of the booking.",
+        "flagHosts": "{min} or more reports in the last 12 months, dismissed ones left out.",
+        "flagNoShows": "For information only: the host says the guest didn't come.",
+        "hostUnreachable": "In the last {days} days. Check the host's alert channels.",
+        "failedEmails": "In the last {days} days. The error is shown in the outbox.",
+        "outboxWaitingResend": "Kept before the email service was connected. You can send them now from the outbox.",
+        "outboxWaitingNoResend": "The email service (Resend) is not connected yet, so emails are only kept here."
+      }
+    }
   },
   "audit": {
     "title": "Audit log",
@@ -303,7 +352,10 @@
       "Report": "Report",
       "VerificationRequest": "Verification",
       "Ticket": "Ticket",
-      "SiteSetting": "Setting"
+      "SiteSetting": "Setting",
+      "Booking": "Booking",
+      "ReferencePrice": "Reference price",
+      "EmailOutbox": "Email"
     },
     "actions": {
       "listing_approve": "Listing approved",
@@ -332,7 +384,31 @@
       "ticket_status": "Ticket status changed",
       "ticket_assign": "Ticket assigned",
       "settings_update": "Settings changed",
-      "account_delete": "Account deleted by user"
+      "account_delete": "Account deleted by user",
+      "report_warn_host": "Host warned after a report",
+      "report_hide_host_listings": "Host's listings hidden after a report",
+      "report_remove_host": "Host removed after a report",
+      "report_reveal_reporter": "Reporter's name told to the host",
+      "report_note": "Report notes changed",
+      "report_attachment_view": "Report screenshot opened",
+      "listing_hide_all": "All listings of an account hidden",
+      "flag_booking_reviewed": "Booking flag reviewed",
+      "flag_host_reviewed": "Host flag reviewed",
+      "email_resend": "Email sent again",
+      "reference_price_create": "Reference price added",
+      "reference_price_update": "Reference price updated",
+      "reference_price_deactivate": "Reference price turned off",
+      "reference_price_reactivate": "Reference price turned back on",
+      "booking_cancel_by_guest": "Guest cancelled",
+      "booking_cancel_by_host": "Host cancelled",
+      "booking_no_show": "Host reported a no-show",
+      "booking_cancel_account_deleted": "Cancelled because the account was deleted",
+      "booking_host_unreachable": "Booking not saved: the host got no alert",
+      "booking_refused_blocked": "Booking refused because of a block",
+      "summary_daily_sent": "Daily summary sent",
+      "verification_document_view": "Verification document opened",
+      "listing_visited_set": "“We visited” badge set",
+      "listing_visited_clear": "“We visited” badge removed"
     }
   },
   "moderation": {
@@ -511,18 +587,47 @@
       "rejectDescription": "The listing can't be published. The owner gets the reason by email.",
       "rejectConfirm": "Reject listing",
       "rejected": "The listing was rejected."
+    },
+    "gate": {
+      "label": "Why this listing waits",
+      "firstListing": "The host's first listing: always checked before it goes live",
+      "flaggedHost": "The host has an open flag: their new listings wait for review"
+    },
+    "precheck": {
+      "title": "Check before publishing",
+      "notRun": "The automatic checks haven't run on this listing yet.",
+      "summary": "{found, plural, =0 {Nothing to look at} one {1 thing to look at} other {{found} things to look at}} · {ok, plural, one {1 check passed} other {{ok} checks passed}}",
+      "checks": {
+        "phone_verified": "Verified phone",
+        "first_listing": "Host's first listing",
+        "duplicate_photos": "Photos already on the site",
+        "price": "Price compared with the area",
+        "phrases": "Suspicious phrases",
+        "contact_info": "Contact details in the text",
+        "velocity": "New account posting a lot",
+        "shared_device": "Device shared by several accounts",
+        "voip": "Virtual phone number"
+      },
+      "status": {
+        "ok": "OK",
+        "found": "Found something",
+        "blocked": "Blocks publishing",
+        "info": "For information",
+        "unchecked": "Not checked yet"
+      },
+      "footnote": "Next, the host's mistake check will be added here too: what is missing, inconsistent or unclear."
     }
   },
   "reports": {
     "title": "Reports",
-    "description": "What visitors reported about listings and accounts.",
+    "description": "Turned-away reports, listing and profile reports, and review reports. Reports are never public.",
     "filters": {
       "status": "Status",
       "target": "About",
       "reason": "Reason"
     },
     "emptyOpen": "No open reports",
-    "emptyOpenDescription": "When visitors report a listing or a profile, it will appear here.",
+    "emptyOpenDescription": "When a guest or a visitor sends a report, it appears here.",
     "empty": "No reports match",
     "emptyDescription": "Try other filters.",
     "untitled": "Untitled listing",
@@ -546,7 +651,7 @@
     "listingTitle": "Reported listing",
     "openReview": "Open in moderation",
     "viewOnSite": "View on site",
-    "listingReports": "{open} open reports · {total} in total",
+    "listingReports": "Listing reports: {open} open · {total} in total",
     "otherReports": "{count, plural, =0 {Other reports} one {{count} other report} other {{count} other reports}}",
     "noOtherReports": "No other reports about this listing or account.",
     "reportedUser": "Reported account",
@@ -565,7 +670,7 @@
       "resolved": "The report was resolved.",
       "dismiss": "Dismiss",
       "dismissTitle": "Dismiss this report?",
-      "dismissDescription": "Use this when the report is not a real problem.",
+      "dismissDescription": "Use this when the report doesn't show a real problem. Nobody gets an email: the host never knew about it.",
       "dismissConfirm": "Dismiss report",
       "dismissed": "The report was dismissed.",
       "hide": "Hide listing",
@@ -578,14 +683,102 @@
       "restoreDescription": "The listing becomes visible again on the site.",
       "restoreConfirm": "Restore",
       "restored": "The listing was restored.",
-      "warn": "Warn the account",
+      "warn": "Warn the host",
       "warnTitle": "Warn {name}",
-      "warnDescription": "The account is marked as warned and gets an email with the reason in their language.",
+      "warnDescription": "The host is marked as warned and gets an email with the reason in their language. They are not told who reported.",
       "warnConfirm": "Send warning",
       "reasonLabel": "Reason",
       "noteLabel": "Note to the user",
       "noteHint": "Translated automatically into the user's language.",
-      "warned": "The warning was sent."
+      "warned": "The warning was sent.",
+      "title": "Decision",
+      "upcomingWarning": "{count, plural, one {The host has {count} upcoming booking. It is not cancelled.} other {The host has {count} upcoming bookings. They are not cancelled.}}",
+      "hideAll": "Hide all their listings",
+      "hideAllTitle": "Hide all listings of {name}?",
+      "hideAllDescription": "{count, plural, one {Their live listing leaves the site until a moderator restores it. The host gets an email with the reason.} other {All {count} of their live listings leave the site until a moderator restores them. The host gets an email with the reason.}}",
+      "hideAllConfirm": "Hide listings",
+      "hiddenAll": "{count, plural, one {The listing is hidden.} other {{count} listings are hidden.}}",
+      "remove": "Remove the host",
+      "removeTitle": "Remove {name}?",
+      "removeDescription": "The account is blocked: signed out everywhere and every listing paused. The host gets an email with the reason.",
+      "removeConfirm": "Remove host",
+      "removed": "The host was removed.",
+      "internalReasonLabel": "Reason (for the team only)",
+      "reveal": "Tell the host who reported",
+      "revealTitle": "Tell the host who reported?",
+      "revealDescription": "The host gets an email with the reporter's first name: {name}. This can't be undone. Do it only when it is really needed.",
+      "revealConfirm": "Tell the host",
+      "revealed": "The host was told who reported."
+    },
+    "tabs": {
+      "label": "Report types",
+      "all": "All",
+      "turnedAway": "Turned away",
+      "listings": "Listings and profiles",
+      "reviews": "Reviews"
+    },
+    "urgent": "Urgent",
+    "kind": {
+      "GENERAL": "Listing or profile report",
+      "TURNED_AWAY": "Turned away"
+    },
+    "reviewTarget": "A review",
+    "bookingLabel": "Booking",
+    "happened": "Happened on {date}",
+    "screenshotsCount": "{count, plural, one {{count} screenshot} other {{count} screenshots}}",
+    "actionTaken": {
+      "resolved": "Resolved",
+      "dismissed": "Dismissed",
+      "warned": "Host warned",
+      "listings_hidden": "Host's listings hidden",
+      "host_removed": "Host removed"
+    },
+    "emptyReviews": "No review reports yet",
+    "emptyReviewsDescription": "Once the site has reviews, hosts can report a review. Those reports will appear here.",
+    "happenedOn": "When it happened",
+    "reporterRevealed": "The host was told the reporter's first name on {date}.",
+    "reporterHidden": "The host doesn't know who reported. Only you can decide to tell them.",
+    "booking": {
+      "title": "The booking",
+      "open": "Open the booking",
+      "code": "Booking number",
+      "status": "Status",
+      "dates": "Dates",
+      "made": "Booked on",
+      "cancelled": "Cancelled on",
+      "hoursToCancel": "{count, plural, one {{count} hour after booking} other {{count} hours after booking}}",
+      "flagged": "Flagged: cancelled within 48 hours",
+      "cancelReason": "The host's reason"
+    },
+    "listingFromTitle": "The listing the report came from",
+    "reviewTitle": "The reported review",
+    "reviewSoon": "Reviews arrive in a later phase. The review will show here.",
+    "timeline": {
+      "title": "History",
+      "sent": "Report sent"
+    },
+    "hostTitle": "The host",
+    "hostFlagged": "{count, plural, one {Flagged: {count} report in 12 months} other {Flagged: {count} reports in 12 months}}",
+    "liveListings": "Live listings",
+    "upcomingBookings": "Upcoming bookings",
+    "notes": {
+      "title": "Internal notes",
+      "label": "Internal notes",
+      "placeholder": "What you checked, who you talked to…",
+      "hint": "Only staff see these notes.",
+      "save": "Save notes",
+      "saved": "Notes saved."
+    },
+    "screenshots": {
+      "title": "Screenshots",
+      "deleted": "The screenshots were deleted on {date} (they are kept 180 days after the decision).",
+      "none": "No screenshots were added.",
+      "deleteOn": "They will be deleted on {date}, 180 days after the decision.",
+      "keptWhileOpen": "They are kept while the report is open, then 180 days after the decision.",
+      "noAccess": "{count, plural, one {{count} screenshot. Only moderators can open it.} other {{count} screenshots. Only moderators can open them.}}",
+      "show": "{count, plural, one {Show the screenshot} other {Show {count} screenshots}}",
+      "privacy": "Screenshots may show other people's details. Every opening is written to the audit log.",
+      "alt": "Screenshot {number} of {count}"
     }
   },
   "users": {
@@ -596,7 +789,8 @@
     "filters": {
       "role": "Role",
       "status": "Status",
-      "verified": "Verification"
+      "verified": "Verification",
+      "kind": "Account type"
     },
     "verified": {
       "id": "ID verified",
@@ -613,7 +807,8 @@
       "status": "Status",
       "listings": "Listings",
       "reports": "Reports",
-      "joined": "Joined"
+      "joined": "Joined",
+      "bookings": "Bookings"
     },
     "detailTitle": "User",
     "backToList": "Back to users",
@@ -707,7 +902,40 @@
       "reactivateConfirm": "Reactivate",
       "internalNoteLabel": "Internal note",
       "reactivated": "The account is active again."
-    }
+    },
+    "blockHint": "Block means suspend or ban. Unblock means reactivate the account.",
+    "bookings": {
+      "title": "Bookings",
+      "summary": "{host} as host · {guest} as guest",
+      "counts": {
+        "hostCancelled": "Cancelled as host",
+        "hostFlagged": "Cancelled within 48 hours",
+        "guestCancelled": "Cancelled as guest",
+        "guestNoShows": "No-shows as guest"
+      },
+      "asHost": "{count, plural, =0 {As host} one {As host: 1 booking} other {As host: {count} bookings}}",
+      "asGuest": "{count, plural, =0 {As guest} one {As guest: 1 booking} other {As guest: {count} bookings}}",
+      "none": "No bookings.",
+      "flagged": "Cancelled within 48 hours"
+    },
+    "flags": {
+      "title": "Flags",
+      "open": "All flags",
+      "flagged": "This host is flagged",
+      "notFlagged": "No open flag",
+      "reports": "{count, plural, =0 {No reports in the last 12 months} one {1 report in the last 12 months} other {{count} reports in the last 12 months}}",
+      "turnedAway": "{count, plural, one {1 of them a turned-away report} other {{count} of them turned-away reports}}",
+      "cancellations": "{count, plural, one {1 cancellation within 48 hours waiting for review} other {{count} cancellations within 48 hours waiting for review}}",
+      "noShows": "{count, plural, one {1 guest no-show (for information)} other {{count} guest no-shows (for information)}}",
+      "reviewedAt": "Last reviewed on {date}",
+      "reviewRule": "While the flag is open, the host's new listings wait for review."
+    },
+    "turnedAway": "Turned away",
+    "kind": {
+      "hosts": "Hosts only",
+      "guests": "No listings"
+    },
+    "rowBookings": "Bookings: {host} as host · {guest} as guest"
   },
   "verifications": {
     "title": "Verifications",
@@ -971,6 +1199,331 @@
         "accounts": "Accounts",
         "failed": "Files not deleted (tried again on the next run)"
       }
+    }
+  },
+  "flags": {
+    "title": "Flags",
+    "description": "Hosts who cancelled within 48 hours, guests who didn't come, and hosts with {min} or more reports.",
+    "at": "{date}, {time}",
+    "viewsLabel": "Kinds of flags",
+    "views": {
+      "cancellations": "Cancellations",
+      "noShows": "No-shows",
+      "hosts": "Hosts"
+    },
+    "stateLabel": "State",
+    "states": {
+      "open": "Open",
+      "reviewed": "Reviewed"
+    },
+    "viewHints": {
+      "cancellations": "The host cancelled within 48 hours of the booking, or the guest wrote that the host asked them to cancel. While the flag is open, the host's new listings wait for review.",
+      "noShows": "For information only: the host says the guest didn't come. This flags neither the guest nor the host.",
+      "hosts": "Hosts with {min} or more reports in the last 12 months, dismissed ones left out. A new report opens the flag again."
+    },
+    "empty": {
+      "open": {
+        "cancellations": "No cancellations waiting for review",
+        "noShows": "No no-shows reported",
+        "hosts": "No hosts with several reports"
+      },
+      "reviewed": {
+        "cancellations": "No cancellations reviewed yet",
+        "noShows": "No no-shows reviewed yet",
+        "hosts": "No hosts reviewed yet"
+      }
+    },
+    "emptyHint": "New flags show up here by themselves.",
+    "noName": "No name",
+    "turnedAway": "{count, plural, one {1 turned-away report} other {{count} turned-away reports}}",
+    "hostReports": "{count, plural, one {1 report} other {{count} reports}} ({open} open)",
+    "hostCancellations": "{count, plural, one {1 cancellation within 48 hours} other {{count} cancellations within 48 hours}}",
+    "hostListings": "{count, plural, one {1 listing} other {{count} listings}}",
+    "latestReport": "Latest report: {when}",
+    "lastReviewed": "Last reviewed: {when}",
+    "openReports": "Reports",
+    "hostActions": "Actions on the host",
+    "bookingReports": "{count, plural, one {1 report} other {{count} reports}}",
+    "bookedAt": "Booked {when}",
+    "listingId": "Listing",
+    "host": "Host:",
+    "guest": "Guest:",
+    "cancelledAt": "Cancelled {when}",
+    "hoursAfter": "{count, plural, =0 {(less than an hour after booking)} one {(1 hour after booking)} other {({count} hours after booking)}}",
+    "reason": "Reason: {reason}",
+    "noShowAt": "On {when} the host reported that the guest didn't come",
+    "reviewedBy": "Reviewed by {name}, {when}",
+    "openBooking": "Open booking",
+    "review": {
+      "button": "Mark reviewed",
+      "bookingTitle": "Mark the booking reviewed?",
+      "hostTitle": "Mark the host reviewed?",
+      "bookingDescription": "Booking {label} moves to the reviewed list. Your note is kept in the audit log.",
+      "hostDescription": "The flag on {label} closes, and a new report opens it again. Your note is kept in the audit log.",
+      "confirm": "Mark reviewed",
+      "noteLabel": "What did you check?",
+      "noteHint": "Required. Only staff see this note.",
+      "notePlaceholder": "For example: I spoke with the host, there was a real problem with the flat.",
+      "done": "Marked reviewed."
+    }
+  },
+  "bookings": {
+    "title": "Bookings",
+    "description": "Search by booking code, guest, host, listing number, dates and status.",
+    "at": "{date}, {time}",
+    "viewsLabel": "View",
+    "views": {
+      "all": "All bookings",
+      "unreachable": "Host got no alert"
+    },
+    "searchLabel": "Search",
+    "searchPlaceholder": "Booking code, name, phone, email or #1234",
+    "filters": {
+      "status": "Status",
+      "all": "All",
+      "from": "From",
+      "to": "To"
+    },
+    "emptySearch": "No bookings found",
+    "empty": "No bookings yet",
+    "emptySearchHint": "Check the code or the spelling, or search by phone or listing number.",
+    "emptyHint": "Guests' bookings will show up here.",
+    "flag": {
+      "host_cancellation": "Cancelled within 48 hours",
+      "no_show": "Guest didn't come"
+    },
+    "reports": "{count, plural, one {1 report} other {{count} reports}}",
+    "bookedAt": "Booked {when}",
+    "listingId": "Listing",
+    "hostGuest": "Host: {host} · Guest: {guest}",
+    "noName": "No name",
+    "unreachableHint": "Booking attempts that were not saved because none of the host's alert channels (email or Telegram) accepted the alert. The home page counts the last {days} days.",
+    "unreachableEmpty": "No unsaved bookings",
+    "unreachableEmptyHint": "When a host can't be alerted about a booking, the booking is undone at once and shows up here.",
+    "unreachableStage": {
+      "before": "Stopped before booking",
+      "after": "Booking undone at once"
+    },
+    "host": "Host:",
+    "guest": "Guest:",
+    "hostLabel": "Host",
+    "guestLabel": "Guest",
+    "unreachableReason": "Why: {reason}",
+    "unreachableReasons": {
+      "email_not_configured": "The site's email service is not connected",
+      "no_email": "The host has no email address",
+      "email_failing": "The host's email is paused after a bounce",
+      "telegram_failing": "The host's Telegram isn't working",
+      "no_channel": "The host has no channel that confirms delivery",
+      "failed": "No channel accepted the alert"
+    },
+    "channels": {
+      "email": "Email",
+      "telegram": "Telegram",
+      "push": "Browser notification"
+    },
+    "attemptAccepted": "accepted",
+    "attemptFailed": "failed",
+    "detailTitle": "Booking",
+    "backToList": "Back to bookings",
+    "flagExplain": {
+      "host_cancellation": "The host cancelled within 48 hours of the booking, or the guest wrote that the host asked them to cancel. Worth checking why.",
+      "no_show": "The host says the guest didn't come. For information only."
+    },
+    "reviewedBy": "Reviewed by {name}, {when}",
+    "stayTitle": "The stay",
+    "listing": "Listing",
+    "dealType": "Type",
+    "roomType": "Room type",
+    "checkIn": "Check-in",
+    "checkOut": "Check-out",
+    "nights": "Nights",
+    "guests": "Guests",
+    "policy": "Cancellation policy",
+    "payment": "Payment on arrival",
+    "messageToHost": "Message to the host",
+    "priceTitle": "Price",
+    "priceDescription": "The prices saved when the booking was made. The guest pays the host on arrival.",
+    "priceLine": {
+      "weekday": "{count, plural, one {1 night} other {{count} nights}} × {price}",
+      "weekend": "{count, plural, one {1 weekend night} other {{count} weekend nights}} × {price}"
+    },
+    "cleaningFee": "Cleaning fee",
+    "total": "Total",
+    "displayEstimate": "About, in the currency the guest saw",
+    "historyTitle": "History",
+    "historyCreated": "Booking made",
+    "historyHostTold": "Host alerted ({channels})",
+    "historyReminder": "Reminder sent to the guest",
+    "cancellationTitle": "Cancellation",
+    "cancelledAt": "Cancelled on",
+    "hoursAfterBooking": "Time after booking",
+    "hours": "{count, plural, =0 {less than an hour} one {1 hour} other {{count} hours}}",
+    "cancelReason": "Reason",
+    "peopleTitle": "People",
+    "guestLanguage": "Language: {language}",
+    "alertTitle": "Host alert",
+    "alertSent": "The host was alerted by: {channels}",
+    "alertUnknown": "No host alert was recorded (a booking from before we started recording, or a demo booking).",
+    "reportsTitle": "{count, plural, =0 {Reports} one {1 report} other {{count} reports}}",
+    "noReports": "No reports about this booking.",
+    "reportKind": {
+      "GENERAL": "Report",
+      "TURNED_AWAY": "Turned away"
+    },
+    "priceSubtotal": "{count, plural, one {Stay, 1 night} other {Stay, {count} nights}}"
+  },
+  "referencePrices": {
+    "title": "Reference prices",
+    "description": "Price ranges from public reports, for the hosts' price guide. Only a range, a source and a month, never copied listings.",
+    "add": "Add a range",
+    "statesLabel": "State",
+    "states": {
+      "active": "Active",
+      "inactive": "Turned off",
+      "all": "All"
+    },
+    "filters": {
+      "allCities": "All cities",
+      "allDeals": "All types"
+    },
+    "empty": {
+      "active": "No reference prices yet",
+      "inactive": "No ranges turned off",
+      "all": "No reference prices yet"
+    },
+    "emptyHint": "Add a range from a public report, with the source's name and the report's month.",
+    "bedroomsValue": "{count, plural, =0 {Studio} one {1 bedroom} other {{count} bedrooms}}",
+    "sourceLabel": "According to {source}, {month}",
+    "inactive": "Turned off",
+    "stale": "Old report (over 2 years)",
+    "unit": {
+      "NIGHT": "per night",
+      "MONTH": "per month",
+      "TOTAL": "full price",
+      "TOTAL_sqm": "per m²"
+    },
+    "openSource": "Source",
+    "edit": "Edit",
+    "editTitle": "Edit price range",
+    "backToList": "Back to reference prices",
+    "addedBy": "Added by {name} on {date}",
+    "updatedAt": "Updated on {date}",
+    "newTitle": "New price range",
+    "newDescription": "Copy a range from a public report. The price guide shows it with its source and month.",
+    "saved": "Changes saved.",
+    "created": "Range added.",
+    "active": {
+      "deactivate": "Turn off",
+      "reactivate": "Turn back on",
+      "deactivateTitle": "Turn this range off?",
+      "reactivateTitle": "Turn this range back on?",
+      "deactivateDescription": "The range for {label} will no longer show in the price guide. You can turn it back on at any time.",
+      "reactivateDescription": "The range for {label} will show in the price guide again.",
+      "deactivateConfirm": "Turn off",
+      "reactivateConfirm": "Turn on",
+      "deactivated": "Range turned off.",
+      "reactivated": "Range turned on."
+    },
+    "form": {
+      "publicOnly": "Public reports only: copy the range (from–to), the source's name and the report's month. Never make up numbers or copy listings.",
+      "whereTitle": "Where and what",
+      "city": "City",
+      "chooseCity": "Choose a city",
+      "neighborhood": "Neighborhood",
+      "neighborhoodHint": "Optional. Without a neighborhood the range fits the whole city.",
+      "wholeCity": "Whole city",
+      "dealType": "Type",
+      "chooseDealType": "Choose a type",
+      "propertyType": "Property type",
+      "propertyTypeHint": "Optional.",
+      "allTypes": "All property types",
+      "allSizes": "All sizes",
+      "bedrooms": "Bedrooms",
+      "bedroomsHint": "Optional. 0 = studio.",
+      "unit": "The price is",
+      "unitHint": "Set by the type.",
+      "perSqm": "Price per m²",
+      "perSqmHint": "The report gives a price per square meter, not a full price.",
+      "rangeTitle": "The range",
+      "low": "Low price",
+      "high": "High price",
+      "currency": "Currency",
+      "sourceTitle": "The source",
+      "sourceName": "Source name",
+      "sourceNameHint": "Shown as \"According to …\".",
+      "sourceMonth": "Report month",
+      "sourceMonthHint": "The month the report describes, e.g. 2026-10.",
+      "sourceUrl": "Link to the report",
+      "sourceUrlHint": "Optional but recommended, so it can be checked.",
+      "note": "Internal note",
+      "noteHint": "Only staff see this.",
+      "preview": "How it will look in the guide",
+      "previewEmpty": "Fill in the range, the source and the month to see a preview.",
+      "cancel": "Cancel",
+      "saving": "Saving…",
+      "save": "Save"
+    }
+  },
+  "badges": {
+    "title": "We visited",
+    "description": "The “We visited” badge tells guests that someone from the Bayit team visited the place in person. It shows on the listing page with the month of the visit, as a tag on cards and as a search filter.",
+    "rules": "Only an admin adds or removes the badge, with the visit date and an internal note saying who visited. The note stays in the admin panel and never shows on the site. Demo listings never get the badge. The badge doesn't expire and stays when the host edits the listing; this page marks listings whose address, pin or most photos changed since the visit.",
+    "adminOnly": "Only an admin can add or remove the badge. You can view the list.",
+    "search": {
+      "label": "Find a listing",
+      "placeholder": "Listing number or part of the title",
+      "title": "Results for “{query}”",
+      "empty": "No listing found",
+      "emptyHint": "Try the listing number (for example 1234) or another word from the title."
+    },
+    "list": {
+      "title": "{count, plural, one {{count} listing with the badge} other {{count} listings with the badge}}",
+      "description": "Latest visit first.",
+      "empty": "No listings have the badge yet",
+      "emptyHint": "Find a listing above by number or title to add a visit."
+    },
+    "untitled": "(no title)",
+    "demo": "Demo",
+    "visitedOn": "Visited {date}",
+    "enteredBy": "Entered by <name></name>",
+    "noteLabel": "Internal note:",
+    "changedLabel": "Changes since the visit",
+    "changed": {
+      "location": "Address or pin changed since the visit",
+      "photos": "Most photos changed since the visit"
+    },
+    "demoRefused": "Demo listing: it can't get the badge.",
+    "notVisited": "No badge.",
+    "openListing": "Open listing",
+    "dialog": {
+      "setTrigger": "Add a visit",
+      "editTrigger": "Edit the visit",
+      "setTitle": "We visited",
+      "editTitle": "Edit the visit",
+      "description": "The badge shows on the site with the month of the visit. The note stays internal.",
+      "dateLabel": "Visit date",
+      "dateHint": "Not a future date.",
+      "dateErrors": {
+        "invalid": "Please choose a date.",
+        "future": "The visit date can't be in the future.",
+        "too_old": "This date is too far back. Check the year."
+      },
+      "noteLabel": "Who visited? (internal note)",
+      "notePlaceholder": "For example: Dana visited with the host; everything matched the photos",
+      "noteHint": "Only staff can see this note.",
+      "confirm": "Save",
+      "saved": "Badge added",
+      "updated": "Visit updated"
+    },
+    "clear": {
+      "trigger": "Remove badge",
+      "title": "Remove “We visited”?",
+      "description": "{listing}: the badge comes off the site right away. The visit stays in the audit log.",
+      "confirm": "Remove",
+      "noteLabel": "Reason",
+      "notePlaceholder": "For example: the host moved",
+      "done": "Badge removed"
     }
   }
 }

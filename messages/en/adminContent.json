@@ -30,7 +30,11 @@
       "date_in_past": "Choose a date in the future",
       "date_in_future": "The date can't be in the future",
       "demo_not_verifiable": "A demo place can't be verified. Turn off \"Demo place\" or clear the date.",
-      "source_required": "Say where you checked the details"
+      "source_required": "Say where you checked the details",
+      "high_below_low": "The high price is lower than the low price.",
+      "unit_mismatch": "The kind of price doesn't fit the type.",
+      "per_sqm_sale_only": "A price per m² is only for sales.",
+      "neighborhood_mismatch": "The neighborhood is not in the chosen city."
     }
   },
   "errors": {
@@ -740,7 +744,22 @@
     "emptyTitle": "No emails yet",
     "emptyDescription": "Emails appear here when someone signs up, a ticket is answered or a listing changes status.",
     "noMatchTitle": "No emails match",
-    "noMatchDescription": "Change or clear the filters."
+    "noMatchDescription": "Change or clear the filters.",
+    "resend": {
+      "button": "Send again",
+      "title": "Send this email now?",
+      "description": "This email was kept on {when} and not sent, because the email service wasn't connected yet. It will now be sent as it is to {to}.",
+      "confirm": "Send",
+      "sent": "Email sent.",
+      "failed": "The email service didn't accept the email. The error is shown in the details.",
+      "blocked": {
+        "not_configured": "Sending again will be possible once the email service (Resend) is connected.",
+        "not_logged": "Only emails that were kept and not sent can be sent again.",
+        "outbox_only": "A demo account's email: the address is made up, so it is never sent.",
+        "login_code": "A login code is no longer valid, so it is not sent again.",
+        "bad_address": "Email can't be sent to this address."
+      }
+    }
   },
   "savedReplies": {
     "title": "Saved replies",

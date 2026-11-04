@@ -127,7 +127,9 @@
     "noMax": "Без максимума",
     "kosherShabbat": "Кошер или для Шаббата",
     "kosherShabbatHint": "Кошерная кухня, подходит для Шаббата или кошерное питание: достаточно одного",
-    "walkUpTo": "До {count} мин"
+    "walkUpTo": "До {count} мин",
+    "visited": "Мы были на месте",
+    "visitedHint": "Сотрудник Bayit лично побывал в этом жилье."
   },
   "chips": {
     "heading": "Включённые фильтры",
@@ -143,7 +145,8 @@
     "minBathrooms": "Ванных: {value}",
     "floor": "Этаж {range}",
     "mapArea": "Область на карте",
-    "kosherShabbat": "Кошер или для Шаббата"
+    "kosherShabbat": "Кошер или для Шаббата",
+    "visited": "Мы были на месте"
   },
   "toolbar": {
     "sortLabel": "Сортировка",

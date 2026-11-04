@@ -14,7 +14,8 @@ import {
 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
-import { attentionRows, attentionTotal, type AttentionCounts, type AttentionKey } from "@/lib/admin/attention";
+import { ATTENTION_EVENT_DAYS, attentionRows, attentionTotal, type AttentionCounts, type AttentionKey } from "@/lib/admin/attention";
+import { HOST_REPORT_FLAG_MIN } from "@/lib/admin/flags";
 import { isEmailDeliveryConfigured } from "@/lib/email";
 import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -89,10 +90,10 @@ export async function AttentionBlock({ counts, role, locale }: { counts: Attenti
                     <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                       <span className="text-sm font-medium">{t(`rows.${row.key}`, { count: row.count })}</span>
                       {row.tone === "urgent" ? (
-                        <span className="rounded-full bg-destructive px-2 py-0.5 text-[11px] font-semibold text-white">{t("urgent")}</span>
+                        <span className="rounded-full bg-destructive px-2 py-0.5 text-[11px] font-semibold text-destructive-foreground">{t("urgent")}</span>
                       ) : null}
                     </span>
-                    <span className="mt-0.5 block text-xs text-muted-foreground">{t(hintKey)}</span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">{t(hintKey, { days: ATTENTION_EVENT_DAYS, min: HOST_REPORT_FLAG_MIN })}</span>
                   </span>
                   <ChevronRight aria-hidden className="size-4 shrink-0 text-muted-foreground rtl:-scale-x-100" />
                 </Link>

@@ -75,6 +75,7 @@
     "groundFloor": "Ground floor"
   },
   "tags": {
+    "visited": "We visited",
     "kosherKitchen": "Kosher kitchen",
     "shabbatFriendly": "Shabbat-friendly",
     "synagogue": "{count} min to synagogue",

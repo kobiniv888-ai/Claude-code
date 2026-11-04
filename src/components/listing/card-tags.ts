@@ -9,6 +9,9 @@
  *   "X דק׳ לבית כנסת" (only when the nearest synagogue is a real, verified place) · דובר עברית.
  *   A tag the visitor filtered by comes first.
  *
+ * Round 3 (brief 8.3): "ביקרנו במקום" (Bayit visited the place, set by the admin) is one of the two
+ * tags and always comes FIRST: it is the strongest trust signal while the ID badges are hidden.
+ *
  * Round 3 (brief section 3): every card that isn't a short stay names its type on the price line —
  * "למכירה", "חודשי" or "מלון" (guesthouses share HOTEL_ROOM) — so a sale price never reads like a
  * nightly one. It is not one of the two tags.
@@ -18,15 +21,15 @@ import type { ListingCardBadges } from "@/lib/listing/types";
 import type { SearchFilters } from "@/lib/listing/search-params";
 
 export type CardPhotoTag = "demo" | "promoted" | "new";
-export type CardTagKind = "kosherKitchen" | "shabbatFriendly" | "synagogue" | "hebrew";
+export type CardTagKind = "visited" | "kosherKitchen" | "shabbatFriendly" | "synagogue" | "hebrew";
 export type CardTag = { kind: CardTagKind; minutes?: number };
 
-export const CARD_TAG_ORDER: readonly CardTagKind[] = ["kosherKitchen", "shabbatFriendly", "synagogue", "hebrew"];
+export const CARD_TAG_ORDER: readonly CardTagKind[] = ["visited", "kosherKitchen", "shabbatFriendly", "synagogue", "hebrew"];
 export const MAX_CARD_TAGS = 2;
 
 type PhotoSource = Partial<Pick<ListingCardBadges, "demo" | "promoted" | "isNew">>;
 type TagSource = Partial<
-  Pick<ListingCardBadges, "kosherKitchen" | "shabbatFriendly" | "synagogueWalkMin" | "synagogueVerified" | "speaksHebrew">
+  Pick<ListingCardBadges, "visited" | "kosherKitchen" | "shabbatFriendly" | "synagogueWalkMin" | "synagogueVerified" | "speaksHebrew">
 >;
 
 export type CardDealLabel = Exclude<DealType, "SHORT_STAY">;
@@ -44,15 +47,16 @@ export function cardPhotoTag(badges: PhotoSource): CardPhotoTag | null {
   return null;
 }
 
-/** The small text tags under the price: at most two, the visitor's filters first. */
+/** The small text tags under the price: at most two; "visited" first, then the visitor's filters. */
 export function cardTags(badges: TagSource, preferred: readonly CardTagKind[] = []): CardTag[] {
   const has: Record<CardTagKind, boolean> = {
+    visited: badges.visited === true,
     kosherKitchen: badges.kosherKitchen === true,
     shabbatFriendly: badges.shabbatFriendly === true,
     synagogue: badges.synagogueVerified === true && typeof badges.synagogueWalkMin === "number" && badges.synagogueWalkMin > 0,
     hebrew: badges.speaksHebrew === true,
   };
-  const order = [...preferred.filter((kind) => CARD_TAG_ORDER.includes(kind)), ...CARD_TAG_ORDER];
+  const order: CardTagKind[] = ["visited", ...preferred.filter((kind) => CARD_TAG_ORDER.includes(kind)), ...CARD_TAG_ORDER];
   const picked: CardTag[] = [];
   for (const kind of order) {
     if (!has[kind] || picked.some((tag) => tag.kind === kind)) continue;
@@ -64,9 +68,10 @@ export function cardTags(badges: TagSource, preferred: readonly CardTagKind[] = 
 
 /** The card tags a search filters by (they go first on every card of the results). */
 export function preferredCardTags(
-  filters: Pick<SearchFilters, "kitchen" | "shabbatFriendly" | "synagogueMaxWalk" | "jewish"> & { kosherShabbat?: boolean },
+  filters: Pick<SearchFilters, "kitchen" | "shabbatFriendly" | "synagogueMaxWalk" | "jewish"> & { kosherShabbat?: boolean; visited?: boolean },
 ): CardTagKind[] {
   const kinds: CardTagKind[] = [];
+  if (filters.visited) kinds.push("visited");
   if (filters.kitchen !== null || filters.kosherShabbat) kinds.push("kosherKitchen");
   if (filters.shabbatFriendly || filters.kosherShabbat) kinds.push("shabbatFriendly");
   if (filters.synagogueMaxWalk !== null) kinds.push("synagogue");

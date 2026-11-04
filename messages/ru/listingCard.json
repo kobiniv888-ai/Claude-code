@@ -75,6 +75,7 @@
     "groundFloor": "Первый этаж"
   },
   "tags": {
+    "visited": "Мы были на месте",
     "kosherKitchen": "Кошерная кухня",
     "shabbatFriendly": "Для Шаббата",
     "synagogue": "{count} мин до синагоги",

@@ -69,7 +69,7 @@ function NavBadge({ item, counts }: { item: AdminNavItem; counts: AdminCounts | 
     <span
       className={cn(
         "ms-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums",
-        urgent ? "bg-destructive text-white" : "bg-primary/10 text-primary",
+        urgent ? "bg-destructive text-destructive-foreground" : "bg-primary/10 text-primary",
       )}
     >
       <span aria-hidden>{formatNumber(count, locale)}</span>

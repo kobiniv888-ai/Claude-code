@@ -39,7 +39,7 @@ const USER_STATUS_STYLES: Record<UserStatus, string> = {
   ACTIVE: "bg-primary-tint text-foreground ring-success/30",
   WARNED: "bg-surface-muted text-foreground ring-border-strong/40",
   SUSPENDED: "bg-destructive/10 text-destructive ring-destructive/30",
-  BANNED: "bg-destructive text-white ring-destructive",
+  BANNED: "bg-destructive text-destructive-foreground ring-destructive",
   DELETED: "bg-muted text-muted-foreground ring-border",
 };
 

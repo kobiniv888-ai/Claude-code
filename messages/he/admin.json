@@ -43,7 +43,10 @@
       "alerts": "התראות הונאה",
       "bannedWords": "מילים אסורות"
     },
-    "maintenance": "תחזוקה"
+    "maintenance": "תחזוקה",
+    "flags": "סימונים",
+    "badges": "ביקרנו במקום",
+    "referencePrices": "מחירי ייחוס"
   },
   "roles": {
     "USER": "משתמש",
@@ -155,7 +158,18 @@
     "documents_paused": "כרגע אין בדיקת מסמכים: ההחלטות הקודמות נשמרות לקריאה בלבד.",
     "backup_required": "קודם צריך גיבוי מלא מהשעה האחרונה. לחצו על „גיבוי מלא עכשיו” ונסו שוב.",
     "cleanup_running": "הניקוי הזה כבר רץ. חכו שיסתיים ורעננו את הדף.",
-    "backup_failed": "הגיבוי לא הצליח, ולא נשמר כלום. אם האתר רץ באחסון בלי דיסק קבוע, יש לגבות עם npm run db:backup או בגיבויים של ספק מסד הנתונים."
+    "backup_failed": "הגיבוי לא הצליח, ולא נשמר כלום. אם האתר רץ באחסון בלי דיסק קבוע, יש לגבות עם npm run db:backup או בגיבויים של ספק מסד הנתונים.",
+    "booking_not_found": "ההזמנה לא נמצאה.",
+    "not_flagged": "אין כאן סימון פתוח לבדיקה.",
+    "reference_price_not_found": "טווח המחירים לא נמצא.",
+    "neighborhood_mismatch": "השכונה לא שייכת לעיר שנבחרה.",
+    "city_not_found": "העיר לא נמצאה.",
+    "email_not_found": "המייל לא נמצא.",
+    "resend_not_configured": "שירות המייל עוד לא מחובר, ולכן אי אפשר לשלוח מחדש.",
+    "cannot_resend": "את המייל הזה אי אפשר לשלוח מחדש.",
+    "visited_demo": "למודעות דמו אין תג „ביקרנו במקום”.",
+    "visit_date_future": "תאריך הביקור לא יכול להיות בעתיד.",
+    "visit_date_too_old": "תאריך הביקור רחוק מדי. בדקו את השנה."
   },
   "errorPage": {
     "title": "לא הצלחנו לטעון את הדף",
@@ -192,6 +206,10 @@
     "discrimination": {
       "label": "אפליה",
       "explanation": "המודעות או ההודעות שלך מגבילות מי רשאי לשכור או לקנות. יש להתייחס לכל אדם באופן שווה."
+    },
+    "turned_away": {
+      "label": "דחיית אורחים",
+      "explanation": "אורח סיפר לנו שבגלל מי שהוא ההזמנה שלו בוטלה, הוא נדחה או נשאל על הדת או המוצא שלו. כל המארחים באתר שלנו מתחייבים לקבל אורחים ישראלים ויהודים בברכה."
     },
     "multiple_accounts": {
       "label": "כמה חשבונות",
@@ -276,7 +294,38 @@
     "noCities": "עדיין אין מודעות פעילות.",
     "recentActivity": "פעולות אחרונות של הצוות",
     "myActivity": "הפעולות האחרונות שלך",
-    "openAudit": "ליומן הפעולות"
+    "openAudit": "ליומן הפעולות",
+    "attention": {
+      "title": "דורש טיפול",
+      "description": "מה שמחכה לצוות עכשיו. הדחוף ביותר למעלה.",
+      "unavailable": "לא הצלחנו לטעון את המספרים. נסו לרענן את הדף.",
+      "clearTitle": "הכול מטופל",
+      "clearDescription": "אין מודעות שמחכות לבדיקה, דיווחים פתוחים או סימונים חדשים.",
+      "urgent": "דחוף",
+      "rows": {
+        "turnedAwayReports": "{count, plural, one {דיווח אחד על דחיית אורח} other {{count} דיווחים על דחיית אורחים}}",
+        "inReview": "{count, plural, one {מודעה אחת מחכה לבדיקה} other {{count} מודעות מחכות לבדיקה}}",
+        "otherReports": "{count, plural, one {דיווח פתוח אחד} other {{count} דיווחים פתוחים}}",
+        "flagCancellations": "{count, plural, one {ביטול אחד של מארח תוך 48 שעות} other {{count} ביטולים של מארחים תוך 48 שעות}}",
+        "flagHosts": "{count, plural, one {מארח אחד עם כמה דיווחים} other {{count} מארחים עם כמה דיווחים}}",
+        "flagNoShows": "{count, plural, one {אורח אחד לא הגיע} other {{count} אורחים לא הגיעו}}",
+        "hostUnreachable": "{count, plural, one {הזמנה אחת לא נשמרה: המארח לא קיבל התראה} other {{count} הזמנות לא נשמרו: המארח לא קיבל התראה}}",
+        "failedEmails": "{count, plural, one {מייל אחד לא נשלח} other {{count} מיילים לא נשלחו}}",
+        "outboxWaiting": "{count, plural, one {מייל אחד מחכה בדואר היוצא} other {{count} מיילים מחכים בדואר היוצא}}"
+      },
+      "hints": {
+        "turnedAwayReports": "אורח דיווח שמארח ביטל, סירב או שאל שאלות בגלל מי שהוא. כדאי לבדוק היום.",
+        "inReview": "מודעות ראשונות של מארחים, מודעות שהבדיקות האוטומטיות סימנו ומודעות של מארחים מסומנים.",
+        "otherReports": "דיווחים על מודעות, פרופילים וביקורות.",
+        "flagCancellations": "המארח ביטל הזמנה תוך 48 שעות מרגע ההזמנה.",
+        "flagHosts": "{min} דיווחים או יותר ב-12 החודשים האחרונים, בלי דיווחים שנדחו.",
+        "flagNoShows": "לידיעה בלבד: המארח דיווח שהאורח לא הגיע.",
+        "hostUnreachable": "ב-{days} הימים האחרונים. כדאי לבדוק את ערוצי ההתראה של המארח.",
+        "failedEmails": "ב-{days} הימים האחרונים. השגיאה מופיעה בתיבת הדואר היוצא.",
+        "outboxWaitingResend": "נשמרו לפני ששירות המייל חובר. אפשר לשלוח אותם עכשיו מתיבת הדואר היוצא.",
+        "outboxWaitingNoResend": "שירות המייל (Resend) עוד לא מחובר, אז מיילים נשמרים רק כאן."
+      }
+    }
   },
   "audit": {
     "title": "יומן פעולות",
@@ -303,7 +352,10 @@
       "Report": "דיווח",
       "VerificationRequest": "אימות",
       "Ticket": "פנייה",
-      "SiteSetting": "הגדרה"
+      "SiteSetting": "הגדרה",
+      "Booking": "הזמנה",
+      "ReferencePrice": "מחיר ייחוס",
+      "EmailOutbox": "מייל"
     },
     "actions": {
       "listing_approve": "מודעה אושרה",
@@ -332,7 +384,31 @@
       "ticket_status": "סטטוס פנייה שונה",
       "ticket_assign": "פנייה הוקצתה",
       "settings_update": "הגדרות שונו",
-      "account_delete": "המשתמש מחק את החשבון"
+      "account_delete": "המשתמש מחק את החשבון",
+      "report_warn_host": "אזהרה למארח אחרי דיווח",
+      "report_hide_host_listings": "המודעות של מארח הוסתרו אחרי דיווח",
+      "report_remove_host": "מארח הוסר אחרי דיווח",
+      "report_reveal_reporter": "נמסר למארח מי דיווח",
+      "report_note": "ההערות של דיווח עודכנו",
+      "report_attachment_view": "נפתח צילום מסך של דיווח",
+      "listing_hide_all": "כל המודעות של חשבון הוסתרו",
+      "flag_booking_reviewed": "סימון של הזמנה נבדק",
+      "flag_host_reviewed": "סימון של מארח נבדק",
+      "email_resend": "מייל נשלח מחדש",
+      "reference_price_create": "מחיר ייחוס נוסף",
+      "reference_price_update": "מחיר ייחוס עודכן",
+      "reference_price_deactivate": "מחיר ייחוס הושבת",
+      "reference_price_reactivate": "מחיר ייחוס הופעל מחדש",
+      "booking_cancel_by_guest": "האורח ביטל",
+      "booking_cancel_by_host": "המארח ביטל",
+      "booking_no_show": "המארח דיווח שהאורח לא הגיע",
+      "booking_cancel_account_deleted": "בוטלה כי החשבון נמחק",
+      "booking_host_unreachable": "הזמנה לא נשמרה: המארח לא קיבל התראה",
+      "booking_refused_blocked": "הזמנה נדחתה בגלל חסימה",
+      "summary_daily_sent": "הסיכום היומי נשלח",
+      "verification_document_view": "מסמך אימות נפתח",
+      "listing_visited_set": "תג „ביקרנו במקום” נוסף או עודכן",
+      "listing_visited_clear": "תג „ביקרנו במקום” הוסר"
     }
   },
   "moderation": {
@@ -511,18 +587,47 @@
       "rejectDescription": "לא ניתן יהיה לפרסם את המודעה. המפרסם יקבל את הסיבה באימייל.",
       "rejectConfirm": "דחיית המודעה",
       "rejected": "המודעה נדחתה."
+    },
+    "gate": {
+      "label": "למה המודעה מחכה",
+      "firstListing": "המודעה הראשונה של המארח: תמיד נבדקת לפני פרסום",
+      "flaggedHost": "למארח יש סימון פתוח: המודעות החדשות שלו מחכות לבדיקה"
+    },
+    "precheck": {
+      "title": "בדיקה לפני פרסום",
+      "notRun": "הבדיקות האוטומטיות עוד לא רצו על המודעה הזו.",
+      "summary": "{found, plural, =0 {לא נמצא משהו לבדוק} one {נמצא דבר אחד לבדוק} other {נמצאו {found} דברים לבדוק}} · {ok, plural, one {בדיקה אחת עברה} other {{ok} בדיקות עברו}}",
+      "checks": {
+        "phone_verified": "טלפון מאומת",
+        "first_listing": "מודעה ראשונה של המארח",
+        "duplicate_photos": "תמונות שכבר הופיעו באתר",
+        "price": "מחיר לעומת האזור",
+        "phrases": "ביטויים חשודים",
+        "contact_info": "פרטי קשר בתוך הטקסט",
+        "velocity": "חשבון חדש שמפרסם הרבה",
+        "shared_device": "מכשיר של כמה חשבונות",
+        "voip": "מספר טלפון וירטואלי"
+      },
+      "status": {
+        "ok": "תקין",
+        "found": "נמצא משהו",
+        "blocked": "חוסם פרסום",
+        "info": "לידיעה",
+        "unchecked": "עוד לא נבדק"
+      },
+      "footnote": "בשלב הבא תופיע כאן גם בדיקת הטעויות של המארח: מה חסר, מה לא עקבי ומה לא ברור."
     }
   },
   "reports": {
     "title": "דיווחים",
-    "description": "מה שמבקרים דיווחו על מודעות וחשבונות.",
+    "description": "דיווחים על אורחים שנדחו, דיווחים על מודעות ופרופילים, ודיווחים על ביקורות. דיווחים אף פעם לא מוצגים באתר.",
     "filters": {
       "status": "סטטוס",
       "target": "על מה",
       "reason": "סיבה"
     },
     "emptyOpen": "אין דיווחים פתוחים",
-    "emptyOpenDescription": "כשמבקרים ידווחו על מודעה או פרופיל, הדיווח יופיע כאן.",
+    "emptyOpenDescription": "כשאורח או מבקר שולחים דיווח, הוא יופיע כאן.",
     "empty": "אין דיווחים מתאימים",
     "emptyDescription": "נסו סינון אחר.",
     "untitled": "מודעה ללא כותרת",
@@ -546,7 +651,7 @@
     "listingTitle": "המודעה שדווחה",
     "openReview": "לבדיקת המודעה",
     "viewOnSite": "לצפייה באתר",
-    "listingReports": "{open} דיווחים פתוחים · {total} בסך הכול",
+    "listingReports": "דיווחים על המודעה: {open} פתוחים · {total} בסך הכל",
     "otherReports": "{count, plural, =0 {דיווחים נוספים} one {דיווח נוסף אחד} other {{count} דיווחים נוספים}}",
     "noOtherReports": "אין דיווחים נוספים על המודעה או החשבון.",
     "reportedUser": "החשבון שדווח",
@@ -565,7 +670,7 @@
       "resolved": "הדיווח סומן כטופל.",
       "dismiss": "דחייה",
       "dismissTitle": "לדחות את הדיווח?",
-      "dismissDescription": "השתמשו בזה כשהדיווח לא מצביע על בעיה אמיתית.",
+      "dismissDescription": "השתמשו בזה כשהדיווח לא מראה בעיה אמיתית. אף אחד לא מקבל מייל: המארח לא ידע על הדיווח.",
       "dismissConfirm": "דחיית הדיווח",
       "dismissed": "הדיווח נדחה.",
       "hide": "הסתרת המודעה",
@@ -578,14 +683,102 @@
       "restoreDescription": "המודעה תוצג שוב באתר.",
       "restoreConfirm": "שחזור",
       "restored": "המודעה שוחזרה.",
-      "warn": "אזהרה לחשבון",
+      "warn": "אזהרה למארח",
       "warnTitle": "אזהרה ל{name}",
-      "warnDescription": "החשבון יסומן כמוזהר ויקבל אימייל עם הסיבה בשפה שלו.",
+      "warnDescription": "המארח מסומן כמי שקיבל אזהרה, ומקבל מייל עם הסיבה בשפה שלו. לא נאמר לו מי דיווח.",
       "warnConfirm": "שליחת אזהרה",
       "reasonLabel": "סיבה",
       "noteLabel": "הערה למשתמש",
       "noteHint": "מתורגם אוטומטית לשפת המשתמש.",
-      "warned": "האזהרה נשלחה."
+      "warned": "האזהרה נשלחה.",
+      "title": "החלטה",
+      "upcomingWarning": "{count, plural, one {למארח יש הזמנה קרובה אחת. היא לא מבוטלת.} other {למארח יש {count} הזמנות קרובות. הן לא מבוטלות.}}",
+      "hideAll": "הסתרת כל המודעות שלו",
+      "hideAllTitle": "להסתיר את כל המודעות של {name}?",
+      "hideAllDescription": "{count, plural, one {המודעה הפעילה שלו יורדת מהאתר עד שמודרטור יחזיר אותה. המארח מקבל מייל עם הסיבה.} other {כל {count} המודעות הפעילות שלו יורדות מהאתר עד שמודרטור יחזיר אותן. המארח מקבל מייל עם הסיבה.}}",
+      "hideAllConfirm": "הסתרת המודעות",
+      "hiddenAll": "{count, plural, one {המודעה הוסתרה.} other {{count} מודעות הוסתרו.}}",
+      "remove": "הסרת המארח",
+      "removeTitle": "להסיר את {name}?",
+      "removeDescription": "החשבון נחסם: הוא מנותק מכל המכשירים וכל המודעות שלו מושהות. המארח מקבל מייל עם הסיבה.",
+      "removeConfirm": "הסרת המארח",
+      "removed": "המארח הוסר.",
+      "internalReasonLabel": "סיבה (לצוות בלבד)",
+      "reveal": "לספר למארח מי דיווח",
+      "revealTitle": "לספר למארח מי דיווח?",
+      "revealDescription": "המארח יקבל מייל עם השם הפרטי של המדווח: {name}. אי אפשר לבטל את זה. עשו את זה רק כשזה באמת נחוץ.",
+      "revealConfirm": "לספר למארח",
+      "revealed": "נמסר למארח מי דיווח."
+    },
+    "tabs": {
+      "label": "סוגי דיווחים",
+      "all": "הכל",
+      "turnedAway": "אורחים שנדחו",
+      "listings": "מודעות ופרופילים",
+      "reviews": "ביקורות"
+    },
+    "urgent": "דחוף",
+    "kind": {
+      "GENERAL": "דיווח על מודעה או פרופיל",
+      "TURNED_AWAY": "אורח שנדחה"
+    },
+    "reviewTarget": "ביקורת",
+    "bookingLabel": "הזמנה",
+    "happened": "קרה ב-{date}",
+    "screenshotsCount": "{count, plural, one {צילום מסך אחד} other {{count} צילומי מסך}}",
+    "actionTaken": {
+      "resolved": "טופל",
+      "dismissed": "נדחה",
+      "warned": "המארח קיבל אזהרה",
+      "listings_hidden": "המודעות של המארח הוסתרו",
+      "host_removed": "המארח הוסר"
+    },
+    "emptyReviews": "אין עדיין דיווחים על ביקורות",
+    "emptyReviewsDescription": "כשיהיו באתר ביקורות, מארחים יוכלו לדווח על ביקורת. הדיווחים יופיעו כאן.",
+    "happenedOn": "מתי זה קרה",
+    "reporterRevealed": "השם הפרטי של המדווח נמסר למארח ב-{date}.",
+    "reporterHidden": "המארח לא יודע מי דיווח. רק אתם יכולים להחליט לספר לו.",
+    "booking": {
+      "title": "ההזמנה",
+      "open": "פתיחת ההזמנה",
+      "code": "מספר הזמנה",
+      "status": "סטטוס",
+      "dates": "תאריכים",
+      "made": "תאריך ההזמנה",
+      "cancelled": "תאריך הביטול",
+      "hoursToCancel": "{count, plural, one {שעה אחרי ההזמנה} other {{count} שעות אחרי ההזמנה}}",
+      "flagged": "סומן: בוטל תוך 48 שעות",
+      "cancelReason": "הסיבה שהמארח נתן"
+    },
+    "listingFromTitle": "המודעה שממנה הגיע הדיווח",
+    "reviewTitle": "הביקורת שדווחה",
+    "reviewSoon": "ביקורות יגיעו בשלב מאוחר יותר. הביקורת תופיע כאן.",
+    "timeline": {
+      "title": "היסטוריה",
+      "sent": "הדיווח נשלח"
+    },
+    "hostTitle": "המארח",
+    "hostFlagged": "{count, plural, one {מסומן: דיווח אחד ב-12 חודשים} other {מסומן: {count} דיווחים ב-12 חודשים}}",
+    "liveListings": "מודעות פעילות",
+    "upcomingBookings": "הזמנות קרובות",
+    "notes": {
+      "title": "הערות פנימיות",
+      "label": "הערות פנימיות",
+      "placeholder": "מה בדקתם, עם מי דיברתם…",
+      "hint": "רק הצוות רואה את ההערות האלה.",
+      "save": "שמירת ההערות",
+      "saved": "ההערות נשמרו."
+    },
+    "screenshots": {
+      "title": "צילומי מסך",
+      "deleted": "צילומי המסך נמחקו ב-{date} (הם נשמרים 180 יום אחרי ההחלטה).",
+      "none": "לא צורפו צילומי מסך.",
+      "deleteOn": "הם יימחקו ב-{date}, 180 יום אחרי ההחלטה.",
+      "keptWhileOpen": "הם נשמרים כל עוד הדיווח פתוח, ועוד 180 יום אחרי ההחלטה.",
+      "noAccess": "{count, plural, one {צילום מסך אחד. רק מודרטורים יכולים לפתוח אותו.} other {{count} צילומי מסך. רק מודרטורים יכולים לפתוח אותם.}}",
+      "show": "{count, plural, one {הצגת צילום המסך} other {הצגת {count} צילומי המסך}}",
+      "privacy": "בצילומי מסך יכולים להופיע פרטים של אנשים אחרים. כל פתיחה נרשמת ביומן הפעולות.",
+      "alt": "צילום מסך {number} מתוך {count}"
     }
   },
   "users": {
@@ -596,7 +789,8 @@
     "filters": {
       "role": "תפקיד",
       "status": "סטטוס",
-      "verified": "אימות"
+      "verified": "אימות",
+      "kind": "סוג חשבון"
     },
     "verified": {
       "id": "זהות מאומתת",
@@ -613,7 +807,8 @@
       "status": "סטטוס",
       "listings": "מודעות",
       "reports": "דיווחים",
-      "joined": "הצטרף"
+      "joined": "הצטרף",
+      "bookings": "הזמנות"
     },
     "detailTitle": "משתמש",
     "backToList": "חזרה למשתמשים",
@@ -707,7 +902,40 @@
       "reactivateConfirm": "הפעלה מחדש",
       "internalNoteLabel": "הערה פנימית",
       "reactivated": "החשבון פעיל שוב."
-    }
+    },
+    "blockHint": "חסימה היא השעיה או הרחקה. ביטול חסימה מפעיל את החשבון מחדש.",
+    "bookings": {
+      "title": "הזמנות",
+      "summary": "{host} כמארח · {guest} כאורח",
+      "counts": {
+        "hostCancelled": "ביטל כמארח",
+        "hostFlagged": "ביטולים תוך 48 שעות",
+        "guestCancelled": "ביטל כאורח",
+        "guestNoShows": "לא הגיע כאורח"
+      },
+      "asHost": "{count, plural, =0 {כמארח} one {כמארח: הזמנה אחת} other {כמארח: {count} הזמנות}}",
+      "asGuest": "{count, plural, =0 {כאורח} one {כאורח: הזמנה אחת} other {כאורח: {count} הזמנות}}",
+      "none": "אין הזמנות.",
+      "flagged": "ביטול תוך 48 שעות"
+    },
+    "flags": {
+      "title": "סימונים",
+      "open": "לכל הסימונים",
+      "flagged": "המארח מסומן",
+      "notFlagged": "אין סימון פתוח",
+      "reports": "{count, plural, =0 {אין דיווחים ב-12 החודשים האחרונים} one {דיווח אחד ב-12 החודשים האחרונים} other {{count} דיווחים ב-12 החודשים האחרונים}}",
+      "turnedAway": "{count, plural, one {מהם דיווח אחד על דחייה} other {מהם {count} דיווחים על דחייה}}",
+      "cancellations": "{count, plural, one {ביטול אחד תוך 48 שעות מחכה לבדיקה} other {{count} ביטולים תוך 48 שעות מחכים לבדיקה}}",
+      "noShows": "{count, plural, one {אורח אחד לא הגיע (לידיעה)} other {{count} אורחים לא הגיעו (לידיעה)}}",
+      "reviewedAt": "נבדק לאחרונה ב-{date}",
+      "reviewRule": "כל עוד הסימון פתוח, המודעות החדשות של המארח מחכות לבדיקה."
+    },
+    "turnedAway": "דחיית אורח",
+    "kind": {
+      "hosts": "מארחים בלבד",
+      "guests": "בלי מודעות"
+    },
+    "rowBookings": "הזמנות: {host} כמארח · {guest} כאורח"
   },
   "verifications": {
     "title": "אימותים",
@@ -971,6 +1199,331 @@
         "accounts": "חשבונות",
         "failed": "קבצים שלא נמחקו (ינסו שוב בהרצה הבאה)"
       }
+    }
+  },
+  "flags": {
+    "title": "סימונים",
+    "description": "מארחים שביטלו תוך 48 שעות, אורחים שלא הגיעו, ומארחים עם {min} דיווחים או יותר.",
+    "at": "{date}, {time}",
+    "viewsLabel": "סוגי סימונים",
+    "views": {
+      "cancellations": "ביטולים",
+      "noShows": "לא הגיעו",
+      "hosts": "מארחים"
+    },
+    "stateLabel": "מצב",
+    "states": {
+      "open": "פתוחים",
+      "reviewed": "נבדקו"
+    },
+    "viewHints": {
+      "cancellations": "המארח ביטל תוך 48 שעות מרגע ההזמנה, או שהאורח כתב שהמארח ביקש ממנו לבטל. כל עוד הסימון פתוח, המודעות החדשות של המארח מחכות לבדיקה.",
+      "noShows": "לידיעה בלבד: המארח דיווח שהאורח לא הגיע. זה לא מסמן את האורח וגם לא את המארח.",
+      "hosts": "מארחים עם {min} דיווחים או יותר ב-12 החודשים האחרונים, בלי דיווחים שנדחו. דיווח חדש פותח את הסימון שוב."
+    },
+    "empty": {
+      "open": {
+        "cancellations": "אין ביטולים שמחכים לבדיקה",
+        "noShows": "אין דיווחים על אורחים שלא הגיעו",
+        "hosts": "אין מארחים עם כמה דיווחים"
+      },
+      "reviewed": {
+        "cancellations": "עדיין לא נבדקו ביטולים",
+        "noShows": "עדיין לא נבדקו דיווחים על אי-הגעה",
+        "hosts": "עדיין לא נבדקו מארחים"
+      }
+    },
+    "emptyHint": "סימונים חדשים מופיעים כאן לבד.",
+    "noName": "ללא שם",
+    "turnedAway": "{count, plural, one {דיווח אחד על דחייה} other {{count} דיווחים על דחייה}}",
+    "hostReports": "{count, plural, one {דיווח אחד} other {{count} דיווחים}} ({open} פתוחים)",
+    "hostCancellations": "{count, plural, one {ביטול אחד תוך 48 שעות} other {{count} ביטולים תוך 48 שעות}}",
+    "hostListings": "{count, plural, one {מודעה אחת} other {{count} מודעות}}",
+    "latestReport": "הדיווח האחרון: {when}",
+    "lastReviewed": "נבדק לאחרונה: {when}",
+    "openReports": "לדיווחים",
+    "hostActions": "פעולות על המארח",
+    "bookingReports": "{count, plural, one {דיווח אחד} other {{count} דיווחים}}",
+    "bookedAt": "הוזמנה {when}",
+    "listingId": "מודעה",
+    "host": "מארח:",
+    "guest": "אורח:",
+    "cancelledAt": "בוטלה {when}",
+    "hoursAfter": "{count, plural, =0 {(פחות משעה אחרי ההזמנה)} one {(שעה אחרי ההזמנה)} other {({count} שעות אחרי ההזמנה)}}",
+    "reason": "סיבה: {reason}",
+    "noShowAt": "המארח דיווח ב-{when} שהאורח לא הגיע",
+    "reviewedBy": "נבדק על ידי {name}, {when}",
+    "openBooking": "להזמנה",
+    "review": {
+      "button": "סימון כנבדק",
+      "bookingTitle": "לסמן את ההזמנה כנבדקה?",
+      "hostTitle": "לסמן את המארח כנבדק?",
+      "bookingDescription": "ההזמנה {label} תעבור לרשימת הנבדקים. ההערה נשמרת ביומן הפעולות.",
+      "hostDescription": "הסימון של {label} ייסגר, ודיווח חדש יפתח אותו שוב. ההערה נשמרת ביומן הפעולות.",
+      "confirm": "סימון כנבדק",
+      "noteLabel": "מה בדקתם?",
+      "noteHint": "חובה. רק הצוות רואה את ההערה.",
+      "notePlaceholder": "לדוגמה: דיברתי עם המארח, הייתה תקלה אמיתית בדירה.",
+      "done": "סומן כנבדק."
+    }
+  },
+  "bookings": {
+    "title": "הזמנות",
+    "description": "חיפוש לפי קוד הזמנה, אורח, מארח, מספר מודעה, תאריכים וסטטוס.",
+    "at": "{date}, {time}",
+    "viewsLabel": "תצוגה",
+    "views": {
+      "all": "כל ההזמנות",
+      "unreachable": "המארח לא קיבל התראה"
+    },
+    "searchLabel": "חיפוש",
+    "searchPlaceholder": "קוד הזמנה, שם, טלפון, אימייל או ‎#1234",
+    "filters": {
+      "status": "סטטוס",
+      "all": "הכול",
+      "from": "מתאריך",
+      "to": "עד תאריך"
+    },
+    "emptySearch": "לא נמצאו הזמנות",
+    "empty": "עדיין אין הזמנות",
+    "emptySearchHint": "בדקו את הקוד או את האיות, או חפשו לפי טלפון או מספר מודעה.",
+    "emptyHint": "הזמנות של אורחים יופיעו כאן.",
+    "flag": {
+      "host_cancellation": "ביטול תוך 48 שעות",
+      "no_show": "האורח לא הגיע"
+    },
+    "reports": "{count, plural, one {דיווח אחד} other {{count} דיווחים}}",
+    "bookedAt": "הוזמנה {when}",
+    "listingId": "מודעה",
+    "hostGuest": "מארח: {host} · אורח: {guest}",
+    "noName": "ללא שם",
+    "unreachableHint": "ניסיונות הזמנה שלא נשמרו כי אף ערוץ התראה של המארח (מייל או טלגרם) לא קיבל את ההודעה. דף הבית סופר את {days} הימים האחרונים.",
+    "unreachableEmpty": "אין הזמנות שלא נשמרו",
+    "unreachableEmptyHint": "כשמארח לא מקבל התראה על הזמנה, ההזמנה מתבטלת מיד ומופיעה כאן.",
+    "unreachableStage": {
+      "before": "נחסמה לפני ההזמנה",
+      "after": "ההזמנה בוטלה מיד"
+    },
+    "host": "מארח:",
+    "guest": "אורח:",
+    "hostLabel": "מארח",
+    "guestLabel": "אורח",
+    "unreachableReason": "למה: {reason}",
+    "unreachableReasons": {
+      "email_not_configured": "שירות המייל של האתר לא מחובר",
+      "no_email": "למארח אין כתובת מייל",
+      "email_failing": "המייל של המארח מושהה אחרי מייל שחזר",
+      "telegram_failing": "הטלגרם של המארח לא עובד",
+      "no_channel": "למארח אין ערוץ שמאשר קבלה",
+      "failed": "אף ערוץ לא קיבל את ההודעה"
+    },
+    "channels": {
+      "email": "מייל",
+      "telegram": "טלגרם",
+      "push": "התראה בדפדפן"
+    },
+    "attemptAccepted": "התקבל",
+    "attemptFailed": "נכשל",
+    "detailTitle": "הזמנה",
+    "backToList": "חזרה להזמנות",
+    "flagExplain": {
+      "host_cancellation": "המארח ביטל תוך 48 שעות מרגע ההזמנה, או שהאורח כתב שהמארח ביקש לבטל. כדאי לבדוק למה.",
+      "no_show": "המארח דיווח שהאורח לא הגיע. לידיעה בלבד."
+    },
+    "reviewedBy": "נבדק על ידי {name}, {when}",
+    "stayTitle": "השהייה",
+    "listing": "מודעה",
+    "dealType": "סוג",
+    "roomType": "סוג חדר",
+    "checkIn": "הגעה",
+    "checkOut": "עזיבה",
+    "nights": "לילות",
+    "guests": "אורחים",
+    "policy": "מדיניות ביטול",
+    "payment": "תשלום במקום",
+    "messageToHost": "הודעה למארח",
+    "priceTitle": "מחיר",
+    "priceDescription": "המחירים שנשמרו ברגע ההזמנה. משלמים למארח במקום.",
+    "priceLine": {
+      "weekday": "{count, plural, one {לילה אחד} other {{count} לילות}} × {price}",
+      "weekend": "{count, plural, one {לילה אחד בסוף שבוע} other {{count} לילות בסוף שבוע}} × {price}"
+    },
+    "cleaningFee": "דמי ניקיון",
+    "total": "סך הכול",
+    "displayEstimate": "בערך, במטבע שהאורח ראה",
+    "historyTitle": "היסטוריה",
+    "historyCreated": "ההזמנה נוצרה",
+    "historyHostTold": "המארח קיבל התראה ({channels})",
+    "historyReminder": "נשלחה תזכורת לאורח",
+    "cancellationTitle": "ביטול",
+    "cancelledAt": "בוטלה ב",
+    "hoursAfterBooking": "כמה זמן אחרי ההזמנה",
+    "hours": "{count, plural, =0 {פחות משעה} one {שעה אחת} other {{count} שעות}}",
+    "cancelReason": "סיבה",
+    "peopleTitle": "אנשים",
+    "guestLanguage": "שפה: {language}",
+    "alertTitle": "התראה למארח",
+    "alertSent": "המארח קיבל התראה ב: {channels}",
+    "alertUnknown": "אין רישום של התראה למארח (הזמנה מלפני שהתחלנו לרשום, או הזמנת הדגמה).",
+    "reportsTitle": "{count, plural, =0 {דיווחים} one {דיווח אחד} other {{count} דיווחים}}",
+    "noReports": "אין דיווחים על ההזמנה הזו.",
+    "reportKind": {
+      "GENERAL": "דיווח",
+      "TURNED_AWAY": "דחיית אורח"
+    },
+    "priceSubtotal": "{count, plural, one {לינה, לילה אחד} other {לינה, {count} לילות}}"
+  },
+  "referencePrices": {
+    "title": "מחירי ייחוס",
+    "description": "טווחי מחירים מדוחות ציבוריים, בשביל מדריך המחירים של המארחים. רק טווח, מקור וחודש, אף פעם לא מודעות מועתקות.",
+    "add": "הוספת טווח",
+    "statesLabel": "מצב",
+    "states": {
+      "active": "פעילים",
+      "inactive": "מושבתים",
+      "all": "הכול"
+    },
+    "filters": {
+      "allCities": "כל הערים",
+      "allDeals": "כל הסוגים"
+    },
+    "empty": {
+      "active": "עדיין אין מחירי ייחוס",
+      "inactive": "אין טווחים מושבתים",
+      "all": "עדיין אין מחירי ייחוס"
+    },
+    "emptyHint": "הוסיפו טווח מדוח ציבורי, עם שם המקור והחודש של הדוח.",
+    "bedroomsValue": "{count, plural, =0 {סטודיו} one {חדר שינה אחד} other {{count} חדרי שינה}}",
+    "sourceLabel": "לפי {source}, {month}",
+    "inactive": "מושבת",
+    "stale": "דוח ישן (יותר משנתיים)",
+    "unit": {
+      "NIGHT": "ללילה",
+      "MONTH": "לחודש",
+      "TOTAL": "מחיר מלא",
+      "TOTAL_sqm": "למ״ר"
+    },
+    "openSource": "למקור",
+    "edit": "עריכה",
+    "editTitle": "עריכת טווח מחירים",
+    "backToList": "חזרה למחירי ייחוס",
+    "addedBy": "נוסף על ידי {name} ב-{date}",
+    "updatedAt": "עודכן ב-{date}",
+    "newTitle": "טווח מחירים חדש",
+    "newDescription": "העתיקו טווח מדוח ציבורי. מדריך המחירים יציג אותו עם המקור והחודש.",
+    "saved": "השינויים נשמרו.",
+    "created": "הטווח נוסף.",
+    "active": {
+      "deactivate": "השבתה",
+      "reactivate": "הפעלה מחדש",
+      "deactivateTitle": "להשבית את הטווח?",
+      "reactivateTitle": "להפעיל את הטווח מחדש?",
+      "deactivateDescription": "הטווח של {label} לא יוצג יותר במדריך המחירים. אפשר להפעיל אותו שוב בכל זמן.",
+      "reactivateDescription": "הטווח של {label} יוצג שוב במדריך המחירים.",
+      "deactivateConfirm": "השבתה",
+      "reactivateConfirm": "הפעלה",
+      "deactivated": "הטווח הושבת.",
+      "reactivated": "הטווח הופעל."
+    },
+    "form": {
+      "publicOnly": "רק מדוחות ציבוריים: העתיקו את המחיר הנמוך והגבוה, את שם המקור ואת החודש של הדוח. לא ממציאים מספרים ולא מעתיקים מודעות.",
+      "whereTitle": "איפה ומה",
+      "city": "עיר",
+      "chooseCity": "בחירת עיר",
+      "neighborhood": "שכונה",
+      "neighborhoodHint": "לא חובה. בלי שכונה, הטווח מתאים לכל העיר.",
+      "wholeCity": "כל העיר",
+      "dealType": "סוג",
+      "chooseDealType": "בחירת סוג",
+      "propertyType": "סוג נכס",
+      "propertyTypeHint": "לא חובה.",
+      "allTypes": "כל סוגי הנכסים",
+      "allSizes": "כל הגדלים",
+      "bedrooms": "חדרי שינה",
+      "bedroomsHint": "לא חובה. 0 = סטודיו.",
+      "unit": "המחיר הוא",
+      "unitHint": "נקבע לפי הסוג.",
+      "perSqm": "מחיר למ״ר",
+      "perSqmHint": "הדוח נותן מחיר למטר רבוע ולא מחיר מלא.",
+      "rangeTitle": "הטווח",
+      "low": "המחיר הנמוך",
+      "high": "המחיר הגבוה",
+      "currency": "מטבע",
+      "sourceTitle": "המקור",
+      "sourceName": "שם המקור",
+      "sourceNameHint": "כך הוא יופיע: ״לפי ...״.",
+      "sourceMonth": "חודש הדוח",
+      "sourceMonthHint": "החודש שהדוח מתאר, למשל 2026-10.",
+      "sourceUrl": "קישור לדוח",
+      "sourceUrlHint": "לא חובה, אבל מומלץ, כדי שאפשר יהיה לבדוק.",
+      "note": "הערה פנימית",
+      "noteHint": "רק הצוות רואה.",
+      "preview": "כך זה ייראה במדריך",
+      "previewEmpty": "מלאו טווח, מקור וחודש כדי לראות תצוגה מקדימה.",
+      "cancel": "ביטול",
+      "saving": "שומרים…",
+      "save": "שמירה"
+    }
+  },
+  "badges": {
+    "title": "ביקרנו במקום",
+    "description": "התג „ביקרנו במקום” מראה לאורחים שמישהו מצוות בית ביקר בנכס בעצמו. הוא מופיע בדף המודעה עם חודש הביקור, כתגית בכרטיס וכמסנן בחיפוש.",
+    "rules": "רק מנהל מערכת מוסיף או מסיר את התג, עם תאריך הביקור והערה פנימית מי ביקר. ההערה נשארת בפאנל הניהול ולא מוצגת באתר. מודעות דמו לא מקבלות את התג. התג לא פג מעצמו ונשאר גם כשהמארח עורך את המודעה; כאן יופיע סימון אם הכתובת, הסיכה או רוב התמונות השתנו מאז הביקור.",
+    "adminOnly": "רק מנהל מערכת יכול להוסיף או להסיר את התג. אתם יכולים לצפות ברשימה.",
+    "search": {
+      "label": "חיפוש מודעה",
+      "placeholder": "מספר מודעה או חלק מהכותרת",
+      "title": "תוצאות עבור „{query}”",
+      "empty": "לא מצאנו מודעה כזו",
+      "emptyHint": "נסו את מספר המודעה (למשל 1234) או מילה אחרת מהכותרת."
+    },
+    "list": {
+      "title": "{count, plural, one {מודעה אחת עם התג} other {{count} מודעות עם התג}}",
+      "description": "הביקור האחרון ראשון.",
+      "empty": "עוד אין מודעות עם התג",
+      "emptyHint": "חפשו מודעה למעלה לפי מספר או כותרת כדי להוסיף ביקור."
+    },
+    "untitled": "(ללא כותרת)",
+    "demo": "דמו",
+    "visitedOn": "ביקור: {date}",
+    "enteredBy": "הוזן על ידי <name></name>",
+    "noteLabel": "הערה פנימית:",
+    "changedLabel": "שינויים מאז הביקור",
+    "changed": {
+      "location": "הכתובת או הסיכה השתנו מאז הביקור",
+      "photos": "רוב התמונות השתנו מאז הביקור"
+    },
+    "demoRefused": "מודעת דמו: אי אפשר לתת לה את התג.",
+    "notVisited": "אין תג.",
+    "openListing": "לדף המודעה",
+    "dialog": {
+      "setTrigger": "הוספת ביקור",
+      "editTrigger": "עריכת הביקור",
+      "setTitle": "ביקרנו במקום",
+      "editTitle": "עריכת הביקור",
+      "description": "התג יופיע באתר עם חודש הביקור. ההערה נשארת פנימית.",
+      "dateLabel": "תאריך הביקור",
+      "dateHint": "לא תאריך עתידי.",
+      "dateErrors": {
+        "invalid": "נא לבחור תאריך.",
+        "future": "תאריך הביקור לא יכול להיות בעתיד.",
+        "too_old": "התאריך רחוק מדי. בדקו את השנה."
+      },
+      "noteLabel": "מי ביקר? (הערה פנימית)",
+      "notePlaceholder": "למשל: דנה ביקרה עם המארח, הכל תאם לתמונות",
+      "noteHint": "רק הצוות רואה את ההערה.",
+      "confirm": "שמירה",
+      "saved": "התג נוסף",
+      "updated": "הביקור עודכן"
+    },
+    "clear": {
+      "trigger": "הסרת התג",
+      "title": "להסיר את „ביקרנו במקום”?",
+      "description": "{listing}: התג יוסר מהאתר מיד. הביקור נשאר ביומן הפעולות.",
+      "confirm": "הסרה",
+      "noteLabel": "סיבה",
+      "notePlaceholder": "למשל: המארח עבר דירה",
+      "done": "התג הוסר"
     }
   }
 }

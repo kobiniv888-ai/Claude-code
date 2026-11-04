@@ -1,6 +1,6 @@
 import "server-only";
 import { siteConfig } from "@/config/site";
-import type { AdminEmailData } from "@/lib/admin/email-templates";
+import type { AdminEmailData } from "./founder-email-templates";
 import { db } from "@/lib/db";
 import { sendEmail, type EmailData, type EmailTemplate } from "@/lib/email";
 import { rateLimit } from "@/lib/rate-limit";
@@ -40,7 +40,7 @@ export async function sendFounderEmail<K extends EmailTemplate>(template: K, dat
 
 /**
  * A listing went to IN_REVIEW (submitForPublication, a re-check after an edit, unpause / renew).
- * `why` lists the review-rule reasons (src/lib/admin/review-rule.ts) or "recheck".
+ * `why` lists the review-rule reasons (src/lib/listing/review-rule.ts) or "recheck".
  */
 export async function notifyFounderListingInReview(listingId: string, why: readonly string[]): Promise<void> {
   try {

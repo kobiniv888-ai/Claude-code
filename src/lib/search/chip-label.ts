@@ -93,6 +93,8 @@ export function chipLabel(chip: FilterChip, filters: SearchFilters, ctx: ChipLab
       return t("floor", { range: range(filters.floorMin, filters.floorMax, (n) => formatNumber(n, locale)) });
     case "bounds":
       return t("mapArea");
+    case "visited":
+      return t("visited");
     case "shabbatFriendly":
     case "bigFamily":
     case "verifiedOnly":

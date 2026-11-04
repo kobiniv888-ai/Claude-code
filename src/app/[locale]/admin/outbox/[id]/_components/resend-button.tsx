@@ -17,7 +17,7 @@ export function ResendButton({ id, to, when }: { id: string; to: string; when: s
       triggerIcon={Send}
       triggerVariant="default"
       title={t("title")}
-      description={t("description", { to, when })}
+      description={t("description", { to: `\u2068${to}\u2069`, when })}
       confirmLabel={t("confirm")}
       onConfirm={() =>
         run(() => resendOutboxEmailAction({ id }), {

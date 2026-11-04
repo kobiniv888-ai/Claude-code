@@ -4,13 +4,18 @@
  * passed in (src/lib/alerts/daily-summary.ts uses @/lib/hebcal with Jerusalem's times).
  *
  *   - The cron calls the route a few times a morning (vercel.json); it sends at most ONCE per
- *     Israel calendar day, from 08:00 on, and never while Shabbat or Yom Tov is on in Israel.
- *   - A summary covers every full day since the previous one: normally yesterday; on Sunday,
- *     Friday and Shabbat; after a Yom Tov, the days it skipped (at most MAX_PERIOD_DAYS).
+ *     Israel calendar day, between 08:00 and SUMMARY_LAST_HOUR:59 (so an hourly cron never sends
+ *     it in the evening, e.g. right after Havdalah), and never while Shabbat or Yom Tov is on.
+ *   - A summary covers every full day since the previous one: from the day the previous summary
+ *     went out up to yesterday (normally just yesterday; on Sunday, Friday and Shabbat). Without a
+ *     known previous summary: yesterday plus the Shabbat / Yom Tov mornings before it. Never more
+ *     than MAX_PERIOD_DAYS days.
  */
 
 export const SUMMARY_TIME_ZONE = "Asia/Jerusalem";
 export const SUMMARY_HOUR = 8;
+/** The last hour (Israel time) at which a late run may still send the day's summary. */
+export const SUMMARY_LAST_HOUR = 11;
 export const MAX_PERIOD_DAYS = 7;
 
 const clockFormatters = new Map<string, Intl.DateTimeFormat>();
@@ -60,24 +65,41 @@ export function summaryMoment(day: string, timeZone: string = SUMMARY_TIME_ZONE)
   return new Date(zonedDayStart(day, timeZone).getTime() + SUMMARY_HOUR * 3600 * 1000);
 }
 
-export type SummaryDecision = { send: true; day: string } | { send: false; day: string; reason: "too_early" | "rest_day" };
+export type SummaryDecision = { send: true; day: string } | { send: false; day: string; reason: "too_early" | "too_late" | "rest_day" };
 
 /** Should a summary go out now (before the once-a-day claim)? */
 export function summaryDue(now: Date, isRestTime: (at: Date) => boolean): SummaryDecision {
   const { day, hour } = zonedClock(now);
   if (hour < SUMMARY_HOUR) return { send: false, day, reason: "too_early" };
+  if (hour > SUMMARY_LAST_HOUR) return { send: false, day, reason: "too_late" };
   if (isRestTime(now)) return { send: false, day, reason: "rest_day" };
   return { send: true, day };
 }
 
+/** Whole days from `a` to `b` ("YYYY-MM-DD"; negative when b is before a). */
+export function daysBetween(a: string, b: string): number {
+  return Math.round((Date.parse(`${b}T12:00:00.000Z`) - Date.parse(`${a}T12:00:00.000Z`)) / 86_400_000);
+}
+
 /**
- * The days a summary sent on `today` covers: from the day of the previous summary (a day whose
- * 08:00 was not Shabbat / Yom Tov) up to yesterday, both included.
+ * The days a summary sent on `today` covers, both ends included, up to yesterday:
+ *   - from `previousDay`, the day the previous summary went out (it covered up to the day before
+ *     it), when that is known and within MAX_PERIOD_DAYS;
+ *   - otherwise from yesterday, walking back over mornings that had no summary (Shabbat, Yom Tov).
  */
-export function summaryPeriod(today: string, isRestTime: (at: Date) => boolean): { fromDay: string; toDay: string; from: Date; to: Date } {
+export function summaryPeriod(
+  today: string,
+  isRestTime: (at: Date) => boolean,
+  previousDay: string | null = null,
+): { fromDay: string; toDay: string; from: Date; to: Date } {
   const toDay = addDays(today, -1);
   let fromDay = toDay;
-  // Walk back over the mornings that had no summary (Shabbat, Yom Tov).
-  for (let i = 0; i < MAX_PERIOD_DAYS - 1 && isRestTime(summaryMoment(fromDay)); i++) fromDay = addDays(fromDay, -1);
+  const gap = previousDay ? daysBetween(previousDay, today) : 0;
+  if (previousDay && gap >= 1 && gap <= MAX_PERIOD_DAYS) {
+    fromDay = previousDay;
+  } else {
+    // Walk back over the mornings that had no summary (Shabbat, Yom Tov).
+    for (let i = 0; i < MAX_PERIOD_DAYS - 1 && isRestTime(summaryMoment(fromDay)); i++) fromDay = addDays(fromDay, -1);
+  }
   return { fromDay, toDay, from: zonedDayStart(fromDay), to: zonedDayStart(today) };
 }

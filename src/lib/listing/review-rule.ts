@@ -2,13 +2,13 @@ import type { ListingStatus } from "@/generated/prisma/enums";
 
 /**
  * When a listing must wait for a person before it goes live (round 3, brief 9 "Listings to
- * review", founder's binding defaults). Pure and client-safe; src/lib/listing/lifecycle.ts
+ * review", founder's binding defaults). Pure and client-safe; ./lifecycle.ts
  * submitForPublication() applies it.
  *
  *   - Each host's FIRST listing always waits for review, as the site promises. The check FAILS
  *     CLOSED: when it cannot be answered (a database error) the listing waits.
  *   - Later listings wait when the automatic checks say so (risk score >= the review threshold,
- *     30 points by default) or when the host is FLAGGED (src/lib/admin/flags.ts): a flagged host's
+ *     30 points by default) or when the host is FLAGGED (./host-flags.ts): a flagged host's
  *     NEW listings wait (that check fails closed too).
  *   - Once a person asked to look ("ask for changes", a rejection, or already waiting), only a
  *     person lets it go live: the fixed listing comes BACK to review.

@@ -1,5 +1,5 @@
 import { useLocale, useTranslations } from "next-intl";
-import { LanguagesIcon } from "@/components/ds/sprite-icons";
+import { LanguagesIcon, spriteIcon } from "@/components/ds/sprite-icons";
 import { Tag } from "@/components/ds/tag";
 import { Link } from "@/i18n/navigation";
 import { formatArea, formatNumber } from "@/lib/format";
@@ -22,6 +22,9 @@ export type ListingCardVariant = "grid" | "list" | "compact";
 const GRID_SIZES = "(min-width: 1280px) 25vw, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 92vw";
 const LIST_SIZES = "(min-width: 640px) 320px, 92vw";
 const COMPACT_SIZES = "160px";
+
+/** "ביקרנו במקום" (round 3, brief 8.3): the one green tag, with a map pin. */
+const VisitedIcon = spriteIcon("map-pin-check");
 
 /**
  * The one facts line, by deal type:
@@ -63,7 +66,8 @@ function useFacts(listing: ListingCardData): string[] {
  * - Under it: the title (1 line), "אזור · עיר" (grey), one facts line, the price line (one price,
  *   in the visitor's currency, "≈" when converted; "₪1,260 סה״כ" with `nights`; round 3: plus a
  *   small outlined type label — "למכירה", "חודשי", "מלון" — on every card but short stays), and at
- *   most two small grey tags (kosher kitchen, Shabbat-friendly, a verified synagogue's walk, Hebrew).
+ *   most two small tags: "ביקרנו במקום" first (green, round 3), then grey ones (kosher kitchen,
+ *   Shabbat-friendly, a verified synagogue's walk, Hebrew).
  * - A white (surface) card with a 1px border, 16px corners and no shadow.
  *
  * The title link covers the whole card (and is prefetched); the heart and photo buttons sit above
@@ -231,11 +235,17 @@ export function ListingCard({
           <div className={cn("flex min-w-0 items-center gap-1", isCompact ? "mt-1" : "mt-2", isList && "mt-auto pt-2")}>
             {tags.length > 0 ? (
               <ul className="flex min-w-0 flex-wrap items-center gap-1">
-                {tags.map((tag) => (
-                  <Tag key={tag.kind} as="li" size="sm">
-                    {tag.kind === "synagogue" ? t("tags.synagogue", { count: tag.minutes ?? 0 }) : t(`tags.${tag.kind}`)}
-                  </Tag>
-                ))}
+                {tags.map((tag) =>
+                  tag.kind === "visited" ? (
+                    <Tag key={tag.kind} as="li" size="sm" variant="success" icon={VisitedIcon}>
+                      {t("tags.visited")}
+                    </Tag>
+                  ) : (
+                    <Tag key={tag.kind} as="li" size="sm">
+                      {tag.kind === "synagogue" ? t("tags.synagogue", { count: tag.minutes ?? 0 }) : t(`tags.${tag.kind}`)}
+                    </Tag>
+                  ),
+                )}
               </ul>
             ) : null}
             {isList && showCompare ? (

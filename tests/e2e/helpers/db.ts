@@ -289,6 +289,10 @@ export async function cleanupTestData(opts: { since?: Date } = {}) {
   }
   await sql(`DELETE FROM "Ticket" WHERE id = ANY($1)`, [ticketIds]);
   await sql(`DELETE FROM "Report" WHERE id = ANY($1)`, [reports.map((r) => r.id)]);
+  // Reference prices the test admin added (round 3; the table holds no real data in development).
+  await sql(`DELETE FROM "ReferencePrice" WHERE "createdById" = ANY($1) OR "sourceName" LIKE 'E2E %'`, [userIds]);
+  // Private uploads of test users (report screenshots, ticket images): the rows and the files.
+  await sql(`DELETE FROM "PrivateUpload" WHERE "userId" = ANY($1)`, [userIds]);
   await sql(`DELETE FROM "ContactClick" WHERE "userId" = ANY($1)`, [userIds]);
   await sql(`DELETE FROM "EmailOutbox" WHERE "to" = ANY($1) OR "to" LIKE $2`, [users.map((u) => u.email), `%@${TEST_EMAIL_DOMAIN}`]);
   await sql(`DELETE FROM "Verification" WHERE identifier LIKE $1 OR identifier LIKE $2`, [`${TEST_PHONE_PREFIX}%`, `%@${TEST_EMAIL_DOMAIN}`]);
@@ -308,13 +312,20 @@ export async function cleanupTestData(opts: { since?: Date } = {}) {
   await sql(
     `DELETE FROM "RateLimit" WHERE key LIKE 'auth:otp-%' OR key LIKE 'auth:email-otp-%' OR key LIKE 'ticket:contact%' OR key LIKE 'admin:%' OR key LIKE 'booking:%'
        OR key LIKE 'contact-reveal:listing:%' OR key LIKE 'auth:totp:%' OR EXISTS (SELECT 1 FROM unnest($1::text[]) u WHERE key LIKE '%' || u || '%')`,
-    [userIds],
+    // (Test listings' keys too, e.g. the founder's "listing waits for review" email window.)
+    [[...userIds, ...listingIds]],
   );
   // Uploaded photos of test listings (local storage driver).
   const root = process.env.STORAGE_LOCAL_DIR ?? path.join(process.cwd(), "storage");
   for (const id of listingIds) {
     for (const visibility of ["public", "private"]) {
       fs.rmSync(path.join(root, visibility, "listings", id), { recursive: true, force: true });
+    }
+  }
+  // Private files of test users: private/<purpose>/<userId>/… (src/app/api/uploads/private).
+  for (const id of userIds) {
+    for (const purpose of ["report", "ticket", "verification"]) {
+      fs.rmSync(path.join(root, "private", "private", purpose, id), { recursive: true, force: true });
     }
   }
   return { users: userIds.length, listings: listingIds.length, tickets: ticketIds.length };

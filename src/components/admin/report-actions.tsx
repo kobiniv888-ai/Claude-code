@@ -45,9 +45,11 @@ export function ReportActions({
   const t = useTranslations("admin.reports.actions");
   const tReasons = useTranslations("admin.userReasons");
   const { run } = useAdminAction();
+  // A turned-away report offers "Turning guests away" first.
+  const codes = kind === "TURNED_AWAY" ? ["turned_away" as const, ...USER_ACTION_REASONS.filter((c) => c !== "turned_away")] : USER_ACTION_REASONS;
   const reasonField = {
     label: t("reasonLabel"),
-    options: USER_ACTION_REASONS.map((code) => ({ value: code, label: tReasons(`${code}.label`), hint: tReasons(`${code}.explanation`) })),
+    options: codes.map((code) => ({ value: code, label: tReasons(`${code}.label`), hint: tReasons(`${code}.explanation`) })),
   };
   const noteField = { label: t("noteLabel"), max: ADMIN_TEXT_LIMITS.note, hint: t("noteHint") };
   const upcoming =

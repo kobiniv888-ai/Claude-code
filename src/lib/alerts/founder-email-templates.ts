@@ -5,7 +5,8 @@
  * languages are there for other admins).
  *
  * - admin_review_needed: a listing entered the review queue (why: first listing, flagged host, risk…).
- * - admin_daily_summary: the 08:00 Israel-time summary (src/lib/alerts/daily-summary.ts).
+ *   Sent by ./founder-admin.ts.
+ * - admin_daily_summary: the 08:00 Israel-time summary (./daily-summary.ts).
  *
  * The report emails to the founder are the reports module's ("report_admin").
  * Only TYPES are imported from the email module, so the two files never load each other at run time.
@@ -15,7 +16,7 @@ import type { EmailBlock, EmailContent, TemplateContext } from "@/lib/email/temp
 export const ADMIN_EMAIL_TEMPLATES = ["admin_review_needed", "admin_daily_summary"] as const;
 export type AdminEmailTemplate = (typeof ADMIN_EMAIL_TEMPLATES)[number];
 
-/** Why a listing waits (src/lib/admin/review-rule.ts SubmitDecision.why, plus "recheck"). */
+/** Why a listing waits (src/lib/listing/review-rule.ts SubmitDecision.why, plus "recheck"). */
 export const REVIEW_WHY = ["first_listing", "flagged_host", "risk", "back_to_review", "blocked", "recheck"] as const;
 export type ReviewWhy = (typeof REVIEW_WHY)[number];
 

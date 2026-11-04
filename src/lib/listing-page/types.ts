@@ -178,6 +178,11 @@ export type ListingPageData = {
   publishedAt: string | null;
   ownerVerified: boolean;
   propertyVerified: boolean;
+  /**
+   * Round 3 (brief 8.3): "ביקרנו במקום · נובמבר 2026" — the month of the Bayit team's visit
+   * ("YYYY-MM"), never the day or the staff note. Null (or missing) without the badge and on demo listings.
+   */
+  visitedMonth?: string | null;
   promoted: boolean;
   isNew: boolean;
 

@@ -160,6 +160,23 @@ const samples: { [K in keyof Data]: Data[K] } = {
     reason: "ASKED_RELIGION_OR_ORIGIN",
     note: "Please read the pledge again.",
   },
+  // Founder-only admin emails (round 3, brief 9; src/lib/alerts/founder-email-templates.ts)
+  admin_review_needed: {
+    listingTitle: "Sunny flat in Vake",
+    listingPublicId: 1234,
+    hostName: "Yossi",
+    why: ["first_listing", "flagged_host"],
+    riskScore: 35,
+    riskReasons: 2,
+    adminUrl: "/admin/moderation/l1",
+  },
+  admin_daily_summary: {
+    fromDay: "2026-11-06",
+    toDay: "2026-11-07",
+    waiting: { turnedAwayReports: 1, inReview: 2, otherReports: 0, flagCancellations: 1, flagHosts: 0, flagNoShows: 0, failedEmails: 0 },
+    period: { bookings: 3, cancelledByGuest: 1, cancelledByHost: 1, flaggedCancellations: 1, noShows: 0, reports: 1, turnedAwayReports: 1, hostUnreachable: 0 },
+    adminUrl: "/admin",
+  },
 };
 
 afterEach(() => {

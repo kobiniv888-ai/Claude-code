@@ -22,6 +22,11 @@ export type ListingCardBadges = {
   welcomes: boolean;
   /** The owner's ID is verified, or the ownership of this property is verified. */
   verified: boolean;
+  /**
+   * Round 3 (brief 8.3): "ביקרנו במקום", a Bayit team member visited the place (set by the admin;
+   * never on demo listings). The first card tag. Missing = false.
+   */
+  visited?: boolean;
   /** Posted by a business account (hotel, agency…). */
   business: boolean;
   shabbatFriendly: boolean;

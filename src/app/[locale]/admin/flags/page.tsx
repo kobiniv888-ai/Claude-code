@@ -149,7 +149,6 @@ export default async function FlagsPage({ params, searchParams }: Props) {
                     <Ltr>{row.code}</Ltr>
                   </Link>
                   <Pill tone={STATUS_TONE[row.status]}>{tb(`status.${row.status}`)}</Pill>
-                  <Pill tone={row.kind === "host_cancellation" ? "danger" : "warning"}>{t(`kind.${row.kind}`)}</Pill>
                   {row.reportCount > 0 ? <Pill tone="danger">{t("bookingReports", { count: row.reportCount })}</Pill> : null}
                   <span className="ms-auto text-xs text-muted-foreground">{t("bookedAt", { when: when(row.createdAt) })}</span>
                 </div>
@@ -157,7 +156,7 @@ export default async function FlagsPage({ params, searchParams }: Props) {
                   <Link href={`/admin/moderation/${row.listing.id}`} className="font-medium underline-offset-4 hover:underline">
                     <span dir="auto">{row.listing.title}</span>
                   </Link>{" "}
-                  <span className="text-muted-foreground">
+                  <span className="whitespace-nowrap text-muted-foreground">
                     · {t("listingId")} <Ltr>{row.listing.publicId}</Ltr>
                   </span>
                 </p>

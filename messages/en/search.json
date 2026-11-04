@@ -127,7 +127,9 @@
     "noMax": "No max",
     "kosherShabbat": "Kosher or Shabbat-friendly",
     "kosherShabbatHint": "A kosher kitchen, Shabbat-friendly or kosher meals: any one is enough",
-    "walkUpTo": "Up to {count} min"
+    "walkUpTo": "Up to {count} min",
+    "visited": "We visited",
+    "visitedHint": "Someone from the Bayit team visited the place in person."
   },
   "chips": {
     "heading": "Active filters",
@@ -143,7 +145,8 @@
     "minBathrooms": "{value} bathrooms",
     "floor": "Floor {range}",
     "mapArea": "Map area",
-    "kosherShabbat": "Kosher or Shabbat-friendly"
+    "kosherShabbat": "Kosher or Shabbat-friendly",
+    "visited": "We visited"
   },
   "toolbar": {
     "sortLabel": "Sort by",

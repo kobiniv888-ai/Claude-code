@@ -34,6 +34,7 @@ const NAMES = [
   "languages",
   "map-pin",
   "map-pinned",
+  "map-pin-check",
   "megaphone",
   "moon-star",
   "phone",

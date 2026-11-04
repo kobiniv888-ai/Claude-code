@@ -258,7 +258,7 @@ export function ReferencePriceForm({ id, initial, cities }: { id: string | null;
         </h2>
         <FormField label={t("form.sourceName")} hint={t("form.sourceNameHint")} required error={errorAt(errors, "sourceName")}>
           {(props) => (
-            <Input {...props} dir="auto" maxLength={REFERENCE_LIMITS.sourceName} value={values.sourceName} onChange={(e) => set("sourceName", e.target.value)} />
+            <Input {...props} dir={values.sourceName ? "auto" : undefined} maxLength={REFERENCE_LIMITS.sourceName} value={values.sourceName} onChange={(e) => set("sourceName", e.target.value)} />
           )}
         </FormField>
         <FormField label={t("form.sourceMonth")} hint={t("form.sourceMonthHint")} required error={errorAt(errors, "sourceMonth")}>
@@ -279,7 +279,7 @@ export function ReferencePriceForm({ id, initial, cities }: { id: string | null;
           )}
         </FormField>
         <FormField label={t("form.note")} hint={t("form.noteHint")} error={errorAt(errors, "note")} className="sm:col-span-2">
-          {(props) => <Textarea {...props} dir="auto" rows={3} maxLength={REFERENCE_LIMITS.note} value={values.note} onChange={(e) => set("note", e.target.value)} />}
+          {(props) => <Textarea {...props} dir={values.note ? "auto" : undefined} rows={3} maxLength={REFERENCE_LIMITS.note} value={values.note} onChange={(e) => set("note", e.target.value)} />}
         </FormField>
       </section>
 

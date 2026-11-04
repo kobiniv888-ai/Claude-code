@@ -146,12 +146,19 @@ export default async function AdminBookingPage({ params }: Props) {
 
           <AdminSection title={<SectionTitle icon={Receipt}>{t("priceTitle")}</SectionTitle>} description={t("priceDescription")}>
             <dl className="grid gap-2 text-sm">
-              {lines.map((line) => (
-                <div key={line.kind} className="flex items-center justify-between gap-3">
-                  <dt>{t(`priceLine.${line.kind}`, { count: line.nights, price: formatMoney(line.price, currency, locale) })}</dt>
-                  <dd className="tabular-nums">{money(line.amount)}</dd>
+              {lines.length > 0 ? (
+                lines.map((line) => (
+                  <div key={line.kind} className="flex items-center justify-between gap-3">
+                    <dt>{t(`priceLine.${line.kind}`, { count: line.nights, price: formatMoney(line.price, currency, locale) })}</dt>
+                    <dd className="tabular-nums">{money(line.amount)}</dd>
+                  </div>
+                ))
+              ) : (
+                <div className="flex items-center justify-between gap-3">
+                  <dt>{t("priceSubtotal", { count: booking.nights })}</dt>
+                  <dd className="tabular-nums">{money(booking.subtotal)}</dd>
                 </div>
-              ))}
+              )}
               {booking.cleaningFee > 0 ? (
                 <div className="flex items-center justify-between gap-3">
                   <dt>{t("cleaningFee")}</dt>
@@ -236,7 +243,7 @@ export default async function AdminBookingPage({ params }: Props) {
           <AdminSection title={<SectionTitle icon={Users}>{t("peopleTitle")}</SectionTitle>}>
             <div className="flex flex-col gap-4 text-sm">
               <div className="flex flex-col gap-1">
-                <span className="text-xs text-muted-foreground">{t("guest")}</span>
+                <span className="text-xs text-muted-foreground">{t("guestLabel")}</span>
                 <span className="flex flex-wrap items-center gap-1.5">
                   <Link href={`/admin/users/${booking.guest.id}`} className="font-medium text-primary hover:underline">
                     <span dir="auto">{booking.guestName || booking.guest.name}</span>
@@ -247,7 +254,7 @@ export default async function AdminBookingPage({ params }: Props) {
                 <span className="text-xs text-muted-foreground">{t("guestLanguage", { language: siteConfig.i18n.nativeNames[booking.locale] ?? booking.locale })}</span>
               </div>
               <div className="flex flex-col gap-1">
-                <span className="text-xs text-muted-foreground">{t("host")}</span>
+                <span className="text-xs text-muted-foreground">{t("hostLabel")}</span>
                 <span className="flex flex-wrap items-center gap-1.5">
                   <Link href={`/admin/users/${booking.host.id}`} className="font-medium text-primary hover:underline">
                     <span dir="auto">{booking.hostName}</span>

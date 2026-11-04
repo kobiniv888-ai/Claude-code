@@ -2,7 +2,8 @@ import { useLocale, useTranslations } from "next-intl";
 import { SpriteIcon } from "@/components/ds/sprite-icons";
 import { Tag } from "@/components/ds/tag";
 import { Link } from "@/i18n/navigation";
-import { formatArea } from "@/lib/format";
+import { visitedMonthDate } from "@/lib/listing/visited";
+import { formatArea, formatDate } from "@/lib/format";
 import type { Highlight } from "@/lib/listing-page/highlights";
 import type { ListingPageData } from "@/lib/listing-page/types";
 import { ownerPath } from "@/lib/listing/urls";
@@ -72,12 +73,17 @@ export function TitleBlock({ data, tags }: { data: ListingPageData; tags: ("demo
 
 /**
  * The host line under the title: avatar or initials, "Hosted by [name] · Verified" (only when an
- * ID, the ownership or the property was checked), and the pledge with a shield: the ONLY place
- * the promise appears on this page.
+ * ID, the ownership or the property was checked), "ביקרנו במקום · נובמבר 2026" (round 3, brief
+ * 8.3: a Bayit team member visited, month only), and the pledge with a shield: the ONLY place the
+ * promise appears on this page.
  */
 export function HostLine({ data, verified, welcomes }: { data: ListingPageData; verified: boolean; welcomes: boolean }) {
   const t = useTranslations("listing.hostLine");
+  const locale = useLocale();
   const sale = data.dealType === "SALE";
+  const visited = data.visitedMonth
+    ? formatDate(visitedMonthDate(data.visitedMonth), locale, { month: "long", year: "numeric", timeZone: "UTC" })
+    : null;
   const name = (
     <Link href={ownerPath(data.owner.id)} dir="auto" className="rounded font-semibold underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50">
       {data.owner.name}
@@ -100,6 +106,17 @@ export function HostLine({ data, verified, welcomes }: { data: ListingPageData; 
           ) : null}
         </p>
       </div>
+      {visited ? (
+        <p data-visited-badge="" className="flex items-center gap-2 text-small text-foreground">
+          <SpriteIcon name="map-pin-check" className="size-5 shrink-0 text-success" />
+          <span>
+            <span className="font-medium">{t("visited")}</span>
+            <span aria-hidden="true" className="px-1.5 text-muted-foreground">·</span>
+            <span className="sr-only">, </span>
+            <span className="whitespace-nowrap">{visited}</span>
+          </span>
+        </p>
+      ) : null}
       {welcomes ? (
         <p className="flex items-center gap-2 text-small text-foreground">
           <SpriteIcon name="shield-check" className="size-5 shrink-0 text-primary-text" />

@@ -6,6 +6,7 @@ import { audit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { bookingFlagKind, FLAG_NOTE_MAX } from "../flags";
 import { AdminActionError, runStaffAction } from "../server/common";
+import { hostFlagSummary } from "../server/flags";
 
 /**
  * Admin → Flags: "mark reviewed" with a note ("moderation" permission). A booking flag stores
@@ -60,6 +61,9 @@ export async function markHostFlagReviewedAction(input: unknown): Promise<Action
       const user = await db.user.findUnique({ where: { id: parsed.data.userId }, select: { id: true, hostFlagReviewedAt: true } });
       if (!user) throw new AdminActionError("user_not_found", 404);
       if (user.id === staff.id) throw new AdminActionError("not_allowed_on_self", 403);
+      // Only an open report flag can be marked reviewed (a booking flag is reviewed per booking).
+      const summary = await hostFlagSummary(user.id);
+      if (!summary?.reportFlagOpen) throw new AdminActionError("not_flagged", 409);
       const now = new Date();
       await db.user.update({ where: { id: user.id }, data: { hostFlagReviewedAt: now } });
       await audit({
@@ -67,7 +71,7 @@ export async function markHostFlagReviewedAction(input: unknown): Promise<Action
         action: "flag.host_reviewed",
         targetType: "User",
         targetId: user.id,
-        details: { note: parsed.data.note, previousReviewAt: user.hostFlagReviewedAt },
+        details: { note: parsed.data.note, previousReviewAt: user.hostFlagReviewedAt, reports: summary.countingReports, turnedAway: summary.turnedAway },
       });
       return ok({ changed: true });
     },

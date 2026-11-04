@@ -17,6 +17,13 @@ export function auditTargetHref(targetType: string | null | undefined, targetId:
       return `/admin/verifications/${id}`;
     case "Ticket":
       return `/admin/tickets/${id}`;
+    // Round 3, phase 3.
+    case "Booking":
+      return `/admin/bookings/${id}`;
+    case "ReferencePrice":
+      return `/admin/reference-prices/${id}`;
+    case "EmailOutbox":
+      return `/admin/outbox/${id}`;
     default:
       return null;
   }

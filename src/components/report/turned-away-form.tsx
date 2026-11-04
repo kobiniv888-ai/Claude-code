@@ -10,7 +10,7 @@ import { Button } from "@/components/ds/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
-import { Link } from "@/i18n/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
 import { errorMessageKey } from "@/lib/errors";
 import { formatNumber } from "@/lib/format";
 import { createTurnedAwayReport } from "@/lib/reports/actions";
@@ -66,6 +66,7 @@ export function TurnedAwayForm({
   const t = useTranslations("report.turnedAway");
   const te = useTranslations("errors");
   const locale = useLocale();
+  const router = useRouter();
   const id = useId();
   const bounds = happenedOnBounds(today);
   const initialDate = defaultDate && !happenedOnProblem(defaultDate, today) ? defaultDate : today;
@@ -125,6 +126,13 @@ export function TurnedAwayForm({
     }
   }
 
+  // After a report from a trip, closing the thanks shows the trip page's "you reported" note.
+  function close(next: boolean) {
+    if (pending) return;
+    onOpenChange(next);
+    if (!next && done && target.bookingId) router.refresh();
+  }
+
   const formId = `${id}-form`;
   const about = context.bookingCode ? (
     t.rich("aboutBooking", { code: context.bookingCode, ltr: (chunks) => <Ltr className="font-medium text-foreground">{chunks}</Ltr> })
@@ -135,12 +143,12 @@ export function TurnedAwayForm({
   return (
     <BottomSheet
       open={open}
-      onOpenChange={(next) => !pending && onOpenChange(next)}
+      onOpenChange={close}
       title={done ? t("thanksTitle") : t("title")}
       description={done ? undefined : t("intro")}
       footer={
         done ? (
-          <Button type="button" variant="secondary" block onClick={() => onOpenChange(false)}>
+          <Button type="button" variant="secondary" block onClick={() => close(false)}>
             {t("close")}
           </Button>
         ) : (
@@ -151,7 +159,7 @@ export function TurnedAwayForm({
       }
     >
       {done ? (
-        <div role="status" className="grid justify-items-center gap-3 px-4 py-6 text-center">
+        <div role="status" className="grid justify-items-center gap-3 py-6 text-center">
           <CircleCheckBigIcon className="size-12 text-success" aria-hidden />
           <p className="text-body">{t("thanks")}</p>
           <p className="text-small text-muted-foreground">{t("thanksHidden")}</p>
@@ -162,7 +170,7 @@ export function TurnedAwayForm({
           ) : null}
         </div>
       ) : (
-        <form id={formId} className="grid gap-5 px-4 pt-1 pb-4" onSubmit={onSubmit} noValidate>
+        <form id={formId} className="grid gap-5 pb-2" onSubmit={onSubmit} noValidate>
           {about ? <p className="text-small text-muted-foreground">{about}</p> : null}
 
           <fieldset className="grid gap-2" aria-describedby={error?.field === "reason" ? `${id}-reason-error` : undefined}>
@@ -219,7 +227,7 @@ export function TurnedAwayForm({
               onChange={(e) => setDetails(e.target.value)}
               rows={4}
               maxLength={REPORT_DETAILS_MAX}
-              dir="auto"
+              dir={details ? "auto" : undefined}
               placeholder={t("detailsPlaceholder")}
               aria-invalid={error?.field === "details" || undefined}
               aria-describedby={error?.field === "details" ? `${id}-details-error` : undefined}

@@ -128,6 +128,15 @@ async function createListing(
 }
 
 const emailsFor = (template: string) => sent.filter((e) => e.template === template);
+
+/**
+ * Staff "mark reviewed" on a host's report flag (Admin → Flags). Reports against ownerA's listings
+ * (the moderation tests) flag the host, and a flagged host's NEW listings wait for review (round 3,
+ * ./review-rule.ts); tests that expect a direct publish close the flag first, as staff would.
+ */
+async function reviewHostFlag(ownerId: string) {
+  await db.user.update({ where: { id: ownerId }, data: { hostFlagReviewedAt: new Date() } });
+}
 const parseCodes = (reasons: unknown) => (Array.isArray(reasons) ? reasons.map((r) => (r as { code: string }).code) : []);
 
 let ownerA = "";
@@ -343,7 +352,7 @@ describe("automatic checks", () => {
 });
 
 describe("moderation", () => {
-  it("asks for changes in the owner's language, then goes live after a fix", async () => {
+  it("asks for changes in the owner's language; the fix comes back to review, then goes live on approval", async () => {
     const listing = await db.listing.findFirstOrThrow({ where: { ownerId: ownerA, status: "LIVE" }, orderBy: { createdAt: "desc" } });
     const result = await lifecycle.requestChanges(listing.id, staff, "price_unrealistic", "Please check the currency.");
     expect(result).toEqual({ status: "NEEDS_CHANGES", changed: true });
@@ -357,8 +366,10 @@ describe("moderation", () => {
     expect(email.text).toContain("Please check the currency.");
     await expect(lifecycle.requestChanges(listing.id, staff, "not_a_reason" as never)).rejects.toMatchObject({ code: "invalid_input" });
 
+    // Round 3 (./review-rule.ts): after "ask for changes" only a person lets it go live.
     const resubmitted = await lifecycle.submitForPublication(listing.id, ownerA);
-    expect(resubmitted.status).toBe("LIVE");
+    expect(resubmitted.status).toBe("IN_REVIEW");
+    expect(await lifecycle.approveListing(listing.id, staff)).toEqual({ status: "LIVE", changed: true });
     const saved = await db.listing.findUniqueOrThrow({ where: { id: listing.id } });
     expect(saved.moderationReason).toBeNull();
   });
@@ -394,6 +405,14 @@ describe("moderation", () => {
     expect(last).toEqual({ hidden: false, openReports: reportsToAutoHide * 2 + 1, countedReports: 1 });
     expect((await db.listing.findUniqueOrThrow({ where: { id: listing.id } })).status).toBe("LIVE");
     expect(emailsFor("listing_hidden_reports")).toHaveLength(0);
+
+    // Round 3: 2+ reports in 12 months flag the host, so their next NEW listing waits for a person,
+    // until staff mark the flag reviewed.
+    const next = await createListing(ownerA);
+    expect(await lifecycle.submitForPublication(next.id, ownerA)).toMatchObject({ status: "IN_REVIEW" });
+    await reviewHostFlag(ownerA);
+    const after = await createListing(ownerA);
+    expect(await lifecycle.submitForPublication(after.id, ownerA)).toMatchObject({ status: "LIVE" });
   });
 
   it("hides a listing after enough reports from distinct trusted accounts and restores it", async () => {
@@ -416,6 +435,8 @@ describe("moderation", () => {
 });
 
 describe("owner actions", () => {
+  beforeEach(() => reviewHostFlag(ownerA));
+
   it("pauses, rents, renews and deletes — idempotently and only for the owner", async () => {
     const listing = await createListing(ownerA);
     await lifecycle.submitForPublication(listing.id, ownerA);
@@ -516,6 +537,8 @@ describe("owner actions", () => {
 });
 
 describe("expiry", () => {
+  beforeEach(() => reviewHostFlag(ownerA));
+
   it("warns before expiry and then expires", async () => {
     const listing = await createListing(ownerA);
     await lifecycle.submitForPublication(listing.id, ownerA);

@@ -1,6 +1,6 @@
 import "server-only";
 import { siteConfig } from "@/config/site";
-import type { AdminEmailData } from "@/lib/admin/email-templates";
+import type { AdminEmailData } from "./founder-email-templates";
 import { HOST_UNREACHABLE_ACTION, loadAttentionCounts } from "@/lib/admin/server/attention";
 import { audit } from "@/lib/audit";
 import { db } from "@/lib/db";
@@ -14,7 +14,8 @@ import { summaryDue, summaryPeriod } from "./summary-schedule";
  * What waits right now (the admin home's "דורש טיפול" counts) and what happened since the last
  * summary: bookings, cancellations, no-shows, reports and booking attempts the host never heard of.
  *
- * Called by GET /api/cron/daily-summary (CRON_SECRET), which may run several times a morning:
+ * Called by GET /api/cron/daily-summary (CRON_SECRET), which may run several times a morning (or
+ * every hour: outside 08:00–11:59 Israel time it does nothing):
  * the day is CLAIMED first with a RateLimit row ("founder-summary:<day>", INSERT … ON CONFLICT
  * DO NOTHING), so at most one summary per Israel day goes out, whichever server runs it. When
  * the email could not be sent at all, the claim is released so the next run tries again.
@@ -22,7 +23,7 @@ import { summaryDue, summaryPeriod } from "./summary-schedule";
 
 export type DailySummaryResult =
   | { status: "sent"; day: string; fromDay: string; toDay: string }
-  | { status: "too_early" | "rest_day" | "already_sent" | "failed"; day: string };
+  | { status: "too_early" | "too_late" | "rest_day" | "already_sent" | "failed"; day: string };
 
 const CLAIM_PREFIX = "founder-summary:";
 const CLAIM_DAYS = 8;
@@ -38,6 +39,15 @@ async function claimDay(day: string, now: Date): Promise<boolean> {
     skipDuplicates: true,
   });
   return count === 1;
+}
+
+/** The day of the latest summary before `day` that went out (its claim row), or null. */
+async function previousSummaryDay(day: string): Promise<string | null> {
+  const row = await db.rateLimit
+    .findFirst({ where: { key: { startsWith: CLAIM_PREFIX, lt: `${CLAIM_PREFIX}${day}` } }, orderBy: { key: "desc" }, select: { key: true } })
+    .catch(() => null);
+  const previous = row?.key.slice(CLAIM_PREFIX.length) ?? null;
+  return previous && /^\d{4}-\d{2}-\d{2}$/.test(previous) ? previous : null;
 }
 
 async function releaseDay(day: string): Promise<void> {
@@ -66,7 +76,7 @@ export async function runDailySummary(now: Date = new Date(), isRestTime: (at: D
   if (!(await claimDay(due.day, now))) return { status: "already_sent", day: due.day };
 
   try {
-    const period = summaryPeriod(due.day, isRestTime);
+    const period = summaryPeriod(due.day, isRestTime, await previousSummaryDay(due.day));
     const [waiting, happened] = await Promise.all([loadAttentionCounts(now), periodCounts(period.from, period.to)]);
     const data: AdminEmailData["admin_daily_summary"] = {
       fromDay: period.fromDay,

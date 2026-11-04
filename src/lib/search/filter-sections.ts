@@ -36,7 +36,7 @@ export const SECTION_CHIPS: Record<FilterSection, readonly ChipKey[]> = {
   amenities: ["amenities"],
   property: ["size", "floor", "condition", "heating", "views", "furnished", "elevator", "buildingAge"],
   owner: ["verifiedOnly", "ownerType"],
-  listing: ["hasPhotos", "hasVideo", "postedWithin"],
+  listing: ["visited", "hasPhotos", "hasVideo", "postedWithin"],
 };
 
 /** Active filters inside one section. */

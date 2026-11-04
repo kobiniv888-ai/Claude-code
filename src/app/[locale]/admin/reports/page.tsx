@@ -118,7 +118,7 @@ export default async function ReportsPage({ params, searchParams }: PageProps<"/
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="flex min-w-0 flex-wrap items-center gap-2">
                       {urgent ? (
-                        <span className="inline-flex h-5 items-center gap-1 rounded-full bg-destructive px-2 text-[11px] font-semibold text-white">
+                        <span className="inline-flex h-5 items-center gap-1 rounded-full bg-destructive px-2 text-[11px] font-semibold text-destructive-foreground">
                           <ShieldAlert aria-hidden className="size-3" />
                           {t("urgent")}
                         </span>

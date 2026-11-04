@@ -169,6 +169,8 @@ export type SearchFilters = {
   sharedRoomFor: SharedRoomFor | null;
   /** Owner's ID or ownership is verified. */
   verifiedOnly: boolean;
+  /** Round 3 (brief 8.3): "ביקרנו במקום", a Bayit team member visited the place (`?visited=1`). */
+  visited: boolean;
   ownerType: OwnerType | null;
   hasPhotos: boolean;
   hasVideo: boolean;
@@ -222,6 +224,7 @@ export function emptyFilters(): SearchFilters {
     bigFamily: false,
     sharedRoomFor: null,
     verifiedOnly: false,
+    visited: false,
     ownerType: null,
     hasPhotos: false,
     hasVideo: false,
@@ -268,6 +271,7 @@ const PARAM_ORDER = [
   "bigFamily",
   "sharedRoomFor",
   "verifiedOnly",
+  "visited",
   "ownerType",
   "hasPhotos",
   "hasVideo",
@@ -446,6 +450,7 @@ export function parseSearchParams(input: SearchParamsInput | null | undefined): 
   filters.sharedRoomFor = pickOne(one("sharedRoomFor"), SHARED_ROOM_FOR, enumKey);
   // Hidden with the document badges (src/config/verification.ts): an old link with it is ignored.
   filters.verifiedOnly = documentChecksOn() && flag(one("verifiedOnly"));
+  filters.visited = flag(one("visited"));
   filters.ownerType = pickOne(one("ownerType"), OWNER_TYPES, exactKey);
   filters.hasPhotos = flag(one("hasPhotos"));
   filters.hasVideo = flag(one("hasVideo"));
@@ -564,6 +569,7 @@ export type ChipKey =
   | "bigFamily"
   | "sharedRoomFor"
   | "verifiedOnly"
+  | "visited"
   | "ownerType"
   | "hasPhotos"
   | "hasVideo"
@@ -600,6 +606,7 @@ const FLAG_CHIPS = [
   "kosherShabbat",
   "bigFamily",
   "verifiedOnly",
+  "visited",
   "hasPhotos",
   "hasVideo",
   "furnished",

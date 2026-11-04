@@ -28,6 +28,9 @@ export type ListingWhereContext = {
 
 const MAX_QUERY_WORDS = 6;
 
+/** Listings with the "ביקרנו במקום" badge (the `?visited=1` filter; see src/lib/listing/visited.ts). */
+export const VISITED_WHERE = { visitedAt: { not: null }, isDemo: false } as const satisfies Prisma.ListingWhereInput;
+
 /** Only LIVE, not deleted, not expired listings of active owners (demo ones only while visible). */
 export function publicListingWhere(ctx: Pick<ListingWhereContext, "demoVisible" | "now">): Prisma.ListingWhereInput {
   const now = ctx.now ?? new Date();
@@ -142,6 +145,8 @@ export function buildListingWhere(filters: SearchFilters, ctx: ListingWhereConte
   if (filters.verifiedOnly && documentChecksOn()) {
     and.push({ OR: [{ ownerVerifiedAt: { not: null } }, { owner: { idVerifiedAt: { not: null } } }] });
   }
+  // "ביקרנו במקום" (round 3, brief 8.3): never a demo listing, even if one was edited by hand.
+  if (filters.visited) and.push(VISITED_WHERE);
   if (filters.ownerType) {
     and.push({ owner: { accountType: filters.ownerType === "business" ? "BUSINESS" : "PRIVATE" } });
   }

@@ -395,6 +395,55 @@
       "CANCELLED_FOR_IDENTITY": "The host cancelled because of who the guest is",
       "ASKED_RELIGION_OR_ORIGIN": "The host asked about the guest's religion or origin",
       "REFUSED_OR_IGNORED": "The host refused or ignored the guest"
+    },
+    "admin_review_needed": {
+      "subject": "Listing {id} is waiting for review",
+      "subjectUrgent": "Urgent: listing {id} is waiting for review",
+      "heading": "A listing is waiting for review",
+      "body": "The listing {title} is waiting for review before it goes live.",
+      "whyLabel": "Why",
+      "why": {
+        "first_listing": "The host's first listing",
+        "flagged_host": "The host has an open flag",
+        "risk": "The automatic checks found a risk",
+        "back_to_review": "The host made changes you asked for",
+        "blocked": "The checks blocked publishing",
+        "recheck": "A change to a live listing"
+      },
+      "riskLabel": "Risk score",
+      "riskValue": "{score} ({count, plural, =0 {no findings} one {1 finding} other {{count} findings}})",
+      "next": "You can approve it, ask for changes or reject it in the admin panel. The host is told about your decision.",
+      "cta": "Review the listing"
+    },
+    "admin_daily_summary": {
+      "subject": "Daily summary · {date}",
+      "subjectUrgent": "Urgent: turned-away report · Daily summary · {date}",
+      "heading": "Daily summary",
+      "range": "{from} to {to}",
+      "waitingIntro": "{count, plural, one {1 thing is waiting:} other {{count} things are waiting:}}",
+      "nothingWaiting": "Nothing is waiting right now.",
+      "waiting": {
+        "turnedAwayReports": "Turned-away reports",
+        "inReview": "Listings waiting for review",
+        "otherReports": "Other open reports",
+        "flagCancellations": "Host cancellations within 48 hours",
+        "flagHosts": "Hosts with several reports",
+        "flagNoShows": "Guest no-shows",
+        "failedEmails": "Emails that failed (7 days)"
+      },
+      "periodIntro": "What happened on {range}:",
+      "period": {
+        "bookings": "New bookings",
+        "cancelledByGuest": "Cancelled by guests",
+        "cancelledByHost": "Cancelled by hosts",
+        "flaggedCancellations": "Cancellations flagged for review",
+        "noShows": "Guest no-shows",
+        "reports": "New reports",
+        "turnedAwayReports": "of them turned-away reports",
+        "hostUnreachable": "Bookings not saved (the host got no alert)"
+      },
+      "urgentNotice": "{count, plural, one {There is an open turned-away report. Please check it today.} other {There are {count} open turned-away reports. Please check them today.}}",
+      "cta": "Open the admin panel"
     }
   },
   "ticketStatus": {
@@ -454,5 +503,22 @@
     "booking_cancelled_by_guest": "{brand}: booking {code} ({dates}) was cancelled by the guest. The dates are free again. {url}",
     "booking_cancelled_by_host": "{brand}: the host cancelled booking {code} ({dates}). You were not charged anything. {url}",
     "booking_host_unreached_guest": "{brand}: our message about booking {code} didn't reach the host. Please contact them to make sure they expect you: {url}"
+  },
+  "hostChannel": {
+    "approved": {
+      "text": "{brand}: your listing {title} was approved and is live. {url}",
+      "title": "Listing approved",
+      "body": "{title} is live."
+    },
+    "needs_changes": {
+      "text": "{brand}: your listing {title} needs a few changes before it goes live. Details in \"My listings\": {url}",
+      "title": "Your listing needs changes",
+      "body": "{title}: details in \"My listings\"."
+    },
+    "rejected": {
+      "text": "{brand}: your listing {title} was not approved. The reason is in \"My listings\": {url}",
+      "title": "Listing not approved",
+      "body": "{title}: the reason is in \"My listings\"."
+    }
   }
 }

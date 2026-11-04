@@ -71,7 +71,7 @@ export default async function ReportDetailPage({ params }: PageProps<"/[locale]/
         meta={
           <>
             {urgent ? (
-              <span className="inline-flex h-5 items-center gap-1 rounded-full bg-destructive px-2 text-[11px] font-semibold text-white">
+              <span className="inline-flex h-5 items-center gap-1 rounded-full bg-destructive px-2 text-[11px] font-semibold text-destructive-foreground">
                 <ShieldAlert aria-hidden className="size-3" />
                 {t("urgent")}
               </span>

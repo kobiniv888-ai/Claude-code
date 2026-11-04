@@ -127,7 +127,9 @@
     "noMax": "بلا حد أقصى",
     "kosherShabbat": "كوشير أو مناسب للسبت",
     "kosherShabbatHint": "مطبخ كوشير أو مناسب للسبت أو وجبات كوشير: يكفي واحد منها",
-    "walkUpTo": "حتى {count} د"
+    "walkUpTo": "حتى {count} د",
+    "visited": "زرنا المكان",
+    "visitedHint": "زار أحد أفراد فريق Bayit هذا المكان بنفسه."
   },
   "chips": {
     "heading": "الفلاتر المفعّلة",
@@ -143,7 +145,8 @@
     "minBathrooms": "{value} حمّامات",
     "floor": "الطابق {range}",
     "mapArea": "منطقة على الخريطة",
-    "kosherShabbat": "كوشير أو مناسب للسبت"
+    "kosherShabbat": "كوشير أو مناسب للسبت",
+    "visited": "زرنا المكان"
   },
   "toolbar": {
     "sortLabel": "الترتيب حسب",

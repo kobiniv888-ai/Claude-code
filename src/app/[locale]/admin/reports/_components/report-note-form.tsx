@@ -30,7 +30,7 @@ export function ReportNoteForm({ reportId, initial, readOnly }: { reportId: stri
       </Label>
       <Textarea
         id="report-admin-note"
-        dir="auto"
+        dir={body ? "auto" : undefined}
         rows={4}
         maxLength={ADMIN_TEXT_LIMITS.adminNote}
         placeholder={t("placeholder")}

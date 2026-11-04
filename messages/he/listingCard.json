@@ -75,6 +75,7 @@
     "groundFloor": "קומת קרקע"
   },
   "tags": {
+    "visited": "ביקרנו במקום",
     "kosherKitchen": "מטבח כשר",
     "shabbatFriendly": "מתאים לשבת",
     "synagogue": "{count} דק׳ לבית כנסת",

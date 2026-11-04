@@ -275,6 +275,8 @@ export function FiltersPanel({ filters, onChange, holidays, histogram, className
 
       <CollapsibleSection id="listing" filters={filters} title={t("sections.listing")}>
         <div className="grid gap-3">
+          {/* Round 3 (brief 8.3): listings a Bayit team member visited. */}
+          <CheckRow checked={filters.visited} onChange={(visited) => onChange({ visited })} label={t("visited")} hint={t("visitedHint")} />
           <CheckRow checked={filters.hasPhotos} onChange={(hasPhotos) => onChange({ hasPhotos })} label={f("filter.hasPhotos")} />
           <CheckRow checked={filters.hasVideo} onChange={(hasVideo) => onChange({ hasVideo })} label={f("filter.hasVideo")} />
         </div>

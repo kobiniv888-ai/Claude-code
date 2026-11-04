@@ -395,6 +395,55 @@
       "CANCELLED_FOR_IDENTITY": "ألغى المضيف بسبب هوية الضيف",
       "ASKED_RELIGION_OR_ORIGIN": "سأل المضيف عن دين الضيف أو أصله",
       "REFUSED_OR_IGNORED": "رفض المضيف الضيف أو تجاهله"
+    },
+    "admin_review_needed": {
+      "subject": "الإعلان {id} بانتظار المراجعة",
+      "subjectUrgent": "عاجل: الإعلان {id} بانتظار المراجعة",
+      "heading": "إعلان بانتظار المراجعة",
+      "body": "الإعلان {title} ينتظر المراجعة قبل نشره.",
+      "whyLabel": "السبب",
+      "why": {
+        "first_listing": "الإعلان الأول للمضيف",
+        "flagged_host": "على المضيف تنبيه مفتوح",
+        "risk": "وجدت الفحوص الآلية خطرًا",
+        "back_to_review": "عدّل المضيف بعد طلب تغييرات",
+        "blocked": "منعت الفحوص النشر",
+        "recheck": "تغيير في إعلان منشور"
+      },
+      "riskLabel": "درجة الخطر",
+      "riskValue": "{score} ({count, plural, =0 {بلا ملاحظات} one {ملاحظة واحدة} two {ملاحظتان} few {{count} ملاحظات} many {{count} ملاحظة} other {{count} ملاحظة}})",
+      "next": "يمكن الموافقة أو طلب تغييرات أو الرفض من لوحة الإدارة. سيُبلَّغ المضيف بالقرار.",
+      "cta": "مراجعة الإعلان"
+    },
+    "admin_daily_summary": {
+      "subject": "الملخص اليومي · {date}",
+      "subjectUrgent": "عاجل: بلاغ عن رفض ضيف · الملخص اليومي · {date}",
+      "heading": "الملخص اليومي",
+      "range": "من {from} إلى {to}",
+      "waitingIntro": "{count, plural, one {أمر واحد ينتظر:} two {أمران ينتظران:} few {{count} أمور تنتظر:} many {{count} أمرًا ينتظر:} other {{count} أمر ينتظر:}}",
+      "nothingWaiting": "لا شيء ينتظر الآن.",
+      "waiting": {
+        "turnedAwayReports": "بلاغات عن رفض ضيوف",
+        "inReview": "إعلانات بانتظار المراجعة",
+        "otherReports": "بلاغات مفتوحة أخرى",
+        "flagCancellations": "إلغاءات مضيفين خلال 48 ساعة",
+        "flagHosts": "مضيفون عليهم عدة بلاغات",
+        "flagNoShows": "ضيوف لم يحضروا",
+        "failedEmails": "رسائل لم تُرسل (7 أيام)"
+      },
+      "periodIntro": "ما حدث في {range}:",
+      "period": {
+        "bookings": "حجوزات جديدة",
+        "cancelledByGuest": "ألغاها الضيوف",
+        "cancelledByHost": "ألغاها المضيفون",
+        "flaggedCancellations": "إلغاءات عليها تنبيه للمراجعة",
+        "noShows": "ضيوف لم يحضروا",
+        "reports": "بلاغات جديدة",
+        "turnedAwayReports": "منها عن رفض ضيف",
+        "hostUnreachable": "حجوزات لم تُحفظ (لم يصل التنبيه إلى المضيف)"
+      },
+      "urgentNotice": "{count, plural, one {يوجد بلاغ مفتوح عن رفض ضيف. راجعوه اليوم.} two {يوجد بلاغان مفتوحان عن رفض ضيوف. راجعوهما اليوم.} few {توجد {count} بلاغات مفتوحة عن رفض ضيوف. راجعوها اليوم.} many {يوجد {count} بلاغًا مفتوحًا عن رفض ضيوف. راجعوها اليوم.} other {يوجد {count} بلاغ مفتوح عن رفض ضيوف. راجعوها اليوم.}}",
+      "cta": "فتح لوحة الإدارة"
     }
   },
   "ticketStatus": {
@@ -454,5 +503,22 @@
     "booking_cancelled_by_guest": "{brand}: ألغى الضيف الحجز {code} ({dates}). التواريخ متاحة من جديد. {url}",
     "booking_cancelled_by_host": "{brand}: ألغى المضيف الحجز {code} ({dates}). لم يُخصم منك أي مبلغ. {url}",
     "booking_host_unreached_guest": "{brand}: لم تصل رسالتنا عن الحجز {code} إلى المضيف. تواصل معه وتأكد من أنه ينتظرك: {url}"
+  },
+  "hostChannel": {
+    "approved": {
+      "text": "{brand}: تمت الموافقة على إعلانك {title} وهو منشور الآن. {url}",
+      "title": "تمت الموافقة على الإعلان",
+      "body": "{title} منشور الآن."
+    },
+    "needs_changes": {
+      "text": "{brand}: إعلانك {title} يحتاج إلى بعض التعديلات قبل النشر. التفاصيل في «إعلاناتي»: {url}",
+      "title": "الإعلان يحتاج إلى تعديل",
+      "body": "{title}: التفاصيل في «إعلاناتي»."
+    },
+    "rejected": {
+      "text": "{brand}: لم تتم الموافقة على إعلانك {title}. السبب في «إعلاناتي»: {url}",
+      "title": "لم تتم الموافقة على الإعلان",
+      "body": "{title}: السبب في «إعلاناتي»."
+    }
   }
 }

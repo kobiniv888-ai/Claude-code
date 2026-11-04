@@ -75,6 +75,7 @@
     "groundFloor": "პირველი სართული"
   },
   "tags": {
+    "visited": "ადგილზე ვიყავით",
     "kosherKitchen": "კოშერული სამზარეულო",
     "shabbatFriendly": "შაბათისთვის",
     "synagogue": "{count} წთ სინაგოგამდე",

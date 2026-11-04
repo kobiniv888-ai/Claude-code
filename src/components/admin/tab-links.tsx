@@ -34,7 +34,7 @@ export function TabLinks({
                   <span
                     className={cn(
                       "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] tabular-nums",
-                      current ? "bg-primary-foreground/20" : item.urgent && item.count > 0 ? "bg-destructive text-white" : "bg-muted",
+                      current ? "bg-primary-foreground/20" : item.urgent && item.count > 0 ? "bg-destructive text-destructive-foreground" : "bg-muted",
                     )}
                   >
                     {formatNumber(item.count, locale)}

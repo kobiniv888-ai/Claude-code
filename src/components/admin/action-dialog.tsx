@@ -194,7 +194,7 @@ export function ActionDialog({
               </Label>
               <Textarea
                 id={`${id}-note`}
-                dir="auto"
+                dir={values.note ? "auto" : undefined}
                 rows={note.rows ?? 3}
                 maxLength={note.max}
                 placeholder={note.placeholder}

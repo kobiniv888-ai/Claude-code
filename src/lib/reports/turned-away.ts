@@ -10,6 +10,7 @@
  */
 import { z } from "zod";
 import type { ReportReason } from "@/generated/prisma/enums";
+import { firstNameOf } from "@/lib/auth/first-name";
 import { isOwnPrivateUpload } from "@/lib/media";
 import { isValidStorageKey } from "@/lib/storage/keys";
 import { REPORT_DETAILS_MAX, REPORT_OTHER_MIN } from "./schemas";
@@ -80,9 +81,12 @@ export function parseReportAttachments(value: unknown): ReportAttachment[] {
   return out;
 }
 
-/** A report screenshot key that this user uploaded through POST /api/uploads/private (purpose "report"). */
+/**
+ * A report screenshot key that this user uploaded through POST /api/uploads/private (purpose
+ * "report"). Always a re-encoded image (the route stores JPEG), never a PDF.
+ */
 export function isOwnReportUpload(key: string, userId: string): boolean {
-  return isValidStorageKey(key) && isOwnPrivateUpload(key, userId, "report");
+  return isValidStorageKey(key) && /\.(jpg|webp)$/.test(key) && isOwnPrivateUpload(key, userId, "report");
 }
 
 /** The staff-only address of a report's screenshot (see /api/admin/reports/[reportId]/[index]). */
@@ -175,8 +179,8 @@ export function reporterNameForHost(report: {
   reporter: { firstName?: string | null; name?: string | null } | null | undefined;
 }): string | null {
   if (!report.reporterRevealedAt || !report.reporter) return null;
-  const first = report.reporter.firstName?.trim() || report.reporter.name?.trim().split(/\s+/)[0] || "";
-  return first || null;
+  // Never a phone number or an email address that was stored as a name.
+  return firstNameOf(report.reporter);
 }
 
 // ─── Keeping screenshots ──────────────────────────────────────

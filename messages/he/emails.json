@@ -395,6 +395,55 @@
       "CANCELLED_FOR_IDENTITY": "המארח ביטל בגלל זהות האורח",
       "ASKED_RELIGION_OR_ORIGIN": "המארח שאל על הדת או המוצא של האורח",
       "REFUSED_OR_IGNORED": "המארח סירב לאורח או התעלם ממנו"
+    },
+    "admin_review_needed": {
+      "subject": "מודעה {id} מחכה לבדיקה",
+      "subjectUrgent": "דחוף: מודעה {id} מחכה לבדיקה",
+      "heading": "מודעה מחכה לבדיקה",
+      "body": "המודעה {title} מחכה לבדיקה לפני שהיא עולה לאתר.",
+      "whyLabel": "למה",
+      "why": {
+        "first_listing": "המודעה הראשונה של המארח",
+        "flagged_host": "למארח יש סימון פתוח",
+        "risk": "הבדיקות האוטומטיות מצאו סיכון",
+        "back_to_review": "המארח תיקן אחרי בקשה לשינויים",
+        "blocked": "הבדיקות חסמו פרסום",
+        "recheck": "שינוי במודעה שכבר באתר"
+      },
+      "riskLabel": "ניקוד סיכון",
+      "riskValue": "{score} ({count, plural, =0 {בלי ממצאים} one {ממצא אחד} other {{count} ממצאים}})",
+      "next": "אפשר לאשר, לבקש שינויים או לדחות בפאנל הניהול. המארח יקבל הודעה על ההחלטה.",
+      "cta": "לבדיקת המודעה"
+    },
+    "admin_daily_summary": {
+      "subject": "הסיכום היומי · {date}",
+      "subjectUrgent": "דחוף: דיווח על דחיית אורח · הסיכום היומי · {date}",
+      "heading": "הסיכום היומי",
+      "range": "{from} עד {to}",
+      "waitingIntro": "{count, plural, one {דבר אחד מחכה לטיפול:} other {{count} דברים מחכים לטיפול:}}",
+      "nothingWaiting": "אין כרגע משהו שמחכה לטיפול.",
+      "waiting": {
+        "turnedAwayReports": "דיווחים על דחיית אורחים",
+        "inReview": "מודעות שמחכות לבדיקה",
+        "otherReports": "דיווחים פתוחים אחרים",
+        "flagCancellations": "ביטולים של מארחים תוך 48 שעות",
+        "flagHosts": "מארחים עם כמה דיווחים",
+        "flagNoShows": "אורחים שלא הגיעו",
+        "failedEmails": "מיילים שלא נשלחו (7 ימים)"
+      },
+      "periodIntro": "מה קרה ב-{range}:",
+      "period": {
+        "bookings": "הזמנות חדשות",
+        "cancelledByGuest": "ביטולים של אורחים",
+        "cancelledByHost": "ביטולים של מארחים",
+        "flaggedCancellations": "ביטולים שסומנו לבדיקה",
+        "noShows": "אורחים שלא הגיעו",
+        "reports": "דיווחים חדשים",
+        "turnedAwayReports": "מהם על דחיית אורח",
+        "hostUnreachable": "הזמנות שלא נשמרו (המארח לא קיבל התראה)"
+      },
+      "urgentNotice": "{count, plural, one {יש דיווח פתוח על דחיית אורח. כדאי לבדוק אותו היום.} other {יש {count} דיווחים פתוחים על דחיית אורחים. כדאי לבדוק אותם היום.}}",
+      "cta": "לפאנל הניהול"
     }
   },
   "ticketStatus": {
@@ -454,5 +503,22 @@
     "booking_cancelled_by_guest": "{brand}: ההזמנה {code} ({dates}) בוטלה על ידי האורח. התאריכים פנויים שוב. {url}",
     "booking_cancelled_by_host": "{brand}: המארח ביטל את ההזמנה {code} ({dates}). לא חויבת בכלום. {url}",
     "booking_host_unreached_guest": "{brand}: ההודעה שלנו על ההזמנה {code} לא הגיעה למארח. כדאי לפנות אליו ולוודא שהוא מחכה לכם: {url}"
+  },
+  "hostChannel": {
+    "approved": {
+      "text": "{brand}: המודעה {title} אושרה ועלתה לאתר. {url}",
+      "title": "המודעה אושרה",
+      "body": "{title} עלתה לאתר."
+    },
+    "needs_changes": {
+      "text": "{brand}: צריך לתקן משהו במודעה {title} לפני שהיא עולה לאתר. הפרטים ב״המודעות שלי״: {url}",
+      "title": "צריך לתקן את המודעה",
+      "body": "{title}: הפרטים ב״המודעות שלי״."
+    },
+    "rejected": {
+      "text": "{brand}: המודעה {title} לא אושרה. הסיבה מופיעה ב״המודעות שלי״: {url}",
+      "title": "המודעה לא אושרה",
+      "body": "{title}: הסיבה מופיעה ב״המודעות שלי״."
+    }
   }
 }

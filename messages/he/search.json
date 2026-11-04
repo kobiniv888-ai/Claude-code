@@ -127,7 +127,9 @@
     "noMax": "ללא מקסימום",
     "kosherShabbat": "כשר או מתאים לשבת",
     "kosherShabbatHint": "מטבח כשר, מתאים לשבת או ארוחות כשרות: מספיק אחד מהם",
-    "walkUpTo": "עד {count} דק׳"
+    "walkUpTo": "עד {count} דק׳",
+    "visited": "ביקרנו במקום",
+    "visitedHint": "מישהו מצוות בית ביקר בנכס בעצמו."
   },
   "chips": {
     "heading": "מסננים פעילים",
@@ -143,7 +145,8 @@
     "minBathrooms": "{value} חדרי רחצה",
     "floor": "קומה {range}",
     "mapArea": "אזור במפה",
-    "kosherShabbat": "כשר או מתאים לשבת"
+    "kosherShabbat": "כשר או מתאים לשבת",
+    "visited": "ביקרנו במקום"
   },
   "toolbar": {
     "sortLabel": "מיון לפי",

@@ -184,7 +184,8 @@ export async function getReportDetail(id: string, locale: string) {
           pricePeriod: true,
           moderationReason: true,
           city: { select: { names: true } },
-          _count: { select: { reports: { where: { status: "OPEN" } } } },
+          // Listing reports only (turned-away reports are about the host and never hide it).
+          _count: { select: { reports: { where: { status: "OPEN", kind: "GENERAL" } } } },
         },
       },
       targetUser: {

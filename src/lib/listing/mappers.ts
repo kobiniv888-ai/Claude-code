@@ -8,6 +8,7 @@ import { showsDocumentBadge } from "@/config/verification";
 import type { Prisma } from "@/generated/prisma/client";
 import type { Locale } from "@/generated/prisma/enums";
 import { pickLocalized } from "@/i18n/locale";
+import { hasVisitedBadge } from "@/lib/listing/visited";
 import { photoUrl } from "@/lib/media";
 import type { ListingCardBadges, ListingCardData, ListingMapPoint } from "@/lib/listing/types";
 import { listingPath } from "@/lib/listing/urls";
@@ -60,6 +61,8 @@ export function listingCardSelect(locale: AppLocale) {
     featuredUntil: true,
     isDemo: true,
     ownerVerifiedAt: true,
+    // "ביקרנו במקום": the date only (never visitedNote / visitedById, which are staff-only).
+    visitedAt: true,
     approxLat: true,
     approxLng: true,
     owner: { select: CARD_OWNER_SELECT },
@@ -219,6 +222,7 @@ export function toListingCard(row: ListingCardRow, ctx: CardMapContext): Listing
       ...jewishBadges(row, ctx.pledgeRequiredVersion),
       // Hidden while there are no document checks (src/config/verification.ts).
       verified: showsDocumentBadge(row.owner.idVerifiedAt) || showsDocumentBadge(row.ownerVerifiedAt),
+      visited: hasVisitedBadge(row),
       business: row.owner.accountType === "BUSINESS",
       shabbatFriendly: row.isShabbatFriendly,
       kosherKitchen: row.kitchenKosher === "KOSHER",

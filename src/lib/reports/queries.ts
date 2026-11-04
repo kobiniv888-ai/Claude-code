@@ -7,9 +7,10 @@ import { db } from "@/lib/db";
  * - guestBookingReports: which of a guest's bookings they already reported (My trips, trip page).
  *
  * The automatic host flag ("2 or more reports in 12 months, dismissed ones left out", brief 8.2)
- * lives with the admin Flags section: src/lib/admin/flags.ts (rule) and
- * src/lib/admin/server/flags.ts (hostFlagSummary, listFlags). Turned-away reports count there like
- * every other report about the host or their listings; tests/unit/reports-round3.test.ts checks it.
+ * is shared with the admin Flags section and the review rule: src/lib/listing/host-flags.ts (the
+ * rule) and src/lib/listing/host-flags-server.ts (hostFlagRows, hostFlagSummary, isHostFlagged;
+ * re-exported by src/lib/admin/server/flags.ts). Turned-away reports count there like every other
+ * report about the host or their listings; tests/unit/reports-round3.test.ts checks it.
  */
 
 /** Open reports: all, the urgent ones (turned away), and per tab of the queue. */

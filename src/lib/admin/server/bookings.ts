@@ -305,6 +305,12 @@ export async function getAdminBooking(id: string, locale: AppLocale) {
   const checkOut = dateToDay(booking.checkOut);
   const nightlyPrice = toNumber(booking.nightlyPrice) ?? 0;
   const weekendPrice = toNumber(booking.weekendPrice);
+  const subtotal = toNumber(booking.subtotal) ?? 0;
+  // The nightly lines are rebuilt from the copied prices; when they do not add up to the stored
+  // subtotal (a pricing rule the booking engine applied, e.g. a later discount), the page shows the
+  // stored subtotal alone rather than lines that would not match the total.
+  const computed = storedPriceLines({ checkIn, checkOut, nightlyPrice, weekendPrice });
+  const lines = Math.abs(computed.reduce((sum, line) => sum + line.amount, 0) - subtotal) < 0.01 ? computed : [];
   return {
     booking: {
       ...booking,
@@ -312,7 +318,7 @@ export async function getAdminBooking(id: string, locale: AppLocale) {
       checkOut,
       nightlyPrice,
       weekendPrice,
-      subtotal: toNumber(booking.subtotal) ?? 0,
+      subtotal,
       cleaningFee: toNumber(booking.cleaningFee) ?? 0,
       total: toNumber(booking.total) ?? 0,
       displayTotal: toNumber(booking.displayTotal),
@@ -324,7 +330,8 @@ export async function getAdminBooking(id: string, locale: AppLocale) {
       hoursToCancel: hoursFromBookingToCancel(booking.createdAt, booking.cancelledAt),
       flagReviewedBy: staff?.name ?? null,
     },
-    lines: storedPriceLines({ checkIn, checkOut, nightlyPrice, weekendPrice }),
+    /** Empty when the rebuilt lines do not match the stored subtotal (show the subtotal instead). */
+    lines,
     history: history.map((h) => ({ ...h, details: record(h.details) })),
   };
 }

@@ -1,6 +1,6 @@
 # Things only you can do or decide
 
-This list is kept up to date as the work goes on. It was last updated in round 3, phase 1. The
+This list is kept up to date as the work goes on. It was last updated in round 3, phase 3. The
 round-2 summary, the "Done when" checklist and what to check on your phone are in
 `docs/redesign-2/final.md`; round 3's plan and your answers are in `docs/round-3/PLAN.md`.
 
@@ -111,6 +111,9 @@ Do these in this order. Without Resend (3) or Google (4), nobody can log in on t
       - Russian: "На месяц" in the filter sheet's deal row, "Когда?" in the search pill, and the
         search field hint "Город, район или ID".
       - English: the search field hint is now "City, area or listing ID".
+- [ ] **"Turned away?" texts in Russian, Arabic and Georgian** (round 3, phase 3): the report form
+      ("דיווח על המארח"), the guest's confirmation, the emails to hosts after a decision and the
+      "ביקרנו במקום" line are our translations. A native speaker's read is welcome.
 
 ## Real data
 - [ ] Real community places (synagogues, Chabad houses, kosher restaurants and shops): name,
@@ -122,6 +125,12 @@ Do these in this order. Without Resend (3) or Google (4), nobody can log in on t
       verified, and are never used for walking times on real listings. A real place added before
       this change counts only after you give it a date.
 - [ ] Your own photos: see `PHOTOS_NEEDED.md`.
+- [ ] **"ביקרנו במקום" (round 3, phase 3).** When someone from Bayit visits a place, add it in
+      **Admin → ביקרנו במקום**: the listing number, the visit date and a note saying who visited
+      (the note stays in the admin panel). Only real listings can get it, never demo ones.
+- [ ] **Reference prices (optional, round 3, phase 3).** For the hosts' price guide (phase 4):
+      **Admin → מחירי ייחוס → הוספת טווח**, only ranges copied from a public report (for example a
+      real-estate agency's monthly report), with its name, link and month. Never single listings.
 
 ## Legal
 - [ ] Company name, registration number and address, to replace the visible placeholders such as
@@ -217,7 +226,8 @@ so look again before you pay.
       and we will send only the confirmation and the cancellation by text (emails cover the rest).
 - [ ] **Scheduled jobs need `CRON_SECRET` and a plan that allows hourly jobs.** Calendar sync now
       runs every hour (Airbnb / Booking.com imports, to avoid double bookings); booking reminders
-      and "stay completed" run daily. Set `CRON_SECRET` on Vercel, and check that your Vercel plan
+      and "stay completed" run daily, and your admin daily summary twice each morning (it goes out
+      once, at 08:00 Israel time, never on Shabbat or Yom Tov). Set `CRON_SECRET` on Vercel, and check that your Vercel plan
       runs hourly cron jobs (if it only allows daily ones, a free external cron service can call
       `/api/cron/ical-sync` every hour with the same secret).
 - [ ] **Apple sign-in (optional).** Needs the Apple Developer Program, **$99 a year**, and a real

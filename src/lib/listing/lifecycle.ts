@@ -14,8 +14,8 @@ import { approximateLocation, type LatLng } from "@/lib/geo";
 import { computeShabbatFriendly, MODERATION_REASONS, type ModerationReason } from "@/lib/listing/fields";
 import { computeListingProximity } from "@/lib/nearby";
 import { PLEDGE_CURRENT_VERSION } from "@/lib/pledge";
-import { decideSubmitTarget, runReviewGate, type ReviewGate, type SubmitDecision } from "@/lib/admin/review-rule";
-import { isHostFlagged } from "@/lib/admin/server/flags";
+import { decideSubmitTarget, runReviewGate, type ReviewGate, type SubmitDecision } from "./review-rule";
+import { isHostFlagged } from "./host-flags-server";
 import { notifyFounderListingInReview } from "@/lib/alerts/founder-admin";
 import { notifyListingDecision } from "@/lib/alerts/listing-decision";
 import { assessListing, type RiskAssessment, type RiskReason } from "@/lib/risk";
@@ -30,7 +30,7 @@ import { translateForLocale, translateListing, translateListingIfMissing, update
  *                                                          flagged host's new listing: IN_REVIEW)
  *   IN_REVIEW ─moderator→ LIVE | NEEDS_CHANGES | REJECTED
  *   NEEDS_CHANGES / REJECTED ─owner edits→ back to IN_REVIEW (only a person lets it go live)
- *   (the review rule: src/lib/admin/review-rule.ts; it fails CLOSED on a database error)
+ *   (the review rule: ./review-rule.ts; it fails CLOSED on a database error)
  *   LIVE ─owner→ PAUSED ⇄ LIVE, RENTED / SOLD, DELETED (soft)
  *   LIVE ─cron→ EXPIRED (warning email first) ─owner renews→ LIVE
  *   (unpause / renew / a live price change: checks again when the content changed since
@@ -382,7 +382,7 @@ export async function submitForPublication(listingId: string, ownerId: string): 
   const assessment = withGateReasons(checked, gate);
   const from = listing.status;
   // Once a person is asked to look (changes asked, rejected, waiting), only a person lets it go
-  // live; a first listing and a flagged host's new listing always wait (src/lib/admin/review-rule.ts).
+  // live; a first listing and a flagged host's new listing always wait (./review-rule.ts).
   const decision: SubmitDecision = decideSubmitTarget({ from, blocked: assessment.blocked, riskRequiresReview: assessment.requiresReview, gate });
   const target: ListingStatus = decision.target;
 

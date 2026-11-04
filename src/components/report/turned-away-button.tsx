@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { FlagIcon } from "lucide-react";
 import { Button } from "@/components/ds/button";
 import type { TurnedAwayContext, TurnedAwayTarget } from "./turned-away-form";
@@ -32,10 +32,8 @@ export function TurnedAwayButton({
   variant?: "secondary" | "soft" | "link";
   className?: string;
 }) {
-  const [request, setRequest] = useState(0);
-  useEffect(() => {
-    if (autoOpen) setRequest((n) => (n === 0 ? 1 : n));
-  }, [autoOpen]);
+  // ?report=1 opens the form at once (the launcher renders nothing on the server).
+  const [request, setRequest] = useState(autoOpen ? 1 : 0);
   return (
     <>
       <Button type="button" variant={variant} size={variant === "link" ? undefined : "sm"} className={className} onClick={() => setRequest((n) => n + 1)}>

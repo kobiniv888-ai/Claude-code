@@ -7,7 +7,7 @@ import type { AppLocale, CurrencyCode } from "@/config/site";
 import type { CancellationPolicy, TicketStatus, VerificationType } from "@/generated/prisma/enums";
 import { formatDateRange, formatMoney, formatTime } from "@/lib/format";
 import { checkTimeDisplay, clockLabel } from "@/lib/listing/check-times";
-import { ADMIN_EMAIL_TEMPLATES, adminEmailBuilders, type AdminEmailData } from "@/lib/admin/email-templates";
+import { ADMIN_EMAIL_TEMPLATES, adminEmailBuilders, type AdminEmailData } from "@/lib/alerts/founder-email-templates";
 import { REPORT_EMAIL_TEMPLATES, reportEmailBuilders, type ReportEmailData } from "@/lib/reports/email-templates";
 
 export const EMAIL_TEMPLATES = [
@@ -43,7 +43,7 @@ export const EMAIL_TEMPLATES = [
   "admin_alert",
   // Reports (round 3, brief 8.2): src/lib/reports/email-templates.ts
   ...REPORT_EMAIL_TEMPLATES,
-  // Founder-only admin emails (round 3, brief 9): src/lib/admin/email-templates.ts
+  // Founder-only admin emails (round 3, brief 9): src/lib/alerts/founder-email-templates.ts
   ...ADMIN_EMAIL_TEMPLATES,
 ] as const;
 export type EmailTemplate = (typeof EMAIL_TEMPLATES)[number];
