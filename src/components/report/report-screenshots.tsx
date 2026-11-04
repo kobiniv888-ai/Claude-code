@@ -65,7 +65,9 @@ export function ReportScreenshots({
       body.set("file", item.file);
       let next: Partial<Item>;
       try {
-        const res = await fetch("/api/uploads/private", { method: "POST", body });
+        // The purpose in the address too: the server caps the body at the 5 MB screenshot limit
+        // before reading it.
+        const res = await fetch("/api/uploads/private?purpose=report", { method: "POST", body });
         const data = (await res.json().catch(() => null)) as (ReportAttachment & { error?: string }) | null;
         if (res.ok && data?.key) {
           next = { state: "done", attachment: { key: data.key, mime: data.mime, bytes: data.bytes, name: data.name || item.file.name } };

@@ -4,9 +4,9 @@ import { documentChecksOn } from "@/config/verification";
 import { requireUserForAction } from "@/lib/auth/session";
 import { randomToken } from "@/lib/crypto";
 import { db } from "@/lib/db";
-import { AppError } from "@/lib/errors";
+import { AppError, ValidationError } from "@/lib/errors";
 import { checkPdf, IMAGE_MIME_TYPES, processPrivateImage, scanFile, validateImage } from "@/lib/images";
-import { PRIVATE_UPLOAD_PURPOSES, privateUploadPrefix } from "@/lib/media";
+import { PRIVATE_UPLOAD_PURPOSES, privateUploadPrefix, type PrivateUploadPurpose } from "@/lib/media";
 import { assertRateLimit } from "@/lib/rate-limit";
 import { assertNotShabbatMode } from "@/lib/settings";
 import { isAllowedScreenshotFormat, REPORT_SCREENSHOTS } from "@/lib/reports/turned-away";
@@ -24,9 +24,10 @@ import {
 } from "../shared";
 
 /**
- * POST /api/uploads/private   (multipart/form-data)
+ * POST /api/uploads/private[?purpose=…]   (multipart/form-data)
  *   purpose  "verification" (ID, selfie, NAPR extract, business registration) | "ticket" (screenshots)
- *            | "report" (turned-away report screenshots, round 3)
+ *            | "report" (turned-away report screenshots, round 3). A form field; it may also be in
+ *            the address, which caps the body for that purpose before it is read (both must agree)
  *   file     an image (≤ 15 MB), or for "verification" also a PDF (≤ 10 MB); for "report" only
  *            JPEG, PNG or WebP of at most 5 MB (REPORT_SCREENSHOTS in @/lib/reports/turned-away)
  *
@@ -51,21 +52,32 @@ const MIN_SHORT_SIDE = { verification: 300, ticket: 16, report: 16 } as const;
 
 const fieldsSchema = z.object({ purpose: z.enum(PRIVATE_UPLOAD_PURPOSES) });
 
+/** The largest body a purpose can need (its file limit plus the multipart overhead). */
+function bodyLimit(purpose: PrivateUploadPurpose | null): number {
+  return (purpose === "report" ? REPORT_SCREENSHOTS.maxBytes : siteConfig.listings.maxPhotoBytes) + MULTIPART_OVERHEAD_BYTES;
+}
+
 export async function POST(request: Request) {
   try {
     assertSameOrigin(request);
     const user = await requireUserForAction();
+    // Before the body is read, so an account over its limit can't make us buffer more bodies.
+    await assertRateLimit(`upload:private:${user.id}`, UPLOAD_LIMIT);
+    // `?purpose=` (sent by the report form) caps the body for that purpose before it is read;
+    // without it the largest limit applies until the form field is known.
+    const declared = new URL(request.url).searchParams.get("purpose");
+    const early = declared === null ? null : parseFields(fieldsSchema, { purpose: declared }).purpose;
     // Before the body is read: bigger requests are refused without parsing them.
-    assertContentLength(request, siteConfig.listings.maxPhotoBytes + MULTIPART_OVERHEAD_BYTES);
-    const form = await readForm(request, siteConfig.listings.maxPhotoBytes + MULTIPART_OVERHEAD_BYTES);
-    const { purpose } = parseFields(fieldsSchema, { purpose: textField(form, "purpose") });
+    assertContentLength(request, bodyLimit(early));
+    const form = await readForm(request, bodyLimit(early));
+    const { purpose } = parseFields(fieldsSchema, { purpose: textField(form, "purpose") ?? early ?? undefined });
+    if (early && purpose !== early) throw new ValidationError({ purpose: ["mismatch"] });
     // No ID / ownership documents for now (founder's answer 5, round 3; src/config/verification.ts).
     if (purpose === "verification" && !documentChecksOn()) {
       throw new AppError("documents_paused", "Verification documents are not accepted", { status: 403 });
     }
     // Support pauses for Shabbat (admin setting); verification documents can always be sent.
     if (purpose === "ticket") await assertNotShabbatMode();
-    await assertRateLimit(`upload:private:${user.id}`, UPLOAD_LIMIT);
 
     const file = formFile(form);
     const maxBytes = purpose === "report" ? REPORT_SCREENSHOTS.maxBytes : siteConfig.listings.maxPhotoBytes;

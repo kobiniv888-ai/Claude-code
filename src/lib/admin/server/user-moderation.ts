@@ -109,7 +109,11 @@ export async function suspendUser(
   return { sessionsRevoked };
 }
 
-/** Bans the account, signs it out everywhere and takes its live listings off the site (PAUSED). */
+/**
+ * Bans the account, signs it out everywhere and takes its live listings off the site (PAUSED).
+ * HIDDEN listings stay HIDDEN: only a moderator puts those back (a paused one is the owner's to
+ * turn on again after a reactivation; the public site already hides a banned owner's listings).
+ */
 export async function banUser(
   staff: CurrentUser,
   userId: string,
@@ -123,13 +127,13 @@ export async function banUser(
   const locale = localeOf(user.locale);
   const text = await userReasonText(reason, locale, note);
   const live = await db.listing.findMany({
-    where: { ownerId: user.id, status: { in: ["LIVE", "HIDDEN"] } },
+    where: { ownerId: user.id, status: "LIVE" },
     select: { id: true, publicId: true },
   });
   await db.$transaction([
     db.user.update({ where: { id: user.id }, data: { status: "BANNED", statusReason: reason, suspendedUntil: null } }),
     db.listing.updateMany({
-      where: { id: { in: live.map((l) => l.id) }, status: { in: ["LIVE", "HIDDEN"] } },
+      where: { id: { in: live.map((l) => l.id) }, status: "LIVE" },
       data: { status: "PAUSED" },
     }),
   ]);
@@ -153,7 +157,11 @@ export async function banUser(
   return { sessionsRevoked, listingsPaused: live.length };
 }
 
-/** Lifts a warning, suspension or ban. Paused listings stay paused: the owner turns them back on. */
+/**
+ * Lifts a warning, suspension or ban. Paused listings stay paused: the owner turns them back on
+ * (after a ban that came from a report they wait for review until staff mark the host reviewed,
+ * src/lib/listing/lifecycle.ts). Hidden listings stay hidden until a moderator restores them.
+ */
 export async function reactivateUser(staff: CurrentUser, userId: string, note: string | null): Promise<void> {
   const user = await loadTarget(userId);
   assertCanManage(staff, user);

@@ -77,7 +77,9 @@ export function MobileContactBar({ price, owner }: { price: ReactNode; owner: Re
         menu={
           more.length || canReportHost ? (
             <OverflowMenu
-              label={more.length ? t("moreChannels") : tr("moreOptions")}
+              // "More ways to contact" only while that is all it holds; with "Report the host" in
+              // it, the general "More options" names it truthfully for screen readers.
+              label={canReportHost || !more.length ? tr("moreOptions") : t("moreChannels")}
               contentClassName="min-w-56"
               items={[
                 ...(more.length

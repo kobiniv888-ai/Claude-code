@@ -1,5 +1,5 @@
 import "server-only";
-import type { Prisma } from "@/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { HOST_REPORT_FLAG_MIN, hostReportFlagOpen, hostReportWindowStart, isFlaggedHost } from "./host-flags";
 
@@ -96,33 +96,67 @@ export async function getOpenFlagCounts(now: Date = new Date()): Promise<FlagCou
 }
 
 /**
- * Is this host flagged right now (an open report flag or an open host-cancellation flag)? Used by
- * the review rule; it THROWS on a database error so the caller can fail closed.
+ * Report decisions that keep the host under review until staff mark the host reviewed ("סימון
+ * כנבדק"): "hide all their listings" and "remove the host" (Report.actionTaken).
+ */
+export const SANCTION_ACTIONS = ["listings_hidden", "host_removed"] as const;
+
+/**
+ * Was a report about this host closed with a sanction (SANCTION_ACTIONS) in the flag window and
+ * after staff last marked the host reviewed? Then the host's paused, expired and new listings wait
+ * for a person instead of going live. One query; it THROWS on a database error (callers fail closed).
+ */
+export async function isHostSanctioned(userId: string, now: Date = new Date()): Promise<boolean> {
+  const since = hostReportWindowStart(now);
+  const [row] = await db.$queryRaw<{ sanctioned: boolean }[]>`
+    SELECT EXISTS (
+      SELECT 1
+      FROM "Report" r
+      LEFT JOIN "Listing" l ON l."id" = r."listingId"
+      JOIN "User" u ON u."id" = ${userId}
+      WHERE COALESCE(r."targetUserId", l."ownerId") = ${userId}
+        AND r."actionTaken" IN (${Prisma.join([...SANCTION_ACTIONS])})
+        AND r."handledAt" >= ${since} AND r."handledAt" <= ${now}
+        AND (u."hostFlagReviewedAt" IS NULL OR r."handledAt" > u."hostFlagReviewedAt")
+    ) AS "sanctioned"`;
+  return row?.sanctioned === true;
+}
+
+/**
+ * Is this host flagged right now (an open report flag, an open host-cancellation flag, or a
+ * report sanction not yet reviewed)? Used by the review rule; it THROWS on a database error so
+ * the caller can fail closed.
  */
 export async function isHostFlagged(userId: string, now: Date = new Date()): Promise<boolean> {
-  const [rows, openCancellationFlags] = await Promise.all([
+  const [rows, openCancellationFlags, sanctioned] = await Promise.all([
     hostFlagRows(now, { state: "any", userId, limit: 1 }),
     db.booking.count({ where: { ...OPEN_CANCELLATION, hostUserId: userId } }),
+    isHostSanctioned(userId, now),
   ]);
   const row = rows[0];
   const reportFlagOpen = row ? hostReportFlagOpen({ reportCount: row.reports, latestReportAt: row.latest, reviewedAt: row.reviewedAt }) : false;
-  return isFlaggedHost({ reportFlagOpen, openCancellationFlags });
+  return sanctioned || isFlaggedHost({ reportFlagOpen, openCancellationFlags });
 }
 
 /** The flag state of one host for the user page and the review page. Never throws. */
 export async function hostFlagSummary(userId: string, now: Date = new Date()) {
   try {
-    const [rows, openCancellations, openNoShows, reviewedAt] = await Promise.all([
+    const [rows, openCancellations, openNoShows, reviewedAt, sanctioned] = await Promise.all([
       hostFlagRows(now, { state: "any", userId, limit: 1 }),
       db.booking.count({ where: { ...OPEN_CANCELLATION, hostUserId: userId } }),
       db.booking.count({ where: { ...OPEN_NO_SHOW, hostUserId: userId } }),
       db.user.findUnique({ where: { id: userId }, select: { hostFlagReviewedAt: true } }),
+      isHostSanctioned(userId, now),
     ]);
     const row = rows[0] ?? null;
     const reportFlagOpen = row ? hostReportFlagOpen({ reportCount: row.reports, latestReportAt: row.latest, reviewedAt: row.reviewedAt }) : false;
     return {
-      flagged: isFlaggedHost({ reportFlagOpen, openCancellationFlags: openCancellations }),
+      flagged: sanctioned || isFlaggedHost({ reportFlagOpen, openCancellationFlags: openCancellations }),
       reportFlagOpen,
+      /** A report closed with "hide all listings" / "remove the host", not yet marked reviewed. */
+      sanctioned,
+      /** The newest counting report (for "mark reviewed": anything newer opens the flag again). */
+      latestReportAt: row?.latest ?? null,
       countingReports: row?.reports ?? 0,
       turnedAway: row?.turnedAway ?? 0,
       openCancellations,

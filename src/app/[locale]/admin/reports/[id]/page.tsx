@@ -27,6 +27,7 @@ export async function generateMetadata({ params }: PageProps<"/[locale]/admin/re
 }
 
 const HOST_REASONS = new Set(["DOUBLE_BOOKING", "PROPERTY_ISSUE", "OTHER"]);
+const LONG_DAY = { day: "numeric", month: "long", year: "numeric" } as const;
 const BOOKING_STATUSES = new Set(["CONFIRMED", "CANCELLED_BY_GUEST", "CANCELLED_BY_HOST", "COMPLETED", "NO_SHOW"]);
 
 /**
@@ -51,7 +52,9 @@ export default async function ReportDetailPage({ params }: PageProps<"/[locale]/
   const canAct = can(staff.role, "reports");
   const n = (v: number) => formatNumber(v, locale);
   const reasonLabel = (reason: string) => (tFields.has(`reportReason.${reason}`) ? tFields(`reportReason.${reason}`) : reason);
-  const day = (value: string) => formatDate(value, locale, { day: "numeric", month: "long", year: "numeric" });
+  // "YYYY-MM-DD" calendar days (happenedOn) stay as they are; a moment (handledAt) is the day it
+  // was in Georgia, the same day the facts list below shows.
+  const day = (value: string | Date) => formatDate(value, locale, LONG_DAY);
   const listing = report.listing;
   const booking = report.booking;
   const turnedAway = report.kind === "TURNED_AWAY";
@@ -89,7 +92,7 @@ export default async function ReportDetailPage({ params }: PageProps<"/[locale]/
           {report.status !== "OPEN" ? (
             <p className="mb-3 text-sm">
               <span className="font-medium">{report.actionTaken ? t(`actionTaken.${report.actionTaken as "resolved"}`) : tAdmin(`reportStatus.${report.status}`)}</span>
-              {report.handledAt ? <span className="text-muted-foreground"> · {t("handledValue", { name: report.handledBy?.name ?? "—", date: day(report.handledAt.toISOString().slice(0, 10)) })}</span> : null}
+              {report.handledAt ? <span className="text-muted-foreground"> · {t("handledValue", { name: report.handledBy?.name ?? "—", date: day(report.handledAt) })}</span> : null}
             </p>
           ) : null}
           <ReportActions

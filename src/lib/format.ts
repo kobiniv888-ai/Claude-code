@@ -264,5 +264,24 @@ export function formatRelativeTime(date: DateInput, locale: Locale, now: Date = 
   if (isGeorgianLocale(locale)) return georgianRelativeTime(value, unit, (n) => formatNumber(n, locale));
   const tag = intlLocale(locale);
   const formatter = cached("r", tag, {}, () => new Intl.RelativeTimeFormat(tag, { numeric: "auto" }));
-  return formatter.format(value, unit);
+  const text = formatter.format(value, unit);
+  // Newer CLDR data (ICU 78) writes the Hebrew one/two forms with the count in brackets:
+  // "לפני שעתיים (2)". The word already says the number; an older ICU (a browser) has no brackets,
+  // so server and browser text match.
+  return locale === "he" ? text.replace(/\s*\(\d+\)$/u, "") : text;
+}
+
+/**
+ * A name or other user text inside a translated sentence, isolated from it (FSI … PDI), so a Latin
+ * or Georgian name in a Hebrew sentence keeps its punctuation and doesn't pull a following number
+ * ("Demo Admin, 4 בנוב׳") into its own direction. For a plain string argument; in JSX use
+ * <bdi dir="auto">.
+ */
+export function isolate(text: string): string {
+  return `\u2068${text}\u2069`;
+}
+
+/** Left-to-right text inside a sentence (LRI … PDI): signed numbers such as "+15" in RTL text. */
+export function isolateLtr(text: string): string {
+  return `\u2066${text}\u2069`;
 }

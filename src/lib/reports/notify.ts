@@ -19,10 +19,20 @@ import { parseReportAttachments } from "./turned-away";
  *
  * Both never throw: a report is saved even when an email fails. A burst (more than
  * FOUNDER_REPORT_EMAILS_PER_HOUR in an hour, e.g. many accounts reporting at once) is left for
- * the queue and the daily summary instead of filling the founder's inbox.
+ * the queue and the daily summary instead of filling the founder's inbox. Turned-away reports
+ * ("urgent", promised by email right away) have their own, larger budget, so a burst of ordinary
+ * reports never silences them.
  */
 
 export const FOUNDER_REPORT_EMAILS_PER_HOUR = 30;
+export const FOUNDER_URGENT_REPORT_EMAILS_PER_HOUR = 60;
+
+/** The hourly email budget a report draws from: urgent (turned-away) reports have their own. */
+export function founderReportBudget(kind: string): { key: string; limit: number } {
+  return kind === "TURNED_AWAY"
+    ? { key: "founder:reports:urgent", limit: FOUNDER_URGENT_REPORT_EMAILS_PER_HOUR }
+    : { key: "founder:reports:general", limit: FOUNDER_REPORT_EMAILS_PER_HOUR };
+}
 
 const reportSelect = {
   id: true,
@@ -45,7 +55,8 @@ export async function notifyFounderOfReport(reportId: string): Promise<void> {
   try {
     const report = await db.report.findUnique({ where: { id: reportId }, select: reportSelect });
     if (!report) return;
-    const burst = await rateLimit("founder:reports:all", { limit: FOUNDER_REPORT_EMAILS_PER_HOUR, windowSeconds: 3600 }).catch(() => ({ ok: true }));
+    const budget = founderReportBudget(report.kind);
+    const burst = await rateLimit(budget.key, { limit: budget.limit, windowSeconds: 3600 }).catch(() => ({ ok: true }));
     if (!burst.ok) return;
     const host = report.targetUser ?? report.listing?.owner ?? null;
     const data = {

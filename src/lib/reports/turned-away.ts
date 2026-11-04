@@ -176,11 +176,21 @@ export type TurnedAwayData = z.output<typeof turnedAwayInputSchema>;
  */
 export function reporterNameForHost(report: {
   reporterRevealedAt: Date | string | null | undefined;
-  reporter: { firstName?: string | null; name?: string | null } | null | undefined;
+  reporter: { firstName?: string | null; name?: string | null; status?: string | null } | null | undefined;
 }): string | null {
   if (!report.reporterRevealedAt || !report.reporter) return null;
+  // A guest who deleted their account has no name left to tell (it reads "Deleted user").
+  if (report.reporter.status === "DELETED") return null;
   // Never a phone number or an email address that was stored as a name.
   return firstNameOf(report.reporter);
+}
+
+/**
+ * Who may tell the host who reported: the founder (PLAN.md answer 10: "never reveal the reporter
+ * unless the founder decides to"), i.e. an ADMIN. Moderators decide reports but never reveal.
+ */
+export function canRevealReporter(role: string | null | undefined): boolean {
+  return role === "ADMIN";
 }
 
 // ─── Keeping screenshots ──────────────────────────────────────

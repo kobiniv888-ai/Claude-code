@@ -14,8 +14,8 @@ import { approximateLocation, type LatLng } from "@/lib/geo";
 import { computeShabbatFriendly, MODERATION_REASONS, type ModerationReason } from "@/lib/listing/fields";
 import { computeListingProximity } from "@/lib/nearby";
 import { PLEDGE_CURRENT_VERSION } from "@/lib/pledge";
-import { decideSubmitTarget, runReviewGate, type ReviewGate, type SubmitDecision } from "./review-rule";
-import { isHostFlagged } from "./host-flags-server";
+import { decideSubmitTarget, riskScoreNeedsReview, runReviewGate, type ReviewGate, type SubmitDecision } from "./review-rule";
+import { isHostFlagged, isHostSanctioned } from "./host-flags-server";
 import { notifyFounderListingInReview } from "@/lib/alerts/founder-admin";
 import { notifyListingDecision } from "@/lib/alerts/listing-decision";
 import { assessListing, type RiskAssessment, type RiskReason } from "@/lib/risk";
@@ -136,15 +136,19 @@ async function loadListing<S extends Prisma.ListingSelect>(listingId: string, se
   return listing;
 }
 
-/** Conditional status change: only applies when the status is still `from`. True when it applied. */
+/**
+ * Conditional status change: only applies when the status is still `from` (and `guard` still
+ * holds, e.g. the content a moderator looked at). True when it applied.
+ */
 async function transition(
   listingId: string,
   from: ListingStatus,
   data: Prisma.ListingUncheckedUpdateManyInput,
   ownerId?: string,
+  guard: Prisma.ListingWhereInput = {},
 ): Promise<boolean> {
   const { count } = await db.listing.updateMany({
-    where: { id: listingId, status: from, ...(ownerId ? { ownerId } : {}) },
+    where: { ...guard, id: listingId, status: from, ...(ownerId ? { ownerId } : {}) },
     data,
   });
   return count === 1;
@@ -378,12 +382,18 @@ export async function submitForPublication(listingId: string, ownerId: string): 
 
   // Taken before the checks run, so an edit saved meanwhile still counts as "changed since".
   const checkedAt = new Date();
-  const [checked, gate] = await Promise.all([assessListing(listing.id), reviewGateFor(listing)]);
+  const [checked, gate, { reviewRiskThreshold }] = await Promise.all([assessListing(listing.id), reviewGateFor(listing), getSettings()]);
   const assessment = withGateReasons(checked, gate);
   const from = listing.status;
   // Once a person is asked to look (changes asked, rejected, waiting), only a person lets it go
-  // live; a first listing and a flagged host's new listing always wait (./review-rule.ts).
-  const decision: SubmitDecision = decideSubmitTarget({ from, blocked: assessment.blocked, riskRequiresReview: assessment.requiresReview, gate });
+  // live; a first listing and a flagged host's new listing always wait (./review-rule.ts). "risk"
+  // is the score alone: the first-listing part of the checks' own verdict is the gate's reason.
+  const decision: SubmitDecision = decideSubmitTarget({
+    from,
+    blocked: assessment.blocked,
+    riskRequiresReview: riskScoreNeedsReview(checked.score, reviewRiskThreshold),
+    gate: { ...gate, firstListing: gate.firstListing || checked.reasons.some((r) => r.code === "first_listing") },
+  });
   const target: ListingStatus = decision.target;
 
   const now = new Date();
@@ -514,6 +524,46 @@ export async function recheckLiveListingAfterPriceChange(listingId: string, owne
   return { status: toReview ? "IN_REVIEW" : "LIVE", rechecked: true, reasons: assessment.reasons };
 }
 
+/**
+ * Call after an auto-saved edit of a LIVE listing that must be checked at once (new contact
+ * methods, text with scam phrases or contact details: src/lib/wizard/actions.ts updateDraft).
+ * Runs the automatic checks on what is public now WITHOUT the publishing requirements (a missing
+ * price or a pledge raised since must not stop the check): a result that needs a person takes
+ * the listing off the site (IN_REVIEW, "listing_in_review" email, the founder is told).
+ */
+export async function recheckLiveListingAfterEdit(listingId: string, ownerId: string): Promise<PriceRecheckResult> {
+  const listing = await loadListing(listingId, RECHECK_SELECT, ownerId);
+  if (listing.status !== "LIVE") return { status: listing.status, rechecked: false, reasons: [] };
+  await prepareListingDerivedFields(listing.id);
+  const checkedAt = new Date();
+  const assessment = await assessListing(listing.id);
+  const toReview = needsPerson(assessment);
+  const applied = await transition(listing.id, "LIVE", { ...riskData(assessment, checkedAt), ...(toReview ? { status: "IN_REVIEW" } : {}) }, ownerId);
+  if (!applied) {
+    return { status: (await loadListing(listing.id, { status: true })).status, rechecked: true, reasons: assessment.reasons };
+  }
+  if (toReview) {
+    await notifyOwner(listing.owner, "listing_in_review", { ownerName: listing.owner.name, listingTitle: listing.title }, { optional: true });
+    await notifyFounderListingInReview(listing.id, [assessment.blocked ? "blocked" : "recheck"]);
+  }
+  return { status: toReview ? "IN_REVIEW" : "LIVE", rechecked: true, reasons: assessment.reasons };
+}
+
+/**
+ * The checks of a live listing's edit could not run (a database or service error): FAIL CLOSED,
+ * the listing waits for a person (LIVE → IN_REVIEW) and the founder is told. Never throws.
+ */
+export async function holdLiveListingForReview(listingId: string, ownerId: string): Promise<boolean> {
+  try {
+    const applied = await transition(listingId, "LIVE", { status: "IN_REVIEW" }, ownerId);
+    if (applied) await notifyFounderListingInReview(listingId, ["recheck"]);
+    return applied;
+  } catch (error) {
+    console.error(`[lifecycle] could not hold live listing ${listingId} for review:`, error);
+    return false;
+  }
+}
+
 // ─── Moderation (staff) ───────────────────────────────────────
 
 const moderationInput = z.object({
@@ -529,31 +579,92 @@ const moderationInput = z.object({
 const MODERATION_SELECT = {
   id: true,
   publicId: true,
+  ownerId: true,
   status: true,
   title: true,
   publishedAt: true,
   expiresAt: true,
   moderationReason: true,
   moderationNote: true,
+  riskReasons: true,
+  lastCheckedAt: true,
+  contentUpdatedAt: true,
   owner: { select: OWNER_SELECT },
 } satisfies Prisma.ListingSelect;
+type ModerationListing = Prisma.ListingGetPayload<{ select: typeof MODERATION_SELECT }>;
 
 export type ModerationResult = { status: ListingStatus; changed: boolean };
 
-/** A moderator approves a listing waiting for review (or one sent back earlier). */
-export async function approveListing(listingId: string, staffId: string): Promise<ModerationResult> {
+/** What the moderator's page showed: approving or restoring is refused when the content changed since. */
+export type ModerationSeen = { contentUpdatedAt?: Date | null };
+
+/** The listing changed since the moderator's page was opened, or its checks now say something new. */
+export class ContentChangedError extends AppError {
+  constructor() {
+    super("content_changed", "The listing changed since it was looked at", { status: 409 });
+  }
+}
+
+function assertSeenContent(listing: ModerationListing, seen: ModerationSeen) {
+  if (seen.contentUpdatedAt && seen.contentUpdatedAt.getTime() !== listing.contentUpdatedAt.getTime()) throw new ContentChangedError();
+}
+
+function reasonCodes(reasons: unknown): string[] {
+  return (Array.isArray(reasons) ? reasons.map((r) => String((r as { code?: unknown })?.code ?? "")) : []).sort();
+}
+
+/**
+ * Checks results that are up to date before a moderator's decision puts a listing on the site:
+ * when the content changed since the checks last ran (an auto-save while waiting or hidden), they
+ * run again and are stored. The gate's "first listing" reason is kept (the checks only re-run).
+ * Null when nothing changed.
+ */
+async function freshChecksForModeration(listing: ModerationListing) {
+  const recheck = await recheckIfChanged(listing);
+  if (!recheck) return null;
+  const firstListing = reasonCodes(listing.riskReasons).includes("first_listing") && !recheck.assessment.reasons.some((r) => r.code === "first_listing");
+  const assessment: RiskAssessment = firstListing
+    ? { ...recheck.assessment, reasons: [...recheck.assessment.reasons, { code: "first_listing", points: 0 }] }
+    : recheck.assessment;
+  const data = { ...recheck.data, riskReasons: assessment.reasons as unknown as Prisma.InputJsonValue };
+  // The moderator's page showed other results (or a blocked phrase is new): they look again first.
+  const different = assessment.blocked || reasonCodes(assessment.reasons).join() !== reasonCodes(listing.riskReasons).join();
+  return { assessment, data, different };
+}
+
+/**
+ * A moderator approves a listing waiting for review (or one sent back earlier). It goes live as
+ * the moderator saw it: refused (ContentChangedError, "content_changed") when the content changed
+ * since their page was opened (`seen`), or when it changed since the automatic checks ran and the
+ * checks, run again now and stored, found something new (the page then shows the fresh results).
+ * An edit that lands between this check and the update makes the update not apply.
+ */
+export async function approveListing(listingId: string, staffId: string, seen: ModerationSeen = {}): Promise<ModerationResult> {
   const listing = await loadListing(listingId, MODERATION_SELECT);
   if (listing.status === "LIVE") return { status: "LIVE", changed: false };
   if (!(["IN_REVIEW", "NEEDS_CHANGES", "REJECTED"] as ListingStatus[]).includes(listing.status)) {
     throw new ListingStatusError(listing.status, "approve");
   }
+  assertSeenContent(listing, seen);
+  const fresh = await freshChecksForModeration(listing);
+  const guard = { contentUpdatedAt: listing.contentUpdatedAt };
+  if (fresh?.different) {
+    await transition(listing.id, listing.status, fresh.data, undefined, guard);
+    throw new ContentChangedError();
+  }
   const now = new Date();
-  const applied = await transition(listing.id, listing.status, {
-    ...(await liveData(listing, now)),
-    reviewedAt: now,
-    reviewedById: staffId,
-  });
-  if (!applied) return { status: (await loadListing(listing.id, { status: true })).status, changed: false };
+  const applied = await transition(
+    listing.id,
+    listing.status,
+    { ...(fresh?.data ?? {}), ...(await liveData(listing, now)), reviewedAt: now, reviewedById: staffId },
+    undefined,
+    guard,
+  );
+  if (!applied) {
+    const current = await loadListing(listing.id, { status: true, contentUpdatedAt: true });
+    if (current.status === listing.status) throw new ContentChangedError();
+    return { status: current.status, changed: false };
+  }
 
   await audit({
     actorId: staffId,
@@ -678,22 +789,41 @@ export function rejectListing(
   return sendBack("rejected", listingId, staffId, reasonCode, note);
 }
 
-/** A moderator puts a listing that was hidden after reports back online (or EXPIRED if its time ran out). */
-export async function restoreHiddenListing(listingId: string, staffId: string): Promise<ModerationResult> {
+/**
+ * A moderator puts a listing that was hidden after reports back online (or EXPIRED if its time ran
+ * out). The host can edit a hidden listing: when it changed since the automatic checks ran, they run
+ * again first, and a result that needs a person sends it to review (IN_REVIEW, the founder is told)
+ * instead of the site. Refused when the content changed since the moderator's page was opened.
+ */
+export async function restoreHiddenListing(listingId: string, staffId: string, seen: ModerationSeen = {}): Promise<ModerationResult> {
   const listing = await loadListing(listingId, MODERATION_SELECT);
   if (listing.status === "LIVE") return { status: "LIVE", changed: false };
   if (listing.status !== "HIDDEN") throw new ListingStatusError(listing.status, "restore");
+  assertSeenContent(listing, seen);
+  const fresh = await freshChecksForModeration(listing);
+  const toReview = !!fresh && needsPerson(fresh.assessment);
   const now = new Date();
-  const target: ListingStatus = listing.expiresAt && listing.expiresAt <= now ? "EXPIRED" : "LIVE";
-  const applied = await transition(listing.id, "HIDDEN", { status: target, reviewedAt: now, reviewedById: staffId });
-  if (!applied) return { status: (await loadListing(listing.id, { status: true })).status, changed: false };
+  const target: ListingStatus = toReview ? "IN_REVIEW" : listing.expiresAt && listing.expiresAt <= now ? "EXPIRED" : "LIVE";
+  const applied = await transition(
+    listing.id,
+    "HIDDEN",
+    { ...(fresh?.data ?? {}), status: target, ...(toReview ? {} : { reviewedAt: now, reviewedById: staffId }) },
+    undefined,
+    { contentUpdatedAt: listing.contentUpdatedAt },
+  );
+  if (!applied) {
+    const current = await loadListing(listing.id, { status: true });
+    if (current.status === "HIDDEN") throw new ContentChangedError();
+    return { status: current.status, changed: false };
+  }
   await audit({
     actorId: staffId,
     action: "listing.restore",
     targetType: "Listing",
     targetId: listing.id,
-    details: { publicId: listing.publicId, to: target },
+    details: { publicId: listing.publicId, to: target, rechecked: !!fresh },
   });
+  if (toReview) await notifyFounderListingInReview(listing.id, [fresh?.assessment.blocked ? "blocked" : "recheck"]);
   return { status: target, changed: true };
 }
 
@@ -765,16 +895,32 @@ export type OwnerActionResult = { status: ListingStatus; changed: boolean; expir
 
 const OWNER_ACTION_SELECT = {
   ...RECHECK_SELECT,
+  ownerId: true,
   dealType: true,
   expiresAt: true,
   publishedAt: true,
 } satisfies Prisma.ListingSelect;
 
 /**
+ * Is the owner under a report sanction ("hide all their listings" / "remove the host", not yet
+ * marked reviewed)? FAILS CLOSED: an error counts as yes.
+ */
+async function ownerSanctioned(ownerId: string): Promise<boolean> {
+  try {
+    return await isHostSanctioned(ownerId);
+  } catch (error) {
+    console.error(`[lifecycle] sanction check for ${ownerId} failed, the listing waits:`, error);
+    return true;
+  }
+}
+
+/**
  * Loads the owner's listing, plans the change and applies it conditionally. A change that puts
  * a listing (back) on the site — unpause, renew — first runs the automatic checks again when
  * the content changed since they last ran: a high-risk result goes to IN_REVIEW instead
- * (with the "listing_in_review" email), so editing while paused cannot skip the checks.
+ * (with the "listing_in_review" email), so editing while paused cannot skip the checks. A host
+ * whose listings staff hid after a report (or who was removed and let back) waits for a person
+ * too, until staff mark the host reviewed (host-flags-server.ts isHostSanctioned).
  */
 async function ownerAction(
   listingId: string,
@@ -790,13 +936,14 @@ async function ownerAction(
   if ("noop" in step) return { status: listing.status, changed: false, expiresAt: listing.expiresAt };
   let data = step.data;
   let toReview = false;
+  let why: string[] = ["recheck"];
   if (data.status === "LIVE" && listing.status !== "LIVE") {
-    const recheck = await recheckIfChanged(listing);
-    if (recheck) {
-      toReview = needsPerson(recheck.assessment);
-      // In review it keeps its old dates; approval gives it a fresh expiry (see approveListing).
-      data = toReview ? { ...recheck.data, status: "IN_REVIEW" } : { ...data, ...recheck.data };
-    }
+    const [recheck, sanctioned] = await Promise.all([recheckIfChanged(listing), ownerSanctioned(listing.ownerId)]);
+    toReview = sanctioned || (!!recheck && needsPerson(recheck.assessment));
+    if (sanctioned) why = ["flagged_host"];
+    // In review it keeps its old dates; approval gives it a fresh expiry (see approveListing).
+    if (toReview) data = { ...(recheck?.data ?? {}), status: "IN_REVIEW" };
+    else if (recheck) data = { ...data, ...recheck.data };
   }
   const applied = await transition(listing.id, listing.status, data, ownerId);
   const fresh = await loadListing(listing.id, { status: true, expiresAt: true });
@@ -804,7 +951,7 @@ async function ownerAction(
   if (action === "delete") await audit({ actorId: ownerId, action: "listing.delete", targetType: "Listing", targetId: listing.id });
   if (toReview) {
     await notifyOwner(listing.owner, "listing_in_review", { ownerName: listing.owner.name, listingTitle: listing.title }, { optional: true });
-    await notifyFounderListingInReview(listing.id, ["recheck"]);
+    await notifyFounderListingInReview(listing.id, why);
   }
   return { status: fresh.status, changed: true, expiresAt: fresh.expiresAt };
 }

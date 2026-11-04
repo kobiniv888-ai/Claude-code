@@ -93,7 +93,9 @@ export async function deleteUnattachedPrivateUploads(
         continue;
       }
     }
-    await db.privateUpload.delete({ where: { key: upload.key } });
+    // deleteMany: an overlapping run (a cron call delivered twice, a manual run) may have
+    // dropped the row already, and that must not stop the rest of the cleanup.
+    await db.privateUpload.deleteMany({ where: { key: upload.key } });
   }
   return { deleted, attached, failed };
 }

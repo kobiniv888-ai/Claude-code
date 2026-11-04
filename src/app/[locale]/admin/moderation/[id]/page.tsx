@@ -20,7 +20,7 @@ import { hostFlagSummary } from "@/lib/admin/server/flags";
 import { getListingForReview, nextInReview } from "@/lib/admin/server/moderation";
 import { cityName, coverUrl, realEmail } from "@/lib/admin/server/shared";
 import { requireStaff } from "@/lib/auth/session";
-import { formatArea, formatDate, formatMoney, formatNumber, formatRelativeTime } from "@/lib/format";
+import { formatArea, formatDate, formatMoney, formatNumber, formatRelativeTime, isolate, isolateLtr } from "@/lib/format";
 import { listingPath } from "@/lib/listing/urls";
 import { photoUrl } from "@/lib/media";
 import { getSettings } from "@/lib/settings";
@@ -36,7 +36,7 @@ export async function generateMetadata({ params }: PageProps<"/[locale]/admin/mo
 export default async function ModerationDetailPage({ params }: PageProps<"/[locale]/admin/moderation/[id]">) {
   const { locale, id } = await params;
   setRequestLocale(locale);
-  await requireStaff("moderation");
+  const staff = await requireStaff("moderation");
   const data = await getListingForReview(id);
   if (!data) notFound();
   const { listing } = data;
@@ -181,7 +181,7 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
             {listing.isDemo ? <span className="rounded-full bg-muted px-2 py-0.5 text-xs">{tAdmin("markers.demo")}</span> : null}
             {listing.reviewedAt ? (
               <span className="text-xs">
-                {t("lastReview", { name: listing.reviewedBy?.name ?? "—", date: formatDate(listing.reviewedAt, locale) })}
+                {t("lastReview", { name: isolate(listing.reviewedBy?.name ?? "—"), date: formatDate(listing.reviewedAt, locale) })}
               </span>
             ) : null}
           </>
@@ -210,7 +210,14 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
 
       <div className="sticky top-14 z-20 -mx-4 mb-5 border-y bg-background/95 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-xl sm:border">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <ModerationActions listingId={listing.id} status={listing.status} title={listing.title} ownerLocaleLabel={ownerLanguage} />
+          <ModerationActions
+            listingId={listing.id}
+            status={listing.status}
+            title={listing.title}
+            ownerLocaleLabel={ownerLanguage}
+            contentUpdatedAt={listing.contentUpdatedAt.toISOString()}
+            own={staff.role !== "ADMIN" && listing.ownerId === staff.id}
+          />
           <p className="hidden text-xs text-muted-foreground lg:block">{t("shortcutsHint")}</p>
         </div>
         {listing.moderationReason && (listing.status === "NEEDS_CHANGES" || listing.status === "REJECTED") ? (
@@ -265,20 +272,38 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
                 : t("precheck.summary", { found: precheckCounts.found + precheckCounts.blocked, ok: precheckCounts.ok })
             }
           >
+            {data.checksStale ? (
+              <p role="status" className="mb-3 flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-2.5 text-sm text-destructive">
+                <AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0" />
+                {t("precheck.stale")}
+              </p>
+            ) : null}
             <ul className="grid gap-1.5 sm:grid-cols-2">
               {precheck.map((item) => (
                 <li key={item.id} className="flex items-start gap-2 rounded-lg border bg-background px-2.5 py-2 text-sm">
                   <PrecheckIcon status={item.status} />
                   <span className="min-w-0 flex-1">
-                    <span className="block font-medium">{t(`precheck.checks.${item.id}`)}</span>
+                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1 font-medium">
+                      {t(`precheck.checks.${item.id}`)}
+                      {item.status === "blocked" && item.findings.length ? (
+                        <span className="rounded-full bg-destructive px-2 py-0.5 text-[11px] font-semibold text-destructive-foreground">
+                          {t("precheck.status.blocked")}
+                        </span>
+                      ) : null}
+                    </span>
                     <span className="block text-xs text-muted-foreground">
-                      {item.findings.length
-                        ? item.findings.map((f) => (tRisk.has(f.code) ? tRisk(f.code) : f.code)).join(" · ")
-                        : t(`precheck.status.${item.status}`)}
+                      {item.findings.length ? (
+                        <>
+                          {item.status !== "blocked" ? <span className="sr-only">{t(`precheck.status.${item.status}`)}: </span> : null}
+                          {item.findings.map((f) => (tRisk.has(f.code) ? tRisk(f.code) : f.code)).join(" · ")}
+                        </>
+                      ) : (
+                        t(`precheck.status.${item.status}`)
+                      )}
                     </span>
                   </span>
                   {item.points > 0 ? (
-                    <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-semibold tabular-nums">{t("points", { points: `+${n(item.points)}` })}</span>
+                    <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-semibold tabular-nums">{t("points", { points: isolateLtr(`+${n(item.points)}`) })}</span>
                   ) : null}
                 </li>
               ))}
@@ -315,7 +340,7 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
                           level === "high" ? "bg-destructive/10 text-destructive" : "bg-muted",
                         )}
                       >
-                        {t("points", { points: `+${n(r.points)}` })}
+                        {t("points", { points: isolateLtr(`+${n(r.points)}`) })}
                       </span>
                     </li>
                   ))}

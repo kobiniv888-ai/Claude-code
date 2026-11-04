@@ -32,7 +32,7 @@ export type SubmitDecisionInput = {
   from: ListingStatus;
   /** The automatic checks blocked publishing. */
   blocked: boolean;
-  /** The automatic checks want a person (high risk score, or their own first-listing check). */
+  /** The automatic checks' score wants a person (riskScoreNeedsReview). */
   riskRequiresReview: boolean;
   gate: ReviewGate;
 };
@@ -42,6 +42,14 @@ export type SubmitDecision = {
   /** Why it waits for a person (empty when it goes live or stays). */
   why: ("blocked" | "back_to_review" | "first_listing" | "flagged_host" | "risk")[];
 };
+
+/**
+ * The "risk" reason: the automatic checks' score alone (their own first-listing verdict is the
+ * gate's "first_listing", so a clean first listing doesn't read "the checks found a risk").
+ */
+export function riskScoreNeedsReview(score: number, reviewThreshold: number): boolean {
+  return score >= reviewThreshold;
+}
 
 export function decideSubmitTarget(input: SubmitDecisionInput): SubmitDecision {
   const { from, blocked, riskRequiresReview, gate } = input;

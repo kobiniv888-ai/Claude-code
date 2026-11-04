@@ -91,7 +91,7 @@ vi.mock("@/lib/storage", async (importOriginal) => ({
 const { db } = await import("@/lib/db");
 const { Prisma } = await import("@/generated/prisma/client");
 const { tbilisiToday } = await import("@/lib/booking/dates");
-const { createTurnedAwayReport } = await import("@/lib/reports/actions");
+const { createReport, createTurnedAwayReport } = await import("@/lib/reports/actions");
 const { deleteExpiredReportScreenshots } = await import("@/lib/reports/retention");
 const { hostFlagSummary } = await import("@/lib/admin/server/flags");
 const admin = await import("@/lib/admin/actions/reports");
@@ -111,6 +111,9 @@ const users = {
   flag2: id("flag2"),
   flag3: id("flag3"),
   flag4: id("flag4"),
+  racer: id("racer"),
+  racer2: id("racer2"),
+  racer3: id("racer3"),
 };
 const listings = { live: "", live2: "", draft: "", guestOwn: "", flag1: "", flag2: "", flag3: "", flag4: "" };
 let cityId = "";
@@ -309,6 +312,40 @@ describe("sending a turned-away report", () => {
       ok: false,
       error: "attachment_invalid",
     });
+  });
+});
+
+describe("two submits at the same moment (two tabs, or a script)", () => {
+  it("one open report per guest, host and booking holds", async () => {
+    state.user = { id: users.racer };
+    const raceBooking = await createBooking("race", users.racer);
+    const results = await Promise.all([report({ bookingId: raceBooking }), report({ bookingId: raceBooking, reason: "REFUSED_OR_IGNORED" })]);
+    expect(results.filter((r) => r.ok)).toHaveLength(1);
+    expect(results.filter((r) => !r.ok)).toEqual([expect.objectContaining({ error: "already_reported" })]);
+    expect(await db.report.count({ where: { bookingId: raceBooking } })).toBe(1);
+  });
+
+  it("one screenshot goes on one report only", async () => {
+    state.user = { id: users.racer2 };
+    const raceBooking = await createBooking("race2", users.racer2);
+    const shot = await upload(users.racer2, "race");
+    // Two different targets (a booking, and the listing without one), the same screenshot.
+    const results = await Promise.all([
+      report({ bookingId: raceBooking, attachments: [shot] }),
+      report({ listingId: listings.live2, attachments: [shot] }),
+    ]);
+    expect(results.filter((r) => r.ok)).toHaveLength(1);
+    expect(results.filter((r) => !r.ok)).toEqual([expect.objectContaining({ error: "attachment_invalid" })]);
+    expect(await db.report.count({ where: { reporterId: users.racer2, attachments: { array_contains: [{ key: shot.key }] } } })).toBe(1);
+  });
+
+  it("a listing report (createReport) is saved once", async () => {
+    state.user = { id: users.racer3 };
+    const send = () => createReport({ targetType: "LISTING", targetId: listings.live, reason: "WRONG_PRICE" });
+    const results = await Promise.all([send(), send()]);
+    expect(results.filter((r) => r.ok)).toHaveLength(1);
+    expect(results.filter((r) => !r.ok)).toEqual([expect.objectContaining({ error: "already_reported" })]);
+    expect(await db.report.count({ where: { reporterId: users.racer3, listingId: listings.live, status: "OPEN" } })).toBe(1);
   });
 });
 

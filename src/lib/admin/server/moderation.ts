@@ -4,6 +4,7 @@ import type { ListingStatus } from "@/generated/prisma/enums";
 import { db } from "@/lib/db";
 import type { ContactMethod } from "@/lib/listing/fields";
 import { CONTACT_CHANNELS } from "@/lib/listing/fields";
+import { contentChangedSinceCheck } from "@/lib/listing/lifecycle";
 import { DUPLICATE_PHOTO_MAX_DISTANCE, parseRiskReasons } from "@/lib/risk";
 import { coverPhotoSelect, ownerBadgeSelect, sharedDeviceAccounts, staffNames } from "./shared";
 
@@ -253,6 +254,7 @@ const reviewSelect = {
   publishedAt: true,
   expiresAt: true,
   contentUpdatedAt: true,
+  lastCheckedAt: true,
   isDemo: true,
   createdAt: true,
   updatedAt: true,
@@ -291,8 +293,10 @@ export async function getListingForReview(id: string) {
   if (!listing) return null;
 
   const ownerId = listing.ownerId;
-  const [duplicates, otherListings, reports, ownerReportsAgainst, ownerListingReports, devices, notes, staff, idRequest] =
+  const [checksStale, duplicates, otherListings, reports, ownerReportsAgainst, ownerListingReports, devices, notes, staff, idRequest] =
     await Promise.all([
+      // The host saved a change after the automatic checks ran: the precheck box may be out of date.
+      listing.riskScore === null ? Promise.resolve(false) : contentChangedSinceCheck(listing).catch(() => true),
       findDuplicatePhotos(listing.id),
       db.listing.findMany({
         where: { ownerId, id: { not: listing.id } },
@@ -334,6 +338,7 @@ export async function getListingForReview(id: string) {
 
   return {
     listing,
+    checksStale,
     reasons: parseRiskReasons(listing.riskReasons),
     contacts: parseContactMethods(listing.contactMethods),
     duplicates,

@@ -21,18 +21,25 @@ const CAN_REJECT: ListingStatus[] = ["IN_REVIEW", "NEEDS_CHANGES", "LIVE", "HIDD
 
 /**
  * Approve / ask for changes / reject / restore for one listing. Keyboard: A, C, R, U (restore).
- * After a decision on a listing in review, the next one in the queue opens.
+ * After a decision on a listing in review, the next one in the queue opens. Approve and restore
+ * send the content version the page showed (`contentUpdatedAt`), so an edit saved meanwhile is
+ * looked at first. Not shown for the staff member's own listing (`own`).
  */
 export function ModerationActions({
   listingId,
   status,
   title,
   ownerLocaleLabel,
+  contentUpdatedAt,
+  own = false,
 }: {
   listingId: string;
   status: ListingStatus;
   title: string;
   ownerLocaleLabel: string;
+  /** Listing.contentUpdatedAt as the page showed it (ISO). */
+  contentUpdatedAt: string;
+  own?: boolean;
 }) {
   const t = useTranslations("admin.moderation.actions");
   const tReasons = useTranslations("moderation.reasons");
@@ -58,6 +65,8 @@ export function ModerationActions({
     hint: t("noteHint", { language: ownerLocaleLabel }),
   };
 
+  if (own) return <p className="text-sm text-muted-foreground">{t("ownListing")}</p>;
+
   return (
     <div className="flex flex-wrap gap-2">
       {CAN_APPROVE.includes(status) ? (
@@ -70,7 +79,7 @@ export function ModerationActions({
           description={t("approveDescription", { title })}
           confirmLabel={t("approveConfirm")}
           onConfirm={() =>
-            run(() => approveListingAction({ listingId }), { success: t("approved"), onSuccess: (d) => goNext(d.next) })
+            run(() => approveListingAction({ listingId, contentUpdatedAt }), { success: t("approved"), onSuccess: (d) => goNext(d.next) })
           }
         />
       ) : null}
@@ -83,7 +92,7 @@ export function ModerationActions({
           title={t("restoreTitle")}
           description={t("restoreDescription")}
           confirmLabel={t("restoreConfirm")}
-          onConfirm={() => run(() => restoreListingAction({ listingId }), { success: t("restored") })}
+          onConfirm={() => run(() => restoreListingAction({ listingId, contentUpdatedAt }), { success: t("restored") })}
         />
       ) : null}
       {CAN_REQUEST_CHANGES.includes(status) ? (

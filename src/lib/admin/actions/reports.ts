@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import type { Prisma } from "@/generated/prisma/client";
 import { fail, ok, type ActionResult } from "@/lib/action";
 import { audit } from "@/lib/audit";
 import { can } from "@/lib/auth/permissions";
@@ -8,9 +9,9 @@ import type { CurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { notificationEmailFor, sendEmail } from "@/lib/email";
 import { restoreHiddenListing } from "@/lib/listing/lifecycle";
-import { reporterNameForHost } from "@/lib/reports/turned-away";
+import { canRevealReporter, reporterNameForHost } from "@/lib/reports/turned-away";
 import { ADMIN_TEXT_LIMITS, USER_ACTION_REASONS, type UserActionReason } from "../reasons";
-import { AdminActionError, assertCanManage, localeOf, runStaffAction, userReasonText } from "../server/common";
+import { AdminActionError, assertCanManage, assertNotOwnItem, localeOf, runStaffAction, userReasonText } from "../server/common";
 import { banUser, warnUser } from "../server/user-moderation";
 
 /**
@@ -23,10 +24,12 @@ import { banUser, warnUser } from "../server/user-moderation";
  *   remove host        bans the host (signed out, listings paused, account_suspended email); also
  *                      needs "users.manage"
  *   reveal reporter    a separate, explicit step: tells the host the reporter's first name
- *                      (Report.reporterRevealedAt); turned-away reports only
+ *                      (Report.reporterRevealedAt); turned-away reports only, ADMIN only
  *
  * Every decision needs a reason, writes "report.*" to the audit log (and the account action its
- * own "user.*" / "listing.*" entry), and is refused once someone else decided.
+ * own "user.*" / "listing.*" entry), and is refused once someone else decided: the report is
+ * claimed (a conditional update) before the account is touched or anyone is emailed. Staff other
+ * than an ADMIN never decide a report about themselves or one they sent.
  * Hide / restore THE reported listing stay for listing reports.
  */
 
@@ -60,9 +63,10 @@ async function loadReport(id: string) {
       reason: true,
       targetType: true,
       targetUserId: true,
+      reporterId: true,
       happenedOn: true,
       reporterRevealedAt: true,
-      reporter: { select: { id: true, name: true, firstName: true } },
+      reporter: { select: { id: true, name: true, firstName: true, status: true } },
       booking: { select: { code: true } },
       listing: {
         select: {
@@ -89,24 +93,30 @@ function hostIdOf(report: LoadedReport): string {
   return id;
 }
 
+/** Staff other than an ADMIN never decide a report about themselves or one they sent. */
+function assertNotOwnReport(staff: CurrentUser, report: LoadedReport) {
+  assertNotOwnItem(staff, [report.targetUserId, report.listing?.ownerId, report.reporterId]);
+}
+
 function assertOpen(report: LoadedReport) {
   if (report.status !== "OPEN") throw new AdminActionError("already_decided");
 }
 
-/** Closes an open report (only if nobody else did meanwhile) and writes the report's audit entry. */
-async function closeReport(
-  staff: CurrentUser,
-  report: LoadedReport,
-  decision: {
-    status: "RESOLVED" | "DISMISSED";
-    actionTaken: "resolved" | "dismissed" | "warned" | "listings_hidden" | "host_removed";
-    resolution: string | null;
-    audit: string;
-    details?: Record<string, unknown>;
-  },
-): Promise<boolean> {
+type Decision = {
+  status: "RESOLVED" | "DISMISSED";
+  actionTaken: "resolved" | "dismissed" | "warned" | "listings_hidden" | "host_removed";
+  resolution: string | null;
+};
+
+/**
+ * Claims an open report for one decision BEFORE anything else happens (the account action, the
+ * emails): a conditional update, so of two staff members deciding at once exactly one goes on
+ * and the other gets "already_decided". `guard` adds conditions (a dismissal: not revealed);
+ * when only the guard failed the report is still open and the answer is "invalid_status".
+ */
+async function claimReport(staff: CurrentUser, report: LoadedReport, decision: Decision, guard: Prisma.ReportWhereInput = {}): Promise<void> {
   const { count } = await db.report.updateMany({
-    where: { id: report.id, status: "OPEN" },
+    where: { ...guard, id: report.id, status: "OPEN" },
     data: {
       status: decision.status,
       actionTaken: decision.actionTaken,
@@ -115,21 +125,48 @@ async function closeReport(
       handledAt: new Date(),
     },
   });
+  if (count === 1) return;
+  const fresh = await db.report.findUnique({ where: { id: report.id }, select: { status: true } });
+  throw new AdminActionError(fresh?.status === "OPEN" ? "invalid_status" : "already_decided");
+}
+
+/** Puts a claimed report back to open (the account action after the claim failed). */
+async function releaseClaim(staff: CurrentUser, report: LoadedReport, decision: Decision): Promise<void> {
+  await db.report
+    .updateMany({
+      where: { id: report.id, handledById: staff.id, actionTaken: decision.actionTaken },
+      data: { status: "OPEN", actionTaken: null, resolution: null, handledById: null, handledAt: null },
+    })
+    .catch((error) => console.error(`[admin] could not reopen report ${report.id}:`, error));
+}
+
+/** Claims the report, runs the account action, and reopens the report when the action throws. */
+async function decide<T>(staff: CurrentUser, report: LoadedReport, decision: Decision, action: () => Promise<T>): Promise<T> {
+  await claimReport(staff, report, decision);
+  try {
+    return await action();
+  } catch (error) {
+    await releaseClaim(staff, report, decision);
+    throw error;
+  }
+}
+
+/** The report's own audit entry for a decision that went through. */
+async function auditDecision(staff: CurrentUser, report: LoadedReport, action: string, resolution: string | null, details: Record<string, unknown> = {}) {
   await audit({
     actorId: staff.id,
-    action: decision.audit,
+    action,
     targetType: "Report",
     targetId: report.id,
     details: {
       kind: report.kind,
-      resolution: decision.resolution,
+      resolution,
       listingId: report.listing?.id ?? null,
       targetUserId: report.targetUserId,
-      closed: count === 1,
-      ...decision.details,
+      closed: true,
+      ...details,
     },
   });
-  return count === 1;
 }
 
 export async function resolveReport(input: unknown): Promise<ActionResult<{ status: string }>> {
@@ -138,21 +175,28 @@ export async function resolveReport(input: unknown): Promise<ActionResult<{ stat
     if (!parsed.success) return fail("invalid_input", z.flattenError(parsed.error).fieldErrors);
     const report = await loadReport(parsed.data.reportId);
     assertOpen(report);
-    const closed = await closeReport(staff, report, { status: "RESOLVED", actionTaken: "resolved", resolution: parsed.data.resolution, audit: "report.resolve" });
-    if (!closed) throw new AdminActionError("already_decided");
+    assertNotOwnReport(staff, report);
+    await claimReport(staff, report, { status: "RESOLVED", actionTaken: "resolved", resolution: parsed.data.resolution });
+    await auditDecision(staff, report, "report.resolve", parsed.data.resolution);
     return ok({ status: "RESOLVED" });
   });
 }
 
-/** Dismiss: the report did not show a real problem. Nobody is emailed: the host never knew. */
+/**
+ * Dismiss: the report did not show a real problem. Nobody is emailed: the host never knew. A
+ * report whose reporter was already named to the host can't be dismissed (the host did learn
+ * of it): resolve it instead.
+ */
 export async function dismissReport(input: unknown): Promise<ActionResult<{ status: string }>> {
   return runStaffAction("reports", "report.dismiss", async (staff) => {
     const parsed = closeSchema.safeParse(input);
     if (!parsed.success) return fail("invalid_input", z.flattenError(parsed.error).fieldErrors);
     const report = await loadReport(parsed.data.reportId);
     assertOpen(report);
-    const closed = await closeReport(staff, report, { status: "DISMISSED", actionTaken: "dismissed", resolution: parsed.data.resolution, audit: "report.dismiss" });
-    if (!closed) throw new AdminActionError("already_decided");
+    assertNotOwnReport(staff, report);
+    if (report.reporterRevealedAt) throw new AdminActionError("invalid_status");
+    await claimReport(staff, report, { status: "DISMISSED", actionTaken: "dismissed", resolution: parsed.data.resolution }, { reporterRevealedAt: null });
+    await auditDecision(staff, report, "report.dismiss", parsed.data.resolution);
     return ok({ status: "DISMISSED" });
   });
 }
@@ -164,15 +208,11 @@ export async function warnReportedUser(input: unknown): Promise<ActionResult> {
     if (!parsed.success) return fail("invalid_input", z.flattenError(parsed.error).fieldErrors);
     const report = await loadReport(parsed.data.reportId);
     assertOpen(report);
+    assertNotOwnReport(staff, report);
     const hostId = hostIdOf(report);
-    await warnUser(staff, hostId, parsed.data.reason, parsed.data.note, { reportId: report.id });
-    await closeReport(staff, report, {
-      status: "RESOLVED",
-      actionTaken: "warned",
-      resolution: parsed.data.note,
-      audit: "report.warn_host",
-      details: { reason: parsed.data.reason, hostId },
-    });
+    const decision: Decision = { status: "RESOLVED", actionTaken: "warned", resolution: parsed.data.note };
+    await decide(staff, report, decision, () => warnUser(staff, hostId, parsed.data.reason, parsed.data.note, { reportId: report.id }));
+    await auditDecision(staff, report, "report.warn_host", parsed.data.note, { reason: parsed.data.reason, hostId });
     return ok();
   });
 }
@@ -180,7 +220,9 @@ export async function warnReportedUser(input: unknown): Promise<ActionResult> {
 /**
  * Takes every LIVE listing of the host off the site (HIDDEN, restored one by one from the
  * listing's review page), emails the host with the reason in their language, closes the report.
- * Bookings already made stay (the dialog says how many).
+ * Bookings already made stay (the dialog says how many). Until staff mark the host reviewed, the
+ * host stays flagged: a paused, expired or new listing waits for review instead of going live
+ * (src/lib/listing/host-flags-server.ts isHostSanctioned).
  */
 export async function hideHostListings(input: unknown): Promise<ActionResult<{ hidden: number }>> {
   return runStaffAction("reports", "report.hide_host_listings", async (staff) => {
@@ -188,6 +230,7 @@ export async function hideHostListings(input: unknown): Promise<ActionResult<{ h
     if (!parsed.success) return fail("invalid_input", z.flattenError(parsed.error).fieldErrors);
     const report = await loadReport(parsed.data.reportId);
     assertOpen(report);
+    assertNotOwnReport(staff, report);
     const hostId = hostIdOf(report);
     const host = await db.user.findUnique({
       where: { id: hostId },
@@ -197,7 +240,13 @@ export async function hideHostListings(input: unknown): Promise<ActionResult<{ h
     assertCanManage(staff, host);
     const live = await db.listing.findMany({ where: { ownerId: hostId, status: "LIVE" }, select: { id: true, publicId: true } });
     if (live.length === 0) throw new AdminActionError("invalid_status");
-    const { count } = await db.listing.updateMany({ where: { id: { in: live.map((l) => l.id) }, status: "LIVE" }, data: { status: "HIDDEN" } });
+    const decision: Decision = { status: "RESOLVED", actionTaken: "listings_hidden", resolution: parsed.data.note };
+    const count = await decide(staff, report, decision, async () => {
+      const { count: hidden } = await db.listing.updateMany({ where: { id: { in: live.map((l) => l.id) }, status: "LIVE" }, data: { status: "HIDDEN" } });
+      // The listings changed meanwhile (paused, already hidden): nothing to tell the host.
+      if (hidden === 0) throw new AdminActionError("invalid_status");
+      return hidden;
+    });
     await audit({
       actorId: staff.id,
       action: "listing.hide_all",
@@ -205,13 +254,7 @@ export async function hideHostListings(input: unknown): Promise<ActionResult<{ h
       targetId: hostId,
       details: { reportId: report.id, reason: parsed.data.reason, note: parsed.data.note, listings: live.map((l) => l.publicId), hidden: count },
     });
-    await closeReport(staff, report, {
-      status: "RESOLVED",
-      actionTaken: "listings_hidden",
-      resolution: parsed.data.note,
-      audit: "report.hide_host_listings",
-      details: { reason: parsed.data.reason, hostId, hidden: count },
-    });
+    await auditDecision(staff, report, "report.hide_host_listings", parsed.data.note, { reason: parsed.data.reason, hostId, hidden: count });
     await emailListingsHidden(host, parsed.data.reason, parsed.data.note, count);
     return ok({ hidden: count });
   });
@@ -243,25 +286,25 @@ export async function removeReportedHost(input: unknown): Promise<ActionResult> 
     if (!parsed.success) return fail("invalid_input", z.flattenError(parsed.error).fieldErrors);
     const report = await loadReport(parsed.data.reportId);
     assertOpen(report);
+    assertNotOwnReport(staff, report);
     const hostId = hostIdOf(report);
-    const result = await banUser(staff, hostId, parsed.data.reason, parsed.data.note);
-    await closeReport(staff, report, {
-      status: "RESOLVED",
-      actionTaken: "host_removed",
-      resolution: parsed.data.note,
-      audit: "report.remove_host",
-      details: { reason: parsed.data.reason, hostId, ...result },
-    });
+    const decision: Decision = { status: "RESOLVED", actionTaken: "host_removed", resolution: parsed.data.note };
+    const result = await decide(staff, report, decision, () => banUser(staff, hostId, parsed.data.reason, parsed.data.note));
+    await auditDecision(staff, report, "report.remove_host", parsed.data.note, { reason: parsed.data.reason, hostId, ...result });
     return ok();
   });
 }
 
 /**
  * Tells the host who reported (first name only), as a separate decision with its own reason.
- * Turned-away reports only, once, never for a dismissed report (the host never heard of it).
+ * The founder's decision (PLAN.md answer 10): ADMIN only (canRevealReporter). Turned-away reports
+ * only, once, never for a dismissed report (the host never heard of it), never for a guest who
+ * deleted their account, and only when the host can be told (a real email address): otherwise
+ * nothing is recorded, so it can be tried again.
  */
 export async function revealReporter(input: unknown): Promise<ActionResult> {
   return runStaffAction("reports", "report.reveal_reporter", async (staff) => {
+    if (!canRevealReporter(staff.role)) return fail("forbidden");
     const parsed = revealSchema.safeParse(input);
     if (!parsed.success) return fail("invalid_input", z.flattenError(parsed.error).fieldErrors);
     const report = await loadReport(parsed.data.reportId);
@@ -269,6 +312,10 @@ export async function revealReporter(input: unknown): Promise<ActionResult> {
       throw new AdminActionError("invalid_status");
     }
     if (!report.reporter) throw new AdminActionError("user_not_found", 404);
+    assertNotOwnReport(staff, report);
+    const revealedAt = new Date();
+    const reporterName = reporterNameForHost({ reporterRevealedAt: revealedAt, reporter: report.reporter });
+    if (report.reporter.status === "DELETED" || !reporterName) throw new AdminActionError("invalid_status");
     const hostId = hostIdOf(report);
     const host = await db.user.findUnique({
       where: { id: hostId },
@@ -276,9 +323,14 @@ export async function revealReporter(input: unknown): Promise<ActionResult> {
     });
     if (!host || host.status === "DELETED") throw new AdminActionError("user_not_found", 404);
     assertCanManage(staff, host);
-    const revealedAt = new Date();
-    const { count } = await db.report.updateMany({ where: { id: report.id, reporterRevealedAt: null }, data: { reporterRevealedAt: revealedAt } });
-    if (count !== 1) throw new AdminActionError("already_decided");
+    const to = notificationEmailFor(host);
+    if (!to) throw new AdminActionError("no_channel");
+    // The write itself enforces "never after a dismissal": a dismissal that lands meanwhile wins.
+    const { count } = await db.report.updateMany({
+      where: { id: report.id, kind: "TURNED_AWAY", reporterRevealedAt: null, status: { not: "DISMISSED" } },
+      data: { reporterRevealedAt: revealedAt },
+    });
+    if (count !== 1) throw new AdminActionError("invalid_status");
     await audit({
       actorId: staff.id,
       action: "report.reveal_reporter",
@@ -286,24 +338,20 @@ export async function revealReporter(input: unknown): Promise<ActionResult> {
       targetId: report.id,
       details: { hostId, reporterId: report.reporter.id, resolution: parsed.data.resolution },
     });
-    const reporterName = reporterNameForHost({ reporterRevealedAt: revealedAt, reporter: report.reporter });
-    const to = notificationEmailFor(host);
-    if (to && reporterName) {
-      await sendEmail({
-        to,
-        locale: localeOf(host.locale),
-        template: "report_reporter_revealed",
-        data: {
-          name: host.name,
-          reporterName,
-          bookingCode: report.booking?.code ?? null,
-          listingTitle: report.listing?.title ?? null,
-          happenedOn: report.happenedOn ? report.happenedOn.toISOString().slice(0, 10) : null,
-          reason: report.reason,
-          note: null,
-        },
-      });
-    }
+    await sendEmail({
+      to,
+      locale: localeOf(host.locale),
+      template: "report_reporter_revealed",
+      data: {
+        name: host.name,
+        reporterName,
+        bookingCode: report.booking?.code ?? null,
+        listingTitle: report.listing?.title ?? null,
+        happenedOn: report.happenedOn ? report.happenedOn.toISOString().slice(0, 10) : null,
+        reason: report.reason,
+        note: null,
+      },
+    });
     return ok();
   });
 }
@@ -360,6 +408,7 @@ export async function restoreReportedListing(input: unknown): Promise<ActionResu
     if (!parsed.success) return fail("invalid_input");
     const report = await loadReport(parsed.data.reportId);
     if (!report.listing) throw new AdminActionError("missing_listing", 400);
+    assertNotOwnItem(staff, [report.listing.ownerId]);
     const result = await restoreHiddenListing(report.listing.id, staff.id);
     return ok({ status: result.status });
   });

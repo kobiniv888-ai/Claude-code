@@ -50,6 +50,10 @@ export const ADMIN_ERROR_CODES = [
   "email_not_found",
   "resend_not_configured",
   "cannot_resend",
+  // Phase 3 hardening.
+  "no_channel",
+  "content_changed",
+  "changed_since_view",
 ] as const;
 export type AdminErrorCode = (typeof ADMIN_ERROR_CODES)[number];
 
@@ -101,6 +105,23 @@ export function userReasonText(code: UserActionReason, locale: AppLocale, note?:
 
 export function verificationReasonText(code: VerificationReason, locale: AppLocale, note?: string | null) {
   return reasonWithNote("verificationReasons", code, locale, note);
+}
+
+/**
+ * True when one of `ownerIds` is the staff member (a report about them or sent by them, their own
+ * listing, their own booking). Pages hide the decision buttons with it.
+ */
+export function isOwnItem(staff: Pick<CurrentUser, "id" | "role">, ownerIds: readonly (string | null | undefined)[]): boolean {
+  return staff.role !== "ADMIN" && ownerIds.some((id) => !!id && id === staff.id);
+}
+
+/**
+ * Staff don't decide about their own items: a report about them or sent by them, approving or
+ * restoring their own listing. An ADMIN may (audited like every action): the founder is the only
+ * admin and may be a host too, and would otherwise be locked out of their own queue.
+ */
+export function assertNotOwnItem(staff: Pick<CurrentUser, "id" | "role">, ownerIds: readonly (string | null | undefined)[]): void {
+  if (isOwnItem(staff, ownerIds)) throw new AdminActionError("not_allowed_on_self", 403);
 }
 
 /** Staff may not act on their own account, and only ADMINs may act on other staff accounts. */

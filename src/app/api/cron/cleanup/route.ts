@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import { deleteExpiredReportScreenshots } from "@/lib/reports/retention";
 import { deletePrivate, isValidStorageKey } from "@/lib/storage";
 import { deletePhotosOfDeletedListings, deleteUnattachedPrivateUploads } from "@/lib/storage/cleanup";
-import { isAuthorizedCron, runCronJob, unauthorized } from "../auth";
+import { isAuthorizedCron, runCronJob, runCronSteps, unauthorized } from "../auth";
 
 /**
  * GET /api/cron/cleanup — daily (vercel.json).
@@ -15,6 +15,8 @@ import { isAuthorizedCron, runCronJob, unauthorized } from "../auth";
  *   (see @/lib/storage/cleanup);
  * - deletes the screenshots of reports decided more than 180 days ago and sets
  *   attachmentsDeletedAt (round 3, brief 8.2; see @/lib/reports/retention).
+ * Each step runs on its own: one that fails is logged, reported and answered as
+ * `{ error: "failed" }` (the job answers 500), and the steps after it still run.
  */
 
 export const runtime = "nodejs";
@@ -62,23 +64,17 @@ async function deleteDecidedDocuments(now: Date): Promise<{ requests: number; fi
 
 export async function GET(request: Request) {
   if (!isAuthorizedCron(request)) return unauthorized();
-  return runCronJob("cleanup", async () => {
+  return runCronJob("cleanup", () => {
     const now = new Date();
-    const [rateLimits, verifications] = await Promise.all([
-      db.rateLimit.deleteMany({ where: { resetAt: { lt: now } } }),
-      db.verification.deleteMany({ where: { expiresAt: { lt: now } } }),
-    ]);
-    const documents = await deleteDecidedDocuments(now);
-    const deletedListingPhotos = await deletePhotosOfDeletedListings(now);
-    const unattachedUploads = await deleteUnattachedPrivateUploads(now);
-    const reportScreenshots = await deleteExpiredReportScreenshots(now);
-    return {
-      rateLimits: rateLimits.count,
-      verificationCodes: verifications.count,
-      documents,
-      deletedListingPhotos,
-      unattachedUploads,
-      reportScreenshots,
-    };
+    // Each step on its own: one that fails (e.g. a run overlapping another) doesn't skip the
+    // screenshot retention or anything else after it.
+    return runCronSteps("cleanup", {
+      rateLimits: async () => (await db.rateLimit.deleteMany({ where: { resetAt: { lt: now } } })).count,
+      verificationCodes: async () => (await db.verification.deleteMany({ where: { expiresAt: { lt: now } } })).count,
+      documents: () => deleteDecidedDocuments(now),
+      deletedListingPhotos: () => deletePhotosOfDeletedListings(now),
+      unattachedUploads: () => deleteUnattachedPrivateUploads(now),
+      reportScreenshots: () => deleteExpiredReportScreenshots(now),
+    });
   });
 }

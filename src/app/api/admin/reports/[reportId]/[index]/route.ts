@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { audit } from "@/lib/audit";
+import { auditFileView } from "@/lib/admin/server/file-views";
 import { requireStaffForAction } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { isAppError } from "@/lib/errors";
@@ -12,7 +12,9 @@ import { getPrivate } from "@/lib/storage";
  * storage, for staff with the "reports" permission only (round 3, brief 8.2). The key must be
  * listed on that report AND be the reporter's own "report" upload. Never cached; served as an
  * image in a sandboxed, script-free document. Every opening is written to the audit log
- * ("report.attachment_view", at most once per staff member, screenshot and half hour).
+ * ("report.attachment_view", through auditFileView like a verification document: at most once per
+ * staff member and screenshot every FILE_VIEW_DEDUPE_MINUTES (10) minutes; a failed audit write
+ * is logged and never hides the file).
  */
 
 export const dynamic = "force-dynamic";
@@ -28,7 +30,6 @@ const BASE_HEADERS = {
 } as const;
 
 const LIMIT = { limit: 240, windowSeconds: 60 };
-const AUDIT_DEDUPE_MS = 30 * 60 * 1000;
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 function plain(status: number, text: string, extra: Record<string, string> = {}) {
@@ -68,18 +69,7 @@ export async function GET(_request: Request, ctx: { params: Promise<{ reportId: 
   const contentType = (stored.contentType || file.mime || "").toLowerCase().split(";")[0].trim();
   if (!IMAGE_TYPES.has(contentType)) return plain(404, "Not found");
 
-  const recent = await db.auditLog.findFirst({
-    where: {
-      actorId: staffId,
-      action: "report.attachment_view",
-      targetType: "Report",
-      targetId: reportId,
-      createdAt: { gt: new Date(Date.now() - AUDIT_DEDUPE_MS) },
-      details: { path: ["index"], equals: index },
-    },
-    select: { id: true },
-  });
-  if (!recent) await audit({ actorId: staffId, action: "report.attachment_view", targetType: "Report", targetId: reportId, details: { index } });
+  await auditFileView({ staffId, action: "report.attachment_view", targetType: "Report", targetId: reportId, index });
 
   return new NextResponse(new Uint8Array(stored.body), {
     status: 200,

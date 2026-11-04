@@ -1,4 +1,5 @@
 import "server-only";
+import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { isOwnReportUpload, type ReportAttachment, type TurnedAwayData } from "./turned-away";
 
@@ -42,14 +43,18 @@ export async function resolveTurnedAwayTarget(
  * The screenshots to store, or null when one of them is not the reporter's own, unused report
  * upload. The stored type is the re-encoded one (JPEG), whatever the browser sent.
  */
-export async function checkReportAttachments(reporterId: string, attachments: readonly ReportAttachment[]): Promise<ReportAttachment[] | null> {
+export async function checkReportAttachments(
+  reporterId: string,
+  attachments: readonly ReportAttachment[],
+  /** The transaction that will store the report (createTurnedAwayReport), so the check sees what it writes. */
+  client: Prisma.TransactionClient | typeof db = db,
+): Promise<ReportAttachment[] | null> {
   if (attachments.length === 0) return [];
   if (!attachments.every((a) => isOwnReportUpload(a.key, reporterId))) return null;
   const keys = attachments.map((a) => a.key);
-  const [uploads, used] = await Promise.all([
-    db.privateUpload.findMany({ where: { key: { in: keys }, userId: reporterId, purpose: "report" }, select: { key: true } }),
-    db.report.count({ where: { reporterId, OR: keys.map((key) => ({ attachments: { array_contains: [{ key }] } })) } }),
-  ]);
+  // One after the other: an interactive transaction runs one query at a time anyway.
+  const uploads = await client.privateUpload.findMany({ where: { key: { in: keys }, userId: reporterId, purpose: "report" }, select: { key: true } });
+  const used = await client.report.count({ where: { reporterId, OR: keys.map((key) => ({ attachments: { array_contains: [{ key }] } })) } });
   if (uploads.length !== keys.length || used > 0) return null;
   return attachments.map((a) => ({
     key: a.key,

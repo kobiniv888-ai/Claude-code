@@ -1,5 +1,6 @@
 import "server-only";
 import { siteConfig } from "@/config/site";
+import type { Prisma } from "@/generated/prisma/client";
 import { siteUrl } from "@/lib/site-url";
 import { db } from "@/lib/db";
 import { isPlaceholderEmail } from "@/lib/email";
@@ -8,14 +9,139 @@ import { absoluteMediaUrl, photoUrl } from "@/lib/media";
 /**
  * "Download my data" (GDPR / Israeli privacy law / Georgian personal data law): everything we
  * keep about the user, as plain JSON. Never includes verification documents (only their status),
- * staff-internal ticket notes, other users' personal data (a host's export has its bookings
- * without the guests' names, phones or messages), secrets (2-step key, iCal token) or internal
- * anti-fraud scores.
+ * staff-internal ticket notes, staff-only visit notes ("ביקרנו במקום": the note and who entered
+ * it; the visit date is the host's public badge and stays), other users' personal data (a host's
+ * export has its bookings without the guests' names, phones or messages), secrets (2-step key,
+ * iCal token) or internal anti-fraud data (scores, report counters).
  */
 
 const MAX_ROWS = 5000;
 
 export const EXPORT_FORMAT_VERSION = 1;
+
+/**
+ * Every Listing column, and whether the owner's export carries it (`false` = never read). An
+ * allowlist typed against the schema: a new column fails the type check until someone decides
+ * here, so a staff-only column can't slip into the export by default (as `omit` would let it).
+ */
+export const LISTING_EXPORT_COLUMNS = {
+  id: true,
+  publicId: true,
+  ownerId: true,
+  status: true,
+  wizardStep: true,
+  dealType: true,
+  propertyType: true,
+  countryCode: true,
+  cityId: true,
+  neighborhoodId: true,
+  address: true,
+  lat: true,
+  lng: true,
+  approxLat: true,
+  approxLng: true,
+  originalLocale: true,
+  title: true,
+  description: true,
+  searchText: false, // search index
+  rooms: true,
+  bedrooms: true,
+  bathrooms: true,
+  bedsSingle: true,
+  bedsDouble: true,
+  bedsSofa: true,
+  maxGuests: true,
+  sizeSqm: true,
+  floor: true,
+  totalFloors: true,
+  elevator: true,
+  yearBuilt: true,
+  buildingAge: true,
+  furnished: true,
+  condition: true,
+  heating: true,
+  views: true,
+  cadastralCode: true,
+  amenities: true,
+  kitchenKosher: true,
+  shabbatFeatures: true,
+  jewishFeatures: true,
+  isShabbatFriendly: true,
+  kosherCertName: true,
+  kosherCertPhotoKey: false, // a private storage key
+  hotelJewishFeatures: true,
+  sharedRoomFor: true,
+  synagogueWalkMin: true,
+  chabadWalkMin: true,
+  nearby: false, // cached place data, not the user's
+  nearbyUpdatedAt: true,
+  price: true,
+  currency: true,
+  pricePeriod: true,
+  priceUsd: true,
+  pricePerSqmUsd: true,
+  previousPrice: true,
+  priceDroppedAt: true,
+  deposit: true,
+  cleaningFee: true,
+  utilitiesIncluded: true,
+  utilitiesEstimate: true,
+  minStayNights: true,
+  weeklyDiscountPct: true,
+  monthlyDiscountPct: true,
+  bookingMode: true,
+  weekendPrice: true,
+  cancellationPolicy: true,
+  paymentMethodsAtCheckIn: true,
+  checkInFrom: true,
+  checkOutUntil: true,
+  checkInFlexible: true,
+  checkOutFlexible: true,
+  smokingAllowed: true,
+  petsAllowed: true,
+  partiesAllowed: true,
+  quietHoursFrom: true,
+  quietHoursTo: true,
+  videoUrl: true,
+  tour360Url: true,
+  contactMethods: true,
+  contactHoursFrom: true,
+  contactHoursTo: true,
+  noReplyOnShabbat: true,
+  icalToken: false, // a secret
+  icalImportUrls: true,
+  icalSyncedAt: true,
+  viewCount: true,
+  contactCount: true,
+  saveCount: true,
+  reportCount: false, // internal anti-fraud counter
+  riskScore: false, // internal anti-fraud score
+  riskReasons: false,
+  lastCheckedAt: true,
+  moderationReason: true, // shown to the owner
+  moderationNote: true, // shown to the owner
+  reviewedAt: true,
+  reviewedById: false, // a staff member
+  ownerVerifiedAt: true,
+  propertyVerifiedAt: true,
+  rulesAcceptedAt: true,
+  welcomePledgeVersion: true,
+  welcomePledgeAt: true,
+  visitedAt: true, // the public "ביקרנו במקום" badge
+  visitedNote: false, // STAFF ONLY (brief 8.3)
+  visitedById: false, // STAFF ONLY (brief 8.3)
+  publishedAt: true,
+  expiresAt: true,
+  expiryWarnedAt: true,
+  renewedAt: true,
+  bumpedAt: true,
+  featuredUntil: true,
+  contentUpdatedAt: true,
+  isDemo: true,
+  createdAt: true,
+  updatedAt: true,
+  deletedAt: true,
+} as const satisfies Record<Prisma.ListingScalarFieldEnum, boolean>;
 
 /** The booking fields both sides may see (docs/redesign-2/booking.md). */
 const BOOKING_EXPORT_SELECT = {
@@ -112,16 +238,8 @@ export async function buildAccountExport(userId: string) {
       where: { ownerId: userId },
       orderBy: { createdAt: "asc" },
       take: MAX_ROWS,
-      omit: {
-        searchText: true,
-        icalToken: true,
-        riskScore: true,
-        riskReasons: true,
-        reviewedById: true,
-        nearby: true,
-        kosherCertPhotoKey: true,
-      },
-      include: {
+      select: {
+        ...LISTING_EXPORT_COLUMNS,
         city: { select: { slug: true } },
         neighborhood: { select: { slug: true } },
         translations: { select: { locale: true, title: true, description: true, isAuto: true, editedByOwner: true, updatedAt: true } },

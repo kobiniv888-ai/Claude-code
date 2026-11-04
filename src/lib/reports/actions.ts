@@ -20,6 +20,7 @@ import { fail, ok, runAction, type ActionResult } from "@/lib/action";
 import { linkDevice } from "@/lib/auth/hooks";
 import { requireUserForAction } from "@/lib/auth/session";
 import { tbilisiToday } from "@/lib/booking/dates";
+import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { applyReport } from "@/lib/listing/lifecycle";
 import { assertRateLimit } from "@/lib/rate-limit";
@@ -31,6 +32,16 @@ import { checkReportAttachments, resolveTurnedAwayTarget } from "./turned-away-s
 
 const DAY = 24 * 3600;
 const userIdSchema = z.string().trim().min(1).max(64);
+
+/**
+ * Serialises one reporter's report submits: a second submit waits here until the first one's
+ * transaction ends, then sees its report. There is no database constraint for "one open report
+ * per target" (a report can be decided and a new one sent), so the check and the insert must not
+ * interleave.
+ */
+async function lockReporter(tx: Prisma.TransactionClient, userId: string): Promise<void> {
+  await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${userId} FOR UPDATE`;
+}
 
 export async function createReport(input: unknown): Promise<ActionResult> {
   return runAction(async () => {
@@ -60,17 +71,22 @@ export async function createReport(input: unknown): Promise<ActionResult> {
       targetUserId = target.id;
     }
 
-    const existing = await db.report.findFirst({
-      where: { reporterId: user.id, status: "OPEN", targetType, ...(listingId ? { listingId } : { targetUserId }) },
-      select: { id: true },
+    const report = await db.$transaction(async (tx) => {
+      // One reporter's submits run one at a time (see lockReporter), so "one OPEN report per target"
+      // holds even for two at once.
+      await lockReporter(tx, user.id);
+      const existing = await tx.report.findFirst({
+        where: { reporterId: user.id, status: "OPEN", targetType, ...(listingId ? { listingId } : { targetUserId }) },
+        select: { id: true },
+      });
+      if (existing) return null;
+      await assertRateLimit(`report:${user.id}`, { limit: 5, windowSeconds: DAY });
+      return tx.report.create({
+        data: { targetType, listingId, targetUserId, reporterId: user.id, reason, details },
+        select: { id: true },
+      });
     });
-    if (existing) return fail("already_reported");
-
-    await assertRateLimit(`report:${user.id}`, { limit: 5, windowSeconds: DAY });
-    const report = await db.report.create({
-      data: { targetType, listingId, targetUserId, reporterId: user.id, reason, details },
-      select: { id: true },
-    });
+    if (!report) return fail("already_reported");
     // Auto-hide counts reports per device (DeviceLink), so the device used now must be known.
     await linkDevice(user.id);
     if (listingId) await applyReport(listingId);
@@ -100,32 +116,41 @@ export async function createTurnedAwayReport(input: unknown): Promise<ActionResu
     if (!resolved.ok) return fail(resolved.error);
     const { target } = resolved;
 
-    const existing = await db.report.findFirst({
-      where: { reporterId: user.id, kind: "TURNED_AWAY", status: "OPEN", targetUserId: target.hostId, bookingId: target.bookingId },
-      select: { id: true },
-    });
-    if (existing) return fail("already_reported");
+    const created = await db.$transaction(async (tx) => {
+      // One at a time per guest: "one open report per guest, host and booking" and "a screenshot
+      // goes on one report" are checked and written as one step (two tabs, or a script, can't
+      // both pass the checks).
+      await lockReporter(tx, user.id);
+      const existing = await tx.report.findFirst({
+        where: { reporterId: user.id, kind: "TURNED_AWAY", status: "OPEN", targetUserId: target.hostId, bookingId: target.bookingId },
+        select: { id: true },
+      });
+      if (existing) return { error: "already_reported" as const };
 
-    await assertRateLimit(`report:${user.id}`, { limit: 5, windowSeconds: DAY });
-    const attachments = await checkReportAttachments(user.id, data.attachments);
-    if (!attachments) return fail("attachment_invalid");
+      await assertRateLimit(`report:${user.id}`, { limit: 5, windowSeconds: DAY });
+      const attachments = await checkReportAttachments(user.id, data.attachments, tx);
+      if (!attachments) return { error: "attachment_invalid" as const };
 
-    const report = await db.report.create({
-      data: {
-        kind: "TURNED_AWAY",
-        targetType: "USER",
-        targetUserId: target.hostId,
-        listingId: target.listingId,
-        bookingId: target.bookingId,
-        reporterId: user.id,
-        reason: data.reason,
-        details: data.details,
-        happenedOn: new Date(`${data.happenedOn}T00:00:00.000Z`),
-        attachments: attachments.length ? attachments : undefined,
-        priority: "URGENT",
-      },
-      select: { id: true },
+      const row = await tx.report.create({
+        data: {
+          kind: "TURNED_AWAY",
+          targetType: "USER",
+          targetUserId: target.hostId,
+          listingId: target.listingId,
+          bookingId: target.bookingId,
+          reporterId: user.id,
+          reason: data.reason,
+          details: data.details,
+          happenedOn: new Date(`${data.happenedOn}T00:00:00.000Z`),
+          attachments: attachments.length ? attachments : undefined,
+          priority: "URGENT",
+        },
+        select: { id: true },
+      });
+      return { report: row };
     });
+    if ("error" in created) return fail(created.error);
+    const { report } = created;
     await linkDevice(user.id);
     after(() => Promise.all([notifyFounderOfReport(report.id), sendReportConfirmation(report.id)]));
     return ok();

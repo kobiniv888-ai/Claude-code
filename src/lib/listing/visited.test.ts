@@ -9,8 +9,40 @@ import { describe, expect, it } from "vitest";
 import { listingCardSelect, toListingCard, type ListingCardRow } from "@/lib/listing/mappers";
 
 const SRC = path.resolve(__dirname, "../..");
-/** Reading or writing the staff-only columns (comments that merely name them don't count). */
-const USES_STAFF_COLUMN = /\bvisited(?:Note|ById)\s*[:?]|\.visited(?:Note|ById)\b/;
+/**
+ * Reading or writing the staff-only columns (comments that merely name them don't count, and
+ * neither does an explicit `visitedNote: false` in a column allowlist such as the data export).
+ */
+const USES_STAFF_COLUMN = /\bvisited(?:Note|ById)\s*(?::(?!\s*false\b)|\?)|\.visited(?:Note|ById)\b/;
+
+/** The argument text of every `<client>.listing.find…(…)` call in `source`. */
+function listingReads(source: string): string[] {
+  const reads: string[] = [];
+  for (const match of source.matchAll(/\b\w+\.listing\.find\w*\(/g)) {
+    const start = match.index + match[0].length;
+    let depth = 1;
+    let end = start;
+    while (end < source.length && depth > 0) {
+      const ch = source[end++];
+      if (ch === "(" || ch === "{" || ch === "[") depth++;
+      else if (ch === ")" || ch === "}" || ch === "]") depth--;
+    }
+    reads.push(source.slice(start, end - 1));
+  }
+  return reads;
+}
+
+/** Does a read's options object list columns to leave out (`omit`) at its top level? */
+function hasTopLevelOmit(args: string): boolean {
+  let depth = 0;
+  for (let i = 0; i < args.length; i++) {
+    const ch = args[i];
+    if (ch === "(" || ch === "{" || ch === "[") depth++;
+    else if (ch === ")" || ch === "}" || ch === "]") depth--;
+    else if (depth === 1 && /^omit\s*:/.test(args.slice(i, i + 10)) && !/[\w$]/.test(args[i - 1] ?? "")) return true;
+  }
+  return false;
+}
 
 const ALLOWED = [
   path.join("lib", "admin") + path.sep,
@@ -40,7 +72,27 @@ describe("the visit note stays in the admin panel", () => {
   it("the guard itself notices a public read", () => {
     expect(USES_STAFF_COLUMN.test("select: { visitedNote: true }")).toBe(true);
     expect(USES_STAFF_COLUMN.test("row.visitedById")).toBe(true);
+    expect(USES_STAFF_COLUMN.test("{ visitedNote?: string }")).toBe(true);
     expect(USES_STAFF_COLUMN.test("// never visitedNote / visitedById")).toBe(false);
+    expect(USES_STAFF_COLUMN.test("visitedNote: false, // STAFF ONLY")).toBe(false);
+  });
+
+  // A denylist read (`omit`) returns every column it doesn't name, so each new staff-only column
+  // (like these two) would reach the reader without the code ever naming it. Outside the admin
+  // panel, Listing is read with `select` (or mapped field by field), never with `omit`.
+  it("no Listing read outside the admin panel uses an omit denylist", () => {
+    const offenders = sourceFiles(SRC)
+      .map((file) => path.relative(SRC, file))
+      .filter((rel) => !ALLOWED.some((prefix) => rel.startsWith(prefix)))
+      .filter((rel) => listingReads(readFileSync(path.join(SRC, rel), "utf8")).some(hasTopLevelOmit));
+    expect(offenders).toEqual([]);
+  });
+
+  it("the omit guard itself notices a denylist read", () => {
+    const [read] = listingReads("await db.listing.findMany({ where: { ownerId }, omit: { icalToken: true } });");
+    expect(hasTopLevelOmit(read)).toBe(true);
+    const [nested] = listingReads("tx.listing.findFirst({ select: { id: true, roomTypes: { omit: { listingId: true } } } })");
+    expect(hasTopLevelOmit(nested)).toBe(false);
   });
 
   it("the card select reads the visit date, not the note", () => {
