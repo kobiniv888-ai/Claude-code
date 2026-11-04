@@ -10,8 +10,11 @@ import { daysBetween, tbilisiToday } from "@/lib/booking/dates";
 import type { BookingSummary } from "@/lib/booking/queries";
 import { formatDateRange } from "@/lib/format";
 
-/** One trip in "הנסיעות שלי": photo, title, dates, guests, status and the booking number. */
-export async function TripCard({ trip, locale }: { trip: BookingSummary; locale: AppLocale }) {
+/**
+ * One trip in "הנסיעות שלי": photo, title, dates, guests, status and the booking number.
+ * `footer`: an extra line under the card that is its own link (e.g. "המארח ביטל? ספרו לנו").
+ */
+export async function TripCard({ trip, locale, footer }: { trip: BookingSummary; locale: AppLocale; footer?: React.ReactNode }) {
   const t = await getTranslations({ locale, namespace: "booking" });
   const guests = [
     t("guests.total", { count: trip.adults + trip.children }),
@@ -61,6 +64,7 @@ export async function TripCard({ trip, locale }: { trip: BookingSummary; locale:
         </div>
         <ChevronLeftIcon className="size-5 shrink-0 self-center text-muted-foreground ltr:-scale-x-100" aria-hidden />
       </div>
+      {footer ? <div className="relative z-10 border-t border-border px-3 py-1">{footer}</div> : null}
     </Card>
   );
 }

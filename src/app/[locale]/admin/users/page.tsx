@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Link } from "@/i18n/navigation";
 import { enumParam, pageParam, param } from "@/lib/admin/params";
 import { ADMIN_PAGE_SIZE, realEmail } from "@/lib/admin/server/shared";
-import { searchUsers, USER_ROLES, USER_STATUSES, USER_VERIFIED_FILTERS } from "@/lib/admin/server/users";
+import { searchUsers, USER_KIND_FILTERS, USER_ROLES, USER_STATUSES, USER_VERIFIED_FILTERS } from "@/lib/admin/server/users";
 import { requireStaff } from "@/lib/auth/session";
 import { formatNumber } from "@/lib/format";
 
@@ -32,6 +32,7 @@ export default async function UsersPage({ params, searchParams }: PageProps<"/[l
     role: enumParam(query, "role", USER_ROLES),
     status: enumParam(query, "status", USER_STATUSES),
     verified: enumParam(query, "verified", USER_VERIFIED_FILTERS),
+    kind: enumParam(query, "kind", USER_KIND_FILTERS),
   };
   const [t, tAdmin, result] = await Promise.all([
     getTranslations("admin.users"),
@@ -46,6 +47,13 @@ export default async function UsersPage({ params, searchParams }: PageProps<"/[l
       <AdminFilterBar
         fields={[
           { type: "search", name: "q", label: t("searchLabel"), placeholder: t("searchPlaceholder"), wide: true },
+          {
+            type: "select",
+            name: "kind",
+            label: t("filters.kind"),
+            allLabel: tAdmin("filters.all"),
+            options: USER_KIND_FILTERS.map((k) => ({ value: k, label: t(`kind.${k}`) })),
+          },
           {
             type: "select",
             name: "role",
@@ -99,7 +107,11 @@ export default async function UsersPage({ params, searchParams }: PageProps<"/[l
                   {realEmail(u.email) ? <Ltr className="break-all">{realEmail(u.email)}</Ltr> : null}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {t("rowStats", { listings: n(u._count.listings), reports: n(u._count.reportsAgainst) })} · <WhenText date={u.createdAt} />
+                  {t("rowStats", { listings: n(u._count.listings), reports: n(u._count.reportsAgainst) })}
+                  {u._count.bookingsAsHost + u._count.bookingsAsGuest > 0 ? (
+                    <> · {t("rowBookings", { host: n(u._count.bookingsAsHost), guest: n(u._count.bookingsAsGuest) })}</>
+                  ) : null}{" "}
+                  · <WhenText date={u.createdAt} />
                 </p>
               </li>
             ))}
@@ -113,6 +125,7 @@ export default async function UsersPage({ params, searchParams }: PageProps<"/[l
                   <TableHead>{t("columns.status")}</TableHead>
                   <TableHead className="text-end">{t("columns.listings")}</TableHead>
                   <TableHead className="text-end">{t("columns.reports")}</TableHead>
+                  <TableHead className="text-end">{t("columns.bookings")}</TableHead>
                   <TableHead>{t("columns.joined")}</TableHead>
                 </TableRow>
               </TableHeader>
@@ -139,6 +152,11 @@ export default async function UsersPage({ params, searchParams }: PageProps<"/[l
                     </TableCell>
                     <TableCell className="text-end tabular-nums">{n(u._count.listings)}</TableCell>
                     <TableCell className="text-end tabular-nums">{n(u._count.reportsAgainst)}</TableCell>
+                    <TableCell className="text-end text-xs tabular-nums">
+                      {u._count.bookingsAsHost + u._count.bookingsAsGuest > 0
+                        ? t("rowBookings", { host: n(u._count.bookingsAsHost), guest: n(u._count.bookingsAsGuest) })
+                        : "—"}
+                    </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       <WhenText date={u.createdAt} relative={false} />
                     </TableCell>

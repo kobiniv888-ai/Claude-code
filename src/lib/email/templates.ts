@@ -7,6 +7,8 @@ import type { AppLocale, CurrencyCode } from "@/config/site";
 import type { CancellationPolicy, TicketStatus, VerificationType } from "@/generated/prisma/enums";
 import { formatDateRange, formatMoney, formatTime } from "@/lib/format";
 import { checkTimeDisplay, clockLabel } from "@/lib/listing/check-times";
+import { ADMIN_EMAIL_TEMPLATES, adminEmailBuilders, type AdminEmailData } from "@/lib/admin/email-templates";
+import { REPORT_EMAIL_TEMPLATES, reportEmailBuilders, type ReportEmailData } from "@/lib/reports/email-templates";
 
 export const EMAIL_TEMPLATES = [
   "login_code",
@@ -39,6 +41,10 @@ export const EMAIL_TEMPLATES = [
   "host_alert_test",
   "host_alerts_paused",
   "admin_alert",
+  // Reports (round 3, brief 8.2): src/lib/reports/email-templates.ts
+  ...REPORT_EMAIL_TEMPLATES,
+  // Founder-only admin emails (round 3, brief 9): src/lib/admin/email-templates.ts
+  ...ADMIN_EMAIL_TEMPLATES,
 ] as const;
 export type EmailTemplate = (typeof EMAIL_TEMPLATES)[number];
 
@@ -205,7 +211,8 @@ export type EmailData = {
     /** host_channel_paused: the host still takes instant bookings through another channel. */
     stillInstant?: boolean | null;
   };
-};
+} & ReportEmailData &
+  AdminEmailData;
 
 /**
  * - host_unreachable: a booking was refused because no alert channel of the host accepted the alert
@@ -233,7 +240,8 @@ export type EmailBlock =
   /** User- or staff-written text: shown in a box with dir="auto". */
   | { type: "quote"; label?: string; text: string }
   | { type: "details"; rows: { label: string; value: string; ltr?: boolean }[] }
-  | { type: "notice"; text: string }
+  /** `link`: a text link under the notice (e.g. "Tell us" in the host-cancellation email). */
+  | { type: "notice"; text: string; link?: { label: string; url: string } }
   /** A one-time code: big digits, left to right. */
   | { type: "code"; label: string; code: string };
 
@@ -355,6 +363,15 @@ function policyLine(policy: CancellationPolicy, until: DateValue | null | undefi
   const name = tb(`policy.${policy}.name`);
   if (!until) return `${name}: ${tb(`policy.${policy}.rule`)}`;
   return `${name}: ${tb("policy.freeUntil", { date: formatDate(until), time: formatTime(until, locale) })}`;
+}
+
+/** `{ link }` to the trip page with the "Turned away?" form open (?report=1), when the URL is safe. */
+function withReportLink(bookingUrl: string, label: string, ctx: TemplateContext): { link?: { label: string; url: string } } {
+  const base = ctx.url(bookingUrl);
+  if (!base) return {};
+  const link = new URL(base);
+  link.searchParams.set("report", "1");
+  return { link: { label, url: link.toString() } };
 }
 
 function reasonText(label: string, text: string | null | undefined): string {
@@ -852,7 +869,12 @@ const builders: { [K in EmailTemplate]: Builder<K> } = {
         { type: "paragraph", text: t("templates.booking_cancelled_by_host.body1", { title, dates: datesOf(data, ctx), code: data.code }) },
         { type: "quote", label: t("booking.reasonLabel"), text: reasonText(tb(`hostReason.${safeKey(data.reasonCode)}`), data.reasonText) },
         { type: "paragraph", text: t("templates.booking_cancelled_by_host.body2", { brand }) },
-        { type: "notice", text: t("templates.booking_cancelled_by_host.report", { brand }) },
+        {
+          type: "notice",
+          text: t("templates.booking_cancelled_by_host.report", { brand }),
+          // "Turned away?" (round 3, brief 8.2): opens the report form on the guest's trip page.
+          ...withReportLink(data.bookingUrl, t("templates.booking_cancelled_by_host.reportLink"), ctx),
+        },
       ],
       cta: { label: t("templates.booking_cancelled_by_host.cta"), url: url(data.searchUrl) ?? page("/search") },
       audience: "account",
@@ -966,6 +988,8 @@ const builders: { [K in EmailTemplate]: Builder<K> } = {
       audience: "account",
     };
   },
+  ...reportEmailBuilders,
+  ...adminEmailBuilders,
 };
 
 export function buildEmailContent<K extends EmailTemplate>(

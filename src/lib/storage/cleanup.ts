@@ -9,10 +9,10 @@ import { deletePrivate, deletePublic } from "@/lib/storage";
  * - Photos of listings that were deleted (soft delete, status DELETED) more than 30 days ago:
  *   every stored variant is removed and the photo row keeps no storage key. The row itself and
  *   its perceptual hash stay, so a scammer re-posting the same photos is still detected.
- * - Private uploads (ID documents, ticket screenshots, kosher certificates) that were never
+ * - Private uploads (ID documents, ticket and report screenshots, kosher certificates) that were never
  *   attached: POST /api/uploads/private records each key in PrivateUpload *before* storing the
  *   file. After 48 hours the job looks the key up where it can be attached — a ticket message
- *   of that user, a verification request of that user, or a listing's kosher certificate.
+ *   of that user, a verification request of that user, a report of that user, or a listing's kosher certificate.
  *   Attached → the row is dropped (the file follows its ticket / request / listing from then
  *   on). Not attached → the file is deleted, then the row. A failed delete keeps the row, so
  *   the next run tries again.
@@ -47,7 +47,7 @@ export async function deletePhotosOfDeletedListings(now: Date = new Date()): Pro
   return { photos: done.length, failed };
 }
 
-/** True when a ticket message, a verification request or a listing uses this private upload. */
+/** True when a ticket message, a verification request, a listing or a report uses this private upload. */
 async function isAttached(upload: { key: string; userId: string; purpose: string }): Promise<boolean> {
   const byKey = [{ key: upload.key }];
   if (upload.purpose === "ticket") {
@@ -59,6 +59,11 @@ async function isAttached(upload: { key: string; userId: string; purpose: string
       db.listing.count({ where: { kosherCertPhotoKey: upload.key } }),
     ]);
     return requests + listings > 0;
+  }
+  if (upload.purpose === "report") {
+    // Turned-away report screenshots (round 3): they follow the report from then on, and the
+    // report's own retention deletes them (src/lib/reports/retention.ts).
+    return (await db.report.count({ where: { reporterId: upload.userId, attachments: { array_contains: byKey } } })) > 0;
   }
   return true; // Unknown purpose: never delete what we cannot check.
 }

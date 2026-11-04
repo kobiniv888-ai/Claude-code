@@ -80,3 +80,8 @@ BEGIN
     CREATE UNIQUE INDEX IF NOT EXISTS "User_telegramChatId_key" ON "User"("telegramChatId");
   END IF;
 END $$;
+
+-- Round 3, phase 3 (admin panel, turned-away reports, visited badge, reference prices) needs no
+-- step here: new enum values, new nullable or defaulted columns, plain (non-unique) indexes, a
+-- nullable foreign key and the new ReferencePrice table all push without --accept-data-loss
+-- (checked on copies of a phase-2 database with data).

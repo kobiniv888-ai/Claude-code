@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { CalendarDaysIcon, CheckIcon, GitCompareArrowsIcon, MessageCircleQuestionIcon, UsersRoundIcon } from "lucide-react";
+import { CalendarDaysIcon, CheckIcon, FlagIcon, GitCompareArrowsIcon, MessageCircleQuestionIcon, UsersRoundIcon } from "lucide-react";
 import { DatesGuestsSheet } from "@/components/booking/dates-guests-sheet";
 import { useGuestSummary } from "@/components/booking/guest-summary";
 import { PriceBreakdown } from "@/components/booking/price-breakdown";
@@ -14,6 +14,7 @@ import { ChannelIcon } from "@/components/contact/channel-icon";
 import { ContactPanel } from "@/components/contact/contact-panel";
 import { useContact } from "@/components/contact/contact-provider";
 import { Price } from "@/components/listing/price";
+import { requestHostReport, useHostReportAvailable } from "@/components/report/host-report-store";
 import { useCompare } from "@/hooks/use-compare";
 import { Link, useRouter } from "@/i18n/navigation";
 import { formatDate } from "@/lib/format";
@@ -121,6 +122,9 @@ export function BookingBar() {
   const { price } = useStay();
   const compareItem = useCompareItem(listing.publicId);
   const [contactOpen, setContactOpen] = useState(false);
+  // "דיווח על המארח" (round 3, brief 8.2): public listings that are not the visitor's own.
+  const tr = useTranslations("report.turnedAway");
+  const canReportHost = useHostReportAvailable();
   const canContact = availability === "ok" && listing.channels.length > 0;
   const { primary } = contactLayout(listing.channels);
   const menuItems: OverflowMenuItem[] = [
@@ -150,6 +154,12 @@ export function BookingBar() {
       label: compareItem.label,
       onSelect: compareItem.toggle,
     },
+    ...(canReportHost
+      ? ([
+          "separator",
+          { key: "report-host", icon: <FlagIcon className="size-5" aria-hidden />, label: tr("menuItem"), onSelect: requestHostReport },
+        ] satisfies OverflowMenuItem[])
+      : []),
   ];
 
   return (

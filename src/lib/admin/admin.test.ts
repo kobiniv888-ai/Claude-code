@@ -13,8 +13,21 @@ describe("admin navigation", () => {
   });
 
   it("filters sections by permission", () => {
-    expect(keys("MODERATOR")).toEqual(["overview", "moderation", "reports", "bookings", "users", "verifications"]);
+    expect(keys("MODERATOR")).toEqual([
+      "overview",
+      "moderation",
+      "reports",
+      "flags",
+      "bookings",
+      "users",
+      "verifications",
+      "badges",
+      "referencePrices",
+    ]);
     expect(keys("SUPPORT")).toEqual(["overview", "reports", "users", "tickets"]);
+    // The reports queue and the badges page have their own pages (round 3): both are in the menu.
+    expect(ADMIN_NAV.find((i) => i.key === "badges")?.href).toBe("/admin/badges");
+    expect(ADMIN_NAV.find((i) => i.key === "reports")?.href).toBe("/admin/reports");
     expect(keys("EDITOR")).toEqual(["overview", "content"]);
     expect(keys("USER")).toEqual(["overview"]);
   });
@@ -33,14 +46,20 @@ describe("admin navigation", () => {
   });
 
   it("computes badges", () => {
-    const counts = { inReview: 4, openReports: 2, activeTickets: 7, urgentTickets: 1, pendingVerifications: 0 };
+    const counts = { inReview: 4, openReports: 2, urgentReports: 0, openFlags: 3, activeTickets: 7, urgentTickets: 1, pendingVerifications: 0 };
     const tickets = ADMIN_NAV.find((i) => i.key === "tickets")!;
     const moderation = ADMIN_NAV.find((i) => i.key === "moderation")!;
     const users = ADMIN_NAV.find((i) => i.key === "users")!;
+    const reports = ADMIN_NAV.find((i) => i.key === "reports")!;
+    const flags = ADMIN_NAV.find((i) => i.key === "flags")!;
     expect(navBadge(tickets, counts)).toEqual({ count: 7, urgent: true });
     expect(navBadge(moderation, counts)).toEqual({ count: 4, urgent: false });
     expect(navBadge(users, counts)).toEqual({ count: 0, urgent: false });
     expect(navBadge(tickets, null)).toEqual({ count: 0, urgent: false });
+    expect(navBadge(flags, counts)).toEqual({ count: 3, urgent: false });
+    // Reports turn urgent only while a turned-away report is open (round 3).
+    expect(navBadge(reports, counts)).toEqual({ count: 2, urgent: false });
+    expect(navBadge(reports, { ...counts, urgentReports: 1 })).toEqual({ count: 2, urgent: true });
   });
 });
 

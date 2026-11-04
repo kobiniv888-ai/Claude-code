@@ -312,3 +312,36 @@ export function resendTags(template: EmailTemplate, extra: Record<string, string
   }
   return tags;
 }
+
+/**
+ * Sends an email that was kept in the outbox (status LOGGED) as it was rendered then: the admin
+ * outbox's "send again" once Resend is set up (src/lib/admin/actions/outbox.ts checks who may and
+ * which emails). Returns Resend's id, or why it was not sent. Never throws.
+ */
+export async function deliverStoredEmail(row: {
+  to: string;
+  subject: string;
+  html: string;
+  text: string | null;
+  template: string;
+}): Promise<{ ok: true; providerId: string } | { ok: false; error: string }> {
+  const client = resend();
+  if (!client) return { ok: false, error: "not_configured" };
+  const recipient = row.to.trim();
+  if (!isEmailAddress(recipient) || isPlaceholderEmail(recipient)) return { ok: false, error: "invalid address" };
+  try {
+    const { data: sent, error } = await client.emails.send({
+      from: fromAddress(),
+      to: recipient,
+      subject: row.subject,
+      html: row.html,
+      text: row.text ?? undefined,
+      tags: [{ name: "template", value: TAG_PART.test(row.template) ? row.template : "resent" }, { name: "resent", value: "1" }],
+    });
+    if (error) return { ok: false, error: error.message };
+    if (!sent?.id) return { ok: false, error: "no id returned" };
+    return { ok: true, providerId: sent.id };
+  } catch (error) {
+    return { ok: false, error: (error as Error)?.message ?? String(error) };
+  }
+}

@@ -140,7 +140,10 @@
     "WRONG_PRICE": "Wrong price",
     "ASKED_MONEY_UPFRONT": "Asked for money before a viewing",
     "OFFENSIVE": "Offensive content",
-    "OTHER": "Something else"
+    "OTHER": "Something else",
+    "CANCELLED_FOR_IDENTITY": "Host cancelled because of who the guest is",
+    "ASKED_RELIGION_OR_ORIGIN": "Host asked about religion or origin",
+    "REFUSED_OR_IGNORED": "Host refused or ignored the guest"
   },
   "ownerType": {
     "private": "Private owner",

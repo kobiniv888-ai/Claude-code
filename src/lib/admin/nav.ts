@@ -9,6 +9,10 @@ import { can, type Permission } from "@/lib/auth/permissions";
 export const ADMIN_COUNT_KEYS = [
   "inReview",
   "openReports",
+  /** Open turned-away reports (round 3, brief 8.2): the reports badge turns urgent. */
+  "urgentReports",
+  /** Open flags: host cancellations, no-shows and hosts with several reports (Admin → Flags). */
+  "openFlags",
   "activeTickets",
   "urgentTickets",
   "pendingVerifications",
@@ -23,9 +27,12 @@ export type AdminNavKey =
   | "overview"
   | "moderation"
   | "reports"
+  | "flags"
   | "bookings"
   | "users"
   | "verifications"
+  | "badges"
+  | "referencePrices"
   | "tickets"
   | "content"
   | "settings"
@@ -59,8 +66,11 @@ export type AdminNavItem = {
 export const ADMIN_NAV: readonly AdminNavItem[] = [
   { key: "overview", href: "/admin", permission: null, group: "operations" },
   { key: "moderation", href: "/admin/moderation", permission: "moderation", group: "operations", countKey: "inReview" },
+  // Turned-away, listing and review reports (round 3, brief 8.2); urgent while a turned-away one is open.
   { key: "reports", href: "/admin/reports", permission: "reports.view", group: "operations", countKey: "openReports" },
-  // Flagged host cancellations and no-shows (read-only; src/lib/booking/admin.ts).
+  // Host cancellations within 48 hours, no-shows and hosts with several reports (src/lib/admin/flags.ts).
+  { key: "flags", href: "/admin/flags", permission: "moderation", group: "operations", countKey: "openFlags" },
+  // Search and booking details (src/lib/admin/server/bookings.ts).
   { key: "bookings", href: "/admin/bookings", permission: "moderation", group: "operations" },
   { key: "users", href: "/admin/users", permission: "users.view", group: "operations" },
   {
@@ -70,6 +80,10 @@ export const ADMIN_NAV: readonly AdminNavItem[] = [
     group: "operations",
     countKey: "pendingVerifications",
   },
+  // "ביקרנו במקום" (round 3, brief 8.3).
+  { key: "badges", href: "/admin/badges", permission: "moderation", group: "operations" },
+  // Price ranges from public reports for the hosts' price guide (round 3, brief 5 and 9).
+  { key: "referencePrices", href: "/admin/reference-prices", permission: "moderation", group: "operations" },
   { key: "tickets", href: "/admin/tickets", permission: "tickets", group: "operations", countKey: "activeTickets" },
   {
     key: "content",
@@ -119,6 +133,6 @@ export function isAdminNavActive(pathname: string, href: string): boolean {
 export function navBadge(item: AdminNavItem, counts: AdminCounts | null): { count: number; urgent: boolean } {
   if (!item.countKey || !counts) return { count: 0, urgent: false };
   const count = counts[item.countKey] ?? 0;
-  const urgent = item.key === "tickets" ? counts.urgentTickets > 0 : item.key === "reports" ? count > 0 : false;
+  const urgent = item.key === "tickets" ? counts.urgentTickets > 0 : item.key === "reports" ? (counts.urgentReports ?? 0) > 0 : false;
   return { count, urgent };
 }

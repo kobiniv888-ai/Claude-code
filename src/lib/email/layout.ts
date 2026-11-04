@@ -82,8 +82,12 @@ function renderBlock(block: EmailBlock, align: "left" | "right"): string {
   switch (block.type) {
     case "paragraph":
       return `<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:${colors.text};">${multiline(block.text)}</p>`;
-    case "notice":
-      return `<p style="margin:0 0 16px;padding:12px 16px;font-size:14px;line-height:1.55;color:${colors.text};background:${colors.primaryTint};border:1px solid ${colors.primaryTintBorder};border-radius:12px;">${multiline(block.text)}</p>`;
+    case "notice": {
+      const link = block.link
+        ? `<br><a href="${escapeHtml(block.link.url)}" target="_blank" style="color:${colors.primary};font-weight:600;text-decoration:underline;">${escapeHtml(block.link.label)}</a>`
+        : "";
+      return `<p style="margin:0 0 16px;padding:12px 16px;font-size:14px;line-height:1.55;color:${colors.text};background:${colors.primaryTint};border:1px solid ${colors.primaryTintBorder};border-radius:12px;">${multiline(block.text)}${link}</p>`;
+    }
     case "quote": {
       const label = block.label
         ? `<p style="margin:0 0 6px;font-size:13px;font-weight:600;color:${colors.muted};">${escapeHtml(block.label)}</p>`
@@ -182,7 +186,12 @@ export function renderEmailText(content: EmailContent, ctx: LayoutContext): stri
     "",
   );
   for (const block of content.blocks) {
-    if (block.type === "paragraph" || block.type === "notice") lines.push(block.text, "");
+    if (block.type === "paragraph") lines.push(block.text, "");
+    else if (block.type === "notice") {
+      lines.push(block.text);
+      if (block.link) lines.push(`${block.link.label}: ${block.link.url}`);
+      lines.push("");
+    }
     else if (block.type === "quote") {
       if (block.label) lines.push(`${block.label}:`);
       lines.push(...block.text.split(/\r?\n/).map((line) => `> ${line}`), "");

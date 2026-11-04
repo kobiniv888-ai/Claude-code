@@ -1,4 +1,4 @@
-import { BadgeCheck, MonitorSmartphone, ShieldAlert } from "lucide-react";
+import { BadgeCheck, Flag, MonitorSmartphone, ShieldAlert } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
@@ -20,11 +20,25 @@ import { PledgeAdminFact } from "@/components/pledge/pledge-admin-fact";
 import { TicketStatusBadge } from "@/components/tickets";
 import { siteConfig } from "@/config/site";
 import { Link } from "@/i18n/navigation";
+import { Pill, type PillTone } from "@/components/admin/content/pill";
+import type { BookingStatus } from "@/generated/prisma/enums";
+import { hostFlagSummary } from "@/lib/admin/server/flags";
 import { coverUrl, realEmail } from "@/lib/admin/server/shared";
-import { getUserDetail } from "@/lib/admin/server/users";
+import { getUserBookings, getUserDetail, type UserBookingRow } from "@/lib/admin/server/users";
+import { personName } from "@/lib/auth/first-name";
+import { dateToDay } from "@/lib/booking/dates";
 import { can } from "@/lib/auth/permissions";
 import { requireStaff } from "@/lib/auth/session";
-import { formatDate, formatNumber, formatRelativeTime } from "@/lib/format";
+import { formatDate, formatDateRange, formatNumber, formatRelativeTime } from "@/lib/format";
+import { FlagReviewButton } from "../../flags/_components/flag-review-button";
+
+const BOOKING_TONE: Record<BookingStatus, PillTone> = {
+  CONFIRMED: "success",
+  COMPLETED: "muted",
+  CANCELLED_BY_GUEST: "muted",
+  CANCELLED_BY_HOST: "warning",
+  NO_SHOW: "warning",
+};
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/admin/users/[id]">): Promise<Metadata> {
   const { locale } = await params;
@@ -39,10 +53,14 @@ export default async function UserDetailPage({ params }: PageProps<"/[locale]/ad
   const data = await getUserDetail(id);
   if (!data) notFound();
   const { user } = data;
-  const [t, tAdmin, tFields] = await Promise.all([
+  const canModerate = can(staff.role, "moderation");
+  const [t, tAdmin, tFields, tb, bookings, flags] = await Promise.all([
     getTranslations("admin.users"),
     getTranslations("admin"),
     getTranslations("listingFields"),
+    getTranslations("booking"),
+    getUserBookings(user.id),
+    hostFlagSummary(user.id),
   ]);
   const n = (v: number) => formatNumber(v, locale);
   const self = user.id === staff.id;
@@ -68,8 +86,9 @@ export default async function UserDetailPage({ params }: PageProps<"/[locale]/ad
       />
 
       {canManage ? (
-        <div className="mb-5 rounded-xl border bg-card p-3 shadow-xs">
+        <div id="actions" className="mb-5 scroll-mt-20 rounded-xl border bg-card p-3 shadow-xs">
           <UserActions userId={user.id} name={user.name} status={user.status} idVerified={!!user.idVerifiedAt} canManage />
+          <p className="mt-2 text-xs text-muted-foreground">{t("blockHint")}</p>
         </div>
       ) : self ? (
         <p className="mb-5 rounded-xl border bg-card p-3 text-sm text-muted-foreground">{t("selfHint")}</p>
@@ -211,7 +230,42 @@ export default async function UserDetailPage({ params }: PageProps<"/[locale]/ad
             )}
           </AdminSection>
 
-          <div className="grid gap-4 xl:grid-cols-2">
+          <AdminSection
+            id="bookings"
+            title={t("bookings.title")}
+            description={t("bookings.summary", {
+              host: n(bookings.hostTotal),
+              guest: n(bookings.guestTotal),
+            })}
+          >
+            <dl className="mb-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+              {(
+                [
+                  ["hostCancelled", bookings.hostCancelled],
+                  ["hostFlagged", bookings.hostFlagged],
+                  ["guestCancelled", bookings.guestCancelled],
+                  ["guestNoShows", bookings.guestNoShows],
+                ] as const
+              ).map(([key, value]) => (
+                <div key={key} className="rounded-lg border bg-background p-2.5">
+                  <dt className="text-xs text-muted-foreground">{t(`bookings.counts.${key}`)}</dt>
+                  <dd className="mt-0.5 text-lg font-semibold tabular-nums">{n(value)}</dd>
+                </div>
+              ))}
+            </dl>
+            <div className="grid gap-4 xl:grid-cols-2">
+              <div>
+                <h3 className="mb-2 text-xs font-medium text-muted-foreground">{t("bookings.asHost", { count: bookings.hostTotal })}</h3>
+                <BookingList rows={bookings.asHost} side="host" canOpen={canModerate} empty={t("bookings.none")} locale={locale} tb={(key) => tb(key)} flagLabel={t("bookings.flagged")} />
+              </div>
+              <div>
+                <h3 className="mb-2 text-xs font-medium text-muted-foreground">{t("bookings.asGuest", { count: bookings.guestTotal })}</h3>
+                <BookingList rows={bookings.asGuest} side="guest" canOpen={canModerate} empty={t("bookings.none")} locale={locale} tb={(key) => tb(key)} flagLabel={t("bookings.flagged")} />
+              </div>
+            </div>
+          </AdminSection>
+
+          <div id="reports" className="grid scroll-mt-20 gap-4 xl:grid-cols-2">
             <AdminSection title={t("reportsAgainst", { count: data.reportsAgainst.length })}>
               <ReportList rows={data.reportsAgainst.map((r) => ({ ...r, who: r.reporter?.name ?? null }))} empty={t("noReports")} />
             </AdminSection>
@@ -246,6 +300,43 @@ export default async function UserDetailPage({ params }: PageProps<"/[locale]/ad
         </div>
 
         <aside className="flex min-w-0 flex-col gap-4">
+          {flags && (flags.flagged || flags.countingReports > 0 || flags.openNoShows > 0 || flags.reviewedAt) ? (
+            <AdminSection
+              id="flags"
+              title={
+                <span className="inline-flex items-center gap-1.5">
+                  <Flag aria-hidden className={flags.flagged ? "size-4 text-destructive" : "size-4 text-muted-foreground"} />
+                  {t("flags.title")}
+                </span>
+              }
+              className={flags.flagged ? "border-destructive/40" : undefined}
+              actions={
+                canModerate ? (
+                  <Link href="/admin/flags?view=hosts" className="text-sm font-medium text-primary hover:underline">
+                    {t("flags.open")}
+                  </Link>
+                ) : null
+              }
+            >
+              <ul className="flex flex-col gap-1.5 text-sm">
+                <li className="font-medium">{flags.flagged ? t("flags.flagged") : t("flags.notFlagged")}</li>
+                <li>{t("flags.reports", { count: flags.countingReports })}</li>
+                {flags.turnedAway > 0 ? <li className="text-destructive">{t("flags.turnedAway", { count: flags.turnedAway })}</li> : null}
+                {flags.openCancellations > 0 ? <li>{t("flags.cancellations", { count: flags.openCancellations })}</li> : null}
+                {flags.openNoShows > 0 ? <li>{t("flags.noShows", { count: flags.openNoShows })}</li> : null}
+                {flags.reviewedAt ? (
+                  <li className="text-xs text-muted-foreground">{t("flags.reviewedAt", { date: formatDate(flags.reviewedAt, locale) })}</li>
+                ) : null}
+              </ul>
+              {flags.flagged ? <p className="mt-2 text-xs text-muted-foreground">{t("flags.reviewRule")}</p> : null}
+              {canModerate && flags.reportFlagOpen && !self ? (
+                <div className="mt-3">
+                  <FlagReviewButton target={{ userId: user.id }} label={user.businessName || user.name} />
+                </div>
+              ) : null}
+            </AdminSection>
+          ) : null}
+
           <AdminSection title={t("devicesTitle")}>
             <p className="flex items-center gap-2 text-sm">
               <MonitorSmartphone aria-hidden className="size-4 text-muted-foreground" />
@@ -299,6 +390,59 @@ export default async function UserDetailPage({ params }: PageProps<"/[locale]/ad
   );
 }
 
+function BookingList({
+  rows,
+  side,
+  canOpen,
+  empty,
+  locale,
+  tb,
+  flagLabel,
+}: {
+  rows: UserBookingRow[];
+  side: "host" | "guest";
+  canOpen: boolean;
+  empty: string;
+  locale: string;
+  tb: (key: string) => string;
+  flagLabel: string;
+}) {
+  if (rows.length === 0) return <p className="text-sm text-muted-foreground">{empty}</p>;
+  return (
+    <ul className="divide-y rounded-lg border">
+      {rows.map((b) => (
+        <li key={b.id} className="flex flex-col gap-0.5 px-3 py-2 text-sm">
+          <span className="flex flex-wrap items-center gap-1.5">
+            {canOpen ? (
+              <Link href={`/admin/bookings/${b.id}`} className="font-mono text-xs font-semibold hover:underline">
+                <Ltr>{b.code}</Ltr>
+              </Link>
+            ) : (
+              <Ltr className="font-mono text-xs font-semibold">{b.code}</Ltr>
+            )}
+            <Pill tone={BOOKING_TONE[b.status]} className="h-5">
+              {tb(`status.${b.status}`)}
+            </Pill>
+            {b.flaggedForReview && !b.flagReviewedAt ? (
+              <Pill tone="danger" icon={Flag} className="h-5">
+                {flagLabel}
+              </Pill>
+            ) : null}
+          </span>
+          <span className="truncate text-xs text-muted-foreground" dir="auto">
+            <PublicId id={b.listing.publicId} /> {b.listing.title}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {formatDateRange(dateToDay(b.checkIn), dateToDay(b.checkOut), locale)}
+            {" · "}
+            <span dir="auto">{side === "host" ? b.guestName : (b.host.businessName || personName(b.host) || b.host.name)}</span>
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 async function ReportList({
   rows,
   empty,
@@ -306,6 +450,7 @@ async function ReportList({
   rows: {
     id: string;
     reason: string;
+    kind?: "GENERAL" | "TURNED_AWAY";
     status: "OPEN" | "RESOLVED" | "DISMISSED";
     createdAt: Date;
     listing: { publicId: number; title: string } | null;
@@ -313,7 +458,7 @@ async function ReportList({
   }[];
   empty: string;
 }) {
-  const tFields = await getTranslations("listingFields");
+  const [tFields, t] = await Promise.all([getTranslations("listingFields"), getTranslations("admin.users")]);
   if (rows.length === 0) return <p className="text-sm text-muted-foreground">{empty}</p>;
   return (
     <ul className="divide-y">
@@ -321,8 +466,9 @@ async function ReportList({
         <li key={r.id} className="flex flex-col gap-0.5 py-2 text-sm first:pt-0 last:pb-0">
           <div className="flex flex-wrap items-center gap-1.5">
             <Link href={`/admin/reports/${r.id}`} className="font-medium hover:underline">
-              {tFields(`reportReason.${r.reason}`)}
+              {tFields.has(`reportReason.${r.reason}`) ? tFields(`reportReason.${r.reason}`) : r.reason}
             </Link>
+            {r.kind === "TURNED_AWAY" ? <Pill tone="danger">{t("turnedAway")}</Pill> : null}
             <ReportStatusBadge status={r.status} className="h-5" />
           </div>
           <p className="text-xs text-muted-foreground">

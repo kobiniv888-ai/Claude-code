@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowRight, Copy, ExternalLink, MapPin, MonitorSmartphone, StickyNote } from "lucide-react";
+import { AlertTriangle, ArrowRight, Ban, CheckCircle2, CircleDashed, Copy, ExternalLink, Flag, Info, ListChecks, MapPin, MonitorSmartphone, StickyNote } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
@@ -14,7 +14,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { siteConfig } from "@/config/site";
 import { Link } from "@/i18n/navigation";
 import { pickLocalized } from "@/i18n/locale";
+import { precheckItems, precheckSummary, type PrecheckStatus } from "@/lib/admin/precheck";
 import { riskLevel } from "@/lib/admin/risk";
+import { hostFlagSummary } from "@/lib/admin/server/flags";
 import { getListingForReview, nextInReview } from "@/lib/admin/server/moderation";
 import { cityName, coverUrl, realEmail } from "@/lib/admin/server/shared";
 import { requireStaff } from "@/lib/auth/session";
@@ -39,7 +41,7 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
   if (!data) notFound();
   const { listing } = data;
 
-  const [t, tf, tFields, tMod, tRisk, tAdmin, tTimes, settings, next] = await Promise.all([
+  const [t, tf, tFields, tMod, tRisk, tAdmin, tTimes, settings, next, hostFlags] = await Promise.all([
     getTranslations("admin.moderation"),
     getTranslations("admin.moderation.fields"),
     getTranslations("listingFields"),
@@ -49,7 +51,11 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
     getTranslations("wizard.times"),
     getSettings(),
     listing.status === "IN_REVIEW" ? nextInReview(listing.id) : Promise.resolve(null),
+    hostFlagSummary(listing.ownerId),
   ]);
+  const precheck = precheckItems(data.reasons, listing.riskScore !== null);
+  const precheckCounts = precheckSummary(precheck);
+  const firstListing = data.reasons.some((r) => r.code === "first_listing");
   const n = (v: number) => formatNumber(v, locale);
   const yesNo = (v: boolean | null | undefined) => (v == null ? "—" : v ? tAdmin("common.yes") : tAdmin("common.no"));
   const money = (v: { toString(): string } | null) =>
@@ -221,8 +227,65 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
         ) : null}
       </div>
 
+      {firstListing || hostFlags?.flagged ? (
+        <ul className="mb-4 flex flex-wrap gap-2" aria-label={t("gate.label")}>
+          {firstListing ? (
+            <li className="inline-flex items-center gap-1.5 rounded-full border bg-card px-3 py-1 text-sm">
+              <Info aria-hidden className="size-4 text-primary" />
+              {t("gate.firstListing")}
+            </li>
+          ) : null}
+          {hostFlags?.flagged ? (
+            <li>
+              <Link
+                href={`/admin/users/${listing.ownerId}#flags`}
+                className="inline-flex items-center gap-1.5 rounded-full border border-destructive/40 bg-destructive/5 px-3 py-1 text-sm text-destructive hover:underline"
+              >
+                <Flag aria-hidden className="size-4" />
+                {t("gate.flaggedHost")}
+              </Link>
+            </li>
+          ) : null}
+        </ul>
+      ) : null}
+
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="flex min-w-0 flex-col gap-4">
+          <AdminSection
+            id="precheck"
+            title={
+              <span className="inline-flex items-center gap-1.5">
+                <ListChecks aria-hidden className="size-4 text-muted-foreground" />
+                {t("precheck.title")}
+              </span>
+            }
+            description={
+              listing.riskScore === null
+                ? t("precheck.notRun")
+                : t("precheck.summary", { found: precheckCounts.found + precheckCounts.blocked, ok: precheckCounts.ok })
+            }
+          >
+            <ul className="grid gap-1.5 sm:grid-cols-2">
+              {precheck.map((item) => (
+                <li key={item.id} className="flex items-start gap-2 rounded-lg border bg-background px-2.5 py-2 text-sm">
+                  <PrecheckIcon status={item.status} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-medium">{t(`precheck.checks.${item.id}`)}</span>
+                    <span className="block text-xs text-muted-foreground">
+                      {item.findings.length
+                        ? item.findings.map((f) => (tRisk.has(f.code) ? tRisk(f.code) : f.code)).join(" · ")
+                        : t(`precheck.status.${item.status}`)}
+                    </span>
+                  </span>
+                  {item.points > 0 ? (
+                    <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-semibold tabular-nums">{t("points", { points: `+${n(item.points)}` })}</span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3 text-xs text-muted-foreground">{t("precheck.footnote")}</p>
+          </AdminSection>
+
           <AdminSection
             id="risk"
             title={t("riskTitle")}
@@ -589,4 +652,13 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
       </div>
     </>
   );
+}
+
+function PrecheckIcon({ status }: { status: PrecheckStatus }) {
+  const className = "mt-0.5 size-4 shrink-0";
+  if (status === "ok") return <CheckCircle2 aria-hidden className={cn(className, "text-success")} />;
+  if (status === "blocked") return <Ban aria-hidden className={cn(className, "text-destructive")} />;
+  if (status === "found") return <AlertTriangle aria-hidden className={cn(className, "text-destructive")} />;
+  if (status === "info") return <Info aria-hidden className={cn(className, "text-primary")} />;
+  return <CircleDashed aria-hidden className={cn(className, "text-muted-foreground")} />;
 }

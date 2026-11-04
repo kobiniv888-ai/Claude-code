@@ -97,7 +97,8 @@ export function absoluteMediaUrl(url: string): string {
 
 // ─── Private uploads ──────────────────────────────────────────
 
-export const PRIVATE_UPLOAD_PURPOSES = ["verification", "ticket"] as const;
+/** "report": turned-away report screenshots (round 3, brief 8.2; src/lib/reports/turned-away.ts). */
+export const PRIVATE_UPLOAD_PURPOSES = ["verification", "ticket", "report"] as const;
 export type PrivateUploadPurpose = (typeof PRIVATE_UPLOAD_PURPOSES)[number];
 
 /** "private/<purpose>/<userId>/" — every private upload of that user for that purpose lives under it. */

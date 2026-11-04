@@ -14,6 +14,10 @@ import { approximateLocation, type LatLng } from "@/lib/geo";
 import { computeShabbatFriendly, MODERATION_REASONS, type ModerationReason } from "@/lib/listing/fields";
 import { computeListingProximity } from "@/lib/nearby";
 import { PLEDGE_CURRENT_VERSION } from "@/lib/pledge";
+import { decideSubmitTarget, runReviewGate, type ReviewGate, type SubmitDecision } from "@/lib/admin/review-rule";
+import { isHostFlagged } from "@/lib/admin/server/flags";
+import { notifyFounderListingInReview } from "@/lib/alerts/founder-admin";
+import { notifyListingDecision } from "@/lib/alerts/listing-decision";
 import { assessListing, type RiskAssessment, type RiskReason } from "@/lib/risk";
 import { countAutoHideReports } from "@/lib/reports/auto-hide";
 import { getSettings } from "@/lib/settings";
@@ -22,9 +26,11 @@ import { translateForLocale, translateListing, translateListingIfMissing, update
 /**
  * The listing state machine (server-only). See docs/CONVENTIONS.md "Listing lifecycle".
  *
- *   DRAFT ─publish→ checks → LIVE | IN_REVIEW            (first listing of an account: IN_REVIEW)
+ *   DRAFT ─publish→ checks → LIVE | IN_REVIEW            (first listing of an account, or a
+ *                                                          flagged host's new listing: IN_REVIEW)
  *   IN_REVIEW ─moderator→ LIVE | NEEDS_CHANGES | REJECTED
- *   NEEDS_CHANGES / REJECTED ─owner edits→ checks again   (REJECTED always back to IN_REVIEW)
+ *   NEEDS_CHANGES / REJECTED ─owner edits→ back to IN_REVIEW (only a person lets it go live)
+ *   (the review rule: src/lib/admin/review-rule.ts; it fails CLOSED on a database error)
  *   LIVE ─owner→ PAUSED ⇄ LIVE, RENTED / SOLD, DELETED (soft)
  *   LIVE ─cron→ EXPIRED (warning email first) ─owner renews→ LIVE
  *   (unpause / renew / a live price change: checks again when the content changed since
@@ -303,6 +309,30 @@ async function publicationGaps(listing: Prisma.ListingGetPayload<{ select: typeo
 export type SubmitResult = { status: "LIVE" | "IN_REVIEW" | "BLOCKED"; reasons: RiskReason[] };
 
 /**
+ * Is this the account's first listing (no other listing of the owner was ever published, and this
+ * one never was)? THROWS on a database error: the review gate then counts it as "yes".
+ */
+async function isFirstListing(listing: { id: string; ownerId: string; publishedAt: Date | null }): Promise<boolean> {
+  if (listing.publishedAt) return false;
+  const earlier = await db.listing.count({ where: { ownerId: listing.ownerId, id: { not: listing.id }, publishedAt: { not: null } } });
+  return earlier === 0;
+}
+
+/** The review gate for a submission (first listing; a flagged host, only for a first publication). */
+function reviewGateFor(listing: { id: string; ownerId: string; publishedAt: Date | null; status: ListingStatus }): Promise<ReviewGate> {
+  return runReviewGate({
+    isFirst: () => isFirstListing(listing),
+    isFlagged: () => (listing.status === "DRAFT" ? isHostFlagged(listing.ownerId) : Promise.resolve(false)),
+  });
+}
+
+/** The automatic-check result with the gate's first-listing reason added when the checks missed it. */
+function withGateReasons(assessment: RiskAssessment, gate: ReviewGate): RiskAssessment {
+  if (!gate.firstListing || assessment.reasons.some((r) => r.code === "first_listing")) return assessment;
+  return { ...assessment, reasons: [...assessment.reasons, { code: "first_listing", points: 0 }], requiresReview: true };
+}
+
+/**
  * Publishes a listing, or re-checks it after an edit:
  * first publish (DRAFT), re-submission after "needs changes" or a rejection, and significant
  * edits of a LIVE or IN_REVIEW listing (text, photos, price, location).
@@ -348,13 +378,13 @@ export async function submitForPublication(listingId: string, ownerId: string): 
 
   // Taken before the checks run, so an edit saved meanwhile still counts as "changed since".
   const checkedAt = new Date();
-  const assessment = await assessListing(listing.id);
+  const [checked, gate] = await Promise.all([assessListing(listing.id), reviewGateFor(listing)]);
+  const assessment = withGateReasons(checked, gate);
   const from = listing.status;
-  let target: ListingStatus;
-  if (assessment.blocked) target = from === "LIVE" || from === "IN_REVIEW" ? "IN_REVIEW" : from;
-  // Once a person is asked to look, only a person lets it go live (no probing the checks by editing).
-  else if (from === "REJECTED" || from === "IN_REVIEW" || assessment.requiresReview) target = "IN_REVIEW";
-  else target = "LIVE";
+  // Once a person is asked to look (changes asked, rejected, waiting), only a person lets it go
+  // live; a first listing and a flagged host's new listing always wait (src/lib/admin/review-rule.ts).
+  const decision: SubmitDecision = decideSubmitTarget({ from, blocked: assessment.blocked, riskRequiresReview: assessment.requiresReview, gate });
+  const target: ListingStatus = decision.target;
 
   const now = new Date();
   let data: Prisma.ListingUncheckedUpdateManyInput = {
@@ -393,6 +423,8 @@ export async function submitForPublication(listingId: string, ownerId: string): 
       await notifyOwner(listing.owner, "listing_in_review", { ownerName: listing.owner.name, listingTitle: listing.title }, { optional: true });
     }
   }
+  // The founder hears about every listing that starts waiting (round 3, brief 9).
+  if (target === "IN_REVIEW" && from !== "IN_REVIEW") await notifyFounderListingInReview(listing.id, decision.why);
 
   return {
     status: assessment.blocked ? "BLOCKED" : target === "LIVE" ? "LIVE" : "IN_REVIEW",
@@ -477,6 +509,7 @@ export async function recheckLiveListingAfterPriceChange(listingId: string, owne
   }
   if (toReview) {
     await notifyOwner(listing.owner, "listing_in_review", { ownerName: listing.owner.name, listingTitle: listing.title }, { optional: true });
+    await notifyFounderListingInReview(listing.id, [assessment.blocked ? "blocked" : "recheck"]);
   }
   return { status: toReview ? "IN_REVIEW" : "LIVE", rechecked: true, reasons: assessment.reasons };
 }
@@ -535,12 +568,18 @@ export async function approveListing(listingId: string, staffId: string): Promis
   } catch (error) {
     console.error(`[lifecycle] translation of ${listing.id} on approval failed:`, error);
   }
-  await notifyOwner(
-    listing.owner,
-    "listing_approved",
-    { ownerName: listing.owner.name, listingTitle: listing.title, listingUrl: publicListingPath(listing.publicId) },
-    { optional: true },
-  );
+  // Not optional (round 3, brief 9): the host always hears about the decision, by email or, when
+  // email is not available, through their other alert channels (src/lib/alerts/listing-decision.ts).
+  await notifyListingDecision({
+    ownerId: listing.owner.id,
+    kind: "approved",
+    listingTitle: listing.title,
+    path: publicListingPath(listing.publicId),
+    email: {
+      template: "listing_approved",
+      data: { ownerName: listing.owner.name, listingTitle: listing.title, listingUrl: publicListingPath(listing.publicId) },
+    },
+  });
   return { status: "LIVE", changed: true };
 }
 
@@ -592,20 +631,28 @@ async function sendBack(
     reasonText(input.reasonCode, locale),
     input.note ? translateForLocale(input.note, locale) : Promise.resolve(null),
   ]);
+  // By email, or through the host's other alert channels when email is not available.
   if (kind === "needs_changes") {
-    await notifyOwner(listing.owner, "listing_needs_changes", {
-      ownerName: listing.owner.name,
+    await notifyListingDecision({
+      ownerId: listing.owner.id,
+      kind: "needs_changes",
       listingTitle: listing.title,
-      listingUrl: MY_LISTINGS_PATH,
-      reasonText: reason,
-      note: translatedNote?.text ?? null,
+      path: MY_LISTINGS_PATH,
+      email: {
+        template: "listing_needs_changes",
+        data: { ownerName: listing.owner.name, listingTitle: listing.title, listingUrl: MY_LISTINGS_PATH, reasonText: reason, note: translatedNote?.text ?? null },
+      },
     });
   } else {
-    await notifyOwner(listing.owner, "listing_rejected", {
-      ownerName: listing.owner.name,
+    await notifyListingDecision({
+      ownerId: listing.owner.id,
+      kind: "rejected",
       listingTitle: listing.title,
-      reasonText: reason,
-      note: translatedNote?.text ?? null,
+      path: MY_LISTINGS_PATH,
+      email: {
+        template: "listing_rejected",
+        data: { ownerName: listing.owner.name, listingTitle: listing.title, reasonText: reason, note: translatedNote?.text ?? null },
+      },
     });
   }
   return { status: target, changed: true };
@@ -669,7 +716,9 @@ export async function applyReport(listingId: string, now: Date = new Date()): Pr
   });
   const [reports, settings] = await Promise.all([
     db.report.findMany({
-      where: { listingId, status: "OPEN" },
+      // Listing reports only: turned-away reports (about the host, round 3) never hide anything
+      // by themselves.
+      where: { listingId, status: "OPEN", kind: "GENERAL", targetType: "LISTING" },
       orderBy: { createdAt: "asc" },
       select: {
         reporterId: true,
@@ -755,6 +804,7 @@ async function ownerAction(
   if (action === "delete") await audit({ actorId: ownerId, action: "listing.delete", targetType: "Listing", targetId: listing.id });
   if (toReview) {
     await notifyOwner(listing.owner, "listing_in_review", { ownerName: listing.owner.name, listingTitle: listing.title }, { optional: true });
+    await notifyFounderListingInReview(listing.id, ["recheck"]);
   }
   return { status: fresh.status, changed: true, expiresAt: fresh.expiresAt };
 }

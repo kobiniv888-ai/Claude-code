@@ -140,7 +140,10 @@
     "WRONG_PRICE": "מחיר שגוי",
     "ASKED_MONEY_UPFRONT": "ביקשו כסף לפני צפייה בנכס",
     "OFFENSIVE": "תוכן פוגעני",
-    "OTHER": "משהו אחר"
+    "OTHER": "משהו אחר",
+    "CANCELLED_FOR_IDENTITY": "המארח ביטל בגלל זהות האורח",
+    "ASKED_RELIGION_OR_ORIGIN": "המארח שאל על דת או מוצא",
+    "REFUSED_OR_IGNORED": "המארח סירב או התעלם"
   },
   "ownerType": {
     "private": "בעלים פרטי",

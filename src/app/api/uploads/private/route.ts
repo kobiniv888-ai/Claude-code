@@ -9,6 +9,7 @@ import { checkPdf, IMAGE_MIME_TYPES, processPrivateImage, scanFile, validateImag
 import { PRIVATE_UPLOAD_PURPOSES, privateUploadPrefix } from "@/lib/media";
 import { assertRateLimit } from "@/lib/rate-limit";
 import { assertNotShabbatMode } from "@/lib/settings";
+import { isAllowedScreenshotFormat, REPORT_SCREENSHOTS } from "@/lib/reports/turned-away";
 import { putPrivate } from "@/lib/storage";
 import {
   assertContentLength,
@@ -25,7 +26,9 @@ import {
 /**
  * POST /api/uploads/private   (multipart/form-data)
  *   purpose  "verification" (ID, selfie, NAPR extract, business registration) | "ticket" (screenshots)
- *   file     an image (≤ 15 MB), or for "verification" also a PDF (≤ 10 MB)
+ *            | "report" (turned-away report screenshots, round 3)
+ *   file     an image (≤ 15 MB), or for "verification" also a PDF (≤ 10 MB); for "report" only
+ *            JPEG, PNG or WebP of at most 5 MB (REPORT_SCREENSHOTS in @/lib/reports/turned-away)
  *
  * → 201 { key, mime, bytes, name }
  * → { error: code } — same codes as /api/uploads/listing-photo.
@@ -44,7 +47,7 @@ export const maxDuration = 60;
 const UPLOAD_LIMIT = { limit: 30, windowSeconds: 3600 };
 const MAX_PDF_BYTES = 10 * 1024 * 1024;
 /** Documents and screenshots may be smaller than gallery photos, but must stay readable. */
-const MIN_SHORT_SIDE = { verification: 300, ticket: 16 } as const;
+const MIN_SHORT_SIDE = { verification: 300, ticket: 16, report: 16 } as const;
 
 const fieldsSchema = z.object({ purpose: z.enum(PRIVATE_UPLOAD_PURPOSES) });
 
@@ -65,7 +68,8 @@ export async function POST(request: Request) {
     await assertRateLimit(`upload:private:${user.id}`, UPLOAD_LIMIT);
 
     const file = formFile(form);
-    if (file.size > siteConfig.listings.maxPhotoBytes) {
+    const maxBytes = purpose === "report" ? REPORT_SCREENSHOTS.maxBytes : siteConfig.listings.maxPhotoBytes;
+    if (file.size > maxBytes) {
       throw new AppError("file_too_large", "File too large", { status: 413 });
     }
     const buffer = Buffer.from(await file.arrayBuffer());
@@ -83,7 +87,11 @@ export async function POST(request: Request) {
       mime = "application/pdf";
       extension = "pdf";
     } else {
-      const info = await validateImage(buffer, { minShortSide: MIN_SHORT_SIDE[purpose] });
+      const info = await validateImage(buffer, { minShortSide: MIN_SHORT_SIDE[purpose], maxBytes });
+      // Report screenshots: JPEG, PNG and WebP only (checked from the bytes, not the name).
+      if (purpose === "report" && !isAllowedScreenshotFormat(info.format)) {
+        throw new AppError("file_type_not_allowed", "Report screenshots are JPEG, PNG or WebP", { status: 415 });
+      }
       await scanFile(buffer, IMAGE_MIME_TYPES[info.format]);
       const processed = await processPrivateImage(buffer);
       body = processed.body;

@@ -11,13 +11,20 @@ export const USER_ROLES = ["USER", "ADMIN", "MODERATOR", "SUPPORT", "EDITOR"] as
 export const USER_STATUSES = ["ACTIVE", "WARNED", "SUSPENDED", "BANNED", "DELETED"] as const satisfies readonly UserStatus[];
 export const USER_VERIFIED_FILTERS = ["id", "business", "none"] as const;
 export type UserVerifiedFilter = (typeof USER_VERIFIED_FILTERS)[number];
+/** "Hosts only" (round 3, brief 9): owns a listing that is not a draft. "guests": does not. */
+export const USER_KIND_FILTERS = ["hosts", "guests"] as const;
+export type UserKindFilter = (typeof USER_KIND_FILTERS)[number];
 
 export type UserFilters = {
   q: string;
   role?: UserRole;
   status?: UserStatus;
   verified?: UserVerifiedFilter;
+  kind?: UserKindFilter;
 };
+
+/** A host owns at least one listing past the draft stage (deleted ones count: they were hosts). */
+export const HOST_WHERE: Prisma.UserWhereInput = { listings: { some: { status: { not: "DRAFT" } } } };
 
 async function searchConditions(terms: UserSearchTerms): Promise<Prisma.UserWhereInput[]> {
   const or: Prisma.UserWhereInput[] = [];
@@ -54,6 +61,8 @@ export async function searchUsers(filters: UserFilters, page: number) {
   if (filters.verified === "id") and.push({ idVerifiedAt: { not: null } });
   if (filters.verified === "business") and.push({ businessVerifiedAt: { not: null } });
   if (filters.verified === "none") and.push({ idVerifiedAt: null, businessVerifiedAt: null });
+  if (filters.kind === "hosts") and.push(HOST_WHERE);
+  if (filters.kind === "guests") and.push({ NOT: HOST_WHERE });
   if (and.length) where.AND = and;
 
   const total = await db.user.count({ where });
@@ -78,7 +87,7 @@ export async function searchUsers(filters: UserFilters, page: number) {
       idVerifiedAt: true,
       businessVerifiedAt: true,
       isDemo: true,
-      _count: { select: { listings: true, reportsAgainst: true } },
+      _count: { select: { listings: true, reportsAgainst: true, bookingsAsHost: true, bookingsAsGuest: true } },
     },
   });
   return { rows, total, page: current };
@@ -116,6 +125,8 @@ export async function getUserDetail(id: string) {
       createdAt: true,
       deletedAt: true,
       isDemo: true,
+      welcomePledgeVersion: true,
+      hostFlagReviewedAt: true,
     },
   });
   if (!user) return null;
@@ -164,6 +175,7 @@ export async function getUserDetail(id: string) {
           reason: true,
           status: true,
           createdAt: true,
+          kind: true,
           listing: { select: { publicId: true, title: true } },
           reporter: { select: { name: true } },
         },
@@ -222,3 +234,45 @@ export async function getUserDetail(id: string) {
 }
 
 export type UserDetail = NonNullable<Awaited<ReturnType<typeof getUserDetail>>>;
+
+// ─── Bookings on the user page (round 3) ─────────────────────
+
+const USER_BOOKINGS_SHOWN = 10;
+
+const userBookingSelect = {
+  id: true,
+  code: true,
+  status: true,
+  checkIn: true,
+  checkOut: true,
+  createdAt: true,
+  cancelledAt: true,
+  flaggedForReview: true,
+  flagReviewedAt: true,
+  guestName: true,
+  listing: { select: { publicId: true, title: true } },
+  host: { select: { name: true, firstName: true, businessName: true } },
+} satisfies Prisma.BookingSelect;
+
+export type UserBookingRow = Prisma.BookingGetPayload<{ select: typeof userBookingSelect }>;
+
+/**
+ * The user's bookings as a guest and as a host (latest first), with the cancellation counts the
+ * user page shows: cancelled by this host, cancelled by this guest, host cancellations flagged
+ * (within 48 hours) and no-shows (the host said this guest did not come).
+ */
+export async function getUserBookings(id: string) {
+  const [asGuest, asHost, guestTotal, hostTotal, hostCancelled, hostFlagged, guestCancelled, guestNoShows] = await Promise.all([
+    db.booking.findMany({ where: { guestUserId: id }, orderBy: { createdAt: "desc" }, take: USER_BOOKINGS_SHOWN, select: userBookingSelect }),
+    db.booking.findMany({ where: { hostUserId: id }, orderBy: { createdAt: "desc" }, take: USER_BOOKINGS_SHOWN, select: userBookingSelect }),
+    db.booking.count({ where: { guestUserId: id } }),
+    db.booking.count({ where: { hostUserId: id } }),
+    db.booking.count({ where: { hostUserId: id, status: "CANCELLED_BY_HOST" } }),
+    db.booking.count({ where: { hostUserId: id, flaggedForReview: true } }),
+    db.booking.count({ where: { guestUserId: id, status: "CANCELLED_BY_GUEST" } }),
+    db.booking.count({ where: { guestUserId: id, status: "NO_SHOW" } }),
+  ]);
+  return { asGuest, asHost, guestTotal, hostTotal, hostCancelled, hostFlagged, guestCancelled, guestNoShows };
+}
+
+export type UserBookings = Awaited<ReturnType<typeof getUserBookings>>;

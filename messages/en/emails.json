@@ -234,8 +234,9 @@
       "heading": "The host cancelled your booking",
       "body1": "We're sorry: the host of {title} cancelled booking {code} for {dates}.",
       "body2": "You haven't paid anything, because on {brand} you pay only on arrival. You can look for another place for the same dates.",
-      "report": "We review every host cancellation. If you have reason to think the booking was cancelled because of who the guest is, please tell us through the {brand} help center.",
-      "cta": "Find another place"
+      "report": "We review every host cancellation. If you have reason to think the booking was cancelled because of who the guest is, please tell us. The host won't know who reported.",
+      "cta": "Find another place",
+      "reportLink": "Host cancelled? Tell us"
     },
     "booking_completed": {
       "subject": "Thank you for staying at {title}",
@@ -328,6 +329,72 @@
       "instantLabel": "Instant booking",
       "instantOn": "continues through another channel",
       "instantOff": "off until a channel works again"
+    },
+    "report_received": {
+      "subject": "We received your report",
+      "preheader": "Our team will look at it soon. The host doesn't know who reported.",
+      "heading": "Thank you for telling us",
+      "body1": "We received your report about the host. We treat reports like this as urgent, and a person on our team will look at it.",
+      "whenLabel": "When it happened",
+      "body2": "The host doesn't know who reported. If we need more details, we'll write to you.",
+      "body3": "Every host on {brand} has promised to welcome Israeli and Jewish guests. If your booking was cancelled, you can look for another place for the same dates.",
+      "cta": "My trips"
+    },
+    "report_admin": {
+      "urgent": {
+        "subject": "Urgent: a guest says a host turned them away · {host}",
+        "heading": "Urgent report: a guest was turned away",
+        "body": "A guest reports that a host cancelled, refused or questioned them because of who they are. The report is waiting at the top of the queue."
+      },
+      "general": {
+        "subject": "New report: {reason}",
+        "heading": "New report",
+        "body": "A visitor reported a listing or an account."
+      },
+      "reasonLabel": "What was reported",
+      "targetLabel": "About",
+      "target": {
+        "LISTING": "Listing",
+        "USER": "Host or account",
+        "REVIEW": "Review",
+        "MESSAGE": "Message"
+      },
+      "screenshotsLabel": "Screenshots",
+      "screenshots": "{count, plural, one {{count} screenshot} other {{count} screenshots}}",
+      "next": "In the admin panel you can dismiss the report, warn the host, hide their listings or remove them. Each action needs a reason and is logged.",
+      "privacy": "The host doesn't know who reported. The reporter's name and details are only in the admin panel.",
+      "cta": "Open the report"
+    },
+    "report_host_listings_hidden": {
+      "subject": "Your listings on {brand} are hidden",
+      "preheader": "They don't show on the site until our team decides otherwise.",
+      "heading": "We hid your listings",
+      "body1": "{count, plural, one {Your listing was taken off the site} other {All {count} of your listings were taken off the site}} after we looked into a guest's report.",
+      "reasonLabel": "Reason",
+      "body2": "Every host on {brand} promises to welcome Israeli and Jewish guests. Your listings stay hidden until our team decides otherwise. Existing bookings were not cancelled. If you think this is a mistake, please contact support.",
+      "cta": "Contact support"
+    },
+    "report_reporter_revealed": {
+      "subject": "About a report we received on {brand}",
+      "preheader": "We decided to tell you who sent it.",
+      "heading": "Who sent the report",
+      "body1": "We looked into a guest's report about you, and we decided to tell you who sent it.",
+      "reporterLabel": "Reported by",
+      "reasonLabel": "What was reported",
+      "noteLabel": "A message from our team",
+      "body2": "Please don't contact the guest about this. If you'd like to add something, write to us through the {brand} help center.",
+      "cta": "Contact support"
+    },
+    "report_reasons": {
+      "FAKE_LISTING": "Fake listing",
+      "ALREADY_RENTED": "Already rented or sold",
+      "WRONG_PRICE": "Wrong price",
+      "ASKED_MONEY_UPFRONT": "Asked for money up front",
+      "OFFENSIVE": "Offensive",
+      "OTHER": "Other",
+      "CANCELLED_FOR_IDENTITY": "The host cancelled because of who the guest is",
+      "ASKED_RELIGION_OR_ORIGIN": "The host asked about the guest's religion or origin",
+      "REFUSED_OR_IGNORED": "The host refused or ignored the guest"
     }
   },
   "ticketStatus": {

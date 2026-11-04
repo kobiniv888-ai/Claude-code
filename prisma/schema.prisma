@@ -175,10 +175,21 @@ enum BookingStatus {
   NO_SHOW
 }
 
+/// GENERAL = the "…" menu report on a listing or user (round 1). TURNED_AWAY = "Turned away?"
+/// (round 3, brief 8.2): a guest says the host cancelled or refused them because of who they are.
+/// Turned-away reports are urgent, never public, and never name the reporter to the host unless the
+/// founder decides to (Report.reporterRevealedAt).
+enum ReportKind {
+  GENERAL
+  TURNED_AWAY
+}
+
 enum ReportTarget {
   LISTING
   USER
   MESSAGE
+  /// Round 3 (brief 8.1, phase 5): a host reports a guest review. Report.reviewId.
+  REVIEW
 }
 
 enum ReportReason {
@@ -188,6 +199,13 @@ enum ReportReason {
   ASKED_MONEY_UPFRONT
   OFFENSIVE
   OTHER
+  // Turned-away reasons (round 3, brief 8.2; Report.kind TURNED_AWAY, which also uses OTHER).
+  /// "The host cancelled because of who I am."
+  CANCELLED_FOR_IDENTITY
+  /// "The host asked about my religion or where I'm from."
+  ASKED_RELIGION_OR_ORIGIN
+  /// "The host refused or ignored me."
+  REFUSED_OR_IGNORED
 }
 
 enum ReportStatus {
@@ -359,6 +377,10 @@ model User {
   /// Bayit bot, set when the host opens the bot's "/start <token>" link from the settings page.
   telegramChatId          String?     @unique
   telegramLinkedAt        DateTime?
+  /// Admin → Flags (round 3, brief 9): when staff last marked this host's flags (2+ reports, host
+  /// cancellations within 48 hours) as reviewed. The host shows as flagged again only when a new
+  /// report or flagged cancellation arrives after this. The note and who did it are in AuditLog.
+  hostFlagReviewedAt      DateTime?
 
   sessions              Session[]
   accounts              Account[]
@@ -485,9 +507,10 @@ model City {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  neighborhoods Neighborhood[]
-  listings      Listing[]
-  places        JewishPlace[]
+  neighborhoods   Neighborhood[]
+  listings        Listing[]
+  places          JewishPlace[]
+  referencePrices ReferencePrice[]
 }
 
 model Neighborhood {
@@ -505,7 +528,8 @@ model Neighborhood {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  listings Listing[]
+  listings        Listing[]
+  referencePrices ReferencePrice[]
 
   @@unique([cityId, slug])
 }
@@ -672,6 +696,13 @@ model Listing {
   /// Snapshot of the owner's welcome pledge at publish time (version + when).
   welcomePledgeVersion Int?
   welcomePledgeAt      DateTime?
+  /// "ביקרנו במקום" (round 3, brief 8.3): the day a Bayit team member visited the place. Set and
+  /// cleared ONLY by an admin. Public: the badge with the visit month, a card tag and a filter.
+  visitedAt            DateTime? @db.Date
+  /// STAFF ONLY, never public: who visited and anything worth knowing.
+  visitedNote          String?
+  /// The staff member who entered the visit (no relation, like JewishPlace.verifiedById).
+  visitedById          String?
 
   // Lifecycle
   publishedAt      DateTime?
@@ -815,79 +846,85 @@ model AvailabilityBlock {
 /// at check-in: Bayit takes no money. Prices, policy and payment methods are copied when booked.
 /// Rules and statuses: docs/redesign-2/booking.md; code: src/lib/booking.
 model Booking {
-  id                 String             @id @default(cuid())
+  id           String    @id @default(cuid())
   /// Short, unambiguous booking number: "BT-7K3Q9" (no 0/O/1/I).
-  code               String             @unique
-  listingId          String
-  listing            Listing            @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  guestUserId        String
-  guest              User               @relation("BookingGuest", fields: [guestUserId], references: [id], onDelete: Cascade)
-  hostUserId         String
-  host               User               @relation("BookingHost", fields: [hostUserId], references: [id], onDelete: Cascade)
+  code         String    @unique
+  listingId    String
+  listing      Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  guestUserId  String
+  guest        User      @relation("BookingGuest", fields: [guestUserId], references: [id], onDelete: Cascade)
+  hostUserId   String
+  host         User      @relation("BookingHost", fields: [hostUserId], references: [id], onDelete: Cascade)
   /// Hotels: the room type the guest chose (the listing is still booked as one unit for now).
-  roomTypeId         String?
-  roomType           RoomType?          @relation(fields: [roomTypeId], references: [id], onDelete: SetNull)
+  roomTypeId   String?
+  roomType     RoomType? @relation(fields: [roomTypeId], references: [id], onDelete: SetNull)
   /// { he, en, ru, ar, ka } — the room type's name when booked (kept if the room type changes).
-  roomTypeName       Json?
+  roomTypeName Json?
 
   // Stay: calendar days in Asia/Tbilisi; checkOut is exclusive. nights = checkOut − checkIn.
-  checkIn            DateTime           @db.Date
-  checkOut           DateTime           @db.Date
-  nights             Int
-  adults             Int
-  children           Int                @default(0)
-  infants            Int                @default(0)
+  checkIn  DateTime @db.Date
+  checkOut DateTime @db.Date
+  nights   Int
+  adults   Int
+  children Int      @default(0)
+  infants  Int      @default(0)
 
   // Money in the host's currency, copied when booked. Paid to the host at check-in.
-  nightlyPrice       Decimal            @db.Decimal(14, 2)
-  weekendPrice       Decimal?           @db.Decimal(14, 2)
-  subtotal           Decimal            @db.Decimal(14, 2)
-  cleaningFee        Decimal            @default(0) @db.Decimal(14, 2)
-  total              Decimal            @db.Decimal(14, 2)
-  currency           Currency
+  nightlyPrice    Decimal   @db.Decimal(14, 2)
+  weekendPrice    Decimal?  @db.Decimal(14, 2)
+  subtotal        Decimal   @db.Decimal(14, 2)
+  cleaningFee     Decimal   @default(0) @db.Decimal(14, 2)
+  total           Decimal   @db.Decimal(14, 2)
+  currency        Currency
   /// Estimate shown to the guest in their display currency when booked.
-  displayCurrency    Currency?
-  displayTotal       Decimal?           @db.Decimal(14, 2)
+  displayCurrency Currency?
+  displayTotal    Decimal?  @db.Decimal(14, 2)
 
   // Terms copied when booked.
   cancellationPolicy CancellationPolicy
   paymentMethods     String[]           @default([])
 
-  status             BookingStatus      @default(CONFIRMED)
+  status           BookingStatus @default(CONFIRMED)
   /// Host: DOUBLE_BOOKING | PROPERTY_ISSUE | OTHER. Guest: see GUEST_CANCEL_REASONS (src/lib/booking).
-  cancelReasonCode   String?
+  cancelReasonCode String?
   /// User-written; render with dir="auto".
-  cancelReason       String?
-  cancelledAt        DateTime?
-  cancelledById      String?
-  cancelledBy        User?              @relation("BookingCanceller", fields: [cancelledById], references: [id], onDelete: SetNull)
+  cancelReason     String?
+  cancelledAt      DateTime?
+  cancelledById    String?
+  cancelledBy      User?         @relation("BookingCanceller", fields: [cancelledById], references: [id], onDelete: SetNull)
   /// Host cancellations within 48 hours of the booking (and guests saying the host asked them to cancel).
-  flaggedForReview   Boolean            @default(false)
-  noShowReportedAt   DateTime?
+  flaggedForReview Boolean       @default(false)
+  /// Admin → Flags (round 3, brief 9): when staff marked this booking's flag (flaggedForReview or a
+  /// no-show) as reviewed, and who (no relation). The note is in AuditLog. Null = still open.
+  flagReviewedAt   DateTime?
+  flagReviewedById String?
+  noShowReportedAt DateTime?
   /// User-written; render with dir="auto".
-  messageToHost      String?
+  messageToHost    String?
 
   // Guest snapshot (the host contacts the guest with these).
-  guestName          String
+  guestName  String
   /// E.164, verified when booked.
-  guestPhone         String
+  guestPhone String
   /// The guest's language for messages about this booking.
-  locale             Locale
+  locale     Locale
 
-  rulesAcceptedAt    DateTime
+  rulesAcceptedAt DateTime
   /// The 3-days-before reminder went out (cron /api/cron/booking-reminders).
-  reminderSentAt     DateTime?
+  reminderSentAt  DateTime?
   /// When one of the host's CONFIRMING alert channels accepted the "new booking" alert (Resend
   /// returned an id, or the Telegram bot's message went through; the dev outbox in development /
   /// test mode). A booking only stands once the host was told (round 3, src/lib/alerts). Null on
   /// bookings made before round 3.
-  hostNotifiedAt     DateTime?
+  hostNotifiedAt  DateTime?
   /// Which confirming channels accepted it, comma-separated: "email", "telegram" or
   /// "email,telegram" (browser notifications never count, so they are not listed).
-  hostNotifiedVia    String?
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
-  block              AvailabilityBlock?
+  hostNotifiedVia String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  block           AvailabilityBlock?
+  /// Turned-away reports about this booking (round 3, brief 8.2).
+  reports         Report[]
 
   @@index([listingId, checkIn])
   @@index([guestUserId, checkIn])
@@ -956,28 +993,59 @@ model ListingStatDaily {
 // Trust & safety
 // ─────────────────────────────────────────────────────────────
 
+/// Reports are NEVER public. Round 3 (brief 8.2, 9) adds turned-away reports (kind TURNED_AWAY)
+/// and review reports (targetType REVIEW) to the same table and queue.
 model Report {
-  id           String       @id @default(cuid())
-  targetType   ReportTarget
-  listingId    String?
-  listing      Listing?     @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  targetUserId String?
-  targetUser   User?        @relation("ReportTargetUser", fields: [targetUserId], references: [id], onDelete: Cascade)
+  id                   String         @id @default(cuid())
+  kind                 ReportKind     @default(GENERAL)
+  targetType           ReportTarget
+  listingId            String?
+  listing              Listing?       @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  targetUserId         String?
+  targetUser           User?          @relation("ReportTargetUser", fields: [targetUserId], references: [id], onDelete: Cascade)
   /// Phase 2 (chat messages).
-  messageId    String?
-  reporterId   String?
-  reporter     User?        @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: SetNull)
-  reason       ReportReason
-  details      String?
-  status       ReportStatus @default(OPEN)
-  resolution   String?
-  handledById  String?
-  handledBy    User?        @relation("ReportHandler", fields: [handledById], references: [id], onDelete: SetNull)
-  handledAt    DateTime?
-  createdAt    DateTime     @default(now())
+  messageId            String?
+  /// targetType REVIEW: the reported review. A plain column until the Review table arrives
+  /// (round 3, phase 5), which adds the relation.
+  reviewId             String?
+  /// Turned-away reports: the booking the host cancelled or refused, when there is one.
+  bookingId            String?
+  booking              Booking?       @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  reporterId           String?
+  reporter             User?          @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: SetNull)
+  reason               ReportReason
+  /// User-written; render with dir="auto".
+  details              String?
+  /// Turned-away reports: the day it happened (a calendar day, as the guest gave it).
+  happenedOn           DateTime?      @db.Date
+  /// Turned-away reports: screenshots (images only, size-limited) in PRIVATE storage, e.g.
+  /// [{ key, contentType, bytes, width, height }]. Never public; staff open them through a
+  /// staff-checked route. Deleted after the report is handled (see attachmentsDeletedAt).
+  attachments          Json?
+  /// When the attachment files were deleted (the list above is then emptied).
+  attachmentsDeletedAt DateTime?
+  /// URGENT for turned-away reports (the founder gets an email); NORMAL otherwise.
+  priority             TicketPriority @default(NORMAL)
+  status               ReportStatus   @default(OPEN)
+  /// Staff-only reason / note for the decision (never shown to the reporter or the host as is).
+  resolution           String?
+  /// Staff-only working notes while the report is open.
+  adminNote            String?
+  /// What staff did, as a short code set by the reports admin (e.g. "dismissed", "warned",
+  /// "listings_hidden", "host_removed"). Each action is also in AuditLog.
+  actionTaken          String?
+  /// The host is NOT told who reported until the founder decides to (brief 8.2). Set when staff
+  /// revealed the reporter to the host. Null = the reporter stays hidden.
+  reporterRevealedAt   DateTime?
+  handledById          String?
+  handledBy            User?          @relation("ReportHandler", fields: [handledById], references: [id], onDelete: SetNull)
+  handledAt            DateTime?
+  createdAt            DateTime       @default(now())
 
   @@index([status, createdAt])
   @@index([listingId])
+  @@index([kind, status, createdAt])
+  @@index([targetUserId])
 }
 
 model UserBlock {
@@ -1162,25 +1230,25 @@ model FaqItem {
 
 /// Added by admins only. Never invent places: demo points must have isDemo = true.
 model JewishPlace {
-  id          String          @id @default(cuid())
-  type        JewishPlaceType
+  id           String          @id @default(cuid())
+  type         JewishPlaceType
   /// { he, en, ru, ar, ka }
-  names       Json
-  description Json?
-  address     Json?
-  cityId      String?
-  city        City?           @relation(fields: [cityId], references: [id], onDelete: SetNull)
+  names        Json
+  description  Json?
+  address      Json?
+  cityId       String?
+  city         City?           @relation(fields: [cityId], references: [id], onDelete: SetNull)
   /// Round 3 ("country-ready"): ISO 3166-1 alpha-2, set from the place's city when it has one
   /// (admin place form). Per-country values: src/config/countries.ts.
-  countryCode String          @default("GE")
-  lat         Float
-  lng         Float
-  phone       String?
-  website     String?
+  countryCode  String          @default("GE")
+  lat          Float
+  lng          Float
+  phone        String?
+  website      String?
   /// Free text per language, e.g. { en: "Shacharit 8:00" }
-  hours       Json?
-  isDemo      Boolean         @default(false)
-  active      Boolean         @default(true)
+  hours        Json?
+  isDemo       Boolean         @default(false)
+  active       Boolean         @default(true)
   /// Round 2 (brief 5.9): the day a team member last checked this real place (a visit, a call,
   /// the community's own site). Walking times on listings use ONLY verified, non-demo places
   /// (src/lib/nearby.ts). Demo places are never verified.
@@ -1189,9 +1257,9 @@ model JewishPlace {
   verifiedById String?
   /// Where the details were checked: free text or a URL (staff only, never public).
   source       String?
-  createdById String?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  createdById  String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
 
   @@index([type, active])
   @@index([cityId])
@@ -1301,6 +1369,48 @@ model ExchangeRate {
   fetchedAt DateTime @default(now())
 
   @@index([fetchedAt])
+}
+
+/// Reference prices for the hosts' price guide (round 3, brief 5 and 9): a price RANGE an admin
+/// copies from a public report, with its source and month. Shown apart from Bayit's own data,
+/// labelled "לפי [sourceName], [sourceMonth]". Store only the range and the source, never copied
+/// listings. Only active rows are shown. Risk-check baselines (src/lib/risk/price.ts) stay apart.
+model ReferencePrice {
+  id             String        @id @default(cuid())
+  /// ISO 3166-1 alpha-2, like City.countryCode (src/config/countries.ts).
+  countryCode    String        @default("GE")
+  cityId         String
+  city           City          @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  /// Optional: a range for one neighborhood of the city (it must belong to cityId; checked in code).
+  neighborhoodId String?
+  neighborhood   Neighborhood? @relation(fields: [neighborhoodId], references: [id], onDelete: Cascade)
+  dealType       DealType
+  /// Null = all property types.
+  propertyType   PropertyType?
+  /// Null = all sizes.
+  bedrooms       Int?
+  /// What low/high are per: NIGHT (short stays, hotels), MONTH (monthly rent) or TOTAL (sale).
+  /// WEEK is not used here.
+  unit           PricePeriod
+  /// Sale: low/high are per m² (unit TOTAL) instead of the full price.
+  perSqm         Boolean       @default(false)
+  low            Decimal       @db.Decimal(14, 2)
+  high           Decimal       @db.Decimal(14, 2)
+  currency       Currency
+  /// The report's publisher, shown as is ("לפי <sourceName>").
+  sourceName     String
+  sourceUrl      String?
+  /// The report's month: stored as the 1st of that month.
+  sourceMonth    DateTime      @db.Date
+  /// Staff-only note.
+  note           String?
+  active         Boolean       @default(true)
+  /// The staff member who entered it (no relation, like JewishPlace.createdById).
+  createdById    String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([cityId, dealType, active])
 }
 
 /// Fixed-window rate limiting that works on serverless hosts.

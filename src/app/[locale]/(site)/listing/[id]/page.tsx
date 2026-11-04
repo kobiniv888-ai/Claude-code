@@ -30,6 +30,8 @@ import { alertEnvironment, hostInstantGate } from "@/lib/booking/alerts";
 import { isInstantDealType } from "@/lib/booking/constants";
 import { bookRequestFrom } from "@/lib/booking/guest";
 import { ViewTracker } from "@/components/listing-page/view-tracker";
+import { HostReportLink } from "@/components/report/host-report-link";
+import { HostReportRoot } from "@/components/report/host-report-root";
 import { ReportButton } from "@/components/report/report-dialog";
 import { siteConfig, type AppLocale } from "@/config/site";
 import { isAppLocale } from "@/i18n/locale";
@@ -184,7 +186,14 @@ export default async function ListingPage({ params, searchParams }: Props) {
     stay.checkIn && stay.checkOut && stay.checkIn >= today && rangeIsFree(data.blocks, stay.checkIn, stay.checkOut)
       ? { checkIn: stay.checkIn, checkOut: stay.checkOut }
       : { checkIn: null, checkOut: null };
-  const report = isPublic && !isOwner ? <ReportButton targetType="LISTING" targetId={data.id} /> : null;
+  // "Report listing" and, round 3 (brief 8.2), "Report the host" (also in the bars' "…" menus).
+  const canReport = isPublic && !isOwner;
+  const report = canReport ? (
+    <span className="flex flex-wrap items-center gap-x-3">
+      <ReportButton targetType="LISTING" targetId={data.id} />
+      <HostReportLink />
+    </span>
+  ) : null;
 
   const page = (
     <>
@@ -290,6 +299,7 @@ export default async function ListingPage({ params, searchParams }: Props) {
         />
       )}
       <ViewTracker listingId={data.id} publicId={data.publicId} isPublic={isPublic} />
+      {canReport ? <HostReportRoot listingId={data.id} listingTitle={data.title.shown} today={today} /> : null}
       {isPublic ? <JsonLd data={jsonLd} nonce={nonce} /> : null}
     </>
   );

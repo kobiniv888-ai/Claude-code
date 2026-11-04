@@ -140,7 +140,10 @@
     "WRONG_PRICE": "السعر غير صحيح",
     "ASKED_MONEY_UPFRONT": "طُلب مال قبل المعاينة",
     "OFFENSIVE": "محتوى مسيء",
-    "OTHER": "سبب آخر"
+    "OTHER": "سبب آخر",
+    "CANCELLED_FOR_IDENTITY": "ألغى المضيف بسبب هوية الضيف",
+    "ASKED_RELIGION_OR_ORIGIN": "سأل المضيف عن الدين أو الأصل",
+    "REFUSED_OR_IGNORED": "رفض المضيف الضيف أو تجاهله"
   },
   "ownerType": {
     "private": "مالك خاص",

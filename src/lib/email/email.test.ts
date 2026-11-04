@@ -136,6 +136,30 @@ const samples: { [K in keyof Data]: Data[K] } = {
     template: "booking_new_host",
     adminUrl: "/admin/bookings",
   },
+  // Reports (round 3, brief 8.2; src/lib/reports/email-templates.ts)
+  report_received: { name: "Noa", bookingCode: "BT-7K3Q9", listingTitle: "Sunny flat in Vake", happenedOn: "2026-11-02", tripsUrl: "/account/trips/BT-7K3Q9" },
+  report_admin: {
+    kind: "TURNED_AWAY",
+    reason: "CANCELLED_FOR_IDENTITY",
+    targetType: "USER",
+    listingTitle: "Sunny flat in Vake",
+    listingPublicId: 1234,
+    hostName: "Yossi",
+    bookingCode: "BT-7K3Q9",
+    happenedOn: "2026-11-02",
+    screenshots: 2,
+    adminUrl: "/admin/reports/r1",
+  },
+  report_host_listings_hidden: { name: "Yossi", count: 3, reasonText: "Discrimination" },
+  report_reporter_revealed: {
+    name: "Yossi",
+    reporterName: "Noa",
+    bookingCode: "BT-7K3Q9",
+    listingTitle: "Sunny flat in Vake",
+    happenedOn: "2026-11-02",
+    reason: "ASKED_RELIGION_OR_ORIGIN",
+    note: "Please read the pledge again.",
+  },
 };
 
 afterEach(() => {

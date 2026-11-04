@@ -41,6 +41,15 @@ export const ADMIN_ERROR_CODES = [
   "backup_required",
   "cleanup_running",
   "backup_failed",
+  // Round 3, phase 3 (flags, bookings, reference prices, outbox).
+  "booking_not_found",
+  "not_flagged",
+  "reference_price_not_found",
+  "neighborhood_mismatch",
+  "city_not_found",
+  "email_not_found",
+  "resend_not_configured",
+  "cannot_resend",
 ] as const;
 export type AdminErrorCode = (typeof ADMIN_ERROR_CODES)[number];
 

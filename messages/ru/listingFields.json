@@ -140,7 +140,10 @@
     "WRONG_PRICE": "Неверная цена",
     "ASKED_MONEY_UPFRONT": "Просили деньги до просмотра",
     "OFFENSIVE": "Оскорбительное содержание",
-    "OTHER": "Другое"
+    "OTHER": "Другое",
+    "CANCELLED_FOR_IDENTITY": "Хозяин отменил из-за того, кто гость",
+    "ASKED_RELIGION_OR_ORIGIN": "Хозяин спросил о религии или происхождении",
+    "REFUSED_OR_IGNORED": "Хозяин отказал или не ответил"
   },
   "ownerType": {
     "private": "Частный владелец",

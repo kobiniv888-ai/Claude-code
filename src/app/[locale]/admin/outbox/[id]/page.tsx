@@ -5,8 +5,11 @@ import { AdminPageHeader, AdminSection, FactList } from "@/components/admin/page
 import { Ltr } from "@/components/common/ltr";
 import { siteConfig } from "@/config/site";
 import { getOutboxEmail } from "@/lib/admin/content/server/queries";
+import { resendBlock } from "@/lib/admin/outbox";
+import { isEmailDeliveryConfigured } from "@/lib/email";
 import { requireStaff } from "@/lib/auth/session";
 import { formatDate, formatTime } from "@/lib/format";
+import { ResendButton } from "./_components/resend-button";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/admin/outbox/[id]">) {
   const { locale } = await params;
@@ -23,6 +26,9 @@ export default async function OutboxEmailPage({ params }: PageProps<"/[locale]/a
   const [t, email] = await Promise.all([getTranslations("adminContent.outbox"), getOutboxEmail(id)]);
   if (!email) notFound();
   const when = (d: Date) => `${formatDate(d, locale)} ${formatTime(d, locale)}`;
+  // "Send again" (round 3): only once Resend is set up, only for emails that can really go out.
+  const resendConfigured = isEmailDeliveryConfigured();
+  const block = resendBlock(email, resendConfigured);
 
   return (
     <>
@@ -30,7 +36,11 @@ export default async function OutboxEmailPage({ params }: PageProps<"/[locale]/a
         back={{ href: "/admin/outbox", label: t("back") }}
         title={<span dir="auto">{email.subject}</span>}
         meta={<Pill tone={STATUS_TONE[email.status] ?? "muted"}>{t(`statuses.${email.status}`)}</Pill>}
+        actions={block === null ? <ResendButton id={email.id} to={email.to} when={when(email.createdAt)} /> : null}
       />
+      {email.status === "LOGGED" && block !== null ? (
+        <p className="mb-5 rounded-xl border bg-card p-3 text-sm text-muted-foreground">{t(`resend.blocked.${block}`)}</p>
+      ) : null}
       <div className="grid gap-5 xl:grid-cols-[20rem_minmax(0,1fr)]">
         <AdminSection title={t("details")} className="h-fit">
           <FactList

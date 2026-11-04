@@ -23,17 +23,19 @@ import { buttonStyles } from "@/components/ds/button";
 import { Card } from "@/components/ds/card";
 import { EmptyState } from "@/components/ds/empty-state";
 import { Tag } from "@/components/ds/tag";
+import { TurnedAwayButton } from "@/components/report/turned-away-button";
 import { siteConfig, type AppLocale } from "@/config/site";
 import { Link } from "@/i18n/navigation";
 import { formatPhoneInternational } from "@/lib/auth/phone";
 import { requireUser } from "@/lib/auth/session";
 import { cleanPaymentMethods, TRIPS_PATH, tripPath, type PaymentMethod } from "@/lib/booking/constants";
-import { DEFAULT_CHECK_IN_TIME } from "@/lib/booking/dates";
+import { DEFAULT_CHECK_IN_TIME, tbilisiToday } from "@/lib/booking/dates";
 import { clockText } from "@/lib/booking/guest";
 import { getGuestTrip } from "@/lib/booking/queries";
 import { whatsappUrl } from "@/lib/booking/reveal";
 import { telHref } from "@/lib/phone";
 import { formatDate, formatDateRange, formatMoney, formatTime } from "@/lib/format";
+import { guestBookingReports } from "@/lib/reports/queries";
 import { pageMetadata } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 
@@ -96,6 +98,18 @@ export default async function TripPage({ params, searchParams }: Props) {
   }
 
   const brand = siteConfig.localizedName[locale] ?? siteConfig.name;
+  // "Turned away?" (round 3, brief 8.2): the guest can report the host from every trip; after a
+  // host cancellation it is a card of its own. ?report=1 (the cancellation email) opens the form.
+  const [tr, reports] = await Promise.all([getTranslations({ locale, namespace: "report.turnedAway" }), guestBookingReports(user.id, [trip.id])]);
+  const reportedAt = reports.get(trip.id) ?? null;
+  const today = tbilisiToday();
+  const reportProps = {
+    target: { bookingId: trip.id },
+    context: { bookingCode: trip.code },
+    today,
+    defaultDate: trip.status === "CANCELLED_BY_HOST" && trip.cancelledAt ? tbilisiToday(trip.cancelledAt) : today,
+    autoOpen: query.report === "1" && !reportedAt,
+  };
   const confirmed = trip.status === "CONFIRMED";
   const cancelled = trip.status === "CANCELLED_BY_GUEST" || trip.status === "CANCELLED_BY_HOST";
   const justBooked = query.booked === "1" && confirmed;
@@ -357,13 +371,34 @@ export default async function TripPage({ params, searchParams }: Props) {
         {trip.status === "COMPLETED" ? <p className="text-small">{t("trip.completedNote", { brand })}</p> : null}
       </Card>
 
-      <Link
-        href="/contact"
-        className="inline-flex min-h-11 items-center gap-2 justify-self-start rounded-md text-small font-medium text-primary-text underline underline-offset-4 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-      >
-        <LifeBuoyIcon className="size-4.5" aria-hidden />
-        {t("trip.help")}
-      </Link>
+      {trip.status === "CANCELLED_BY_HOST" && !reportedAt ? (
+        <Card as="section" aria-labelledby="trip-report" className="grid gap-3">
+          <h2 id="trip-report" className="text-h2">
+            {tr("hostCancelled")}
+          </h2>
+          <p className="text-small text-muted-foreground">{tr("hostCancelledText")}</p>
+          <TurnedAwayButton {...reportProps} label={tr("tripButton")} variant="soft" className="justify-self-start" />
+        </Card>
+      ) : null}
+      {reportedAt ? (
+        <p className="flex items-start gap-2 rounded-card border border-border bg-surface-muted p-4 text-small" role="status">
+          <ShieldAlertIcon className="mt-0.5 size-5 shrink-0 text-primary-text" aria-hidden />
+          <span>{tr("reported", { date: formatDate(reportedAt, locale, { day: "numeric", month: "long", year: "numeric" }) })}</span>
+        </p>
+      ) : null}
+
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
+        <Link
+          href="/contact"
+          className="inline-flex min-h-11 items-center gap-2 justify-self-start rounded-md text-small font-medium text-primary-text underline underline-offset-4 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          <LifeBuoyIcon className="size-4.5" aria-hidden />
+          {t("trip.help")}
+        </Link>
+        {trip.status !== "CANCELLED_BY_HOST" && !reportedAt ? (
+          <TurnedAwayButton {...reportProps} label={tr("tripButton")} variant="link" className="min-h-11 text-small text-muted-foreground hover:text-destructive" />
+        ) : null}
+      </div>
     </div>
   );
 }

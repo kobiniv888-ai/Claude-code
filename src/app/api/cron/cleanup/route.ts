@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { deleteExpiredReportScreenshots } from "@/lib/reports/retention";
 import { deletePrivate, isValidStorageKey } from "@/lib/storage";
 import { deletePhotosOfDeletedListings, deleteUnattachedPrivateUploads } from "@/lib/storage/cleanup";
 import { isAuthorizedCron, runCronJob, unauthorized } from "../auth";
@@ -11,7 +12,9 @@ import { isAuthorizedCron, runCronJob, unauthorized } from "../auth";
  *   "verified on [date] by [staff]" is kept (BRIEF §11);
  * - deletes the photo files of listings deleted more than 30 days ago, and private uploads
  *   never attached to a ticket, verification request or listing after 48 hours
- *   (see @/lib/storage/cleanup).
+ *   (see @/lib/storage/cleanup);
+ * - deletes the screenshots of reports decided more than 180 days ago and sets
+ *   attachmentsDeletedAt (round 3, brief 8.2; see @/lib/reports/retention).
  */
 
 export const runtime = "nodejs";
@@ -68,12 +71,14 @@ export async function GET(request: Request) {
     const documents = await deleteDecidedDocuments(now);
     const deletedListingPhotos = await deletePhotosOfDeletedListings(now);
     const unattachedUploads = await deleteUnattachedPrivateUploads(now);
+    const reportScreenshots = await deleteExpiredReportScreenshots(now);
     return {
       rateLimits: rateLimits.count,
       verificationCodes: verifications.count,
       documents,
       deletedListingPhotos,
       unattachedUploads,
+      reportScreenshots,
     };
   });
 }

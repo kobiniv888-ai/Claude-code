@@ -2,11 +2,12 @@
 
 import { useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { PhoneIcon, UsersRoundIcon } from "lucide-react";
+import { FlagIcon, PhoneIcon, UsersRoundIcon } from "lucide-react";
 import { BottomSheet } from "@/components/ds/bottom-sheet";
 import { Button } from "@/components/ds/button";
 import { OverflowMenu } from "@/components/ds/overflow-menu";
 import { StickyContactBar } from "@/components/ds/sticky-contact-bar";
+import { requestHostReport, useHostReportAvailable } from "@/components/report/host-report-store";
 import { contactLayout } from "@/lib/listing-page/helpers";
 import { ChannelIcon } from "./channel-icon";
 import { ContactPanel } from "./contact-panel";
@@ -31,6 +32,9 @@ export function MobileContactBar({ price, owner }: { price: ReactNode; owner: Re
   const t = useTranslations("contact");
   const { listing, availability, contact, reveal, revealing } = useContact();
   const [sheetOpen, setSheetOpen] = useState(false);
+  // "דיווח על המארח" (round 3, brief 8.2): public listings that are not the visitor's own.
+  const tr = useTranslations("report.turnedAway");
+  const canReportHost = useHostReportAvailable();
   if (availability !== "ok" || listing.channels.length === 0) return null;
   const { primary, phone, more } = contactLayout(listing.channels);
   if (!primary) return null;
@@ -71,19 +75,29 @@ export function MobileContactBar({ price, owner }: { price: ReactNode; owner: Re
           ) : undefined
         }
         menu={
-          more.length ? (
+          more.length || canReportHost ? (
             <OverflowMenu
-              label={t("moreChannels")}
+              label={more.length ? t("moreChannels") : tr("moreOptions")}
               contentClassName="min-w-56"
               items={[
-                ...more.map((channel) => ({
-                  key: channel,
-                  icon: <ChannelIcon channel={channel} className="size-5" />,
-                  label: t(`channelAction.${channel}`),
-                  onSelect: () => contact(channel),
-                })),
-                "separator",
-                { key: "all", icon: <UsersRoundIcon className="size-5" aria-hidden="true" />, label: t("allOptions"), onSelect: () => reveal(openSheet) },
+                ...(more.length
+                  ? [
+                      ...more.map((channel) => ({
+                        key: channel,
+                        icon: <ChannelIcon channel={channel} className="size-5" />,
+                        label: t(`channelAction.${channel}`),
+                        onSelect: () => contact(channel),
+                      })),
+                      "separator" as const,
+                      { key: "all", icon: <UsersRoundIcon className="size-5" aria-hidden="true" />, label: t("allOptions"), onSelect: () => reveal(openSheet) },
+                    ]
+                  : []),
+                ...(canReportHost
+                  ? [
+                      ...(more.length ? ["separator" as const] : []),
+                      { key: "report-host", icon: <FlagIcon className="size-5" aria-hidden="true" />, label: tr("menuItem"), onSelect: requestHostReport },
+                    ]
+                  : []),
               ]}
             />
           ) : undefined
