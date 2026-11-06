@@ -170,12 +170,12 @@ iCal is the calendar link that Airbnb, Booking.com and most other sites use to s
 ## How it was checked
 
 - **Automatic checks, all green:** database schema check, type check, code check (lint), the
-  translation check (45 groups × 5 languages) and UNIT_TESTS unit tests (about 380 of them new in
+  translation check (45 groups × 5 languages) and 1,863 unit tests (about 290 of them new in
   this phase, for every rule: each mistake-check error and warning, listing 44's exact problems,
   the visitor counting and who never counts, the weekly email's day and hour, the price guide's
   groups, widening and privacy, which price a night gets, the discounts, the cleaning fee, free
   rooms per night, two guests taking the last room at once, and the iCal feeds per room type).
-- **End-to-end tests in production mode: E2E_TOTAL passed** in one clean run, nothing re-run, with
+- **End-to-end tests in production mode: all 98 passed** in one clean run, nothing re-run, with
   staff using the real 2-step login. New for this phase:
   - **13.2 (booking, updated):** the guest sees the itemized total in the dates sheet, on
     "אישור הזמנה" and on the trip page; a second test adds a test-only holiday price and a weekly
@@ -191,13 +191,16 @@ iCal is the calendar link that Airbnb, Booking.com and most other sites use to s
     once fixed the listing publishes (and waits for review, as a first listing); photo labels are
     saved and "כל התמונות" groups by room; the admin review page lists the host's issues.
   - **Host stats:** a visitor counts once a day, the host never; the card and the stats page show
-    it; the weekly email lands in the outbox with the right subject; its unsubscribe link switches
-    it off and on.
+    it; a signed-out visitor is sent to the login page and another signed-in user gets "not found",
+    with no numbers; the weekly email lands in the outbox with the right subject; its unsubscribe
+    link switches it off and on.
   - **Hotel booking:** a guest books 2 rooms of one room type; the host's calendar shows "1 מתוך 3
     חדרים פנויים"; a second tab asking for 2 more rooms is refused; cancelling frees the rooms.
 - **What the check fixed in the tests:** the end-to-end test that posts a listing now fills in the
   exact address (the new mistake check rightly refused to publish without it), and the test of the
-  admin's booking page now expects the cleaning fee among the price lines. The new tests sign their
+  admin's booking page now expects the cleaning fee among the price lines. The scam-check test
+  (phase 1) now expects "פרסום" to be refused while the description has a phone number, and the
+  listing to go to review for its scam phrases once the number is removed. The new tests sign their
   test accounts in without login codes, because the site allows only 30 login codes an hour from
   one address and the whole run comes from one; staff still use the real 2-step login.
 - **Screenshots** in production mode at 390×844 in Hebrew (light and dark) and 1440×900 in English,
@@ -211,7 +214,9 @@ iCal is the calendar link that Airbnb, Booking.com and most other sites use to s
   with the sync note; the room picker with 2 rooms; and the admin review page.
 - **What the check fixed itself:**
   - **The mistake check** split an email address or a link in two at its hyphen
-    ("host-" on one line, the rest on the next). It now stays in one piece.
+    ("host-" on one line, the rest on the next). It now stays in one piece. It also showed the
+    hyphen of "ל-" as part of the address ("-host@…" when the text says "כתבו ל-host@…"); it now
+    shows the address alone. In English it said "contains a email address"; now "an email address".
   - **"מדריך מחירים"** wrote the site's name in Latin letters in Hebrew ("ב-Bayit"); it now says
     "בבית", like the rest of the site. A place whose title starts with Latin letters no longer
     scrambles its number in the "one of my places" list.
@@ -220,7 +225,12 @@ iCal is the calendar link that Airbnb, Booking.com and most other sites use to s
     with two full stops.
   - **Demo data:** an owner block on listing 89 covered most of its demo Chanukah price, so the
     holiday price could hardly be tried. Demo owner blocks now skip the demo holiday nights.
-- **Lighthouse (phone, production, `/he`): LIGHTHOUSE.** Phase 6 must reach 90.
+  - **"כל התמונות" on a phone:** the button over the listing's photo (and the video and 3D tour
+    buttons next to it) was 36 px tall, under the 44 px a finger needs. It is 44 px now.
+  - **Room type photos on a computer** were so small that their label was cut ("Bedroo…"). They
+    now use the same sizes as the listing's own photos.
+- **Lighthouse (phone, production, `/he`): 91** (5 runs: 89, 91, 91, 89, 91). Phase 6 must reach 90
+  on every run.
 - Test accounts, listings, bookings, the test city, sessions and emails were removed afterwards.
 
 ## What to check on your phone, in this order
@@ -271,10 +281,13 @@ iCal is the calendar link that Airbnb, Booking.com and most other sites use to s
 - **Emails stay in the outbox** ("תיבת דואר יוצא") until Resend is connected.
 - **Hotels and other sites:** iCal can't share room counts (see above). Until a channel manager is
   added, a hotel should offer fewer rooms on Bayit than it has, as the calendar suggests.
+- **The hotel calendar** marks the Jewish holidays and lists the holiday prices under "כל המלון";
+  a single room type's calendar shows its free rooms per night but not the holiday marks.
 - **"Later, also the nightly prices of completed bookings"** (brief 5): the price guide uses
   published listings only for now; completed bookings are too few to add yet.
 - **Russian, Arabic and Georgian texts** of this phase are our translations, like the earlier ones.
-- **Lighthouse is LIGHTHOUSE_SHORT on `/he`**; phase 6 has to reach 90 (the brief's target).
+- **Lighthouse is 89–91 on `/he`** (91 most runs); phase 6 has to reach 90 every time (the brief's
+  target).
 
 ## Decisions taken while you were away (the careful option, as you asked)
 

@@ -142,7 +142,8 @@ export function bedsSleep(beds: { bedsSingle: number | null; bedsDouble: number 
 
 function contactParams(findings: ContactInfoFindings): Record<string, string> | null {
   if (findings.phones[0]) return { kind: "phone", value: findings.phones[0] };
-  if (findings.emails[0]) return { kind: "email", value: findings.emails[0] };
+  // "ל-host@…" (a Hebrew prefix and a hyphen): the hyphen isn't part of the address shown.
+  if (findings.emails[0]) return { kind: "email", value: findings.emails[0].replace(/^[-._]+/, "") };
   if (findings.urls[0]) return { kind: "link", value: findings.urls[0] };
   if (findings.handles[0]) return { kind: "handle", value: findings.handles[0] };
   return null;

@@ -131,12 +131,12 @@ export function Gallery({ photos, title, video, tourUrl, backHref, shareUrl, fav
         </div>
         <div className="pointer-events-none absolute start-3 bottom-3 flex items-center gap-2">
           {total > 1 ? (
-            <button type="button" className={cn(PILL, "pointer-events-auto")} onClick={() => setGridOpen(true)} aria-haspopup="dialog">
+            <button type="button" className={cn(PILL, "pointer-events-auto min-h-11")} onClick={() => setGridOpen(true)} aria-haspopup="dialog">
               <ImagesIcon aria-hidden="true" />
               {t("allPhotos")}
             </button>
           ) : null}
-          {mediaButtons("pointer-events-auto")}
+          {mediaButtons("pointer-events-auto min-h-11")}
         </div>
       </div>
 

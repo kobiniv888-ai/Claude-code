@@ -152,6 +152,9 @@ describe("errors (block publishing)", () => {
     ]);
     const email = checkListingMistakes(clean({ description: `${clean().description} כתבו לי: host@example.com` }));
     expect(email.errors.map((e) => [e.code, e.params?.kind])).toEqual([["contact_in_description", "email"]]);
+    // A Hebrew prefix with a hyphen ("ל-host@…") isn't shown as part of the address.
+    const prefixed = checkListingMistakes(clean({ description: `${clean().description} כתבו ל-host-p4@example.com` }));
+    expect(prefixed.errors[0]?.params).toEqual({ kind: "email", value: "host-p4@example.com" });
     const link = checkListingMistakes(clean({ description: `${clean().description} פרטים: wa.me/995555123456` }));
     expect(link.errors.map((e) => e.code)).toEqual(["contact_in_description"]);
     const handle = checkListingMistakes(clean({ description: `${clean().description} טלגרם @batumi_flat_owner` }));

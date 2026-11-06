@@ -266,7 +266,7 @@ function RoomPhotos({
     <div className="grid gap-3">
       <p className="text-sm font-medium">{t("photos")}</p>
       {room.photos.length > 0 && (
-        <PhotoGrid photos={room.photos} actions={actions} disabled={uploads.busy} showCover={false} className="sm:grid-cols-4 lg:grid-cols-5" />
+        <PhotoGrid photos={room.photos} actions={actions} disabled={uploads.busy} showCover={false} />
       )}
       <UploadQueue items={uploads.items} onRetry={uploads.retry} onDismiss={uploads.dismiss} />
       <PhotoDropZone onFiles={uploads.add} disabled={remaining === 0} remaining={remaining} compact />

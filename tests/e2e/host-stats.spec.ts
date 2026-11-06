@@ -36,9 +36,13 @@ async function viewsToday(listingId: string): Promise<number> {
 }
 
 test.describe("host stats", () => {
-  const created = { userId: "", listingId: "", email: "" };
+  const created = { userId: "", listingId: "", email: "", otherId: "" };
 
   test.afterAll(async () => {
+    if (created.otherId) {
+      await sql(`DELETE FROM "Session" WHERE "userId" = $1`, [created.otherId]);
+      await sql(`DELETE FROM "User" WHERE id = $1`, [created.otherId]);
+    }
     if (created.email) await sql(`DELETE FROM "EmailOutbox" WHERE "to" = $1`, [created.email]);
     if (created.listingId) {
       await sql(`DELETE FROM "RateLimit" WHERE key LIKE $1`, [`stats:%:${created.listingId}%`]);
@@ -93,9 +97,20 @@ test.describe("host stats", () => {
     await expect(owner.page.getByRole("figure", { name: "Views" })).toContainText("1");
     expect(owner.consoleErrors).toEqual([]);
 
-    // 4. Guests never see it: signed out, the stats page asks to log in.
+    // 4. Guests never see it: signed out, the stats page asks to log in…
     await page.goto(`/en/account/listings/${listing.id}/stats`);
     await expect(page).toHaveURL(/\/login/);
+    // …and a signed-in user who isn't the owner gets "not found", with no numbers. (The page streams
+    // behind its loading skeleton, so the answer is 200 with the not-found view and "noindex".)
+    const other = await createTestUser({ name: "E2E Stats Other" });
+    created.otherId = other.id;
+    const stranger = await openAsTestUser(browser, other);
+    await stranger.page.goto(`/en/account/listings/${listing.id}/stats`);
+    await expect(stranger.page.getByRole("heading", { name: "Listing not found" })).toBeVisible();
+    await expect(stranger.page.getByRole("figure")).toHaveCount(0);
+    await expect(stranger.page.getByText("E2E stats studio in Mestia")).toHaveCount(0);
+    expect(stranger.consoleErrors).toEqual([]);
+    await stranger.context.close();
 
     // 5. The weekly email: next Sunday at 09:30 Israel time it covers this week (a Yom Tov Sunday
     //    moves it to Monday or Tuesday). The cron route needs CRON_SECRET.
