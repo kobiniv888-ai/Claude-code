@@ -12,16 +12,27 @@ export function isBookableDealType(deal: DealType | string): boolean {
 }
 
 /**
- * Deal types that take INSTANT bookings. Hotels are contact-only until booking by room type
- * exists (round 3, founder's answer 3, phase 4): today one booking would block the whole hotel.
- * They keep the booking step (check-in/out times, rules, payment) and the calendar; guests ask
- * the host. Add "HOTEL_ROOM" back here when room-type availability is built.
+ * Deal types that can take INSTANT bookings. Hotels are booked by room type (round 3, founder's
+ * answer 3, phase 4): a booking holds rooms of one type, never the whole hotel. A hotel takes
+ * instant bookings only while it has at least one active room type with a nightly price
+ * (isInstantBookable in ./terms); without one it stays contact-only ("שאלה למארח").
  */
-export const INSTANT_DEAL_TYPES = ["SHORT_STAY"] as const satisfies readonly DealType[];
+export const INSTANT_DEAL_TYPES = ["SHORT_STAY", "HOTEL_ROOM"] as const satisfies readonly DealType[];
 
 export function isInstantDealType(deal: DealType | string): boolean {
   return (INSTANT_DEAL_TYPES as readonly string[]).includes(deal);
 }
+
+/**
+ * Hotels sell rooms by room type (src/lib/booking/room-availability.ts): availability is counted
+ * per room type, and a booking must name one. Other listings are booked as a whole.
+ */
+export function usesRoomInventory(deal: DealType | string): boolean {
+  return deal === "HOTEL_ROOM";
+}
+
+/** Most rooms of one type in one booking (a family taking 2–3 rooms; larger groups ask the host). */
+export const MAX_ROOMS_PER_BOOKING = 10;
 
 /** Paid to the host at check-in, in the host's currency (Listing.paymentMethodsAtCheckIn). */
 export const PAYMENT_METHODS = ["cash", "card", "bank_transfer"] as const;

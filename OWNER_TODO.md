@@ -1,6 +1,6 @@
 # Things only you can do or decide
 
-This list is kept up to date as the work goes on. It was last updated in round 3, phase 3. The
+This list is kept up to date as the work goes on. It was last updated in round 3, phase 4. The
 round-2 summary, the "Done when" checklist and what to check on your phone are in
 `docs/redesign-2/final.md`; round 3's plan and your answers are in `docs/round-3/PLAN.md`.
 
@@ -71,6 +71,8 @@ Do these in this order. Without Resend (3) or Google (4), nobody can log in on t
 10. [ ] **Fix your listing 44:** the check-in and check-out times, max guests and bathrooms; move
         the late-checkout fine into the house rules, in lari; add photos of the kitchen, the
         balcony and the building entrance (only your own photos). We don't change your listing.
+        Since phase 4, "עריכה" → the last step ("בדיקה לפני פרסום") lists exactly these problems,
+        each with a "לתיקון" button; label the new photos (מטבח, חדר שינה, חדר רחצה…) under each one.
 11. [ ] **Listing 43:** write a Hebrew title and description, without emojis.
 12. [ ] **Footer line:** "נבנה על ידי משפחה ישראלית" is live since round 3, phase 2 (in all five
         languages). Confirm it or send another line.
@@ -114,6 +116,11 @@ Do these in this order. Without Resend (3) or Google (4), nobody can log in on t
 - [ ] **"Turned away?" texts in Russian, Arabic and Georgian** (round 3, phase 3): the report form
       ("דיווח על המארח"), the guest's confirmation, the emails to hosts after a decision and the
       "ביקרנו במקום" line are our translations. A native speaker's read is welcome.
+- [ ] **Phase 4 texts in Russian, Arabic and Georgian** (round 3, phase 4): the mistake check
+      ("בדיקה לפני פרסום"), the price guide ("מדריך מחירים"), the stats page, the weekly email, the
+      holiday prices and discounts, and the hotel room types are our translations. In Russian and
+      Georgian the button at the bottom of the dates sheet now says just "Продолжить" /
+      "გაგრძელება" ("continue"), so it fits on a phone. A native speaker's read is welcome.
 
 ## Real data
 - [ ] Real community places (synagogues, Chabad houses, kosher restaurants and shops): name,
@@ -131,6 +138,16 @@ Do these in this order. Without Resend (3) or Google (4), nobody can log in on t
 - [ ] **Reference prices (optional, round 3, phase 3).** For the hosts' price guide (phase 4):
       **Admin → מחירי ייחוס → הוספת טווח**, only ranges copied from a public report (for example a
       real-estate agency's monthly report), with its name, link and month. Never single listings.
+- [ ] **Hotels and guesthouses (round 3, phase 4).** Hotels are booked by room type now. For each
+      real hotel: in "עריכה" → "סוגי חדרים" add every room type with its price per night, beds,
+      maximum guests and **"כמה חדרים כאלה להציע בבית"** (offering a room or two fewer than you have
+      lowers the double-booking risk with other sites). A hotel without an active room type with a
+      price stays "שאלה למארח". If the hotel is also on Booking.com or Airbnb, connect each room
+      type's calendar separately in its "יומן" (iCal can't share room counts: see
+      `docs/round-3/phase-4.md`). A channel manager can come later for bigger hotels.
+- [ ] **The hosts' weekly email (round 3, phase 4).** Once Resend is connected and the site is
+      online, look at the first Sunday's email (it also stays in Admin → "תיבת דואר יוצא"). Tell us
+      if the day, the hour or the wording should change.
 
 ## Legal
 - [ ] Company name, registration number and address, to replace the visible placeholders such as
@@ -227,7 +244,8 @@ so look again before you pay.
 - [ ] **Scheduled jobs need `CRON_SECRET` and a plan that allows hourly jobs.** Calendar sync now
       runs every hour (Airbnb / Booking.com imports, to avoid double bookings); booking reminders
       and "stay completed" run daily, and your admin daily summary twice each morning (it goes out
-      once, at 08:00 Israel time, never on Shabbat or Yom Tov). Set `CRON_SECRET` on Vercel, and check that your Vercel plan
+      once, at 08:00 Israel time, never on Shabbat or Yom Tov), and the hosts' weekly stats email on
+      Sunday mornings (phase 4). Set `CRON_SECRET` on Vercel, and check that your Vercel plan
       runs hourly cron jobs (if it only allows daily ones, a free external cron service can call
       `/api/cron/ical-sync` every hour with the same secret).
 - [ ] **Apple sign-in (optional).** Needs the Apple Developer Program, **$99 a year**, and a real
@@ -274,11 +292,10 @@ so look again before you pay.
         until staff lift it in the admin ("הפעלה מחדש"). Say if a suspension should end by itself on
         its end date.
 - [ ] **Host booking choices (conservative, change any time).**
-      - **No weekly/monthly discounts on booked stays.** The booking total is nights × price (+ the
-        weekend price and the cleaning fee). A discount the total doesn't apply would be a broken
-        promise, so the "הזמנות ומחיר" step has no discount fields and saving it clears old ones
-        (demo listings still show theirs until the next seed run). Say if you want discounts back:
-        the booking engine would then apply them too.
+      - **Long-stay discounts are back (round 3, phase 4, brief 6.3).** "הזמנות ומחיר" has a % for
+        7+ nights and a % for 28+ nights (up to 60%), and the booking total applies them line by
+        line (off the nights only, never off the cleaning fee). Holiday prices are set in the
+        place's calendar ("מחיר לתאריכים").
       - **The host sees the guest's phone and WhatsApp** for confirmed and completed bookings only
         (not after a cancellation).
       - **Imported calendars:** each link's last result (read OK / why it failed) is shown after

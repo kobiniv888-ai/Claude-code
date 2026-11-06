@@ -11,6 +11,7 @@ import { Ltr } from "@/components/common/ltr";
 import { PageHeader } from "@/components/common/page-header";
 import { HostBookingRow } from "@/components/host-bookings/booking-row";
 import { HostCalendar } from "@/components/host-calendar/host-calendar";
+import { HotelCalendars } from "@/components/host-calendar/hotel-calendars";
 import { IcalPanel } from "@/components/host-calendar/ical-panel";
 import type { AppLocale } from "@/config/site";
 import { Link } from "@/i18n/navigation";
@@ -43,11 +44,28 @@ export default async function ListingCalendarPage({ params }: Props) {
   const upcoming = listing.bookable
     ? (await getHostBookings(user.id, locale as AppLocale, { listingId: listing.id, scope: "upcoming" })).slice(0, 5)
     : [];
-  // Hotels are contact-only until booking by room type (round 3); short stays need the booking step
-  // saved, and a host Bayit can alert about a booking (alert gate).
+  // Hotels are booked by room type (round 3, phase 4): without an active room type they stay
+  // contact-only (with a hint); bookable listings need the booking step saved, and a host Bayit
+  // can alert about a booking (alert gate).
   const isHotel = listing.dealType === "HOTEL_ROOM";
+  const hotelWithoutRooms = isHotel && !data.rooms.some((room) => room.active);
   const needsSettings = listing.bookable && isInstantDealType(listing.dealType) && listing.bookingMode !== "INSTANT";
-  const alertStatus = listing.bookable && !isHotel && !needsSettings ? await hostAlertStatus(user.id, await headers()) : null;
+  const alertStatus = listing.bookable && !hotelWithoutRooms && !needsSettings ? await hostAlertStatus(user.id, await headers()) : null;
+  const calendarProps = {
+    listingId: listing.id,
+    today: data.today,
+    monthCount: HOST_CALENDAR_MONTHS,
+    owner: data.owner,
+    booked: data.booked,
+    imported: data.imported,
+    bookings: data.bookings,
+    datePrices: data.datePrices,
+    pricing: data.pricing,
+    holidays: data.holidays,
+    holidayPeriods: data.holidayPeriods,
+    roomTypes: data.rooms.map((room) => ({ id: room.id, name: room.name, currency: room.currency, nightlyPrice: room.nightlyPrice, weekendPrice: room.weekendPrice })),
+  };
+  const listingSync = { exportUrl: listing.exportUrl, importUrls: listing.importUrls, syncedAt: listing.syncedAt, importedNights: data.importedNights };
 
   return (
     <div className="grid gap-6 pb-10">
@@ -73,7 +91,7 @@ export default async function ListingCalendarPage({ params }: Props) {
         }
       />
 
-      {listing.bookable && (isHotel || alertStatus) ? <HostInstantNotice hotel={isHotel} status={alertStatus ?? undefined} /> : null}
+      {listing.bookable && (hotelWithoutRooms || alertStatus) ? <HostInstantNotice hotel={hotelWithoutRooms} status={alertStatus ?? undefined} /> : null}
 
       {needsSettings && (
         <div className="flex flex-col gap-3 rounded-card border border-primary-tint-border bg-primary-tint p-4 sm:flex-row sm:items-center">
@@ -85,20 +103,17 @@ export default async function ListingCalendarPage({ params }: Props) {
         </div>
       )}
 
-      <Card as="section" padding="lg" aria-labelledby="calendar-title" className="grid gap-3">
-        <h2 id="calendar-title" className="sr-only">
-          {t("title")}
-        </h2>
-        <HostCalendar
-          listingId={listing.id}
-          today={data.today}
-          monthCount={HOST_CALENDAR_MONTHS}
-          owner={data.owner}
-          booked={data.booked}
-          imported={data.imported}
-          bookings={data.bookings}
-        />
-      </Card>
+      {/* Hotels with room types: one calendar per room type, plus the whole hotel (round 3). */}
+      {data.rooms.length > 0 ? (
+        <HotelCalendars calendar={calendarProps} rooms={data.rooms} closed={data.closed} listingSync={listingSync} />
+      ) : (
+        <Card as="section" padding="lg" aria-labelledby="calendar-title" className="grid gap-3">
+          <h2 id="calendar-title" className="sr-only">
+            {t("title")}
+          </h2>
+          <HostCalendar {...calendarProps} />
+        </Card>
+      )}
 
       {listing.bookable && (
         <section aria-labelledby="upcoming-title" className="grid gap-3">
@@ -128,7 +143,7 @@ export default async function ListingCalendarPage({ params }: Props) {
         </section>
       )}
 
-      {listing.bookable && (
+      {listing.bookable && data.rooms.length === 0 && (
         <section aria-labelledby="sync-title" className="grid gap-3">
           <div className="grid gap-1">
             <h2 id="sync-title" className="flex items-center gap-2 text-h3">

@@ -216,7 +216,8 @@
     "subtitle": "{count, plural, one {{count} room type} other {{count} room types}}",
     "guests": "{count, plural, one {Up to {count} guest} other {Up to {count} guests}}",
     "bedsDouble": "{count, plural, one {{count} double bed} other {{count} double beds}}",
-    "bedsSingle": "{count, plural, one {{count} single bed} other {{count} single beds}}"
+    "bedsSingle": "{count, plural, one {{count} single bed} other {{count} single beds}}",
+    "bedsSofa": "{count, plural, one {1 sofa bed} other {{count} sofa beds}}"
   },
   "calendar": {
     "title": "Availability",

@@ -1,7 +1,6 @@
-import type { Browser, BrowserContext } from "@playwright/test";
-import { expect, openAs, settle, test } from "./fixtures";
-import { loginByEmail } from "./helpers/auth";
-import { createTestListing, createTestUser, listingByPublicId, sql, TEST_EMAIL_DOMAIN } from "./helpers/db";
+import type { Browser } from "@playwright/test";
+import { expect, openAs, openAsTestUser, settle, test } from "./fixtures";
+import { createTestListing, createTestUser, listingByPublicId, sql } from "./helpers/db";
 import { TEST_ADMIN_PHONE } from "./helpers/staff";
 
 /**
@@ -19,13 +18,11 @@ import { TEST_ADMIN_PHONE } from "./helpers/staff";
  *   groups by room once two rooms are labelled.
  * - The admin review page's "בדיקה לפני פרסום" box lists the host's issues too.
  *
- * Test users sign in with email codes; the global teardown removes them and their listings.
+ * Test users get sessions without login codes (fixtures.ts); the global teardown removes them and their listings.
  */
 
 type TestUser = Awaited<ReturnType<typeof createTestUser>>;
-type StorageState = Awaited<ReturnType<BrowserContext["storageState"]>>;
 
-const emailOf = (user: { phone: string }) => `${user.phone.slice(1)}@${TEST_EMAIL_DOMAIN}`;
 const stamp = () => Date.now().toString(36);
 /** Digits only, for Hebrew titles (Latin letters would make the title look English to the check). */
 const digits = () => String(Date.now()).slice(-6);
@@ -47,18 +44,8 @@ async function createHost(name: string): Promise<TestUser> {
   return host;
 }
 
-const sessions = new Map<string, StorageState>();
-async function openAsUser(browser: Browser, user: TestUser) {
-  let state = sessions.get(user.id);
-  if (!state) {
-    const { context, page } = await openAs(browser, null);
-    await loginByEmail(page, emailOf(user));
-    state = await context.storageState();
-    sessions.set(user.id, state);
-    await context.close();
-  }
-  return openAs(browser, null, state);
-}
+/** A session without a login code (fixtures.ts): the site checks at most 30 codes an hour per address. */
+const openAsUser = (browser: Browser, user: TestUser) => openAsTestUser(browser, user);
 
 /** The test listing gets listing 44's problems (a copy of a demo short stay in Mestia, priced in lari). */
 async function mirrorListing44(listingId: string, title: string) {

@@ -5,7 +5,9 @@
  * phase 4 have no stored lines: they are rebuilt from the copied prices (nightly, weekend, cleaning).
  * Client-safe and pure.
  */
+import type { CurrencyCode } from "@/config/site";
 import { pickLocalized } from "@/i18n/locale";
+import { formatMoney } from "@/lib/format";
 import { eachNight, isDay, isWeekendNight } from "./dates";
 import { cleanPriceLabel, type PriceLine, type PriceLineKind } from "./pricing";
 
@@ -133,4 +135,16 @@ export function describePriceLine(
 /** The amount column: "₾165", "−₾33" for the discount. */
 export function priceLineAmount(line: PriceLine, money: (amount: number) => string): string {
   return line.amount < 0 ? `−${money(-line.amount)}` : money(line.amount);
+}
+
+/**
+ * A booking amount, exact to the cent: "$375", "$55.50", "$519.50" (formatMoney drops the cents of
+ * amounts from 100 up, which would make a discounted total read "$520"). For the price lines and
+ * the total the guest pays.
+ */
+export function formatBookingMoney(amount: number, currency: CurrencyCode, locale: string): string {
+  const cents = Math.round(amount * 100);
+  return cents % 100 === 0
+    ? formatMoney(cents / 100, currency, locale)
+    : formatMoney(cents / 100, currency, locale, { maximumFractionDigits: 2, minimumFractionDigits: 2 });
 }

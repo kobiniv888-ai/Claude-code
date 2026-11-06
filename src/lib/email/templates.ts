@@ -5,7 +5,9 @@
  */
 import type { AppLocale, CurrencyCode } from "@/config/site";
 import type { CancellationPolicy, TicketStatus, VerificationType } from "@/generated/prisma/enums";
-import { formatDateRange, formatMoney, formatTime } from "@/lib/format";
+import { describePriceLine, formatBookingMoney, priceLineAmount } from "@/lib/booking/price-lines";
+import type { PriceLine } from "@/lib/booking/pricing";
+import { formatDateRange, formatMoney, formatNumber, formatTime } from "@/lib/format";
 import { checkTimeDisplay, clockLabel } from "@/lib/listing/check-times";
 import { ADMIN_EMAIL_TEMPLATES, adminEmailBuilders, type AdminEmailData } from "@/lib/alerts/founder-email-templates";
 import { REPORT_EMAIL_TEMPLATES, reportEmailBuilders, type ReportEmailData } from "@/lib/reports/email-templates";
@@ -62,6 +64,8 @@ export type BookingEmailStay = {
   listingTitle: string;
   /** Hotels: the room type's name in the recipient's language. */
   roomTypeName?: string | null;
+  /** Hotels: rooms of that type in the booking (shown when more than 1). */
+  rooms?: number | null;
   checkIn: string;
   checkOut: string;
   nights: number;
@@ -71,6 +75,11 @@ export type BookingEmailStay = {
   /** In the host's currency (paid at check-in). */
   total: number;
   currency: CurrencyCode;
+  /**
+   * The itemized price the guest confirmed (Booking.priceLines, round 3, brief 6.3), in `currency`:
+   * the confirmation and the host's "new booking" email list them above the total.
+   */
+  priceLines?: PriceLine[] | null;
   /** The booking page for this recipient (the guest's trip or the host's booking). */
   bookingUrl: Url;
 };
@@ -307,19 +316,34 @@ function guestsLine(data: Pick<BookingEmailStay, "adults" | "children" | "infant
   return parts.join(ctx.t("booking.listSeparator"));
 }
 
-function stayRows(data: BookingEmailStay, ctx: TemplateContext): DetailRow[] {
+/** "₾55 × 3 לילות … ₾165", "הנחה לשבוע −10% … −₾33", "דמי ניקיון … ₾40" (the booking's own lines). */
+function priceRows(data: BookingEmailStay, ctx: TemplateContext): DetailRow[] {
+  const { tb, locale } = ctx;
+  const money = (amount: number) => formatBookingMoney(amount, data.currency, locale);
+  return (data.priceLines ?? []).map((line) => ({
+    label: describePriceLine(line, (key, values) => tb(`price.${key}`, values), { money, number: (value) => formatNumber(value, locale), locale }),
+    value: priceLineAmount(line, money),
+    ltr: true,
+  }));
+}
+
+function stayRows(data: BookingEmailStay, ctx: TemplateContext, options: { lines?: boolean } = {}): DetailRow[] {
   const { t, tb, formatDate, locale } = ctx;
   const rows: DetailRow[] = [
     { label: t("booking.codeLabel"), value: data.code, ltr: true },
     { label: t("booking.placeLabel"), value: clean(data.listingTitle) },
   ];
-  if (clean(data.roomTypeName)) rows.push({ label: t("booking.roomLabel"), value: clean(data.roomTypeName) });
+  if (clean(data.roomTypeName)) {
+    const rooms = data.rooms && data.rooms > 1 ? ` · ${tb("price.rooms", { count: data.rooms })}` : "";
+    rows.push({ label: t("booking.roomLabel"), value: `${clean(data.roomTypeName)}${rooms}` });
+  }
   rows.push(
     { label: t("booking.checkInLabel"), value: formatDate(data.checkIn) },
     { label: t("booking.checkOutLabel"), value: formatDate(data.checkOut) },
     { label: t("booking.nightsLabel"), value: tb("nights", { count: data.nights }) },
     { label: t("booking.guestsLabel"), value: guestsLine(data, ctx) },
-    { label: t("booking.totalLabel"), value: formatMoney(data.total, data.currency, locale), ltr: true },
+    ...(options.lines ? priceRows(data, ctx) : []),
+    { label: t("booking.totalLabel"), value: formatBookingMoney(data.total, data.currency, locale), ltr: true },
   );
   return rows;
 }
@@ -354,7 +378,7 @@ function arrivalRows(data: BookingEmailArrival, ctx: TemplateContext): DetailRow
 /** "Pay the host ₾540 at check-in, in lari. Accepted: cash, card." */
 function payLine(data: BookingEmailStay & BookingEmailArrival, ctx: TemplateContext): string {
   const { t, tb, locale } = ctx;
-  const amount = formatMoney(data.total, data.currency, locale);
+  const amount = formatBookingMoney(data.total, data.currency, locale);
   const currency = tb(`inCurrency.${data.currency}`);
   const methods = data.paymentMethods.filter((m) => /^[a-z_]{1,30}$/.test(m)).map((m) => tb(`paymentMethod.${m}`));
   return methods.length
@@ -731,7 +755,7 @@ const builders: { [K in EmailTemplate]: Builder<K> } = {
     const { t, tb, url, formatDate, brand, locale } = ctx;
     const title = isolate(clean(data.listingTitle));
     const rows = [
-      ...stayRows(data, ctx),
+      ...stayRows(data, ctx, { lines: true }),
       ...arrivalRows(data, ctx),
       { label: t("booking.policyLabel"), value: policyLine(data.cancellationPolicy, data.freeCancellationUntil, ctx) },
     ];
@@ -770,7 +794,7 @@ const builders: { [K in EmailTemplate]: Builder<K> } = {
       {
         type: "details",
         rows: [
-          ...stayRows(data, ctx),
+          ...stayRows(data, ctx, { lines: true }),
           { label: t("booking.guestLabel"), value: clean(data.guestName) },
           { label: t("booking.guestPhoneLabel"), value: clean(data.guestPhone), ltr: true },
         ],

@@ -72,6 +72,8 @@ test("a new user signs up, posts a listing with photos and it goes into review",
   await settle(page);
   await map.click({ position: { x: 200, y: 150 } });
   await expect(page.getByText("Pin set at")).toBeVisible();
+  // A short stay can't be published without its exact address (the mistake check, brief 6.1).
+  await page.getByRole("textbox", { name: /^Exact address/ }).fill("E2E Street 3, apartment 4");
   await next(page);
   // 4–7: the round-1 "details" step, split (brief 5.7). Only the title and description are required here.
   await expectStep(page, 4, "Size and rooms");

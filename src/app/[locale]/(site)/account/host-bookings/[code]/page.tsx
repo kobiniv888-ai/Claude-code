@@ -11,6 +11,7 @@ import {
   UndoDotIcon,
   UsersRoundIcon,
 } from "lucide-react";
+import { BookingPriceLines } from "@/components/booking/booking-price-lines";
 import { buttonStyles } from "@/components/ds/button";
 import { Card } from "@/components/ds/card";
 import { Ltr } from "@/components/common/ltr";
@@ -27,7 +28,7 @@ import { HOST_BOOKINGS_PATH, hostBookingPath, isPaymentMethod } from "@/lib/book
 import { getHostBooking } from "@/lib/booking/queries";
 import { whatsappUrl } from "@/lib/booking/reveal";
 import { telHref } from "@/lib/phone";
-import { formatDate, formatDateRange, formatMoney, formatTime } from "@/lib/format";
+import { formatDate, formatDateRange, formatTime } from "@/lib/format";
 import { pageMetadata } from "@/lib/seo";
 
 type Props = {
@@ -175,8 +176,10 @@ export default async function HostBookingPage({ params, searchParams }: Props) {
               <Row icon={UsersRoundIcon} label={t("guests")}>
                 {guestParts.join(" · ")}
                 {booking.roomTypeName && (
-                  <span className="block text-small text-muted-foreground" dir="auto">
-                    {t("roomType", { name: booking.roomTypeName })}
+                  <span className="block text-small text-muted-foreground">
+                    <span dir="auto">{t("roomType", { name: booking.roomTypeName })}</span>
+                    {/* Hotels (round 3): the rooms of that type this booking holds. */}
+                    {booking.rooms > 1 ? ` · ${tb("price.rooms", { count: booking.rooms })}` : null}
                   </span>
                 )}
               </Row>
@@ -193,10 +196,8 @@ export default async function HostBookingPage({ params, searchParams }: Props) {
             <h2 id="pay-title" className="text-h3">
               {t("paymentTitle")}
             </h2>
-            <p className="flex items-baseline justify-between gap-3">
-              <span className="text-body">{tb("price.total")}</span>
-              <Ltr className="text-h3">{formatMoney(booking.total, booking.currency, locale)}</Ltr>
-            </p>
+            {/* What the guest confirmed, line by line (round 3, brief 6.3: Booking.priceLines). */}
+            <BookingPriceLines lines={booking.priceLines} total={booking.total} currency={booking.currency} locale={locale} totalClassName="text-h3" />
             <dl className="grid gap-3">
               <Row icon={BanknoteIcon} label={t("paidAtCheckIn")}>
                 {methods.length > 0 ? methods.map((m) => tb(`paymentMethod.${m}`)).join(" · ") : t("noMethods")}

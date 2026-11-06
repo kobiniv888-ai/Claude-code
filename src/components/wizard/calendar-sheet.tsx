@@ -7,6 +7,7 @@ import { BottomSheet } from "@/components/ds/bottom-sheet";
 import { Button } from "@/components/ds/button";
 import { ErrorState } from "@/components/common/states";
 import { HostCalendar } from "@/components/host-calendar/host-calendar";
+import { HotelCalendars } from "@/components/host-calendar/hotel-calendars";
 import { IcalPanel } from "@/components/host-calendar/ical-panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { HostCalendarData } from "@/lib/booking/host-calendar";
@@ -78,7 +79,30 @@ export function PlaceCalendarSheet({
     >
       <div className="grid gap-6 pb-2">
         <p className="text-small text-pretty text-muted-foreground">{th("lead")}</p>
-        {data ? (
+        {data && data.rooms.length > 0 ? (
+          // Hotels (round 3): one calendar per room type, plus the whole hotel.
+          <HotelCalendars
+            key={loaded.at}
+            calendar={{
+              listingId: data.listing.id,
+              today: data.today,
+              monthCount: data.monthCount,
+              owner: data.owner,
+              booked: data.booked,
+              imported: data.imported,
+              bookings: data.bookings,
+              datePrices: data.datePrices,
+              pricing: data.pricing,
+              holidays: data.holidays,
+              holidayPeriods: data.holidayPeriods,
+              roomTypes: data.rooms.map((room) => ({ id: room.id, name: room.name, currency: room.currency, nightlyPrice: room.nightlyPrice, weekendPrice: room.weekendPrice })),
+            }}
+            rooms={data.rooms}
+            closed={data.closed}
+            listingSync={{ exportUrl: data.listing.exportUrl, importUrls: data.listing.importUrls, syncedAt: data.listing.syncedAt, importedNights: data.importedNights }}
+            returnTo={returnTo}
+          />
+        ) : data ? (
           <>
             <HostCalendar
               key={loaded.at}
@@ -90,6 +114,10 @@ export function PlaceCalendarSheet({
               imported={data.imported}
               bookings={data.bookings}
               returnTo={returnTo}
+              datePrices={data.datePrices}
+              pricing={data.pricing}
+              holidays={data.holidays}
+              holidayPeriods={data.holidayPeriods}
             />
             {data.listing.bookable && (
               <section aria-labelledby="sheet-sync-title" className="grid gap-3 border-t border-border pt-5">

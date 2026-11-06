@@ -125,9 +125,12 @@ reports, tickets, scam checks, favorites, Jewish Life, help and the contact form
 
    ```
    NEXT_DIST_DIR=.next-4615 NEXT_PUBLIC_SITE_URL=http://localhost:4615 BETTER_AUTH_URL=http://localhost:4615 npx next build
-   NEXT_DIST_DIR=.next-4615 NEXT_PUBLIC_SITE_URL=http://localhost:4615 BETTER_AUTH_URL=http://localhost:4615 AUTH_TEST_MODE=true npx next start -p 4615
+   NEXT_DIST_DIR=.next-4615 NEXT_PUBLIC_SITE_URL=http://localhost:4615 BETTER_AUTH_URL=http://localhost:4615 AUTH_TEST_MODE=true CRON_SECRET=e2e-only-cron-secret npx next start -p 4615
    E2E_PORT=4615 npx playwright test
    ```
+
+   (`CRON_SECRET`: the host-stats test runs the weekly email through its cron route. Without a
+   `CRON_SECRET` in `.env`, the tests use `e2e-only-cron-secret`, so the server needs the same.)
 
    In production the login library allows 10 phone-login requests a minute per address, and every
    test runs from the same one: the tests wait the seconds the server names and try again, so a

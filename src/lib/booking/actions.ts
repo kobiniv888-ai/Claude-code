@@ -11,11 +11,10 @@ import { requireUserForAction } from "@/lib/auth/session";
 import { getDisplayCurrency } from "@/lib/currency";
 import { assertRateLimit, assertRateLimitByIp } from "@/lib/rate-limit";
 import { assertNotShabbatMode } from "@/lib/settings";
-import { isRangeFree } from "./availability";
 import { tripPath } from "./constants";
 import { afterBookingConfirmed, alertEnvironment, notifyCancellation } from "./alerts";
 import { createBookingSchema, guestCancelSchema, hostCancelSchema, noShowSchema, quoteInputSchema } from "./schemas";
-import { createBooking, getBookingQuote, guestCancel, hostCancel, markNoShow, type BookingQuote } from "./service";
+import { createBooking, getBookingQuote, getStayAvailability, guestCancel, hostCancel, markNoShow, type BookingQuote, type StayAvailability } from "./service";
 
 /**
  * Booking server actions. Every one checks the session (and the service checks that the user
@@ -32,10 +31,13 @@ function localeOr(value: unknown, fallback: string): AppLocale {
   return isAppLocale(fallback) ? fallback : siteConfig.i18n.fallbackLocale;
 }
 
-/** Price and availability of a stay (no sign-in needed: the review page and the dates sheet). */
+/**
+ * Price and availability of a stay (no sign-in needed: the review page and the dates sheet).
+ * Hotels: `rooms` lists the free rooms of each room type for the stay (the room picker).
+ */
 export async function quoteBookingAction(
   input: unknown,
-): Promise<ActionResult<BookingQuote & { available: boolean }>> {
+): Promise<ActionResult<BookingQuote & StayAvailability>> {
   return runAction(async () => {
     await assertRateLimitByIp("booking:quote", { limit: 120, windowSeconds: 60 });
     const parsed = quoteInputSchema.safeParse(input);
@@ -45,12 +47,13 @@ export async function quoteBookingAction(
     const currency = await getDisplayCurrency(typeof raw.currency === "string" ? raw.currency : null, localeOr(raw.locale, "en"));
     const result = await getBookingQuote({ listingId, ...stay }, { displayCurrency: currency });
     if (!result.ok) return fail(result.error === "not_found" ? "not_found" : result.error);
+    const availability = await getStayAvailability({ listingId, ...stay });
     return ok({
       quote: result.quote,
       roomType: result.roomType,
       cancellationPolicy: result.cancellationPolicy,
       paymentMethods: result.paymentMethods,
-      available: await isRangeFree(listingId, stay.checkIn, stay.checkOut),
+      ...availability,
     });
   });
 }

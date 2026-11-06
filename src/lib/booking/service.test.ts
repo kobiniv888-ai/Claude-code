@@ -60,6 +60,7 @@ vi.mock("@/lib/sms", () => ({
 }));
 
 const { db } = await import("@/lib/db");
+const { Prisma } = await import("@/generated/prisma/client");
 const service = await import("./service");
 const { getUnavailableDates, isRangeFree } = await import("./availability");
 const { getGuestTrip, getGuestTrips, getHostBooking } = await import("./queries");
@@ -226,6 +227,56 @@ describe("createBooking", () => {
 
     const merged = await getUnavailableDates(ids.listing, { from: day(0), to: day(60) });
     expect(merged).toContainEqual({ start: day(30), end: day(35) });
+  });
+
+  it("prices holiday nights and the weekly discount on the server and copies the lines into the booking (brief 6.3)", async () => {
+    // A date price on nights day(102) and day(103), at least 3 nights; 10% off 7+ nights.
+    const holiday = await db.datePrice.create({
+      data: { listingId: ids.listing, startDate: new Date(`${day(102)}T00:00:00Z`), endDate: new Date(`${day(104)}T00:00:00Z`), price: 150, minNights: 3, label: { he: "חג" } },
+    });
+    await db.listing.update({ where: { id: ids.listing }, data: { weeklyDiscountPct: 10 } });
+    try {
+      // Two nights that touch the date price: its own minimum (3) beats the listing's (2).
+      await expectCode(service.createBooking(stay(ids.guestC, day(103), day(105), { notify: false })), "min_stay");
+      const short = await service.getBookingQuote({ listingId: ids.listing, checkIn: day(103), checkOut: day(105), adults: 2 });
+      expect(short).toMatchObject({ ok: false, error: "min_stay", minNights: 3, datePrice: { start: day(102), end: day(104), label: { he: "חג" } } });
+
+      const quoted = await service.getBookingQuote({ listingId: ids.listing, checkIn: day(100), checkOut: day(107), adults: 2 });
+      if (!quoted.ok) throw new Error(quoted.error);
+      const { quote } = quoted;
+      expect(quote.lines.find((l) => l.kind === "date_price")).toEqual({ kind: "date_price", nights: 2, price: 150, amount: 300, label: { he: "חג" } });
+      expect(quote.discount).toEqual({ pct: 10, amount: Math.round(quote.subtotal * 10) / 100, kind: "weekly" });
+
+      const created = await service.createBooking(stay(ids.guestC, day(100), day(107), { notify: false, expectedTotal: quote.total, expectedCurrency: quote.currency }));
+      const booking = await db.booking.findUniqueOrThrow({ where: { id: created.id } });
+      expect(booking.priceLines).toEqual(quote.lines);
+      expect(Number(booking.discount)).toBe(quote.discount?.amount);
+      expect(Number(booking.subtotal)).toBe(quote.subtotal);
+      expect(Number(booking.total)).toBe(quote.total);
+      expect(Number(booking.total)).toBe(Number(booking.subtotal) - Number(booking.discount) + 30);
+
+      // The trip page and the host's page read the stored lines.
+      const trip = await getGuestTrip(ids.guestC, booking.code, "he");
+      expect(trip?.priceLines).toEqual(quote.lines);
+      expect((await getHostBooking(ids.host, booking.code, "en"))?.priceLines).toEqual(quote.lines);
+
+      // The host changes the date price after the booking: the booking keeps what the guest confirmed.
+      await db.datePrice.update({ where: { id: holiday.id }, data: { price: 999 } });
+      expect((await getGuestTrip(ids.guestC, booking.code, "he"))?.priceLines).toEqual(quote.lines);
+      await service.guestCancel({ bookingId: created.id, guestUserId: ids.guestC, reasonCode: "CHANGE_OF_PLANS", notify: false });
+    } finally {
+      await db.datePrice.deleteMany({ where: { id: holiday.id } });
+      await db.listing.update({ where: { id: ids.listing }, data: { weeklyDiscountPct: null } });
+    }
+  });
+
+  it("rebuilds the lines of a booking made before round 3 (no stored lines)", async () => {
+    const created = await service.createBooking(stay(ids.guestC, day(110), day(113), { notify: false }));
+    await db.booking.update({ where: { id: created.id }, data: { priceLines: Prisma.DbNull } });
+    const trip = await getGuestTrip(ids.guestC, created.code, "en");
+    expect(trip?.priceLines.map((l) => l.kind).at(-1)).toBe("cleaning");
+    expect(trip?.priceLines.reduce((sum, l) => sum + Math.round(l.amount * 100), 0)).toBe(Math.round((trip?.total ?? 0) * 100));
+    await service.guestCancel({ bookingId: created.id, guestUserId: ids.guestC, reasonCode: "CHANGE_OF_PLANS", notify: false });
   });
 
   it("refuses the host's own listing, unverified phones, missing rules and the host's rules", async () => {

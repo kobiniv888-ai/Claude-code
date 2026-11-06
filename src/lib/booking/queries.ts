@@ -20,6 +20,8 @@ import {
   isLateCancellation,
   isUpcoming,
 } from "./policy";
+import { bookingPriceLines } from "./price-lines";
+import type { PriceLine } from "./pricing";
 import { directionsFor, hostContactFor, type Directions, type HostContact } from "./reveal";
 import { toNumber } from "./terms";
 
@@ -45,6 +47,7 @@ const summarySelect = {
   displayCurrency: true,
   displayTotal: true,
   roomTypeName: true,
+  rooms: true,
   cancellationPolicy: true,
   createdAt: true,
   cancelledAt: true,
@@ -66,6 +69,40 @@ const summarySelect = {
 
 type SummaryRow = Prisma.BookingGetPayload<{ select: typeof summarySelect }>;
 
+/** The copied prices of a booking, for its itemized lines (round 3, brief 6.3). */
+const priceSelect = {
+  nightlyPrice: true,
+  weekendPrice: true,
+  subtotal: true,
+  cleaningFee: true,
+  discount: true,
+  rooms: true,
+  priceLines: true,
+} satisfies Prisma.BookingSelect;
+
+type PriceRow = Prisma.BookingGetPayload<{ select: typeof priceSelect }> & Pick<SummaryRow, "checkIn" | "checkOut" | "nights" | "total">;
+
+/**
+ * The lines the guest saw before confirming ("₾55 × 3 לילות", "הנחה לשבוע −10%", "דמי ניקיון"),
+ * in the booking's currency: Booking.priceLines, or rebuilt from the copied prices for bookings
+ * made before round 3, phase 4.
+ */
+function priceLinesOf(row: PriceRow): PriceLine[] {
+  return bookingPriceLines({
+    checkIn: dateToDay(row.checkIn),
+    checkOut: dateToDay(row.checkOut),
+    nights: row.nights,
+    nightlyPrice: toNumber(row.nightlyPrice) ?? 0,
+    weekendPrice: toNumber(row.weekendPrice),
+    subtotal: toNumber(row.subtotal) ?? 0,
+    cleaningFee: toNumber(row.cleaningFee) ?? 0,
+    discount: toNumber(row.discount),
+    total: toNumber(row.total) ?? 0,
+    rooms: row.rooms,
+    priceLines: row.priceLines,
+  });
+}
+
 export type BookingSummary = {
   id: string;
   code: string;
@@ -83,6 +120,8 @@ export type BookingSummary = {
   /** The guest's estimate when booked (null when it was the host's currency). */
   display: { currency: CurrencyCode; total: number } | null;
   roomTypeName: string | null;
+  /** Hotels: rooms of the room type in this booking (1 otherwise). */
+  rooms: number;
   cancellationPolicy: CancellationPolicy;
   createdAt: Date;
   cancelledAt: Date | null;
@@ -123,6 +162,7 @@ function toSummary(row: SummaryRow, locale: AppLocale, now: Date): BookingSummar
     currency: row.currency,
     display: row.displayCurrency && displayTotal !== null ? { currency: row.displayCurrency, total: displayTotal } : null,
     roomTypeName: row.roomTypeName ? pickLocalized(row.roomTypeName, locale) || null : null,
+    rooms: row.rooms,
     cancellationPolicy: row.cancellationPolicy,
     createdAt: row.createdAt,
     cancelledAt: row.cancelledAt,
@@ -173,6 +213,8 @@ export type CancellationInfo = {
 };
 
 export type GuestTrip = BookingSummary & {
+  /** The itemized price, in `currency` (adds up to `total`). */
+  priceLines: PriceLine[];
   messageToHost: string | null;
   paymentMethods: string[];
   cancelReasonCode: string | null;
@@ -211,6 +253,7 @@ export async function getGuestTrip(
     where: { code, guestUserId },
     select: {
       ...summarySelect,
+      ...priceSelect,
       messageToHost: true,
       paymentMethods: true,
       cancelReasonCode: true,
@@ -245,6 +288,7 @@ export async function getGuestTrip(
   const state = { status: row.status, checkIn: summary.checkIn, checkOut: summary.checkOut };
   return {
     ...summary,
+    priceLines: priceLinesOf(row),
     messageToHost: row.messageToHost,
     paymentMethods: row.paymentMethods,
     cancelReasonCode: row.cancelReasonCode,
@@ -309,6 +353,8 @@ export async function getHostBookings(
 }
 
 export type HostBooking = HostBookingSummary & {
+  /** The itemized price the guest confirmed, in `currency` (adds up to `total`). */
+  priceLines: PriceLine[];
   /** E.164, verified when booked: call / WhatsApp the guest. */
   guestPhone: string;
   messageToHost: string | null;
@@ -334,6 +380,7 @@ export async function getHostBooking(
     where: { code, hostUserId },
     select: {
       ...summarySelect,
+      ...priceSelect,
       guestPhone: true,
       messageToHost: true,
       paymentMethods: true,
@@ -350,6 +397,7 @@ export async function getHostBooking(
     guestName: row.guestName,
     flaggedForReview: row.flaggedForReview,
     path: hostBookingPath(row.code),
+    priceLines: priceLinesOf(row),
     guestPhone: row.guestPhone,
     messageToHost: row.messageToHost,
     paymentMethods: row.paymentMethods,

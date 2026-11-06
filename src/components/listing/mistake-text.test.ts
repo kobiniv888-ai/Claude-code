@@ -57,6 +57,14 @@ describe("mistakeMessage", () => {
     }
   });
 
+  it("keeps an email address or a link on one line (no break at its - or /)", () => {
+    const t = translator("he");
+    const text = mistakeMessage({ code: "contact_in_description", severity: "error", step: "text", params: { kind: "email", value: "host-p4g@example.com" } }, t, "he");
+    expect(text).toContain("host\u2060-\u2060p4g@example.com");
+    const link = mistakeMessage({ code: "contact_in_description", severity: "error", step: "text", params: { kind: "link", value: "www.example.com/flat" } }, t, "he");
+    expect(link).toContain("www.example.com\u2060/\u2060flat");
+  });
+
   it("reads naturally in Hebrew for the founder's listing 44", () => {
     const t = translator("he");
     const result = checkListingMistakes({

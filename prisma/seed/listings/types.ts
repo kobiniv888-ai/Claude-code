@@ -40,11 +40,17 @@ export type RoomTypeSeed = {
   names: Localized;
   description: Localized;
   price: number;
+  /** Friday and Saturday nights (round 3, phase 4). */
+  weekendPrice?: number;
   maxGuests: number;
   bedsSingle?: number;
   bedsDouble?: number;
+  bedsSofa?: number;
   sizeSqm: number;
+  /** "כמה חדרים כאלה להציע בבית": demo hotels offer fewer than they have (round 3, founder's answer 3). */
   quantity: number;
+  /** In-room amenity keys (ROOM_TYPE_AMENITIES in src/lib/wizard/schemas.ts). */
+  amenities?: string[];
   photos: PhotoKey[];
 };
 

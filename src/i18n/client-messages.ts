@@ -72,6 +72,7 @@ export const ROUTE_MESSAGES = {
   listing: [
     "booking.guests",
     "booking.price",
+    "booking.rooms",
     "booking.sheet",
     "contact",
     "listing.booking",

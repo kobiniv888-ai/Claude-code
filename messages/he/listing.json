@@ -216,7 +216,8 @@
     "subtitle": "{count, plural, one {סוג חדר אחד} other {{count} סוגי חדרים}}",
     "guests": "{count, plural, one {עד אורח אחד} other {עד {count} אורחים}}",
     "bedsDouble": "{count, plural, one {מיטה זוגית אחת} other {{count} מיטות זוגיות}}",
-    "bedsSingle": "{count, plural, one {מיטת יחיד אחת} other {{count} מיטות יחיד}}"
+    "bedsSingle": "{count, plural, one {מיטת יחיד אחת} other {{count} מיטות יחיד}}",
+    "bedsSofa": "{count, plural, one {ספה נפתחת אחת} other {{count} ספות נפתחות}}"
   },
   "calendar": {
     "title": "זמינות",

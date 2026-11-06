@@ -185,9 +185,9 @@ export const FIELD_APPLIES = {
   cleaningFee: (k: ListingKind) => k.dealType === "SHORT_STAY" || k.dealType === "HOTEL_ROOM",
   utilities: (k: ListingKind) => k.dealType === "MONTHLY_RENT",
   minStay: (k: ListingKind) => k.dealType === "SHORT_STAY" || k.dealType === "HOTEL_ROOM",
-  // Booked stays are priced per night (+ an optional weekend price, src/lib/booking/pricing.ts):
-  // weekly/monthly discounts would promise a total the booking does not give, so they are off.
-  discounts: () => false,
+  // Long-stay discounts (round 3, brief 6.3): % off the nights for 7+ / 28+ nights, priced by the
+  // booking quote (src/lib/booking/pricing.ts), so only for stays booked on the site.
+  discounts: (k: ListingKind) => usesBookingStep(k),
   // Booking terms (weekend price, cancellation policy, payment methods, instant booking).
   bookingTerms: (k: ListingKind) => usesBookingStep(k),
   availability: (k: ListingKind) => k.dealType !== "SALE",

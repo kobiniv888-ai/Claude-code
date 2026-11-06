@@ -6,7 +6,8 @@ import { Ltr } from "@/components/common/ltr";
 import type { BookingStatus } from "@/generated/prisma/enums";
 import { Link } from "@/i18n/navigation";
 import type { HostBookingSummary } from "@/lib/booking/queries";
-import { formatDateRange, formatMoney } from "@/lib/format";
+import { formatBookingMoney } from "@/lib/booking/price-lines";
+import { formatDateRange } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /** Green only for "confirmed" (brief 3.2); every other status is a quiet grey tag. */
@@ -59,12 +60,20 @@ export async function HostBookingRow({
           <span className={cn("text-small", cancelled ? "text-muted-foreground line-through" : "text-foreground")}>
             {formatDateRange(booking.checkIn, booking.checkOut, locale)} · {tb("nights", { count: booking.nights })} ·{" "}
             {tb("guests.total", { count: guests })}
+            {/* Hotels (round 3): the room type and the rooms this booking holds. */}
+            {booking.roomTypeName ? (
+              <>
+                {" · "}
+                <span dir="auto">{booking.roomTypeName}</span>
+                {booking.rooms > 1 ? ` · ${tb("price.rooms", { count: booking.rooms })}` : null}
+              </>
+            ) : null}
           </span>
           <span className="flex flex-wrap items-center gap-x-2 text-caption text-muted-foreground">
             <Ltr>{booking.code}</Ltr>
             <span aria-hidden>·</span>
             <span>
-              {t("total")} <Ltr className="font-medium text-foreground">{formatMoney(booking.total, booking.currency, locale)}</Ltr>
+              {t("total")} <Ltr className="font-medium text-foreground">{formatBookingMoney(booking.total, booking.currency, locale)}</Ltr>
             </span>
           </span>
         </span>

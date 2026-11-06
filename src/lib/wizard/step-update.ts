@@ -316,12 +316,11 @@ export async function buildStepUpdate<S extends SavableStepKey>(
       const before = differs(data, listing, ["price", "weekendPrice", "cleaningFee", "deposit"]);
       if (Object.keys(data).length > 0) {
         if (has(v, "price") || has(v, "currency")) data.priceUsd = await usdPrice(v, listing, deps);
-        // Not offered for booked stays (see FIELD_APPLIES.discounts).
-        data.weeklyDiscountPct = null;
-        data.monthlyDiscountPct = null;
         const period = has(v, "pricePeriod") ? v.pricePeriod : listing.pricePeriod;
         const methods = has(v, "paymentMethodsAtCheckIn") ? v.paymentMethodsAtCheckIn! : listing.paymentMethodsAtCheckIn;
-        // Hotels stay contact-only until booking by room type (round 3): isInstantDealType.
+        // Hotels too (round 3, phase 4): guests book them by room type, and only while the hotel
+        // has an active room type (isInstantBookable, src/lib/booking/terms.ts); until then the
+        // listing page offers "שאלה למארח" and the step shows a hint to add room types.
         data.bookingMode = bookable && isInstantDealType(kind.dealType) && period === "NIGHT" && methods.length > 0 ? "INSTANT" : "CONTACT";
       }
       return { data: data as Prisma.ListingUpdateInput, contentChanged: before, textChanged: false, priceChange: priceChangeOf(v, listing) };

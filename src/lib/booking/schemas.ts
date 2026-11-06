@@ -13,6 +13,7 @@ import {
   HOST_CANCEL_REASONS,
   MAX_GUESTS_PER_BOOKING,
   MAX_INFANTS,
+  MAX_ROOMS_PER_BOOKING,
   MESSAGE_TO_HOST_MAX,
   PAYMENT_METHODS,
   REASONS_NEEDING_TEXT,
@@ -43,6 +44,8 @@ export const stayInputSchema = z.object({
   infants: z.coerce.number().int().min(0).max(MAX_INFANTS, "too_many_infants").default(0),
   /** Hotels: the room type the guest chose. */
   roomTypeId: z.string().min(1).max(64).optional().nullable(),
+  /** Hotels: how many rooms of that type (a family can book 2 in one booking). */
+  rooms: z.coerce.number().int().min(1, "rooms_unavailable").max(MAX_ROOMS_PER_BOOKING, "rooms_unavailable").default(1),
 });
 export type StayInput = z.infer<typeof stayInputSchema>;
 

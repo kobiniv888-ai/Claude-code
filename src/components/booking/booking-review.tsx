@@ -17,33 +17,39 @@ import { useRequireLogin } from "@/components/auth/login-dialog";
 import { Card } from "@/components/ds/card";
 import { Button } from "@/components/ds/button";
 import { StickyContactBar } from "@/components/ds/sticky-contact-bar";
-import { StayProvider, useStay, type StayPrice } from "@/components/listing-page/stay-dates";
+import { StayProvider, useStay, type StayPrice, type StayRooms } from "@/components/listing-page/stay-dates";
 import { useCurrency } from "@/components/providers/currency-provider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { siteConfig, type AppLocale } from "@/config/site";
 import { pickLocalized } from "@/i18n/locale";
+import { usesRoomInventory } from "@/lib/booking/constants";
+import type { FreeSegment } from "@/lib/booking/room-availability";
 import { useRouter } from "@/i18n/navigation";
 import { createBookingAction, quoteBookingAction } from "@/lib/booking/actions";
 import { GUEST_NAME_MAX, MAX_STAY_NIGHTS, MESSAGE_TO_HOST_MAX, type PaymentMethod } from "@/lib/booking/constants";
 import { isBookingErrorCode } from "@/lib/booking/errors";
-import { clampGuests, clockText, countedGuests, guestLimit, maxGuestsFor, quoteGuestStay, withBookParams, type BookRequest } from "@/lib/booking/guest";
+import { clampGuests, clockText, countedGuests, guestLimit, quoteGuestStay, type BookRequest } from "@/lib/booking/guest";
 import type { GuestBookingTerms } from "@/lib/booking/guest-review";
 import { DEFAULT_CHECK_IN_TIME } from "@/lib/booking/dates";
 import { freeCancellationDeadline } from "@/lib/booking/policy";
 import type { Quote } from "@/lib/booking/pricing";
+import { formatBookingMoney } from "@/lib/booking/price-lines";
+import { datePricesFor } from "@/lib/booking/terms";
 import { looksLikeContact } from "@/lib/auth/first-name";
 import type { LoginConfig } from "@/lib/auth/config";
 import { errorMessageKey } from "@/lib/errors";
-import { formatDate, formatDateRange, formatMoney, formatTime } from "@/lib/format";
+import { formatDate, formatDateRange, formatTime } from "@/lib/format";
 import type { DateBlock } from "@/lib/listing-page/calendar";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { AskHostButton } from "./ask-host-button";
 import { DatesGuestsSheet } from "./dates-guests-sheet";
 import { useGuestSummary } from "./guest-summary";
+import { useMinStayText } from "./min-stay-text";
 import { PriceBreakdown } from "./price-breakdown";
+import { RoomPicker } from "./room-picker";
 
 /*
  * The phone check (phone field, country list, libphonenumber, code input, Turnstile: ~150 KB) is
@@ -83,19 +89,11 @@ type Props = {
   phoneConfig: LoginConfig["phone"];
   /** The host's house rules, rendered on the server (null when the host set none). */
   houseRules: ReactNode;
+  /** Hotels: each room type's number of rooms and the nights with fewer free (round 3). */
+  roomAvailability?: Record<string, { quantity: number; segments: FreeSegment[] }> | null;
 };
 
 const PAYMENT_ICONS: Record<PaymentMethod, LucideIcon> = { cash: BanknoteIcon, card: CreditCardIcon, bank_transfer: LandmarkIcon };
-
-/** Replaces the address in place (no server round trip). */
-function replaceSearch(update: (search: string) => string) {
-  try {
-    const url = new URL(window.location.href);
-    window.history.replaceState(window.history.state, "", `${url.pathname}${update(url.search)}${url.hash}`);
-  } catch {
-    // Old browser: the page keeps working with its state.
-  }
-}
 
 /**
  * "אישור הזמנה" (brief 5.5 step 2): the stay, the price, how to pay, the cancellation policy, the
@@ -104,39 +102,59 @@ function replaceSearch(update: (search: string) => string) {
  * the server), then the server confirms it and that the nights are still free.
  */
 export function BookingReview(props: Props) {
-  const { terms, initial } = props;
-  const onlyRoom = terms.roomTypes.length === 1 && !(terms.price && terms.price > 0) ? terms.roomTypes[0].id : null;
-  const [roomTypeId, setRoomState] = useState<string | null>(initial.roomTypeId ?? onlyRoom);
-  const room = terms.roomTypes.find((r) => r.id === roomTypeId) ?? null;
-  const setRoomTypeId = (id: string) => {
-    setRoomState(id);
-    replaceSearch((search) => withBookParams(search, { roomTypeId: id }));
+  const { terms, initial, roomAvailability } = props;
+  const locale = useLocale();
+  // Hotels are booked by room type (round 3, founder's answer 3): the picker shows the free rooms
+  // of each type; a place with one room type (and no price of its own) starts with it chosen.
+  const inventory = usesRoomInventory(terms.dealType);
+  const onlyRoom = terms.roomTypes.length === 1 && (inventory || !(terms.price && terms.price > 0)) ? terms.roomTypes[0].id : null;
+  const rooms: StayRooms | null =
+    terms.roomTypes.length > 0
+      ? {
+          inventory,
+          initialRoomTypeId: initial.roomTypeId ?? onlyRoom,
+          initialRooms: initial.rooms,
+          options: terms.roomTypes.map((room) => ({
+            id: room.id,
+            name: pickLocalized(room.names, locale) || "",
+            price: room.price,
+            currency: room.currency,
+            weekendPrice: room.weekendPrice,
+            maxGuests: room.maxGuests ?? terms.maxGuests,
+            cleaningFee: room.currency === terms.currency ? terms.cleaningFee : null,
+            // Holiday prices (round 3, brief 6.3): the same terms as the server's.
+            datePrices: datePricesFor(terms, room),
+            ...(inventory ? { quantity: roomAvailability?.[room.id]?.quantity ?? room.quantity, segments: roomAvailability?.[room.id]?.segments ?? [] } : {}),
+          })),
+        }
+      : null;
+  const price: StayPrice = {
+    amount: terms.price,
+    currency: terms.currency,
+    period: terms.pricePeriod,
+    from: (inventory || !(terms.price && terms.price > 0)) && terms.roomTypes.length > 0,
+    cleaningFee: terms.cleaningFee,
+    weekendPrice: terms.weekendPrice,
+    weeklyDiscountPct: terms.weeklyDiscountPct,
+    monthlyDiscountPct: terms.monthlyDiscountPct,
+    datePrices: datePricesFor(terms, null),
   };
-  const price: StayPrice = room
-    ? { amount: room.price, currency: room.currency, period: "NIGHT", from: false, cleaningFee: room.currency === terms.currency ? terms.cleaningFee : null }
-    : {
-        amount: terms.price,
-        currency: terms.currency,
-        period: terms.pricePeriod,
-        from: !(terms.price && terms.price > 0) && terms.roomTypes.length > 0,
-        cleaningFee: terms.cleaningFee,
-        weekendPrice: terms.weekendPrice,
-      };
 
   return (
     <StayProvider
       initial={{ checkIn: initial.checkIn, checkOut: initial.checkOut }}
       guests={null}
       initialGuests={initial.guests}
-      maxGuests={maxGuestsFor(terms, roomTypeId)}
+      maxGuests={terms.maxGuests}
       blocks={props.blocks}
       today={props.today}
       minNights={terms.minStayNights}
       maxMonths={12}
       price={price}
+      rooms={rooms}
       listingPath={props.listing.path}
     >
-      <ReviewForm key={props.user ? "user" : "guest"} {...props} roomTypeId={roomTypeId} setRoomTypeId={setRoomTypeId} />
+      <ReviewForm key={props.user ? "user" : "guest"} {...props} />
       <DatesGuestsSheet mode="apply" />
     </StayProvider>
   );
@@ -150,23 +168,26 @@ function ReviewForm({
   user,
   phoneConfig,
   houseRules,
-  roomTypeId,
-  setRoomTypeId,
-}: Props & { roomTypeId: string | null; setRoomTypeId: (id: string) => void }) {
+}: Props) {
   const t = useTranslations("booking");
   const te = useTranslations("errors");
   const locale = useLocale();
   const router = useRouter();
   const requireLogin = useRequireLogin();
   const guestSummary = useGuestSummary();
+  const minStayText = useMinStayText();
   const { currency, rates } = useCurrency();
-  const { dates, guests, setGuests, setSheetOpen, nights, maxGuests, rules } = useStay();
+  const { dates, guests, setGuests, setSheetOpen, nights, maxGuests, rules, roomPicker } = useStay();
+  const roomTypeId = roomPicker?.roomTypeId ?? null;
+  const roomCount = roomPicker?.rooms ?? 1;
+  // The rooms still free for the chosen type (hotels), from the page's calendar data.
+  const freeRooms = roomPicker?.inventory && roomTypeId ? roomPicker.freeRooms(roomTypeId) : null;
   const ids = useId();
   const brand = siteConfig.localizedName[locale as AppLocale] ?? siteConfig.name;
 
   const request: BookRequest = useMemo(
-    () => ({ checkIn: dates.checkIn, checkOut: dates.checkOut, guests, roomTypeId }),
-    [dates.checkIn, dates.checkOut, guests, roomTypeId],
+    () => ({ checkIn: dates.checkIn, checkOut: dates.checkOut, guests, roomTypeId, rooms: roomCount }),
+    [dates.checkIn, dates.checkOut, guests, roomTypeId, roomCount],
   );
   const local = useMemo(() => quoteGuestStay(terms, request, { today: rules.today, displayCurrency: currency, rates }), [terms, request, rules.today, currency, rates]);
 
@@ -190,6 +211,7 @@ function ReviewForm({
         checkOut: request.checkOut,
         ...request.guests,
         roomTypeId: request.roomTypeId,
+        rooms: request.rooms,
         currency,
         locale,
       }).catch(() => null);
@@ -208,7 +230,9 @@ function ReviewForm({
   const confirmed = server?.key === key ? server : null;
   const checking = local.ok && !confirmed;
   const quote = confirmed?.quote ?? (local.ok ? local.quote : null);
-  const busy = !!confirmed && !confirmed.available;
+  // Hotels: fewer free rooms of the chosen type than asked for (the page's data, then the server's).
+  const roomsShort = freeRooms !== null && dates.checkIn && dates.checkOut ? freeRooms < roomCount : false;
+  const busy = (!!confirmed && !confirmed.available) || roomsShort;
 
   // Guest details.
   const [name, setName] = useState(user?.name ?? "");
@@ -216,7 +240,10 @@ function ReviewForm({
   const [message, setMessage] = useState("");
   const [accepted, setAccepted] = useState(false);
   const [errors, setErrors] = useState<{ name?: string; phone?: string; rules?: string }>({});
-  const [taken, setTaken] = useState(false);
+  // "Taken a moment ago" for the stay that was refused (a new choice of dates or rooms clears it).
+  const stayKey = JSON.stringify(request);
+  const [takenFor, setTakenFor] = useState<string | null>(null);
+  const taken = takenFor === stayKey;
   // None of the host's alert channels accepted the booking alert: the booking was undone (round 3).
   const [unreachable, setUnreachable] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -224,7 +251,16 @@ function ReviewForm({
 
   const errorText = (code: string) => {
     if (!isBookingErrorCode(code)) return te(errorMessageKey(code));
-    const count = code === "min_stay" ? Math.max(1, terms.minStayNights ?? 1) : code === "too_many_guests" ? guestLimit(maxGuests) : MAX_STAY_NIGHTS;
+    // A date price's own minimum stay (round 3, brief 6.3) is explained with its dates and note.
+    if (code === "min_stay" && !local.ok && local.error === "min_stay") {
+      return minStayText({ minNights: local.minNights ?? Math.max(1, terms.minStayNights ?? 1), datePrice: local.datePrice });
+    }
+    const count =
+      code === "min_stay"
+        ? Math.max(1, terms.minStayNights ?? 1)
+        : code === "too_many_guests"
+          ? guestLimit(roomPicker?.room ? roomPicker.guestLimit : maxGuests)
+          : MAX_STAY_NIGHTS;
     return t(`errors.${code}`, { count });
   };
   const stayError = !local.ok && local.error !== "no_dates" ? local.error : (confirmed?.error ?? null);
@@ -255,7 +291,7 @@ function ReviewForm({
       focus(first);
       return;
     }
-    setTaken(false);
+    setTakenFor(null);
     setUnreachable(false);
     startTransition(async () => {
       const result = await createBookingAction({
@@ -264,6 +300,7 @@ function ReviewForm({
         checkOut: request.checkOut,
         ...request.guests,
         roomTypeId: request.roomTypeId,
+        rooms: request.rooms,
         guestName: name,
         messageToHost: message,
         rulesAccepted: true,
@@ -279,8 +316,9 @@ function ReviewForm({
       }
       switch (result.error) {
         case "dates_unavailable":
-          // Someone else got these nights a moment ago: fresh calendar, friendly message.
-          setTaken(true);
+        case "rooms_unavailable":
+          // Someone else got these nights (or rooms) a moment ago: fresh calendar, friendly message.
+          setTakenFor(stayKey);
           router.refresh();
           focus(`${ids}-stay`);
           break;
@@ -320,11 +358,10 @@ function ReviewForm({
 
   const [now] = useState(() => Date.now());
   const deadline = dates.checkIn ? freeCancellationDeadline(terms.cancellationPolicy, dates.checkIn, terms.checkInFrom) : null;
-  const money = (amount: number, code = quote?.currency ?? terms.currency) => formatMoney(amount, code, locale);
   const totalLine = quote ? (
     <span className="grid min-w-0">
       <span className="truncate text-body font-semibold tabular-nums">
-        <bdi>{money(quote.total)}</bdi>
+        <bdi>{formatBookingMoney(quote.total, quote.currency, locale)}</bdi>
       </span>
       <span className="truncate text-caption text-muted-foreground">{t("price.nights", { count: quote.nights })}</span>
     </span>
@@ -401,43 +438,24 @@ function ReviewForm({
             : t("review.timeOut", { time: clockText(terms.checkOutUntil ?? "11:00", locale) ?? "" })}
         </p>
       ) : null}
-      {terms.roomTypes.length > 0 ? (
-        <fieldset className="grid gap-2 border-t border-border pt-3">
-          <legend className="float-start mb-1 w-full text-small font-semibold">{t("review.room")}</legend>
-          {terms.roomTypes.map((r) => (
-            <label
-              key={r.id}
-              className={cn(
-                "flex min-h-11 cursor-pointer items-center gap-3 rounded-input border px-3 py-2 transition-colors has-focus-visible:ring-3 has-focus-visible:ring-ring/50",
-                r.id === roomTypeId ? "border-primary bg-primary-tint" : "border-border hover:border-border-strong",
-              )}
-            >
-              <input type="radio" name={`${ids}-room`} value={r.id} checked={r.id === roomTypeId} onChange={() => setRoomTypeId(r.id)} className="size-4 accent-(--primary)" />
-              <span className="grid min-w-0 flex-1">
-                <span dir="auto" className="truncate text-small font-medium">
-                  {pickLocalized(r.names, locale) || t("review.room")}
-                </span>
-                {r.maxGuests ? <span className="text-caption text-muted-foreground">{t("review.roomGuests", { count: r.maxGuests })}</span> : null}
-              </span>
-              <span className="shrink-0 text-small tabular-nums">
-                {t("review.roomPerNight", { price: `⁦${formatMoney(r.price, r.currency, locale)}⁩` })}
-              </span>
-            </label>
-          ))}
-        </fieldset>
-      ) : null}
+      {roomPicker ? <RoomPicker className="border-t border-border pt-3" /> : null}
       <div id={`${ids}-stay`} tabIndex={-1} className="outline-none" aria-live="polite">
         {unreachable ? (
           <Alert title={t("review.unreachableTitle")} text={t("review.unreachableText")}>
             <AskHostButton variant="secondary" className="justify-self-start" />
           </Alert>
         ) : taken || busy ? (
-          <Alert title={taken ? t("review.takenTitle") : t("review.busyTitle")} text={taken ? t("review.takenText") : t("review.busyText")}>
-            <Button variant="secondary" size="sm" className="justify-self-start" onClick={() => setSheetOpen(true)}>
-              <CalendarDaysIcon aria-hidden />
-              {t("review.pickOther")}
-            </Button>
-          </Alert>
+          // Hotels: the room type has fewer free rooms (another type or fewer rooms may still fit).
+          roomPicker?.inventory ? (
+            <Alert title={taken ? t("rooms.takenTitle") : t("rooms.shortTitle")} text={taken ? t("rooms.takenText") : t("rooms.shortText")} />
+          ) : (
+            <Alert title={taken ? t("review.takenTitle") : t("review.busyTitle")} text={taken ? t("review.takenText") : t("review.busyText")}>
+              <Button variant="secondary" size="sm" className="justify-self-start" onClick={() => setSheetOpen(true)}>
+                <CalendarDaysIcon aria-hidden />
+                {t("review.pickOther")}
+              </Button>
+            </Alert>
+          )
         ) : stayError ? (
           <Alert text={errorText(stayError)}>
             {stayError === "room_type_required" ? null : (

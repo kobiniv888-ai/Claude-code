@@ -84,7 +84,7 @@ function IssueRow({
     <li className={cn("flex items-start gap-2.5 rounded-xl border bg-card p-3", error ? "border-destructive/35" : "border-border")} data-mistake={issue.code}>
       <Icon className={cn("mt-0.5 size-5 shrink-0", error ? "text-destructive" : "text-muted-foreground")} aria-hidden />
       <div className="grid min-w-0 flex-1 gap-1.5">
-        <p className="text-sm text-pretty text-foreground">{mistakeMessage(issue, t, locale)}</p>
+        <p className="text-sm text-pretty break-words text-foreground">{mistakeMessage(issue, t, locale)}</p>
         {/* The step and "לתיקון" share a line (it wraps under the step when there is no room). */}
         {step || (issue.step && onFix) ? (
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">

@@ -2,8 +2,10 @@ import "server-only";
 import type { CurrencyCode } from "@/config/site";
 import type { BookingMode, CancellationPolicy, DealType, ListingStatus, PricePeriod } from "@/generated/prisma/enums";
 import { db } from "@/lib/db";
-import { cleanPaymentMethods, type PaymentMethod } from "./constants";
-import { bookableRoomTypes, isInstantBookable, toNumber } from "./terms";
+import { cleanPaymentMethods, MAX_DAYS_AHEAD, MAX_STAY_NIGHTS, type PaymentMethod } from "./constants";
+import { addDays, dateToDay, dayToDate, tbilisiToday } from "./dates";
+import { bookableRoomTypes, isInstantBookable, toNumber, type BookableDatePrice } from "./terms";
+import { roomQuantity } from "./room-availability";
 import { alertEnvironment, hostAlertSelect, hostAlertTarget } from "@/lib/alerts/host";
 import { hostAlertChannels, instantBookingGate, type AlertEnvironment } from "@/lib/alerts/rules";
 
@@ -20,6 +22,10 @@ export type GuestRoomType = {
   currency: CurrencyCode;
   pricePeriod: PricePeriod;
   maxGuests: number | null;
+  /** Friday and Saturday nights of this room type (null = its nightly price). */
+  weekendPrice: number | null;
+  /** "כמה חדרים כאלה להציע בבית": identical rooms of this type (hotels count free rooms from it). */
+  quantity: number;
 };
 
 export type GuestBookingTerms = {
@@ -48,14 +54,23 @@ export type GuestBookingTerms = {
   checkInFlexible: boolean;
   checkOutFlexible: boolean;
   isDemo: boolean;
-  /** Bookable room types (priced per night), in the host's order. */
+  /** Bookable room types (active, priced per night), in the host's order. */
   roomTypes: GuestRoomType[];
+  /** Holiday prices from today on (round 3, brief 6.3), as the server prices the nights. */
+  datePrices: (BookableDatePrice & { price: number })[];
+  /** % off the nights for 7+ / 28+ nights. */
+  weeklyDiscountPct: number | null;
+  monthlyDiscountPct: number | null;
 };
+
+/** Enough for any listing: date prices never overlap within one listing or room type (./date-prices). */
+const DATE_PRICE_LIMIT = 200;
 
 export async function getGuestBookingTerms(
   listingId: string,
   opts: { alerts?: AlertEnvironment } = {},
 ): Promise<GuestBookingTerms | null> {
+  const today = tbilisiToday();
   const row = await db.listing.findUnique({
     where: { id: listingId },
     select: {
@@ -79,9 +94,18 @@ export async function getGuestBookingTerms(
       checkOutFlexible: true,
       isDemo: true,
       owner: { select: hostAlertSelect },
+      weeklyDiscountPct: true,
+      monthlyDiscountPct: true,
       roomTypes: {
-        select: { id: true, names: true, price: true, currency: true, pricePeriod: true, maxGuests: true },
+        select: { id: true, names: true, price: true, currency: true, pricePeriod: true, maxGuests: true, weekendPrice: true, quantity: true, active: true },
         orderBy: { sortOrder: "asc" },
+      },
+      // Every date price a stay that can still be booked may touch.
+      datePrices: {
+        where: { endDate: { gt: dayToDate(today) }, startDate: { lt: dayToDate(addDays(today, MAX_DAYS_AHEAD + MAX_STAY_NIGHTS)) } },
+        orderBy: { startDate: "asc" },
+        take: DATE_PRICE_LIMIT,
+        select: { roomTypeId: true, startDate: true, endDate: true, price: true, minNights: true, label: true },
       },
     },
   });
@@ -93,6 +117,8 @@ export async function getGuestBookingTerms(
     currency: room.currency,
     pricePeriod: room.pricePeriod,
     maxGuests: room.maxGuests,
+    weekendPrice: toNumber(room.weekendPrice ?? null),
+    quantity: roomQuantity(room),
   }));
   return {
     id: row.id,
@@ -116,5 +142,15 @@ export async function getGuestBookingTerms(
     checkOutFlexible: row.checkOutFlexible,
     isDemo: row.isDemo,
     roomTypes: rooms,
+    datePrices: row.datePrices.map((p) => ({
+      roomTypeId: p.roomTypeId,
+      start: dateToDay(p.startDate),
+      end: dateToDay(p.endDate),
+      price: toNumber(p.price) ?? 0,
+      minNights: p.minNights,
+      label: p.label,
+    })),
+    weeklyDiscountPct: row.weeklyDiscountPct,
+    monthlyDiscountPct: row.monthlyDiscountPct,
   };
 }

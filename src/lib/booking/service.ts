@@ -11,9 +11,9 @@ import { previewReason } from "@/lib/listing-page/access";
 import { assertRateLimit } from "@/lib/rate-limit";
 import { generateBookingCode } from "./code";
 import { cleanPaymentMethods, REMINDER_DAYS_BEFORE, type GuestCancelReason, type HostCancelReason } from "./constants";
-import { addDays, dateToDay, dayToDate, daysBetween, tbilisiToday } from "./dates";
+import { addDays, dateToDay, dayToDate, daysBetween, isDay, tbilisiToday } from "./dates";
 import { BookingError } from "./errors";
-import { findBlockingRange } from "./availability";
+import { findBlockingRange, freeRoomsOfType, getRoomBlocks, isRangeFree } from "./availability";
 import { notifyBookingCompleted, notifyBookingReminder } from "./notify";
 import { afterBookingConfirmed, alertEnvironment, confirmWithHostAlert, hostInstantGate, notifyCancellation, reportHostUnreachable } from "./alerts";
 import type { AlertEnvironment } from "@/lib/alerts/rules";
@@ -25,8 +25,10 @@ import {
   isHostCancellationFlagged,
   isLateCancellation,
 } from "./policy";
-import { quoteStay, type Quote, type QuoteResult } from "./pricing";
-import { isInstantBookable, resolveTerms, toNumber, type BookableRoomType } from "./terms";
+import { quoteStay, type MinStayDatePrice, type Quote, type QuoteResult } from "./pricing";
+import { bookableRoomTypes, isInstantBookable, resolveTerms, roomsFor, toNumber, type BookableListing, type BookableRoomType } from "./terms";
+import { freeRoomsForStay } from "./room-availability";
+import { usesRoomInventory } from "./constants";
 import { normalizePhone } from "@/lib/phone";
 
 /**
@@ -38,6 +40,13 @@ import { normalizePhone } from "@/lib/phone";
  * (SELECT … FOR UPDATE), re-reads the listing, checks every block (OWNER, ICAL, BOOKING) and then
  * creates the booking and its BOOKING block. A second booking for the same nights waits for the
  * lock, then sees the first one's block and fails with "dates_unavailable".
+ *
+ * Hotels (round 3, founder's answer 3) are booked by room type: the transaction also locks the
+ * room type's row (SELECT … FOR UPDATE) before counting, and the booking stands only when every
+ * night still has `rooms` free rooms of that type (quantity − booked − blocked rooms; a block
+ * without a room type closes the whole hotel, ./room-availability). Its BOOKING block carries the
+ * room type and the number of rooms, so other room types (and the other rooms of this one) stay
+ * free. Otherwise "rooms_unavailable" (count = the rooms still free) or "dates_unavailable" (none).
  */
 
 const listingSelect = {
@@ -62,6 +71,9 @@ const listingSelect = {
   isDemo: true,
   expiresAt: true,
   owner: { select: { status: true, deletedAt: true } },
+  // Long-stay discounts (round 3, brief 6.3): % off the nights for 7+ / 28+ nights.
+  weeklyDiscountPct: true,
+  monthlyDiscountPct: true,
   roomTypes: {
     select: {
       id: true,
@@ -70,21 +82,65 @@ const listingSelect = {
       currency: true,
       pricePeriod: true,
       maxGuests: true,
+      weekendPrice: true,
+      quantity: true,
+      active: true,
     },
     orderBy: { sortOrder: "asc" },
   },
 } satisfies Prisma.ListingSelect;
 
+const datePriceSelect = {
+  roomTypeId: true,
+  startDate: true,
+  endDate: true,
+  price: true,
+  minNights: true,
+  label: true,
+} satisfies Prisma.DatePriceSelect;
+
+/** More than enough for one stay (date prices of one listing never overlap: ./date-prices). */
+const STAY_DATE_PRICES = 120;
+
 type Client = Prisma.TransactionClient | typeof db;
 
-async function loadListing(listingId: string, client: Client = db) {
+/**
+ * The listing with its booking terms, and the date prices ("holiday prices") that have a night in
+ * the stay [checkIn, checkOut): every night of the stay is priced from these, so the quote and the
+ * booking transaction read the same rows.
+ */
+async function loadListing(listingId: string, stay: { checkIn: string; checkOut: string } | null, client: Client = db) {
+  const range = stay && isDay(stay.checkIn) && isDay(stay.checkOut) && stay.checkIn < stay.checkOut ? stay : null;
   return client.listing.findUnique({
     where: { id: listingId },
-    select: listingSelect,
+    select: {
+      ...listingSelect,
+      datePrices: {
+        where: range ? { startDate: { lt: dayToDate(range.checkOut) }, endDate: { gt: dayToDate(range.checkIn) } } : { id: { in: [] } },
+        orderBy: [{ startDate: "asc" }, { createdAt: "asc" }],
+        take: range ? STAY_DATE_PRICES : 0,
+        select: datePriceSelect,
+      },
+    },
   });
 }
 
 type LoadedListing = NonNullable<Awaited<ReturnType<typeof loadListing>>>;
+
+/** The loaded listing as the pure pricing rules read it (dates as "YYYY-MM-DD"). */
+function bookableListing(listing: LoadedListing): BookableListing {
+  return {
+    ...listing,
+    datePrices: listing.datePrices.map((p) => ({
+      roomTypeId: p.roomTypeId,
+      start: dateToDay(p.startDate),
+      end: dateToDay(p.endDate),
+      price: p.price,
+      minNights: p.minNights,
+      label: p.label,
+    })),
+  };
+}
 
 // ─── Quote ────────────────────────────────────────────────────
 
@@ -96,6 +152,8 @@ export type StayParams = {
   children?: number;
   infants?: number;
   roomTypeId?: string | null;
+  /** Hotels: rooms of the room type (default 1). */
+  rooms?: number | null;
 };
 
 /** The chosen hotel room type, as plain values (safe to send to the browser). */
@@ -116,6 +174,8 @@ export type BookingQuoteResult =
       minNights?: number;
       maxNights?: number;
       maxGuests?: number;
+      /** min_stay because of a date price's own minimum (the dates sheet explains it). */
+      datePrice?: MinStayDatePrice;
     };
 
 function plainRoomType(room: BookableRoomType | null): QuotedRoomType | null {
@@ -137,7 +197,7 @@ function quoteFor(
   // bookable, even from a review page opened before it was hidden (hardening B1). The demo rule is
   // applied by createBooking itself.
   if (previewReason(listing, { demoVisible: true, now: options.now }) !== null) return { ok: false, error: "not_bookable" };
-  const resolved = resolveTerms(listing, stay.roomTypeId);
+  const resolved = resolveTerms(bookableListing(listing), stay.roomTypeId, stay.rooms);
   if (!resolved.ok)
     return {
       ok: false,
@@ -166,7 +226,7 @@ export async function getBookingQuote(
   stay: StayParams,
   options: { displayCurrency?: CurrencyCode | null; now?: Date } = {},
 ): Promise<BookingQuoteResult> {
-  const listing = await loadListing(stay.listingId);
+  const listing = await loadListing(stay.listingId, stay);
   if (!listing) return { ok: false, error: "not_found" };
   const rates = options.displayCurrency ? await getRates() : null;
   return quoteFor(listing, stay, { ...options, rates });
@@ -268,6 +328,33 @@ function failQuote(result: Exclude<BookingQuoteResult, { ok: true }>): never {
   throw new BookingError(result.error, Object.keys(details).length ? details : undefined);
 }
 
+/** A stay's availability for the review page and the dates sheet. */
+export type StayAvailability = {
+  /** Every night is free (hotels: the chosen room type has the rooms asked for on every night). */
+  available: boolean;
+  /** Hotels: rooms free on every night of the stay, per bookable room type (in the host's order). */
+  rooms?: { id: string; free: number }[];
+};
+
+/**
+ * Is the stay still free? Listings booked as a whole: no block on any night. Hotels: the free
+ * rooms of each active room type for the stay, and whether the chosen one has `rooms` of them.
+ * (createBooking checks again inside its locked transaction.)
+ */
+export async function getStayAvailability(stay: StayParams): Promise<StayAvailability> {
+  const listing = await db.listing.findUnique({
+    where: { id: stay.listingId },
+    select: { id: true, dealType: true, roomTypes: { select: { id: true, quantity: true, active: true, price: true, pricePeriod: true }, orderBy: { sortOrder: "asc" } } },
+  });
+  if (!listing || !isDay(stay.checkIn) || !isDay(stay.checkOut) || stay.checkIn >= stay.checkOut) return { available: false };
+  if (!usesRoomInventory(listing.dealType)) return { available: await isRangeFree(listing.id, stay.checkIn, stay.checkOut) };
+  const offered = bookableRoomTypes(listing);
+  const blocks = await getRoomBlocks(listing.id, { from: stay.checkIn, to: stay.checkOut });
+  const rooms = offered.map((room) => ({ id: room.id, free: freeRoomsForStay(room, blocks, stay.checkIn, stay.checkOut) }));
+  const chosen = rooms.find((room) => room.id === stay.roomTypeId);
+  return { available: !!chosen && chosen.free >= roomsFor(listing.dealType, stay.rooms), rooms };
+}
+
 /**
  * Books a stay (instant booking). Throws BookingError (a code from BOOKING_ERROR_CODES),
  * RateLimitError or NotFoundError. Requires: listing LIVE with bookingMode INSTANT, a guest
@@ -302,7 +389,7 @@ export async function createBooking(params: CreateBookingParams): Promise<Create
     throw new BookingError("phone_not_verified");
   }
 
-  const listing = await loadListing(params.listingId);
+  const listing = await loadListing(params.listingId, params);
   if (!listing || listing.deletedAt) throw new BookingError("not_bookable");
   if (listing.ownerId === guest.id) throw new BookingError("own_listing");
   if (listing.isDemo && !params.allowDemoListing && !guest.isDemo) throw new BookingError("not_bookable");
@@ -363,7 +450,11 @@ export async function createBooking(params: CreateBookingParams): Promise<Create
       async (tx) => {
         // Serialises bookings of this listing: a concurrent booking waits here until we commit.
         await tx.$queryRaw`SELECT "id" FROM "Listing" WHERE "id" = ${listing.id} FOR UPDATE`;
-        const locked = await loadListing(listing.id, tx);
+        // Hotels: the room type's row too, before its rooms are counted (founder's answer 3).
+        if (params.roomTypeId) {
+          await tx.$queryRaw`SELECT "id" FROM "RoomType" WHERE "id" = ${params.roomTypeId} AND "listingId" = ${listing.id} FOR UPDATE`;
+        }
+        const locked = await loadListing(listing.id, params, tx);
         if (!locked) throw new BookingError("not_bookable");
         const priced = quoteFor(locked, params, {
           displayCurrency: params.displayCurrency,
@@ -374,7 +465,16 @@ export async function createBooking(params: CreateBookingParams): Promise<Create
         const { quote, roomType } = priced;
         if (termsChanged(params, quote, locked.cancellationPolicy)) throw new BookingError("terms_changed");
 
-        if (await findBlockingRange(locked.id, quote.checkIn, quote.checkOut, tx)) throw new BookingError("dates_unavailable");
+        // Hotels count rooms of the room type; every other listing is booked as a whole.
+        const inventory = usesRoomInventory(locked.dealType) && roomType !== null;
+        const room = inventory ? locked.roomTypes.find((r) => r.id === roomType.id) : undefined;
+        if (inventory) {
+          if (!room) throw new BookingError("room_type_required");
+          const free = await freeRoomsOfType(locked.id, room, quote.checkIn, quote.checkOut, tx);
+          if (free < quote.rooms) throw new BookingError(free === 0 ? "dates_unavailable" : "rooms_unavailable", { count: free });
+        } else if (await findBlockingRange(locked.id, quote.checkIn, quote.checkOut, tx)) {
+          throw new BookingError("dates_unavailable");
+        }
 
         const booking = await tx.booking.create({
           data: {
@@ -384,6 +484,7 @@ export async function createBooking(params: CreateBookingParams): Promise<Create
             hostUserId: locked.ownerId,
             roomTypeId: roomType?.id ?? null,
             roomTypeName: roomType ? (roomType.names as Prisma.InputJsonValue) : Prisma.DbNull,
+            rooms: quote.rooms,
             checkIn: dayToDate(quote.checkIn),
             checkOut: dayToDate(quote.checkOut),
             nights: quote.nights,
@@ -394,8 +495,12 @@ export async function createBooking(params: CreateBookingParams): Promise<Create
             weekendPrice: quote.weekendPrice,
             subtotal: quote.subtotal,
             cleaningFee: quote.cleaningFee,
+            // The long-stay discount (positive, already off the total) and the itemized lines the
+            // guest saw before confirming (round 3, brief 6.3): what every later page shows.
+            discount: quote.discount?.amount ?? null,
             total: quote.total,
             currency: quote.currency,
+            priceLines: quote.lines as unknown as Prisma.InputJsonValue,
             displayCurrency: quote.display?.currency ?? null,
             displayTotal: quote.display?.total ?? null,
             cancellationPolicy: locked.cancellationPolicy,
@@ -419,6 +524,9 @@ export async function createBooking(params: CreateBookingParams): Promise<Create
             source: "BOOKING",
             bookingId: booking.id,
             sourceRef: booking.id,
+            // Hotels: only these rooms of this room type are taken (null = the whole listing).
+            roomTypeId: inventory ? roomType.id : null,
+            rooms: inventory ? quote.rooms : null,
           },
         });
         return {

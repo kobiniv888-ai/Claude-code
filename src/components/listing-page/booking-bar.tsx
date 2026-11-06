@@ -54,7 +54,7 @@ function StaySummary({ className }: { className?: string }) {
  */
 function BookButton({ block = false }: { block?: boolean }) {
   const t = useTranslations("listing.booking");
-  const { bookHref, setSheetOpen, instant } = useStay();
+  const { bookHref, setSheetOpen, instant, needsRoom } = useStay();
   const { listing, availability, contact, revealing } = useContact();
   const { primary } = contactLayout(listing.channels);
   if (!instant && availability === "ok" && primary) {
@@ -65,7 +65,8 @@ function BookButton({ block = false }: { block?: boolean }) {
       </Button>
     );
   }
-  if (bookHref && instant) {
+  // Hotels: the room type (and rooms) is picked in the dates sheet first.
+  if (bookHref && instant && !needsRoom) {
     return (
       <Link href={bookHref} className={buttonStyles({ block, className: "px-5" })}>
         {t("book")}

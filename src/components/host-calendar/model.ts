@@ -3,6 +3,7 @@
  * The host's own blocks are inclusive ranges (like the wizard calendar); booked and imported
  * ranges keep the database's exclusive end (the check-out day is free again).
  */
+import type { HolidayKey } from "@/lib/hebcal/keys";
 import { addDays, daysToRanges, rangesToDays } from "@/lib/wizard/availability";
 import type { DayRange } from "@/lib/wizard/types";
 
@@ -100,4 +101,89 @@ export function monthStart(day: string, offset = 0): { year: number; month: numb
 /** Sunday-first weeks in Hebrew and Arabic, Monday-first elsewhere (like the other calendars). */
 export function weekStartFor(locale: string): 0 | 1 {
   return locale === "he" || locale === "ar" ? 0 : 1;
+}
+
+// ─── Holiday prices and Jewish holidays (round 3, brief 6.3) ─────
+
+/** One day of a Jewish holiday on the calendar ("פסח (יום ב׳)", "ערב פסח"). */
+export type CalendarHoliday = { date: string; key: HolidayKey; name: string };
+
+/** A holiday from its first marked day to its last (inclusive): "פסח", 1–8 April. */
+export type HolidayPeriod = { key: HolidayKey; name: string; start: string; last: string };
+
+/**
+ * Holidays when Israelis travel most (school and work holidays, family trips): the major ones with
+ * their eves and Chol HaMoed, Chanukah and Purim. Fasts and memorial days are not travel peaks.
+ */
+const PEAK_HOLIDAYS: ReadonlySet<HolidayKey> = new Set<HolidayKey>([
+  "rosh-hashana",
+  "yom-kippur",
+  "sukkot",
+  "shemini-atzeret",
+  "simchat-torah",
+  "chanukah",
+  "purim",
+  "pesach",
+  "shavuot",
+]);
+
+export function isPeakHoliday(key: HolidayKey): boolean {
+  return PEAK_HOLIDAYS.has(key);
+}
+
+/** Holidays that run on from another one count as its period (Shemini Atzeret ends Sukkot). */
+const PERIOD_OF: Partial<Record<HolidayKey, HolidayKey>> = { "shemini-atzeret": "sukkot", "simchat-torah": "sukkot" };
+
+/**
+ * Days of the same holiday that follow each other become one period, named after the holiday
+ * ("סוכות" from its eve to Simchat Torah), in date order.
+ */
+export function groupHolidayPeriods(days: readonly CalendarHoliday[], nameOf: (key: HolidayKey) => string): HolidayPeriod[] {
+  const sorted = [...days].sort((a, b) => a.date.localeCompare(b.date));
+  const periods: HolidayPeriod[] = [];
+  for (const day of sorted) {
+    const key = PERIOD_OF[day.key] ?? day.key;
+    let open: HolidayPeriod | undefined;
+    for (let i = periods.length - 1; i >= 0 && !open; i--) if (periods[i].key === key) open = periods[i];
+    if (open && (open.last === day.date || addDays(open.last, 1) === day.date)) {
+      open.last = day.date;
+      continue;
+    }
+    periods.push({ key, name: nameOf(key), start: day.date, last: day.date });
+  }
+  return periods.sort((a, b) => a.start.localeCompare(b.start));
+}
+
+/** Day → the holiday names on it ("ערב פסח", "שבועות"). */
+export function indexHolidays(days: readonly CalendarHoliday[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const day of days) map.set(day.date, map.has(day.date) ? `${map.get(day.date)} · ${day.name}` : day.name);
+  return map;
+}
+
+/** A holiday price as the calendar marks it (`end` exclusive). */
+export type PricedRange = { id: string; start: string; end: string; price: number; roomTypeId: string | null };
+
+/** Night → the listing-wide holiday price on it (a room type's own prices are not marked here). */
+export function indexDatePrices<T extends PricedRange>(list: readonly T[]): Map<string, T> {
+  const map = new Map<string, T>();
+  for (const price of list) {
+    if (price.roomTypeId !== null) continue;
+    eachNight(price, (day) => {
+      if (!map.has(day)) map.set(day, price);
+    });
+  }
+  return map;
+}
+
+/** The holiday periods that have a day in [from, to] and are not over before `today`. */
+export function periodsBetween(periods: readonly HolidayPeriod[], from: string, to: string, today: string): HolidayPeriod[] {
+  return periods.filter((p) => p.last >= today && p.last >= from && p.start <= to);
+}
+
+/** A selection's nights for a holiday price: from today on (past days are never selected). */
+export function selectionNights(days: readonly string[], today: string): { start: string; last: string; nights: number } | null {
+  const future = days.filter((day) => day >= today);
+  if (future.length === 0) return null;
+  return { start: future[0], last: future[future.length - 1], nights: future.length };
 }

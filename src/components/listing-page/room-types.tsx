@@ -1,5 +1,5 @@
 import { useLocale, useTranslations } from "next-intl";
-import { BedDoubleIcon, BedSingleIcon, RulerIcon, UsersIcon } from "lucide-react";
+import { BedDoubleIcon, BedSingleIcon, RulerIcon, SofaIcon, UsersIcon } from "lucide-react";
 import { Price } from "@/components/listing/price";
 import { formatArea } from "@/lib/format";
 import type { RoomTypeData } from "@/lib/listing-page/types";
@@ -19,6 +19,7 @@ export function RoomTypesSection({ rooms }: { rooms: RoomTypeData[] }) {
             room.maxGuests ? { key: "guests", icon: UsersIcon, text: t("guests", { count: room.maxGuests }) } : null,
             room.bedsDouble ? { key: "double", icon: BedDoubleIcon, text: t("bedsDouble", { count: room.bedsDouble }) } : null,
             room.bedsSingle ? { key: "single", icon: BedSingleIcon, text: t("bedsSingle", { count: room.bedsSingle }) } : null,
+            room.bedsSofa ? { key: "sofa", icon: SofaIcon, text: t("bedsSofa", { count: room.bedsSofa }) } : null,
             room.sizeSqm ? { key: "size", icon: RulerIcon, text: formatArea(room.sizeSqm, locale) } : null,
           ].filter((fact) => fact !== null);
           return (

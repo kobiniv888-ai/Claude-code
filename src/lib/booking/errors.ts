@@ -12,6 +12,8 @@ export const BOOKING_ERROR_CODES = [
   "own_listing",
   "not_allowed",
   "dates_unavailable",
+  /** Hotels: fewer rooms of the room type are free on these nights than asked for (details.count = free rooms). */
+  "rooms_unavailable",
   "phone_not_verified",
   "rules_not_accepted",
   "room_type_required",
@@ -37,7 +39,7 @@ export class BookingError extends AppError {
   readonly details: Record<string, number> | undefined;
 
   constructor(code: BookingErrorCode, details?: Record<string, number>) {
-    super(code, `Booking refused: ${code}`, { status: code === "dates_unavailable" ? 409 : 400 });
+    super(code, `Booking refused: ${code}`, { status: code === "dates_unavailable" || code === "rooms_unavailable" ? 409 : 400 });
     this.details = details;
   }
 }

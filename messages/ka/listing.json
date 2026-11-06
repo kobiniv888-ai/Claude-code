@@ -216,7 +216,8 @@
     "subtitle": "{count, plural, one {{count} ტიპის ოთახი} other {{count} ტიპის ოთახი}}",
     "guests": "{count, plural, one {{count} სტუმრამდე} other {{count} სტუმრამდე}}",
     "bedsDouble": "{count, plural, one {{count} ორადგილიანი საწოლი} other {{count} ორადგილიანი საწოლი}}",
-    "bedsSingle": "{count, plural, one {{count} ერთადგილიანი საწოლი} other {{count} ერთადგილიანი საწოლი}}"
+    "bedsSingle": "{count, plural, one {{count} ერთადგილიანი საწოლი} other {{count} ერთადგილიანი საწოლი}}",
+    "bedsSofa": "{count, plural, one {{count} გასაშლელი დივანი} other {{count} გასაშლელი დივანი}}"
   },
   "calendar": {
     "title": "ხელმისაწვდომობა",

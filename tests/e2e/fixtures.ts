@@ -1,7 +1,8 @@
+import { createHmac, randomBytes } from "node:crypto";
 import fs from "node:fs";
 import { test as base, expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
 import { acceptCookies, loginByPhone } from "./helpers/auth";
-import { withAdvisoryLock } from "./helpers/db";
+import { E2E_USER_AGENT_TAG, sql, withAdvisoryLock } from "./helpers/db";
 import { ADMIN_STATE_FILE, TEST_ADMIN_PHONE, verifyTwoFactor } from "./helpers/staff";
 
 /** Console noise that is not an app error (external photos that cannot load offline, dev HMR). */
@@ -117,4 +118,33 @@ export async function openAs(browser: Browser, phone: string | null, storageStat
     sessions.set(phone, await context.storageState());
   }
   return { context, page, consoleErrors };
+}
+
+/**
+ * Like `openAs`, signed in as a TEST user (or a demo account) without a login code: a session row
+ * written straight into the database, with Better Auth's signed cookie (HMAC-SHA256 with
+ * BETTER_AUTH_SECRET from .env, the same secret the server uses). For tests about something other
+ * than logging in: the site checks at most 30 login codes an hour per address (phone and email
+ * together) and every test runs from 127.0.0.1. The session carries the tests' user agent, so the
+ * cleanup removes it. Never for staff: they always use the real 2-step login (TEST_ADMIN_PHONE).
+ */
+export async function openAsTestUser(browser: Browser, user: { id: string }) {
+  const secret = process.env.BETTER_AUTH_SECRET;
+  if (!secret) throw new Error("BETTER_AUTH_SECRET is not set (.env): the test sessions are signed with it");
+  const use = test.info().project.use;
+  const token = randomBytes(24).toString("base64url");
+  await sql(
+    `INSERT INTO "Session" (id, "expiresAt", token, "createdAt", "updatedAt", "userId", "userAgent")
+     VALUES ($1, now() + interval '1 day', $2, now(), now(), $3, $4)`,
+    [`e2e-sess-${randomBytes(8).toString("hex")}`, token, user.id, use.userAgent ?? E2E_USER_AGENT_TAG],
+  );
+  const value = encodeURIComponent(`${token}.${createHmac("sha256", secret).update(token).digest("base64")}`);
+  const opened = await openAs(browser, null);
+  const url = new URL(use.baseURL ?? "http://localhost");
+  // Production (`next start`) uses secure cookies, named "__Secure-…" (localhost counts as secure).
+  await opened.context.addCookies([
+    { name: "better-auth.session_token", value, domain: url.hostname, path: "/", httpOnly: true, sameSite: "Lax" },
+    { name: "__Secure-better-auth.session_token", value, domain: url.hostname, path: "/", httpOnly: true, secure: true, sameSite: "Lax" },
+  ]);
+  return opened;
 }

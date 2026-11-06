@@ -1,4 +1,4 @@
-import { expect, openAs, test } from "./fixtures";
+import { expect, openAsTestUser, test } from "./fixtures";
 import { createTestListing, createTestUser, sql } from "./helpers/db";
 import type { Page } from "@playwright/test";
 
@@ -64,7 +64,7 @@ test.describe("host stats", () => {
     const path = `/en/listing/${listing.publicId}`;
 
     // 1. The host's own view never counts (signed in, on their own listing).
-    const owner = await openAs(browser, host.phone);
+    const owner = await openAsTestUser(browser, host);
     await openAndCount(owner.page, path, listing.id);
     expect(await viewsToday(listing.id)).toBe(0);
 

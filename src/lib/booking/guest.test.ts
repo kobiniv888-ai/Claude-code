@@ -52,12 +52,25 @@ describe("review page address", () => {
       checkOut: "2026-12-04",
       guests: { adults: 3, children: 0, infants: 0 },
       roomTypeId: null,
+      rooms: 1,
     });
     const r = bookRequestFrom({ checkIn: "2026-12-04", checkOut: "2026-12-01", adults: "2", children: "1", infants: "1", room: "rt_1" });
     expect(r.checkIn).toBeNull();
     expect(r.guests).toEqual({ adults: 2, children: 1, infants: 1 });
     expect(r.roomTypeId).toBe("rt_1");
     expect(bookRequestFrom({ room: "../x" }).roomTypeId).toBeNull();
+  });
+
+  it("reads and writes the hotel's rooms (1–10, only with a room type)", () => {
+    expect(bookRequestFrom({ room: "rt_1", rooms: "2" }).rooms).toBe(2);
+    expect(bookRequestFrom({ room: "rt_1", rooms: "40" }).rooms).toBe(10);
+    expect(bookRequestFrom({ room: "rt_1", rooms: "zero" }).rooms).toBe(1);
+    expect(bookRequestFrom({ rooms: "3" }).rooms).toBe(1);
+    // A room type's maximum is per room: 5 adults stay in the address for 3 rooms of 2.
+    expect(bookRequestFrom({ room: "rt_1", rooms: "3", adults: "5" }, 2).guests.adults).toBe(5);
+    expect(withBookParams("", { roomTypeId: "rt_1", rooms: 2 })).toBe("?room=rt_1&rooms=2");
+    expect(withBookParams("?room=rt_1&rooms=2", { roomTypeId: "rt_1", rooms: 1 })).toBe("?room=rt_1");
+    expect(withBookParams("?room=rt_1&rooms=2", { roomTypeId: null })).toBe("");
   });
 
   it("writes the parameters and keeps the others", () => {
@@ -79,7 +92,7 @@ describe("quoteGuestStay", () => {
       { today },
     );
     expect(result.ok && result.quote.total).toBe(420 + 480 * 2 + 80);
-    expect(result.ok && result.quote.lines.map((l) => l.kind)).toEqual(["weekday", "weekend"]);
+    expect(result.ok && result.quote.lines.map((l) => l.kind)).toEqual(["weekday", "weekend", "cleaning"]);
   });
 
   it("explains what is missing", () => {
@@ -91,12 +104,18 @@ describe("quoteGuestStay", () => {
       { today },
     );
     expect(short).toMatchObject({ ok: false, error: "min_stay", minNights: 2 });
-    const hotel = { ...listing, price: null, roomTypes: [{ id: "r1", names: {}, price: 100, currency: "GEL" as const, pricePeriod: "NIGHT" as const, maxGuests: 2 }] };
+    const hotel = { ...listing, dealType: "HOTEL_ROOM" as const, price: null, roomTypes: [{ id: "r1", names: {}, price: 100, currency: "GEL" as const, pricePeriod: "NIGHT" as const, maxGuests: 2 }] };
     const stay = { checkIn: "2026-12-03", checkOut: "2026-12-05", guests: { adults: 1, children: 0, infants: 0 }, roomTypeId: null };
     expect(quoteGuestStay(hotel, stay, { today })).toEqual({ ok: false, error: "room_type_required" });
     const room = quoteGuestStay(hotel, { ...stay, roomTypeId: "r1" }, { today });
     expect(room.ok && room.quote.currency).toBe("GEL");
     expect(maxGuestsFor(hotel, "r1")).toBe(2);
     expect(maxGuestsFor(hotel, null)).toBe(4);
+    // Two rooms of 2: up to 4 guests in one booking.
+    expect(maxGuestsFor(hotel, "r1", 2)).toBe(4);
+    const twoRooms = quoteGuestStay(hotel, { ...stay, roomTypeId: "r1", rooms: 2, guests: { adults: 3, children: 1, infants: 0 } }, { today });
+    expect(twoRooms.ok && [twoRooms.quote.rooms, twoRooms.quote.total]).toEqual([2, 400]);
+    const tooMany = quoteGuestStay(hotel, { ...stay, roomTypeId: "r1", rooms: 2, guests: { adults: 5, children: 0, infants: 0 } }, { today });
+    expect(tooMany).toMatchObject({ ok: false, error: "too_many_guests", maxGuests: 4 });
   });
 });

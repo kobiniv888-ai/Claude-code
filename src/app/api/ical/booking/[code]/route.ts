@@ -4,7 +4,8 @@ import { isAppLocale } from "@/i18n/locale";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getGuestTrip } from "@/lib/booking/queries";
 import { clockLabel } from "@/lib/listing/check-times";
-import { formatDate, formatMoney } from "@/lib/format";
+import { formatBookingMoney } from "@/lib/booking/price-lines";
+import { formatDate } from "@/lib/format";
 import { buildBookingIcs } from "@/lib/ical";
 import { absoluteUrl } from "@/lib/site-url";
 import { rateLimitByIp, rateLimitHeaders } from "@/lib/rate-limit";
@@ -62,7 +63,7 @@ export async function GET(request: Request, context: Context) {
           : "",
       reveal.hostName ? t("ics.host", { name: reveal.hostName }) : "",
       phone ? t("ics.phone", { phone }) : "",
-      t("ics.pay", { amount: formatMoney(trip.total, trip.currency, locale) }),
+      t("ics.pay", { amount: formatBookingMoney(trip.total, trip.currency, locale) }),
       t("ics.details", { url }),
     ];
     const body = buildBookingIcs({

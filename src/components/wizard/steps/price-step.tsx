@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Ltr } from "@/components/common/ltr";
 import { CopyLinkField } from "@/components/common/copy-link-field";
+import { PriceGuidePanel } from "@/components/pricing/price-guide-panel";
 import type { CurrencyCode } from "@/config/site";
 import type { PricePeriod } from "@/generated/prisma/enums";
 import { enabledCurrencies } from "@/lib/currency/convert";
@@ -125,6 +126,9 @@ export function PriceStep({ listing, values, set, errors, kind, locale, blocked,
         )}
         {listing.status !== "DRAFT" && <p className="text-xs text-muted-foreground">{t("priceHistoryNote")}</p>}
       </Section>
+
+      {/* Round 3, brief 5: what similar places cost (the owner's tool; the server checks ownership). */}
+      <PriceGuidePanel listingId={listing.id} locale={locale} currency={values.currency} price={values.price} period={values.pricePeriod} />
 
       {(show("deposit") || show("cleaningFee") || show("utilities") || show("minStay")) && (
         <Section title={t("feesTitle")} icon={ReceiptIcon}>

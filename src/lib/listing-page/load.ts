@@ -16,6 +16,9 @@ import { listingPath } from "@/lib/listing/urls";
 import { photoUrl } from "@/lib/media";
 import { parseNearby } from "@/lib/nearby";
 import { georgiaToday } from "./calendar";
+import { usesRoomInventory } from "@/lib/booking/constants";
+import { freeSegments, hotelClosedRanges, roomQuantity, type RoomBlock } from "@/lib/booking/room-availability";
+import { isBookableRoomType } from "@/lib/booking/terms";
 import type { ListingAccessInput, ListingViewer } from "./access";
 import type { ListingPageData, OwnerSummary, PagePhoto } from "./types";
 
@@ -196,7 +199,9 @@ function listingSelect(locale: AppLocale, today: Date, until: Date) {
       select: { title: true, description: true, isAuto: true, isOriginal: true, editedByOwner: true },
     },
     photos: { where: { roomTypeId: null }, orderBy: photoOrder, take: MAX_PHOTOS, select: photoSelect },
+    // Switched-off room types are not offered to guests (round 3, founder's answer 3).
     roomTypes: {
+      where: { active: true },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
       take: 20,
       select: {
@@ -206,19 +211,32 @@ function listingSelect(locale: AppLocale, today: Date, until: Date) {
         price: true,
         currency: true,
         pricePeriod: true,
+        weekendPrice: true,
         maxGuests: true,
         bedsSingle: true,
         bedsDouble: true,
+        bedsSofa: true,
         sizeSqm: true,
+        amenities: true,
+        quantity: true,
+        active: true,
         photos: { orderBy: photoOrder, take: 12, select: photoSelect },
       },
     },
     priceChanges: { orderBy: { changedAt: "desc" }, take: 10, select: { oldPrice: true, newPrice: true, currency: true, changedAt: true } },
+    // Hotels count rooms per room type (src/lib/booking/room-availability.ts): every booking is a row.
     availability: {
       where: { endDate: { gt: today }, startDate: { lt: until } },
       orderBy: { startDate: "asc" },
-      take: 200,
-      select: { startDate: true, endDate: true },
+      take: 3000,
+      select: { startDate: true, endDate: true, roomTypeId: true, rooms: true },
+    },
+    // Holiday prices in the calendar's months (round 3, brief 6.3): the dates sheet's live price.
+    datePrices: {
+      where: { endDate: { gt: today }, startDate: { lt: until } },
+      orderBy: { startDate: "asc" },
+      take: 120,
+      select: { roomTypeId: true, startDate: true, endDate: true, price: true, minNights: true, label: true },
     },
   } satisfies Prisma.ListingSelect;
 }
@@ -257,8 +275,14 @@ async function load(publicId: number, locale: AppLocale): Promise<LoadedListing 
   }
   const photos = photoRows.map((p) => toPhoto(p, fallbackAlt));
 
+  // Hotels: free rooms per room type on the calendar's nights; the whole place is closed only
+  // when no room type has a free room (one booking never closes the hotel).
+  const blockRows: RoomBlock[] = row.availability.map((b) => ({ start: dayString(b.startDate), end: dayString(b.endDate), roomTypeId: b.roomTypeId, rooms: b.rooms }));
+  const inventory = usesRoomInventory(row.dealType);
+  const offered = inventory ? row.roomTypes.filter(isBookableRoomType) : [];
   const roomTypes = row.roomTypes.map((room) => {
     const name = pickLocalized(room.names, locale) || fallbackAlt;
+    const bookable = offered.some((r) => r.id === room.id);
     return {
       id: room.id,
       name,
@@ -266,11 +290,17 @@ async function load(publicId: number, locale: AppLocale): Promise<LoadedListing 
       price: num(room.price),
       currency: room.currency as CurrencyCode,
       pricePeriod: room.pricePeriod,
+      weekendPrice: num(room.weekendPrice),
       maxGuests: room.maxGuests,
       bedsSingle: room.bedsSingle,
       bedsDouble: room.bedsDouble,
+      bedsSofa: room.bedsSofa,
       sizeSqm: room.sizeSqm,
+      amenities: room.amenities,
       photos: room.photos.map((p) => toPhoto(p, name)),
+      ...(bookable
+        ? { quantity: roomQuantity(room), segments: freeSegments(room, blockRows, todayStr, dayString(until)) }
+        : {}),
     };
   });
 
@@ -306,6 +336,7 @@ async function load(publicId: number, locale: AppLocale): Promise<LoadedListing 
     approx: row.approxLat !== null && row.approxLng !== null ? { lat: row.approxLat, lng: row.approxLng } : null,
     price,
     currency,
+    listingCurrency: row.currency as CurrencyCode,
     pricePeriod,
     priceIsFrom,
     priceDroppedAt: row.priceDroppedAt?.toISOString() ?? null,
@@ -376,7 +407,17 @@ async function load(publicId: number, locale: AppLocale): Promise<LoadedListing 
     priceChanges: row.priceChanges
       .map((c) => ({ oldPrice: num(c.oldPrice) ?? 0, newPrice: num(c.newPrice) ?? 0, currency: c.currency as CurrencyCode, changedAt: c.changedAt.toISOString() }))
       .filter((c) => c.oldPrice > 0 && c.newPrice > 0),
-    blocks: row.availability.map((b) => ({ start: dayString(b.startDate), end: dayString(b.endDate) })),
+    blocks: inventory
+      ? hotelClosedRanges(offered, blockRows, todayStr, dayString(until))
+      : row.availability.map((b) => ({ start: dayString(b.startDate), end: dayString(b.endDate) })),
+    datePrices: row.datePrices.map((p) => ({
+      roomTypeId: p.roomTypeId,
+      start: dayString(p.startDate),
+      end: dayString(p.endDate),
+      price: num(p.price) ?? 0,
+      minNights: p.minNights,
+      label: p.label,
+    })),
     owner: toOwnerSummary(row.owner),
   };
 

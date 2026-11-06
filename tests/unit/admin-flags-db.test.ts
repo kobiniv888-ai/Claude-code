@@ -171,10 +171,15 @@ describe("bookings search and the staff booking page", () => {
     expect(detail!.lines).toEqual([
       { kind: "weekday", nights: 1, price: 80, amount: 80 },
       { kind: "weekend", nights: 2, price: 100, amount: 200 },
+      { kind: "cleaning", amount: 20 },
     ]);
-    // Lines that do not add up to the stored subtotal are not shown (the subtotal is).
+    // When the rebuilt nights do not add up to the stored subtotal (a pricing rule the page no longer
+    // knows), the nights become one line with the stored subtotal and no per-night price.
     await db.booking.update({ where: { id: row.id }, data: { subtotal: new Prisma.Decimal(250) } });
-    expect((await getAdminBooking(row.id, "he"))!.lines).toEqual([]);
+    expect((await getAdminBooking(row.id, "he"))!.lines).toEqual([
+      { kind: "weekday", nights: 3, amount: 250 },
+      { kind: "cleaning", amount: 20 },
+    ]);
   });
 });
 

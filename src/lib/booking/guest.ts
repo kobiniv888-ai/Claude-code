@@ -1,12 +1,12 @@
 /**
  * The guest's side of a booking (client-safe, pure): guest counts, the review page's address
- * (/listing/<id>/book?checkIn&checkOut&adults&children&infants&room) and the WhatsApp text of a
+ * (/listing/<id>/book?checkIn&checkOut&adults&children&infants&room&rooms) and the WhatsApp text of a
  * confirmed trip. The rules themselves are in ./pricing (quoteStay) and ./policy.
  */
-import { MAX_GUESTS_PER_BOOKING, MAX_INFANTS } from "./constants";
+import { MAX_GUESTS_PER_BOOKING, MAX_INFANTS, MAX_ROOMS_PER_BOOKING } from "./constants";
 import { isDay } from "./dates";
 import { quoteStay, type QuoteContext, type QuoteResult } from "./pricing";
-import { resolveTerms, type BookableListing } from "./terms";
+import { resolveTerms, roomGuestLimit, type BookableListing } from "./terms";
 import { formatTime } from "@/lib/format";
 import { clockDate } from "@/lib/listing-page/helpers";
 
@@ -54,6 +54,8 @@ export type BookRequest = {
   checkOut: string | null;
   guests: GuestCounts;
   roomTypeId: string | null;
+  /** Hotels: rooms of the room type (1 when not given; "rooms" in the address). */
+  rooms?: number;
 };
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -73,11 +75,15 @@ export function bookRequestFrom(params: SearchParams, maxGuests?: number | null)
   const datesOk = isDay(checkIn) && isDay(checkOut) && checkIn < checkOut;
   const adults = one(params, "adults") ?? one(params, "guests");
   const room = one(params, "room")?.trim();
+  const roomTypeId = room && /^[\w-]{1,64}$/.test(room) ? room : null;
+  const rooms = roomTypeId ? Math.min(MAX_ROOMS_PER_BOOKING, Math.max(1, whole(one(params, "rooms"), 1))) : 1;
   return {
     checkIn: datesOk ? checkIn : null,
     checkOut: datesOk ? checkOut : null,
-    guests: clampGuests({ adults, children: one(params, "children"), infants: one(params, "infants") }, maxGuests),
-    roomTypeId: room && /^[\w-]{1,64}$/.test(room) ? room : null,
+    // Hotels: a room type's maximum is per room, so the counts are kept within it on the page.
+    guests: clampGuests({ adults, children: one(params, "children"), infants: one(params, "infants") }, roomTypeId ? null : maxGuests),
+    roomTypeId,
+    rooms,
   };
 }
 
@@ -103,6 +109,10 @@ export function withBookParams(search: string, request: Partial<BookRequest>): s
     if (request.roomTypeId) params.set("room", request.roomTypeId);
     else params.delete("room");
   }
+  if ("rooms" in request || "roomTypeId" in request) {
+    if (request.roomTypeId !== null && request.rooms && request.rooms > 1) params.set("rooms", String(request.rooms));
+    else params.delete("rooms");
+  }
   const query = params.toString();
   return query ? `?${query}` : "";
 }
@@ -125,15 +135,19 @@ export type GuestQuoteResult = QuoteResult | { ok: false; error: "room_type_requ
  */
 export function quoteGuestStay(terms: BookableListing, request: BookRequest, context: QuoteContext): GuestQuoteResult {
   if (!request.checkIn || !request.checkOut) return { ok: false, error: "no_dates" };
-  const resolved = resolveTerms(terms, request.roomTypeId);
+  const resolved = resolveTerms(terms, request.roomTypeId, request.rooms ?? 1);
   if (!resolved.ok) return { ok: false, error: resolved.error === "room_type_required" ? "room_type_required" : "no_price" };
   return quoteStay(resolved.terms, { checkIn: request.checkIn, checkOut: request.checkOut, ...request.guests }, context);
 }
 
-/** The maximum guests for the chosen room type (hotels) or the listing. */
-export function maxGuestsFor(terms: Pick<BookableListing, "maxGuests" | "roomTypes">, roomTypeId: string | null): number | null {
+/**
+ * The maximum guests for the chosen room type (hotels: its maximum × the rooms booked, so a
+ * family of 6 fits in 2 rooms for 3) or the listing.
+ */
+export function maxGuestsFor(terms: Pick<BookableListing, "maxGuests" | "roomTypes">, roomTypeId: string | null, rooms = 1): number | null {
   const room = roomTypeId ? terms.roomTypes.find((r) => r.id === roomTypeId) : null;
-  return room?.maxGuests ?? terms.maxGuests ?? null;
+  if (!room) return terms.maxGuests ?? null;
+  return roomGuestLimit(room.maxGuests ?? terms.maxGuests, rooms);
 }
 
 /** "14:00" → "14:00" / "2:00 PM" in the reader's language (host times are Georgian wall-clock). */

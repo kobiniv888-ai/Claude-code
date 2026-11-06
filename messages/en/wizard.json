@@ -173,7 +173,9 @@
     "invalidMessenger": "Enter your Facebook username (the part after facebook.com/).",
     "invalidEmail": "Please enter a valid email address.",
     "invalidDate": "Please choose a valid date.",
-    "invalidRange": "The end date must be after the start date."
+    "invalidRange": "The end date must be after the start date.",
+    "monthlyBelowWeekly": "The monthly discount can't be smaller than the weekly one.",
+    "discountTooLarge": "The discount can be up to 60%."
   },
   "options": {
     "dealType": {
@@ -593,8 +595,8 @@
     "currency": "Currency",
     "period": "Per",
     "maxGuests": "Maximum guests",
-    "quantity": "Rooms of this type",
-    "quantityHelp": "How many rooms like this you have.",
+    "quantity": "How many of these rooms to offer on Bayit",
+    "quantityHelp": "You may offer fewer rooms than you have, to lower the risk of a double booking with other sites.",
     "bedsDouble": "Double beds",
     "bedsSingle": "Single beds",
     "size": "Room size",
@@ -614,7 +616,18 @@
     "deleteTitle": "Delete this room type?",
     "deleteDescription": "The room type and its photos will be removed. This can't be undone.",
     "deleteConfirm": "Delete room type",
-    "namesNote": "Room names are shown in your language until they are translated."
+    "namesNote": "Room names are shown in your language until they are translated.",
+    "bedsSofa": "Sofa beds",
+    "weekendPrice": "Weekend price",
+    "weekendPriceHelp": "For Friday and Saturday nights. Leave it empty to use the regular price. Holiday prices are set in the calendar.",
+    "weekendSummary": "weekend {price}",
+    "amenities": "In the room",
+    "amenitiesHelp": "On top of what the whole place has.",
+    "active": "Offered to guests",
+    "activeOn": "Guests can book this room.",
+    "activeOff": "Off: guests don't see it. Bookings already made are kept.",
+    "offBadge": "Off",
+    "hasBookings": "This room has upcoming bookings, so it can't be deleted. You can switch it off instead."
   },
   "price": {
     "title": "Price and availability",
@@ -706,7 +719,13 @@
     "noFeesNote": "Bayit takes no payment and no fee. Never ask guests to pay in advance through a link.",
     "calendarTitle": "Calendar and sync",
     "calendarDescription": "Block dates, see bookings and connect your Airbnb and Booking.com calendars to avoid double bookings.",
-    "calendarLink": "Open the place calendar"
+    "calendarLink": "Open the place calendar",
+    "discountsTitle": "Long-stay discounts",
+    "discountsDescription": "A percent off the nights (not the cleaning fee). From 28 nights the monthly discount applies instead of the weekly one. Optional.",
+    "weeklyDiscount": "Discount for 7+ nights",
+    "monthlyDiscount": "Discount for 28+ nights",
+    "discountExample": "For example: a week at your regular price costs guests <after></after> instead of <before></before>.",
+    "instantHotelBody": "Guests choose a room type and how many rooms, and the booking is confirmed at once when rooms are free. You set rules, not who comes."
   },
   "contact": {
     "title": "How should guests contact you?",

@@ -79,6 +79,8 @@ export async function seedBookings(db: PrismaClient, now: Date): Promise<number>
         cleaningFee: seed.fields.cleaningFee === undefined ? null : Number(seed.fields.cleaningFee),
         minStayNights: seed.fields.minStayNights ?? null,
         maxGuests: seed.fields.maxGuests ?? null,
+        weeklyDiscountPct: settings.weeklyDiscountPct ?? null,
+        monthlyDiscountPct: settings.monthlyDiscountPct ?? null,
       },
       { checkIn, checkOut, adults: demo.adults, children: demo.children, infants: demo.infants },
       // Past stays are priced as on the day they were booked.
@@ -106,8 +108,11 @@ export async function seedBookings(db: PrismaClient, now: Date): Promise<number>
       weekendPrice: quote.weekendPrice,
       subtotal: quote.subtotal,
       cleaningFee: quote.cleaningFee,
+      discount: quote.discount?.amount ?? null,
       total: quote.total,
       currency: quote.currency,
+      // The itemized lines, as a real booking stores them (round 3, brief 6.3).
+      priceLines: quote.lines as unknown as Prisma.InputJsonValue,
       displayCurrency: quote.display?.currency ?? null,
       displayTotal: quote.display?.total ?? null,
       cancellationPolicy: settings.cancellationPolicy,

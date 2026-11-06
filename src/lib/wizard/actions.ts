@@ -36,6 +36,7 @@ import { normalizeRanges } from "./availability";
 import { getPledgeStatus, hasCurrentPledge } from "@/lib/pledge/server";
 import { getHostCalendar, HOST_CALENDAR_MONTHS, type HostCalendarData } from "@/lib/booking/host-calendar";
 import { missingRequirements } from "./requirements";
+import { scheduleRoomTypeNameTranslation } from "./room-type-names";
 import { presentStepKeys } from "./patch";
 import { buildStepUpdate, type StepUpdate, type StepUpdateDeps } from "./step-update";
 import {
@@ -456,7 +457,11 @@ function sameNameInEveryLanguage(name: string): Localized {
   return Object.fromEntries(locales.map((l) => [l, name])) as Localized;
 }
 
-/** Creates or updates a room type. The name is copied into all 5 languages until translated. */
+/**
+ * Creates or updates a room type (round 3: weekend price, sofa beds, the room's amenities, "כמה
+ * חדרים כאלה להציע בבית" and the on/off switch). The name is copied into all 5 languages until
+ * translated (./room-type-names).
+ */
 export async function saveRoomType(listingId: string, input: unknown): Promise<ActionResult<{ roomType: WizardRoomType }>> {
   try {
     const user = await ownerForMutation("save");
@@ -472,23 +477,34 @@ export async function saveRoomType(listingId: string, input: unknown): Promise<A
       currency: v.currency,
       pricePeriod: v.pricePeriod,
       priceUsd,
+      weekendPrice: v.weekendPrice,
       maxGuests: v.maxGuests,
       bedsSingle: v.bedsSingle,
       bedsDouble: v.bedsDouble,
+      bedsSofa: v.bedsSofa,
       sizeSqm: v.sizeSqm,
+      amenities: v.amenities,
       // Required since round 3, phase 4 ("כמה חדרים כאלה להציע בבית"): left empty means 1.
       quantity: v.quantity ?? 1,
+      active: v.active,
     };
 
     let roomId: string;
+    let nameChanged = false;
     if (v.id) {
       const existing = await db.roomType.findFirst({ where: { id: v.id, listingId: listing.id } });
       if (!existing) throw new NotFoundError();
       const original = (existing.names as Partial<Localized> | null)?.[listing.originalLocale as AppLocale];
-      await db.roomType.update({
-        where: { id: existing.id },
-        data: { ...fields, ...(original !== v.name ? { names: sameNameInEveryLanguage(v.name) } : {}) },
+      // The quantity and the switch are checked under the room type's lock, like a booking
+      // (src/lib/booking/service.ts): a booking in progress finishes with the old values first.
+      await db.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT "id" FROM "RoomType" WHERE "id" = ${existing.id} FOR UPDATE`;
+        await tx.roomType.update({
+          where: { id: existing.id },
+          data: { ...fields, ...(original !== v.name ? { names: sameNameInEveryLanguage(v.name) } : {}) },
+        });
       });
+      nameChanged = original !== v.name;
       roomId = existing.id;
     } else {
       const count = await db.roomType.count({ where: { listingId: listing.id } });
@@ -497,8 +513,11 @@ export async function saveRoomType(listingId: string, input: unknown): Promise<A
         data: { ...fields, listingId: listing.id, names: sameNameInEveryLanguage(v.name), sortOrder: count },
       });
       roomId = created.id;
+      nameChanged = true;
     }
     await touchContent(listing);
+    // The host writes the name once; the other languages are translated like the listing's text.
+    if (nameChanged) scheduleRoomTypeNameTranslation(roomId, v.name, listing.originalLocale);
 
     const room = await db.roomType.findUniqueOrThrow({
       where: { id: roomId },
@@ -511,11 +530,15 @@ export async function saveRoomType(listingId: string, input: unknown): Promise<A
         price: Number(room.price),
         currency: v.currency,
         pricePeriod: room.pricePeriod,
+        weekendPrice: room.weekendPrice === null ? null : Number(room.weekendPrice),
         maxGuests: room.maxGuests,
         bedsSingle: room.bedsSingle,
         bedsDouble: room.bedsDouble,
+        bedsSofa: room.bedsSofa,
         sizeSqm: room.sizeSqm,
+        amenities: room.amenities,
         quantity: room.quantity,
+        active: room.active,
         photos: room.photos.map(toWizardPhoto),
       },
     });
@@ -524,7 +547,10 @@ export async function saveRoomType(listingId: string, input: unknown): Promise<A
   }
 }
 
-/** Deletes a room type and its photos (files included). */
+/**
+ * Deletes a room type and its photos (files included). A room type with upcoming bookings can't
+ * be deleted ("room_type_has_bookings": its rooms are held by them); the host switches it off instead.
+ */
 export async function deleteRoomType(listingId: string, roomTypeId: string): Promise<ActionResult> {
   try {
     const user = await ownerForMutation("save");
@@ -534,6 +560,10 @@ export async function deleteRoomType(listingId: string, roomTypeId: string): Pro
       include: { photos: { select: { id: true, storageKey: true } } },
     });
     if (!room) throw new NotFoundError();
+    const upcoming = await db.booking.count({
+      where: { roomTypeId: room.id, status: "CONFIRMED", checkOut: { gt: new Date() } },
+    });
+    if (upcoming > 0) return fail("room_type_has_bookings");
     await db.$transaction([
       db.listingPhoto.deleteMany({ where: { roomTypeId: room.id, listingId: listing.id } }),
       db.roomType.delete({ where: { id: room.id } }),

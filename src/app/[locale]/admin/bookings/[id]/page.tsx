@@ -16,6 +16,7 @@ import { getAdminBooking } from "@/lib/admin/server/bookings";
 import { requireStaff } from "@/lib/auth/session";
 import { formatDate, formatMoney, formatTime, isolate } from "@/lib/format";
 import { FlagReviewButton } from "../../flags/_components/flag-review-button";
+import { BookingPriceLines } from "@/components/booking/booking-price-lines";
 
 const STATUS_TONE: Record<BookingStatus, PillTone> = {
   CONFIRMED: "success",
@@ -55,7 +56,6 @@ export default async function AdminBookingPage({ params }: Props) {
     getTranslations("listingFields"),
   ]);
   const currency = booking.currency as CurrencyCode;
-  const money = (value: number) => <Ltr>{formatMoney(value, currency, locale)}</Ltr>;
   const when = (d: Date) => t("at", { date: formatDate(d, locale), time: formatTime(d, locale) });
   const reasonKey = booking.cancelReasonCode
     ? booking.status === "CANCELLED_BY_HOST"
@@ -123,7 +123,19 @@ export default async function AdminBookingPage({ params }: Props) {
                   ),
                 },
                 { label: t("dealType"), value: tFields(`dealType.${booking.listing.dealType}`) },
-                ...(booking.roomTypeName ? [{ label: t("roomType"), value: <span dir="auto">{booking.roomTypeName}</span> }] : []),
+                ...(booking.roomTypeName
+                  ? [
+                      {
+                        label: t("roomType"),
+                        value: (
+                          <>
+                            <span dir="auto">{booking.roomTypeName}</span>
+                            {booking.rooms > 1 ? ` · ${tb("price.rooms", { count: booking.rooms })}` : null}
+                          </>
+                        ),
+                      },
+                    ]
+                  : []),
                 { label: t("checkIn"), value: formatDate(booking.checkIn, locale, { dateStyle: "full" }) },
                 { label: t("checkOut"), value: formatDate(booking.checkOut, locale, { dateStyle: "full" }) },
                 { label: t("nights"), value: tb("nights", { count: booking.nights }) },
@@ -148,30 +160,9 @@ export default async function AdminBookingPage({ params }: Props) {
           </AdminSection>
 
           <AdminSection title={<SectionTitle icon={Receipt}>{t("priceTitle")}</SectionTitle>} description={t("priceDescription")}>
+            {/* The lines the guest confirmed (Booking.priceLines; rebuilt for older bookings). */}
+            <BookingPriceLines lines={lines} total={booking.total} currency={currency} locale={locale} className="text-sm" />
             <dl className="grid gap-2 text-sm">
-              {lines.length > 0 ? (
-                lines.map((line) => (
-                  <div key={line.kind} className="flex items-center justify-between gap-3">
-                    <dt>{t(`priceLine.${line.kind}`, { count: line.nights, price: formatMoney(line.price, currency, locale) })}</dt>
-                    <dd className="tabular-nums">{money(line.amount)}</dd>
-                  </div>
-                ))
-              ) : (
-                <div className="flex items-center justify-between gap-3">
-                  <dt>{t("priceSubtotal", { count: booking.nights })}</dt>
-                  <dd className="tabular-nums">{money(booking.subtotal)}</dd>
-                </div>
-              )}
-              {booking.cleaningFee > 0 ? (
-                <div className="flex items-center justify-between gap-3">
-                  <dt>{t("cleaningFee")}</dt>
-                  <dd className="tabular-nums">{money(booking.cleaningFee)}</dd>
-                </div>
-              ) : null}
-              <div className="flex items-center justify-between gap-3 border-t pt-2 font-semibold">
-                <dt>{t("total")}</dt>
-                <dd className="tabular-nums">{money(booking.total)}</dd>
-              </div>
               {booking.displayTotal !== null && booking.displayCurrency && booking.displayCurrency !== booking.currency ? (
                 <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
                   <dt>{t("displayEstimate")}</dt>

@@ -8,7 +8,7 @@
  * then the weekend price (Friday and Saturday nights), then the regular nightly price.
  *
  * Long-stay discount: 28+ nights → monthlyDiscountPct, otherwise 7+ nights → weeklyDiscountPct
- * (never both; a 28+ night stay without a monthly discount gets the weekly one). It is taken off the
+ * (never both; a 28+ night stay without a monthly discount, or with a smaller one, gets the weekly one). It is taken off the
  * nights only, never off the cleaning fee. Hotels (`rooms`): every night and the cleaning fee are
  * charged once per room booked.
  *
@@ -253,15 +253,20 @@ function validPct(value: number | null | undefined): number | null {
   return typeof value === "number" && Number.isInteger(value) && value >= LONG_STAY.minPct && value <= LONG_STAY.maxPct ? value : null;
 }
 
-/** Which long-stay discount a stay of `nights` gets (monthly for 28+, else weekly for 7+), or null. */
+/**
+ * Which long-stay discount a stay of `nights` gets, or null: 28+ nights the monthly one, else 7+
+ * nights the weekly one, never both. A 28+ night stay never gets less than a 7-night stay would:
+ * without a monthly discount, or with a smaller one (the post form refuses that, but a live
+ * listing's auto-save may hold it for a moment), the weekly one applies.
+ */
 export function longStayDiscount(
   nights: number,
   weeklyPct: number | null | undefined,
   monthlyPct: number | null | undefined,
 ): { pct: number; kind: "weekly" | "monthly" } | null {
   const monthly = validPct(monthlyPct);
-  if (nights >= LONG_STAY.monthlyNights && monthly !== null) return { pct: monthly, kind: "monthly" };
   const weekly = validPct(weeklyPct);
+  if (nights >= LONG_STAY.monthlyNights && monthly !== null && monthly >= (weekly ?? 0)) return { pct: monthly, kind: "monthly" };
   if (nights >= LONG_STAY.weeklyNights && weekly !== null) return { pct: weekly, kind: "weekly" };
   return null;
 }

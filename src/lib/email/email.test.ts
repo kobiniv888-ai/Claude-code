@@ -281,6 +281,29 @@ describe("booking emails", () => {
     expect(email.html).not.toMatch(/[^>]BT-7K3Q9<\/span>|>BT-7K3Q9(?!<\/span>)/);
   });
 
+  // Round 3, brief 6.3: the itemized lines the guest confirmed (Booking.priceLines), above the total.
+  it("lists the booking's price lines (date price note, weekly discount, cleaning fee) in the confirmation and the host's email", async () => {
+    const priceLines = [
+      { kind: "weekday" as const, nights: 2, price: 85, amount: 170 },
+      { kind: "date_price" as const, nights: 1, price: 100, amount: 100, label: { he: "חנוכה" } },
+      { kind: "discount" as const, pct: 10, period: "weekly" as const, amount: -27 },
+      { kind: "cleaning" as const, price: 32, amount: 32 },
+    ];
+    const guest = await renderEmail("booking_confirmed_guest", "he", { ...samples.booking_confirmed_guest, priceLines });
+    expect(guest.text).toContain("⁦$85⁩ × שני לילות: $170");
+    expect(guest.text).toContain("לילה אחד (⁨חנוכה⁩)");
+    expect(guest.text).toMatch(/הנחה לשבוע ⁦−10%⁩/);
+    expect(guest.text).toMatch(/−\$27/);
+    expect(guest.text).toContain("דמי ניקיון");
+    const host = await renderEmail("booking_new_host", "en", { ...samples.booking_new_host, priceLines });
+    expect(host.text).toContain("⁦$100⁩ × 1 night (⁨חנוכה⁩)");
+    expect(host.text).toMatch(/Weekly discount ⁦−10%⁩/);
+    // Cancellations keep the short version (no lines).
+    const cancelled = await renderEmail("booking_cancelled_by_host", "en", { ...samples.booking_cancelled_by_host, priceLines });
+    expect(cancelled.text).not.toContain("Weekly discount");
+    expect(translationErrors).toEqual([]);
+  });
+
   it("gives the host the guest's phone and message, and the guest a way to report a cancellation", async () => {
     const host = await renderEmail("booking_new_host", "ru", samples.booking_new_host);
     expect(host.text).toContain("+995555000021");

@@ -15,6 +15,7 @@ import {
   ShieldAlertIcon,
   type LucideIcon,
 } from "lucide-react";
+import { BookingPriceLines } from "@/components/booking/booking-price-lines";
 import { CancelTrip } from "@/components/booking/cancel-trip";
 import { CopyCode } from "@/components/booking/copy-code";
 import { WhatsAppIcon } from "@/components/common/brand-icons";
@@ -31,6 +32,7 @@ import { requireUser } from "@/lib/auth/session";
 import { cleanPaymentMethods, TRIPS_PATH, tripPath, type PaymentMethod } from "@/lib/booking/constants";
 import { DEFAULT_CHECK_IN_TIME, tbilisiToday } from "@/lib/booking/dates";
 import { clockText } from "@/lib/booking/guest";
+import { formatBookingMoney } from "@/lib/booking/price-lines";
 import { getGuestTrip } from "@/lib/booking/queries";
 import { whatsappUrl } from "@/lib/booking/reveal";
 import { telHref } from "@/lib/phone";
@@ -124,7 +126,7 @@ export default async function TripPage({ params, searchParams }: Props) {
   const day = (value: string) => formatDate(value, locale, { weekday: "long", day: "numeric", month: "long" });
   const checkInTime = clockText(trip.checkInFrom ?? DEFAULT_CHECK_IN_TIME, locale) ?? "";
   const checkOutTime = clockText(trip.checkOutUntil, locale);
-  const total = formatMoney(trip.total, trip.currency, locale);
+  const total = formatBookingMoney(trip.total, trip.currency, locale);
   const methods = cleanPaymentMethods(trip.paymentMethods);
   const reveal = trip.reveal;
   const whatsapp = reveal?.contact.whatsapp ? whatsappUrl(reveal.contact.whatsapp, t("trip.whatsappText", { brand, code: trip.code, dates })) : null;
@@ -173,8 +175,10 @@ export default async function TripPage({ params, searchParams }: Props) {
               {trip.listing.title}
             </span>
             {trip.roomTypeName ? (
-              <span dir="auto" className="truncate text-caption text-muted-foreground">
-                {trip.roomTypeName}
+              <span className="truncate text-caption text-muted-foreground">
+                <span dir="auto">{trip.roomTypeName}</span>
+                {/* Hotels (round 3): a family can book several rooms of one type. */}
+                {trip.rooms > 1 ? ` · ${t("price.rooms", { count: trip.rooms })}` : null}
               </span>
             ) : null}
             <span className="text-caption text-primary-text">{t("trip.viewListing")}</span>
@@ -298,17 +302,13 @@ export default async function TripPage({ params, searchParams }: Props) {
         <h2 id="trip-pay" className="text-h2">
           {t("trip.payTitle")}
         </h2>
-        <div className="flex items-baseline justify-between gap-3">
-          <span className="text-body font-semibold">{t("price.total")}</span>
-          <span className="text-end">
-            <bdi className="text-body font-semibold tabular-nums">{total}</bdi>
-            {trip.display ? (
-              <span className="block text-caption text-muted-foreground">
-                {t("price.estimate", { amount: `⁦≈ ${formatMoney(trip.display.total, trip.display.currency, locale, { maximumFractionDigits: 0 })}⁩` })}
-              </span>
-            ) : null}
-          </span>
-        </div>
+        {/* The lines the guest confirmed (round 3, brief 6.3: Booking.priceLines). */}
+        <BookingPriceLines lines={trip.priceLines} total={trip.total} currency={trip.currency} locale={locale} />
+        {trip.display ? (
+          <p className="-mt-1 text-end text-caption text-muted-foreground">
+            {t("price.estimate", { amount: `⁦≈ ${formatMoney(trip.display.total, trip.display.currency, locale, { maximumFractionDigits: 0 })}⁩` })}
+          </p>
+        ) : null}
         <p className="text-caption text-muted-foreground">{t("payAtCheckIn", { currency: t(`inCurrency.${trip.currency}`) })}</p>
         {methods.length ? (
           <ul className="flex flex-wrap gap-2">

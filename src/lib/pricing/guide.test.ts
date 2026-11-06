@@ -5,8 +5,11 @@ import {
   bedroomsKey,
   complementOk,
   computeGuide,
+  differencesSafe,
   guestsKey,
+  guideAsked,
   guidePeriodFor,
+  guideWidening,
   isSafeGroup,
   parseMatched,
   percentile,
@@ -17,10 +20,12 @@ import {
   sizeBand,
   sizeBandBounds,
   statsOf,
+  type Criterion,
   type GuideCandidate,
   type GuideQuery,
   type GuideResult,
 } from "./guide";
+import { guidePageHref, parseGuidePageQuery } from "./page-params";
 import { isStaleReference, matchReferencePrices, referenceMonth, type ReferenceRow } from "./reference";
 
 let seq = 0;
@@ -151,6 +156,80 @@ describe("the privacy rule: at least 5 places of at least 3 owners", () => {
     expect(five).toEqual({ count: 5, owners: 5, median: 60, p25: 50, p75: 70 });
     const ten = statsOf([31, 40, 45, 50, 55, 60, 65, 70, 80, 119].map((v) => ({ ...place(v), value: v })));
     expect(ten).toMatchObject({ count: 10, min: 31, max: 120 });
+  });
+});
+
+describe("the privacy rule against comparing two answers", () => {
+  const sea: Criterion = { key: "sea", value: "yes", test: (c) => c.seaView };
+  const fresh: Criterion = { key: "building", value: "new", test: (c) => c.newBuilding === true };
+
+  it("accepts a group when every wider group adds nothing or a safe group", () => {
+    const rows = [...Array.from({ length: 5 }, () => place(80, { seaView: true })), ...Array.from({ length: 5 }, () => place(50))];
+    expect(differencesSafe(rows, [])).toBe(true);
+    expect(differencesSafe(rows, [sea])).toBe(true);
+  });
+
+  it("refuses a group that a wider group differs from by one or two places, at any width", () => {
+    // Sea view and new: 5. Sea view: 10. New: 6 (one without a sea view): new minus (sea and new) = 1 place.
+    const rows = [
+      ...Array.from({ length: 5 }, () => place(80, { seaView: true, newBuilding: true })),
+      ...Array.from({ length: 5 }, () => place(70, { seaView: true, newBuilding: false })),
+      place(55, { seaView: false, newBuilding: true }),
+      ...Array.from({ length: 9 }, () => place(50, { seaView: false, newBuilding: false })),
+    ];
+    expect(differencesSafe(rows, [sea])).toBe(true);
+    expect(differencesSafe(rows, [fresh])).toBe(true);
+    expect(differencesSafe(rows, [sea, fresh])).toBe(false);
+  });
+
+  it("does not use a neighborhood whose other sizes are a single place (its all-sizes answer would differ by one)", () => {
+    const vakeTwo = [100, 110, 120, 130, 140].map((p) => place(p, { neighborhoodId: "vake" }));
+    const vakeThree = place(400, { neighborhoodId: "vake", bedrooms: 3 });
+    const isani = [
+      ...[40, 50, 60, 70, 80].map((p) => place(p, { neighborhoodId: "isani" })),
+      ...[90, 95, 100, 105, 110].map((p) => place(p, { neighborhoodId: "isani", bedrooms: 3 })),
+    ];
+    const all = [...vakeTwo, vakeThree, ...isani];
+    const twoBedrooms = computeGuide(all, { ...Q, neighborhoodId: "vake" }, CTX);
+    expect(twoBedrooms.scope.level).toBe("city");
+    expect(twoBedrooms.price?.count).toBe(10);
+    // The neighborhood with all sizes (a draft with no bedrooms) is a safe answer on its own.
+    const anySize = computeGuide(all, { ...Q, bedrooms: null, neighborhoodId: "vake" }, CTX);
+    expect(anySize.scope.level).toBe("neighborhood");
+    expect(anySize.price?.count).toBe(6);
+  });
+
+  it("skips a later criterion when another order of the same criteria would isolate a place", () => {
+    const rows = [
+      ...Array.from({ length: 5 }, (_, i) => place(80 + i, { seaView: true, newBuilding: true })),
+      ...Array.from({ length: 5 }, (_, i) => place(70 + i, { seaView: true, newBuilding: false })),
+      place(55, { seaView: false, newBuilding: true }),
+      ...Array.from({ length: 9 }, (_, i) => place(50 + i, { seaView: false, newBuilding: false })),
+    ];
+    const both = computeGuide(rows, { ...Q, seaView: true, newBuilding: true }, CTX);
+    expect(both.scope.matched).toContain("sea:yes");
+    expect(both.scope.matched).not.toContain("building:new");
+    expect(both.price?.count).toBe(10);
+    const newOnly = computeGuide(rows, { ...Q, newBuilding: true }, CTX);
+    expect(newOnly.scope.matched).toContain("building:new");
+    expect(newOnly.price?.count).toBe(6);
+  });
+
+  it("applies the rule to the places with a weekend price too", () => {
+    // Bedrooms 2: 6 places, 5 with a weekend price. All sizes adds 5 places, only 1 with a weekend price.
+    const two = [60, 70, 80, 90, 100].map((p) => place(p, { weekendPrice: p + 20 }));
+    const others = [place(60, { bedrooms: 3, weekendPrice: 99 }), ...[50, 55, 65, 75].map((p) => place(p, { bedrooms: 3 }))];
+    const g = computeGuide([...two, place(65), ...others], Q, CTX);
+    expect(g.scope.level).toBe("city");
+    expect(g.price?.count).toBe(6);
+    expect(g.weekend).toBeUndefined();
+  });
+
+  it("gives every place one value, so one hotel's many room types can't set the middle price", () => {
+    const big = Array.from({ length: 10 }, () => place(500, { listingId: "big", ownerId: "o-big", guests: 2 }));
+    const small = [100, 110, 120, 130].map((p, i) => place(p, { listingId: `s${i}`, ownerId: `o-s${i}`, guests: 2 }));
+    const stats = statsOf([...big, ...small].map((r) => ({ ...r, value: r.price })));
+    expect(stats).toMatchObject({ count: 5, owners: 5, median: 120, p25: 110, p75: 130 });
   });
 });
 
@@ -373,5 +452,71 @@ describe("reference prices (moved from the admin panel)", () => {
     expect(isStaleReference(new Date("2024-11-01T00:00:00Z"), now)).toBe(false);
     expect(isStaleReference(new Date("2024-10-01T00:00:00Z"), now)).toBe(true);
     expect(referenceMonth(new Date("2026-10-01T00:00:00Z"))).toBe("2026-10");
+  });
+});
+
+describe("what the guide widened past", () => {
+  const ok = (level: GuideResult["scope"]["level"], status: GuideResult["status"] = "widened"): GuideResult => ({
+    status,
+    unit: "night",
+    currency: "GEL",
+    scope: { level, cityId: "c", matched: [] },
+    references: [],
+  });
+
+  it("names the neighborhood and the size it dropped", () => {
+    expect(guideWidening(ok("neighborhood", "ok"), { neighborhood: true, size: true })).toEqual([]);
+    expect(guideWidening(ok("city"), { neighborhood: true, size: true })).toEqual(["neighborhood"]);
+    expect(guideWidening(ok("city_all_sizes"), { neighborhood: true, size: true })).toEqual(["neighborhood", "size"]);
+    expect(guideWidening(ok("city_all_sizes"), { neighborhood: false, size: true })).toEqual(["size"]);
+    expect(guideWidening(ok("city_all_sizes", "ok"), { neighborhood: false, size: false })).toEqual([]);
+    expect(guideWidening(ok("city_all_sizes", "not_enough"), { neighborhood: true, size: true })).toEqual([]);
+  });
+
+  it("reads what a query asks for (hotels by guests)", () => {
+    expect(guideAsked({ dealType: "SHORT_STAY", neighborhoodId: "n", bedrooms: 2 })).toEqual({ neighborhood: true, size: true });
+    expect(guideAsked({ dealType: "SALE", bedrooms: null })).toEqual({ neighborhood: false, size: false });
+    expect(guideAsked({ dealType: "HOTEL_ROOM", bedrooms: 3, guests: null })).toEqual({ neighborhood: false, size: false });
+    expect(guideAsked({ dealType: "HOTEL_ROOM", guests: 2 })).toEqual({ neighborhood: false, size: true });
+  });
+});
+
+describe("the price guide page's address", () => {
+  it("reads one of the host's listings first", () => {
+    expect(parseGuidePageQuery({ listing: "clx123abc", city: "batumi" })).toEqual({ mode: "listing", listingId: "clx123abc" });
+    expect(parseGuidePageQuery({})).toEqual({ mode: "listing", listingId: null });
+    expect(parseGuidePageQuery({ listing: "../etc" })).toEqual({ mode: "listing", listingId: null });
+  });
+
+  it("reads a custom question and falls back on anything unknown", () => {
+    expect(parseGuidePageQuery({ city: "Batumi", deal: "SALE", type: "VILLA", size: "3" })).toEqual({
+      mode: "custom",
+      citySlug: "batumi",
+      dealType: "SALE",
+      propertyType: "VILLA",
+      size: 3,
+    });
+    // A hotel type for a short stay is not allowed: the deal type's first type instead; "9" is no size.
+    expect(parseGuidePageQuery({ mode: "custom", deal: "SHORT_STAY", type: "HOTEL", size: "9" })).toEqual({
+      mode: "custom",
+      citySlug: null,
+      dealType: "SHORT_STAY",
+      propertyType: "APARTMENT",
+      size: null,
+    });
+    expect(parseGuidePageQuery({ city: "a b", deal: "nope", size: "any" })).toMatchObject({ citySlug: null, dealType: "SHORT_STAY", size: null });
+    // Hotels: guests from 1, no "0".
+    expect(parseGuidePageQuery({ city: "batumi", deal: "HOTEL_ROOM", type: "GUESTHOUSE", size: "0" })).toMatchObject({ propertyType: "GUESTHOUSE", size: null });
+    expect(parseGuidePageQuery({ city: "batumi", deal: "HOTEL_ROOM", size: "2" })).toMatchObject({ propertyType: "HOTEL", size: 2 });
+  });
+
+  it("builds the same address back", () => {
+    const q = parseGuidePageQuery({ city: "batumi", deal: "MONTHLY_RENT", type: "APARTMENT", size: "2" });
+    expect(guidePageHref(q)).toEqual({
+      pathname: "/account/listings/price-guide",
+      query: { mode: "custom", deal: "MONTHLY_RENT", type: "APARTMENT", size: "2", city: "batumi" },
+    });
+    expect(parseGuidePageQuery(guidePageHref(q).query)).toEqual(q);
+    expect(guidePageHref({ mode: "listing", listingId: "x1" }).query).toEqual({ listing: "x1" });
   });
 });

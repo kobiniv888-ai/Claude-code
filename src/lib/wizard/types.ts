@@ -28,11 +28,19 @@ export type WizardRoomType = {
   price: number;
   currency: CurrencyCode;
   pricePeriod: PricePeriod;
+  /** Friday and Saturday nights (null = the nightly price). */
+  weekendPrice: number | null;
   maxGuests: number | null;
   bedsSingle: number | null;
   bedsDouble: number | null;
+  bedsSofa: number | null;
   sizeSqm: number | null;
+  /** The room's own amenity keys (ROOM_TYPE_AMENITIES). */
+  amenities: string[];
+  /** "כמה חדרים כאלה להציע בבית" (at least 1). */
   quantity: number | null;
+  /** false = switched off: not offered to new guests. */
+  active: boolean;
   photos: WizardPhoto[];
 };
 

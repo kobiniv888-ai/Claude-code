@@ -8,14 +8,18 @@ import { getRates } from "@/lib/currency";
 import { convert, isCurrencyCode, type Rates } from "@/lib/currency/convert";
 import {
   computeGuide,
+  guideAsked,
   GUIDE_UNIT_BY_DEAL,
+  guideWidening,
   guidePeriodFor,
   roomSleeps,
   roundGuide,
   type GuideCandidate,
   type GuideInput,
+  type GuideQuery,
   type GuideReference,
   type GuideResult,
+  type GuideWidening,
 } from "./guide";
 import { isStaleReference, matchReferencePrices, referenceMonth } from "./reference";
 
@@ -222,25 +226,31 @@ async function loadGuideData(input: GuideInput): Promise<GuideData> {
 /** The room's own size and beds (hotels): what a room type is compared by. */
 type RoomFacts = { guests: number | null; sizeSqm: number | null };
 
-function guideFromData(input: GuideInput, data: GuideData, room: RoomFacts | null): GuideResult {
+function queryFor(input: GuideInput, room: RoomFacts | null): GuideQuery {
   const hotel = input.dealType === "HOTEL_ROOM";
-  const guide = computeGuide(
-    data.candidates,
-    {
-      dealType: input.dealType,
-      propertyType: input.propertyType,
-      neighborhoodId: input.neighborhoodId ?? null,
-      bedrooms: hotel ? null : (input.bedrooms ?? null),
-      guests: hotel ? (room ? room.guests : (input.roomGuests ?? null)) : null,
-      bathrooms: input.bathrooms ?? null,
-      hasKitchen: input.hasKitchen ?? null,
-      seaView: input.seaView ?? null,
-      newBuilding: input.newBuilding ?? null,
-      sizeSqm: room ? room.sizeSqm : (input.sizeSqm ?? null),
-    },
-    { cityId: input.cityId, currency: input.displayCurrency },
-  );
+  return {
+    dealType: input.dealType,
+    propertyType: input.propertyType,
+    neighborhoodId: input.neighborhoodId ?? null,
+    bedrooms: hotel ? null : (input.bedrooms ?? null),
+    guests: hotel ? (room ? room.guests : (input.roomGuests ?? null)) : null,
+    bathrooms: input.bathrooms ?? null,
+    hasKitchen: input.hasKitchen ?? null,
+    seaView: input.seaView ?? null,
+    newBuilding: input.newBuilding ?? null,
+    sizeSqm: room ? room.sizeSqm : (input.sizeSqm ?? null),
+  };
+}
+
+function guideFromData(input: GuideInput, data: GuideData, room: RoomFacts | null): GuideResult {
+  const guide = computeGuide(data.candidates, queryFor(input, room), { cityId: input.cityId, currency: input.displayCurrency });
   return { ...guide, references: data.references, rates: { ...data.rates } };
+}
+
+/** The guide and what it had to widen past (the neighborhood, the size). */
+function guideWithWidening(input: GuideInput, data: GuideData, room: RoomFacts | null): { guide: GuideResult; widened: GuideWidening[] } {
+  const guide = guideFromData(input, data, room);
+  return { guide, widened: guideWidening(guide, guideAsked(queryFor(input, room))) };
 }
 
 /** The guide for one place (or one hotel room type). See the file comment for who may call it. */
@@ -269,6 +279,8 @@ export type ListingGuideItem = {
   currency: CurrencyCode;
   period: PricePeriod;
   guide: GuideResult;
+  /** What the guide had to widen past for lack of data (say so next to the numbers). */
+  widened: GuideWidening[];
 };
 
 export type ListingGuideView = {
@@ -394,7 +406,7 @@ export async function getListingPriceGuides(
         weekendPrice: num(room.weekendPrice),
         currency: asCurrency(room.currency, listingCurrency),
         period: room.pricePeriod,
-        guide: guideFromData({ ...input, roomTypeId: room.id }, data, { guests: roomSleeps(room), sizeSqm: room.sizeSqm }),
+        ...guideWithWidening({ ...input, roomTypeId: room.id }, data, { guests: roomSleeps(room), sizeSqm: room.sizeSqm }),
       }))
     : [
         {
@@ -404,7 +416,7 @@ export async function getListingPriceGuides(
           weekendPrice: num(row.weekendPrice),
           currency: listingCurrency,
           period: row.pricePeriod,
-          guide: guideFromData(input, data, null),
+          ...guideWithWidening(input, data, null),
         },
       ];
   return { ...base, needsCity: false, needsRooms: false, items };
@@ -434,4 +446,50 @@ export async function getGuideCities(locale: AppLocale): Promise<GuideCityOption
     orderBy: [{ sortOrder: "asc" }, { slug: "asc" }],
   });
   return rows.map((r) => ({ id: r.id, slug: r.slug, name: pickLocalized(r.names, locale) }));
+}
+
+export type CustomGuideQuery = {
+  ownerId: string;
+  citySlug: string;
+  dealType: DealType;
+  propertyType: PropertyType;
+  /** Bedrooms (hotels: how many guests the room sleeps); null = all sizes. 5 means 5 and more. */
+  size: number | null;
+  currency: CurrencyCode;
+  locale: AppLocale;
+};
+
+export type CustomGuideView = {
+  cityName: string;
+  dealType: DealType;
+  propertyType: PropertyType;
+  guide: GuideResult;
+  widened: GuideWidening[];
+};
+
+/**
+ * The "מדריך מחירים" page's own question (a city, deal type, property type and size): the same
+ * guide, never counting `ownerId`'s listings. null for an unknown or inactive city.
+ */
+export async function getCustomPriceGuide(query: CustomGuideQuery): Promise<CustomGuideView | null> {
+  const city = await db.city.findFirst({ where: { slug: query.citySlug, active: true }, select: { id: true, names: true, countryCode: true } });
+  if (!city) return null;
+  const hotel = query.dealType === "HOTEL_ROOM";
+  const input: GuideInput = {
+    excludeOwnerId: query.ownerId,
+    countryCode: city.countryCode,
+    cityId: city.id,
+    dealType: query.dealType,
+    propertyType: query.propertyType,
+    bedrooms: hotel ? null : query.size,
+    roomGuests: hotel ? query.size : null,
+    displayCurrency: query.currency,
+  };
+  const data = await loadGuideData(input);
+  return {
+    cityName: pickLocalized(city.names, query.locale),
+    dealType: query.dealType,
+    propertyType: query.propertyType,
+    ...guideWithWidening(input, data, null),
+  };
 }

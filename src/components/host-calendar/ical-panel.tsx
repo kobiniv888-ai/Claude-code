@@ -53,9 +53,12 @@ function HowTo({ site, steps }: { site: string; steps: string }) {
 /**
  * Calendar sync for one listing: the private Bayit export link (to paste into Airbnb / Booking.com)
  * and the calendars imported from them, with the last sync, each link's errors and "sync now".
+ * Hotels (round 3): with `roomTypeId`, the links of that room type (each imported event takes one
+ * of its rooms).
  */
 export function IcalPanel({
   listingId,
+  roomTypeId,
   exportUrl,
   importUrls,
   syncedAt: initialSyncedAt,
@@ -63,6 +66,8 @@ export function IcalPanel({
   returnTo,
 }: {
   listingId: string;
+  /** Hotels: this room type's own links (round 3). */
+  roomTypeId?: string;
   exportUrl: string;
   importUrls: string[];
   syncedAt: string | null;
@@ -90,7 +95,7 @@ export function IcalPanel({
 
   const syncNow = async (quiet = false) => {
     setBusy("sync");
-    const result = await syncIcalNowAction({ listingId }).catch(() => null);
+    const result = await syncIcalNowAction({ listingId, roomTypeId }).catch(() => null);
     setBusy(null);
     if (result?.ok) {
       applyResult(result.data);
@@ -116,7 +121,7 @@ export function IcalPanel({
 
   const save = async (next: string[]) => {
     setBusy("save");
-    const result = await saveIcalImportsAction({ listingId, urls: next }).catch(() => null);
+    const result = await saveIcalImportsAction({ listingId, roomTypeId, urls: next }).catch(() => null);
     setBusy(null);
     if (result?.ok) {
       setUrls(result.data.urls);

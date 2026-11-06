@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { BedDoubleIcon, BedSingleIcon, BedIcon, HashIcon, PencilIcon, PlusIcon, Trash2Icon, UsersIcon } from "lucide-react";
+import { BedDoubleIcon, BedSingleIcon, BedIcon, EyeOffIcon, HashIcon, PencilIcon, PlusIcon, SofaIcon, Trash2Icon, UsersIcon } from "lucide-react";
 import { toast } from "@/lib/toast";
 import {
   AlertDialog,
@@ -18,15 +18,17 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Ltr } from "@/components/common/ltr";
 import { siteConfig, type CurrencyCode } from "@/config/site";
 import type { PricePeriod } from "@/generated/prisma/enums";
 import { enabledCurrencies } from "@/lib/currency/convert";
 import { formatArea, formatMoney, formatNumber } from "@/lib/format";
 import { deleteRoomType, saveRoomType } from "@/lib/wizard/actions";
-import { LIMITS, ROOM_TYPE_PERIODS, roomTypeSchema } from "@/lib/wizard/schemas";
+import { LIMITS, ROOM_TYPE_AMENITIES, ROOM_TYPE_PERIODS, roomTypeSchema } from "@/lib/wizard/schemas";
 import type { WizardPhoto, WizardRoomType } from "@/lib/wizard/types";
-import { Field, NumberInput, Section, Stepper, useIssueText } from "../fields";
+import { CheckCards, Field, NumberInput, Section, Stepper, useIssueText } from "../fields";
+import { AMENITY_ICONS } from "../icons";
 import { useOptionLabel } from "../labels";
 import { PhotoGrid } from "../photo-grid";
 import { PhotoDropZone, UploadQueue, usePhotoUploads } from "../photo-uploader";
@@ -39,11 +41,15 @@ type Draft = {
   price: number | null;
   currency: CurrencyCode;
   pricePeriod: PricePeriod;
+  weekendPrice: number | null;
   maxGuests: number | null;
   bedsSingle: number | null;
   bedsDouble: number | null;
+  bedsSofa: number | null;
   sizeSqm: number | null;
+  amenities: string[];
   quantity: number | null;
+  active: boolean;
 };
 
 function emptyDraft(currency: CurrencyCode): Draft {
@@ -52,12 +58,23 @@ function emptyDraft(currency: CurrencyCode): Draft {
     price: null,
     currency,
     pricePeriod: "NIGHT",
+    weekendPrice: null,
     maxGuests: 2,
     bedsSingle: null,
     bedsDouble: 1,
+    bedsSofa: null,
     sizeSqm: null,
+    amenities: [],
     quantity: 1,
+    active: true,
   };
+}
+
+/** The editor's values for a saved room type. */
+function draftOf(room: WizardRoomType): Draft {
+  const { photos: _photos, ...rest } = room;
+  void _photos;
+  return rest;
 }
 
 function RoomEditor({
@@ -166,15 +183,47 @@ function RoomEditor({
           )}
         </Field>
       </div>
+      {draft.pricePeriod === "NIGHT" && (
+        <Field label={t("weekendPrice")} description={t("weekendPriceHelp")} error={errors.weekendPrice} optional className="sm:max-w-xs">
+          {(props) => <NumberInput {...props} decimals value={draft.weekendPrice} onChange={(weekendPrice) => patch({ weekendPrice })} />}
+        </Field>
+      )}
+      {/* "כמה חדרים כאלה להציע בבית" (founder's answer 3): a hotel may offer fewer rooms than it has. */}
+      <Stepper
+        label={t("quantity")}
+        icon={HashIcon}
+        value={draft.quantity}
+        onChange={(quantity) => patch({ quantity })}
+        min={1}
+        max={1000}
+        error={errors.quantity}
+        description={t("quantityHelp")}
+      />
       <div className="grid gap-3 sm:grid-cols-2">
         <Stepper label={t("maxGuests")} icon={UsersIcon} value={draft.maxGuests} onChange={(maxGuests) => patch({ maxGuests })} min={1} max={50} error={errors.maxGuests} />
-        <Stepper label={t("quantity")} icon={HashIcon} value={draft.quantity} onChange={(quantity) => patch({ quantity })} min={1} max={1000} error={errors.quantity} description={t("quantityHelp")} />
         <Stepper label={t("bedsDouble")} icon={BedDoubleIcon} value={draft.bedsDouble} onChange={(bedsDouble) => patch({ bedsDouble })} error={errors.bedsDouble} />
         <Stepper label={t("bedsSingle")} icon={BedSingleIcon} value={draft.bedsSingle} onChange={(bedsSingle) => patch({ bedsSingle })} error={errors.bedsSingle} />
+        <Stepper label={t("bedsSofa")} icon={SofaIcon} value={draft.bedsSofa} onChange={(bedsSofa) => patch({ bedsSofa })} error={errors.bedsSofa} />
       </div>
       <Field label={t("size")} error={errors.sizeSqm} optional className="sm:max-w-xs">
         {(props) => <NumberInput {...props} decimals value={draft.sizeSqm} onChange={(sizeSqm) => patch({ sizeSqm })} suffix={tw("details.sqm")} />}
       </Field>
+      <CheckCards
+        legend={t("amenities")}
+        description={t("amenitiesHelp")}
+        optional
+        values={draft.amenities}
+        onChange={(amenities) => patch({ amenities })}
+        columns="grid-cols-1 sm:grid-cols-2"
+        options={ROOM_TYPE_AMENITIES.map((a) => ({ value: a, label: label("amenity", a), icon: AMENITY_ICONS[a] }))}
+      />
+      <label className="flex min-h-14 cursor-pointer items-center justify-between gap-3 rounded-card border border-border bg-card px-3 py-2.5">
+        <span className="grid min-w-0 gap-0.5">
+          <span className="text-small font-semibold">{t("active")}</span>
+          <span className="text-caption text-pretty text-muted-foreground">{draft.active ? t("activeOn") : t("activeOff")}</span>
+        </span>
+        <Switch checked={draft.active} onCheckedChange={(active) => patch({ active })} aria-label={t("active")} />
+      </label>
       <div className="flex flex-wrap justify-end gap-2">
         <Button type="button" variant="ghost" onClick={onCancel}>
           {t("cancel")}
@@ -247,7 +296,8 @@ export function RoomsStep({ listing, values, roomTypes, setRoomTypes, photos, tr
     const result = await track(deleteRoomType(listing.id, room.id)).catch(() => null);
     if (!result?.ok) {
       setRoomTypes(() => before);
-      toast.error(tw("errors.server_error"));
+      // Rooms held by upcoming bookings: switch the room type off instead (founder's answer 3).
+      toast.error(result?.error === "room_type_has_bookings" ? t("hasBookings") : tw("errors.server_error"));
     }
   };
 
@@ -279,12 +329,24 @@ export function RoomsStep({ listing, values, roomTypes, setRoomTypes, photos, tr
           <Section key={room.id}>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="grid gap-1">
-                <h3 className="text-lg font-semibold" dir="auto">
-                  {room.name}
+                <h3 className="flex flex-wrap items-center gap-2 text-lg font-semibold">
+                  <span dir="auto">{room.name}</span>
+                  {!room.active && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-surface-muted px-2.5 py-0.5 text-caption font-medium text-muted-foreground">
+                      <EyeOffIcon className="size-3.5" aria-hidden />
+                      {t("offBadge")}
+                    </span>
+                  )}
                 </h3>
                 <p className="text-sm text-muted-foreground">
                   <Ltr className="font-semibold text-foreground">{formatMoney(room.price, room.currency, locale)}</Ltr>{" "}
                   {label("period", room.pricePeriod)}
+                  {room.weekendPrice !== null && room.pricePeriod === "NIGHT" && (
+                    <>
+                      {" · "}
+                      {t("weekendSummary", { price: `⁦${formatMoney(room.weekendPrice, room.currency, locale)}⁩` })}
+                    </>
+                  )}
                 </p>
                 <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
                   {room.maxGuests !== null && (
@@ -293,10 +355,10 @@ export function RoomsStep({ listing, values, roomTypes, setRoomTypes, photos, tr
                       {t("guestsSummary", { count: room.maxGuests })}
                     </li>
                   )}
-                  {(room.bedsDouble ?? 0) + (room.bedsSingle ?? 0) > 0 && (
+                  {(room.bedsDouble ?? 0) + (room.bedsSingle ?? 0) + (room.bedsSofa ?? 0) > 0 && (
                     <li className="flex items-center gap-1.5">
                       <BedDoubleIcon className="size-4" aria-hidden />
-                      {t("bedsSummary", { count: (room.bedsDouble ?? 0) + (room.bedsSingle ?? 0) })}
+                      {t("bedsSummary", { count: (room.bedsDouble ?? 0) + (room.bedsSingle ?? 0) + (room.bedsSofa ?? 0) })}
                     </li>
                   )}
                   {room.sizeSqm !== null && <li>{formatArea(room.sizeSqm, locale)}</li>}
@@ -313,7 +375,7 @@ export function RoomsStep({ listing, values, roomTypes, setRoomTypes, photos, tr
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => setEditing({ ...room })}
+                  onClick={() => setEditing(draftOf(room))}
                   disabled={editing !== null}
                 >
                   <PencilIcon aria-hidden />

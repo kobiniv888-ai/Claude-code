@@ -16,7 +16,7 @@ import { georgiaDate, randomInt, seededRandom } from "../lib";
 import type { PlaceIds } from "../places";
 import { demoUser, demoUserId } from "../users";
 import { ALL_LISTINGS, demoPhotoPath, REMOVED_LISTING_NUMBERS } from "./all";
-import { bookingSettingsFor } from "./booking-settings";
+import { blocksOutsideDatePrices, bookingSettingsFor, demoDatePricesFor } from "./booking-settings";
 import photoManifest from "./photo-manifest.json";
 import { demoPhotoRoom } from "./photos";
 import { contactMethodsFor, demoListingId, listingTimeline, priceChangesFor } from "./timeline";
@@ -142,6 +142,7 @@ async function seedListing(db: PrismaClient, seed: ListingSeed, places: PlaceIds
   await db.listingPhoto.deleteMany({ where: { listingId: id } });
   await db.roomType.deleteMany({ where: { listingId: id } });
   await db.priceChange.deleteMany({ where: { listingId: id } });
+  await db.datePrice.deleteMany({ where: { listingId: id } });
   // Booked nights (source BOOKING) belong to bookings: the bookings step rewrites the demo ones.
   await db.availabilityBlock.deleteMany({ where: { listingId: id, source: { not: "BOOKING" } } });
 
@@ -157,11 +158,15 @@ async function seedListing(db: PrismaClient, seed: ListingSeed, places: PlaceIds
         price: room.price,
         currency: seed.fields.currency,
         pricePeriod: "NIGHT",
+        weekendPrice: room.weekendPrice ?? null,
         maxGuests: room.maxGuests,
         bedsSingle: room.bedsSingle ?? null,
         bedsDouble: room.bedsDouble ?? null,
+        bedsSofa: room.bedsSofa ?? null,
         sizeSqm: room.sizeSqm,
+        amenities: room.amenities ?? [],
         quantity: room.quantity,
+        active: true,
         sortOrder: i,
       },
     });
@@ -201,15 +206,20 @@ async function seedListing(db: PrismaClient, seed: ListingSeed, places: PlaceIds
     });
   }
 
+  // Demo holiday prices (round 3, brief 6.3).
+  const datePrices = demoDatePricesFor(seed, now);
+  if (datePrices.length > 0) await db.datePrice.createMany({ data: datePrices.map((p) => ({ listingId: id, ...p })) });
+
   if (seed.booked?.length) {
-    await db.availabilityBlock.createMany({
-      data: seed.booked.map((block) => ({
-        listingId: id,
-        startDate: georgiaDate(block.start, now),
-        endDate: georgiaDate(block.start + block.nights, now),
-        source: "OWNER" as const,
-      })),
-    });
+    // A demo owner block never covers the demo holiday price, so its nights stay bookable (they
+    // are what the dates sheet and the review page show it with).
+    const blocks = blocksOutsideDatePrices(
+      seed.booked.map((block) => ({ startDate: georgiaDate(block.start, now), endDate: georgiaDate(block.start + block.nights, now) })),
+      datePrices,
+    );
+    if (blocks.length > 0) {
+      await db.availabilityBlock.createMany({ data: blocks.map((block) => ({ listingId: id, ...block, source: "OWNER" as const })) });
+    }
   }
 
   await prepareListingDerivedFields(id);

@@ -105,6 +105,7 @@ describe("quoteStay", () => {
     expect(quote.lines).toEqual([
       { kind: "weekday", nights: 2, price: 85, amount: 170 },
       { kind: "weekend", nights: 2, price: 100, amount: 200 },
+      { kind: "cleaning", price: 25, amount: 25 },
     ]);
     expect(quote.subtotal).toBe(370);
     expect(quote.cleaningFee).toBe(25);
@@ -238,16 +239,22 @@ describe("listing terms", () => {
     roomTypes: [],
   };
 
-  it("books only live short stays with instant booking on (hotels: contact-only for now)", () => {
+  it("books only live short stays and hotels with instant booking on (hotels need an active room type)", () => {
     expect(isInstantBookable(listing)).toBe(true);
     expect(isInstantBookable({ ...listing, bookingMode: "CONTACT" })).toBe(false);
     expect(isInstantBookable({ ...listing, status: "PAUSED" })).toBe(false);
     expect(isInstantBookable({ ...listing, dealType: "MONTHLY_RENT" })).toBe(false);
-    // Hotels are contact-only until booking by room type (round 3), even when saved as INSTANT.
+    // Round 3, phase 4 (founder's answer 3): a hotel takes instant bookings only with at least one
+    // active room type priced per night; otherwise it stays contact-only, even when saved as INSTANT.
+    const double = { id: "double", names: {}, price: 180, currency: "GEL" as const, pricePeriod: "NIGHT" as const, maxGuests: 2 };
     expect(isInstantBookable({ ...listing, dealType: "HOTEL_ROOM" })).toBe(false);
+    expect(isInstantBookable({ ...listing, dealType: "HOTEL_ROOM", roomTypes: [double] })).toBe(true);
+    expect(isInstantBookable({ ...listing, dealType: "HOTEL_ROOM", roomTypes: [{ ...double, active: false }] })).toBe(false);
+    expect(isInstantBookable({ ...listing, dealType: "HOTEL_ROOM", roomTypes: [{ ...double, pricePeriod: "MONTH" }] })).toBe(false);
+    expect(isInstantBookable({ ...listing, dealType: "HOTEL_ROOM", roomTypes: [{ ...double, price: 0 }] })).toBe(false);
   });
 
-  it("uses the chosen room type's price for hotels (one unit, no weekend price)", () => {
+  it("uses the chosen room type's price for hotels (per room, its own weekend price only)", () => {
     const hotel: BookableListing = {
       ...listing,
       dealType: "HOTEL_ROOM",
@@ -269,7 +276,23 @@ describe("listing terms", () => {
       cleaningFee: 10,
       minStayNights: 2,
       maxGuests: 2,
+      datePrices: [],
+      weeklyDiscountPct: null,
+      monthlyDiscountPct: null,
+      rooms: 1,
     });
+    // Two rooms: the room type's maximum guests per room × 2; never more than 10 rooms.
+    const two = resolveTerms(hotel, "double", 2);
+    expect(two.ok && [two.terms.rooms, two.terms.maxGuests]).toEqual([2, 4]);
+    const many = resolveTerms(hotel, "double", 99);
+    expect(many.ok && many.terms.rooms).toBe(10);
+    // A hotel is always booked by room type, even with its own nightly price; a switched-off room
+    // type is not offered.
+    expect(resolveTerms({ ...hotel, price: 150 }, null)).toEqual({ ok: false, error: "room_type_required" });
+    expect(resolveTerms({ ...hotel, roomTypes: [{ ...hotel.roomTypes[0], active: false }] }, "double")).toEqual({ ok: false, error: "room_type_required" });
+    // Listings booked as a whole always book one "room".
+    const flat = resolveTerms(listing, null, 3);
+    expect(flat.ok && flat.terms.rooms).toBeUndefined();
     expect(resolveTerms({ ...listing, price: null }, null)).toEqual({ ok: false, error: "no_price" });
   });
 

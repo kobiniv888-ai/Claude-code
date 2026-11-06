@@ -111,7 +111,21 @@ describe("steps", () => {
     expect(priceStepFor(kind)).toBe("booking");
     expect(applies("bookingTerms", rent)).toBe(false);
     expect(applies("cleaningFee", hotel)).toBe(true);
-    expect(applies("discounts", kind)).toBe(false);
+    // Long-stay discounts are priced by the booking quote (round 3, brief 6.3): booked stays only.
+    expect(applies("discounts", kind)).toBe(true);
+    expect(applies("discounts", hotel)).toBe(true);
+    expect(applies("discounts", rent)).toBe(false);
+  });
+
+  it("checks the long-stay discounts of the booking step: whole percents 1–60, 28+ not below 7+", () => {
+    const booking = (patch: Partial<typeof base>) =>
+      stepIssues("booking", { ...base, price: 100, pricePeriod: "NIGHT", maxGuests: 2, paymentMethodsAtCheckIn: ["cash"], ...patch }, kind);
+    expect(booking({ weeklyDiscountPct: 10, monthlyDiscountPct: 20 })).toEqual({});
+    expect(booking({ weeklyDiscountPct: 10, monthlyDiscountPct: null })).toEqual({});
+    expect(booking({ weeklyDiscountPct: 20, monthlyDiscountPct: 10 })).toEqual({ monthlyDiscountPct: "monthlyBelowWeekly" });
+    expect(booking({ weeklyDiscountPct: 61 })).toEqual({ weeklyDiscountPct: "discountTooLarge" });
+    expect(booking({ weeklyDiscountPct: 7.5 })).toEqual({ weeklyDiscountPct: "wholeNumber" });
+    expect(stepSaveSchemas.booking.shape.weeklyDiscountPct.parse(0)).toBeNull();
   });
 
   it("parses ?step= as a number or a key and clamps it", () => {
@@ -280,6 +294,23 @@ describe("room types", () => {
     expect(roomTypeSchema.safeParse({ ...room, price: 0 }).success).toBe(false);
     expect(roomTypeSchema.safeParse({ ...room, name: "" }).success).toBe(false);
     expect(roomTypeSchema.safeParse({ ...room, pricePeriod: "TOTAL" }).success).toBe(false);
+  });
+
+  it("round 3: weekend price, sofa beds, the room's own amenities, the number of rooms and the switch", () => {
+    const room = { name: "Double room", price: 80, currency: "GEL", pricePeriod: "NIGHT", maxGuests: 2, bedsSingle: null, bedsDouble: 1, sizeSqm: null, quantity: 4 };
+    // Older clients send none of the new fields: defaults (on, no extras).
+    expect(roomTypeSchema.parse(room)).toMatchObject({ weekendPrice: null, bedsSofa: null, amenities: [], active: true, quantity: 4 });
+    const full = roomTypeSchema.parse({ ...room, weekendPrice: 95, bedsSofa: 1, amenities: ["tv", "wifi", "tv"], active: false });
+    expect(full).toMatchObject({ weekendPrice: 95, bedsSofa: 1, amenities: ["tv", "wifi"], active: false });
+    // In-room amenities only (the hotel's own pool or parking stay on the listing).
+    expect(roomTypeSchema.safeParse({ ...room, amenities: ["pool"] }).success).toBe(false);
+    // "כמה חדרים כאלה להציע בבית": 1–1000 rooms (empty means 1 when saved).
+    expect(roomTypeSchema.safeParse({ ...room, quantity: 0 }).success).toBe(false);
+    expect(roomTypeSchema.safeParse({ ...room, quantity: 1001 }).success).toBe(false);
+    expect(roomTypeSchema.parse({ ...room, quantity: null }).quantity).toBeNull();
+    // A weekend price is per night only.
+    expect(roomTypeSchema.parse({ ...room, pricePeriod: "MONTH", weekendPrice: 95 }).weekendPrice).toBeNull();
+    expect(roomTypeSchema.parse({ ...room, weekendPrice: 0 }).weekendPrice).toBeNull();
   });
 });
 

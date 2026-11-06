@@ -14,6 +14,7 @@ import { absoluteUrl as siteAbsoluteUrl } from "@/lib/site-url";
 import { hostBookingPath, tripPath } from "./constants";
 import { dateToDay, daysBetween, tbilisiToday } from "./dates";
 import { freeCancellationDeadline, isLateCancellation } from "./policy";
+import { bookingPriceLines } from "./price-lines";
 import { hostContactFor } from "./reveal";
 import { toNumber } from "./terms";
 
@@ -89,6 +90,7 @@ function stayFor(booking: LoadedBooking, locale: AppLocale, bookingUrl: string):
     code: booking.code,
     listingTitle: titleIn(booking, locale),
     roomTypeName: booking.roomTypeName ? pickLocalized(booking.roomTypeName, locale) || null : null,
+    rooms: booking.rooms,
     checkIn: dateToDay(booking.checkIn),
     checkOut: dateToDay(booking.checkOut),
     nights: booking.nights,
@@ -97,6 +99,19 @@ function stayFor(booking: LoadedBooking, locale: AppLocale, bookingUrl: string):
     infants: booking.infants,
     total: toNumber(booking.total) ?? 0,
     currency: booking.currency,
+    priceLines: bookingPriceLines({
+      checkIn: dateToDay(booking.checkIn),
+      checkOut: dateToDay(booking.checkOut),
+      nights: booking.nights,
+      nightlyPrice: toNumber(booking.nightlyPrice) ?? 0,
+      weekendPrice: toNumber(booking.weekendPrice),
+      subtotal: toNumber(booking.subtotal) ?? 0,
+      cleaningFee: toNumber(booking.cleaningFee) ?? 0,
+      discount: toNumber(booking.discount),
+      total: toNumber(booking.total) ?? 0,
+      rooms: booking.rooms,
+      priceLines: booking.priceLines,
+    }),
     bookingUrl,
   };
 }

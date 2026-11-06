@@ -21,9 +21,12 @@ import { convert } from "@/lib/currency/convert";
  *     whole city, then all sizes, and say exactly what is compared (scope.matched);
  *   - then, while there is enough data, also bathrooms, kitchen, sea view, new or old building
  *     and size (fixed bands, never a window the host can slide);
- *   - no number points to a single listing: quartiles are interpolated, every number is rounded,
- *     and a narrower group is used only when the places it leaves out are none or themselves a
- *     safe group, so comparing two answers can't isolate one listing's price.
+ *   - no number points to a single listing: each place gives one value (a hotel's room types in
+ *     the group count once, at their middle price), quartiles are interpolated, every number is
+ *     rounded, and a group is used only when, against EVERY wider group the host could also be
+ *     shown (fewer of the same conditions: the whole city, all sizes, without one of the extra
+ *     criteria…), the places it leaves out are none or themselves a safe group. So comparing two
+ *     answers can't isolate one listing's price.
  */
 
 // ─── Contract ────────────────────────────────────────────────
@@ -269,11 +272,20 @@ export function complementOk<T extends Row>(parent: readonly T[], child: readonl
   return rest.length === 0 || isSafeGroup(rest);
 }
 
-/** The stats of one value per row; undefined unless the rows are a safe group. */
+/**
+ * The stats of one value per row; undefined unless the rows are a safe group. Every place gives one
+ * value: the middle of its rows (a hotel with several room types in the group counts once).
+ */
 export function statsOf(rows: readonly (Row & { value: number })[]): GuideStats | undefined {
   const usable = rows.filter((r) => Number.isFinite(r.value) && r.value > 0);
   if (!isSafeGroup(usable)) return undefined;
-  const values = usable.map((r) => r.value).sort((a, b) => a - b);
+  const byPlace = new Map<string, number[]>();
+  for (const row of usable) {
+    const list = byPlace.get(row.listingId);
+    if (list) list.push(row.value);
+    else byPlace.set(row.listingId, [row.value]);
+  }
+  const values = [...byPlace.values()].map((list) => percentile(list.sort((a, b) => a - b), 0.5)).sort((a, b) => a - b);
   const { places, owners } = groupCounts(usable);
   const stats: GuideStats = {
     count: places,
@@ -289,7 +301,48 @@ export function statsOf(rows: readonly (Row & { value: number })[]): GuideStats 
   return stats;
 }
 
-type Criterion = { key: string; value: string; test: (c: GuideCandidate) => boolean };
+/** One condition of a group: "bedrooms:2", "sea:yes", the neighborhood… */
+export type Criterion = { key: string; value: string; test: (c: GuideCandidate) => boolean };
+
+/**
+ * The privacy rule against differencing: a group (the places that meet every one of `criteria`)
+ * may be shown only when, for every WIDER group the host could also be shown (the places that meet
+ * only some of the criteria: the whole city instead of the neighborhood, all sizes, without the sea
+ * view…), the places the wider group adds are none, or themselves at least 5 places of at least 3
+ * owners. Checks every subset of the criteria (at most 2^7), stopping early once a difference is
+ * known to be safe.
+ */
+export function differencesSafe(all: readonly GuideCandidate[], criteria: readonly Criterion[]): boolean {
+  const n = criteria.length;
+  if (n === 0) return true;
+  const full = (1 << n) - 1;
+  // The places of each combination of met criteria (bitmask), once.
+  const buckets = new Map<number, { places: Set<string>; owners: Set<string> }>();
+  for (const c of all) {
+    let mask = 0;
+    for (let i = 0; i < n; i++) if (criteria[i].test(c)) mask |= 1 << i;
+    if (mask === full) continue; // in the group itself
+    let bucket = buckets.get(mask);
+    if (!bucket) buckets.set(mask, (bucket = { places: new Set(), owners: new Set() }));
+    bucket.places.add(c.listingId);
+    bucket.owners.add(c.ownerId);
+  }
+  const { minPlaces, minOwners } = GUIDE_RULES;
+  for (let subset = 0; subset < full; subset++) {
+    const places = new Set<string>();
+    const owners = new Set<string>();
+    let any = false;
+    for (const [mask, bucket] of buckets) {
+      if ((mask & subset) !== subset) continue;
+      any = true;
+      for (const id of bucket.places) if (places.size < minPlaces) places.add(id);
+      for (const id of bucket.owners) if (owners.size < minOwners) owners.add(id);
+      if (places.size >= minPlaces && owners.size >= minOwners) break;
+    }
+    if (any && (places.size < minPlaces || owners.size < minOwners)) return false;
+  }
+  return true;
+}
 
 /** The extra criteria, in the order they are tried (brief 5). Hotel rooms skip bathrooms and kitchen. */
 function refinements(query: GuideQuery, hotel: boolean): Criterion[] {
@@ -327,42 +380,60 @@ export function computeGuide(
   const base = [`deal:${query.dealType}`, `type:${query.propertyType}`];
   const sizeKey = hotel ? guestsKey(query.guests) : bedroomsKey(query.bedrooms);
   const keyOf = (c: GuideCandidate) => (hotel ? guestsKey(c.guests) : bedroomsKey(c.bedrooms));
-  const sizeMatched = sizeKey === null ? [] : [`${hotel ? "guests" : "bedrooms"}:${sizeKey}`];
 
   const all = [...candidates];
-  const sized = sizeKey === null ? null : all.filter((c) => keyOf(c) === sizeKey);
-  type Level = { level: GuideLevel; rows: GuideCandidate[]; parent: GuideCandidate[] | null; matched: string[] };
-  const levels: Level[] = [];
-  if (query.neighborhoodId) {
-    const parent = sized ?? all;
-    levels.push({ level: "neighborhood", rows: parent.filter((c) => c.neighborhoodId === query.neighborhoodId), parent, matched: sizeMatched });
-  }
-  if (sized) levels.push({ level: "city", rows: sized, parent: all, matched: sizeMatched });
-  levels.push({ level: "city_all_sizes", rows: all, parent: null, matched: [] });
+  const sizeCriterion: Criterion | null =
+    sizeKey === null ? null : { key: hotel ? "guests" : "bedrooms", value: sizeKey, test: (c) => keyOf(c) === sizeKey };
+  const neighborhoodId = query.neighborhoodId ?? null;
+  const neighborhoodCriterion: Criterion | null =
+    neighborhoodId === null ? null : { key: "neighborhood", value: neighborhoodId, test: (c) => c.neighborhoodId === neighborhoodId };
 
-  const index = levels.findIndex((l) => isSafeGroup(l.rows) && (l.parent === null || complementOk(l.parent, l.rows)));
+  // Neighborhood (with the size) → the city with the size → the whole city, all sizes.
+  type Level = { level: GuideLevel; criteria: Criterion[] };
+  const levels: Level[] = [];
+  if (neighborhoodCriterion) levels.push({ level: "neighborhood", criteria: sizeCriterion ? [neighborhoodCriterion, sizeCriterion] : [neighborhoodCriterion] });
+  if (sizeCriterion) levels.push({ level: "city", criteria: [sizeCriterion] });
+  levels.push({ level: "city_all_sizes", criteria: [] });
+
+  const rowsOf = (criteria: readonly Criterion[]) => all.filter((c) => criteria.every((k) => k.test(c)));
+  const usable = (criteria: readonly Criterion[]): GuideCandidate[] | null => {
+    const rows = rowsOf(criteria);
+    return isSafeGroup(rows) && differencesSafe(all, criteria) ? rows : null;
+  };
+
+  let index = -1;
+  let rows: GuideCandidate[] = [];
+  for (let i = 0; i < levels.length; i++) {
+    const found = usable(levels[i].criteria);
+    if (found) {
+      index = i;
+      rows = found;
+      break;
+    }
+  }
   if (index === -1) {
     return { status: "not_enough", unit, currency: context.currency, scope: { level: "city_all_sizes", cityId: context.cityId, matched: base }, references: [] };
   }
 
   const chosen = levels[index];
-  let rows = chosen.rows;
-  const matched = [...base, ...chosen.matched];
+  const criteria = [...chosen.criteria];
+  const matched = [...base, ...(sizeCriterion && criteria.includes(sizeCriterion) ? [`${sizeCriterion.key}:${sizeCriterion.value}`] : [])];
   for (const criterion of refinements(query, hotel)) {
-    const narrower = rows.filter(criterion.test);
-    if (isSafeGroup(narrower) && complementOk(rows, narrower)) {
-      rows = narrower;
+    const found = usable([...criteria, criterion]);
+    if (found) {
+      criteria.push(criterion);
+      rows = found;
       matched.push(`${criterion.key}:${criterion.value}`);
     }
   }
 
+  // The weekend price and the price per m² come from the places that have one: the same rule
+  // applies to that smaller population, so a wider group can't add just one weekend price.
+  const subStats = (has: (c: GuideCandidate) => boolean, value: (c: GuideCandidate) => number): GuideStats | undefined =>
+    differencesSafe(all.filter(has), criteria) ? statsOf(rows.filter(has).map((c) => ({ ...c, value: value(c) }))) : undefined;
   const price = statsOf(rows.map((c) => ({ ...c, value: c.price })));
-  const weekend =
-    unit === "night" ? statsOf(rows.filter((c) => c.weekendPrice !== null).map((c) => ({ ...c, value: c.weekendPrice as number }))) : undefined;
-  const perSqm =
-    unit === "total"
-      ? statsOf(rows.filter((c) => c.sizeSqm !== null && c.sizeSqm > 0).map((c) => ({ ...c, value: c.price / (c.sizeSqm as number) })))
-      : undefined;
+  const weekend = unit === "night" ? subStats((c) => c.weekendPrice !== null && c.weekendPrice > 0, (c) => c.weekendPrice as number) : undefined;
+  const perSqm = unit === "total" ? subStats((c) => c.sizeSqm !== null && c.sizeSqm > 0, (c) => c.price / (c.sizeSqm as number)) : undefined;
 
   return {
     status: index === 0 ? "ok" : "widened",
@@ -380,6 +451,30 @@ export function computeGuide(
     references: [],
     converted: rows.some((c) => c.converted),
   };
+}
+
+// ─── What the guide had to leave out ─────────────────────────
+
+/** A condition the host asked for that the guide dropped for lack of data ("we compare the whole city"). */
+export type GuideWidening = "neighborhood" | "size";
+
+/**
+ * Which of the asked conditions a guide widened past: the neighborhood (it compares the whole city)
+ * and the size (bedrooms, or what a hotel room sleeps: it compares all sizes). Empty when nothing
+ * was dropped or there is no answer.
+ */
+export function guideWidening(guide: GuideResult, asked: { neighborhood: boolean; size: boolean }): GuideWidening[] {
+  if (guide.status === "not_enough") return [];
+  const out: GuideWidening[] = [];
+  if (asked.neighborhood && guide.scope.level !== "neighborhood") out.push("neighborhood");
+  if (asked.size && guide.scope.level === "city_all_sizes") out.push("size");
+  return out;
+}
+
+/** What a query asks to compare by (for guideWidening). */
+export function guideAsked(query: Pick<GuideQuery, "dealType" | "neighborhoodId" | "bedrooms" | "guests">): { neighborhood: boolean; size: boolean } {
+  const size = query.dealType === "HOTEL_ROOM" ? guestsKey(query.guests) : bedroomsKey(query.bedrooms);
+  return { neighborhood: !!query.neighborhoodId, size: size !== null };
 }
 
 // ─── Where a price sits ──────────────────────────────────────

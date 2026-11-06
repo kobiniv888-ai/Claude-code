@@ -4,7 +4,8 @@ import type { AppLocale, CurrencyCode } from "@/config/site";
 import type { BookingStatus } from "@/generated/prisma/enums";
 import { pickLocalized } from "@/i18n/locale";
 import { personName } from "@/lib/auth/first-name";
-import { dateToDay, eachNight, isWeekendNight } from "@/lib/booking/dates";
+import { dateToDay } from "@/lib/booking/dates";
+import { bookingPriceLines } from "@/lib/booking/price-lines";
 import { toNumber } from "@/lib/booking/terms";
 import { db } from "@/lib/db";
 import { parseBookingSearch, stayOverlap, type AdminBookingStatus } from "../booking-search";
@@ -222,21 +223,6 @@ export async function listHostUnreachable(requestedPage: number) {
 
 // ─── Booking page ─────────────────────────────────────────────
 
-export type StoredPriceLine = { kind: "weekday" | "weekend"; nights: number; price: number; amount: number };
-
-/** The nightly lines of a stored booking (from its copied prices), like the guest saw them. */
-export function storedPriceLines(booking: { checkIn: string; checkOut: string; nightlyPrice: number; weekendPrice: number | null }): StoredPriceLine[] {
-  const nights = eachNight(booking.checkIn, booking.checkOut);
-  const weekend = booking.weekendPrice && booking.weekendPrice > 0 ? booking.weekendPrice : null;
-  const weekendNights = weekend === null ? 0 : nights.filter(isWeekendNight).length;
-  const weekdayNights = nights.length - weekendNights;
-  const lines: StoredPriceLine[] = [];
-  const amount = (price: number, count: number) => Math.round(price * 100 * count) / 100;
-  if (weekdayNights > 0) lines.push({ kind: "weekday", nights: weekdayNights, price: booking.nightlyPrice, amount: amount(booking.nightlyPrice, weekdayNights) });
-  if (weekend !== null && weekendNights > 0) lines.push({ kind: "weekend", nights: weekendNights, price: weekend, amount: amount(weekend, weekendNights) });
-  return lines;
-}
-
 export async function getAdminBooking(id: string, locale: AppLocale) {
   const booking = await db.booking.findUnique({
     where: { id },
@@ -254,6 +240,9 @@ export async function getAdminBooking(id: string, locale: AppLocale) {
       weekendPrice: true,
       subtotal: true,
       cleaningFee: true,
+      discount: true,
+      rooms: true,
+      priceLines: true,
       total: true,
       currency: true,
       displayCurrency: true,
@@ -308,11 +297,23 @@ export async function getAdminBooking(id: string, locale: AppLocale) {
   const nightlyPrice = toNumber(booking.nightlyPrice) ?? 0;
   const weekendPrice = toNumber(booking.weekendPrice);
   const subtotal = toNumber(booking.subtotal) ?? 0;
-  // The nightly lines are rebuilt from the copied prices; when they do not add up to the stored
-  // subtotal (a pricing rule the booking engine applied, e.g. a later discount), the page shows the
-  // stored subtotal alone rather than lines that would not match the total.
-  const computed = storedPriceLines({ checkIn, checkOut, nightlyPrice, weekendPrice });
-  const lines = Math.abs(computed.reduce((sum, line) => sum + line.amount, 0) - subtotal) < 0.01 ? computed : [];
+  const cleaningFee = toNumber(booking.cleaningFee) ?? 0;
+  const total = toNumber(booking.total) ?? 0;
+  // The lines the guest confirmed (Booking.priceLines, round 3, brief 6.3); for older bookings they
+  // are rebuilt from the copied prices, and always add up to the stored total.
+  const lines = bookingPriceLines({
+    checkIn,
+    checkOut,
+    nights: booking.nights,
+    nightlyPrice,
+    weekendPrice,
+    subtotal,
+    cleaningFee,
+    discount: toNumber(booking.discount),
+    total,
+    rooms: booking.rooms,
+    priceLines: booking.priceLines,
+  });
   return {
     booking: {
       ...booking,
@@ -321,8 +322,9 @@ export async function getAdminBooking(id: string, locale: AppLocale) {
       nightlyPrice,
       weekendPrice,
       subtotal,
-      cleaningFee: toNumber(booking.cleaningFee) ?? 0,
-      total: toNumber(booking.total) ?? 0,
+      cleaningFee,
+      discount: toNumber(booking.discount),
+      total,
       displayTotal: toNumber(booking.displayTotal),
       roomTypeName: booking.roomTypeName ? pickLocalized(booking.roomTypeName, locale) || null : null,
       listingTitle: booking.listing.translations[0]?.title?.trim() || booking.listing.title,
@@ -332,7 +334,7 @@ export async function getAdminBooking(id: string, locale: AppLocale) {
       hoursToCancel: hoursFromBookingToCancel(booking.createdAt, booking.cancelledAt),
       flagReviewedBy: staff?.name ?? null,
     },
-    /** Empty when the rebuilt lines do not match the stored subtotal (show the subtotal instead). */
+    /** The itemized price (nights, date prices, discount, cleaning fee), adding up to the total. */
     lines,
     history: history.map((h) => ({ ...h, details: record(h.details) })),
   };

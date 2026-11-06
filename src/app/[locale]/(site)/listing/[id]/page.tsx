@@ -27,8 +27,9 @@ import { Section } from "@/components/listing-page/section";
 import { StatusBanner } from "@/components/listing-page/status-banner";
 import { StayProvider } from "@/components/listing-page/stay-dates";
 import { alertEnvironment, hostInstantGate } from "@/lib/booking/alerts";
-import { isInstantDealType } from "@/lib/booking/constants";
+import { isInstantDealType, usesRoomInventory } from "@/lib/booking/constants";
 import { bookRequestFrom } from "@/lib/booking/guest";
+import { datePricesFor } from "@/lib/booking/terms";
 import { ViewTracker } from "@/components/listing-page/view-tracker";
 import { HostReportLink } from "@/components/report/host-report-link";
 import { HostReportRoot } from "@/components/report/host-report-root";
@@ -129,9 +130,12 @@ export default async function ListingPage({ params, searchParams }: Props) {
   const isOwner = user?.id === ownerId;
   const requestHeaders = await headers();
   const nonce = requestHeaders.get("x-nonce") ?? undefined;
-  // Instant booking: short stays only for now (hotels ask the host until booking by room type),
-  // and only while Bayit can alert the host about the booking (round 3, src/lib/booking/alerts.ts).
-  const instantCandidate = data.bookingMode === "INSTANT" && isInstantDealType(data.dealType);
+  // Instant booking: short stays, and hotels with at least one active room type (booked by room
+  // type, round 3, founder's answer 3), only while Bayit can alert the host about the booking
+  // (round 3, src/lib/booking/alerts.ts). Other hotels ask the host.
+  const inventory = usesRoomInventory(data.dealType);
+  const hotelRooms = inventory ? data.roomTypes.filter((room) => room.quantity !== undefined) : [];
+  const instantCandidate = data.bookingMode === "INSTANT" && isInstantDealType(data.dealType) && (!inventory || hotelRooms.length > 0);
   const [t, instant, shabbatMode, blocked, isFavorite, synagogue] = await Promise.all([
     getTranslations({ locale, namespace: "listing" }),
     instantCandidate ? hostInstantGate(ownerId, alertEnvironment(requestHeaders)).then((gate) => gate.ok) : Promise.resolve(false),
@@ -186,6 +190,29 @@ export default async function ListingPage({ params, searchParams }: Props) {
     stay.checkIn && stay.checkOut && stay.checkIn >= today && rangeIsFree(data.blocks, stay.checkIn, stay.checkOut)
       ? { checkIn: stay.checkIn, checkOut: stay.checkOut }
       : { checkIn: null, checkOut: null };
+  // The room types a guest picks from in the dates sheet (prices per night in the room type's
+  // currency; the listing's holiday prices and cleaning fee apply in the listing's currency).
+  const bookRequest = bookRequestFrom(query, inventory ? null : data.maxGuests);
+  const ownCurrency = data.listingCurrency ?? data.currency;
+  const roomOptions = (inventory ? hotelRooms : data.roomTypes)
+    .filter((room) => room.pricePeriod === "NIGHT" && room.price !== null && room.price > 0)
+    .map((room) => ({
+      id: room.id,
+      name: room.name,
+      price: room.price ?? 0,
+      currency: room.currency,
+      weekendPrice: room.weekendPrice ?? null,
+      maxGuests: room.maxGuests,
+      cleaningFee: room.currency === ownCurrency ? data.cleaningFee : null,
+      datePrices: datePricesFor({ currency: ownCurrency, datePrices: data.datePrices ?? [] }, room),
+      quantity: room.quantity,
+      segments: room.segments,
+    }));
+  const onlyRoom = roomOptions.length === 1 && (inventory || data.priceIsFrom) ? roomOptions[0].id : null;
+  const stayRooms =
+    roomOptions.length > 0
+      ? { inventory, options: roomOptions, initialRoomTypeId: bookRequest.roomTypeId ?? onlyRoom, initialRooms: bookRequest.rooms }
+      : null;
   // "Report listing" and, round 3 (brief 8.2), "Report the host" (also in the bars' "…" menus).
   const canReport = isPublic && !isOwner;
   const report = canReport ? (
@@ -316,13 +343,25 @@ export default async function ListingPage({ params, searchParams }: Props) {
           <StayProvider
             initial={initialDates}
             guests={stay.guests}
-            initialGuests={bookRequestFrom(query, data.maxGuests).guests}
+            initialGuests={bookRequest.guests}
             maxGuests={data.maxGuests}
+            rooms={stayRooms}
             instant={instant}
             blocks={data.blocks}
             today={today}
             minNights={data.minStayNights}
-            price={{ amount: data.price, currency: data.currency, period: data.pricePeriod, from: data.priceIsFrom, cleaningFee: data.cleaningFee, weekendPrice: data.weekendPrice }}
+            price={{
+              amount: data.price,
+              currency: data.currency,
+              period: data.pricePeriod,
+              from: data.priceIsFrom,
+              cleaningFee: data.cleaningFee,
+              weekendPrice: data.weekendPrice,
+              // The listing's own holiday prices and long-stay discounts (round 3, brief 6.3).
+              datePrices: datePricesFor({ currency: ownCurrency, datePrices: data.datePrices ?? [] }, null),
+              weeklyDiscountPct: data.weeklyDiscountPct,
+              monthlyDiscountPct: data.monthlyDiscountPct,
+            }}
             listingPath={path}
           >
             {page}

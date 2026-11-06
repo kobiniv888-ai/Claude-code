@@ -16,7 +16,8 @@ import { Link, redirect } from "@/i18n/navigation";
 import { firstNameOf, personName } from "@/lib/auth/first-name";
 import { getLoginConfig } from "@/lib/auth/config";
 import { alertEnvironment } from "@/lib/booking/alerts";
-import { getUnavailableDates } from "@/lib/booking/availability";
+import { getHotelAvailability, getUnavailableDates } from "@/lib/booking/availability";
+import { usesRoomInventory } from "@/lib/booking/constants";
 import { tbilisiToday } from "@/lib/booking/dates";
 import { bookRequestFrom, clockText, withBookParams } from "@/lib/booking/guest";
 import { getGuestBookingTerms } from "@/lib/booking/guest-review";
@@ -99,7 +100,9 @@ export default async function BookPage({ params, searchParams }: Props) {
   const canonical = listingSlugParam(data.publicId, data.title.shown);
   if (id !== canonical) redirect({ href: `/listing/${canonical}/book${query(params2)}`, locale });
   const isStay = data.dealType === "SHORT_STAY" || data.dealType === "HOTEL_ROOM";
-  const request = bookRequestFrom(params2, data.maxGuests);
+  // Hotels: a room type's maximum is per room, so the guests stay as asked for (the page checks them).
+  const inventory = usesRoomInventory(data.dealType);
+  const request = bookRequestFrom(params2, inventory ? null : data.maxGuests);
   if (!isStay) redirect({ href: `${path}${withBookParams("", { checkIn: request.checkIn, checkOut: request.checkOut })}`, locale });
 
   const isOwner = user?.id === ownerId;
@@ -126,7 +129,9 @@ export default async function BookPage({ params, searchParams }: Props) {
   const back = `${path}${withBookParams("", { checkIn: request.checkIn, checkOut: request.checkOut })}`;
   const photo = data.photos[0];
   const rules = houseRules(data);
-  const blocks = closed ? [] : await getUnavailableDates(data.id);
+  // Hotels: closed only when no room type has a free room; the picker counts each type's rooms.
+  const hotel = !closed && inventory ? await getHotelAvailability(data.id, terms.roomTypes) : null;
+  const blocks = closed ? [] : hotel ? hotel.closed : await getUnavailableDates(data.id);
 
   return (
     <ContactProvider
@@ -189,6 +194,7 @@ export default async function BookPage({ params, searchParams }: Props) {
             }
             phoneConfig={loginConfig.phone}
             houseRules={<HouseRules rules={rules} locale={locale} />}
+            roomAvailability={hotel?.rooms ?? null}
           />
         )}
       </Container>

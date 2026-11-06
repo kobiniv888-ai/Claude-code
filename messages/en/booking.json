@@ -67,7 +67,16 @@
     "total": "Total",
     "title": "Price details",
     "estimate": "Estimate: {amount}",
-    "nights": "{count, plural, one {{count} night} other {{count} nights}}"
+    "nights": "{count, plural, one {{count} night} other {{count} nights}}",
+    "labelTimes": "{price} × {nights} ({label})",
+    "specialNights": "{count, plural, one {{count} night at a special price} other {{count} nights at a special price}}",
+    "discountWeekly": "Weekly discount {pct}",
+    "discountMonthly": "Monthly discount {pct}",
+    "discountPct": "Long-stay discount {pct}",
+    "discount": "Long-stay discount",
+    "cleaningFeeRooms": "Cleaning fee ({price} × {rooms})",
+    "rooms": "{count, plural, one {{count} room} other {{count} rooms}}",
+    "perRooms": "{text} × {rooms}"
   },
   "payAtCheckIn": "You pay the host on arrival, {currency}.",
   "estimateNote": "The amount {currency} is an estimate.",
@@ -98,7 +107,8 @@
     "no_show_not_allowed": "You can report that a guest didn't arrive from the day after the arrival date until a week after departure.",
     "payment_method_required": "Please choose at least one payment method.",
     "terms_changed": "The host changed the price or the cancellation terms while you were filling in your details. The new terms are shown now: please check them and confirm again.",
-    "host_unreachable": "We couldn't tell the host about this booking, so it wasn't saved. You can ask the host directly."
+    "host_unreachable": "We couldn't tell the host about this booking, so it wasn't saved. You can ask the host directly.",
+    "rooms_unavailable": "There aren't enough free rooms of this type on these dates. Choose fewer rooms or another room type."
   },
   "ics": {
     "summary": "{title} · {code}",
@@ -127,7 +137,10 @@
     "done": "Done",
     "pickDates": "Choose dates to see the price",
     "roomLater": "You choose the room type, and see the final price, in the next step.",
-    "maxGuests": "{count, plural, one {This place is for {count} guest} other {This place is for up to {count} guests}}"
+    "maxGuests": "{count, plural, one {This place is for {count} guest} other {This place is for up to {count} guests}}",
+    "minStayDates": "{count, plural, one {On {dates} the host takes bookings of at least {count} night.} other {On {dates} the host takes bookings of at least {count} nights.}}",
+    "minStayFix": "Make the stay longer or choose other dates.",
+    "datesWithLabel": "{dates} ({label})"
   },
   "review": {
     "title": "Confirm booking",
@@ -250,5 +263,32 @@
   "checkTimes": {
     "flexibleIn": "Flexible check-in",
     "flexibleOut": "Flexible check-out"
+  },
+  "rooms": {
+    "title": "Room",
+    "lead": "Choose a room type. Once you pick dates, we show how many rooms are free.",
+    "leadDates": "Rooms free on your dates.",
+    "perRoom": "{count, plural, one {1 guest per room} other {Up to {count} guests per room}}",
+    "left": "{count, plural, one {1 room left} other {{count} rooms left}}",
+    "full": "No rooms free on these dates",
+    "night": "per night",
+    "forNights": "{total} · {nights}",
+    "rooms": "Rooms",
+    "fits": "Up to {guests} guests in {rooms}",
+    "onlyLeft": "{count, plural, one {Only 1 room of this type is left on these dates.} other {Only {count} rooms of this type are left on these dates.}}",
+    "fullChosen": "This room is no longer free on these dates. Choose another room or other dates.",
+    "needRooms": "{guests} guests need at least {rooms}. Add a room or choose a larger room.",
+    "tooManyGuests": "{count, plural, one {The rooms you chose fit 1 guest.} other {The rooms you chose fit up to {count} guests.}} Add a room or choose another one.",
+    "fixRooms": "To go on, choose a number of rooms that fits your guests and the free rooms.",
+    "pickToContinue": "To go on, choose a room type.",
+    "takenTitle": "These rooms were just taken",
+    "takenText": "Someone booked them a moment ago. The list is up to date: choose fewer rooms, another room type or other dates.",
+    "shortTitle": "Not enough free rooms of this type",
+    "shortText": "Choose fewer rooms, another room type or other dates.",
+    "noFit": "{count, plural, one {The free rooms of this type fit 1 guest.} other {The free rooms of this type fit up to {count} guests.}} Choose another room type or other dates."
+  },
+  "hotelNotice": {
+    "title": "Hotels are booked by room type",
+    "body": "Add at least one active room type with a price per night (in the “Room types” step) and guests can book right away. Until then they see “Ask the host”, and the check-in times and rules you fill in here still show."
   }
 }

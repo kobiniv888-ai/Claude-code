@@ -181,12 +181,25 @@ describe("buildStepUpdate per step", () => {
 
   it("booking: a fee alone keeps the price and recomputes instant booking", async () => {
     const result = await update("booking", { cleaningFee: 25 });
-    expect(result.data).toEqual({ cleaningFee: 25, weeklyDiscountPct: null, monthlyDiscountPct: null, bookingMode: "INSTANT" });
+    expect(result.data).toEqual({ cleaningFee: 25, bookingMode: "INSTANT" });
     const noPayment = await update("booking", { paymentMethodsAtCheckIn: [] });
     expect(noPayment.data).toMatchObject({ paymentMethodsAtCheckIn: [], bookingMode: "CONTACT" });
     const nightly = await update("booking", { price: 100, pricePeriod: "NIGHT" });
     expect(nightly.data).toMatchObject({ price: 100, pricePeriod: "NIGHT", priceUsd: 100, bookingMode: "INSTANT" });
     expect(nightly.contentChanged).toBe(true);
+  });
+
+  it("booking: hotels turn instant booking on too (round 3, phase 4); guests book them only with an active room type", async () => {
+    const hotel = { dealType: "HOTEL_ROOM", propertyType: "HOTEL", pricePeriod: "NIGHT" } as const;
+    expect((await update("booking", { cleaningFee: 25 }, hotel)).data).toMatchObject({ cleaningFee: 25, bookingMode: "INSTANT" });
+    expect((await update("booking", { paymentMethodsAtCheckIn: [] }, hotel)).data).toMatchObject({ bookingMode: "CONTACT" });
+  });
+
+  it("booking: long-stay discounts are saved as typed (round 3, brief 6.3) and count as a price change", async () => {
+    const result = await update("booking", { weeklyDiscountPct: 10, monthlyDiscountPct: 20 });
+    expect(result.data).toMatchObject({ weeklyDiscountPct: 10, monthlyDiscountPct: 20, bookingMode: "INSTANT" });
+    expect(result.contentChanged).toBe(true);
+    expect((await update("booking", { weeklyDiscountPct: null })).data).toMatchObject({ weeklyDiscountPct: null });
   });
 
   it("booking: a price change of a live listing is recorded", async () => {

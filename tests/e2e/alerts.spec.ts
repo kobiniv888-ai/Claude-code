@@ -4,7 +4,8 @@ import { createTestListing, createTestUser, newId, sql } from "./helpers/db";
 
 /**
  * Round 3, phase 1: booking alerts and hotels (founder's answers 3 and 4).
- * - Hotels are contact-only until booking by room type exists: "שאלה למארח", never instant booking.
+ * - A hotel without an active room type stays contact-only: "שאלה למארח", never instant booking
+ *   (round 3, phase 4: hotels are booked by room type, tests/e2e/hotel-booking.spec.ts).
  * - A host's alert settings show email, Telegram ("בקרוב" while the site has no bot) and browser
  *   notifications.
  * - Instant booking needs a channel that confirms delivery (email or Telegram). A host whose only
@@ -42,12 +43,12 @@ async function expectAskOnly(page: Page) {
   await expect(page.getByRole("link", { name: "הזמנה", exact: true })).toHaveCount(0);
 }
 
-test("a hotel offers 'שאלה למארח', never instant booking, even when its owner's alerts work", async ({ browser }) => {
+test("a hotel without an active room type offers 'שאלה למארח', never instant booking, even when its owner's alerts work", async ({ browser }) => {
   const owner = await createTestUser({ name: "E2E Hotel Owner" });
   const stamp = Date.now().toString(36);
   // Control: the same owner's short stay takes instant bookings (their email alerts work).
   const shortStay = await createTestListing({ ownerId: owner.id, title: `E2E Owner short stay ${stamp}` });
-  // A hotel that had instant booking switched on before the rule.
+  // A hotel saved with instant booking on, but with no room type (hotels are booked by room type).
   const hotel = await createTestListing({ ownerId: owner.id, title: `E2E Family hotel ${stamp}` });
   await sql(`UPDATE "Listing" SET "dealType" = 'HOTEL_ROOM', "propertyType" = 'HOTEL', "bookingMode" = 'INSTANT' WHERE id = $1`, [hotel.id]);
 

@@ -94,6 +94,8 @@ export function currencySymbol(currency: CurrencyCode): string {
 export type FormatMoneyOptions = {
   /** Default: 0 for amounts ≥ 100 or whole numbers, otherwise 2. */
   maximumFractionDigits?: number;
+  /** With maximumFractionDigits: at least this many (default 0), e.g. 2 for exact cents ("$519.50"). */
+  minimumFractionDigits?: number;
   /** Short form for big numbers: "$1.3M", "₪450K". */
   compact?: boolean;
 };
@@ -115,7 +117,7 @@ export function formatMoney(
   let minimumFractionDigits: number;
   if (options.maximumFractionDigits !== undefined) {
     maximumFractionDigits = Math.max(0, Math.min(20, Math.trunc(options.maximumFractionDigits)));
-    minimumFractionDigits = 0;
+    minimumFractionDigits = Math.max(0, Math.min(maximumFractionDigits, Math.trunc(options.minimumFractionDigits ?? 0)));
   } else if (compact) {
     maximumFractionDigits = 1;
     minimumFractionDigits = 0;

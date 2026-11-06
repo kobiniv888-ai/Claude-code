@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { FilePlus2Icon, PlusIcon, SearchXIcon } from "lucide-react";
+import { ChartColumnIcon, FilePlus2Icon, PlusIcon, SearchXIcon } from "lucide-react";
 import { MyListingCard } from "@/components/account/my-listing-card";
 import { ArrowEnd, ArrowStart } from "@/components/common/directional-icon";
 import { PageHeader } from "@/components/common/page-header";
@@ -42,6 +42,7 @@ export default async function MyListingsPage({ params, searchParams }: Props) {
   const query = await searchParams;
   const user = await requireUser({ next: "/account/listings" });
   const t = await getTranslations("account.listings");
+  const tp = await getTranslations("pricing.page");
   const filter = parseListingFilter(query.status);
   const requested = Number(Array.isArray(query.page) ? query.page[0] : query.page);
   const { items, counts, page, pageCount, total } = await getMyListings(user.id, {
@@ -60,12 +61,21 @@ export default async function MyListingsPage({ params, searchParams }: Props) {
         description={t("lead")}
         actions={
           counts.all > 0 ? (
-            <Button asChild className="h-10 rounded-xl px-4">
-              <Link href="/post">
-                <PlusIcon aria-hidden="true" />
-                {t("post")}
-              </Link>
-            </Button>
+            <>
+              {/* Round 3, brief 5: "מדריך מחירים" (hosts only: the page checks it again). */}
+              <Button asChild variant="outline" className="h-11 rounded-xl px-4 sm:h-10" title={tp("linkHint")}>
+                <Link href="/account/listings/price-guide">
+                  <ChartColumnIcon aria-hidden="true" />
+                  {tp("link")}
+                </Link>
+              </Button>
+              <Button asChild className="h-11 rounded-xl px-4 sm:h-10">
+                <Link href="/post">
+                  <PlusIcon aria-hidden="true" />
+                  {t("post")}
+                </Link>
+              </Button>
+            </>
           ) : null
         }
       />

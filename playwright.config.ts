@@ -1,5 +1,11 @@
+import "dotenv/config";
 import { defineConfig, devices } from "@playwright/test";
 import { BASE_URL, E2E_PORT, E2E_USER_AGENT_TAG } from "./tests/e2e/helpers/env";
+
+// The cron routes need CRON_SECRET (the host-stats test runs the weekly email through its route).
+// Without one in .env, the tests and the server they start share this test-only value; a server
+// started by hand gets the same value (README → "End-to-end tests").
+process.env.CRON_SECRET ||= "e2e-only-cron-secret";
 
 /**
  * End-to-end tests (BRIEF section 15, "Definition of done"). See README → "End-to-end tests".
@@ -68,6 +74,7 @@ export default defineConfig({
       // Better Auth only trusts its own origin: point it at this port.
       BETTER_AUTH_URL: baseURL,
       NEXT_PUBLIC_SITE_URL: baseURL,
+      CRON_SECRET: process.env.CRON_SECRET,
     },
   },
 });

@@ -278,11 +278,15 @@ export async function loadWizardAnswers(listing: ListingRow, businessName: strin
     price: Number(room.price),
     currency: (isEnabledCurrency(room.currency) ? room.currency : values.currency) as CurrencyCode,
     pricePeriod: room.pricePeriod,
+    weekendPrice: room.weekendPrice === null ? null : Number(room.weekendPrice),
     maxGuests: room.maxGuests,
     bedsSingle: room.bedsSingle,
     bedsDouble: room.bedsDouble,
+    bedsSofa: room.bedsSofa,
     sizeSqm: room.sizeSqm,
+    amenities: room.amenities,
     quantity: room.quantity,
+    active: room.active,
     photos: photos.filter((p) => p.roomTypeId === room.id).map(toWizardPhoto),
   }));
 

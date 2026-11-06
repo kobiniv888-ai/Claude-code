@@ -67,11 +67,23 @@ export type RoomTypeData = {
   price: number | null;
   currency: CurrencyCode;
   pricePeriod: PricePeriod;
+  /** Friday and Saturday nights (null = the nightly price). */
+  weekendPrice?: number | null;
   maxGuests: number | null;
   bedsSingle: number | null;
   bedsDouble: number | null;
+  bedsSofa?: number | null;
   sizeSqm: number | null;
+  /** The room's own amenity keys (src/lib/listing/fields.ts). */
+  amenities?: string[];
   photos: PagePhoto[];
+  /**
+   * Hotels that take bookings (round 3, founder's answer 3): the number of rooms of this type and
+   * the calendar's nights with fewer free (src/lib/booking/room-availability.ts). Unset for room
+   * types guests can't book here.
+   */
+  quantity?: number;
+  segments?: { start: string; end: string; free: number }[];
 };
 
 export type CancellationPolicyKey = "FLEXIBLE" | "MODERATE" | "STRICT";
@@ -108,6 +120,8 @@ export type ListingPageData = {
   price: number | null;
   currency: CurrencyCode;
   pricePeriod: PricePeriod;
+  /** The listing's own currency (`currency` is the cheapest room type's when the price is "from"). */
+  listingCurrency?: CurrencyCode;
   /** True when the price is the cheapest room type ("from …"), for hotels. */
   priceIsFrom: boolean;
   priceDroppedAt: string | null;
@@ -196,5 +210,11 @@ export type ListingPageData = {
   priceChanges: PriceChangeData[];
   /** Blocked date ranges from today on ("YYYY-MM-DD", end exclusive). */
   blocks: { start: string; end: string }[];
+  /**
+   * The host's holiday prices from today on (round 3, brief 6.3; "YYYY-MM-DD", end exclusive):
+   * the dates sheet prices the nights with them like the server does. roomTypeId null = the whole
+   * listing. `label` is the host's note ({ he, … }, render with dir="auto").
+   */
+  datePrices?: { roomTypeId: string | null; start: string; end: string; price: number; minNights: number | null; label: unknown }[];
   owner: OwnerSummary;
 };

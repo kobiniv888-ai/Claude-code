@@ -26,6 +26,7 @@ import type {
   ViewType,
 } from "@/generated/prisma/enums";
 import { CANCELLATION_POLICIES, MAX_STAY_NIGHTS, PAYMENT_METHODS, type PaymentMethod } from "@/lib/booking/constants";
+import { LONG_STAY } from "@/lib/booking/pricing";
 import { enabledCurrencies } from "@/lib/currency/convert";
 import {
   AMENITIES,
@@ -152,6 +153,7 @@ export const STEP_FIELDS = {
   booking: [
     "price", "currency", "pricePeriod", "weekendPrice", "cleaningFee", "deposit", "minStayNights", "maxGuests",
     "checkInFrom", "checkOutUntil", "checkInFlexible", "checkOutFlexible", "cancellationPolicy", "paymentMethodsAtCheckIn",
+    "weeklyDiscountPct", "monthlyDiscountPct",
   ],
   contact: ["contactMethods", "contactHoursFrom", "contactHoursTo", "noReplyOnShabbat"],
 } as const satisfies Record<SavableStepKey, readonly (keyof WizardValues)[]>;
@@ -421,6 +423,18 @@ export const priceStepSchema = z.object({
     .transform((list) => [...new Set(list.filter(Boolean))]),
 });
 
+/**
+ * A long-stay discount of a booked stay (round 3, brief 6.3): whole percents 1–60 off the nights
+ * (LONG_STAY in src/lib/booking/pricing.ts); empty or 0 = no discount.
+ */
+const longStayPct = z
+  .number({ error: "invalidNumber" })
+  .int("wholeNumber")
+  .min(0, "tooSmall")
+  .max(LONG_STAY.maxPct, "discountTooLarge")
+  .transform((n) => (n >= LONG_STAY.minPct ? n : null))
+  .nullable();
+
 /** "הזמנות ומחיר": prices per night, stay rules and booking terms (short stays and hotels). */
 export const bookingStepSchema = z.object({
   price: money(LIMITS.priceMax),
@@ -437,6 +451,8 @@ export const bookingStepSchema = z.object({
   checkOutFlexible: z.boolean(),
   cancellationPolicy: z.enum(CANCELLATION_POLICIES, "pickOne"),
   paymentMethodsAtCheckIn: uniqueKeys(PAYMENT_METHODS),
+  weeklyDiscountPct: longStayPct,
+  monthlyDiscountPct: longStayPct,
 });
 
 export const contactMethodSchema = z.object({
@@ -552,6 +568,17 @@ function requiredIssues(step: SavableStepKey, v: WizardValues, kind: ListingKind
       }
       if (kind.dealType === "SHORT_STAY") need("maxGuests");
       if (v.paymentMethodsAtCheckIn.length === 0) into.paymentMethodsAtCheckIn = "paymentMethodRequired";
+      // A month is never cheaper per night than a week (the 28+ discount is at least the 7+ one).
+      if (
+        !into.monthlyDiscountPct &&
+        v.weeklyDiscountPct !== null &&
+        v.monthlyDiscountPct !== null &&
+        v.weeklyDiscountPct > 0 &&
+        v.monthlyDiscountPct > 0 &&
+        v.monthlyDiscountPct < v.weeklyDiscountPct
+      ) {
+        into.monthlyDiscountPct = "monthlyBelowWeekly";
+      }
       break;
     case "contact": {
       if (v.contactMethods.length === 0) into.contactMethods = "contactRequired";
@@ -605,18 +632,49 @@ export const availabilitySchema = z
   .array(z.object({ start: dayString, end: dayString }).refine((r) => r.start <= r.end, "invalidRange"))
   .max(400);
 
-export const roomTypeSchema = z.object({
-  id: id.optional(),
-  name: text(LIMITS.roomTypeNameMax).min(2, "required"),
-  price: z.number({ error: "priceRequired" }).positive("priceRequired").max(LIMITS.priceMax, "tooLarge"),
-  currency: enabledCurrency,
-  pricePeriod: z.enum(ROOM_TYPE_PERIODS as [PricePeriod, ...PricePeriod[]]),
-  maxGuests: int(1, 50),
-  bedsSingle: int(0, 50),
-  bedsDouble: int(0, 50),
-  sizeSqm: decimal(1, 10_000),
-  quantity: int(1, 1000),
-});
+/**
+ * The amenities a room type can have on its own (round 3, founder's answer 3), from the listing
+ * vocabulary (src/lib/listing/fields.ts): the in-room ones. The hotel's own (pool, parking…) stay
+ * on the listing.
+ */
+export const ROOM_TYPE_AMENITIES = [
+  "wifi",
+  "air_conditioning",
+  "heating",
+  "tv",
+  "workspace",
+  "balcony_terrace",
+  "full_kitchen",
+  "washing_machine",
+  "crib_high_chair",
+  "wheelchair_access",
+] as const satisfies readonly (typeof AMENITIES)[number][];
+
+/**
+ * A hotel room type (round 3, founder's answer 3). `quantity`: "כמה חדרים כאלה להציע בבית", the
+ * identical rooms Bayit may sell per night (empty means 1). `active` false switches the room type
+ * off for new guests (its bookings, blocks and prices stay). `weekendPrice`: Friday and Saturday
+ * nights (holiday prices are set in the calendar).
+ */
+export const roomTypeSchema = z
+  .object({
+    id: id.optional(),
+    name: text(LIMITS.roomTypeNameMax).min(2, "required"),
+    price: z.number({ error: "priceRequired" }).positive("priceRequired").max(LIMITS.priceMax, "tooLarge"),
+    currency: enabledCurrency,
+    pricePeriod: z.enum(ROOM_TYPE_PERIODS as [PricePeriod, ...PricePeriod[]]),
+    weekendPrice: money(LIMITS.priceMax).optional().default(null),
+    maxGuests: int(1, 50),
+    bedsSingle: int(0, 50),
+    bedsDouble: int(0, 50),
+    bedsSofa: int(0, 50).optional().default(null),
+    sizeSqm: decimal(1, 10_000),
+    amenities: uniqueKeys(ROOM_TYPE_AMENITIES).optional().default([]),
+    quantity: int(1, 1000),
+    active: z.boolean().optional().default(true),
+  })
+  // A weekend price is per night: only for room types priced per night, and never 0.
+  .transform((v) => ({ ...v, weekendPrice: v.pricePeriod === "NIGHT" && v.weekendPrice ? v.weekendPrice : null }));
 export type RoomTypeInput = z.input<typeof roomTypeSchema>;
 
 export const translationSchema = z.object({

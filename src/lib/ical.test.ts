@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const { assertSafeFeedUrl, buildIcs, escapeIcsText, foldIcsLine, isPrivateAddress, parseIcsText, safeLookup } = await import("./ical");
+const { assertSafeFeedUrl, buildIcs, escapeIcsText, foldIcsLine, hotelExportBlocks, isPrivateAddress, parseIcsText, roomTypeExportBlocks, safeLookup } = await import("./ical");
 
 const day = (value: string) => new Date(`${value}T00:00:00Z`);
 const NOW = new Date("2026-10-31T12:00:00Z");
@@ -37,6 +37,41 @@ describe("buildIcs", () => {
       { start: "2026-12-24", end: "2026-12-25", summary: "Not available" },
     ]);
     expect(events[0].uid).toMatch(/^b1@/);
+  });
+});
+
+describe("hotels: export per room type (round 3)", () => {
+  // Double: 2 rooms. Suite: 1 room. A booking of 1 double, a booking of the suite, a whole-hotel block.
+  const double = { id: "double", quantity: 2 };
+  const suite = { id: "suite", quantity: 1 };
+  const blocks = [
+    { start: "2026-11-03", end: "2026-11-06", roomTypeId: "double", rooms: 1 },
+    { start: "2026-11-04", end: "2026-11-05", roomTypeId: "double", rooms: 1 },
+    { start: "2026-11-04", end: "2026-11-08", roomTypeId: "suite", rooms: 1 },
+    { start: "2026-12-24", end: "2026-12-25", roomTypeId: null, rooms: null },
+  ];
+  const window = [day("2026-10-01"), day("2027-10-01")] as const;
+  const ranges = (list: { startDate: Date; endDate: Date }[]) => list.map((b) => [b.startDate.toISOString().slice(0, 10), b.endDate.toISOString().slice(0, 10)]);
+
+  it("a room type's feed is busy only on nights it has no free room left (iCal has no room counts)", () => {
+    expect(ranges(roomTypeExportBlocks(double, blocks, ...window))).toEqual([
+      ["2026-11-04", "2026-11-05"],
+      ["2026-12-24", "2026-12-25"],
+    ]);
+    expect(ranges(roomTypeExportBlocks(suite, blocks, ...window))).toEqual([
+      ["2026-11-04", "2026-11-08"],
+      ["2026-12-24", "2026-12-25"],
+    ]);
+  });
+
+  it("the hotel's own feed is busy only when every room type is full or the hotel is closed", () => {
+    expect(ranges(hotelExportBlocks("h1", [double, suite], blocks, ...window))).toEqual([
+      ["2026-11-04", "2026-11-05"],
+      ["2026-12-24", "2026-12-25"],
+    ]);
+    const ics = buildIcs({ id: "h1", publicId: 111 }, roomTypeExportBlocks(suite, blocks, ...window), NOW);
+    expect(ics).toContain("SUMMARY:Not available");
+    expect(ics).toMatch(/UID:room-suite-2026-11-04@/);
   });
 });
 
