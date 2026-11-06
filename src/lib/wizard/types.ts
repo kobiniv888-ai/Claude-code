@@ -2,7 +2,7 @@
  * Data the wizard pages hand to the browser (client-safe, serializable).
  */
 import type { AppLocale, CurrencyCode } from "@/config/site";
-import type { AccountType, ListingStatus, PricePeriod } from "@/generated/prisma/enums";
+import type { AccountType, ListingStatus, PhotoRoom, PricePeriod } from "@/generated/prisma/enums";
 import type { WizardValues } from "./schemas";
 import type { PledgeStatus } from "@/lib/pledge";
 
@@ -17,6 +17,8 @@ export type WizardPhoto = {
   isCover: boolean;
   alt: string;
   roomTypeId: string | null;
+  /** Which room the photo shows (round 3, brief 6.1; optional, null = no label). */
+  room?: PhotoRoom | null;
 };
 
 export type WizardRoomType = {

@@ -6,7 +6,9 @@ import { isAuthorizedCron, runCronJob, runCronSteps, unauthorized } from "../aut
 
 /**
  * GET /api/cron/cleanup — daily (vercel.json).
- * - deletes ended rate-limit windows and expired login / verification codes;
+ * - deletes ended rate-limit windows and expired login / verification codes (this includes the
+ *   host stats' once-a-day visitor keys "stats:…", which end with their Georgian day, and the
+ *   weekly host email's claims "weekly-host-stats:…"; src/lib/listing/stats-rules.ts);
  * - deletes the ID and ownership documents of verification requests that were decided
  *   (approved or rejected) more than 7 days ago, and sets documentsDeletedAt — only
  *   "verified on [date] by [staff]" is kept (BRIEF §11);

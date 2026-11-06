@@ -177,6 +177,17 @@ const samples: { [K in keyof Data]: Data[K] } = {
     period: { bookings: 3, cancelledByGuest: 1, cancelledByHost: 1, flaggedCancellations: 1, noShows: 0, reports: 1, turnedAwayReports: 1, hostUnreachable: 0 },
     adminUrl: "/admin",
   },
+  weekly_host_stats: {
+    name: "Dana",
+    fromDay: "2026-11-01",
+    toDay: "2026-11-07",
+    totals: { views: 120, saves: 8, contacts: 3, bookings: 1 },
+    bookable: true,
+    listings: [{ title: "Sunny flat in Vake", publicId: 1234, bookable: true, views: 120, saves: 8, contacts: 3, bookings: 1, statsUrl: "/account/listings/l1/stats?days=7" }],
+    moreListings: 0,
+    listingsUrl: "/account/listings",
+    unsubscribeUrl: "/unsubscribe?t=1.weekly_stats.u1.0123456789abcdef0123456789abcdef",
+  },
 };
 
 afterEach(() => {

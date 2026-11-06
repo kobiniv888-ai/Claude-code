@@ -3,14 +3,18 @@
  *
  * Hotels with room types: the guest picks a room type and pays its nightly price (in the room
  * type's currency); the whole listing is still booked as one unit for now (docs/redesign-2/PLAN.md).
- * The listing's weekend price does not apply to room types, and its cleaning fee only when the
- * room type uses the listing's currency.
+ * The listing's weekend price does not apply to room types (a room type has its own), and its
+ * cleaning fee only when the room type uses the listing's currency.
+ *
+ * Date prices (round 3, brief 6.3): a listing's own date prices (roomTypeId null) price the
+ * listing's nights and every room type in the listing's currency; a room type's own date prices
+ * come first for that room type. The long-stay discounts are the listing's, for every room type.
  */
 import type { CurrencyCode } from "@/config/site";
 import type { BookingMode, DealType, ListingStatus, PricePeriod } from "@/generated/prisma/enums";
 import { isInstantDealType } from "./constants";
 import type { BookingErrorCode } from "./errors";
-import type { PricingTerms } from "./pricing";
+import { cleanPriceLabel, type DatePriceTerm, type PricingTerms } from "./pricing";
 
 type Money = number | { toString(): string } | null | undefined;
 
@@ -27,6 +31,19 @@ export type BookableRoomType = {
   currency: CurrencyCode;
   pricePeriod: PricePeriod;
   maxGuests: number | null;
+  /** Friday and Saturday nights of this room type (optional; the room's price otherwise). */
+  weekendPrice?: Money;
+};
+
+/** A DatePrice row as plain values: `end` is EXCLUSIVE; roomTypeId null = the whole listing. */
+export type BookableDatePrice = {
+  roomTypeId: string | null;
+  start: string;
+  end: string;
+  price: Money;
+  minNights: number | null;
+  /** { he, en, … } (any subset): the host's note. */
+  label: unknown;
 };
 
 export type BookableListing = {
@@ -42,6 +59,10 @@ export type BookableListing = {
   minStayNights: number | null;
   maxGuests: number | null;
   roomTypes: BookableRoomType[];
+  /** Date prices that may touch the stay (more is fine; any order). */
+  datePrices?: BookableDatePrice[];
+  weeklyDiscountPct?: number | null;
+  monthlyDiscountPct?: number | null;
 };
 
 /**
@@ -62,6 +83,21 @@ export function bookableRoomTypes(listing: Pick<BookableListing, "roomTypes">): 
   return listing.roomTypes.filter((room) => room.pricePeriod === "NIGHT" && (toNumber(room.price) ?? 0) > 0);
 }
 
+function datePriceTerms(list: readonly BookableDatePrice[]): DatePriceTerm[] {
+  return list.map((p) => ({ start: p.start, end: p.end, price: toNumber(p.price) ?? 0, minNights: p.minNights, label: cleanPriceLabel(p.label) ?? null }));
+}
+
+/**
+ * The date prices of one price scope: a room type's own first (they win where both cover a night),
+ * then the listing's own when they are in the same currency; or, without a room type, the listing's.
+ */
+export function datePricesFor(listing: Pick<BookableListing, "datePrices" | "currency">, room: Pick<BookableRoomType, "id" | "currency"> | null): DatePriceTerm[] {
+  const all = listing.datePrices ?? [];
+  const own = all.filter((p) => p.roomTypeId === null);
+  if (!room) return datePriceTerms(own);
+  return datePriceTerms([...all.filter((p) => p.roomTypeId === room.id), ...(room.currency === listing.currency ? own : [])]);
+}
+
 export type ResolvedTerms =
   | { ok: true; terms: PricingTerms; roomType: BookableRoomType | null }
   | { ok: false; error: BookingErrorCode };
@@ -80,10 +116,13 @@ export function resolveTerms(listing: BookableListing, roomTypeId: string | null
       terms: {
         currency: room.currency,
         nightlyPrice: toNumber(room.price),
-        weekendPrice: null,
+        weekendPrice: toNumber(room.weekendPrice ?? null),
         cleaningFee: room.currency === listing.currency ? toNumber(listing.cleaningFee) : null,
         minStayNights: listing.minStayNights,
         maxGuests: room.maxGuests ?? listing.maxGuests,
+        datePrices: datePricesFor(listing, room),
+        weeklyDiscountPct: listing.weeklyDiscountPct ?? null,
+        monthlyDiscountPct: listing.monthlyDiscountPct ?? null,
       },
     };
   }
@@ -100,6 +139,9 @@ export function resolveTerms(listing: BookableListing, roomTypeId: string | null
       cleaningFee: toNumber(listing.cleaningFee),
       minStayNights: listing.minStayNights,
       maxGuests: listing.maxGuests,
+      datePrices: datePricesFor(listing, null),
+      weeklyDiscountPct: listing.weeklyDiscountPct ?? null,
+      monthlyDiscountPct: listing.monthlyDiscountPct ?? null,
     },
   };
 }

@@ -444,6 +444,26 @@
       },
       "urgentNotice": "{count, plural, one {There is an open turned-away report. Please check it today.} other {There are {count} open turned-away reports. Please check them today.}}",
       "cta": "Open the admin panel"
+    },
+    "weekly_host_stats": {
+      "subject": "This week: {summary}",
+      "preheader": "Your listings' summary for {dates}",
+      "heading": "Your listings this week",
+      "summary": "This week: {summary}.",
+      "period": "The numbers for {dates}, Sunday to Saturday.",
+      "counts": {
+        "views": "{count, plural, one {1 view} other {{countText} views}}",
+        "saves": "{count, plural, one {1 save} other {{countText} saves}}",
+        "contacts": "{count, plural, one {1 contact click} other {{countText} contact clicks}}",
+        "bookings": "{count, plural, one {1 booking} other {{countText} bookings}}"
+      },
+      "untitled": "Listing {id}",
+      "listingLink": "See this listing's stats",
+      "more": "{count, plural, one {And 1 more listing, in My places.} other {And {countText} more listings, in My places.}}",
+      "howCounted": "Each visitor counts once a day. Your own views, the site team's and bots' don't count, and neither do cancelled bookings.",
+      "unsubscribeText": "Don't want the weekly summary? You can stop it with one tap, and turn it back on in your account settings.",
+      "unsubscribe": "Stop the weekly summary",
+      "cta": "Go to My places"
     }
   },
   "ticketStatus": {

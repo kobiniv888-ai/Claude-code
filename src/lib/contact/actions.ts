@@ -103,9 +103,9 @@ export async function revealContact(listingId: string, turnstileToken?: string |
 const tapSchema = z.object({ listingId: listingIdSchema, channel: z.enum(CONTACT_CHANNELS) });
 
 /**
- * Counts one tap on a channel button for the owner's stats (owners' own taps are not counted).
- * Only the channel and the time are stored, never who tapped: the user id goes to
- * recordContactClick for the owner check only.
+ * Counts one tap on a channel button for the owner's stats: once a day per visitor and channel,
+ * never the host's or staff's own taps, never on demo listings. Only the channel and the time are
+ * stored, never who tapped: the user goes to recordContactClick for those checks only.
  */
 export async function recordContactTap(listingId: string, channel: string): Promise<ActionResult<{ recorded: boolean }>> {
   return runAction<{ recorded: boolean }>(async () => {
@@ -118,7 +118,7 @@ export async function recordContactTap(listingId: string, channel: string): Prom
     const listing = await findContactableListing(input.data.listingId);
     if (!listing) return fail("not_found");
     if (!parseContactMethods(listing.contactMethods).some((m) => m.channel === input.data.channel)) return fail("invalid_input");
-    const recorded = await recordContactClick(listing.id, input.data.channel, user.id);
+    const recorded = await recordContactClick(listing.id, input.data.channel, user);
     return ok({ recorded });
   });
 }

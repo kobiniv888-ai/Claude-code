@@ -180,10 +180,12 @@ test.describe("guest contact", () => {
     expect([title, listing.title].some((t) => text.includes(t)), `message "${text}" names the listing`).toBe(true);
     await popup.close();
 
-    // The tap is counted for the owner's stats, without who tapped (founder's answer 8, round 3:
-    // contact taps keep only the listing, the channel and the time).
+    // Listing 91 is a demo listing: host stats never count demo listings (round 3, brief 6.2; the
+    // counting on a real listing is in host-stats.spec.ts and src/lib/listing/stats.test.ts). Taps
+    // never keep who tapped (founder's answer 8: only the listing, the channel and the time).
     const [{ id: userId }] = await sql<{ id: string }>(`SELECT id FROM "User" WHERE email = $1`, [email]);
-    await expect.poll(whatsappTaps).toBeGreaterThan(tapsBefore);
+    await page.waitForTimeout(1_500);
+    expect(await whatsappTaps()).toBe(tapsBefore);
     expect(await sql(`SELECT 1 FROM "ContactClick" WHERE "userId" = $1`, [userId])).toHaveLength(0);
     // The safety tip is shown once: the next tap goes straight to WhatsApp.
     const second = page.waitForEvent("popup");

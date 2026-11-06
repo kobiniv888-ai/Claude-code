@@ -179,3 +179,28 @@ export const PHOTOS = {
 } as const;
 
 export type PhotoKey = keyof typeof PHOTOS;
+
+/**
+ * The room label of a demo photo (ListingPhoto.room, round 3, brief 6.1), from its key's group
+ * above. Only groups that show one kind of room get a label; houses, hotels, mountains and
+ * construction photos stay unlabelled.
+ */
+export function demoPhotoRoom(key: string): "BEDROOM" | "KITCHEN" | "BATHROOM" | "LIVING_ROOM" | "VIEW" | "BUILDING" | null {
+  const group = key.replace(/\d+$/, "");
+  switch (group) {
+    case "lv":
+      return "LIVING_ROOM";
+    case "bd":
+      return "BEDROOM";
+    case "kt":
+      return "KITCHEN";
+    case "bt":
+      return "BATHROOM";
+    case "ax":
+      return "BUILDING";
+    case "sea":
+      return "VIEW";
+    default:
+      return null;
+  }
+}

@@ -1,11 +1,11 @@
+import type { MistakeIssue } from "@/lib/listing/mistake-check";
 import type { RiskReasonCode } from "@/lib/risk";
 
 /**
  * The "בדיקה לפני פרסום" slot on the listing review page (round 3, brief 9 "show the listing with
- * its mistake-check results"). Pure and client-safe. Until the phase-4 mistake check exists
- * (src/lib/listing/preflight.ts, planned), it lists the automatic checks that ran on the listing
- * (src/lib/risk) one by one: passed, found something, blocked, or not run yet. Phase 4 adds its
- * own items to the same list.
+ * its mistake-check results"). Pure and client-safe. It lists the automatic checks that ran on the
+ * listing (src/lib/risk) one by one: passed, found something, blocked, or not run yet; and, since
+ * phase 4, the host's own mistake check (src/lib/listing/mistake-check.ts, see precheckMistakes).
  */
 
 export const PRECHECK_IDS = [
@@ -75,4 +75,20 @@ export function precheckSummary(items: readonly PrecheckItem[]): { found: number
     blocked: items.filter((i) => i.status === "blocked").length,
     ok: items.filter((i) => i.status === "ok").length,
   };
+}
+
+/** The host's mistake check in the box (round 3, brief 6.1), run on the listing as it is saved. */
+export type PrecheckMistakes = {
+  /** blocked: errors (publishing is refused); found: warnings only; ok: clean; unchecked: the check failed. */
+  status: Exclude<PrecheckStatus, "info">;
+  /** Errors first, then warnings. */
+  issues: MistakeIssue[];
+  errors: number;
+  warnings: number;
+};
+
+export function precheckMistakes(result: { errors: readonly MistakeIssue[]; warnings: readonly MistakeIssue[] } | null): PrecheckMistakes {
+  if (!result) return { status: "unchecked", issues: [], errors: 0, warnings: 0 };
+  const status = result.errors.length > 0 ? "blocked" : result.warnings.length > 0 ? "found" : "ok";
+  return { status, issues: [...result.errors, ...result.warnings], errors: result.errors.length, warnings: result.warnings.length };
 }

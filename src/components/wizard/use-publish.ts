@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { TurnstileHandle } from "@/components/common/turnstile";
+import { MISTAKE_CHECK_REFRESH, MISTAKE_CHECK_TITLE_ID } from "@/components/listing/mistake-check-panel";
 import { scrollBehavior } from "@/lib/motion";
 import { toast } from "@/lib/toast";
 import { acceptRulesAndPublish } from "@/lib/wizard/actions";
@@ -82,11 +83,23 @@ export function usePublish({
     if (value) setRulesError(false);
   }, []);
 
+  // Errors the preview step's mistake check found (the server refuses to publish while any exist).
+  const mistakeErrors = useRef(0);
+  const setMistakeErrors = useCallback((count: number) => {
+    mistakeErrors.current = count;
+  }, []);
+  // No toast here: it would sit over the bottom bar's button, and the panel itself says what to fix.
+  const showMistakes = () => revealAndFocus(MISTAKE_CHECK_TITLE_ID);
+
   const publish = async () => {
     if (running.current) return;
     if (missingCount > 0) {
       revealAndFocus("missing-title");
       toast.error(t("publish.missingTitle"));
+      return;
+    }
+    if (mistakeErrors.current > 0) {
+      showMistakes();
       return;
     }
     if (!accepted) {
@@ -112,6 +125,12 @@ export function usePublish({
       }
       captcha.current?.reset();
       const code = result ? result.error : "server_error";
+      if (code === "listing_mistakes") {
+        // Something changed since the check ran: run it again and show what blocks publishing.
+        window.dispatchEvent(new Event(MISTAKE_CHECK_REFRESH));
+        showMistakes();
+        return;
+      }
       toast.error(t.has(`errors.${code}`) ? t(`errors.${code}`) : t("errors.server_error"));
     } finally {
       running.current = false;
@@ -119,5 +138,5 @@ export function usePublish({
     }
   };
 
-  return { accepted, setAccepted, rulesError, publishing, captchaRef, onToken, onExpire, publish };
+  return { accepted, setAccepted, rulesError, publishing, captchaRef, onToken, onExpire, publish, setMistakeErrors };
 }

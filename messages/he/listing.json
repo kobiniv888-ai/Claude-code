@@ -93,7 +93,19 @@
     "tour": "סיור 360°",
     "opensNewTab": "(נפתח בכרטיסייה חדשה)",
     "back": "חזרה",
-    "allPhotos": "כל התמונות"
+    "allPhotos": "כל התמונות",
+    "rooms": {
+      "BEDROOM": "חדר שינה",
+      "KITCHEN": "מטבח",
+      "BATHROOM": "חדר רחצה",
+      "LIVING_ROOM": "סלון",
+      "VIEW": "נוף",
+      "BALCONY": "מרפסת",
+      "BUILDING": "הבניין"
+    },
+    "otherPhotos": "עוד תמונות",
+    "roomsNav": "קפיצה לחדר",
+    "sectionCount": "{count, plural, one {תמונה אחת} other {{formatted} תמונות}}"
   },
   "share": {
     "button": "שיתוף",

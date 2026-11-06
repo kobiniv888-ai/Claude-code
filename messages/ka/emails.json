@@ -444,6 +444,26 @@
       },
       "urgentNotice": "{count, plural, one {არის {count} ღია საჩივარი სტუმრისთვის უარის თქმაზე. შეამოწმეთ დღესვე.} other {არის {count} ღია საჩივარი სტუმრისთვის უარის თქმაზე. შეამოწმეთ დღესვე.}}",
       "cta": "მართვის პანელის გახსნა"
+    },
+    "weekly_host_stats": {
+      "subject": "ამ კვირაში: {summary}",
+      "preheader": "თქვენი განცხადებების შეჯამება: {dates}",
+      "heading": "თქვენი განცხადებები ამ კვირაში",
+      "summary": "ამ კვირაში: {summary}.",
+      "period": "მონაცემები: {dates}, კვირიდან შაბათის ჩათვლით.",
+      "counts": {
+        "views": "{count, plural, other {{countText} ნახვა}}",
+        "saves": "{count, plural, other {{countText} შენახვა}}",
+        "contacts": "{count, plural, other {{countText} დაკავშირება}}",
+        "bookings": "{count, plural, other {{countText} ჯავშანი}}"
+      },
+      "untitled": "განცხადება {id}",
+      "listingLink": "განცხადების სტატისტიკა",
+      "more": "{count, plural, other {და კიდევ {countText} განცხადება — „ჩემს ობიექტებში“.}}",
+      "howCounted": "თითოეული ვიზიტორი დღეში ერთხელ ითვლება. თქვენი, საიტის გუნდისა და ბოტების ნახვები არ ითვლება, ისევე როგორც გაუქმებული ჯავშნები.",
+      "unsubscribeText": "არ გსურთ ყოველკვირეული შეჯამება? შეგიძლიათ ერთი შეხებით გამორთოთ და ანგარიშის პარამეტრებში ხელახლა ჩართოთ.",
+      "unsubscribe": "ყოველკვირეული შეჯამების გამორთვა",
+      "cta": "ჩემს ობიექტებზე"
     }
   },
   "ticketStatus": {

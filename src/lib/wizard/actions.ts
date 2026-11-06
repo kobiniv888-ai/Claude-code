@@ -14,6 +14,7 @@ import { db } from "@/lib/db";
 import { NotFoundError } from "@/lib/errors";
 import { removeListingPhotoFiles } from "@/lib/images";
 import { computeShabbatFriendly } from "@/lib/listing/fields";
+import { getListingMistakes } from "@/lib/listing/mistake-check-server";
 import {
   holdLiveListingForReview,
   prepareListingDerivedFields,
@@ -41,6 +42,7 @@ import {
   availabilitySchema,
   photoAltSchema,
   photoIdsSchema,
+  photoRoomSchema,
   roomTypeSchema,
   stepSaveSchemas,
   translationSchema,
@@ -427,6 +429,27 @@ export async function updatePhotoAlt(listingId: string, photoId: string, alt: st
   }
 }
 
+/**
+ * Optional room label of a photo (round 3, brief 6.1: bedroom, kitchen, bathroom…; null clears
+ * it). The mistake check and the listing page's gallery (grouped by room) read it.
+ */
+export async function updatePhotoRoom(listingId: string, photoId: string, room: unknown): Promise<ActionResult> {
+  try {
+    const user = await ownerForMutation("save");
+    const listing = await requireOwnedListing(listingIdSchema.parse(listingId), user.id);
+    const parsed = photoRoomSchema.safeParse(room);
+    if (!parsed.success) return fail("invalid_input");
+    const { count } = await db.listingPhoto.updateMany({
+      where: { id: listingIdSchema.parse(photoId), listingId: listing.id },
+      data: { room: parsed.data },
+    });
+    if (count === 0) throw new NotFoundError();
+    return ok();
+  } catch (error) {
+    return toActionError(error);
+  }
+}
+
 // ─── Room types (hotels, guesthouses, hostels) ────────────────
 
 function sameNameInEveryLanguage(name: string): Localized {
@@ -453,7 +476,8 @@ export async function saveRoomType(listingId: string, input: unknown): Promise<A
       bedsSingle: v.bedsSingle,
       bedsDouble: v.bedsDouble,
       sizeSqm: v.sizeSqm,
-      quantity: v.quantity,
+      // Required since round 3, phase 4 ("כמה חדרים כאלה להציע בבית"): left empty means 1.
+      quantity: v.quantity ?? 1,
     };
 
     let roomId: string;
@@ -674,6 +698,17 @@ async function checkRequirements(listing: ListingRow, user: CurrentUser): Promis
 }
 
 /**
+ * The mistake check's errors (round 3, brief 6.1: no exact address for a short stay or hotel,
+ * fewer than 5 photos, contact details in the title or description) stop publishing on the
+ * server, whatever the browser shows. Its warnings never do.
+ */
+async function mistakeRefusal(listingId: string): Promise<ActionResult<never> | null> {
+  const { errors } = await getListingMistakes(listingId);
+  if (errors.length === 0) return null;
+  return fail("listing_mistakes", { mistakes: errors.map((e) => e.code) });
+}
+
+/**
  * Clears fields that do not apply and upgrades the account to "Business" for hotels.
  * (submitForPublication then computes derived fields, translations and nearby places.)
  */
@@ -738,6 +773,8 @@ export async function acceptRulesAndPublish(
     if (listing.status !== "DRAFT") return fail("already_published");
     const missing = await checkRequirements(listing, user);
     if (missing) return missing;
+    const mistakes = await mistakeRefusal(listing.id);
+    if (mistakes) return mistakes;
     await assertTurnstile(turnstileTokenSchema.parse(input?.turnstileToken), { expectedAction: "publish" });
 
     await finalizeListing(listing, user, { rulesAcceptedAt: new Date(), wizardStep: stepsFor(kindOf(listing)).length });
@@ -773,6 +810,17 @@ export async function saveChanges(
       ? await db.listingPhoto.count({ where: { listingId: listing.id, createdAt: { gt: openedAt } } })
       : 0;
     const changed = !openedAt || listing.contentUpdatedAt > openedAt || newPhotos > 0;
+
+    if (changed && RESUBMIT_STATUSES.has(listing.status)) {
+      // Saving would publish the listing again: the mistake check's errors stop it.
+      const mistakes = await mistakeRefusal(listing.id);
+      if (mistakes) {
+        // The edits of a live listing are on the site already (auto-save): the refusal must not
+        // skip the automatic checks that "Save changes" runs on them (fails closed, see above).
+        if (listing.status === "LIVE") await recheckLiveListing(listing.id, user.id);
+        return mistakes;
+      }
+    }
 
     await finalizeListing(listing, user, listing.rulesAcceptedAt ? {} : { rulesAcceptedAt: new Date() });
     let result: PublishOutcome | null = null;

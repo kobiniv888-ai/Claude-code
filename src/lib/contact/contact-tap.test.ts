@@ -1,25 +1,41 @@
 /**
  * Contact taps keep only the channel and the time, never who tapped (founder's OK, round 3).
- * The tapper's id is used only to skip the owner's own taps. Older rows are cleared by the
- * clean-up "contact-taps" (Admin → Maintenance).
+ * The tapper's id is used only to skip the host's and staff's own taps and for the anonymous
+ * once-a-day check (src/lib/listing/stats-rules.ts). Older rows are cleared by the clean-up
+ * "contact-taps" (Admin → Maintenance). The database rules are in src/lib/listing/stats.test.ts.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const calls = vi.hoisted(() => ({
   updateMany: [] as unknown[],
   created: [] as unknown[],
-  user: { id: "guest-1" } as { id: string },
+  keys: [] as string[],
+  user: { id: "guest-1", isStaff: false } as { id: string; isStaff: boolean },
 }));
 
 vi.mock("server-only", () => ({}));
-vi.mock("@/lib/request", () => ({ getDeviceHash: async () => "d", getIpHash: async () => "i", getUserAgent: async () => "Mozilla/5.0" }));
+vi.mock("@/lib/request", () => ({
+  getClientIp: async () => "203.0.113.1",
+  getDeviceHash: async () => "d",
+  getIpHash: async () => "i",
+  getUserAgent: async () => "Mozilla/5.0",
+}));
 vi.mock("@/lib/rate-limit", () => ({ rateLimit: async () => ({ ok: true }), assertRateLimit: async () => undefined }));
 vi.mock("@/lib/crypto", () => ({ hmacHash: (v: string) => v }));
 vi.mock("@/lib/db", () => {
   const db = {
     listing: {
-      updateMany: async (args: { where: { ownerId?: { not: string } } }) => {
+      findUnique: async () => ({ status: "LIVE", isDemo: false, ownerId: "owner-1" }),
+      updateMany: async (args: unknown) => {
         calls.updateMany.push(args);
+        return { count: 1 };
+      },
+    },
+    rateLimit: {
+      createMany: async (args: { data: { key: string }[] }) => {
+        const key = args.data[0].key;
+        if (calls.keys.includes(key)) return { count: 0 };
+        calls.keys.push(key);
         return { count: 1 };
       },
     },
@@ -54,14 +70,19 @@ describe("contact taps", () => {
   beforeEach(() => {
     calls.updateMany = [];
     calls.created = [];
+    calls.keys = [];
   });
 
   it("stores only the listing and the channel, never the user", async () => {
     const { recordContactClick } = await import("@/lib/listing/stats");
-    expect(await recordContactClick("listing-1", "WHATSAPP", "guest-1")).toBe(true);
+    expect(await recordContactClick("listing-1", "WHATSAPP", { id: "guest-1" })).toBe(true);
     expect(calls.created).toEqual([{ data: { listingId: "listing-1", channel: "WHATSAPP" } }]);
-    // The user id is used for the owner check only.
-    expect(calls.updateMany).toEqual([expect.objectContaining({ where: expect.objectContaining({ ownerId: { not: "guest-1" } }) })]);
+    // The once-a-day key holds an anonymous daily ID, never the account id.
+    expect(calls.keys).toHaveLength(1);
+    expect(calls.keys[0]).not.toContain("guest-1");
+    // The host's own taps are not counted.
+    expect(await recordContactClick("listing-1", "PHONE", { id: "owner-1" })).toBe(false);
+    expect(calls.created).toHaveLength(1);
   });
 
   it("the tap action from the listing page stores no user id either", async () => {

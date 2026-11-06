@@ -1,76 +1,111 @@
 import "server-only";
-import { CONTACT_CHANNELS } from "@/lib/listing/fields";
-import type { ContactChannel } from "@/generated/prisma/enums";
+import { headers } from "next/headers";
+import type { AppLocale } from "@/config/site";
+import type { ContactChannel, DealType } from "@/generated/prisma/enums";
+import { pickLocalized } from "@/i18n/locale";
+import { dateToDay, dayToDate, tbilisiToday } from "@/lib/booking/dates";
 import { hmacHash } from "@/lib/crypto";
 import { db } from "@/lib/db";
-import { rateLimit } from "@/lib/rate-limit";
-import { getDeviceHash, getIpHash, getUserAgent } from "@/lib/request";
+import { CONTACT_CHANNELS } from "@/lib/listing/fields";
+import { getClientIp, getDeviceHash, getUserAgent } from "@/lib/request";
+import {
+  BOOKED_STATUSES,
+  bookingSeries,
+  emptyTotals,
+  hotelOccupancy,
+  isBookableDeal,
+  periodDays,
+  stayOccupancy,
+  type Occupancy,
+  type StatsStay,
+  type StatsTotals,
+} from "./stats-math";
+import {
+  dailyAccountVisitorId,
+  dailyVisitorId,
+  daySecretInput,
+  isPrefetchRequest,
+  skipReason,
+  statsDedupeExpiry,
+  statsDedupeKey,
+  type StatsEvent,
+  type StatsListing,
+} from "./stats-rules";
 
 /**
- * Listing statistics for the owner dashboard (server-only).
+ * Listing statistics for the host (round 3, brief 6.2; server-only).
  *
- *   await recordListingView(listing.id, { viewerId: user?.id });   // from a server action / route
- *   await recordContactClick(listing.id, "WHATSAPP", user?.id ?? null);
- *   await recordSave(listing.id, +1);   // favorite added (−1 when removed)
- *   const stats = await getListingStats(listing.id, 30);
+ *   await recordListingView(listing.id, user);                 // trackListingView (after the page shows)
+ *   await recordSave(listing.id, +1, user);                    // toggleFavorite (−1 when removed)
+ *   await recordContactClick(listing.id, "WHATSAPP", user);    // recordContactTap
+ *   const stats = await getListingStats({ id, dealType }, 30, locale);  // the stats page (owner only!)
  *
- * Counters live on Listing (viewCount, contactCount, saveCount — for cards) and per day in
- * ListingStatDaily (charts). Days are Georgia days (UTC+4, no daylight saving).
- * Record views from a server action or route handler after the page is shown, not while
- * rendering: prefetches and bots would count otherwise. Ownership of the stats page is the
- * caller's check.
+ * Who counts is decided in ./stats-rules.ts (each visitor once a day; never the host, staff, bots,
+ * prefetches or demo listings), the numbers in ./stats-math.ts. Per day the counts live in
+ * ListingStatDaily; Listing.viewCount / contactCount / saveCount are the all-time counters (admin
+ * review page). Bookings and booked nights come from Booking rows (CONFIRMED / COMPLETED).
+ * Days are Georgian days. The pages that show any of this check that the viewer owns the listing:
+ * guests never see it.
  */
 
-/** Georgia has been on UTC+4 all year since 2005. */
-const GEORGIA_OFFSET_MS = 4 * 3600 * 1000;
-const DAY_MS = 24 * 3600 * 1000;
+export type StatsViewerInput = { id: string; isStaff?: boolean } | null | undefined;
 
-/** "YYYY-MM-DD" of `date` in Georgia. */
-export function georgiaDay(date: Date = new Date()): string {
-  return new Date(date.getTime() + GEORGIA_OFFSET_MS).toISOString().slice(0, 10);
-}
+const CHANNELS = new Set<string>([...CONTACT_CHANNELS, "CHAT"]);
 
-/** The value stored in ListingStatDaily.date (a DATE column) for a "YYYY-MM-DD" day. */
-function dayValue(day: string): Date {
-  return new Date(`${day}T00:00:00.000Z`);
-}
+const listingFacts = { status: true, isDemo: true, ownerId: true } as const;
 
-const BOT_USER_AGENT =
-  /bot|crawl|spider|slurp|preview|facebookexternalhit|whatsapp|telegram|viber|skype|discord|slack|headless|lighthouse|pingdom|monitor|curl|wget|python|java\/|go-http|axios|node-fetch/i;
-
-export function isBotUserAgent(userAgent: string | null | undefined): boolean {
-  return !userAgent || BOT_USER_AGENT.test(userAgent);
+async function daySecret(day: string): Promise<string> {
+  return hmacHash(daySecretInput(day));
 }
 
 /**
- * Counts one view of a LIVE listing. The same device (or IP when there is no device cookie)
- * counts once per listing per day — a hashed key in RateLimit, so nothing personal is stored.
- * The owner's own views and bots are not counted. Returns true when the view was counted.
+ * The first time today this visitor does this: claims the dedupe key (INSERT … ON CONFLICT DO
+ * NOTHING). Throws on a database error, so nothing is counted then.
  */
-export async function recordListingView(
-  listingId: string,
-  opts: { viewerId?: string | null } = {},
-): Promise<boolean> {
+async function firstToday(event: StatsEvent, day: string, listingId: string, visitorId: string, channel?: string): Promise<boolean> {
+  const key = statsDedupeKey(event, day, listingId, visitorId, channel);
+  const { count } = await db.rateLimit.createMany({
+    data: [{ key, count: 1, resetAt: statsDedupeExpiry(day) }],
+    skipDuplicates: true,
+  });
+  return count === 1;
+}
+
+/** This device was signed in to the host's account or to any staff account (DeviceLink). */
+async function deviceOfHostOrStaff(deviceHash: string | null, ownerId: string): Promise<boolean> {
+  if (!deviceHash) return false;
+  const link = await db.deviceLink.findFirst({
+    where: { deviceHash, OR: [{ userId: ownerId }, { user: { role: { not: "USER" } } }] },
+    select: { id: true },
+  });
+  return link !== null;
+}
+
+/**
+ * Counts one view of a LIVE, non-demo listing: once per visitor per day (the anonymous daily ID
+ * from the IP and the browser), never the host (signed in, or on a device they signed in on),
+ * staff, bots or prefetches. Returns true when the view was counted.
+ */
+export async function recordListingView(listingId: string, viewer?: StatsViewerInput): Promise<boolean> {
   try {
-    if (isBotUserAgent(await getUserAgent())) return false;
-    const listing = await db.listing.findFirst({ where: { id: listingId, status: "LIVE" }, select: { ownerId: true } });
-    if (!listing || (opts.viewerId && listing.ownerId === opts.viewerId)) return false;
+    const listing = await db.listing.findUnique({ where: { id: listingId }, select: listingFacts });
+    if (!listing) return false;
+    const requestHeaders = await headers();
+    const [ip, userAgent, deviceHash] = await Promise.all([getClientIp(), getUserAgent(), getDeviceHash()]);
+    const request = { userAgent, prefetch: isPrefetchRequest((name) => requestHeaders.get(name)) };
+    const who = { userId: viewer?.id ?? null, isStaff: !!viewer?.isStaff };
+    if (skipReason(listing, who, request)) return false;
+    if (await deviceOfHostOrStaff(deviceHash, listing.ownerId)) return false;
 
-    const visitor = (await getDeviceHash()) ?? (await getIpHash());
-    const day = georgiaDay();
-    if (visitor) {
-      const key = `view:${hmacHash(`${listingId}|${visitor}|${day}`).slice(0, 48)}`;
-      const { ok } = await rateLimit(key, { limit: 1, windowSeconds: DAY_MS / 1000 });
-      if (!ok) return false;
-    }
-    const { count } = await db.listing.updateMany({
-      where: { id: listingId, status: "LIVE" },
-      data: { viewCount: { increment: 1 } },
-    });
+    const day = tbilisiToday();
+    const visitor = dailyVisitorId(await daySecret(day), ip, userAgent);
+    if (!(await firstToday("view", day, listingId, visitor))) return false;
+
+    const { count } = await db.listing.updateMany({ where: { id: listingId, status: "LIVE" }, data: { viewCount: { increment: 1 } } });
     if (count === 0) return false;
     await db.$executeRaw`
       INSERT INTO "ListingStatDaily" ("listingId", "date", "views")
-      VALUES (${listingId}, ${dayValue(day)}::date, 1)
+      VALUES (${listingId}, ${dayToDate(day)}::date, 1)
       ON CONFLICT ("listingId", "date") DO UPDATE SET "views" = "ListingStatDaily"."views" + 1`;
     return true;
   } catch (error) {
@@ -79,32 +114,31 @@ export async function recordListingView(
   }
 }
 
-const CHANNELS = new Set<string>([...CONTACT_CHANNELS, "CHAT"]);
-
 /**
- * One tap on a contact button of a LIVE listing: a ContactClick row, Listing.contactCount and
- * the day's contacts per channel. Taps by the owner are not counted. `userId` is used ONLY for
- * that owner check: the row keeps the channel and the time, never who tapped (founder's OK,
- * round 3; older rows are cleared by the clean-up "contact-taps" in Admin → Maintenance).
+ * One tap on a contact button of a LIVE, non-demo listing: once per visitor per day per contact
+ * method, never by the host or staff. Writes a ContactClick row (the channel and the time,
+ * NEVER who tapped: founder's answer 8), Listing.contactCount and the day's count per channel.
+ * The viewer's id is used only for the host/staff check and the anonymous daily ID.
  */
-export async function recordContactClick(
-  listingId: string,
-  channel: ContactChannel,
-  userId: string | null,
-): Promise<boolean> {
+export async function recordContactClick(listingId: string, channel: ContactChannel, viewer: StatsViewerInput): Promise<boolean> {
   if (!CHANNELS.has(channel)) throw new Error(`recordContactClick: unknown channel "${channel}"`);
   try {
-    const { count } = await db.listing.updateMany({
-      where: { id: listingId, status: "LIVE", ...(userId ? { ownerId: { not: userId } } : {}) },
-      data: { contactCount: { increment: 1 } },
-    });
+    const listing = await db.listing.findUnique({ where: { id: listingId }, select: listingFacts });
+    if (!listing) return false;
+    if (skipReason(listing, { userId: viewer?.id ?? null, isStaff: !!viewer?.isStaff })) return false;
+
+    const day = tbilisiToday();
+    const secret = await daySecret(day);
+    const visitor = viewer?.id ? dailyAccountVisitorId(secret, viewer.id) : dailyVisitorId(secret, await getClientIp(), await getUserAgent());
+    if (!(await firstToday("contact", day, listingId, visitor, channel))) return false;
+
+    const { count } = await db.listing.updateMany({ where: { id: listingId, status: "LIVE" }, data: { contactCount: { increment: 1 } } });
     if (count === 0) return false;
-    const day = georgiaDay();
     await db.$transaction([
       db.contactClick.create({ data: { listingId, channel } }),
       db.$executeRaw`
         INSERT INTO "ListingStatDaily" ("listingId", "date", "contacts", "contactsByChannel")
-        VALUES (${listingId}, ${dayValue(day)}::date, 1, jsonb_build_object(${channel}::text, 1))
+        VALUES (${listingId}, ${dayToDate(day)}::date, 1, jsonb_build_object(${channel}::text, 1))
         ON CONFLICT ("listingId", "date") DO UPDATE SET
           "contacts" = "ListingStatDaily"."contacts" + 1,
           "contactsByChannel" = COALESCE("ListingStatDaily"."contactsByChannel", '{}'::jsonb)
@@ -119,43 +153,66 @@ export async function recordContactClick(
 }
 
 /**
- * A favorite was added (+1) or removed (−1). Listing.saveCount follows both (never below 0);
- * the daily chart counts saves added that day.
+ * A favorite was added (+1) or removed (−1) by `viewer`.
+ * - Listing.saveCount ("saved by N people now") follows both, for everyone but the host and staff,
+ *   and never on demo listings (never below 0).
+ * - The day's "saves" counts each account once per day per LIVE listing, with the same rules.
  */
-export async function recordSave(listingId: string, delta: 1 | -1): Promise<void> {
+export async function recordSave(listingId: string, delta: 1 | -1, viewer: StatsViewerInput): Promise<void> {
   try {
-    if (delta > 0) {
-      const { count } = await db.listing.updateMany({ where: { id: listingId }, data: { saveCount: { increment: 1 } } });
-      if (count === 0) return;
-      await db.$executeRaw`
-        INSERT INTO "ListingStatDaily" ("listingId", "date", "saves")
-        VALUES (${listingId}, ${dayValue(georgiaDay())}::date, 1)
-        ON CONFLICT ("listingId", "date") DO UPDATE SET "saves" = "ListingStatDaily"."saves" + 1`;
-    } else {
+    const listing = await db.listing.findUnique({ where: { id: listingId }, select: listingFacts });
+    if (!listing) return;
+    const who = { userId: viewer?.id ?? null, isStaff: !!viewer?.isStaff };
+    // The all-time counter ignores the status (a paused listing can still be un-saved).
+    const reason = skipReason({ ...listing, status: "LIVE" } satisfies StatsListing, who);
+    if (reason) return;
+
+    if (delta < 0) {
       await db.$executeRaw`UPDATE "Listing" SET "saveCount" = GREATEST(0, "saveCount" - 1) WHERE "id" = ${listingId}`;
+      return;
     }
+    await db.listing.updateMany({ where: { id: listingId }, data: { saveCount: { increment: 1 } } });
+    if (listing.status !== "LIVE") return;
+
+    const day = tbilisiToday();
+    const secret = await daySecret(day);
+    const visitor = viewer?.id ? dailyAccountVisitorId(secret, viewer.id) : dailyVisitorId(secret, await getClientIp(), await getUserAgent());
+    if (!(await firstToday("save", day, listingId, visitor))) return;
+    await db.$executeRaw`
+      INSERT INTO "ListingStatDaily" ("listingId", "date", "saves")
+      VALUES (${listingId}, ${dayToDate(day)}::date, 1)
+      ON CONFLICT ("listingId", "date") DO UPDATE SET "saves" = "ListingStatDaily"."saves" + 1`;
   } catch (error) {
     console.error("[stats] could not record a save:", error);
   }
 }
 
+// ─── Reading (owner-only pages and the weekly email) ─────────────────────────
+
 export type ChannelCounts = Partial<Record<ContactChannel, number>>;
 
-export type ListingStatsDay = {
+export type ListingStatsDay = StatsTotals & {
   /** "YYYY-MM-DD" (Georgia). */
   date: string;
-  views: number;
-  contacts: number;
-  saves: number;
   contactsByChannel: ChannelCounts;
 };
 
+export type RoomTypeStats = Occupancy & { id: string; name: string; quantity: number };
+
 export type ListingStats = {
+  /** Days in the period (7 or 30), today included. */
+  range: number;
   days: ListingStatsDay[];
   /** Sums over `days`. */
-  totals: { views: number; contacts: number; saves: number };
-  /** Contacts per channel over `days`. */
+  totals: StatsTotals;
+  /** Contact taps per method over `days`. */
   byChannel: ChannelCounts;
+  /** Short stays and hotels: bookings, booked nights and occupancy are shown. */
+  bookable: boolean;
+  /** Short stays and hotels; null otherwise. Hotels: room-nights. */
+  occupancy: Occupancy | null;
+  /** Hotels: per room type (empty otherwise). */
+  roomTypes: RoomTypeStats[];
   /** Since the listing was created (the counters on Listing). */
   allTime: { views: number; contacts: number; saves: number };
 };
@@ -169,43 +226,165 @@ function parseChannels(value: unknown): ChannelCounts {
   return out;
 }
 
-/** Daily series for the last `days` days (today included, missing days as zeros) plus totals. */
-export async function getListingStats(listingId: string, days = 30): Promise<ListingStats> {
-  const span = Math.min(366, Math.max(1, Math.floor(days)));
-  const today = dayValue(georgiaDay());
-  const first = new Date(today.getTime() - (span - 1) * DAY_MS);
+/** Bookings that stand (CONFIRMED / COMPLETED) made in the period or with nights in it. */
+async function loadStays(listingIds: string[], first: string, last: string): Promise<(StatsStay & { listingId: string })[]> {
+  if (listingIds.length === 0) return [];
+  const from = dayToDate(first);
+  const toExclusive = dayToDate(tbilisiNextDay(last));
+  const rows = await db.booking.findMany({
+    where: {
+      listingId: { in: listingIds },
+      status: { in: [...BOOKED_STATUSES] },
+      OR: [
+        { checkIn: { lt: toExclusive }, checkOut: { gt: from } },
+        // Made in the period (Georgian days: UTC+4, so a little wider, filtered below).
+        { createdAt: { gte: new Date(from.getTime() - 4 * 3600_000), lt: new Date(toExclusive.getTime()) } },
+      ],
+    },
+    select: { listingId: true, checkIn: true, checkOut: true, rooms: true, roomTypeId: true, createdAt: true },
+  });
+  return rows.map((row) => ({
+    listingId: row.listingId,
+    checkIn: dateToDay(row.checkIn),
+    checkOut: dateToDay(row.checkOut),
+    rooms: row.rooms,
+    roomTypeId: row.roomTypeId,
+    bookedOn: tbilisiToday(row.createdAt),
+  }));
+}
 
-  const [listing, rows] = await Promise.all([
-    db.listing.findUnique({ where: { id: listingId }, select: { viewCount: true, contactCount: true, saveCount: true } }),
-    db.listingStatDaily.findMany({ where: { listingId, date: { gte: first } }, orderBy: { date: "asc" } }),
+function tbilisiNextDay(day: string): string {
+  return dateToDay(new Date(dayToDate(day).getTime() + 86_400_000));
+}
+
+/**
+ * The stats page: a daily series for the last `range` days (today included, missing days as
+ * zeros), the totals, contact taps per method and, for short stays and hotels, bookings,
+ * booked nights and occupancy (hotels per room type too). The CALLER checks ownership.
+ */
+export async function getListingStats(
+  listing: { id: string; dealType: DealType | string },
+  range: number,
+  locale: AppLocale,
+  today: string = tbilisiToday(),
+): Promise<ListingStats> {
+  const days = periodDays(today, range);
+  const first = days[0];
+  const bookable = isBookableDeal(listing.dealType);
+  const hotel = listing.dealType === "HOTEL_ROOM";
+
+  const [counters, rows, stays, roomTypes] = await Promise.all([
+    db.listing.findUnique({ where: { id: listing.id }, select: { viewCount: true, contactCount: true, saveCount: true } }),
+    db.listingStatDaily.findMany({ where: { listingId: listing.id, date: { gte: dayToDate(first), lte: dayToDate(today) } } }),
+    bookable ? loadStays([listing.id], first, today) : Promise.resolve([]),
+    hotel
+      ? db.roomType.findMany({
+          where: { listingId: listing.id },
+          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+          select: { id: true, names: true, quantity: true, active: true },
+        })
+      : Promise.resolve([]),
   ]);
-  const byDay = new Map(rows.map((row) => [row.date.toISOString().slice(0, 10), row]));
+  const byDay = new Map(rows.map((row) => [dateToDay(row.date), row]));
+  const bookingsByDay = bookingSeries(stays, days);
 
   const series: ListingStatsDay[] = [];
-  const totals = { views: 0, contacts: 0, saves: 0 };
+  const totals = emptyTotals();
   const byChannel: ChannelCounts = {};
-  for (let i = 0; i < span; i++) {
-    const date = new Date(first.getTime() + i * DAY_MS).toISOString().slice(0, 10);
+  for (const date of days) {
     const row = byDay.get(date);
     const contactsByChannel = parseChannels(row?.contactsByChannel);
-    const day = { date, views: row?.views ?? 0, contacts: row?.contacts ?? 0, saves: row?.saves ?? 0, contactsByChannel };
+    const booked = bookingsByDay.get(date) ?? { bookings: 0, bookedNights: 0 };
+    const day: ListingStatsDay = {
+      date,
+      views: row?.views ?? 0,
+      saves: row?.saves ?? 0,
+      contacts: row?.contacts ?? 0,
+      bookings: bookable ? booked.bookings : 0,
+      bookedNights: bookable ? booked.bookedNights : 0,
+      contactsByChannel,
+    };
     totals.views += day.views;
-    totals.contacts += day.contacts;
     totals.saves += day.saves;
+    totals.contacts += day.contacts;
+    totals.bookings += day.bookings;
+    totals.bookedNights += day.bookedNights;
     for (const [channel, count] of Object.entries(contactsByChannel)) {
       byChannel[channel as ContactChannel] = (byChannel[channel as ContactChannel] ?? 0) + count;
     }
     series.push(day);
   }
 
+  let occupancy: Occupancy | null = null;
+  let roomTypeStats: RoomTypeStats[] = [];
+  if (hotel) {
+    const result = hotelOccupancy(stays, roomTypes, days);
+    occupancy = result.total;
+    const names = new Map(roomTypes.map((room) => [room.id, pickLocalized(room.names, locale)]));
+    roomTypeStats = result.byRoomType.map((room) => ({ ...room, name: names.get(room.id) ?? "" }));
+  } else if (bookable) {
+    occupancy = stayOccupancy(stays, days);
+  }
+
   return {
+    range: days.length,
     days: series,
     totals,
     byChannel,
-    allTime: {
-      views: listing?.viewCount ?? 0,
-      contacts: listing?.contactCount ?? 0,
-      saves: listing?.saveCount ?? 0,
-    },
+    bookable,
+    occupancy,
+    roomTypes: roomTypeStats,
+    allTime: { views: counters?.viewCount ?? 0, contacts: counters?.contactCount ?? 0, saves: counters?.saveCount ?? 0 },
   };
+}
+
+/**
+ * Totals of the last `range` days for several listings at once ("הנכסים שלי" cards, the weekly
+ * email). Bookings and booked nights only for short stays and hotels. The CALLER checks that the
+ * listings belong to the viewer.
+ */
+export async function getStatsTotals(
+  listings: readonly { id: string; dealType: DealType | string }[],
+  range: number,
+  lastDay: string = tbilisiToday(),
+): Promise<Map<string, StatsTotals>> {
+  const result = new Map(listings.map((listing) => [listing.id, emptyTotals()]));
+  if (listings.length === 0) return result;
+  const days = periodDays(lastDay, range);
+  const first = days[0];
+  const ids = listings.map((listing) => listing.id);
+  const bookableIds = listings.filter((listing) => isBookableDeal(listing.dealType)).map((listing) => listing.id);
+
+  const [sums, stays] = await Promise.all([
+    db.listingStatDaily.groupBy({
+      by: ["listingId"],
+      where: { listingId: { in: ids }, date: { gte: dayToDate(first), lte: dayToDate(lastDay) } },
+      _sum: { views: true, saves: true, contacts: true },
+    }),
+    loadStays(bookableIds, first, lastDay),
+  ]);
+  for (const row of sums) {
+    const totals = result.get(row.listingId);
+    if (!totals) continue;
+    totals.views = row._sum.views ?? 0;
+    totals.saves = row._sum.saves ?? 0;
+    totals.contacts = row._sum.contacts ?? 0;
+  }
+  const staysByListing = new Map<string, StatsStay[]>();
+  for (const stay of stays) staysByListing.set(stay.listingId, [...(staysByListing.get(stay.listingId) ?? []), stay]);
+  for (const [listingId, list] of staysByListing) {
+    const totals = result.get(listingId);
+    if (!totals) continue;
+    for (const value of bookingSeries(list, days).values()) {
+      totals.bookings += value.bookings;
+      totals.bookedNights += value.bookedNights;
+    }
+  }
+  return result;
+}
+
+/** The user has (or had) a listing: shows the weekly stats email switch in the settings. */
+export async function hasHostListings(userId: string): Promise<boolean> {
+  const count = await db.listing.count({ where: { ownerId: userId, deletedAt: null, status: { not: "DELETED" } } });
+  return count > 0;
 }

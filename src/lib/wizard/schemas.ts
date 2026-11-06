@@ -36,6 +36,7 @@ import {
   HOTEL_JEWISH_FEATURES,
   JEWISH_FEATURES,
   KITCHEN_KOSHER,
+  PHOTO_ROOMS,
   PROPERTY_TYPES,
   SHABBAT_FEATURES,
   SHARED_ROOM_FOR,
@@ -593,6 +594,9 @@ export const REQUIRED_CODES = new Set([
 export const photoIdsSchema = z.array(id).min(1).max(siteConfig.listings.maxPhotos * 4);
 
 export const photoAltSchema = z.string().trim().max(LIMITS.altMax, "tooLong");
+
+/** A photo's room label (round 3, brief 6.1), or null to clear it. */
+export const photoRoomSchema = z.enum(PHOTO_ROOMS).nullable();
 
 const dayString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "invalidDate");
 

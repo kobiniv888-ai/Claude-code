@@ -85,3 +85,25 @@ END $$;
 -- step here: new enum values, new nullable or defaulted columns, plain (non-unique) indexes, a
 -- nullable foreign key and the new ReferencePrice table all push without --accept-data-loss
 -- (checked on copies of a phase-2 database with data).
+
+-- Round 3, phase 4 (hotels booked per room type): RoomType."quantity" ("כמה חדרים כאלה להציע
+-- בבית") becomes required with default 1, and RoomType gains "icalToken" with a unique index.
+-- "prisma db push" would stop on both on a database that has room types: it refuses to make a
+-- column with NULLs required, and asks for --accept-data-loss before adding a unique index to an
+-- existing table. Here a room type without a number of rooms gets 1 (the approved default), the
+-- column takes the default and NOT NULL, and the new, empty "icalToken" column and its index are
+-- added first, so the push goes through without a prompt and loses nothing. Values of 1 or more
+-- are left as they are. Every other phase-4 change (DatePrice, PhotoRoom, Booking."rooms" /
+-- "priceLines" / "discount", the other RoomType and AvailabilityBlock columns) is new and
+-- nullable or defaulted, so the push adds it by itself. Idempotent.
+DO $$
+BEGIN
+  IF to_regclass('public."RoomType"') IS NOT NULL THEN
+    ALTER TABLE "RoomType" ADD COLUMN IF NOT EXISTS "quantity" INTEGER;
+    UPDATE "RoomType" SET "quantity" = 1 WHERE "quantity" IS NULL;
+    ALTER TABLE "RoomType" ALTER COLUMN "quantity" SET DEFAULT 1;
+    ALTER TABLE "RoomType" ALTER COLUMN "quantity" SET NOT NULL;
+    ALTER TABLE "RoomType" ADD COLUMN IF NOT EXISTS "icalToken" TEXT;
+    CREATE UNIQUE INDEX IF NOT EXISTS "RoomType_icalToken_key" ON "RoomType"("icalToken");
+  END IF;
+END $$;

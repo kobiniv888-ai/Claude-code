@@ -37,7 +37,7 @@ const num = (value: DecimalLike): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
-const photoSelect = { id: true, url: true, storageKey: true, alt: true, blurDataUrl: true } satisfies Prisma.ListingPhotoSelect;
+const photoSelect = { id: true, url: true, storageKey: true, alt: true, blurDataUrl: true, room: true } satisfies Prisma.ListingPhotoSelect;
 const photoOrder = [{ isCover: "desc" }, { sortOrder: "asc" }] satisfies Prisma.ListingPhotoOrderByWithRelationInput[];
 
 export const OWNER_PUBLIC_SELECT = {
@@ -89,13 +89,18 @@ export function toOwnerSummary(owner: OwnerRow): OwnerSummary {
   };
 }
 
-function toPhoto(row: { id: string; url: string; storageKey: string | null; alt: string | null; blurDataUrl: string | null }, fallbackAlt: string): PagePhoto {
+function toPhoto(
+  row: { id: string; url: string; storageKey: string | null; alt: string | null; blurDataUrl: string | null; room?: PagePhoto["room"] },
+  fallbackAlt: string,
+): PagePhoto {
   return {
     id: row.id,
     large: photoUrl(row, "lg"),
     medium: photoUrl(row, "md"),
     alt: row.alt?.trim() || fallbackAlt,
     blurDataUrl: row.blurDataUrl,
+    // The host's room label (round 3, brief 6.1): "All photos" groups by room.
+    room: row.room ?? null,
   };
 }
 

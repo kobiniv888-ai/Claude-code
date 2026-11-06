@@ -27,6 +27,7 @@ import {
 import type { PublishOutcome, WizardContext, WizardListing, WizardSnapshot } from "@/lib/wizard/types";
 import { siteConfig } from "@/config/site";
 import { ReacceptBanner } from "@/components/pledge/reaccept-banner";
+import { MISTAKE_CHECK_REFRESH, MISTAKE_CHECK_TITLE_ID, MistakeCheckSummary } from "@/components/listing/mistake-check-panel";
 import { WizardBusyContext } from "./busy-context";
 import { useIssueText } from "./fields";
 import { focusFirstInvalid } from "./focus-error";
@@ -50,7 +51,7 @@ import { SizeStep } from "./steps/size-step";
 import { TextStep } from "./steps/text-step";
 import { readUnsent, takeScroll, writeScroll, writeUnsent } from "./unsent";
 import { useAutosave } from "./use-autosave";
-import { usePublish } from "./use-publish";
+import { revealAndFocus, usePublish } from "./use-publish";
 import { WizardNav, WizardProgress } from "./wizard-chrome";
 
 /** The place calendar (bug 2.10): its code and data load at the first opening. */
@@ -567,6 +568,15 @@ export function WizardShell({
         if (res.error === "missing_requirements") {
           showStep("publish");
           toast.error(t("publish.missingTitle"));
+        } else if (res.error === "listing_mistakes") {
+          // "בדיקה לפני פרסום" found errors (round 3, brief 6.1): the preview step lists them (no
+          // toast: it would cover the bottom bar, and the panel says what to fix).
+          if (stepRef.current === "publish") {
+            window.dispatchEvent(new Event(MISTAKE_CHECK_REFRESH));
+            revealAndFocus(MISTAKE_CHECK_TITLE_ID);
+          } else {
+            showStep("publish");
+          }
         } else {
           toast.error(t.has(`errors.${res.error}`) ? t(`errors.${res.error}`) : t("errors.server_error"));
         }
@@ -709,6 +719,11 @@ export function WizardShell({
 
         {pledge.mustReaccept && step !== "pledge" && (
           <ReacceptBanner status={pledge} onReview={() => void goTo("pledge")} className="mb-5" />
+        )}
+
+        {/* Editing a published listing: what "בדיקה לפני פרסום" found, on every step but the preview. */}
+        {isEdit && ready && step !== "publish" && (
+          <MistakeCheckSummary listingId={listing.id} refreshKey={step} onShow={() => void goTo("publish")} className="mb-5" />
         )}
 
         <WizardProgress

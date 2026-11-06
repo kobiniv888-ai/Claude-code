@@ -146,6 +146,18 @@ enum ContactChannel {
   CHAT // Phase 2
 }
 
+/// Optional room label on a listing photo (round 3, phase 4; brief 6.1). The mistake check warns
+/// when no photo is labelled KITCHEN, BEDROOM or BATHROOM, and the gallery groups photos by room.
+enum PhotoRoom {
+  BEDROOM
+  KITCHEN
+  BATHROOM
+  LIVING_ROOM
+  VIEW
+  BALCONY
+  BUILDING
+}
+
 enum AvailabilitySource {
   OWNER
   ICAL
@@ -733,6 +745,7 @@ model Listing {
   promotions    Promotion[]
   bookings      Booking[]
   viewedBy      RecentlyViewed[]
+  datePrices    DatePrice[]
 
   @@index([status, cityId, dealType])
   @@index([status, bumpedAt])
@@ -761,11 +774,11 @@ model ListingTranslation {
 }
 
 model ListingPhoto {
-  id          String    @id @default(cuid())
+  id          String     @id @default(cuid())
   listingId   String
-  listing     Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  listing     Listing    @relation(fields: [listingId], references: [id], onDelete: Cascade)
   roomTypeId  String?
-  roomType    RoomType? @relation(fields: [roomTypeId], references: [id], onDelete: SetNull)
+  roomType    RoomType?  @relation(fields: [roomTypeId], references: [id], onDelete: SetNull)
   /// Storage key of the processed (re-encoded, EXIF-stripped, watermarked) image.
   storageKey  String?
   /// Public URL (or an external URL for demo photos).
@@ -776,37 +789,63 @@ model ListingPhoto {
   /// Perceptual hash (hex) for duplicate-photo detection.
   phash       String?
   bytes       Int?
-  sortOrder   Int       @default(0)
-  isCover     Boolean   @default(false)
+  sortOrder   Int        @default(0)
+  isCover     Boolean    @default(false)
   alt         String?
-  createdAt   DateTime  @default(now())
+  /// Which room the photo shows (optional, set by the host; round 3, phase 4). Null = not labelled.
+  room        PhotoRoom?
+  createdAt   DateTime   @default(now())
 
   @@index([listingId, sortOrder])
   @@index([phash])
 }
 
-/// Hotels and guesthouses: several room types on one business page.
+/// Hotels and guesthouses: several room types on one business page. Round 3, phase 4: hotels are
+/// booked per room type. A room type is free on a night when its booked rooms (Booking.rooms) plus
+/// blocked rooms (AvailabilityBlock.rooms) are fewer than `quantity`, checked in the same locked
+/// transaction as the booking (src/lib/booking/availability.ts). One booking never blocks the whole
+/// hotel; only a block without a room type does.
 model RoomType {
-  id          String         @id @default(cuid())
-  listingId   String
-  listing     Listing        @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  id             String              @id @default(cuid())
+  listingId      String
+  listing        Listing             @relation(fields: [listingId], references: [id], onDelete: Cascade)
   /// { he, en, ru, ar, ka }
-  names       Json
-  description Json?
-  price       Decimal        @db.Decimal(14, 2)
-  currency    Currency       @default(USD)
-  pricePeriod PricePeriod    @default(NIGHT)
-  priceUsd    Decimal?       @db.Decimal(14, 2)
-  maxGuests   Int?
-  bedsSingle  Int?
-  bedsDouble  Int?
-  sizeSqm     Float?
-  quantity    Int?
-  sortOrder   Int            @default(0)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  photos      ListingPhoto[]
-  bookings    Booking[]
+  names          Json
+  description    Json?
+  /// Regular price per `pricePeriod`, in `currency`.
+  price          Decimal             @db.Decimal(14, 2)
+  currency       Currency            @default(USD)
+  pricePeriod    PricePeriod         @default(NIGHT)
+  priceUsd       Decimal?            @db.Decimal(14, 2)
+  /// Price of Friday and Saturday nights, in `currency` (optional; `price` otherwise), like
+  /// Listing.weekendPrice. Holiday prices are DatePrice rows with this room type.
+  weekendPrice   Decimal?            @db.Decimal(14, 2)
+  maxGuests      Int?
+  bedsSingle     Int?
+  bedsDouble     Int?
+  bedsSofa       Int?
+  sizeSqm        Float?
+  /// The room's own amenity keys (src/lib/listing/fields.ts), on top of the hotel's.
+  amenities      String[]            @default([])
+  /// "כמה חדרים כאלה להציע בבית": how many identical rooms of this type Bayit may sell per night
+  /// (a hotel may offer fewer than it has, to lower the double-booking risk with other sites).
+  /// Required, at least 1 (the wizard allows 1-1000); rows that had none became 1 (before-push.sql).
+  quantity       Int                 @default(1)
+  /// false = not offered to new guests (its bookings, blocks and prices stay). Hide a room type that
+  /// has upcoming bookings instead of deleting it: deleting removes its blocks and date prices too.
+  active         Boolean             @default(true)
+  sortOrder      Int                 @default(0)
+  // Availability per room type (iCal sync with other sites), like Listing.icalToken/… The export
+  // token is made when the host first asks for the room type's calendar link (null until then).
+  icalToken      String?             @unique
+  icalImportUrls String[]            @default([])
+  icalSyncedAt   DateTime?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  photos         ListingPhoto[]
+  bookings       Booking[]
+  availability   AvailabilityBlock[]
+  datePrices     DatePrice[]
 }
 
 model PriceChange {
@@ -823,23 +862,65 @@ model PriceChange {
 
 /// Dates when the listing is NOT available. endDate is exclusive.
 model AvailabilityBlock {
-  id        String             @id @default(cuid())
-  listingId String
-  listing   Listing            @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  startDate DateTime           @db.Date
-  endDate   DateTime           @db.Date
-  source    AvailabilitySource @default(OWNER)
+  id         String             @id @default(cuid())
+  listingId  String
+  listing    Listing            @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  startDate  DateTime           @db.Date
+  endDate    DateTime           @db.Date
+  source     AvailabilitySource @default(OWNER)
   /// Legacy copy of the iCal UID (source ICAL); new code reads `sourceRef`.
-  icalUid   String?
+  icalUid    String?
   /// The iCal UID (source ICAL) or the booking id (source BOOKING).
-  sourceRef String?
+  sourceRef  String?
   /// Source BOOKING: the booking that holds these nights. Cancelling the booking deletes the block.
-  bookingId String?            @unique
-  booking   Booking?           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  note      String?
-  createdAt DateTime           @default(now())
+  /// Unique: one block per booking holds all its rooms (`rooms` = Booking.rooms).
+  bookingId  String?            @unique
+  booking    Booking?           @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  /// Hotels (round 3, phase 4): the room type these nights are blocked for. Null = the whole
+  /// listing: a block without a room type closes the whole hotel (every room type).
+  roomTypeId String?
+  roomType   RoomType?          @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+  /// With roomTypeId: how many rooms of that type are taken (null = every room of the type).
+  /// Ignored when roomTypeId is null.
+  rooms      Int?
+  note       String?
+  createdAt  DateTime           @default(now())
 
   @@index([listingId, startDate])
+  @@index([roomTypeId, startDate])
+}
+
+/// Holiday and special-date prices (round 3, phase 4; brief 6.3), set by the host in the place
+/// calendar. One row = one price per night for the nights from `startDate` up to, NOT including,
+/// `endDate`: endDate is EXCLUSIVE, like Booking.checkOut and AvailabilityBlock.endDate (a row
+/// 2027-04-22 → 2027-04-25 prices the nights of the 22nd, 23rd and 24th). Date-only columns (UTC
+/// midnight) holding calendar days in Asia/Tbilisi (src/lib/booking/dates.ts).
+/// Which price applies to a night: a date price first, then the weekend price, then the regular
+/// price (src/lib/booking/pricing.ts). A stay that touches a row with `minNights` longer than the
+/// stay cannot be booked.
+model DatePrice {
+  id         String    @id @default(cuid())
+  listingId  String
+  listing    Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  /// Hotels: the room type this price is for. Null = the whole listing (every room type). Must be a
+  /// room type of the same listing (checked in code).
+  roomTypeId String?
+  roomType   RoomType? @relation(fields: [roomTypeId], references: [id], onDelete: Cascade)
+  startDate  DateTime  @db.Date
+  /// EXCLUSIVE (the first night NOT at this price).
+  endDate    DateTime  @db.Date
+  /// Per night, in the listing's currency (or the room type's currency when roomTypeId is set).
+  price      Decimal   @db.Decimal(14, 2)
+  /// Optional minimum stay for a booking that touches these nights.
+  minNights  Int?
+  /// Optional note shown with the price, { he, en, ru, ar, ka } (any subset), e.g. { he: "פסח" }.
+  /// Host-written: render with dir="auto".
+  label      Json?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([listingId, startDate])
+  @@index([roomTypeId, startDate])
 }
 
 /// A stay booked on Bayit (short stays and hotel rooms with bookingMode INSTANT). Guests pay the host
@@ -855,11 +936,15 @@ model Booking {
   guest        User      @relation("BookingGuest", fields: [guestUserId], references: [id], onDelete: Cascade)
   hostUserId   String
   host         User      @relation("BookingHost", fields: [hostUserId], references: [id], onDelete: Cascade)
-  /// Hotels: the room type the guest chose (the listing is still booked as one unit for now).
+  /// Hotels: the room type the guest chose. Round 3, phase 4: hotels are booked per room type, so
+  /// the booking holds `rooms` rooms of this type (not the whole hotel).
   roomTypeId   String?
   roomType     RoomType? @relation(fields: [roomTypeId], references: [id], onDelete: SetNull)
   /// { he, en, ru, ar, ka } — the room type's name when booked (kept if the room type changes).
   roomTypeName Json?
+  /// Hotels: how many rooms of `roomTypeId` this booking holds (a family can book 2 in one booking).
+  /// 1 for every other booking. Its AvailabilityBlock carries the same number in `rooms`.
+  rooms        Int       @default(1)
 
   // Stay: calendar days in Asia/Tbilisi; checkOut is exclusive. nights = checkOut − checkIn.
   checkIn  DateTime @db.Date
@@ -874,8 +959,17 @@ model Booking {
   weekendPrice    Decimal?  @db.Decimal(14, 2)
   subtotal        Decimal   @db.Decimal(14, 2)
   cleaningFee     Decimal   @default(0) @db.Decimal(14, 2)
+  /// The long-stay discount (round 3, phase 4): a POSITIVE amount in `currency`, already taken off
+  /// `total`. Null = no discount (and on bookings made before round 3, phase 4).
+  discount        Decimal?  @db.Decimal(14, 2)
   total           Decimal   @db.Decimal(14, 2)
   currency        Currency
+  /// The itemized lines the guest saw before confirming, copied when booked (round 3, phase 4):
+  /// an array of PriceLine from src/lib/booking/pricing.ts ({ kind: "weekday" | "weekend" |
+  /// "date_price" | "discount" | "cleaning", nights?, price?, amount, pct?, label?, rooms? }), in
+  /// `currency` and in whole units as quoteStay returns them (165.5, not cents). Null on bookings
+  /// made before round 3, phase 4.
+  priceLines      Json?
   /// Estimate shown to the guest in their display currency when booked.
   displayCurrency Currency?
   displayTotal    Decimal?  @db.Decimal(14, 2)

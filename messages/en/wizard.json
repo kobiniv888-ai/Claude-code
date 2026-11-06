@@ -123,7 +123,8 @@
     "invalid_status": "This listing can't be changed in its current state.",
     "captcha_failed": "We couldn't confirm you're not a robot. Please refresh the page and try again.",
     "pledge_required": "To publish, please accept the Bayit pledge first.",
-    "pledge_outdated": "The pledge wording was updated. Reload the page and read the new wording."
+    "pledge_outdated": "The pledge wording was updated. Reload the page and read the new wording.",
+    "listing_mistakes": "Some things need fixing before you publish. They are listed under “Check before publishing”."
   },
   "uploadErrors": {
     "file_too_large": "This photo is too large. Please choose a smaller one (up to 15 MB).",
@@ -565,7 +566,20 @@
     "dndStart": "Picked up photo {position}.",
     "dndOver": "Over position {position}.",
     "dndEnd": "Photo dropped at position {position}.",
-    "dndCancel": "Moving cancelled."
+    "dndCancel": "Moving cancelled.",
+    "roomLabel": "What does {label} show?",
+    "roomNone": "No label",
+    "roomHelp": "Pick what each photo shows. On the listing page the photos are grouped by room, so guests quickly find the kitchen, the bedrooms and the bathroom.",
+    "roomSaved": "Label saved",
+    "rooms": {
+      "BEDROOM": "Bedroom",
+      "KITCHEN": "Kitchen",
+      "BATHROOM": "Bathroom",
+      "LIVING_ROOM": "Living room",
+      "VIEW": "View",
+      "BALCONY": "Balcony",
+      "BUILDING": "Building"
+    }
   },
   "rooms": {
     "title": "Room types",
@@ -914,5 +928,79 @@
   "times": {
     "flexible": "Flexible",
     "notSet": "Not set"
+  },
+  "mistakes": {
+    "title": "Check before publishing",
+    "subtitle": "We checked your listing before guests see it.",
+    "loading": "Checking your listing…",
+    "failed": "We couldn't check your listing right now.",
+    "retry": "Check again",
+    "allGood": "All looks good",
+    "allGoodHint": "We found no mistakes in your listing.",
+    "errorsTitle": "Fix before publishing",
+    "errorsHint": "{count, plural, one {One thing stops publishing.} other {{count} things stop publishing.}}",
+    "warningsTitle": "Worth checking",
+    "warningsHint": "You can publish as it is, but guests notice these details.",
+    "fix": "Fix",
+    "fixLabel": "Fix in step {step}: {name}",
+    "inStep": "Step {step}: {name}",
+    "summaryErrors": "{count, plural, one {1 thing to fix} other {{count} things to fix}}",
+    "summaryWarnings": "{count, plural, one {1 thing to check} other {{count} things to check}}",
+    "summaryShow": "Show",
+    "or": "or",
+    "quoted": "“{text}”",
+    "contactKind": {
+      "phone": "phone number",
+      "email": "email address",
+      "link": "link",
+      "handle": "username"
+    },
+    "currencies": {
+      "GEL": "lari (₾)",
+      "USD": "US dollars ($)",
+      "ILS": "shekels (₪)",
+      "EUR": "euros (€)",
+      "GBP": "pounds (£)",
+      "RUB": "rubles (₽)"
+    },
+    "languages": {
+      "he": "Hebrew",
+      "en": "English",
+      "ru": "Russian",
+      "ar": "Arabic",
+      "ka": "Georgian"
+    },
+    "rooms": {
+      "BEDROOM": "Bedroom",
+      "KITCHEN": "Kitchen",
+      "BATHROOM": "Bathroom",
+      "LIVING_ROOM": "Living room",
+      "VIEW": "View",
+      "BALCONY": "Balcony",
+      "BUILDING": "Building"
+    },
+    "issues": {
+      "address_missing": "The exact address is missing. Guests get it only after they book, and without it they can't find the place.",
+      "photos_too_few": "{count, plural, =0 {There are no photos yet} one {There is only 1 photo} other {There are only {count} photos}}. You need at least {min} to publish.",
+      "contact_in_title": "The title contains a {kind}: {value}. Contact details are shown only through the contact buttons, to protect you and your guests from scams.",
+      "contact_in_description": "The description contains a {kind}: {value}. Contact details are shown only through the contact buttons, to protect you and your guests from scams.",
+      "pin_outside_city": "The pin on the map is about {km} km from the center of the city you chose. Check that the city and the pin are right.",
+      "guests_below_beds": "Maximum guests is {maxGuests}, but the beds sleep {sleeps}.",
+      "guests_above_beds": "Maximum guests is {maxGuests}, but the beds sleep only {sleeps}. Add the beds or change the number of guests.",
+      "room_guests_below_beds": "In “{room}”: maximum guests is {maxGuests}, but the beds sleep {sleeps}.",
+      "room_guests_above_beds": "In “{room}”: maximum guests is {maxGuests}, but the beds sleep only {sleeps}.",
+      "no_bathrooms": "Bathrooms is 0. If there is a shower or a toilet, update the number.",
+      "title_language": "The title looks like it's in {detected}, but you chose to write in {setting}. The other languages are translated from the one you chose.",
+      "description_currency": "The description says {written}, but the listing's currency is {listingCurrency}. Write amounts in the listing's currency so guests aren't confused.",
+      "checkin_time_mismatch": "The description says check-in {written}, but the setting says check-in from {setting}. Fix whichever is wrong.",
+      "checkout_time_mismatch": "The description says check-out {written}, but the setting says check-out until {setting}. Fix whichever is wrong.",
+      "checkin_time_missing": "No check-in time is set. Guests need to know when they can arrive.",
+      "checkin_time_missing_written": "No check-in time is set, and the description says {written}. Choose the time in the settings.",
+      "photo_rooms_missing": "No photo has the label {rooms}. Pick the room under each photo so guests find it quickly.",
+      "price_far_below": "The price is far below what similar places usually cost. Check for a mistake, such as the currency or a missing zero.",
+      "price_far_above": "The price is far above what similar places usually cost. Check for a mistake, such as the currency or an extra zero.",
+      "room_price_far_below": "In “{room}”: the price is far below what similar rooms usually cost.",
+      "room_price_far_above": "In “{room}”: the price is far above what similar rooms usually cost."
+    }
   }
 }

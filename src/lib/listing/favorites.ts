@@ -51,7 +51,7 @@ export async function toggleFavorite(
     if (!want) {
       if (existing) {
         const { count } = await db.favorite.deleteMany({ where: { userId: user.id, listingId: id } });
-        if (count > 0) await recordSave(id, -1);
+        if (count > 0) await recordSave(id, -1, user);
       }
       return ok({ isFavorite: false });
     }
@@ -69,7 +69,7 @@ export async function toggleFavorite(
       data: [{ userId: user.id, listingId: id }],
       skipDuplicates: true,
     });
-    if (created.count > 0) await recordSave(id, 1);
+    if (created.count > 0) await recordSave(id, 1, user);
     return ok({ isFavorite: true });
   });
 }

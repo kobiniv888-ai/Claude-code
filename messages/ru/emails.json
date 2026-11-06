@@ -444,6 +444,26 @@
       },
       "urgentNotice": "{count, plural, one {Есть {count} открытая жалоба на отказ гостю. Проверьте её сегодня.} few {Есть {count} открытые жалобы на отказ гостям. Проверьте их сегодня.} many {Есть {count} открытых жалоб на отказ гостям. Проверьте их сегодня.} other {Есть {count} открытые жалобы на отказ гостям. Проверьте их сегодня.}}",
       "cta": "Открыть панель управления"
+    },
+    "weekly_host_stats": {
+      "subject": "За неделю: {summary}",
+      "preheader": "Сводка по вашим объявлениям за {dates}",
+      "heading": "Ваши объявления за неделю",
+      "summary": "За неделю: {summary}.",
+      "period": "Данные за {dates}, с воскресенья по субботу.",
+      "counts": {
+        "views": "{count, plural, one {{countText} просмотр} few {{countText} просмотра} many {{countText} просмотров} other {{countText} просмотра}}",
+        "saves": "{count, plural, one {{countText} сохранение} few {{countText} сохранения} many {{countText} сохранений} other {{countText} сохранения}}",
+        "contacts": "{count, plural, one {{countText} обращение} few {{countText} обращения} many {{countText} обращений} other {{countText} обращения}}",
+        "bookings": "{count, plural, one {{countText} бронирование} few {{countText} бронирования} many {{countText} бронирований} other {{countText} бронирования}}"
+      },
+      "untitled": "Объявление {id}",
+      "listingLink": "Статистика объявления",
+      "more": "{count, plural, one {И ещё {countText} объявление — в разделе «Мои объекты».} few {И ещё {countText} объявления — в разделе «Мои объекты».} many {И ещё {countText} объявлений — в разделе «Мои объекты».} other {И ещё {countText} объявления — в разделе «Мои объекты».}}",
+      "howCounted": "Каждый посетитель учитывается один раз в день. Ваши просмотры, просмотры команды сайта и ботов не учитываются, как и отменённые бронирования.",
+      "unsubscribeText": "Не хотите получать еженедельную сводку? Её можно отключить одним нажатием и снова включить в настройках аккаунта.",
+      "unsubscribe": "Отключить еженедельную сводку",
+      "cta": "К моим объектам"
     }
   },
   "ticketStatus": {

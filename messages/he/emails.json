@@ -444,6 +444,26 @@
       },
       "urgentNotice": "{count, plural, one {יש דיווח פתוח על דחיית אורח. כדאי לבדוק אותו היום.} other {יש {count} דיווחים פתוחים על דחיית אורחים. כדאי לבדוק אותם היום.}}",
       "cta": "לפאנל הניהול"
+    },
+    "weekly_host_stats": {
+      "subject": "השבוע: {summary}",
+      "preheader": "הסיכום של {dates} לכל המודעות שלכם",
+      "heading": "הסיכום השבועי של המודעות שלכם",
+      "summary": "השבוע: {summary}.",
+      "period": "הנתונים של {dates}, מיום ראשון עד שבת.",
+      "counts": {
+        "views": "{count, plural, one {צפייה אחת} two {שתי צפיות} other {{countText} צפיות}}",
+        "saves": "{count, plural, one {שמירה אחת} two {שתי שמירות} other {{countText} שמירות}}",
+        "contacts": "{count, plural, one {פנייה אחת} two {שתי פניות} other {{countText} פניות}}",
+        "bookings": "{count, plural, one {הזמנה אחת} two {שתי הזמנות} other {{countText} הזמנות}}"
+      },
+      "untitled": "מודעה {id}",
+      "listingLink": "לסטטיסטיקה של המודעה",
+      "more": "{count, plural, one {ועוד מודעה אחת, ב״הנכסים שלי״.} other {ועוד {countText} מודעות, ב״הנכסים שלי״.}}",
+      "howCounted": "כל מבקר נספר פעם אחת ביום. הצפיות שלכם, של צוות האתר ושל רובוטים לא נספרות, וגם הזמנות שבוטלו.",
+      "unsubscribeText": "לא רוצים לקבל את הסיכום השבועי? אפשר להפסיק בלחיצה אחת, ולהחזיר אותו בהגדרות החשבון.",
+      "unsubscribe": "הפסקת הסיכום השבועי",
+      "cta": "לנכסים שלי"
     }
   },
   "ticketStatus": {

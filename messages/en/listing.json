@@ -93,7 +93,19 @@
     "tour": "360° tour",
     "opensNewTab": "(opens in a new tab)",
     "back": "Back",
-    "allPhotos": "All photos"
+    "allPhotos": "All photos",
+    "rooms": {
+      "BEDROOM": "Bedroom",
+      "KITCHEN": "Kitchen",
+      "BATHROOM": "Bathroom",
+      "LIVING_ROOM": "Living room",
+      "VIEW": "View",
+      "BALCONY": "Balcony",
+      "BUILDING": "Building"
+    },
+    "otherPhotos": "More photos",
+    "roomsNav": "Jump to a room",
+    "sectionCount": "{count, plural, one {1 photo} other {{formatted} photos}}"
   },
   "share": {
     "button": "Share",

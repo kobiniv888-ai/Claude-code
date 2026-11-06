@@ -2,9 +2,11 @@
  * Account settings: input schemas and the notification preferences shape (pure, client-safe).
  *
  * User.notificationPrefs (JSON):
- *   { email: { listing: true, tickets: true, messages: true, marketing: false }, whatsapp: false }
+ *   { email: { listing: true, tickets: true, messages: true, marketing: false, weeklyStats: true }, whatsapp: false }
  * Missing values fall back to NOTIFICATION_DEFAULTS — the same defaults the senders assume
- * (listing and ticket emails on unless turned off, tips & news off unless turned on).
+ * (listing and ticket emails on unless turned off, tips & news off unless turned on). weeklyStats:
+ * the hosts' weekly stats email (round 3, brief 6.2), on unless turned off here or with the
+ * email's one-tap unsubscribe link (src/lib/alerts/unsubscribe-actions.ts).
  */
 import { z } from "zod";
 import { FIRST_NAME_MAX, looksLikeContact } from "@/lib/auth/first-name";
@@ -109,12 +111,12 @@ export const preferencesSchema = z.object({
 export type PreferencesInput = z.input<typeof preferencesSchema>;
 
 export type NotificationPrefs = {
-  email: { listing: boolean; tickets: boolean; messages: boolean; marketing: boolean };
+  email: { listing: boolean; tickets: boolean; messages: boolean; marketing: boolean; weeklyStats: boolean };
   whatsapp: boolean;
 };
 
 export const NOTIFICATION_DEFAULTS: NotificationPrefs = {
-  email: { listing: true, tickets: true, messages: true, marketing: false },
+  email: { listing: true, tickets: true, messages: true, marketing: false, weeklyStats: true },
   whatsapp: false,
 };
 
@@ -124,6 +126,7 @@ export const notificationsSchema = z.object({
     tickets: z.boolean(),
     messages: z.boolean(),
     marketing: z.boolean(),
+    weeklyStats: z.boolean(),
   }),
   whatsapp: z.boolean(),
 });
@@ -143,6 +146,7 @@ export function parseNotificationPrefs(value: unknown): NotificationPrefs {
       tickets: bool(email.tickets, d.email.tickets),
       messages: bool(email.messages, d.email.messages),
       marketing: bool(email.marketing, d.email.marketing),
+      weeklyStats: bool(email.weeklyStats, d.email.weeklyStats),
     },
     whatsapp: bool(root.whatsapp, d.whatsapp),
   };

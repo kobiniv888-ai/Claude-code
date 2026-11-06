@@ -12,6 +12,8 @@ import { LISTING_FILTERS, parseListingFilter, type ListingFilter } from "@/lib/a
 import { getMyListings } from "@/lib/account/queries";
 import { requireUser } from "@/lib/auth/session";
 import { formatNumber } from "@/lib/format";
+import { getStatsTotals } from "@/lib/listing/stats";
+import { CARD_STATS_DAYS } from "@/lib/listing/stats-math";
 import { pageMetadata } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 
@@ -47,6 +49,8 @@ export default async function MyListingsPage({ params, searchParams }: Props) {
     page: Number.isInteger(requested) && requested > 0 ? requested : 1,
     locale: locale as AppLocale,
   });
+  // The small numbers on each card: the last 30 days (round 3, brief 6.2; own listings only).
+  const cardStats = await getStatsTotals(items, CARD_STATS_DAYS);
   const tabs = LISTING_FILTERS.filter((f) => f === "all" || f === filter || counts[f] > 0);
 
   return (
@@ -117,7 +121,7 @@ export default async function MyListingsPage({ params, searchParams }: Props) {
               <ul className="grid gap-3">
                 {items.map((listing) => (
                   <li key={listing.id}>
-                    <MyListingCard listing={listing} />
+                    <MyListingCard listing={listing} stats={cardStats.get(listing.id)} />
                   </li>
                 ))}
               </ul>

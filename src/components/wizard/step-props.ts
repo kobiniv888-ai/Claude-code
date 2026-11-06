@@ -67,4 +67,9 @@ export type PublishController = {
   onExpire: () => void;
   /** Checks, saves, waits for the CAPTCHA and publishes. */
   publish: () => Promise<void>;
+  /**
+   * The preview step's "בדיקה לפני פרסום" reports how many errors it found (round 3, brief 6.1):
+   * while there are any, "פרסום" shows them instead of asking the server (which refuses too).
+   */
+  setMistakeErrors?: (count: number) => void;
 };

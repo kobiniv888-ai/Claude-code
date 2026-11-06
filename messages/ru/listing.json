@@ -93,7 +93,19 @@
     "tour": "Тур 360°",
     "opensNewTab": "(откроется в новой вкладке)",
     "back": "Назад",
-    "allPhotos": "Все фото"
+    "allPhotos": "Все фото",
+    "rooms": {
+      "BEDROOM": "Спальня",
+      "KITCHEN": "Кухня",
+      "BATHROOM": "Ванная",
+      "LIVING_ROOM": "Гостиная",
+      "VIEW": "Вид",
+      "BALCONY": "Балкон",
+      "BUILDING": "Здание"
+    },
+    "otherPhotos": "Другие фото",
+    "roomsNav": "Перейти к комнате",
+    "sectionCount": "{count, plural, other {{formatted} фото}}"
   },
   "share": {
     "button": "Поделиться",

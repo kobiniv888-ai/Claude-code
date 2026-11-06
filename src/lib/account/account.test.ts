@@ -197,7 +197,10 @@ describe("settings rules", () => {
       tickets: true,
       messages: true,
       marketing: true,
+      weeklyStats: true,
     });
+    // The hosts' weekly stats email (round 3): on unless turned off.
+    expect(parseNotificationPrefs({ email: { weeklyStats: false } }).email.weeklyStats).toBe(false);
     expect(parseNotificationPrefs([1, 2]).email.marketing).toBe(false);
   });
 

@@ -9,6 +9,7 @@ import { formatDateRange, formatMoney, formatTime } from "@/lib/format";
 import { checkTimeDisplay, clockLabel } from "@/lib/listing/check-times";
 import { ADMIN_EMAIL_TEMPLATES, adminEmailBuilders, type AdminEmailData } from "@/lib/alerts/founder-email-templates";
 import { REPORT_EMAIL_TEMPLATES, reportEmailBuilders, type ReportEmailData } from "@/lib/reports/email-templates";
+import { WEEKLY_EMAIL_TEMPLATES, weeklyEmailBuilders, type WeeklyEmailData } from "@/lib/alerts/weekly-host-email-template";
 
 export const EMAIL_TEMPLATES = [
   "login_code",
@@ -45,6 +46,8 @@ export const EMAIL_TEMPLATES = [
   ...REPORT_EMAIL_TEMPLATES,
   // Founder-only admin emails (round 3, brief 9): src/lib/alerts/founder-email-templates.ts
   ...ADMIN_EMAIL_TEMPLATES,
+  // The weekly host stats (round 3, brief 6.2): src/lib/alerts/weekly-host-email-template.ts
+  ...WEEKLY_EMAIL_TEMPLATES,
 ] as const;
 export type EmailTemplate = (typeof EMAIL_TEMPLATES)[number];
 
@@ -212,7 +215,8 @@ export type EmailData = {
     stillInstant?: boolean | null;
   };
 } & ReportEmailData &
-  AdminEmailData;
+  AdminEmailData &
+  WeeklyEmailData;
 
 /**
  * - host_unreachable: a booking was refused because no alert channel of the host accepted the alert
@@ -990,6 +994,7 @@ const builders: { [K in EmailTemplate]: Builder<K> } = {
   },
   ...reportEmailBuilders,
   ...adminEmailBuilders,
+  ...weeklyEmailBuilders,
 };
 
 export function buildEmailContent<K extends EmailTemplate>(

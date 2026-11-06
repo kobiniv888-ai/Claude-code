@@ -444,6 +444,26 @@
       },
       "urgentNotice": "{count, plural, one {يوجد بلاغ مفتوح عن رفض ضيف. راجعوه اليوم.} two {يوجد بلاغان مفتوحان عن رفض ضيوف. راجعوهما اليوم.} few {توجد {count} بلاغات مفتوحة عن رفض ضيوف. راجعوها اليوم.} many {يوجد {count} بلاغًا مفتوحًا عن رفض ضيوف. راجعوها اليوم.} other {يوجد {count} بلاغ مفتوح عن رفض ضيوف. راجعوها اليوم.}}",
       "cta": "فتح لوحة الإدارة"
+    },
+    "weekly_host_stats": {
+      "subject": "هذا الأسبوع: {summary}",
+      "preheader": "ملخص إعلاناتك عن {dates}",
+      "heading": "إعلاناتك هذا الأسبوع",
+      "summary": "هذا الأسبوع: {summary}.",
+      "period": "أرقام {dates}، من الأحد إلى السبت.",
+      "counts": {
+        "views": "{count, plural, zero {لا مشاهدات} one {مشاهدة واحدة} two {مشاهدتان} few {{countText} مشاهدات} many {{countText} مشاهدة} other {{countText} مشاهدة}}",
+        "saves": "{count, plural, zero {لا مرات حفظ} one {مرة حفظ واحدة} two {مرتا حفظ} few {{countText} مرات حفظ} many {{countText} مرة حفظ} other {{countText} مرة حفظ}}",
+        "contacts": "{count, plural, zero {لا طلبات تواصل} one {طلب تواصل واحد} two {طلبا تواصل} few {{countText} طلبات تواصل} many {{countText} طلب تواصل} other {{countText} طلب تواصل}}",
+        "bookings": "{count, plural, zero {لا حجوزات} one {حجز واحد} two {حجزان} few {{countText} حجوزات} many {{countText} حجزًا} other {{countText} حجز}}"
+      },
+      "untitled": "إعلان {id}",
+      "listingLink": "إحصاءات هذا الإعلان",
+      "more": "{count, plural, one {وإعلان واحد آخر في «عقاراتي».} two {وإعلانان آخران في «عقاراتي».} few {و{countText} إعلانات أخرى في «عقاراتي».} many {و{countText} إعلانًا آخر في «عقاراتي».} other {و{countText} إعلان آخر في «عقاراتي».}}",
+      "howCounted": "يُحسب كل زائر مرة واحدة في اليوم. لا تُحسب مشاهداتك ولا مشاهدات فريق الموقع والروبوتات، ولا الحجوزات الملغاة.",
+      "unsubscribeText": "لا تريد الملخص الأسبوعي؟ يمكنك إيقافه بنقرة واحدة، وإعادة تشغيله من إعدادات الحساب.",
+      "unsubscribe": "إيقاف الملخص الأسبوعي",
+      "cta": "إلى عقاراتي"
     }
   },
   "ticketStatus": {

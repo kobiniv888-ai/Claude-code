@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useLocale, useTranslations } from "next-intl";
 import {
   BarChart3Icon,
+  CalendarCheckIcon,
   CalendarDaysIcon,
   CheckCircle2Icon,
   EllipsisVerticalIcon,
@@ -48,6 +49,7 @@ import { runListingAction } from "@/lib/account/actions";
 import { daysUntil, ownerActionsFor, type MutatingListingAction, type OwnerListingAction } from "@/lib/account/listing-status";
 import type { MyListing } from "@/lib/account/queries";
 import { formatDate, formatNumber } from "@/lib/format";
+import { CARD_STATS_DAYS, isBookableDeal, type StatsTotals } from "@/lib/listing/stats-math";
 import { cn } from "@/lib/utils";
 import { hostCalendarPath } from "@/components/host-calendar/paths";
 import { ListingStatusBadge } from "./listing-status-badge";
@@ -77,7 +79,11 @@ function primaryAction(actions: OwnerListingAction[], status: MyListing["status"
   return actions.includes("edit") ? "edit" : null;
 }
 
-export function MyListingCard({ listing }: { listing: MyListing }) {
+/**
+ * `stats`: the last CARD_STATS_DAYS days (round 3, brief 6.2: views, saves, contact taps and, for
+ * short stays and hotels, bookings). Without it the card shows the all-time counters.
+ */
+export function MyListingCard({ listing, stats }: { listing: MyListing; stats?: StatsTotals }) {
   const t = useTranslations("account.listings");
   const tCalendar = useTranslations("hostBooking.listingCard");
   const tm = useTranslations("moderation");
@@ -200,21 +206,31 @@ export function MyListingCard({ listing }: { listing: MyListing }) {
             <span>{t("draftStep", { step: formatNumber(listing.wizardStep, locale) })}</span>
           ) : (
             <>
-              <span className="inline-flex items-center gap-1" title={t("counters.views")}>
+              {stats ? (
+                <span className="text-xs">{t("counters.period", { count: CARD_STATS_DAYS, countText: formatNumber(CARD_STATS_DAYS, locale) })}</span>
+              ) : null}
+              <span className="inline-flex items-center gap-1" title={t("counters.views")} data-stat="views">
                 <EyeIcon className="size-4" aria-hidden="true" />
                 <span className="sr-only">{t("counters.views")}</span>
-                {formatNumber(listing.views, locale)}
+                {formatNumber(stats?.views ?? listing.views, locale)}
               </span>
-              <span className="inline-flex items-center gap-1" title={t("counters.contacts")}>
-                <MousePointerClickIcon className="size-4" aria-hidden="true" />
-                <span className="sr-only">{t("counters.contacts")}</span>
-                {formatNumber(listing.contacts, locale)}
-              </span>
-              <span className="inline-flex items-center gap-1" title={t("counters.saves")}>
+              <span className="inline-flex items-center gap-1" title={t("counters.saves")} data-stat="saves">
                 <HeartIcon className="size-4" aria-hidden="true" />
                 <span className="sr-only">{t("counters.saves")}</span>
-                {formatNumber(listing.saves, locale)}
+                {formatNumber(stats?.saves ?? listing.saves, locale)}
               </span>
+              <span className="inline-flex items-center gap-1" title={t("counters.contacts")} data-stat="contacts">
+                <MousePointerClickIcon className="size-4" aria-hidden="true" />
+                <span className="sr-only">{t("counters.contacts")}</span>
+                {formatNumber(stats?.contacts ?? listing.contacts, locale)}
+              </span>
+              {stats && isBookableDeal(listing.dealType) ? (
+                <span className="inline-flex items-center gap-1" title={t("counters.bookings")} data-stat="bookings">
+                  <CalendarCheckIcon className="size-4" aria-hidden="true" />
+                  <span className="sr-only">{t("counters.bookings")}</span>
+                  {formatNumber(stats.bookings, locale)}
+                </span>
+              ) : null}
             </>
           )}
           {(listing.status === "LIVE" || listing.status === "PAUSED") && left !== null ? (

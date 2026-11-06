@@ -667,8 +667,17 @@
         "info": "For information",
         "unchecked": "Not checked yet"
       },
-      "footnote": "Next, the host's mistake check will be added here too: what is missing, inconsistent or unclear.",
-      "stale": "The host saved changes after the automatic checks ran, so these results may be out of date. Approving or restoring runs the checks again, and if they find something new the page updates."
+      "footnote": "The automatic checks run when the host publishes or saves changes. The host's mistake check runs now, on the listing as it is saved.",
+      "stale": "The host saved changes after the automatic checks ran, so these results may be out of date. Approving or restoring runs the checks again, and if they find something new the page updates.",
+      "mistakes": {
+        "title": "Host's mistake check",
+        "summary": "{errors, plural, =0 {Nothing to fix} one {1 thing to fix} other {{errors} things to fix}} · {warnings, plural, =0 {nothing to check} one {1 thing to check} other {{warnings} things to check}}",
+        "none": "All looks good: no mistakes found.",
+        "failed": "The mistake check couldn't run. Refresh the page to try again.",
+        "error": "Blocks publishing",
+        "warning": "Worth checking",
+        "step": "In the form's “{name}” step"
+      }
     }
   },
   "reports": {

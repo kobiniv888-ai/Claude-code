@@ -14,7 +14,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { siteConfig } from "@/config/site";
 import { Link } from "@/i18n/navigation";
 import { pickLocalized } from "@/i18n/locale";
-import { precheckItems, precheckSummary, type PrecheckStatus } from "@/lib/admin/precheck";
+import { precheckItems, precheckMistakes, precheckSummary, type PrecheckStatus } from "@/lib/admin/precheck";
+import { mistakeMessage } from "@/components/listing/mistake-text";
+import { getListingMistakes } from "@/lib/listing/mistake-check-server";
 import { riskLevel } from "@/lib/admin/risk";
 import { hostFlagSummary } from "@/lib/admin/server/flags";
 import { getListingForReview, nextInReview } from "@/lib/admin/server/moderation";
@@ -41,7 +43,7 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
   if (!data) notFound();
   const { listing } = data;
 
-  const [t, tf, tFields, tMod, tRisk, tAdmin, tTimes, settings, next, hostFlags] = await Promise.all([
+  const [t, tf, tFields, tMod, tRisk, tAdmin, tTimes, settings, next, hostFlags, tMistakes, tSteps, mistakeResult] = await Promise.all([
     getTranslations("admin.moderation"),
     getTranslations("admin.moderation.fields"),
     getTranslations("listingFields"),
@@ -52,8 +54,16 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
     getSettings(),
     listing.status === "IN_REVIEW" ? nextInReview(listing.id) : Promise.resolve(null),
     hostFlagSummary(listing.ownerId),
+    // The host's own mistake check (round 3, brief 6.1), run now on the saved listing.
+    getTranslations("wizard.mistakes"),
+    getTranslations("wizard.steps"),
+    getListingMistakes(listing.id).catch((error) => {
+      console.error(`[admin] mistake check of ${listing.id} failed:`, error);
+      return null;
+    }),
   ]);
   const precheck = precheckItems(data.reasons, listing.riskScore !== null);
+  const mistakes = precheckMistakes(mistakeResult);
   const precheckCounts = precheckSummary(precheck);
   const firstListing = data.reasons.some((r) => r.code === "first_listing");
   const n = (v: number) => formatNumber(v, locale);
@@ -308,6 +318,46 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
                 </li>
               ))}
             </ul>
+            <div className="mt-4 grid gap-2 border-t pt-3" data-testid="admin-mistake-check">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <h3 className="inline-flex items-center gap-1.5 text-sm font-semibold">
+                  <PrecheckIcon status={mistakes.status} />
+                  {t("precheck.mistakes.title")}
+                </h3>
+                {mistakes.status !== "unchecked" ? (
+                  <span className="text-xs text-muted-foreground">
+                    {t("precheck.mistakes.summary", { errors: mistakes.errors, warnings: mistakes.warnings })}
+                  </span>
+                ) : null}
+              </div>
+              {mistakes.status === "unchecked" ? (
+                <p className="text-sm text-muted-foreground">{t("precheck.mistakes.failed")}</p>
+              ) : mistakes.issues.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{t("precheck.mistakes.none")}</p>
+              ) : (
+                <ul className="grid gap-1.5">
+                  {mistakes.issues.map((issue, i) => (
+                    <li key={`${issue.code}-${i}`} className="flex items-start gap-2 rounded-lg border bg-background px-2.5 py-2 text-sm" data-mistake={issue.code}>
+                      <PrecheckIcon status={issue.severity === "error" ? "blocked" : "found"} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-pretty">{mistakeMessage(issue, tMistakes, locale)}</span>
+                        {issue.step && tSteps.has(issue.step) ? (
+                          <span className="block text-xs text-muted-foreground">{t("precheck.mistakes.step", { name: tSteps(issue.step) })}</span>
+                        ) : null}
+                      </span>
+                      <span
+                        className={cn(
+                          "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                          issue.severity === "error" ? "bg-destructive text-destructive-foreground" : "bg-muted text-foreground",
+                        )}
+                      >
+                        {issue.severity === "error" ? t("precheck.mistakes.error") : t("precheck.mistakes.warning")}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
             <p className="mt-3 text-xs text-muted-foreground">{t("precheck.footnote")}</p>
           </AdminSection>
 

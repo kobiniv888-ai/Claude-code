@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, type MouseEvent } from "react";
+import { useCallback, useMemo, useState, type MouseEvent } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useLocale, useTranslations } from "next-intl";
@@ -12,6 +12,7 @@ import { FavoriteButton } from "@/components/listing/favorite-button";
 import { Link, useRouter } from "@/i18n/navigation";
 import { formatNumber } from "@/lib/format";
 import type { VideoEmbed } from "@/lib/listing-page/media";
+import { groupPhotosByRoom, type PhotoGroup } from "@/lib/listing-page/photo-groups";
 import type { PagePhoto } from "@/lib/listing-page/types";
 import { cn } from "@/lib/utils";
 import { ShareMenu } from "./share-menu-island";
@@ -50,6 +51,8 @@ export type GalleryProps = {
  *   back / share / save buttons over it, and "All photos" (a grid in a sheet).
  * - From tablet width: a mosaic (1 large + 4) with "Show all photos".
  * - Tapping a photo opens the full-screen viewer (lazy). The video loads only when asked for.
+ * - "All photos" is grouped by room (bedroom, kitchen…) when the host labelled at least two rooms
+ *   (round 3, brief 6.1); the viewer then goes through the photos room by room too.
  */
 export function Gallery({ photos, title, video, tourUrl, backHref, shareUrl, favorite }: GalleryProps) {
   const t = useTranslations("listing.gallery");
@@ -61,7 +64,21 @@ export function Gallery({ photos, title, video, tourUrl, backHref, shareUrl, fav
   const [videoUsed, setVideoUsed] = useState(false);
   if (videoOpen && !videoUsed) setVideoUsed(true);
   const total = photos.length;
-  const openAt = useCallback((index: number) => setViewer({ mounted: true, open: true, index }), []);
+  // Room sections for "All photos" (null: fewer than two rooms labelled, one grid as before).
+  const groups = useMemo(() => groupPhotosByRoom(photos), [photos]);
+  // The viewer's order: room by room when grouped, else the host's order.
+  const viewerPhotos = useMemo(() => (groups ? groups.flatMap((g) => g.photos) : photos), [groups, photos]);
+  /** Opens the viewer at a photo of `photos` (the carousel's and the mosaic's order). */
+  const openAt = useCallback(
+    (index: number) => {
+      const id = photos[index]?.id;
+      const at = id ? viewerPhotos.findIndex((p) => p.id === id) : -1;
+      setViewer({ mounted: true, open: true, index: at === -1 ? index : at });
+    },
+    [photos, viewerPhotos],
+  );
+  /** Opens the viewer at a photo of the grouped grid (already in the viewer's order). */
+  const openInViewer = useCallback((index: number) => setViewer({ mounted: true, open: true, index }), []);
   const allLabel = t("showAll", { count: total, formatted: formatNumber(total, locale) });
 
   const mediaButtons = (className?: string) =>
@@ -139,12 +156,12 @@ export function Gallery({ photos, title, video, tourUrl, backHref, shareUrl, fav
 
       {total > 1 ? (
         <BottomSheet open={gridOpen} onOpenChange={setGridOpen} title={allLabel} size="full" className="md:max-w-4xl">
-          <PhotoGrid photos={photos} onOpen={openAt} />
+          {groups ? <RoomSections groups={groups} total={total} onOpen={openInViewer} /> : <PhotoGrid photos={photos} onOpen={openAt} />}
         </BottomSheet>
       ) : null}
       {viewer.mounted ? (
         <Lightbox
-          photos={photos}
+          photos={viewerPhotos}
           title={title}
           open={viewer.open}
           startIndex={viewer.index}
@@ -258,5 +275,71 @@ function PhotoGrid({ photos, onOpen }: { photos: PagePhoto[]; onOpen: (index: nu
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * "All photos" in room sections ("חדר שינה", "מטבח"…, then the unlabelled ones), with a row of
+ * room chips that jump to a section. `onOpen` takes the index in the viewer's (grouped) order.
+ */
+function RoomSections({ groups, total, onOpen }: { groups: PhotoGroup<PagePhoto>[]; total: number; onOpen: (index: number) => void }) {
+  const t = useTranslations("listing.gallery");
+  const locale = useLocale();
+  const sectionId = (room: string | null) => `gallery-room-${(room ?? "other").toLowerCase()}`;
+  // One wide photo, then two side by side; a photo left alone in its row is wide too.
+  const wide = (i: number, count: number) => i % 3 === 0 || (i % 3 === 1 && i === count - 1);
+  const name = (room: string | null) => (room ? t(`rooms.${room}`) : t("otherPhotos"));
+  const sections = groups;
+  return (
+    <div className="grid gap-5 p-3 sm:p-4">
+      <nav aria-label={t("roomsNav")}>
+        <ul className="flex flex-wrap gap-2">
+          {sections.map((section) => (
+            <li key={section.room ?? "other"}>
+              <button
+                type="button"
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-border bg-card px-4 text-small font-medium text-foreground outline-none hover:bg-surface-muted focus-visible:ring-3 focus-visible:ring-ring/60"
+                onClick={() => document.getElementById(sectionId(section.room))?.scrollIntoView({ block: "start" })}
+              >
+                {name(section.room)}
+                <span className="text-muted-foreground tabular-nums">{formatNumber(section.photos.length, locale)}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </nav>
+      {sections.map((section) => (
+        <section key={section.room ?? "other"} id={sectionId(section.room)} aria-labelledby={`${sectionId(section.room)}-title`} className="grid scroll-mt-3 gap-2.5">
+          <h3 id={`${sectionId(section.room)}-title`} className="flex items-baseline gap-2 text-h3 text-foreground">
+            {name(section.room)}
+            <span className="text-small font-normal text-muted-foreground">
+              {t("sectionCount", { count: section.photos.length, formatted: formatNumber(section.photos.length, locale) })}
+            </span>
+          </h3>
+          <ul className="grid grid-cols-2 gap-2 sm:gap-3">
+            {section.photos.map((photo, i) => (
+              <li
+                key={photo.id}
+                className={cn(wide(i, section.photos.length) ? "col-span-2 aspect-[16/10]" : "aspect-square sm:aspect-[4/3]")}
+              >
+                <button
+                  type="button"
+                  className={cn(TILE, "size-full rounded-xl")}
+                  onClick={() => onOpen(section.start + i)}
+                  aria-label={t("open", { index: section.start + i + 1, total })}
+                >
+                  <GalleryImage
+                    photo={photo}
+                    src={photo.medium}
+                    sizes={wide(i, section.photos.length) ? "(min-width: 768px) 56rem, 100vw" : "(min-width: 768px) 28rem, 50vw"}
+                    className={ZOOM}
+                  />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
   );
 }

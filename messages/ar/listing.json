@@ -93,7 +93,19 @@
     "tour": "جولة 360°",
     "opensNewTab": "(يفتح في علامة تبويب جديدة)",
     "back": "رجوع",
-    "allPhotos": "كل الصور"
+    "allPhotos": "كل الصور",
+    "rooms": {
+      "BEDROOM": "غرفة نوم",
+      "KITCHEN": "مطبخ",
+      "BATHROOM": "حمّام",
+      "LIVING_ROOM": "غرفة معيشة",
+      "VIEW": "إطلالة",
+      "BALCONY": "شرفة",
+      "BUILDING": "المبنى"
+    },
+    "otherPhotos": "صور أخرى",
+    "roomsNav": "الانتقال إلى غرفة",
+    "sectionCount": "{count, plural, one {صورة واحدة} two {صورتان} few {{formatted} صور} many {{formatted} صورة} other {{formatted} صورة}}"
   },
   "share": {
     "button": "مشاركة",

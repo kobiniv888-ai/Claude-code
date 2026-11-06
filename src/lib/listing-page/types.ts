@@ -12,6 +12,7 @@ import type {
   HeatingType,
   KitchenKosher,
   ListingStatus,
+  PhotoRoom,
   PricePeriod,
   PropertyCondition,
   PropertyType,
@@ -29,6 +30,8 @@ export type PagePhoto = {
   medium: string;
   alt: string;
   blurDataUrl: string | null;
+  /** Which room the photo shows (the host's optional label; round 3, brief 6.1). */
+  room?: PhotoRoom | null;
 };
 
 export type OwnerBadges = {

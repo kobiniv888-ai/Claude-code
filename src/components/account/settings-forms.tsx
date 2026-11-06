@@ -534,14 +534,15 @@ export function PreferencesForm({ data }: { data: AccountSettingsData }) {
 
 // ─── Notifications ────────────────────────────────────────────
 
-export function NotificationsForm({ prefs, emailAvailable }: { prefs: NotificationPrefs; emailAvailable: boolean }) {
+export function NotificationsForm({ prefs, emailAvailable, isHost = false }: { prefs: NotificationPrefs; emailAvailable: boolean; isHost?: boolean }) {
   const t = useTranslations("account.settings.notifications");
   const id = useId();
   const { pending, save } = useSave();
   const [value, setValue] = useState(prefs);
-  const emailRows = (["listing", "tickets", ...(siteConfig.features.chat ? (["messages"] as const) : []), "marketing"] as const).map(
-    (key) => key as keyof NotificationPrefs["email"],
-  );
+  // "weeklyStats": the hosts' weekly stats email (round 3, brief 6.2), for accounts with listings.
+  const emailRows = (
+    ["listing", ...(isHost ? (["weeklyStats"] as const) : []), "tickets", ...(siteConfig.features.chat ? (["messages"] as const) : []), "marketing"] as const
+  ).map((key) => key as keyof NotificationPrefs["email"]);
 
   const row = (key: string, label: string, hint: string, checked: boolean, onChange: (v: boolean) => void) => (
     <li key={key} className="flex items-start justify-between gap-4 py-3">

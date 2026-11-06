@@ -132,7 +132,9 @@
     "counters": {
       "views": "Views",
       "contacts": "Contact clicks",
-      "saves": "Saves"
+      "saves": "Saves",
+      "period": "{count, plural, other {Last {countText} days:}}",
+      "bookings": "Bookings"
     },
     "expiresToday": "Expires today",
     "expiresIn": "{count, plural, one {Expires in {countText} day} other {Expires in {countText} days}}",
@@ -191,7 +193,10 @@
     "metrics": {
       "views": "Views",
       "contacts": "Contact clicks",
-      "saves": "Saves"
+      "saves": "Saves",
+      "bookings": "Bookings",
+      "bookedNights": "Nights booked",
+      "roomNights": "Room-nights booked"
     },
     "allTime": "{value} since you posted it",
     "channels": {
@@ -203,12 +208,32 @@
     "table": {
       "toggle": "Show the numbers as a table",
       "caption": "Views, contact clicks and saves per day",
-      "date": "Date"
+      "date": "Date",
+      "captionBookable": "Views, saves, contact clicks, bookings and nights per day"
     },
     "notFound": {
       "title": "Listing not found",
       "body": "This listing doesn't exist or isn't yours.",
       "back": "Back to my places"
+    },
+    "bookedNightsHint": "Nights in this period that guests booked",
+    "roomNightsHint": "Rooms × nights that guests booked in this period",
+    "counting": "Each visitor counts once a day. Not counted: you, the site's team, bots and demo listings. Cancelled bookings don't count.",
+    "notLive": "Views, saves and contact clicks are counted only while the listing is live.",
+    "emptyPeriod": "No data for this period yet. Share the link to your listing so guests can find it.",
+    "bookings": {
+      "title": "Bookings and occupancy",
+      "lead": "Bookings made in this period, and the nights guests booked in it. Cancelled bookings don't count.",
+      "leadHotel": "Bookings made in this period, and the rooms booked in it each night. Occupancy is based on the number of rooms you offer on Bayit.",
+      "occupancy": "Occupancy",
+      "rate": "{value}%",
+      "noRate": "No data",
+      "nightsOf": "{count, plural, one {{booked} of 1 night} other {{booked} of {offered} nights}}",
+      "roomNightsOf": "{count, plural, one {{booked} of 1 room-night} other {{booked} of {offered} room-nights}}",
+      "roomTypesTitle": "By room type",
+      "roomTypeLine": "{count, plural, one {1 room offered} other {{rooms} rooms offered}} · {booked} of {offered} room-nights",
+      "noRoomTypes": "This hotel has no room types yet.",
+      "unnamedRoom": "Unnamed room type"
     }
   },
   "favorites": {
@@ -487,6 +512,10 @@
         "marketing": {
           "label": "Tips and news",
           "hint": "Occasional travel tips, Jewish life in Georgia and new features. Off unless you turn it on."
+        },
+        "weeklyStats": {
+          "label": "Weekly summary of your listings",
+          "hint": "On Sunday morning: last week's views, saves and bookings."
         }
       },
       "whatsappTitle": "WhatsApp",
@@ -546,5 +575,41 @@
       "error": "We couldn't log out all devices. Please try again.",
       "rateLimited": "You've tried several times in a row. Try again in an hour."
     }
+  },
+  "unsubscribe": {
+    "metaTitle": "Weekly summary email",
+    "metaDescription": "Stop or restart the weekly summary of your listings.",
+    "confirm": {
+      "title": "Stop the weekly summary?",
+      "body": "We won't send you the Sunday email with your listings' views, saves and bookings any more. Emails about bookings and your account will still arrive."
+    },
+    "alreadyOff": {
+      "title": "The weekly summary is already off",
+      "body": "You don't get the Sunday email. You can turn it back on here or in your account settings."
+    },
+    "off": {
+      "title": "The weekly summary is off",
+      "body": "We won't send you the weekly summary any more. You can turn it back on at any time, here or in your account settings."
+    },
+    "on": {
+      "title": "The weekly summary is back on",
+      "body": "The next one arrives on Sunday morning."
+    },
+    "invalid": {
+      "title": "This link doesn't work",
+      "body": "The link may have been cut off, or the account was deleted. You can choose which emails you get in your account settings."
+    },
+    "limited": {
+      "title": "Too many tries",
+      "body": "Try again in an hour, or change it in your account settings."
+    },
+    "error": {
+      "title": "Something went wrong",
+      "body": "We couldn't save the change. Please try again in a moment."
+    },
+    "turnOff": "Stop the weekly summary",
+    "turnOn": "Turn the weekly summary back on",
+    "retry": "Try again",
+    "settings": "Go to notification settings"
   }
 }

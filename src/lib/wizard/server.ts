@@ -60,6 +60,7 @@ const photoSelect = {
   alt: true,
   sortOrder: true,
   roomTypeId: true,
+  room: true,
 } satisfies Prisma.ListingPhotoSelect;
 
 type PhotoRow = Prisma.ListingPhotoGetPayload<{ select: typeof photoSelect }>;
@@ -74,6 +75,7 @@ export function toWizardPhoto(photo: PhotoRow): WizardPhoto {
     isCover: photo.isCover,
     alt: photo.alt ?? "",
     roomTypeId: photo.roomTypeId,
+    room: photo.room,
   };
 }
 

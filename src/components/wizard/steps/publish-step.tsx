@@ -28,7 +28,8 @@ import { cn } from "@/lib/utils";
 import { generateTranslations, saveTranslations } from "@/lib/wizard/actions";
 import { missingRequirements, type MissingRequirement } from "@/lib/wizard/requirements";
 import { LIMITS } from "@/lib/wizard/schemas";
-import { isBusinessListing, stepsFor } from "@/lib/wizard/steps";
+import { isBusinessListing, isWizardStepKey, stepsFor } from "@/lib/wizard/steps";
+import { MistakeCheckPanel } from "@/components/listing/mistake-check-panel";
 import type { WizardTranslation } from "@/lib/wizard/types";
 import { CharCount, Section } from "../fields";
 import { CHANNEL_ICONS } from "../icons";
@@ -362,6 +363,7 @@ function PublishCaptcha({ controller }: { controller: NonNullable<StepProps["pub
 export function PublishStep(props: StepProps) {
   const { listing, context, values, kind, photos, roomTypes, goTo, pledge, publish: controller } = props;
   const t = useTranslations("wizard.publish");
+  const tSteps = useTranslations("wizard.steps");
   const locale = useLocale();
   const isEdit = context.mode === "edit";
   const steps = stepsFor(kind);
@@ -382,6 +384,16 @@ export function PublishStep(props: StepProps) {
   return (
     <div className="grid gap-6">
       {missing.length > 0 && <MissingList missing={missing} goTo={goTo} stepNumber={stepNumber} verifyHref={verifyHref} />}
+
+      {/* "בדיקה לפני פרסום" (round 3, brief 6.1): errors block "פרסום" (and the server refuses). */}
+      <MistakeCheckPanel
+        listingId={listing.id}
+        onFix={(step) => {
+          if (isWizardStepKey(step) && steps.includes(step)) goTo(step);
+        }}
+        stepInfo={(step) => (isWizardStepKey(step) && steps.includes(step) ? { number: stepNumber(step), name: tSteps(step) } : null)}
+        onResult={(result) => controller?.setMistakeErrors?.(result?.errors.length ?? 0)}
+      />
 
       <Section title={t("previewTitle")} description={t("previewDescription")} icon={EyeIcon}>
         <div className="grid gap-6 md:grid-cols-[minmax(0,20rem)_1fr]">

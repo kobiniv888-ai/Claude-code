@@ -93,7 +93,19 @@
     "tour": "360° ტური",
     "opensNewTab": "(გაიხსნება ახალ ჩანართში)",
     "back": "უკან",
-    "allPhotos": "ყველა ფოტო"
+    "allPhotos": "ყველა ფოტო",
+    "rooms": {
+      "BEDROOM": "საძინებელი",
+      "KITCHEN": "სამზარეულო",
+      "BATHROOM": "სააბაზანო",
+      "LIVING_ROOM": "მისაღები",
+      "VIEW": "ხედი",
+      "BALCONY": "აივანი",
+      "BUILDING": "შენობა"
+    },
+    "otherPhotos": "სხვა ფოტოები",
+    "roomsNav": "ოთახზე გადასვლა",
+    "sectionCount": "{count, plural, other {{formatted} ფოტო}}"
   },
   "share": {
     "button": "გაზიარება",

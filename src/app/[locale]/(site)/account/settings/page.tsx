@@ -18,6 +18,7 @@ import { Ltr } from "@/components/common/ltr";
 import { PageHeader } from "@/components/common/page-header";
 import { getAccountSettings } from "@/lib/account/queries";
 import { getBookingAlertSettings } from "@/lib/alerts/settings";
+import { hasHostListings } from "@/lib/listing/stats";
 import { SPOKEN_LANGUAGE_OPTIONS } from "@/lib/account/settings-schema";
 import { requireUser } from "@/lib/auth/session";
 import { languageName } from "@/lib/listing-page/helpers";
@@ -37,12 +38,14 @@ export default async function SettingsPage({ params }: Props) {
   setRequestLocale(locale);
   const user = await requireUser({ next: "/account/settings" });
   const t = await getTranslations("account.settings");
-  const [data, alerts, tAlerts, format] = await Promise.all([
+  const [data, alerts, tAlerts, format, isHost] = await Promise.all([
     getAccountSettings(user.id),
     // Booking alerts (round 3): shown to hosts of short stays and hotels.
     headers().then((h) => getBookingAlertSettings(user.id, h)),
     getTranslations("alerts"),
     getFormatter(),
+    // The weekly stats email switch (round 3, brief 6.2) is for accounts with listings.
+    hasHostListings(user.id),
   ]);
   // "email and Telegram", formatted here so the browser's language data can't change it.
   const alertChannelsText =
@@ -81,7 +84,7 @@ export default async function SettingsPage({ params }: Props) {
       </SettingsSection>
 
       <SettingsSection id="notifications" title={t("notifications.title")} lead={t("notifications.lead")}>
-        <NotificationsForm prefs={data.notifications} emailAvailable={!!(data.contactEmail || data.loginEmail)} />
+        <NotificationsForm prefs={data.notifications} emailAvailable={!!(data.contactEmail || data.loginEmail)} isHost={isHost} />
       </SettingsSection>
 
       {alerts?.show ? (

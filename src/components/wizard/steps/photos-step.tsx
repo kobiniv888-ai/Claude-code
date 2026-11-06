@@ -2,12 +2,13 @@
 
 import { useRef } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { CameraIcon, ImagesIcon, ShieldCheckIcon, StampIcon, SunIcon } from "lucide-react";
+import { CameraIcon, ImagesIcon, ShieldCheckIcon, StampIcon, SunIcon, TagIcon } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { siteConfig } from "@/config/site";
 import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { deletePhoto, reorderPhotos, setCoverPhoto, updatePhotoAlt } from "@/lib/wizard/actions";
+import type { PhotoRoom } from "@/generated/prisma/enums";
+import { deletePhoto, reorderPhotos, setCoverPhoto, updatePhotoAlt, updatePhotoRoom } from "@/lib/wizard/actions";
 import type { WizardPhoto } from "@/lib/wizard/types";
 import { Section } from "../fields";
 import { PhotoGrid } from "../photo-grid";
@@ -85,6 +86,17 @@ export function usePhotoActions({
     return true;
   };
 
+  /** The room label under each photo (round 3, brief 6.1): shown at once, saved in the background. */
+  const onRoom = async (id: string, room: PhotoRoom | null) => {
+    const before = photosRef.current;
+    apply((list) => list.map((p) => (p.id === id ? { ...p, room } : p)));
+    const result = await track(updatePhotoRoom(listingId, id, room)).catch(() => null);
+    if (!result?.ok) {
+      apply(() => before);
+      toast.error(errorText(result?.error ?? "network"));
+    }
+  };
+
   const addUploaded = (photo: WizardPhoto) =>
     apply((list) => (list.some((p) => p.id === photo.id) ? list : [...list, photo]));
 
@@ -98,7 +110,7 @@ export function usePhotoActions({
     void onReorder(ids);
   };
 
-  return { onReorder, onSetCover: roomTypeId ? undefined : onSetCover, onDelete, onAlt, onBatchDone, addUploaded };
+  return { onReorder, onSetCover: roomTypeId ? undefined : onSetCover, onDelete, onAlt, onRoom, onBatchDone, addUploaded };
 }
 
 /** Step 7 — at least 5 photos (up to 30): upload, reorder, cover, delete, alt text. */
@@ -156,6 +168,10 @@ export function PhotosStep({ listing, photos, setPhotos, roomTypes, track }: Ste
         {count > 0 ? (
           <>
             <p className="text-sm text-muted-foreground">{t("gridHelp")}</p>
+            <p className="flex items-start gap-2 text-sm text-pretty text-muted-foreground">
+              <TagIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
+              {t("roomHelp")}
+            </p>
             <PhotoGrid photos={photos} actions={actions} disabled={uploads.busy} />
           </>
         ) : (

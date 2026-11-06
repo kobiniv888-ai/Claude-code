@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { countryConfig } from "@/config/countries";
 import { currencyCodes } from "@/config/site";
-import type { DealType, PricePeriod, PropertyType } from "@/generated/prisma/enums";
+import type { DealType, PricePeriod } from "@/generated/prisma/enums";
 import { DEAL_TYPES, PROPERTY_TYPES } from "@/lib/listing/fields";
+import { REFERENCE_STALE_MONTHS } from "@/lib/pricing/reference";
 
 /**
  * Reference prices for the hosts' price guide (round 3, brief 5 and 9): a price RANGE copied by
@@ -32,7 +33,7 @@ export const REFERENCE_LIMITS = {
   maxPrice: 100_000_000,
   maxBedrooms: 20,
   /** Reports older than this are flagged as old in the list (the guide may hide them). */
-  staleMonths: 24,
+  staleMonths: REFERENCE_STALE_MONTHS,
 } as const;
 
 export const REFERENCE_ERROR_CODES = [
@@ -180,11 +181,8 @@ export function dateToMonth(date: Date): string {
   return date.toISOString().slice(0, 7);
 }
 
-/** Is the report older than REFERENCE_LIMITS.staleMonths? */
-export function isStaleReference(sourceMonth: Date, now: Date = new Date()): boolean {
-  const months = (now.getUTCFullYear() - sourceMonth.getUTCFullYear()) * 12 + (now.getUTCMonth() - sourceMonth.getUTCMonth());
-  return months > REFERENCE_LIMITS.staleMonths;
-}
+/** Is the report older than REFERENCE_LIMITS.staleMonths? (Shared with the price guide.) */
+export { isStaleReference } from "@/lib/pricing/reference";
 
 /** Field errors by path from a schema failure; unknown messages read as "invalid_number". */
 export function referenceFieldErrors(error: z.ZodError): Record<string, string[]> {
@@ -197,39 +195,7 @@ export function referenceFieldErrors(error: z.ZodError): Record<string, string[]
   return out;
 }
 
-// ─── Matching (for the phase-4 price guide) ──────────────────
-
-export type ReferenceRow = {
-  cityId: string;
-  neighborhoodId: string | null;
-  dealType: DealType;
-  propertyType: PropertyType | null;
-  bedrooms: number | null;
-  active: boolean;
-  sourceMonth: Date;
-};
-
-export type ReferenceQuery = {
-  cityId: string;
-  neighborhoodId?: string | null;
-  dealType: DealType;
-  propertyType?: PropertyType | null;
-  bedrooms?: number | null;
-};
-
-/**
- * Active rows that fit a listing, most specific first (neighborhood, property type and bedrooms
- * each count), then the newest report. A row with a value that differs never fits; an empty value
- * ("all types", "all sizes", the whole city) fits everything.
- */
-export function matchReferencePrices<T extends ReferenceRow>(rows: readonly T[], query: ReferenceQuery): T[] {
-  const fits = (row: T) =>
-    row.active &&
-    row.cityId === query.cityId &&
-    row.dealType === query.dealType &&
-    (row.neighborhoodId === null || row.neighborhoodId === (query.neighborhoodId ?? null)) &&
-    (row.propertyType === null || row.propertyType === (query.propertyType ?? null)) &&
-    (row.bedrooms === null || row.bedrooms === (query.bedrooms ?? null));
-  const score = (row: T) => (row.neighborhoodId ? 4 : 0) + (row.propertyType ? 2 : 0) + (row.bedrooms !== null ? 1 : 0);
-  return rows.filter(fits).sort((a, b) => score(b) - score(a) || b.sourceMonth.getTime() - a.sourceMonth.getTime());
-}
+// ─── Matching (for the price guide) ──────────────────────────
+// Moved to src/lib/pricing/reference.ts in round 3 phase 4 (public code may not import
+// src/lib/admin); re-exported here for the admin panel and its tests.
+export { matchReferencePrices, type ReferenceQuery, type ReferenceRow } from "@/lib/pricing/reference";

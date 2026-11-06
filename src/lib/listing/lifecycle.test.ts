@@ -1,5 +1,5 @@
 /**
- * Listing lifecycle, risk checks and stats against the local database (DATABASE_URL in .env).
+ * Listing lifecycle and risk checks against the local database (DATABASE_URL in .env).
  * Creates its own users, city, places and listings with a unique prefix and removes them afterwards.
  * Emails are rendered with the real templates and messages, but not sent.
  */
@@ -43,14 +43,13 @@ vi.mock("@/lib/email", async (importOriginal) => {
   };
 });
 
-let deviceHash: string | null = "device-1";
-let userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)";
+const deviceHash: string | null = "device-1";
+const userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)";
 
 const { db } = await import("@/lib/db");
 const lifecycle = await import("./lifecycle");
 const { assessListing, clearBannedWordsCache, isPhotoOfOtherAccount } = await import("@/lib/risk");
 const { approximateLocation, haversineMeters } = await import("@/lib/geo");
-const stats = await import("./stats");
 const { getSettings } = await import("@/lib/settings");
 const { AppError, NotFoundError } = await import("@/lib/errors");
 
@@ -579,33 +578,4 @@ describe("prices in USD", () => {
   });
 });
 
-describe("stats", () => {
-  it("counts views once per device per day, contacts per channel and saves", async () => {
-    const listing = await createListing(ownerB, { status: "LIVE" });
-    deviceHash = `${prefix}-viewer`;
-    expect(await stats.recordListingView(listing.id)).toBe(true);
-    expect(await stats.recordListingView(listing.id)).toBe(false);
-    deviceHash = `${prefix}-viewer-2`;
-    expect(await stats.recordListingView(listing.id, { viewerId: ownerB })).toBe(false); // the owner
-    userAgent = "Mozilla/5.0 (compatible; Googlebot/2.1)";
-    expect(await stats.recordListingView(listing.id)).toBe(false);
-    userAgent = "Mozilla/5.0 (X11; Linux x86_64)";
-    expect(await stats.recordListingView(listing.id)).toBe(true);
-
-    expect(await stats.recordContactClick(listing.id, "WHATSAPP", null)).toBe(true);
-    expect(await stats.recordContactClick(listing.id, "WHATSAPP", ownerA)).toBe(true);
-    expect(await stats.recordContactClick(listing.id, "PHONE", null)).toBe(true);
-    expect(await stats.recordContactClick(listing.id, "PHONE", ownerB)).toBe(false);
-    await stats.recordSave(listing.id, 1);
-    await stats.recordSave(listing.id, 1);
-    await stats.recordSave(listing.id, -1);
-
-    const result = await stats.getListingStats(listing.id, 7);
-    expect(result.days).toHaveLength(7);
-    expect(result.days[6].date).toBe(stats.georgiaDay());
-    expect(result.totals).toEqual({ views: 2, contacts: 3, saves: 2 });
-    expect(result.byChannel).toEqual({ WHATSAPP: 2, PHONE: 1 });
-    expect(result.allTime).toEqual({ views: 2, contacts: 3, saves: 1 });
-    expect(await db.contactClick.count({ where: { listingId: listing.id } })).toBe(3);
-  });
-});
+// Stats (views, saves, contact taps, bookings): src/lib/listing/stats.test.ts.

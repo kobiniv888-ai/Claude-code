@@ -2,8 +2,9 @@
 
 /**
  * Listing page actions. Views are recorded from the browser once the page is shown (not while
- * rendering), so prefetches and link previews do not count; recordListingView dedupes per
- * device and day and skips bots and the owner.
+ * rendering), so prefetches and link previews do not count; recordListingView counts each
+ * visitor once a day and skips the host, staff, bots, prefetches and demo listings
+ * (src/lib/listing/stats-rules.ts).
  */
 import { z } from "zod";
 import { fail, ok, runAction, type ActionResult } from "@/lib/action";
@@ -26,7 +27,7 @@ export async function trackListingView(listingId: string): Promise<ActionResult<
     if (!limit.ok) return ok({ counted: false, signedIn: false });
     const user = await getCurrentUser().catch(() => null);
     const [counted] = await Promise.all([
-      recordListingView(id.data, { viewerId: user?.id ?? null }),
+      recordListingView(id.data, user ? { id: user.id, isStaff: user.isStaff } : null),
       user?.twoFactorVerified
         ? recordAccountView(user.id, id.data).catch((error: unknown) => {
             console.error("[recently-viewed] could not record a view:", error);

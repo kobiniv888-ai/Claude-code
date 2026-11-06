@@ -18,6 +18,7 @@ import { demoUser, demoUserId } from "../users";
 import { ALL_LISTINGS, demoPhotoPath, REMOVED_LISTING_NUMBERS } from "./all";
 import { bookingSettingsFor } from "./booking-settings";
 import photoManifest from "./photo-manifest.json";
+import { demoPhotoRoom } from "./photos";
 import { contactMethodsFor, demoListingId, listingTimeline, priceChangesFor } from "./timeline";
 import type { ListingSeed } from "./types";
 
@@ -180,6 +181,7 @@ async function seedListing(db: PrismaClient, seed: ListingSeed, places: PlaceIds
           id: `${id}-photo-${i + 1}`,
           listingId: id,
           roomTypeId: roomOfPhoto.get(key) ?? null,
+          room: demoPhotoRoom(key),
           url,
           width: file.width,
           height: file.height,
