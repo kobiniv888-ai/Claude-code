@@ -93,7 +93,8 @@ describe("host report flag (2+ reports in 12 months)", () => {
     await report({ kind: "TURNED_AWAY", reason: "CANCELLED_FOR_IDENTITY", priority: "URGENT" });
     expect(await isHostFlagged(ids.host)).toBe(false);
     await report({ status: "DISMISSED" });
-    await report({ targetType: "REVIEW", reviewId: "r1" });
+    // A review report (its review gone: reviewId is a real relation since round 3, phase 5).
+    await report({ targetType: "REVIEW" });
     // A report older than 12 months does not count either.
     await report({ createdAt: new Date(Date.now() - 400 * 24 * 3600 * 1000) });
     expect(await isHostFlagged(ids.host)).toBe(false);

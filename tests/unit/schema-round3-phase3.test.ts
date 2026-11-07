@@ -153,9 +153,12 @@ describe("Report (round 3: turned-away and review reports)", () => {
     expect(after).toMatchObject({ id: report.id, bookingId: null, kind: "TURNED_AWAY" });
   });
 
-  it("accepts a review report with a plain reviewId (no Review table until phase 5)", async () => {
-    const report = await createReport({ targetType: "REVIEW", reviewId: "review-that-does-not-exist-yet", reason: "OFFENSIVE", reporterId: ids.host });
-    expect(report).toMatchObject({ targetType: "REVIEW", reviewId: "review-that-does-not-exist-yet", kind: "GENERAL" });
+  it("refuses a review report whose reviewId points to no review (a relation since round 3, phase 5)", async () => {
+    await expect(
+      createReport({ targetType: "REVIEW", reviewId: "review-that-does-not-exist", reason: "OFFENSIVE", reporterId: ids.host }),
+    ).rejects.toMatchObject({ code: "P2003" });
+    const report = await createReport({ targetType: "REVIEW", reason: "OFFENSIVE", reporterId: ids.host });
+    expect(report).toMatchObject({ targetType: "REVIEW", reviewId: null, kind: "GENERAL" });
   });
 });
 

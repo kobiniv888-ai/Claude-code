@@ -107,3 +107,36 @@ BEGIN
     CREATE UNIQUE INDEX IF NOT EXISTS "RoomType_icalToken_key" ON "RoomType"("icalToken");
   END IF;
 END $$;
+
+-- Round 3, phase 5 (reviews, saved lists, saved searches, sea and ski walking times):
+-- Report."reviewId" gets its foreign key to the new Review table (ON DELETE SET NULL). Until now it
+-- was a plain column, so a report can hold an id that points to no review (there was no Review
+-- table), and adding the key would then fail. Such ids become NULL first; the report itself stays,
+-- with its target type, reason, text and status, the same state as a review report whose review
+-- was removed later. Every other phase-5 change (the new Review, SavedList and SavedSearch tables
+-- with their unique indexes, the nullable or defaulted Listing and Favorite columns, the plain
+-- indexes and the other new foreign keys, whose columns are new) is pushed without a prompt by
+-- itself. Idempotent: once the key exists no report can point nowhere, and the UPDATE changes
+-- nothing. Skipped on a database whose Report table has no "reviewId" yet (the push adds it).
+DO $$
+DECLARE
+  cleared integer;
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'Report' AND column_name = 'reviewId'
+  ) THEN
+    IF to_regclass('public."Review"') IS NULL THEN
+      UPDATE "Report" SET "reviewId" = NULL WHERE "reviewId" IS NOT NULL;
+    ELSE
+      UPDATE "Report" AS r
+      SET "reviewId" = NULL
+      WHERE r."reviewId" IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM "Review" AS v WHERE v."id" = r."reviewId");
+    END IF;
+    GET DIAGNOSTICS cleared = ROW_COUNT;
+    IF cleared > 0 THEN
+      RAISE NOTICE 'before-push: % report(s) pointed to no review; their reviewId is now NULL', cleared;
+    END IF;
+  END IF;
+END $$;

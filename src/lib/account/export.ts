@@ -76,6 +76,8 @@ export const LISTING_EXPORT_COLUMNS = {
   chabadWalkMin: true,
   nearby: false, // cached place data, not the user's
   nearbyUpdatedAt: true,
+  seaWalkMinutes: true, // public walking time (brief 7.3)
+  liftWalkMinutes: true,
   price: true,
   currency: true,
   pricePeriod: true,
@@ -116,6 +118,8 @@ export const LISTING_EXPORT_COLUMNS = {
   contactCount: true,
   saveCount: true,
   reportCount: false, // internal anti-fraud counter
+  reviewCount: true, // public review counters (brief 8.1)
+  ratingSum: true,
   riskScore: false, // internal anti-fraud score
   riskReasons: false,
   lastCheckedAt: true,

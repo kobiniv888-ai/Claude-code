@@ -420,6 +420,10 @@ model User {
   bookingsCancelled     Booking[]             @relation("BookingCanceller")
   pushSubscriptions     PushSubscription[]
   recentlyViewed        RecentlyViewed[]
+  reviewsAsGuest        Review[]              @relation("ReviewGuest")
+  reviewsAsHost         Review[]              @relation("ReviewHost")
+  savedLists            SavedList[]
+  savedSearches         SavedSearch[]
 
   @@index([role])
   @@index([status])
@@ -627,6 +631,12 @@ model Listing {
   /// Cached nearby places with walking times + airport distance. See src/lib/geo.
   nearby              Json?
   nearbyUpdatedAt     DateTime?
+  /// "≈ 5 דק׳ הליכה לים" / "למעליות" (round 3, brief 7.3): walking minutes from the pin to the
+  /// nearest beach (sea towns) or ski lift (ski towns), from the static OpenStreetMap data in
+  /// src/lib/geo/walk-targets.ts. Null outside those towns, without a pin or beyond the cap.
+  /// Recomputed whenever the pin moves. Shown with "≈"; the card tag only at 15 minutes or less.
+  seaWalkMinutes      Int?
+  liftWalkMinutes     Int?
 
   // Price (owner's original currency) + USD-normalised values for filters/sorting.
   price              Decimal?    @db.Decimal(14, 2)
@@ -687,6 +697,11 @@ model Listing {
   contactCount Int @default(0)
   saveCount    Int @default(0)
   reportCount  Int @default(0)
+  /// Real reviews (round 3, brief 8.1): the number of VISIBLE reviews and the sum of their overall
+  /// ratings, changed in the same transaction as any review change (post, hide, unhide). Read them
+  /// with getRatingSummary (src/lib/reviews): the average shows only from 3 reviews on.
+  reviewCount  Int @default(0)
+  ratingSum    Int @default(0)
 
   // Moderation
   riskScore            Int?
@@ -746,6 +761,7 @@ model Listing {
   bookings      Booking[]
   viewedBy      RecentlyViewed[]
   datePrices    DatePrice[]
+  reviews       Review[]
 
   @@index([status, cityId, dealType])
   @@index([status, bumpedAt])
@@ -1019,6 +1035,8 @@ model Booking {
   block           AvailabilityBlock?
   /// Turned-away reports about this booking (round 3, brief 8.2).
   reports         Report[]
+  /// The guest's review of this stay (round 3, brief 8.1): at most one per booking.
+  review          Review?
 
   @@index([listingId, checkIn])
   @@index([guestUserId, checkIn])
@@ -1027,17 +1045,82 @@ model Booking {
   @@index([flaggedForReview])
 }
 
+/// A saved place ("שמורים"). Round 3 (brief 7.2, founder's answer 7): ONE list per place — still
+/// unique per (userId, listingId); `listId` says which of the user's lists it is in, and choosing
+/// another list moves it (src/lib/lists).
 model Favorite {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  listingId String
-  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  id            String     @id @default(cuid())
+  userId        String
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listingId     String
+  listing       Listing    @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  /// The SavedList the place is in. Null (saved before round 3, or its list was deleted) = the
+  /// user's default list, resolved in code.
+  listId        String?
+  list          SavedList? @relation(fields: [listId], references: [id], onDelete: SetNull)
+  /// Price-drop alerts (brief 7.4): the listing's headline price when it was saved, in
+  /// `alertCurrency` (the listing's currency at that moment) and the listing's own price period.
+  /// Moved down to the new price after a price-drop email. Null on places saved before round 3,
+  /// phase 5.
+  alertPrice    Decimal?   @db.Decimal(14, 2)
+  alertCurrency Currency?
   /// Personal note (private to the user).
-  note      String?
-  createdAt DateTime @default(now())
+  note          String?
+  createdAt     DateTime   @default(now())
 
   @@unique([userId, listingId])
+  @@index([listId])
+}
+
+/// A named list of saved places (round 3, brief 7.2; src/lib/lists): "שמורים" is the default list
+/// (isDefault), plus lists like "בטומי באוגוסט". A list can be shared through a private, view-only
+/// link that works without an account. Lists of signed-out visitors stay on their device and are
+/// merged in at sign-in.
+model SavedList {
+  id         String     @id @default(cuid())
+  userId     String
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// User-written; render with dir="auto". Public on the shared page, so it goes through the
+  /// contact-info check.
+  name       String
+  /// The user's default list. One per user, kept in code (no partial unique index).
+  isDefault  Boolean    @default(false)
+  /// The secret in the share link (null = never shared).
+  shareToken String?    @unique
+  /// When sharing was turned on. Null = not shared: the link does not open, whatever the token.
+  sharedAt   DateTime?
+  /// When a place was last saved to this list: the heart saves to the last list used.
+  lastUsedAt DateTime?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  favorites  Favorite[]
+
+  @@index([userId, lastUsedAt])
+}
+
+/// "שמירת חיפוש" (round 3, brief 7.4; price alerts): a search the user saved under a name. At most
+/// one email a day with listings that are new for it.
+model SavedSearch {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// User-written; render with dir="auto".
+  name          String
+  /// The search URL params, normalized (src/lib/listing/search-params): city, deal and property
+  /// type, filters and the dates if chosen.
+  filters       Json
+  /// Paused alerts stay saved but send nothing.
+  active        Boolean   @default(true)
+  /// The last email about this search (at most one a day).
+  lastSentAt    DateTime?
+  /// The last time the alerts cron looked for new matches.
+  lastCheckedAt DateTime?
+  /// Listing ids already sent for this search (capped in code).
+  lastMatchIds  String[]  @default([])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([active, lastCheckedAt])
 }
 
 /// "נצפו לאחרונה" synced to the account (round 3, brief 4; src/lib/recently-viewed). Guests keep
@@ -1087,6 +1170,64 @@ model ListingStatDaily {
 // Trust & safety
 // ─────────────────────────────────────────────────────────────
 
+/// A real review (round 3, brief 8.1; src/lib/reviews): only the guest of a completed booking, once
+/// per booking, from checkout until 14 days later; no reviews for monthly rentals and sales. Shown
+/// with the guest's first name and the month ("דנה · אוקטובר 2026"). FINAL once posted: the review
+/// and the host's one public reply are never edited or deleted by anyone; staff can only hide a
+/// review (logged reason, AuditLog). Listing.reviewCount / ratingSum count the visible ones and
+/// change in the same transaction. Never invented, seeded, imported or bought: demo listings have
+/// none.
+model Review {
+  id                    String    @id @default(cuid())
+  bookingId             String    @unique
+  booking               Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  listingId             String
+  listing               Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  /// Hotels: the room type of the booking (a plain column, no relation; kept if it is removed).
+  roomTypeId            String?
+  guestUserId           String
+  guest                 User      @relation("ReviewGuest", fields: [guestUserId], references: [id], onDelete: Cascade)
+  hostUserId            String
+  host                  User      @relation("ReviewHost", fields: [hostUserId], references: [id], onDelete: Cascade)
+  /// 1–5 stars overall (checked in code).
+  rating                Int
+  /// Optional quick ratings, 1–5 each (checked in code).
+  cleanliness           Int?
+  accuracy              Int?
+  checkIn               Int?
+  communication         Int?
+  location              Int?
+  value                 Int?
+  /// User-written; render with dir="auto". Public, so it goes through the contact-info check.
+  text                  String
+  /// The language the review was written in.
+  language              Locale
+  /// Machine translations { he?, en?, ru?, ar?, ka? }, filled later (src/lib/translate), shown
+  /// with "הצגת המקור".
+  translations          Json?
+  /// The host's one public reply. User-written; render with dir="auto".
+  hostReply             String?
+  hostReplyLanguage     Locale?
+  /// Machine translations of the reply { he?, en?, ru?, ar?, ka? }.
+  hostReplyTranslations Json?
+  hostReplyAt           DateTime?
+  /// Hidden by staff for breaking the rules (never edited). Hidden reviews don't count in
+  /// Listing.reviewCount / ratingSum and are not public.
+  hidden                Boolean   @default(false)
+  /// Staff-only reason (also in AuditLog).
+  hiddenReason          String?
+  hiddenAt              DateTime?
+  /// The staff member who hid it (no relation, like Listing.visitedById).
+  hiddenById            String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  /// Reports about this review (Report.targetType REVIEW).
+  reports               Report[]
+
+  @@index([listingId, hidden, createdAt])
+  @@index([hostUserId, createdAt])
+}
+
 /// Reports are NEVER public. Round 3 (brief 8.2, 9) adds turned-away reports (kind TURNED_AWAY)
 /// and review reports (targetType REVIEW) to the same table and queue.
 model Report {
@@ -1099,9 +1240,9 @@ model Report {
   targetUser           User?          @relation("ReportTargetUser", fields: [targetUserId], references: [id], onDelete: Cascade)
   /// Phase 2 (chat messages).
   messageId            String?
-  /// targetType REVIEW: the reported review. A plain column until the Review table arrives
-  /// (round 3, phase 5), which adds the relation.
+  /// targetType REVIEW: the reported review. Null if the review is gone (SetNull).
   reviewId             String?
+  review               Review?        @relation(fields: [reviewId], references: [id], onDelete: SetNull)
   /// Turned-away reports: the booking the host cancelled or refused, when there is one.
   bookingId            String?
   booking              Booking?       @relation(fields: [bookingId], references: [id], onDelete: SetNull)
@@ -1140,6 +1281,7 @@ model Report {
   @@index([listingId])
   @@index([kind, status, createdAt])
   @@index([targetUserId])
+  @@index([reviewId])
 }
 
 model UserBlock {

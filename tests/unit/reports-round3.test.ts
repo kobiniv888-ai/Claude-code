@@ -487,7 +487,8 @@ describe("automatic host flag (2 or more reports in 12 months, dismissed left ou
     await add("flag3", { kind: "TURNED_AWAY" });
     expect(await hostFlagSummary(users.flag3)).toMatchObject({ reportFlagOpen: false });
     await add("flag4", { kind: "TURNED_AWAY" });
-    await add("flag4", { targetType: "REVIEW", reviewId: id("review") });
+    // A review report (its review gone: reviewId is a real relation since round 3, phase 5).
+    await add("flag4", { targetType: "REVIEW" });
     expect(await hostFlagSummary(users.flag4)).toMatchObject({ reportFlagOpen: false });
   });
 });
