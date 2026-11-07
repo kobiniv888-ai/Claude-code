@@ -125,4 +125,11 @@ Additive only; applied with `prisma/sql/before-push.sql` + `prisma db push`.
 
 ## Open questions
 
-None at the moment.
+Decided without the founder in phase 6 (the conservative reading; tell us to change it):
+
+- **City pages below 3 real listings.** Brief 10 says such a page is noindex and shows "עדיין אין
+  כאן מקומות · פרסמו את שלכם". The page is always noindex below 3 real listings; but the "עדיין אין
+  כאן מקומות" empty state appears only when the page has no places to show at all. A page with
+  places to show (demo ones while the demo data is on, or 1–2 real ones) keeps its cards and adds a
+  "פרסמו את שלכם" band under them, because "no places here yet" above real cards would be false
+  (`cityListingsState` in `src/lib/city-pages/core.ts`).

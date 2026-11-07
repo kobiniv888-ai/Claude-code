@@ -2,6 +2,7 @@ import createIntlMiddleware from "next-intl/middleware";
 import { NextResponse, type NextRequest } from "next/server";
 import { locales, type AppLocale } from "@/config/site";
 import { routing } from "@/i18n/routing";
+import { robotsHeaderFor } from "@/lib/seo";
 
 const intlMiddleware = createIntlMiddleware(routing);
 
@@ -83,9 +84,35 @@ async function bareListingRedirect(request: NextRequest): Promise<NextResponse |
   }
 }
 
+/** The first matcher below: a page (not the API, Next.js internals or a file with an extension). */
+const PAGE_PATH = /^\/(?!api|_next|_vercel|.*\..*)/;
+
+/**
+ * Not a page: the API, optimized images (/_next/image) and files with an extension (public/
+ * photos and icons, the manifest, robots.txt, sitemap.xml). The proxy only adds their X-Robots-Tag.
+ */
+function isNonPagePath(pathname: string): boolean {
+  return !PAGE_PATH.test(pathname);
+}
+
 export default async function proxy(request: NextRequest) {
+  // Round 3, brief 10: every response of an address that isn't SITE_URL's (a codespace, localhost,
+  // a preview) and the private areas everywhere say "noindex, nofollow". Headers only, no database.
+  const robotsTag = robotsHeaderFor({ headers: request.headers, pathname: request.nextUrl.pathname });
+
+  // Not a page (seo-4): no language redirect, CSP or cookie, only the header. robots.txt lets
+  // crawlers fetch everything on a non-production host, so each response must say noindex itself.
+  if (isNonPagePath(request.nextUrl.pathname)) {
+    const response = NextResponse.next();
+    if (robotsTag) response.headers.set("X-Robots-Tag", robotsTag);
+    return response;
+  }
+
   const listingRedirect = await bareListingRedirect(request);
-  if (listingRedirect) return listingRedirect;
+  if (listingRedirect) {
+    if (robotsTag) listingRedirect.headers.set("X-Robots-Tag", robotsTag);
+    return listingRedirect;
+  }
 
   const nonce = btoa(crypto.randomUUID());
   const csp = buildCsp(nonce);
@@ -100,6 +127,7 @@ export default async function proxy(request: NextRequest) {
   const response = intlMiddleware(request) ?? NextResponse.next({ request });
 
   response.headers.set("Content-Security-Policy", csp);
+  if (robotsTag) response.headers.set("X-Robots-Tag", robotsTag);
 
   // A random, first-party device id used only for anti-fraud ("several accounts on one device").
   if (!request.cookies.get(DEVICE_COOKIE)) {
@@ -116,6 +144,14 @@ export default async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Everything except API routes, Next.js internals and files with an extension.
-  matcher: ["/((?!api|_next|_vercel|.*\\..*).*)"],
+  matcher: [
+    // Pages: everything except API routes, Next.js internals and files with an extension.
+    "/((?!api|_next|_vercel|.*\\..*).*)",
+    // The rest a crawler can fetch, for its X-Robots-Tag only (isNonPagePath): the API, optimized
+    // images, and files with an extension outside /_next (public/, robots.txt, sitemap.xml, the
+    // manifest). Not /_next/static: hashed scripts and styles, never shown as search results.
+    "/api/:path*",
+    "/_next/image",
+    "/((?!_next/|_vercel).*\\..*)",
+  ],
 };

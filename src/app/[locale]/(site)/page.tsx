@@ -117,9 +117,14 @@ export default async function HomePage({ params }: Props) {
     searchLabels(locale),
   ]);
 
+  // The first recommended card is near the top in the default order (after the chips): the first
+  // paint may wait for it (RecommendedListings). Not when an admin moved the row further down.
+  const enabledKeys = settings.homeSections.filter((s) => s.enabled).map((s) => s.key);
+  const featuredNearTop = enabledKeys.slice(0, enabledKeys.indexOf("featured")).every((key) => key === "categories");
+
   const sections: Record<HomeSectionKey, () => ReactNode> = {
     categories: () => <CategoryChips locale={locale} />,
-    featured: () => <RecommendedListings locale={locale} listings={recommended} />,
+    featured: () => <RecommendedListings locale={locale} listings={recommended} firstPaintWaitsForCard={featuredNearTop} />,
     cities: () => <Destinations locale={locale} cities={cities} />,
     howItWorks: () => <HowItWorks locale={locale} />,
     listCta: () => <ListCta locale={locale} />,

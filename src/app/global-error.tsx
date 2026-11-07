@@ -7,7 +7,9 @@ import he from "../../messages/he/states.json";
 import ka from "../../messages/ka/states.json";
 import ru from "../../messages/ru/states.json";
 import { fontStyle } from "@/components/layout/fonts";
-import { locales, siteConfig, type AppLocale } from "@/config/site";
+// The language list from its own small module, not @/config/site: this page's code is part of
+// every page's first load, in a chunk of its own, so the whole site configuration came twice.
+import { locales, type AppLocale } from "@/config/locales";
 import { dirFor, isAppLocale } from "@/i18n/locale";
 import "./globals.css";
 
@@ -47,7 +49,7 @@ export default function GlobalError({ error, retry }: { error: unknown; retry: (
   return (
     <html lang={locale} dir={dirFor(locale)} style={fontStyle}>
       <body className="bg-background text-foreground">
-        <title>{`${m.errorTitle} · ${siteConfig.name}`}</title>
+        <title>{m.errorTitle}</title>
         <main className="flex min-h-dvh items-center justify-center px-4 py-10">
           <div className="w-full max-w-lg rounded-3xl border bg-card p-6 text-center shadow-card sm:p-8">
             <div className="flex justify-center">

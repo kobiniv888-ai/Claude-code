@@ -23,8 +23,9 @@ import { parseSearchParams, serializeSearchParams, serializeSearchQuery } from "
 import { getSearchContext } from "@/lib/search/context";
 import { getHolidayMarks, getPlaceNames, getPopularCities } from "@/lib/search/home";
 import { searchBarStateFrom } from "@/lib/search/search-bar";
-import { canonicalSearchPath, dealTitleKey, searchNoIndex } from "@/lib/search/seo";
+import { dealTitleKey, searchIndexing, searchNoIndex } from "@/lib/search/seo";
 import { defaultSearchName, isSearchSaved } from "@/lib/saved-searches/page-state";
+import { listCityPages } from "@/lib/city-pages";
 import { pageMetadata } from "@/lib/seo";
 
 type Props = {
@@ -41,20 +42,24 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const { locale } = await params;
   if (!isAppLocale(locale)) return {};
   const filters = parseSearchParams(await searchParams);
-  const [t, names] = await Promise.all([
+  const [t, names, cityPages] = await Promise.all([
     getTranslations({ locale, namespace: "search.meta" }),
     getPlaceNames(filters.city, filters.neighborhood, locale),
+    // Round 3, brief 10: index a results page only with 3 real listings (none loaded: noindex).
+    searchNoIndex(filters) ? Promise.resolve([]) : listCityPages().catch(() => []),
   ]);
   const key = dealTitleKey(filters.deal);
   const place = placeLabel(names);
   const base = place ? t(`titleIn.${key}`, { place }) : t(`title.${key}`);
   const title = filters.page > 1 ? t("withPage", { title: base, page: formatNumber(filters.page, locale) }) : base;
+  const { noIndex, canonicalPath } = searchIndexing(filters, cityPages);
   return pageMetadata({
     locale,
-    path: canonicalSearchPath(filters),
+    path: canonicalPath,
     title,
-    description: place ? t("descriptionIn", { place }) : t("description"),
-    noIndex: searchNoIndex(filters),
+    // Each deal's landing has its own description (round 3, brief 10: unique per page).
+    description: place ? t("descriptionIn", { place }) : key === "any" ? t("description") : t(`dealDescription.${key}`),
+    noIndex,
   });
 }
 

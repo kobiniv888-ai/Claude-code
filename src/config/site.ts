@@ -10,13 +10,10 @@
  */
 
 import { COUNTRIES, DEFAULT_COUNTRY, PLANNED_COUNTRIES, enabledCountryCodes } from "./countries";
+import { locales, type AppLocale, type Localized } from "./locales";
 
-export const locales = ["he", "en", "ru", "ar", "ka"] as const;
-export type AppLocale = (typeof locales)[number];
-
-export const rtlLocales: readonly AppLocale[] = ["he", "ar"];
-
-export type Localized<T = string> = Record<AppLocale, T>;
+// The languages live in ./locales (light for client code); change them there.
+export { locales, rtlLocales, type AppLocale, type Localized } from "./locales";
 
 export const currencyCodes = ["GEL", "USD", "ILS", "EUR", "GBP", "AED"] as const;
 export type CurrencyCode = (typeof currencyCodes)[number];

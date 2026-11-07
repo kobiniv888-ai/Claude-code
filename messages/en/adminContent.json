@@ -19,6 +19,7 @@
       "too_short": "This is too short",
       "invalid": "Check this field",
       "invalid_slug": "Use lowercase Latin letters, digits and dashes, e.g. old-tbilisi",
+      "reserved_slug": "The site already uses this name (e.g. search or hotels). Choose another name for the address",
       "invalid_url": "Enter a full web address starting with https://",
       "invalid_number": "Enter a number",
       "out_of_range": "This number is out of the allowed range",

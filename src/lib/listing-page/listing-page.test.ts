@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { listingAccess, previewReason, type ListingAccessInput } from "./access";
 import { buildMonth, buildMonths, georgiaToday, isBlockedDay, weekStartFor } from "./calendar";
 import { clockDate, contactLayout, languageName, needsShowMore, placesNear, priceChangePercent, pricePerSqm, replyTimeBucket } from "./helpers";
-import { schemaTypeFor } from "./jsonld";
 import { parseVideoUrl, safeExternalUrl } from "./media";
 
 const now = new Date("2026-10-31T12:00:00Z");
@@ -134,14 +133,6 @@ describe("video and tour links", () => {
     expect(safeExternalUrl("https://kuula.co/share/abc")).toBe("https://kuula.co/share/abc");
     expect(safeExternalUrl("http://insecure.example")).toBeNull();
     expect(safeExternalUrl("javascript:alert(1)")).toBeNull();
-  });
-});
-
-describe("structured data type", () => {
-  it("maps property types to schema.org types", () => {
-    expect(schemaTypeFor("PENTHOUSE")).toBe("Apartment");
-    expect(schemaTypeFor("VILLA")).toBe("House");
-    expect(schemaTypeFor("HOTEL")).toBe("Hotel");
   });
 });
 

@@ -57,6 +57,8 @@ export const SITE_MESSAGES = [
 
 /** Extra per route segment under (site) (those not listed need nothing beyond the two sets above). */
 export const ROUTE_MESSAGES = {
+  // City pages (round 3, brief 10: /he/batumi, /he/batumi/short-stays): the lazy search map.
+  "[city]": ["map", "maps"],
   contact: [
     "contactPage.form",
     "tickets.category",

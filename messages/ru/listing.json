@@ -2,6 +2,7 @@
   "loading": "Загружаем объявление…",
   "meta": {
     "title": "{title} · {city}",
+    "titleWithId": "{title} · {city} · #{id}",
     "from": "от {price}",
     "per": {
       "NIGHT": "{price} за ночь",

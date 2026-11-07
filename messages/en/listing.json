@@ -2,6 +2,7 @@
   "loading": "Loading the listing…",
   "meta": {
     "title": "{title} · {city}",
+    "titleWithId": "{title} · {city} · #{id}",
     "from": "from {price}",
     "per": {
       "NIGHT": "{price} / night",

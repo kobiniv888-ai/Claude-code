@@ -40,7 +40,9 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
     path: listingReviewsPagePath(listingPath(resolved.data.publicId, resolved.data.title.shown), page),
     title: t("metaTitle", { title: resolved.data.title.shown }),
     description: t("metaDescription"),
-    noIndex: resolved.access !== "public" || page > 1,
+    // Never indexed (round 3, brief 10): the listing page shows the newest 30 reviews already, so
+    // this page repeats it, and its description is the same for every listing.
+    noIndex: true,
   });
 }
 

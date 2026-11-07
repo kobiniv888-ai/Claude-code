@@ -53,7 +53,13 @@ dynamic as usual. Bundled docs: `node_modules/next/dist/docs/`.
    paint should load the same way (`next/dynamic`, mounted from the first opening). In client
    components import design-system parts from their own files (`@/components/ds/chip`), not from
    the `@/components/ds` barrel, which pulls every part (sheets, popovers) into the page.
-   `ListingCard` takes `sizes` when the card is narrower than its grid default (carousels).
+   `ListingCard` takes `sizes` when the card is narrower than its grid default (carousels), and
+   `deferPhoto` further down a long list (phones load that photo after the page). Decorative photos
+   below the first screen go in `<AfterLoad>` (`@/components/home/after-load`). A segment's
+   `not-found.tsx` is rendered into the data of every page below it: keep the site frame out of
+   `app/[locale]/not-found.tsx` (public 404s get it from `(site)/` and `[...rest]/`). CSS a page
+   needs for its first paint is imported from `globals.css`, not from a component (that becomes a
+   separate render-blocking request); parts loaded later (maps) may import their own.
 7. **Links and navigation:** import `Link`, `redirect`, `useRouter`, `usePathname` from
    `@/i18n/navigation`, never from `next/link` / `next/navigation` (except `notFound`).
 8. **Server-only code** (`db`, auth, storage, email…) imports `"server-only"`. The Prisma client is

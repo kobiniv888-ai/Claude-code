@@ -4,6 +4,9 @@ import { ListingCard, type ListingCardVariant } from "@/components/listing/listi
 import type { ListingCardData } from "@/lib/listing/types";
 import { cn } from "@/lib/utils";
 
+/** From this card on (0-based), phones load the photo after the page (the first two are on screen). */
+export const DEFER_PHOTOS_FROM = 2;
+
 /** Classes of the results list (shared with the client list next to the map). */
 export function resultListClass(variant: ListingCardVariant, compact: boolean): string {
   // Large screens always show the map next to the list, so the list has 1–2 columns there.
@@ -39,11 +42,14 @@ export function ResultCards({
     <ul data-result-cards="" aria-label={t("listLabel")} className={resultListClass(variant, false)}>
       {items.map((listing, index) => (
         <li key={listing.id} data-public-id={listing.publicId} className="min-w-0">
-          {/* Only the first photo is above the fold on phones; the rest load as they come into view. */}
+          {/* Only the first photo is above the fold on phones; the rest load as they come into view.
+              From the third card on, a phone loads them after the page (native lazy loading would
+              fetch ~1250 px ahead, together with the first card's photo and the scripts). */}
           <ListingCard
             listing={listing}
             variant={variant}
             priority={index === 0}
+            deferPhoto={index >= DEFER_PHOTOS_FROM}
             showCompare
             nights={nights}
             preferTags={preferTags}

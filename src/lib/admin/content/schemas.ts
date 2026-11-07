@@ -2,6 +2,7 @@ import { z } from "zod";
 import { COUNTRIES, DEFAULT_COUNTRY } from "@/config/countries";
 import { normalizePhone } from "@/lib/phone";
 import { locales, type AppLocale } from "@/config/site";
+import { MAX_CITY_SLUG_LENGTH, RESERVED_CITY_SLUGS } from "@/lib/city-pages/slugs";
 import { REQUIRED_LOCALES } from "./localized";
 
 /**
@@ -16,6 +17,7 @@ export const FORM_ERROR_CODES = [
   "too_short",
   "invalid",
   "invalid_slug",
+  "reserved_slug",
   "invalid_url",
   "invalid_number",
   "out_of_range",
@@ -176,11 +178,19 @@ const placeVerifiedDate = z
 
 // ─── Cities and neighborhoods ────────────────────────────────
 
+/**
+ * A city's slug is the first part of its city pages' address (/he/batumi/short-stays): at most
+ * MAX_CITY_SLUG_LENGTH characters, and never a name the site already uses (/he/hotels, /he/post…).
+ */
+export const citySlugSchema = slugSchema
+  .refine((v) => v.length <= MAX_CITY_SLUG_LENGTH, "too_long")
+  .refine((v) => !RESERVED_CITY_SLUGS.has(v), "reserved_slug");
+
 export const citySchema = z
   .object({
     names: requiredLocalized(LIMITS.name),
     aliases: text(LIMITS.aliases).default(""),
-    slug: slugSchema,
+    slug: citySlugSchema,
     lat: latSchema,
     lng: lngSchema,
     timezone: z.enum(CITY_TIMEZONES, { error: "invalid" }),

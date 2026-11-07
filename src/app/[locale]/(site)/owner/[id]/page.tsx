@@ -45,7 +45,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: t("meta.title", { name: owner.name }),
     description: t("meta.description", { name: owner.name, count, formatted: formatNumber(count, locale) }),
     image: owner.image ?? undefined,
-    noIndex: count === 0,
+    // Never indexed (round 3, brief 10, the careful option): a host's name stays out of search
+    // results, and the page only repeats their listing cards. Links are still followed.
+    noIndex: true,
   });
 }
 

@@ -18,6 +18,7 @@ export function PhotoCarousel({
   aspect = "aspect-[16/10]",
   totalCount,
   peek,
+  deferFirst,
   className,
 }: {
   photos: ListingCardPhoto[];
@@ -30,6 +31,8 @@ export function PhotoCarousel({
   /** All photos of the listing ("+N photos" on the last slide when more than shown). */
   totalCount?: number;
   peek?: boolean;
+  /** Load the first photo after the page on phones (further down a long list; see ds/photo-carousel). */
+  deferFirst?: boolean;
   className?: string;
 }) {
   const t = useTranslations("listingCard.carousel");
@@ -43,6 +46,7 @@ export function PhotoCarousel({
       aspect={aspect}
       totalCount={totalCount}
       peek={peek}
+      deferFirst={deferFirst}
       className={className}
     />
   );

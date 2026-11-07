@@ -2,6 +2,7 @@
   "loading": "განცხადება იტვირთება…",
   "meta": {
     "title": "{title} · {city}",
+    "titleWithId": "{title} · {city} · #{id}",
     "from": "{price}-დან",
     "per": {
       "NIGHT": "{price} / ღამე",

@@ -213,8 +213,12 @@ Turn `DB_PUSH_ON_BUILD` and `SEED_ON_BUILD` off once the preview is set up.
    **private** (ID documents, ticket screenshots). Fill in the `S3_*` variables and set
    `STORAGE_DRIVER="s3"`. Private files are encrypted before they are uploaded.
 3. **Hosting.** Import the repository into [Vercel](https://vercel.com). Add every environment
-   variable from your `.env`, with your real domain in `NEXT_PUBLIC_SITE_URL` and
-   `BETTER_AUTH_URL`. The build command is `npm run build`. The scheduled jobs in `vercel.json`
+   variable from your `.env`, with your real domain in `SITE_URL`, `NEXT_PUBLIC_SITE_URL` and
+   `BETTER_AUTH_URL` (the exact address visitors open, with or without `www`). **Without
+   `SITE_URL` Google indexes nothing:** only requests to its host count as the real site; every
+   other address says "noindex" (the server prints a warning at start). On your own server behind
+   a reverse proxy, pass the original `Host` (or `X-Forwarded-Host`) header through. The build
+   command is `npm run build`. The scheduled jobs in `vercel.json`
    (exchange rates, expiring listings, iCal sync, cleanup) start automatically; set `CRON_SECRET`.
 4. **Create the tables** in the production database once: `DATABASE_URL=<prod url> npx prisma db push`
    (or `npx prisma migrate deploy` if you use migrations). Then
@@ -279,6 +283,7 @@ Turn `DB_PUSH_ON_BUILD` and `SEED_ON_BUILD` off once the preview is set up.
 |---|---|
 | `DATABASE_URL` | Postgres connection string |
 | `NEXT_PUBLIC_SITE_URL` | Public address, e.g. `https://bayit.example` (no trailing slash) |
+| `SITE_URL` | **On the real site:** its permanent address, e.g. `https://bayit.ge`. Outgoing links are built from it, and only its host is indexed by Google (empty = every page "noindex") |
 | `BETTER_AUTH_SECRET` | Signs login sessions (`openssl rand -base64 32`) |
 | `APP_ENCRYPTION_KEY` | Encrypts ID documents and 2-step secrets (`openssl rand -base64 32`) |
 | `HASH_SALT` | Salt for hashing IPs and device ids in logs (`openssl rand -hex 16`) |

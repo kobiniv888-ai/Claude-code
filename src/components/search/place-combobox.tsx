@@ -1,12 +1,36 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type Ref } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type Ref } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Building2, MapPin, Search, X } from "lucide-react";
 import type { Localized } from "@/config/site";
-import { matchPlaces, popularGazetteerCities, type PlaceMatch } from "@/lib/places-match";
+import { afterLoadIdle } from "@/lib/idle";
+import type { PlaceMatch } from "@/lib/places-match";
 import type { PlaceValue } from "@/lib/search/search-bar";
 import { cn } from "@/lib/utils";
+
+/**
+ * The gazetteer and its matcher (~5 KB) load when the field is first focused or touched (or once
+ * the page is idle), not with the page: the home page and the search page show this field on
+ * their first screen, but nobody needs a suggestion before tapping it. Until it has arrived, the
+ * list offers the popular cities and "search for …".
+ */
+type Matcher = typeof import("@/lib/places-match");
+let matcher: Matcher | null = null;
+let matcherLoad: Promise<Matcher> | null = null;
+function loadMatcher(): Promise<Matcher> {
+  matcherLoad ??= import("@/lib/places-match").then((module) => (matcher = module));
+  return matcherLoad;
+}
+
+function useMatcher(): [Matcher | null, () => void] {
+  const [loaded, setLoaded] = useState<Matcher | null>(matcher);
+  const request = useCallback(() => {
+    if (!matcher) void loadMatcher().then(setLoaded, () => (matcherLoad = null));
+  }, []);
+  useEffect(() => (matcher ? undefined : afterLoadIdle(request)), [request]);
+  return [loaded ?? matcher, request];
+}
 
 /** A suggestion row (cities and neighborhoods from the gazetteer, or the popular cities). */
 type Suggestion = {
@@ -102,16 +126,20 @@ export function PlaceCombobox({
   const picked = value !== null && value.kind !== "text" && value.label === text;
   const searching = query.length >= MIN_QUERY && !picked;
 
+  const [places, loadPlaces] = useMatcher();
   const found = useMemo(
-    () => (searching ? matchPlaces(query, { limit: MAX_SUGGESTIONS }).map((place) => toSuggestion(place, locale)) : []),
-    [query, searching, locale],
+    () =>
+      searching && places
+        ? places.matchPlaces(query, { limit: MAX_SUGGESTIONS }).map((place) => toSuggestion(place, locale))
+        : [],
+    [query, searching, locale, places],
   );
 
   // The database's popular cities; the gazetteer's when the database has none (e.g. not seeded).
   const popularList: PopularPlace[] =
     popular.length > 0
       ? popular
-      : popularGazetteerCities().map((city) => ({ slug: city.slug, name: nameIn(city.names, locale) }));
+      : (places?.popularGazetteerCities() ?? []).map((city) => ({ slug: city.slug, name: nameIn(city.names, locale) }));
 
   const popularItems: Suggestion[] = popularList.map((city) => ({
     key: `p:${city.slug}`,
@@ -236,7 +264,11 @@ export function PlaceCombobox({
           value={text}
           placeholder={t("wherePlaceholder")}
           onChange={(event) => onType(event.target.value)}
-          onFocus={() => setOpen(true)}
+          onPointerDown={loadPlaces}
+          onFocus={() => {
+            loadPlaces();
+            setOpen(true);
+          }}
           onClick={() => setOpen(true)}
           onKeyDown={onKeyDown}
           className={cn(
@@ -264,7 +296,9 @@ export function PlaceCombobox({
       >
         <p className="px-4 pt-3 pb-1 text-xs font-semibold text-muted-foreground">{heading}</p>
         <ul id={listId} role="listbox" aria-label={heading} className="max-h-80 overflow-y-auto p-1.5">
-          {items.map((item, index) => {
+          {/* Options only while open: closed, they were ~5 KB of hidden markup (and icons) in the
+              first screen of the home page, ahead of its largest paint. */}
+          {(showList ? items : []).map((item, index) => {
             const Icon = item.kind === "text" ? Search : item.kind === "neighborhood" ? MapPin : Building2;
             return (
               <li

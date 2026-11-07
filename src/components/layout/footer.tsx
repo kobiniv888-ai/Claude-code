@@ -1,5 +1,6 @@
 import { ChevronDown } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
+import { FooterCityLinks } from "@/components/city-page/footer-city-links";
 import { brandIcons } from "@/components/common/brand-icons";
 import { Container } from "@/components/common/container";
 import { LogoLink } from "@/components/common/logo";
@@ -141,6 +142,9 @@ export async function Footer() {
             ))}
           </div>
         </div>
+
+        {/* Round 3, brief 10: every page links to the city pages. */}
+        <FooterCityLinks locale={locale} />
 
         <div className="mt-8 flex flex-col-reverse gap-6 border-t pt-6 sm:mt-12 sm:flex-row sm:items-center sm:justify-between">
           <div className="grid gap-1 text-xs text-muted-foreground">

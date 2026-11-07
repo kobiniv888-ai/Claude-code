@@ -87,9 +87,24 @@ describe("schemas", () => {
     }
   });
 
+  it("refuses a city slug the site already uses as an address, or longer than the city pages allow (seo-6)", () => {
+    for (const slug of ["hotels", "Search", "post", "rent", "opengraph-image", "admin"]) {
+      const result = citySchema.safeParse({ ...city, slug });
+      expect(result.success, slug).toBe(false);
+      if (!result.success) expect(issuesToFieldErrors(result.error).slug, slug).toEqual(["reserved_slug"]);
+    }
+    const long = citySchema.safeParse({ ...city, slug: "a".repeat(61) });
+    expect(long.success).toBe(false);
+    if (!long.success) expect(issuesToFieldErrors(long.error).slug).toEqual(["too_long"]);
+    expect(citySchema.safeParse({ ...city, slug: "a".repeat(60) }).success).toBe(true);
+    expect(citySchema.safeParse({ ...city, slug: "hotels-batumi" }).success).toBe(true);
+    // Neighborhoods are not addresses of their own: their slugs keep the shared rule.
+    expect(slugSchema.safeParse("hotels").success).toBe(true);
+  });
+
   it("validates place phone (E.164) and website", () => {
     const base = { type: "SYNAGOGUE", names, lat: 41.7, lng: 44.8 };
-    expect(placeSchema.safeParse({ ...base, phone: "+995322556500", website: "https://example.org" }).success).toBe(true);
+    expect(placeSchema.safeParse({ ...base, phone: "+995322123456", website: "https://example.org" }).success).toBe(true);
     const bad = placeSchema.safeParse({ ...base, phone: "0322", website: "javascript:alert(1)" });
     expect(bad.success).toBe(false);
     if (!bad.success) {

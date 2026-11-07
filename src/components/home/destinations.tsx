@@ -7,6 +7,7 @@ import { Link } from "@/i18n/navigation";
 import { formatNumber } from "@/lib/format";
 import type { HomeCity } from "@/lib/home/cities";
 import { searchPath } from "@/lib/listing/urls";
+import { AfterLoad } from "./after-load";
 import { HomeSection } from "./home-section";
 
 /** The photo is 140px wide on phones, 176px from 640px, ~150px in the desktop grid. */
@@ -38,13 +39,17 @@ export async function Destinations({ locale, cities }: { locale: AppLocale; citi
                 className="group block rounded-card outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
                 <span className="relative block aspect-[4/3] overflow-hidden rounded-card bg-surface-muted" aria-hidden="true">
-                  {slot ? (
-                    <PhotoSlot slot={slot} sizes={SIZES} alt="" className="size-full" />
-                  ) : city.photoUrl ? (
-                    <Image src={city.photoUrl} alt="" fill sizes={SIZES} className="object-cover" />
-                  ) : (
-                    <PhotoPlaceholder label={tPhotos("comingSoon")} className="size-full" />
-                  )}
+                  {/* Below the first screen: the (decorative) photos load after the page, so they
+                      never compete with the first card photo (./after-load.tsx). */}
+                  <AfterLoad>
+                    {slot ? (
+                      <PhotoSlot slot={slot} sizes={SIZES} alt="" className="size-full" />
+                    ) : city.photoUrl ? (
+                      <Image src={city.photoUrl} alt="" fill sizes={SIZES} className="object-cover" />
+                    ) : (
+                      <PhotoPlaceholder label={tPhotos("comingSoon")} className="size-full" />
+                    )}
+                  </AfterLoad>
                 </span>
                 <span className="mt-2 block truncate text-[0.9375rem] leading-snug font-medium text-foreground group-hover:underline" dir="auto">
                   {city.name}

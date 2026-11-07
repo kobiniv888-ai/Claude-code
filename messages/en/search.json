@@ -18,7 +18,14 @@
     },
     "withPage": "{title} – page {page}",
     "description": "Apartments, houses, hotels and homes for sale across Georgia, with kosher and Shabbat-friendly details, synagogue walking times and direct contact with owners.",
-    "descriptionIn": "Homes in {place}: kosher and Shabbat-friendly details, walking time to the synagogue, verified owners and direct contact with no booking fees."
+    "descriptionIn": "Homes in {place}: kosher and Shabbat-friendly details, walking time to the synagogue, verified owners and direct contact with no booking fees.",
+    "dealDescription": {
+      "rent": "Apartments and houses for rent across Georgia, for a few nights or by the month, with kosher and Shabbat-friendly details, synagogue walking times and direct contact with owners.",
+      "shortStay": "Apartments and houses for a few nights across Georgia, with kosher and Shabbat-friendly details, synagogue walking times and direct contact with hosts.",
+      "monthly": "Apartments and houses to rent by the month across Georgia, with kosher and Shabbat-friendly details, synagogue walking times and direct contact with owners.",
+      "buy": "Apartments and houses for sale across Georgia, with the price per square meter, kosher and Shabbat-friendly details and direct contact with owners.",
+      "hotels": "Hotels and guesthouses across Georgia, with their room types, kosher and Shabbat-friendly details and synagogue walking times."
+    }
   },
   "bar": {
     "label": "Search homes",

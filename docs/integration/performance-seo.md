@@ -344,6 +344,73 @@ setting changed nothing measurable, so `next.config.ts` is unchanged.
    button when they are near the screen on a tall phone); this counts into its blocking time on some
    runs.
 
+## Round 3 speed pass (2026-11-07, phase 6)
+
+Production build (`NEXT_DIST_DIR=.next-4692 next build` + `next start -p 4692`), Lighthouse 12.8.2
+mobile preset (simulated throttling), Chromium 1243 from `/opt/pw-browsers`, `--headless=new
+--no-sandbox`, HTTP/1.1 + gzip as `next start` serves it, signed out. "Warm" = after one request per
+page (and, after the changes, after the server's own warm-up). Pages: `/he`, `/he/search`,
+`/he/listing/89-…`, `/he/batumi/short-stays`. Other engineers' servers and builds shared the 4 CPUs
+(load 0.6–3.7), so single runs move by ±2.
+
+| Page | Before (median · min of 5) | After (median · min of 5) |
+|---|---|---|
+| `/he` (warm) | 91 · 89 (92/92/89/90/91), LCP 3.41 s, TBT 84 ms | **92 · 90** (92/92/90/92/92), LCP 3.19 s, TBT 99 ms; 15 runs over the last three builds: median 92, min 89 |
+| `/he` right after a fresh `next start` (no warm-up from outside) | 85–86 (LCP 3.96 s: the first card photo was converted to AVIF on Lighthouse's request, ~0.5 s) | **89–92** (6 runs: 89/92/92/92/89/92); without the new warm-up: 81–85 |
+| `/he/search` | 88 · 82, LCP 3.70 s, TBT 128 ms | **89 · 83**, LCP 3.51 s, TBT 160 ms |
+| listing | 90 · 90, LCP 3.41 s | **91 · 90**, LCP 3.40 s |
+| `/he/batumi/short-stays` | 92 · 89, LCP 3.19 s | **93 · 89**, LCP 3.12 s |
+
+CLS is 0 on all pages in all runs except one `/he` run during a cold start under heavy load (0.044,
+the cookie banner, which sits at the bottom of the screen: its text reflowed when a font arrived).
+
+### What decides the home page's score here (measured)
+
+Lantern simulates the LCP from the requests that finished, and the main-thread tasks that ran,
+before the largest paint was observed. On localhost the scripts (~240 KB) usually arrive before that
+paint, so they count. Three things made single runs drop to 86–89:
+
+1. **The photo painted a frame after the title.** When the stylesheet arrived early, Chrome painted
+   the header and title before the parser had reached the first card; the photo came one frame later,
+   after the scripts had arrived and React DOM had run (LCP 3.95 s instead of 3.2 s).
+2. **Below-the-fold photos arrived before the first paint.** Native lazy loading starts every photo
+   within ~1250 px of the screen at the first layout: the city photos on the home page and, on the
+   search page, the photos of cards 3–8 (+170 KB before the largest paint).
+3. **A cold server.** The first request of the first card photo is converted to AVIF (~0.5 s); the
+   first render takes ~0.9 s.
+
+### What changed
+
+| Change | Files | Effect |
+|---|---|---|
+| **The first paint waits for the first card.** The home page puts `<link rel="expect" href="#home-first-card" blocking="render">` in `<head>` (React hoists it) and wraps the first recommended card in that id (`display: contents`), so the title and the photo paint in the same frame. Only when the row is near the top (an admin can move it). Without the element the page renders once parsed. | `home/recommended-listings.tsx`, `(site)/page.tsx` | Removes case 1; the first paint comes ~10 KB of HTML later. |
+| **City photos load after the page** (`AfterLoad`, a tiny client component: renders its children after the window's load event). The tiles keep their size and muted background. | `home/after-load.tsx`, `home/destinations.tsx` | −17 KB before the first paint in the runs where they came first. |
+| **Search results: photos from the third card on load after the page on phones**, then as each card comes within a screen of view (one card at a time, so the load event does not re-render every card). Wider screens start at hydration. Blurred preview until then. Optional `deferPhoto` on `ListingCard` / `deferFirst` on the ds `PhotoCarousel`. | `ds/photo-carousel.tsx`, `listing/photo-carousel.tsx`, `listing/listing-card.tsx`, `search/result-cards.tsx` | Search: 8 → 2 photos before the first paint. |
+| **The server warms itself after `next start`** (`src/lib/warm-start.ts`, from `instrumentation.ts`): the main language's home page and its preloaded photo (phone widths) right away, the other home pages and the search page 20 s later; one request at a time, never throws, logs one line. Off on Vercel, outside production and with `WARM_ON_START=0`. | `lib/warm-start.ts` (+ test), `instrumentation.ts` | Cold `/he` 85 → 89–92; the first visitor no longer waits ~0.9 s for the first render. |
+| **The language-level 404 no longer carries the site frame.** Next.js renders `app/[locale]/not-found.tsx` into the data of every page of the language; it rendered the whole `SiteShell` (header, footer, bottom bar, cookie banner) — 41 KB of RSC data on every page. The content moved to `layout/not-found-view.tsx`; `(site)/not-found.tsx` and `[...rest]/not-found.tsx` (with a `[...rest]/layout.tsx` frame) show it inside the site frame; `[locale]/not-found.tsx` (admin and dev addresses) shows it with the logo only. | `app/[locale]/not-found.tsx`, `(site)/not-found.tsx`, `[...rest]/layout.tsx`, `[...rest]/not-found.tsx`, `layout/not-found-view.tsx` | Home HTML 424 → 380 KB raw (−4 KB gzip), less to parse on every page. |
+| **The header's stylesheet is part of `globals.css`.** Imported by a client component, it was a third render-blocking CSS request (944 bytes) on every page. | `globals.css`, `layout/header-shell.tsx` | FCP 1.52 → 1.40 s on `/he`. |
+| **The last-resort error page no longer brings the site configuration.** It is part of every page's first load in a chunk of its own and imported `@/config/site` (cities, countries…), so that module came twice. The language list moved to `config/locales.ts` (re-exported by `config/site.ts`); `@/i18n/locale` uses it too. | `config/locales.ts`, `config/site.ts`, `i18n/locale.ts`, `app/global-error.tsx` | −3 KB gzip on every page. |
+| **"המשך מאיפה שעצרתם" loads its code only when it shows** (`deferredIsland`): at once with device history or a signed-in account, otherwise after the first interaction or idle. | `home/continue-block-island.tsx`, `home/continue-section.tsx` | Off the home page's first load for first visits. |
+| **The place gazetteer loads at the first tap on "Where"** (or when idle); the closed list renders no options (they were ~5 KB of hidden markup before the first card). | `search/place-combobox.tsx` | −~5 KB gzip JS on home; less HTML before the largest paint. |
+| **The navigation skeletons load when idle** (or at the first touch); a tap before that keeps the page visible until they arrive. | `layout/navigation-skeleton.tsx` | −1.6 KB gzip on every page. |
+
+Checked in the production build (Playwright, 390 px he light/dark, 1440 px en, 360 px ka): no
+horizontal overflow; city photos appear; "Where" suggests and picks; the home tabs switch the row;
+a returning visitor gets "המשך מאיפה שעצרתם"; `/he/x` and `/he/a/b/c` answer 404 inside the site
+frame; search photos appear when scrolled to (phone) and at once on a computer; a card tap opens the
+listing; no console errors. Unit tests: `tests/unit/home-first-load.test.ts`,
+`src/lib/warm-start.test.ts`; e2e: `tests/e2e/speed.spec.ts`.
+
+### What is left
+
+1. **The script/paint race.** In ~1 run in 7 the scripts and React DOM still finish before the
+   first paint and the score is 88–90 instead of 92–93. The remaining levers are bytes: React DOM
+   (73 KB), the Next.js runtime (37 KB), intl-messageformat (12 KB, needed while client components
+   format messages), the class merger tables (11 KB).
+2. **Search** (89): hydrating ~17 cards is its largest task (TBT 160–240 ms).
+3. Measure the deployed site (HTTP/2, brotli, CDN) with PageSpeed Insights: earlier proxy tests put
+   the same build ~1 s lower in LCP.
+
 ## Link crawler (production)
 
 Playwright opens every internal `<a href>` in a new tab at 1280 px. It records the status, console

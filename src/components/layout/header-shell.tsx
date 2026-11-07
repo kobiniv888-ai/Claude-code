@@ -3,7 +3,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { usePathname } from "@/i18n/navigation";
 import { headerScrollStep } from "./header-scroll";
-import "./header-scroll.css";
+// Its stylesheet (./header-scroll.css) is part of src/app/globals.css: imported here, it was a
+// separate render-blocking request on every page.
 
 /**
  * The sticky header frame: a solid purple bar (dark mode: near-black). On phones and tablets (< 1024px) it slides out of view while scrolling down and comes

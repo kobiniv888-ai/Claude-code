@@ -85,6 +85,7 @@ export function ListingCard({
   listing,
   variant = "grid",
   priority = false,
+  deferPhoto = false,
   sizes,
   showCompare = false,
   nights = null,
@@ -96,6 +97,11 @@ export function ListingCard({
   variant?: ListingCardVariant;
   /** Load the first photo eagerly (cards above the fold). */
   priority?: boolean;
+  /**
+   * Further down a long list: on a phone the photo loads after the page instead of with it
+   * (its blurred preview shows until then). See ds/photo-carousel `deferFirst`.
+   */
+  deferPhoto?: boolean;
   /**
    * next/image `sizes` for the photo when the card is narrower than the variant's default
    * (e.g. a carousel row of ~66vw cards); otherwise the variant's grid/list/compact widths.
@@ -158,6 +164,7 @@ export function ListingCard({
           href={listing.href}
           sizes={sizes ?? (isCompact ? COMPACT_SIZES : isList ? LIST_SIZES : GRID_SIZES)}
           priority={priority}
+          deferFirst={deferPhoto}
           aspect={isCompact ? "h-full min-h-30" : isList ? "aspect-[4/3] sm:aspect-auto sm:h-full sm:min-h-56" : "aspect-[4/3]"}
         />
         {photoTag && (

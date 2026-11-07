@@ -2,6 +2,9 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "./styles/bayit.css";
+/* The header's slide-away rules (header-shell.tsx). Imported here, not from the component: a CSS
+   file imported by a client component becomes a separate render-blocking stylesheet request. */
+@import "../components/layout/header-scroll.css";
 
 /*
  * The public stylesheet: every page loads it from the root layout, and it blocks the first paint.

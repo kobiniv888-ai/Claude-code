@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Container } from "@/components/common/container";
 import { ContactOptions } from "@/components/help/contact-options";
-import { FaqJsonLd } from "@/components/help/faq-json-ld";
 import { getPublishedFaq } from "@/components/help/get-faq";
 import { HelpCenter } from "@/components/help/help-center";
 import { absoluteUrl, localizedPath, pageMetadata, siteName } from "@/lib/seo";
@@ -28,7 +27,6 @@ export default async function HelpPage({ params }: Props) {
 
   return (
     <div className="pb-16">
-      <FaqJsonLd items={items} url={pageUrl} />
       <HelpCenter items={items} pageUrl={pageUrl} />
       <Container size="default" className="max-w-6xl pt-12">
         <ContactOptions />

@@ -2,6 +2,7 @@
   "loading": "טוען את המודעה…",
   "meta": {
     "title": "{title} · {city}",
+    "titleWithId": "{title} · {city} · #{id}",
     "from": "החל מ-{price}",
     "per": {
       "NIGHT": "{price} ללילה",

@@ -2,6 +2,7 @@
   "loading": "جارٍ تحميل الإعلان…",
   "meta": {
     "title": "{title} · {city}",
+    "titleWithId": "{title} · {city} · #{id}",
     "from": "ابتداءً من {price}",
     "per": {
       "NIGHT": "{price} / ليلة",

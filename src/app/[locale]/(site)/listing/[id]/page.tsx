@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { Suspense } from "react";
+import { Fragment, Suspense } from "react";
 import { ContactProvider, type ContactAvailability } from "@/components/contact/contact-provider";
 import { MobileContactBar } from "@/components/contact/mobile-contact-bar";
 import { Container } from "@/components/common/container";
@@ -41,14 +41,16 @@ import { isAppLocale } from "@/i18n/locale";
 import { Link, redirect } from "@/i18n/navigation";
 import { isBlockedBetween } from "@/lib/contact/server";
 import { stayQuery, stayRequestFrom } from "@/lib/contact/message";
-import { formatMoney } from "@/lib/format";
+import { findCityPageCity } from "@/lib/city-pages/server";
+import { formatArea, formatMoney } from "@/lib/format";
 import { isShabbatOrHolidayNow } from "@/lib/hebcal";
 import { previewReason } from "@/lib/listing-page/access";
 import { georgiaToday } from "@/lib/listing-page/calendar";
 import { getCardContext } from "@/lib/listing-page/context";
 import { hasKosherShabbat, listingHighlights, walkHighlight } from "@/lib/listing-page/highlights";
-import { buildListingJsonLd } from "@/lib/listing-page/jsonld";
 import { getListingPaths, isListingSaved } from "@/lib/listing-page/load";
+import { listingBreadcrumbs, listingMetaLead, listingMetaTitle, listingPlace } from "@/lib/listing-page/meta";
+import { sameTitleInCity } from "@/lib/listing-page/same-title";
 import { parseVideoUrl, safeExternalUrl } from "@/lib/listing-page/media";
 import { verifiedNearestSynagogue } from "@/lib/listing-page/places";
 import { resolveListing } from "@/lib/listing-page/resolve";
@@ -57,8 +59,7 @@ import type { ListingPageData } from "@/lib/listing-page/types";
 import { getSimilarListings } from "@/lib/listing/queries";
 import { hasWelcomePledge } from "@/lib/pledge/pledge";
 import { listingPath, listingSlugParam, searchPath } from "@/lib/listing/urls";
-import { absoluteMediaUrl } from "@/lib/media";
-import { absoluteUrl, localizedPath, pageMetadata, X_DEFAULT_LOCALE } from "@/lib/seo";
+import { absoluteUrl, breadcrumbJsonLd, localizedPath, metaDescription, pageMetadata, X_DEFAULT_LOCALE } from "@/lib/seo";
 import { isShabbatModeActive } from "@/lib/settings";
 
 type Props = {
@@ -84,17 +85,38 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const resolved = await resolveListing(locale, id);
   if (!resolved) return { title: t("notFound.title"), robots: { index: false, follow: true } };
   const { data, access } = resolved;
-  const place = [data.neighborhoodName, data.city?.name].filter(Boolean).join(", ");
+  const indexable = access === "public" && !data.isDemo;
+  const [tFacts, titleTaken] = await Promise.all([
+    getTranslations({ locale, namespace: "listingFields.facts" }),
+    // Only an indexed listing needs a title no other listing in its city has (seo-10).
+    indexable && data.city ? sameTitleInCity({ id: data.id, citySlug: data.city.slug, title: data.title.original }) : false,
+  ]);
+  const place = listingPlace(data.neighborhoodName, data.city?.name);
   const price = priceText(data, locale, t as never);
   const path = listingPath(data.publicId, data.title.shown);
   const meta = pageMetadata({
     locale,
     path,
-    title: data.city ? t("meta.title", { title: data.title.shown, city: data.city.name }) : data.title.shown,
-    description: [price, place].filter(Boolean).join(" · ") || data.description.shown.slice(0, 160),
+    // "{title} · {neighborhood}, {city}", plus "· #ID" when another listing there has the same title.
+    title: listingMetaTitle(
+      { title: data.title.shown, cityName: data.city?.name ?? null, neighborhoodName: data.neighborhoodName, publicId: data.publicId, titleTaken },
+      t as never,
+    ),
+    // Price, size and place, then the start of the owner's text: two places with the same price in
+    // the same area still get different descriptions (round 3, brief 10).
+    description: metaDescription(
+      listingMetaLead(
+        { price, bedrooms: data.bedrooms, size: data.sizeSqm ? formatArea(data.sizeSqm, locale) : null, place },
+        tFacts as never,
+      ),
+      data.description.shown,
+    ),
     // The photo with the purple bar and logo: ./opengraph-image.tsx.
     image: "route",
-    noIndex: access !== "public",
+    // Round 3, brief 10: demo listings are never indexed ("noindex, nofollow"), whatever the demo
+    // data setting; neither are previews of listings that aren't public.
+    noIndex: !indexable,
+    noFollow: data.isDemo,
   });
   const paths = await getListingPaths(data.id);
   if (paths) {
@@ -138,8 +160,11 @@ export default async function ListingPage({ params, searchParams }: Props) {
   const inventory = usesRoomInventory(data.dealType);
   const hotelRooms = inventory ? data.roomTypes.filter((room) => room.quantity !== undefined) : [];
   const instantCandidate = data.bookingMode === "INSTANT" && isInstantDealType(data.dealType) && (!inventory || hotelRooms.length > 0);
-  const [t, instant, shabbatMode, blocked, isFavorite, synagogue] = await Promise.all([
+  const [t, tCity, cityHasPages, instant, shabbatMode, blocked, isFavorite, synagogue] = await Promise.all([
     getTranslations({ locale, namespace: "listing" }),
+    getTranslations({ locale, namespace: "cityPages" }),
+    // The city's pages exist (an active city with a usable slug; the places cache, no query).
+    data.city ? findCityPageCity(data.city.slug).then((city) => city !== null, () => false) : Promise.resolve(false),
     instantCandidate ? hostInstantGate(ownerId, alertEnvironment(requestHeaders)).then((gate) => gate.ok) : Promise.resolve(false),
     isShabbatModeActive(),
     user && !isOwner ? isBlockedBetween(user.id, ownerId) : Promise.resolve(false),
@@ -166,15 +191,29 @@ export default async function ListingPage({ params, searchParams }: Props) {
   const path = listingPath(data.publicId, data.title.shown);
   const shareUrl = absoluteUrl(localizedPath(locale, path));
   const place = [data.neighborhoodName, data.city?.name].filter(Boolean).join(" · ");
+  // "Back to results" (the gallery's back button, "Similar places"): the city's search.
   const cityFilter = data.city ? searchPath({ city: data.city.slug }) : "/search";
   const isStay = data.dealType === "SHORT_STAY" || data.dealType === "HOTEL_ROOM";
   const isSale = data.dealType === "SALE";
   const originalLanguage = siteConfig.i18n.nativeNames[data.originalLocale];
-  const jsonLd = buildListingJsonLd(data, {
-    url: shareUrl,
-    images: data.photos.slice(0, 6).map((p) => absoluteMediaUrl(p.large)),
-    inLanguage: locale,
+  // The trail above the gallery: Home → the city's overview → its page of this type → the listing,
+  // like the city pages' own (seo-7); the search only for a city without pages.
+  const crumbs = listingBreadcrumbs({
+    title: data.title.shown,
+    path,
+    dealType: data.dealType,
+    city: data.city,
+    cityHasPages,
+    citySearchPath: cityFilter,
+    labels: {
+      home: tCity("breadcrumb.home"),
+      search: t("breadcrumbs.search"),
+      types: { shortStays: tCity("types.shortStays"), monthly: tCity("types.monthly"), sale: tCity("types.sale"), hotels: tCity("types.hotels") },
+    },
   });
+  // Structured data only where Google supports it (round 3, brief 10): the same breadcrumb trail,
+  // never on demo listings. No Apartment/Offer or rating markup.
+  const breadcrumbs = isPublic && !data.isDemo ? breadcrumbJsonLd(crumbs, locale) : null;
   const welcomes = hasWelcomePledge(data.owner, settings);
   const verified = data.owner.badges.idVerified || data.owner.badges.businessVerified || data.ownerVerified || data.propertyVerified;
   const highlights = listingHighlights(data);
@@ -232,22 +271,16 @@ export default async function ListingPage({ params, searchParams }: Props) {
       <Container className="hidden pt-5 md:block">
         <nav aria-label={t("breadcrumbs.label")} className="mb-4 text-small text-muted-foreground">
           <ol className="flex flex-wrap items-center gap-1.5">
-            <li>
-              <Link href="/search" className="rounded hover:text-foreground hover:underline">
-                {t("breadcrumbs.search")}
-              </Link>
-            </li>
-            {data.city ? (
-              <>
-                <li aria-hidden>/</li>
+            {crumbs.slice(0, -1).map((crumb) => (
+              <Fragment key={crumb.path}>
                 <li>
-                  <Link href={cityFilter} className="rounded hover:text-foreground hover:underline">
-                    {data.city.name}
+                  <Link href={crumb.path} className="rounded hover:text-foreground hover:underline">
+                    {crumb.name}
                   </Link>
                 </li>
-              </>
-            ) : null}
-            <li aria-hidden>/</li>
+                <li aria-hidden>/</li>
+              </Fragment>
+            ))}
             <li aria-current="page" dir="auto" className="max-w-[40ch] truncate">
               {data.title.shown}
             </li>
@@ -343,7 +376,7 @@ export default async function ListingPage({ params, searchParams }: Props) {
       )}
       <ViewTracker listingId={data.id} publicId={data.publicId} isPublic={isPublic} />
       {canReport ? <HostReportRoot listingId={data.id} listingTitle={data.title.shown} today={today} /> : null}
-      {isPublic ? <JsonLd data={jsonLd} nonce={nonce} /> : null}
+      {breadcrumbs ? <JsonLd data={breadcrumbs} nonce={nonce} /> : null}
     </>
   );
 

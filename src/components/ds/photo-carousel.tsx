@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type SyntheticEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type RefObject, type SyntheticEvent } from "react";
 import Image from "next/image";
 import { useLocale, useTranslations } from "next-intl";
 import { CameraIcon, ImageOffIcon } from "lucide-react";
@@ -22,6 +22,39 @@ export function isOptimizableImage(url: string): boolean {
 
 function markLoaded(event: SyntheticEvent<HTMLImageElement>) {
   event.currentTarget.dataset.loaded = "";
+}
+
+/**
+ * `deferFirst`: true once the carousel's first photo may load — when it comes within ~1.5 screens
+ * of view, watched from the page's load event on a phone and from hydration on wider screens
+ * (where the first rows are on screen). One carousel at a time as they come near, so the page
+ * does not re-render every card at once when it has loaded.
+ */
+function useNearAfterLoad(element: RefObject<HTMLElement | null>, enabled: boolean): boolean {
+  const [near, setNear] = useState(false);
+  useEffect(() => {
+    const el = element.current;
+    if (!enabled || near || !el) return;
+    let observer: IntersectionObserver | null = null;
+    const watch = () => {
+      observer = new IntersectionObserver(
+        (entries) => {
+          if (!entries.some((entry) => entry.isIntersecting)) return;
+          observer?.disconnect();
+          setNear(true);
+        },
+        { rootMargin: "100% 0px" },
+      );
+      observer.observe(el);
+    };
+    if (document.readyState === "complete" || window.matchMedia("(min-width: 40rem)").matches) watch();
+    else window.addEventListener("load", watch, { once: true });
+    return () => {
+      window.removeEventListener("load", watch);
+      observer?.disconnect();
+    };
+  }, [element, enabled, near]);
+  return near;
 }
 
 /**
@@ -51,6 +84,7 @@ export function PhotoCarousel({
   dots = true,
   onPhotoClick,
   photoLabel,
+  deferFirst = false,
   className,
 }: {
   photos: CarouselPhoto[];
@@ -76,6 +110,12 @@ export function PhotoCarousel({
   onPhotoClick?: (index: number) => void;
   /** Accessible name of each photo button ("Open photo 2 of 12"). */
   photoLabel?: (index: number, total: number) => string;
+  /**
+   * Further down a long list (search results): on a phone the first photo loads after the page
+   * instead of with it (until then its blurred preview shows), so photos below the first screen,
+   * which native lazy loading starts ~1250 px early, do not compete with the first screen.
+   */
+  deferFirst?: boolean;
   className?: string;
 }) {
   const t = useTranslations("ds.carousel");
@@ -87,6 +127,9 @@ export function PhotoCarousel({
   // The peeking variant shows a sliver of the second photo from the start.
   const [loadUpTo, setLoadUpTo] = useState(peek ? 1 : 0);
   const more = totalCount && totalCount > total ? totalCount - total + 1 : 0;
+  const root = useRef<HTMLDivElement>(null);
+  const firstDeferred = deferFirst && !priority;
+  const showFirst = useNearAfterLoad(root, firstDeferred) || !firstDeferred;
 
   const activate = useCallback(() => {
     if (total > 1) setLoadUpTo((n) => Math.max(n, 1));
@@ -155,6 +198,7 @@ export function PhotoCarousel({
 
   return (
     <div
+      ref={root}
       className={cn("group/carousel relative overflow-hidden", !peek && "bg-surface-muted", aspect, className)}
       role="group"
       aria-roledescription="carousel"
@@ -174,8 +218,10 @@ export function PhotoCarousel({
         {photos.map((photo, index) => {
           const isLast = index === total - 1;
           const showMore = isLast && more > 0;
+          // A deferred first photo fades in like the later ones, over its blurred preview.
+          const fades = index > 0 || firstDeferred;
           const image =
-            index <= loadUpTo ? (
+            index <= loadUpTo && (index > 0 || showFirst) ? (
               <Image
                 src={photo.url}
                 alt={index === selected ? photo.alt : ""}
@@ -189,10 +235,10 @@ export function PhotoCarousel({
                 blurDataURL={photo.blurDataUrl}
                 draggable={false}
                 // The first photo is server-rendered and never hidden (LCP, no-JS); later ones fade in.
-                onLoad={index > 0 ? markLoaded : undefined}
+                onLoad={fades ? markLoaded : undefined}
                 className={cn(
                   "object-cover select-none transition-[transform,opacity] duration-500 ease-soft group-hover/card:scale-[1.04] motion-reduce:transition-none",
-                  index > 0 && "opacity-0 data-loaded:opacity-100",
+                  fades && "opacity-0 data-loaded:opacity-100",
                 )}
               />
             ) : null;
@@ -207,7 +253,7 @@ export function PhotoCarousel({
                 "relative h-full shrink-0 snap-start snap-always overflow-hidden bg-surface-muted bg-cover bg-center",
                 peek ? "basis-[88%] rounded-card" : "basis-full",
               )}
-              style={photo.blurDataUrl && index > 0 ? { backgroundImage: `url("${photo.blurDataUrl}")` } : undefined}
+              style={photo.blurDataUrl && fades ? { backgroundImage: `url("${photo.blurDataUrl}")` } : undefined}
             >
               {href ? (
                 <Link href={href} tabIndex={-1} aria-hidden="true" prefetch={false} data-card-link="" className="relative block size-full" draggable={false}>
