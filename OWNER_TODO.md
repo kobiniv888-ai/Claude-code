@@ -1,6 +1,6 @@
 # Things only you can do or decide
 
-This list is kept up to date as the work goes on. It was last updated in round 3, phase 4. The
+This list is kept up to date as the work goes on. It was last updated in round 3, phase 5. The
 round-2 summary, the "Done when" checklist and what to check on your phone are in
 `docs/redesign-2/final.md`; round 3's plan and your answers are in `docs/round-3/PLAN.md`.
 
@@ -38,8 +38,8 @@ Do these in this order. Without Resend (3) or Google (4), nobody can log in on t
        per million characters (check Azure's price page). Without it, each listing shows only the
        language its owner wrote it in.
 6. [ ] **`SITE_URL`** = `https://<your domain>`, in the hosting's settings (not needed in the
-       codespace). Until it is set, hosts can't copy their calendar link and the server prints a
-       warning at start.
+       codespace). Until it is set, hosts can't copy their calendar link, guests can't copy or send
+       on WhatsApp the link of a shared list (phase 5), and the server prints a warning at start.
 7. [ ] **Telegram bot for booking alerts (free).** In Telegram, open **@BotFather** → `/newbot` →
        a name ("Bayit") and a username that ends in "bot". It gives you a token. Add three
        Codespaces secrets (and the same names on the hosting): `TELEGRAM_BOT_TOKEN` (the token),
@@ -121,6 +121,11 @@ Do these in this order. Without Resend (3) or Google (4), nobody can log in on t
       holiday prices and discounts, and the hotel room types are our translations. In Russian and
       Georgian the button at the bottom of the dates sheet now says just "Продолжить" /
       "გაგრძელება" ("continue"), so it fits on a phone. A native speaker's read is welcome.
+- [ ] **Phase 5 texts in Russian, Arabic and Georgian** (round 3, phase 5): the trip page, saved
+      lists and sharing, the walk to the sea and the lifts, saved searches and price alerts, reviews
+      and their emails are our translations. A native speaker's read is welcome. The Hebrew
+      review-request email now reads "איך הייתה השהייה? <the place>" (no "ב-" before the place's
+      name); say if you prefer other wording.
 
 ## Real data
 - [ ] Real community places (synagogues, Chabad houses, kosher restaurants and shops): name,
@@ -245,9 +250,12 @@ so look again before you pay.
       runs every hour (Airbnb / Booking.com imports, to avoid double bookings); booking reminders
       and "stay completed" run daily, and your admin daily summary twice each morning (it goes out
       once, at 08:00 Israel time, never on Shabbat or Yom Tov), and the hosts' weekly stats email on
-      Sunday mornings (phase 4). Set `CRON_SECRET` on Vercel, and check that your Vercel plan
-      runs hourly cron jobs (if it only allows daily ones, a free external cron service can call
-      `/api/cron/ical-sync` every hour with the same secret).
+      Sunday mornings (phase 4). Since phase 5, the daily job also sends the saved-search and
+      price-drop emails (between 08:00 and 12:00 Israel time, never on Shabbat or Yom Tov;
+      `/api/cron/saved-alerts`), and "stay completed" sends the review request. Set `CRON_SECRET`
+      on Vercel, and check that your Vercel plan runs hourly cron jobs (if it only allows daily
+      ones, a free external cron service can call `/api/cron/ical-sync` every hour with the same
+      secret).
 - [ ] **Apple sign-in (optional).** Needs the Apple Developer Program, **$99 a year**, and a real
       https domain. Google + email cover almost everyone, so this can wait.
 - [ ] **Never turn on `AUTH_TEST_MODE` on the real site.** It shows login codes on screen so

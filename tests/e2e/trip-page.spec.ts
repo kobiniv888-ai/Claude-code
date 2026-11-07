@@ -100,7 +100,8 @@ test.describe("trip page", () => {
       await expect(shabbat).toContainText("המארח לא עונה בשבת");
       // The safety note, word for word, and the emergency numbers.
       await expect(page.getByText(SAFETY, { exact: true })).toBeVisible();
-      await expect(page.getByRole("link", { name: "מספרי חירום" })).toHaveAttribute("href", /\/safety#emergency$/);
+      // (Inside the page: the footer has its own "מספרי חירום" link.)
+      await expect(main.getByRole("link", { name: "מספרי חירום" })).toHaveAttribute("href", /\/safety#emergency$/);
       // The host's contact buttons.
       await expect(page.getByRole("link", { name: /וואטסאפ|התקשרות/ }).first()).toBeVisible();
 

@@ -113,7 +113,17 @@ export async function openAs(browser: Browser, phone: string | null, storageStat
   const page = await context.newPage();
   const consoleErrors = trackConsoleErrors(page);
   await acceptCookies(page);
-  if (phone && !cached) {
+  // A sign-in kept from an earlier test of this worker can have ended since (a test that logs an
+  // account out everywhere, or any other way the server ends a session): check it, and sign in
+  // again when it is gone, instead of opening the page signed out. (The test admin's state is
+  // shared by the whole run and verified with 2-step login, so it is left as it is.)
+  const stale =
+    phone && cached && !storageState && phone !== TEST_ADMIN_PHONE
+      ? (await (await context.request.get("/api/auth/get-session")).json().catch(() => null)) === null
+      : false;
+  if (phone && (!cached || stale)) {
+    if (stale) await context.clearCookies();
+    await acceptCookies(page);
     await loginByPhone(page, phone);
     sessions.set(phone, await context.storageState());
   }

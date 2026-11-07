@@ -19,9 +19,12 @@ test("Batumi cards show ≈ N min to the sea, and the Near the sea chip keeps on
   await settle(page);
   const total = await cards.count();
   expect(total).toBeGreaterThan(0);
-  // Every result is 15 minutes or less from a beach, so every card carries the tag (it comes first).
+  // Every result is 15 minutes or less from a beach, so every card carries the tag, and it comes
+  // first of the card's (at most two) tags in a sea town (brief 7.3).
   for (let i = 0; i < total; i++) {
     await expect(cards.nth(i).getByText(/^≈ \d+ min walk to the sea$/)).toBeVisible();
+    await expect(cards.nth(i).getByRole("listitem").first()).toHaveText(/^≈ \d+ min walk to the sea$/);
+    expect(await cards.nth(i).getByRole("listitem").count()).toBeLessThanOrEqual(2);
   }
 
   // Not a sea town: no chip, and an old link with the filter is ignored (same results as without it).
