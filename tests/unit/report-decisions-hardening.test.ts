@@ -102,9 +102,26 @@ const listingIds: string[] = [];
 const reportIds: string[] = [];
 
 async function listing(ownerId: string, status: "LIVE" | "PAUSED" | "DRAFT" | "IN_REVIEW", extra: Record<string, unknown> = {}) {
+  // Complete enough to go (back) on the site: unpause checks the publishing requirements and the
+  // mistake check's errors (round 3, brief 6.1) before the review rules.
   const row = await db.listing.create({
-    data: { ownerId, status, dealType: "SHORT_STAY", cityId, title: `${prefix} listing`, ...extra } as Parameters<typeof db.listing.create>[0]["data"],
+    data: {
+      ownerId,
+      status,
+      dealType: "SHORT_STAY",
+      cityId,
+      title: `${prefix} listing`,
+      lat: 41.64,
+      lng: 41.62,
+      address: "Fake street 1, apt 2",
+      price: 80,
+      currency: "USD",
+      pricePeriod: "NIGHT",
+      contactMethods: [{ channel: "WHATSAPP", value: "+995555990002", order: 0 }],
+      ...extra,
+    } as Parameters<typeof db.listing.create>[0]["data"],
   });
+  await db.listingPhoto.createMany({ data: Array.from({ length: 5 }, (_, i) => ({ listingId: row.id, url: `/photos/cities/batumi.webp`, sortOrder: i, isCover: i === 0 })) });
   listingIds.push(row.id);
   return row.id;
 }

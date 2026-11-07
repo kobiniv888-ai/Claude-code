@@ -52,6 +52,7 @@ const deps: StepUpdateDeps = {
   getRates: async () => ({ USD: 1, GEL: 2.7, ILS: 3.7, EUR: 0.92 }),
   mapPoint: (point) => ({ lat: point.lat + 1, lng: point.lng + 1 }),
   parseContactMethods: (value) => (Array.isArray(value) ? (value as never[]) : []),
+  countFutureDatePrices: async (listingId) => (listingId === "with-date-prices" ? 2 : 0),
 };
 const user = { id: "u1", businessName: null };
 
@@ -242,5 +243,23 @@ describe("the save schema picked to the sent keys (updateDraft)", () => {
     expect(parse("size", { rooms: 2, title: "x" }).data).toEqual({ rooms: 2 });
     expect(parse("size", { rooms: 2.25 }).success).toBe(false);
     expect(parse("location", { address: "x".repeat(201) }).success).toBe(false);
+  });
+});
+
+describe("a new currency while holiday prices are set (price-2)", () => {
+  it("is refused in the price and booking steps until the holiday prices are changed or deleted", async () => {
+    for (const step of ["price", "booking"] as const) {
+      const refused = await update(step, { currency: "GEL" }, { id: "with-date-prices", currency: "USD" });
+      expect(refused.fieldErrors, step).toEqual({ currency: ["datePricesExist"] });
+      expect(refused.data, step).toEqual({});
+    }
+  });
+
+  it("is saved without holiday prices, and the same currency is never refused", async () => {
+    const free = await update("price", { currency: "GEL" }, { id: "no-date-prices", currency: "USD" });
+    expect(free.fieldErrors).toBeUndefined();
+    expect(free.data).toMatchObject({ currency: "GEL" });
+    const same = await update("booking", { currency: "USD", price: 90 }, { id: "with-date-prices", currency: "USD" });
+    expect(same.fieldErrors).toBeUndefined();
   });
 });

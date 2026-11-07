@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { BedDoubleIcon, BedSingleIcon, BedIcon, EyeOffIcon, HashIcon, PencilIcon, PlusIcon, SofaIcon, Trash2Icon, UsersIcon } from "lucide-react";
 import { toast } from "@/lib/toast";
@@ -94,6 +94,7 @@ function RoomEditor({
 }) {
   const t = useTranslations("wizard.rooms");
   const tw = useTranslations("wizard");
+  const locale = useLocale();
   const label = useOptionLabel();
   const issueText = useIssueText();
   const [draft, setDraft] = useState<Draft>(initial);
@@ -119,7 +120,7 @@ function RoomEditor({
     setSaving(false);
     if (!result?.ok) {
       const code = result?.error ?? "network";
-      toast.error(tw.has(`errors.${code}`) ? tw(`errors.${code}`) : tw("errors.server_error"));
+      toast.error(tw.has(`errors.${code}`) ? tw(`errors.${code}`, { min: formatNumber(siteConfig.listings.minPhotos, locale) }) : tw("errors.server_error"));
       if (result && "fieldErrors" in result && result.fieldErrors) {
         setErrors(Object.fromEntries(Object.entries(result.fieldErrors).map(([k, v]) => [k, issueText(v?.[0])])));
       }
@@ -281,6 +282,20 @@ export function RoomsStep({ listing, values, roomTypes, setRoomTypes, photos, tr
   const locale = useLocale();
   const label = useOptionLabel();
   const [editing, setEditing] = useState<Draft | null>(roomTypes.length === 0 ? emptyDraft(values.currency) : null);
+  // When the editor closes, focus goes to the room's "עריכה" button (or "add"), not to <body>.
+  const editButtons = useRef(new Map<string, HTMLButtonElement>());
+  const addButton = useRef<HTMLButtonElement>(null);
+  const focusAfterClose = useRef<string | null>(null);
+  const closeEditor = (focusRoomId: string | null) => {
+    focusAfterClose.current = focusRoomId ?? "add";
+    setEditing(null);
+  };
+  useEffect(() => {
+    if (editing || !focusAfterClose.current) return;
+    const target = focusAfterClose.current;
+    focusAfterClose.current = null;
+    (target === "add" ? addButton.current : (editButtons.current.get(target) ?? addButton.current))?.focus();
+  }, [editing]);
   const totalPhotos = photos.length + roomTypes.reduce((n, r) => n + r.photos.length, 0);
   const remaining = Math.max(0, siteConfig.listings.maxPhotos - totalPhotos);
 
@@ -297,7 +312,15 @@ export function RoomsStep({ listing, values, roomTypes, setRoomTypes, photos, tr
     if (!result?.ok) {
       setRoomTypes(() => before);
       // Rooms held by upcoming bookings: switch the room type off instead (founder's answer 3).
-      toast.error(result?.error === "room_type_has_bookings" ? t("hasBookings") : tw("errors.server_error"));
+      // A live hotel keeps the minimum of photos guests see ("photos_min").
+      const code = result?.error ?? "server_error";
+      toast.error(
+        code === "room_type_has_bookings"
+          ? t("hasBookings")
+          : code === "photos_min"
+            ? tw("errors.photos_min", { min: formatNumber(siteConfig.listings.minPhotos, locale) })
+            : tw("errors.server_error"),
+      );
     }
   };
 
@@ -319,10 +342,10 @@ export function RoomsStep({ listing, values, roomTypes, setRoomTypes, photos, tr
             listingId={listing.id}
             originalLocale={values.originalLocale}
             track={track}
-            onCancel={() => setEditing(null)}
+            onCancel={() => closeEditor(room.id)}
             onSaved={(saved) => {
               setRoomTypes((rooms) => rooms.map((r) => (r.id === saved.id ? { ...saved, photos: r.photos } : r)));
-              setEditing(null);
+              closeEditor(saved.id);
             }}
           />
         ) : (
@@ -372,6 +395,10 @@ export function RoomsStep({ listing, values, roomTypes, setRoomTypes, photos, tr
               </div>
               <div className="flex gap-1">
                 <Button
+                  ref={(node) => {
+                    if (node) editButtons.current.set(room.id, node);
+                    else editButtons.current.delete(room.id);
+                  }}
                   type="button"
                   variant="outline"
                   size="sm"
@@ -413,16 +440,22 @@ export function RoomsStep({ listing, values, roomTypes, setRoomTypes, photos, tr
           listingId={listing.id}
           originalLocale={values.originalLocale}
           track={track}
-          onCancel={() => setEditing(null)}
+          onCancel={() => closeEditor(null)}
           onSaved={(saved) => {
             setRoomTypes((rooms) => [...rooms, saved]);
-            setEditing(null);
+            closeEditor(saved.id);
           }}
         />
       )}
 
       {!editing && (
-        <Button type="button" variant="outline" className="h-12 justify-self-start px-5 text-base" onClick={() => setEditing(emptyDraft(values.currency))}>
+        <Button
+          ref={addButton}
+          type="button"
+          variant="outline"
+          className="h-12 justify-self-start px-5 text-base"
+          onClick={() => setEditing(emptyDraft(values.currency))}
+        >
           <PlusIcon aria-hidden />
           {roomTypes.length === 0 ? t("addFirst") : t("addAnother")}
         </Button>

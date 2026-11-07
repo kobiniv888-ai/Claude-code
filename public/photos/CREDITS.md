@@ -103,6 +103,7 @@ the repo until `public/photos/listings/` is removed).
 | `/photos/listings/14-batumi-new-boulevard/ax2.webp` | https://images.unsplash.com/photo-1512915922686-57c11dde9b6b |
 | `/photos/listings/14-batumi-new-boulevard/ax6.webp` | https://images.unsplash.com/photo-1551361415-69c87624334f |
 | `/photos/listings/14-batumi-new-boulevard/sea3.webp` | https://images.unsplash.com/photo-1609766418204-94aae0ecfdfc |
+| `/photos/listings/14-batumi-new-boulevard/sea4.webp` | https://images.unsplash.com/photo-1622396481328-9b1b78cdd9fd |
 | `/photos/listings/14-batumi-new-boulevard/wf1.webp` | https://images.unsplash.com/photo-1630699144867-37acec97df5a |
 | `/photos/listings/15-kobuleti-center/ax9.webp` | https://images.unsplash.com/photo-1520608421741-68228b76b6df |
 | `/photos/listings/15-kobuleti-center/bd27.webp` | https://images.unsplash.com/photo-1633505765486-e404bbbec654 |

@@ -182,6 +182,7 @@ function BookingsSection({ stats, hotel }: { stats: ListingStats; hotel: boolean
         {t("title")}
       </h2>
       <p className="text-sm text-muted-foreground">{t(hotel ? "leadHotel" : "lead")}</p>
+      <p className="text-sm text-muted-foreground">{t("closedNotOffered")}</p>
       <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Stat label={tm("bookings")} value={n(stats.totals.bookings)} />
         <Stat label={tm(hotel ? "roomNights" : "bookedNights")} value={n(stats.totals.bookedNights)} />

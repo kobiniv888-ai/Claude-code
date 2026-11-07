@@ -55,6 +55,12 @@ export type StepUpdateDeps = {
   /** The public, approximate map point of an exact pin (stable per listing). */
   mapPoint: (point: LatLng, listingId: string) => LatLng;
   parseContactMethods: (value: unknown) => ContactMethod[];
+  /**
+   * The listing's holiday prices still to come for the whole place (DatePrice rows without a room
+   * type, ending after today). They are amounts in the listing's currency, with no currency of
+   * their own: a currency change would silently re-label them (price-2).
+   */
+  countFutureDatePrices: (listingId: string) => Promise<number>;
 };
 
 export type StepUpdate = {
@@ -69,6 +75,17 @@ export type StepUpdate = {
 };
 
 type Patch<S extends SavableStepKey> = Partial<ParsedStep<S>>;
+
+/**
+ * A new currency while the listing has holiday prices still to come is refused: those prices are
+ * amounts in the listing's currency ($110 for Chanukah would quietly become ₾110). The host
+ * changes or deletes them in the calendar first ("datePricesExist").
+ */
+async function currencyChangeRefusal(v: { currency?: string | null }, listing: StepUpdateListing, deps: StepUpdateDeps): Promise<StepUpdate | null> {
+  if (!has(v, "currency") || !v.currency || v.currency === listing.currency) return null;
+  if ((await deps.countFutureDatePrices(listing.id)) === 0) return null;
+  return { data: {}, contentChanged: false, textChanged: false, fieldErrors: { currency: ["datePricesExist"] } };
+}
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
 const orNull = (value: string) => (value.trim() === "" ? null : value.trim());
@@ -288,6 +305,8 @@ export async function buildStepUpdate<S extends SavableStepKey>(
     }
     case "price": {
       const v = allowedPeriod(input as Patch<"price">, kind);
+      const refused = await currencyChangeRefusal(v, listing, deps);
+      if (refused) return refused;
       const data = columns(v);
       if (has(v, "price") || has(v, "currency")) data.priceUsd = await usdPrice(v, listing, deps);
       if (has(v, "utilitiesIncluded") && v.utilitiesIncluded) data.utilitiesEstimate = null;
@@ -304,6 +323,8 @@ export async function buildStepUpdate<S extends SavableStepKey>(
       // The step sends NIGHT once the host enters a nightly price; an older weekly price is kept as
       // it was (never silently read as a nightly one) and the listing is not bookable until then.
       const v = allowedPeriod(input as Patch<"booking">, kind);
+      const refused = await currencyChangeRefusal(v, listing, deps);
+      if (refused) return refused;
       const bookable = usesBookingStep(kind);
       const data = columns(v, {
         weekendPrice: () => (bookable && v.weekendPrice !== null && v.weekendPrice !== undefined && v.weekendPrice > 0 ? v.weekendPrice : null),

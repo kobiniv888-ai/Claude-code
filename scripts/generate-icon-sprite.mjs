@@ -95,6 +95,10 @@ const NAMES = [
   "messages-square",
   "book-open",
   "chevron-down",
+  // Hotel room types on the listing page (round 3, phase 4)
+  "bed-single",
+  "sofa",
+  "eye-off",
 ];
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");

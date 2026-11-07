@@ -252,7 +252,7 @@ export type EmailBlock =
   | { type: "paragraph"; text: string }
   /** User- or staff-written text: shown in a box with dir="auto". */
   | { type: "quote"; label?: string; text: string }
-  | { type: "details"; rows: { label: string; value: string; ltr?: boolean }[] }
+  | { type: "details"; rows: { label: string; value: string; ltr?: boolean; wrap?: boolean }[] }
   /** `link`: a text link under the notice (e.g. "Tell us" in the host-cancellation email). */
   | { type: "notice"; text: string; link?: { label: string; url: string } }
   /** A one-time code: big digits, left to right. */
@@ -298,7 +298,8 @@ export function isolate(value: string): string {
 
 // ─── Booking helpers ──────────────────────────────────────────
 
-type DetailRow = { label: string; value: string; ltr?: boolean };
+/** `wrap`: a long label (a price line) wraps on a phone; the amount stays on one line. */
+type DetailRow = { label: string; value: string; ltr?: boolean; wrap?: boolean };
 
 /** Translation keys from data (reason codes) are limited to safe characters. */
 function safeKey(value: string): string {
@@ -324,6 +325,7 @@ function priceRows(data: BookingEmailStay, ctx: TemplateContext): DetailRow[] {
     label: describePriceLine(line, (key, values) => tb(`price.${key}`, values), { money, number: (value) => formatNumber(value, locale), locale }),
     value: priceLineAmount(line, money),
     ltr: true,
+    wrap: true,
   }));
 }
 

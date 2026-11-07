@@ -8,7 +8,9 @@
  *   - address_missing: no exact address for a short stay or hotel (guests get it after booking);
  *   - photos_too_few: fewer than 5 photos (siteConfig.listings.minPhotos; hotels count room photos);
  *   - contact_in_title / contact_in_description: a phone number, email, link or @username in the
- *     text (the risk engine's detector, @/lib/risk/contact-info).
+ *     text (the risk engine's detector, @/lib/risk/contact-info);
+ *   - contact_in_translation: the same in a language version the host wrote by hand;
+ *   - contact_in_room_name: the same in an offered hotel room type's name (any language).
  * WARNINGS (the host may publish anyway):
  *   - guests_below_beds / guests_above_beds (and room_… per hotel room type): max guests against
  *     what the beds sleep (single 1, double 2, sofa bed 2);
@@ -25,10 +27,10 @@
  * Each issue names the wizard step that fixes it (`step`, a WizardStepKey) and its field. Messages:
  * wizard.mistakes.issues.<code> in messages/<locale>/wizard.json.
  */
-import { siteConfig, type AppLocale, type CurrencyCode } from "@/config/site";
+import type { AppLocale, CurrencyCode } from "@/config/site";
 import type { DealType, PhotoRoom, PropertyType } from "@/generated/prisma/enums";
 import { haversineMeters } from "@/lib/geo";
-import { detectContactInfo, type ContactInfoFindings } from "@/lib/risk/contact-info";
+import { mistakeErrors } from "./mistake-errors";
 import { applies, isBusinessListing, priceStepFor, stepsFor, usesBookingStep, type ListingKind, type WizardStepKey } from "@/lib/wizard/steps";
 import { clockMinutes, findCurrencyMentions, findStayTimes, titleScriptMismatch, type StayTimeKind } from "./text-checks";
 
@@ -53,6 +55,8 @@ export type MistakeRoomType = {
   id: string;
   /** The name in the host's language. */
   name: string;
+  /** The name in every language it has (checked for contact details). */
+  names?: string[];
   maxGuests: number | null;
   bedsSingle: number | null;
   bedsDouble: number | null;
@@ -83,8 +87,10 @@ export type MistakeInput = {
   checkOutUntil: string | null;
   checkInFlexible: boolean;
   checkOutFlexible: boolean;
-  /** Every photo of the listing (main photos and hotel room-type photos). */
+  /** Every photo guests can see (main photos and the photos of offered hotel room types). */
   photos: MistakePhoto[];
+  /** The language versions the host wrote by hand (shown as written on the listing page). */
+  translations?: { locale: string; title: string; description: string }[];
   roomTypes?: MistakeRoomType[];
   /** The price guide's verdict on the listing's own price (null: no price, or not enough data). */
   pricePosition?: MistakePricePosition | null;
@@ -92,7 +98,14 @@ export type MistakeInput = {
 
 // ─── Rules ────────────────────────────────────────────────────
 
-export const MISTAKE_ERROR_CODES = ["address_missing", "photos_too_few", "contact_in_title", "contact_in_description"] as const;
+export const MISTAKE_ERROR_CODES = [
+  "address_missing",
+  "photos_too_few",
+  "contact_in_title",
+  "contact_in_description",
+  "contact_in_translation",
+  "contact_in_room_name",
+] as const;
 
 export const MISTAKE_WARNING_CODES = [
   "pin_outside_city",
@@ -138,15 +151,6 @@ export function bedsSleep(beds: { bedsSingle: number | null; bedsDouble: number 
   const sofa = beds.bedsSofa ?? 0;
   const total = single * BED_SLEEPS.single + double * BED_SLEEPS.double + sofa * BED_SLEEPS.sofa;
   return total > 0 ? total : null;
-}
-
-function contactParams(findings: ContactInfoFindings): Record<string, string> | null {
-  if (findings.phones[0]) return { kind: "phone", value: findings.phones[0] };
-  // "ל-host@…" (a Hebrew prefix and a hyphen): the hyphen isn't part of the address shown.
-  if (findings.emails[0]) return { kind: "email", value: findings.emails[0].replace(/^[-._]+/, "") };
-  if (findings.urls[0]) return { kind: "link", value: findings.urls[0] };
-  if (findings.handles[0]) return { kind: "handle", value: findings.handles[0] };
-  return null;
 }
 
 /** The step that holds the check-in / check-out pickers. */
@@ -214,26 +218,12 @@ function guestIssues(
 /** Every mistake in a listing, errors first; each list in the order of the wizard's steps. */
 export function checkListingMistakes(input: MistakeInput): MistakeResult {
   const kind: ListingKind = { dealType: input.dealType, propertyType: input.propertyType };
-  const isHotel = input.dealType === "HOTEL_ROOM";
   const roomTypes = input.roomTypes ?? [];
   const issues: MistakeIssue[] = [];
   const add = (issue: MistakeIssue) => issues.push(issue);
 
-  // ── Errors ──
-  if ((input.dealType === "SHORT_STAY" || isHotel) && !input.address?.trim()) {
-    add({ code: "address_missing", severity: "error", field: "address", step: "location" });
-  }
-  const photoCount = input.photos.filter((p) => isHotel || !p.roomTypeId).length;
-  const { minPhotos } = siteConfig.listings;
-  if (photoCount < minPhotos) {
-    add({ code: "photos_too_few", severity: "error", step: "photos", params: { count: photoCount, min: minPhotos } });
-  }
-  const titleContact = contactParams(detectContactInfo(input.title));
-  if (titleContact) add({ code: "contact_in_title", severity: "error", field: "title", step: "text", params: titleContact });
-  const descriptionContact = contactParams(detectContactInfo(input.description));
-  if (descriptionContact) {
-    add({ code: "contact_in_description", severity: "error", field: "description", step: "text", params: descriptionContact });
-  }
+  // ── Errors (./mistake-errors.ts, shared with the server's publishing gate) ──
+  for (const issue of mistakeErrors(input)) add(issue);
 
   // ── Warnings ──
   if (input.city && input.lat !== null && input.lng !== null) {

@@ -23,13 +23,16 @@
       "blocked": "חסום על ידיכם",
       "booked": "הוזמן באתר",
       "imported": "תפוס באתר אחר",
-      "past": "עבר"
+      "past": "עבר",
+      "hotelFull": "המלון מלא",
+      "hotelSome": "חלק מהחדרים מוזמנים"
     },
     "dayBooked": "הוזמן: {code}, {name}",
     "dayBookedCode": "הוזמן: {code}",
     "dayImported": "תפוס לפי היומן של {source}",
     "legendLabel": "מקרא",
     "nothingToChange": "בטווח הזה אין ימים שאפשר לשנות.",
+    "bookedNightsNotice": "בלילות האלה יש הזמנות. החסימה סוגרת את שאר המלון ולא מבטלת אותן.",
     "block": "{count, plural, one {חסימת יום אחד} two {חסימת יומיים} other {חסימת {count} ימים}}",
     "open": "{count, plural, one {פתיחת יום אחד} two {פתיחת יומיים} other {פתיחת {count} ימים}}",
     "clear": "ביטול הבחירה",
@@ -70,6 +73,8 @@
       "priceLabel": "מחיר ללילה",
       "priceHelp": "המחיר הרגיל: {price} ללילה.",
       "priceHelpWeekend": "המחיר הרגיל: {price} ללילה, בסוף השבוע: {weekend}.",
+      "regularWeekend": "{price}, בסוף השבוע {weekend}",
+      "allRoomsHelp": "מחיר אחד לכל סוגי החדרים, במקום המחירים הרגילים: {prices}.",
       "minNightsLabel": "מינימום לילות",
       "minNightsHelp": "הזמנה שיש בה לילה מהתאריכים האלה תהיה לפחות באורך הזה.",
       "labelLabel": "הערה לאורחים",
@@ -83,6 +88,7 @@
         "price_required": "נא לכתוב מחיר ללילה.",
         "price_too_high": "המחיר גבוה מדי.",
         "label_too_long": "ההערה ארוכה מדי (עד {max} תווים).",
+        "label_contact_info": "בהערה יש מספר טלפון, אימייל, קישור או שם משתמש. הסירו אותם — האורחים פונים אליכם דרך הכפתורים.",
         "overlap": "לחלק מהתאריכים האלה כבר יש מחיר מיוחד. מחקו אותו קודם או בחרו תאריכים אחרים.",
         "too_many": "אפשר לשמור עד {max} מחירים מיוחדים. מחקו מחיר ישן כדי להוסיף חדש.",
         "dates_past": "אי אפשר לקבוע מחיר לתאריכים שעברו.",
@@ -91,13 +97,16 @@
         "dates_invalid": "התאריכים לא תקינים. נא לבחור אותם שוב ביומן.",
         "not_bookable": "מחירים לתאריכים הם רק למקומות שמזמינים באתר.",
         "room_type_not_found": "לא מצאנו את סוג החדר.",
+        "room_currency_differs": "לחלק מסוגי החדרים יש מטבע אחר. קבעו את המחיר לכל סוג חדר בנפרד.",
         "rate_limited": "יותר מדי שינויים בזמן קצר. נסו שוב בעוד כמה דקות.",
         "failed": "המחיר לא נשמר. נסו שוב."
       },
       "minNightsRange": "אפשר לבחור בין 1 ל-{max} לילות.",
       "roomScope": "לאילו חדרים",
       "allRooms": "כל החדרים",
-      "roomScopeHelp": "המחיר של סוג החדר קודם למחיר של כל החדרים באותם לילות."
+      "roomScopeHelp": "המחיר של סוג החדר קודם למחיר של כל החדרים באותם לילות.",
+      "roomCurrencyHelp": "לחלק מסוגי החדרים יש מטבע אחר, ולכן קובעים את המחיר לכל סוג חדר בנפרד.",
+      "roomUnnamed": "סוג חדר"
     },
     "holidays": {
       "title": "חגים בחודשים האלה",
@@ -107,7 +116,7 @@
     },
     "rooms": {
       "closedHotel": "המלון סגור",
-      "freeOf": "{free} מתוך {total} חדרים פנויים",
+      "freeOf": "{total, plural, one {{free, plural, =0 {החדר תפוס} other {החדר פנוי}}} other {{freeText} מתוך {totalText} חדרים פנויים}}",
       "bookedRooms": "{count, plural, one {חדר אחד מוזמן} two {2 חדרים מוזמנים} other {{count} חדרים מוזמנים}}",
       "importedRooms": "{count, plural, one {חדר אחד תפוס באתר אחר} other {{count} חדרים תפוסים באתרים אחרים}}",
       "blockedRooms": "{count, plural, one {סגרתם חדר אחד} other {סגרתם {count} חדרים}}",

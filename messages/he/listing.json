@@ -217,7 +217,9 @@
     "guests": "{count, plural, one {עד אורח אחד} other {עד {count} אורחים}}",
     "bedsDouble": "{count, plural, one {מיטה זוגית אחת} other {{count} מיטות זוגיות}}",
     "bedsSingle": "{count, plural, one {מיטת יחיד אחת} other {{count} מיטות יחיד}}",
-    "bedsSofa": "{count, plural, one {ספה נפתחת אחת} other {{count} ספות נפתחות}}"
+    "bedsSofa": "{count, plural, one {ספה נפתחת אחת} other {{count} ספות נפתחות}}",
+    "amenitiesLabel": "מה יש בחדר",
+    "moreAmenities": "ועוד {count}"
   },
   "calendar": {
     "title": "זמינות",
@@ -347,6 +349,7 @@
     "barLabel": "מחיר והזמנה",
     "datesTitle": "בחירת תאריכים",
     "chooseDates": "בחירת תאריכים",
+    "chooseRoom": "בחירת חדר",
     "book": "הזמנה",
     "clear": "ניקוי",
     "done": "אישור",

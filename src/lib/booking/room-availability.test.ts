@@ -8,6 +8,7 @@ import {
   fullRanges,
   hasFreeRooms,
   hotelClosedRanges,
+  noRoomTypeFree,
   overbookedRanges,
   roomQuantity,
   roomsTakenBy,
@@ -163,5 +164,27 @@ describe("the whole hotel's closed nights (the guest calendar)", () => {
     expect(hotelClosedRanges([], [booking("2026-12-01", "2026-12-03", null, 1), booking("2026-12-03", "2026-12-04", "x", 1)], "2026-11-30", "2026-12-20")).toEqual([
       { start: "2026-12-01", end: "2026-12-04" },
     ]);
+  });
+});
+
+describe("no room type free for a stay (ui-hotel-4)", () => {
+  // Two room types of one room each: A is full on 3 Dec, B on 4 Dec. No night is full for both.
+  const A = { id: "A", quantity: 1 };
+  const B = { id: "B", quantity: 1 };
+  const blocks = [
+    { start: "2026-12-03", end: "2026-12-04", roomTypeId: "A", rooms: 1 },
+    { start: "2026-12-04", end: "2026-12-05", roomTypeId: "B", rooms: 1 },
+  ];
+  const options = [A, B].map((room) => ({ quantity: room.quantity, segments: freeSegments(room, blocks, "2026-12-01", "2027-01-01") }));
+
+  it("is true when every type is full on some night of the stay, though the calendar closes none", () => {
+    expect(hotelClosedRanges([A, B], blocks, "2026-12-01", "2027-01-01")).toEqual([]);
+    expect(noRoomTypeFree(options, "2026-12-02", "2026-12-05")).toBe(true);
+  });
+
+  it("is false when one type is free for the whole stay, or without dates or counted types", () => {
+    expect(noRoomTypeFree(options, "2026-12-02", "2026-12-04")).toBe(false);
+    expect(noRoomTypeFree(options, null, "2026-12-05")).toBe(false);
+    expect(noRoomTypeFree([{}], "2026-12-02", "2026-12-05")).toBe(false);
   });
 });

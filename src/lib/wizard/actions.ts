@@ -14,7 +14,7 @@ import { db } from "@/lib/db";
 import { NotFoundError } from "@/lib/errors";
 import { removeListingPhotoFiles } from "@/lib/images";
 import { computeShabbatFriendly } from "@/lib/listing/fields";
-import { getListingMistakes } from "@/lib/listing/mistake-check-server";
+import { ListingMistakesError, listingMistakeErrors } from "@/lib/listing/mistake-check-server";
 import {
   holdLiveListingForReview,
   prepareListingDerivedFields,
@@ -36,6 +36,8 @@ import { normalizeRanges } from "./availability";
 import { getPledgeStatus, hasCurrentPledge } from "@/lib/pledge/server";
 import { getHostCalendar, HOST_CALENDAR_MONTHS, type HostCalendarData } from "@/lib/booking/host-calendar";
 import { missingRequirements } from "./requirements";
+import { liveEditFieldErrors } from "./live-edit";
+import { deactivationLeavesTooFewPhotos, deletePhotoLocked, deleteRoomTypeLocked, lockListing } from "./photo-guard-server";
 import { scheduleRoomTypeNameTranslation } from "./room-type-names";
 import { presentStepKeys } from "./patch";
 import { buildStepUpdate, type StepUpdate, type StepUpdateDeps } from "./step-update";
@@ -150,7 +152,13 @@ const stepUpdateDeps: StepUpdateDeps = {
   getRates: () => getRates(),
   mapPoint: (point, listingId) => publicMapPoint(point, listingId),
   parseContactMethods,
+  countFutureDatePrices: (listingId) => countFutureDatePrices(listingId, null),
 };
+
+/** Holiday prices still to come (ending after today) of the whole listing (null) or of one room type. */
+function countFutureDatePrices(listingId: string, roomTypeId: string | null): Promise<number> {
+  return db.datePrice.count({ where: { listingId, roomTypeId, endDate: { gt: new Date(`${dayString(new Date())}T00:00:00Z`) } } });
+}
 
 /**
  * Auto-save (bug 2.2: patch saves). `data` holds only the answers the person changed since the
@@ -179,6 +187,10 @@ export async function updateDraft(
     const listing = await requireOwnedListing(id, user.id);
     const update = await buildStepUpdate(step, parsed.data as Partial<ParsedStep<typeof step>>, listing, user, stepUpdateDeps);
     if (update.fieldErrors) return fail("invalid_input", update.fieldErrors);
+    // A live listing shows the edit at once: an edit that adds a mistake-check error (contact
+    // details in the text, no exact address) is refused, not saved (round 3, brief 6.1).
+    const liveErrors = liveEditFieldErrors(step, parsed.data as Record<string, unknown>, listing);
+    if (liveErrors && listing.status === "LIVE") return fail("invalid_input", liveErrors);
 
     const wizardStep = z.number().int().min(1).max(20).optional().safeParse(options.wizardStep);
     const now = new Date();
@@ -192,6 +204,9 @@ export async function updateDraft(
     }
 
     const saved = await db.$transaction(async (tx) => {
+      // Such an edit of a listing that went live since it was read (publish, approval) is refused
+      // too: checked under the row lock that those status changes take.
+      if (liveErrors && (await lockListing(tx, listing.id)) === "LIVE") return null;
       const row = await tx.listing.update({ where: { id: listing.id, ownerId: user.id }, data: listingData, select: { updatedAt: true } });
       if (update.textChanged) {
         // The original changed: machine translations are out of date (owner-edited ones stay).
@@ -200,6 +215,7 @@ export async function updateDraft(
       if (update.userUpdate) await tx.user.update({ where: { id: user.id }, data: update.userUpdate });
       return row;
     });
+    if (!saved) return fail("invalid_input", liveErrors ?? {});
 
     if (update.textChanged && listing.status === "LIVE") {
       // Brief 2.4: an autosaved edit of a live listing is public at once, so its translations are
@@ -397,12 +413,11 @@ export async function deletePhoto(listingId: string, photoId: string): Promise<A
   try {
     const user = await ownerForMutation("save");
     const listing = await requireOwnedListing(listingIdSchema.parse(listingId), user.id);
-    const photo = await db.listingPhoto.findFirst({
-      where: { id: listingIdSchema.parse(photoId), listingId: listing.id },
-      select: { id: true, storageKey: true, roomTypeId: true },
-    });
-    if (!photo) throw new NotFoundError();
-    await db.listingPhoto.delete({ where: { id: photo.id } });
+    // Under the listing's lock: a LIVE listing keeps the minimum of photos guests see (round 3,
+    // brief 6.1; for a hotel the photos of the room types it offers count too).
+    const deleted = await deletePhotoLocked(listing.id, listingIdSchema.parse(photoId), listing.dealType === "HOTEL_ROOM");
+    if (!deleted.ok) return fail(deleted.error);
+    const { photo } = deleted;
     await removeListingPhotoFiles(photo);
     const rest = await photosInScope(listing.id, photo.roomTypeId);
     if (rest.length > 0) await writePhotoOrder(listing.id, rest.map((p) => p.id), photo.roomTypeId === null);
@@ -419,6 +434,8 @@ export async function updatePhotoAlt(listingId: string, photoId: string, alt: st
     const user = await ownerForMutation("save");
     const listing = await requireOwnedListing(listingIdSchema.parse(listingId), user.id);
     const text = photoAltSchema.parse(alt);
+    // Shown to guests (screen readers, the gallery): no contact details, like the title.
+    if (hasContactInfo(detectContactInfo(text))) return fail("contact_in_text", { alt: ["contactInText"] });
     const { count } = await db.listingPhoto.updateMany({
       where: { id: listingIdSchema.parse(photoId), listingId: listing.id },
       data: { alt: text || null },
@@ -470,6 +487,8 @@ export async function saveRoomType(listingId: string, input: unknown): Promise<A
     const parsed = roomTypeSchema.safeParse(input);
     if (!parsed.success) return fail("invalid_input", z.flattenError(parsed.error).fieldErrors);
     const v = parsed.data;
+    // The room type's name is public text, like the title: contact details only through "show contact".
+    if (hasContactInfo(detectContactInfo(v.name))) return fail("invalid_input", { name: ["contactInText"] });
     const rates = await getRates();
     const priceUsd = Math.round(toUsd(v.price, v.currency, rates) * 100) / 100;
     const fields = {
@@ -494,16 +513,27 @@ export async function saveRoomType(listingId: string, input: unknown): Promise<A
     if (v.id) {
       const existing = await db.roomType.findFirst({ where: { id: v.id, listingId: listing.id } });
       if (!existing) throw new NotFoundError();
+      // The room type's holiday prices are amounts in its currency (price-2): change them first.
+      if (v.currency !== existing.currency && (await countFutureDatePrices(listing.id, existing.id)) > 0) {
+        return fail("invalid_input", { currency: ["datePricesExist"] });
+      }
       const original = (existing.names as Partial<Localized> | null)?.[listing.originalLocale as AppLocale];
       // The quantity and the switch are checked under the room type's lock, like a booking
       // (src/lib/booking/service.ts): a booking in progress finishes with the old values first.
-      await db.$transaction(async (tx) => {
+      const refused = await db.$transaction(async (tx) => {
+        // Switching a room type off takes its photos off the listing: a LIVE hotel keeps the
+        // minimum of photos guests see (locks the Listing first, as a booking does).
+        if (existing.active && !v.active && (await deactivationLeavesTooFewPhotos(tx, listing.id, existing.id, listing.dealType === "HOTEL_ROOM"))) {
+          return true;
+        }
         await tx.$queryRaw`SELECT "id" FROM "RoomType" WHERE "id" = ${existing.id} FOR UPDATE`;
         await tx.roomType.update({
           where: { id: existing.id },
           data: { ...fields, ...(original !== v.name ? { names: sameNameInEveryLanguage(v.name) } : {}) },
         });
+        return false;
       });
+      if (refused) return fail("photos_min");
       nameChanged = original !== v.name;
       roomId = existing.id;
     } else {
@@ -555,20 +585,11 @@ export async function deleteRoomType(listingId: string, roomTypeId: string): Pro
   try {
     const user = await ownerForMutation("save");
     const listing = await requireOwnedListing(listingIdSchema.parse(listingId), user.id);
-    const room = await db.roomType.findFirst({
-      where: { id: listingIdSchema.parse(roomTypeId), listingId: listing.id },
-      include: { photos: { select: { id: true, storageKey: true } } },
-    });
-    if (!room) throw new NotFoundError();
-    const upcoming = await db.booking.count({
-      where: { roomTypeId: room.id, status: "CONFIRMED", checkOut: { gt: new Date() } },
-    });
-    if (upcoming > 0) return fail("room_type_has_bookings");
-    await db.$transaction([
-      db.listingPhoto.deleteMany({ where: { roomTypeId: room.id, listingId: listing.id } }),
-      db.roomType.delete({ where: { id: room.id } }),
-    ]);
-    await Promise.all(room.photos.map((photo) => removeListingPhotoFiles(photo)));
+    // One transaction, locked like a booking (the Listing, then the RoomType): a booking being
+    // committed for this room type is counted, never left without its rooms.
+    const deleted = await deleteRoomTypeLocked(listing.id, listingIdSchema.parse(roomTypeId), listing.dealType === "HOTEL_ROOM");
+    if (!deleted.ok) return fail(deleted.error);
+    await Promise.all(deleted.photos.map((photo) => removeListingPhotoFiles(photo)));
     await touchContent(listing);
     return ok();
   } catch (error) {
@@ -642,6 +663,14 @@ export async function saveTranslations(
     if (!parsed.success) return fail("invalid_input", z.flattenError(parsed.error).fieldErrors);
     const v = parsed.data;
     if (v.locale === listing.originalLocale) return fail("edit_original_in_details");
+    // A hand-written version is shown as written: no contact details, like the original's text.
+    const contact = { title: hasContactInfo(detectContactInfo(v.title)), description: hasContactInfo(detectContactInfo(v.description)) };
+    if (contact.title || contact.description) {
+      return fail("contact_in_text", {
+        ...(contact.title ? { title: ["contactInText"] } : {}),
+        ...(contact.description ? { description: ["contactInText"] } : {}),
+      });
+    }
     const row = await db.listingTranslation.upsert({
       where: { listingId_locale: { listingId: listing.id, locale: v.locale } },
       create: {
@@ -711,7 +740,8 @@ export async function deleteTranslation(listingId: string, locale: string): Prom
 async function checkRequirements(listing: ListingRow, user: CurrentUser): Promise<ActionResult<never> | null> {
   const [photoCount, roomPhotoCount, pricedRoomTypes, pledgeAccepted] = await Promise.all([
     db.listingPhoto.count({ where: { listingId: listing.id, roomTypeId: null } }),
-    db.listingPhoto.count({ where: { listingId: listing.id, roomTypeId: { not: null } } }),
+    // Only the room types the hotel offers: guests never see a switched-off one's photos.
+    db.listingPhoto.count({ where: { listingId: listing.id, roomTypeId: { not: null }, roomType: { active: true } } }),
     db.roomType.count({ where: { listingId: listing.id, price: { gt: 0 } } }),
     hasCurrentPledge(user.id),
   ]);
@@ -733,9 +763,15 @@ async function checkRequirements(listing: ListingRow, user: CurrentUser): Promis
  * server, whatever the browser shows. Its warnings never do.
  */
 async function mistakeRefusal(listingId: string): Promise<ActionResult<never> | null> {
-  const { errors } = await getListingMistakes(listingId);
+  // Errors only: they never depend on the price guide, so it isn't loaded here.
+  const errors = await listingMistakeErrors(listingId);
   if (errors.length === 0) return null;
   return fail("listing_mistakes", { mistakes: errors.map((e) => e.code) });
+}
+
+/** The answer for a status change the mistake check refused under the lock (lifecycle.ts). */
+function mistakesFailure(error: unknown): ActionResult<never> | null {
+  return error instanceof ListingMistakesError ? fail("listing_mistakes", { mistakes: error.mistakes }) : null;
 }
 
 /**
@@ -808,11 +844,13 @@ export async function acceptRulesAndPublish(
     await assertTurnstile(turnstileTokenSchema.parse(input?.turnstileToken), { expectedAction: "publish" });
 
     await finalizeListing(listing, user, { rulesAcceptedAt: new Date(), wizardStep: stepsFor(kindOf(listing)).length });
+    // submitForPublication checks the errors again under the row lock, with the status change:
+    // an edit saved in another tab since the check above can't be published unchecked.
     const result = await submitForPublication(listing.id, user.id);
     const fresh = await requireOwnedListing(listing.id, user.id);
     return ok(outcome(fresh, result));
   } catch (error) {
-    return toActionError(error);
+    return mistakesFailure(error) ?? toActionError(error);
   }
 }
 
@@ -832,7 +870,12 @@ export async function saveChanges(
     const listing = await requireOwnedListing(listingIdSchema.parse(listingId), user.id);
     if (listing.status === "DRAFT") return fail("not_published_yet");
     const missing = await checkRequirements(listing, user);
-    if (missing) return missing;
+    if (missing) {
+      // A live listing's auto-saved edits are on the site already: the refusal must not skip the
+      // automatic checks that "Save changes" runs on them (fails closed, see recheckLiveListing).
+      if (listing.status === "LIVE") await recheckLiveListing(listing.id, user.id);
+      return missing;
+    }
 
     // A forged or expired token counts as "changed", so the checks always run when in doubt.
     const openedAt = verifyEditToken(listing.id, editToken);
@@ -841,13 +884,22 @@ export async function saveChanges(
       : 0;
     const changed = !openedAt || listing.contentUpdatedAt > openedAt || newPhotos > 0;
 
-    if (changed && RESUBMIT_STATUSES.has(listing.status)) {
-      // Saving would publish the listing again: the mistake check's errors stop it.
-      const mistakes = await mistakeRefusal(listing.id);
-      if (mistakes) {
-        // The edits of a live listing are on the site already (auto-save): the refusal must not
-        // skip the automatic checks that "Save changes" runs on them (fails closed, see above).
+    if (RESUBMIT_STATUSES.has(listing.status)) {
+      // Saving would publish the listing again: the mistake check's errors stop it. Checked even
+      // when nothing "changed" (clearing only the address doesn't move contentUpdatedAt).
+      let mistakes: ActionResult<never> | null;
+      try {
+        mistakes = await mistakeRefusal(listing.id);
+      } catch (error) {
+        // The check couldn't run: a live listing's auto-saved edits still get the automatic
+        // checks (which hold it for review when they can't run either).
         if (listing.status === "LIVE") await recheckLiveListing(listing.id, user.id);
+        throw error;
+      }
+      if (mistakes) {
+        // A live listing with errors (however they got there) must not stay on the site: it
+        // waits for the host's fix and a person (fails closed).
+        if (listing.status === "LIVE") await holdLiveListingForReview(listing.id, user.id);
         return mistakes;
       }
     }
@@ -863,6 +915,6 @@ export async function saveChanges(
     }
     return ok({ resubmitted: result !== null, outcome: result });
   } catch (error) {
-    return toActionError(error);
+    return mistakesFailure(error) ?? toActionError(error);
   }
 }

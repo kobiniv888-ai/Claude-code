@@ -1,5 +1,5 @@
 import { useTranslations } from "next-intl";
-import { EyeOffIcon } from "lucide-react";
+import { SpriteIcon } from "@/components/ds/sprite-icons";
 import { Container } from "@/components/common/container";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
@@ -12,7 +12,7 @@ export function StatusBanner({ reason, isOwner }: { reason: PreviewReason; isOwn
     <div className="border-b border-border-strong/30 bg-surface-muted" role="status">
       <Container className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex gap-3">
-          <EyeOffIcon className="mt-0.5 size-5 shrink-0 text-foreground" aria-hidden />
+          <SpriteIcon name="eye-off" className="mt-0.5 size-5 shrink-0 text-foreground" />
           <div className="grid gap-0.5">
             <p className="font-semibold text-foreground">{t("title", { status: t(`labels.${reason}`) })}</p>
             <p className="text-sm text-foreground/80">{t(`text.${reason}`)}</p>

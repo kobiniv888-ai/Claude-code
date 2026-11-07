@@ -41,7 +41,8 @@
     "last_sign_in_method": "This is the only way you can sign in, so it can't be removed. Verify a phone number or connect another account first.",
     "confirmation_mismatch": "The word you typed doesn't match. Please type it exactly as shown.",
     "staff_account": "Staff accounts can't be deleted here. Please ask an administrator.",
-    "documents_paused": "We're not accepting verification documents right now. A verified phone number is enough."
+    "documents_paused": "We're not accepting verification documents right now. A verified phone number is enough.",
+    "listing_mistakes": "A few things in the listing need fixing first (for example the exact address or enough photos). They are listed in “Check before publishing” in the edit form."
   },
   "badgeState": {
     "verified": "Verified",
@@ -142,6 +143,7 @@
     "more": "More",
     "moreFor": "More actions for {title}",
     "working": "Working…",
+    "fixInForm": "Fix it",
     "actions": {
       "continue": "Continue",
       "edit": "Edit",
@@ -190,6 +192,8 @@
     "title": "Statistics",
     "rangeLabel": "Time period",
     "range": "{count, plural, other {Last {countText} days}}",
+    "period": "Period: {dates}.",
+    "periodToToday": "Show up to today",
     "metrics": {
       "views": "Views",
       "contacts": "Contact clicks",
@@ -225,6 +229,7 @@
       "title": "Bookings and occupancy",
       "lead": "Bookings made in this period, and the nights guests booked in it. Cancelled bookings don't count.",
       "leadHotel": "Bookings made in this period, and the rooms booked in it each night. Occupancy is based on the number of rooms you offer on Bayit.",
+      "closedNotOffered": "Nights you closed in the calendar, and nights booked through a synced calendar from another site, are not counted as offered on Bayit.",
       "occupancy": "Occupancy",
       "rate": "{value}%",
       "noRate": "No data",

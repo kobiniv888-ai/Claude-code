@@ -23,13 +23,16 @@
       "blocked": "Blocked by you",
       "booked": "Booked on the site",
       "imported": "Taken on another site",
-      "past": "Past"
+      "past": "Past",
+      "hotelFull": "Hotel full",
+      "hotelSome": "Some rooms booked"
     },
     "dayBooked": "Booked: {code}, {name}",
     "dayBookedCode": "Booked: {code}",
     "dayImported": "Taken in the {source} calendar",
     "legendLabel": "Legend",
     "nothingToChange": "There are no days to change in this range.",
+    "bookedNightsNotice": "These nights have bookings. Blocking closes the rest of the hotel and does not cancel them.",
     "block": "{count, plural, one {Block 1 day} other {Block {count} days}}",
     "open": "{count, plural, one {Open 1 day} other {Open {count} days}}",
     "clear": "Clear selection",
@@ -70,6 +73,8 @@
       "priceLabel": "Price per night",
       "priceHelp": "Your regular price: {price} a night.",
       "priceHelpWeekend": "Your regular price: {price} a night, weekends: {weekend}.",
+      "regularWeekend": "{price}, weekends {weekend}",
+      "allRoomsHelp": "One price for every room type, instead of the regular prices: {prices}.",
       "minNightsLabel": "Minimum nights",
       "minNightsHelp": "A booking with a night on these dates must be at least this long.",
       "labelLabel": "Note for guests",
@@ -83,6 +88,7 @@
         "price_required": "Please enter a price per night.",
         "price_too_high": "The price is too high.",
         "label_too_long": "The note is too long (up to {max} characters).",
+        "label_contact_info": "The note contains a phone number, email, link or @username. Please remove it — guests contact you with the buttons.",
         "overlap": "Some of these dates already have a special price. Delete it first or choose other dates.",
         "too_many": "You can keep up to {max} special prices. Delete an old one to add a new one.",
         "dates_past": "You can't set a price for dates that have passed.",
@@ -91,13 +97,16 @@
         "dates_invalid": "These dates aren't valid. Please choose them again in the calendar.",
         "not_bookable": "Prices for dates are only for places booked on the site.",
         "room_type_not_found": "We couldn't find that room type.",
+        "room_currency_differs": "Some room types are priced in another currency. Set this price for each room type instead.",
         "rate_limited": "Too many changes in a short time. Please try again in a few minutes.",
         "failed": "The price wasn't saved. Please try again."
       },
       "minNightsRange": "Choose between 1 and {max} nights.",
       "roomScope": "For which rooms",
       "allRooms": "All rooms",
-      "roomScopeHelp": "A room type's own price comes before the all-rooms price on the same nights."
+      "roomScopeHelp": "A room type's own price comes before the all-rooms price on the same nights.",
+      "roomCurrencyHelp": "Some room types are priced in another currency, so the price is set for each room type.",
+      "roomUnnamed": "Room type"
     },
     "holidays": {
       "title": "Holidays in these months",
@@ -107,7 +116,7 @@
     },
     "rooms": {
       "closedHotel": "The hotel is closed",
-      "freeOf": "{free} of {total} rooms free",
+      "freeOf": "{total, plural, one {{free, plural, =0 {The room is taken} other {The room is free}}} other {{freeText} of {totalText} rooms free}}",
       "bookedRooms": "{count, plural, one {1 room booked} other {{count} rooms booked}}",
       "importedRooms": "{count, plural, one {1 room taken on another site} other {{count} rooms taken on other sites}}",
       "blockedRooms": "{count, plural, one {1 room closed by you} other {{count} rooms closed by you}}",

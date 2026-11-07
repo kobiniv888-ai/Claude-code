@@ -5,6 +5,7 @@ import { siteUrl } from "@/lib/site-url";
 import { db } from "@/lib/db";
 import { isPlaceholderEmail } from "@/lib/email";
 import { absoluteMediaUrl, photoUrl } from "@/lib/media";
+import { bookingPriceLines } from "@/lib/booking/price-lines";
 
 /**
  * "Download my data" (GDPR / Israeli privacy law / Georgian personal data law): everything we
@@ -158,8 +159,11 @@ const BOOKING_EXPORT_SELECT = {
   weekendPrice: true,
   subtotal: true,
   cleaningFee: true,
+  discount: true,
   total: true,
   currency: true,
+  rooms: true,
+  priceLines: true,
   cancellationPolicy: true,
   paymentMethods: true,
   status: true,
@@ -170,30 +174,51 @@ const BOOKING_EXPORT_SELECT = {
   createdAt: true,
 } as const;
 
-/** A booking as plain JSON: dates as days, money as numbers, the listing by its public number. */
+/**
+ * A booking as plain JSON: dates as days, money as numbers, the listing by its public number, and
+ * the itemized total (round 3, phase 4: the nights, holiday prices, the long-stay discount, the
+ * cleaning fee, the rooms booked), rebuilt for bookings made before the lines were stored.
+ */
 function exportBooking(row: {
   listing: { publicId: number; title: string };
   checkIn: Date;
   checkOut: Date;
+  nights: number;
   nightlyPrice: unknown;
   weekendPrice: unknown;
   subtotal: unknown;
   cleaningFee: unknown;
+  discount: unknown;
   total: unknown;
+  rooms: number;
+  priceLines: unknown;
 }) {
-  const { listing, checkIn, checkOut, nightlyPrice, weekendPrice, subtotal, cleaningFee, total, ...rest } = row;
+  const { listing, checkIn, checkOut, nightlyPrice, weekendPrice, subtotal, cleaningFee, discount, total, priceLines, ...rest } = row;
   const money = (value: unknown) => (value === null || value === undefined ? null : Number(value));
+  const days = { checkIn: checkIn.toISOString().slice(0, 10), checkOut: checkOut.toISOString().slice(0, 10) };
   return {
     ...rest,
     listingId: listing.publicId,
     listingTitle: listing.title,
-    checkIn: checkIn.toISOString().slice(0, 10),
-    checkOut: checkOut.toISOString().slice(0, 10),
+    ...days,
     nightlyPrice: money(nightlyPrice),
     weekendPrice: money(weekendPrice),
     subtotal: money(subtotal),
     cleaningFee: money(cleaningFee),
+    discount: money(discount),
     total: money(total),
+    priceLines: bookingPriceLines({
+      ...days,
+      nights: row.nights,
+      nightlyPrice: money(nightlyPrice) ?? 0,
+      weekendPrice: money(weekendPrice),
+      subtotal: money(subtotal) ?? 0,
+      cleaningFee: money(cleaningFee) ?? 0,
+      discount: money(discount),
+      total: money(total) ?? 0,
+      rooms: row.rooms,
+      priceLines,
+    }),
   };
 }
 
@@ -243,8 +268,10 @@ export async function buildAccountExport(userId: string) {
         city: { select: { slug: true } },
         neighborhood: { select: { slug: true } },
         translations: { select: { locale: true, title: true, description: true, isAuto: true, editedByOwner: true, updatedAt: true } },
-        photos: { orderBy: { sortOrder: "asc" }, select: { url: true, storageKey: true, alt: true, isCover: true, sortOrder: true } },
-        roomTypes: { omit: { listingId: true } },
+        photos: { orderBy: { sortOrder: "asc" }, select: { url: true, storageKey: true, alt: true, isCover: true, sortOrder: true, room: true, roomTypeId: true } },
+        // Each room type's calendar feed token is a secret, like the listing's own (icalToken).
+        roomTypes: { omit: { listingId: true, icalToken: true } },
+        datePrices: { orderBy: { startDate: "asc" }, omit: { listingId: true } },
         priceChanges: { orderBy: { changedAt: "asc" }, omit: { listingId: true } },
         availability: { orderBy: { startDate: "asc" }, omit: { listingId: true } },
       },

@@ -7,7 +7,9 @@ import { isAccountBlocked } from "@/lib/auth/account-status";
 import { isShabbatOrHolidayNow } from "@/lib/hebcal";
 import { getStatsTotals } from "@/lib/listing/stats";
 import { addTotals, emptyTotals, isBookableDeal, isQuietPeriod } from "@/lib/listing/stats-math";
-import { unsubscribePath } from "./unsubscribe-token";
+import { siteUrl } from "@/lib/site-url";
+import { parseAlertPrefs } from "./rules";
+import { unsubscribePath, unsubscribeToken } from "./unsubscribe-token";
 import { MAX_LISTINGS, type WeeklyEmailData } from "./weekly-host-email-template";
 import { weeklyDue } from "./weekly-host-schedule";
 
@@ -25,8 +27,10 @@ import { weeklyDue } from "./weekly-host-schedule";
  * row "weekly-host-stats:<Sunday>:<user id>" (INSERT … ON CONFLICT DO NOTHING), so at most one
  * email per host per week goes out, whichever server runs it: "pending" (0) while sending,
  * "sent" (1) or "quiet" (2) after. A failed send releases the claim, so the next hourly run
- * tries again; a pending claim older than STALE_CLAIM_MINUTES is taken over. Emails go through
- * @/lib/email (the outbox until Resend is set up).
+ * tries again; a pending claim older than STALE_CLAIM_MINUTES is taken over, unless the outbox
+ * shows the week's email went out after it was claimed. An address paused after a bounce or a
+ * spam complaint gets no digest. Every digest carries List-Unsubscribe (one-click, RFC 8058:
+ * POST /api/unsubscribe). Emails go through @/lib/email (the outbox until Resend is set up).
  */
 
 export const CLAIM_PREFIX = "weekly-host-stats:";
@@ -50,6 +54,8 @@ export type WeeklyRunResult =
       quiet: number;
       off: number;
       noEmail: number;
+      /** The address is paused after a bounce or a spam complaint (src/lib/booking/alerts.ts). */
+      paused: number;
       already: number;
       failed: number;
       /** Hosts left for the next run (time budget). */
@@ -65,20 +71,41 @@ function claimKey(week: string, userId: string): string {
   return `${CLAIM_PREFIX}${week}:${userId}`;
 }
 
-async function claimHost(week: string, userId: string, now: Date): Promise<boolean> {
+const CLAIM_MS = CLAIM_DAYS * 24 * 3600 * 1000;
+
+async function claimHost(week: string, userId: string, now: Date, to: string): Promise<boolean> {
   const key = claimKey(week, userId);
-  const resetAt = new Date(now.getTime() + CLAIM_DAYS * 24 * 3600 * 1000);
+  const resetAt = new Date(now.getTime() + CLAIM_MS);
   const { count } = await db.rateLimit.createMany({ data: [{ key, count: PENDING, resetAt }], skipDuplicates: true });
   if (count === 1) return true;
   const staleBefore = new Date(resetAt.getTime() - STALE_CLAIM_MINUTES * 60_000);
-  const taken = await db.rateLimit.updateMany({ where: { key, count: PENDING, resetAt: { lt: staleBefore } }, data: { resetAt } });
+  const claim = await db.rateLimit.findUnique({ where: { key }, select: { count: true, resetAt: true } });
+  if (!claim || claim.count !== PENDING || claim.resetAt >= staleBefore) return false;
+  // A stale pending claim: the run that took it may have sent the email and then failed to settle
+  // the claim (or died). The outbox says whether this week's email went out since it was claimed.
+  const claimedAt = new Date(claim.resetAt.getTime() - CLAIM_MS);
+  const sent = await db.emailOutbox.findFirst({
+    where: { template: "weekly_host_stats", to: { equals: to.trim(), mode: "insensitive" }, status: { in: ["SENT", "LOGGED", "QUEUED"] }, createdAt: { gte: claimedAt } },
+    select: { id: true },
+  });
+  if (sent) {
+    await settleClaim(week, userId, SENT);
+    return false;
+  }
+  const taken = await db.rateLimit.updateMany({ where: { key, count: PENDING, resetAt: claim.resetAt }, data: { resetAt } });
   return taken.count === 1;
 }
 
+/** Marks the claim done; tries three times (a claim left pending is checked against the outbox). */
 async function settleClaim(week: string, userId: string, state: typeof SENT | typeof QUIET): Promise<void> {
-  await db.rateLimit.updateMany({ where: { key: claimKey(week, userId) }, data: { count: state } }).catch((error) => {
-    console.error(`[weekly-stats] could not settle the claim of ${userId}:`, error);
-  });
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      await db.rateLimit.updateMany({ where: { key: claimKey(week, userId) }, data: { count: state } });
+      return;
+    } catch (error) {
+      if (attempt === 3) console.error(`[weekly-stats] could not settle the claim of ${userId}:`, error);
+    }
+  }
 }
 
 async function releaseClaim(week: string, userId: string): Promise<void> {
@@ -99,7 +126,16 @@ const hostSelect = {
 
 type Host = { id: string; name: string; firstName: string | null; email: string; contactEmail: string | null; locale: string; status: string; suspendedUntil: Date | null; notificationPrefs: unknown };
 
-type HostOutcome = "sent" | "quiet" | "off" | "noEmail" | "already" | "failed";
+type HostOutcome = "sent" | "quiet" | "off" | "noEmail" | "paused" | "already" | "failed";
+
+/**
+ * RFC 8058 one-click unsubscribe: mail apps show "Unsubscribe" next to the sender instead of only
+ * "Report spam", and their POST lands on /api/unsubscribe (which switches only this email off).
+ */
+export function weeklyUnsubscribeHeaders(userId: string): Record<string, string> {
+  const url = `${siteUrl()}/api/unsubscribe?t=${encodeURIComponent(unsubscribeToken(userId, "weekly_stats"))}`;
+  return { "List-Unsubscribe": `<${url}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" };
+}
 
 /** The email data for one host's week, and the week's booked nights (exported for the tests). */
 export async function weeklyEmailData(
@@ -125,7 +161,8 @@ export async function weeklyEmailData(
       contacts: counts.contacts,
       bookings: counts.bookings,
       bookedNights: counts.bookedNights,
-      statsUrl: `/account/listings/${listing.id}/stats?days=7`,
+      // The page shows the same 7 days as the email (it ends on the period's last day).
+      statsUrl: `/account/listings/${listing.id}/stats?days=7&to=${period.toDay}`,
     };
   });
   // The busiest listings first.
@@ -158,14 +195,18 @@ async function sendToHost(host: Host, decision: { week: string; fromDay: string;
   if (parseNotificationPrefs(host.notificationPrefs).email.weeklyStats === false) return "off";
   const to = notificationEmailFor(host);
   if (!to) return "noEmail";
-  if (!(await claimHost(decision.week, host.id, now))) return "already";
+  // An address that bounced or complained is paused for booking alerts: no digest to it either
+  // (every new bounce would hurt the sender's reputation and alert the founder again).
+  const failing = parseAlertPrefs(host.notificationPrefs).email.failing;
+  if (failing && failing.address === to.trim().toLowerCase()) return "paused";
+  if (!(await claimHost(decision.week, host.id, now, to))) return "already";
   try {
     const { data, bookedNights } = await weeklyEmailData(host, decision);
     if (isQuietPeriod({ ...data.totals, bookedNights })) {
       await settleClaim(decision.week, host.id, QUIET);
       return "quiet";
     }
-    const result = await sendEmail({ to, template: "weekly_host_stats", locale: host.locale, data });
+    const result = await sendEmail({ to, template: "weekly_host_stats", locale: host.locale, data, headers: weeklyUnsubscribeHeaders(host.id) });
     if (!result.ok) {
       await releaseClaim(decision.week, host.id);
       return "failed";
@@ -192,7 +233,7 @@ export async function runWeeklyHostStats(
 
   const started = Date.now();
   const budget = opts.timeBudgetMs ?? TIME_BUDGET_MS;
-  const counts: Record<HostOutcome, number> = { sent: 0, quiet: 0, off: 0, noEmail: 0, already: 0, failed: 0 };
+  const counts: Record<HostOutcome, number> = { sent: 0, quiet: 0, off: 0, noEmail: 0, paused: 0, already: 0, failed: 0 };
   let hosts = 0;
   let unfinished = false;
   let cursor: string | undefined;

@@ -10,12 +10,15 @@
  *   type. A room type's own price may cover nights of a listing-wide one (the room type's wins).
  * - The price is per night in the listing's currency (a room type's own: in that room type's).
  * - A minimum stay of 1 night is no minimum (stored as null).
+ * - The note is public text: no emoji, and no contact details (refused on the server, and dropped
+ *   from older rows before guests see them: ./price-label).
  *
  * The calendar sends inclusive nights (`start` … `last`, like its selection); the database stores
  * an exclusive end (`end` = the first night not at this price), like every other booking range.
  */
 import { z } from "zod";
 import type { CurrencyCode } from "@/config/site";
+import { stripTitleEmoji } from "@/lib/text/emoji";
 import { MAX_DAYS_AHEAD, MAX_STAY_NIGHTS } from "./constants";
 import { addDays, daysBetween, isDay } from "./dates";
 
@@ -66,10 +69,14 @@ export const DATE_PRICE_ERRORS = [
   "price_required",
   "price_too_high",
   "label_too_long",
+  /** The note has a phone number, an email, a link or an @username (checked on the server: ./price-label). */
+  "label_contact_info",
   "overlap",
   "too_many",
   "not_bookable",
   "room_type_not_found",
+  /** "Every room" while a room type is priced in another currency (set it per room type). */
+  "room_currency_differs",
 ] as const;
 export type DatePriceError = (typeof DATE_PRICE_ERRORS)[number];
 
@@ -109,7 +116,8 @@ export const datePriceInputSchema = z
       .string()
       .max(200)
       .default("")
-      .transform((text) => text.replace(/\s+/g, " ").trim())
+      // A short note like a title: no emoji (Lucide icons only on the site), one line.
+      .transform((text) => stripTitleEmoji(text.replace(/\s+/g, " ").trim()))
       .refine((text) => text.length <= DATE_PRICE_LIMITS.labelMax, "label_too_long")
       .transform((text) => text || null),
   })

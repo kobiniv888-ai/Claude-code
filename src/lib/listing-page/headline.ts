@@ -34,3 +34,19 @@ export function headlinePlan(listing: {
   if (listing.dealType === "MONTHLY_RENT") return { period: "MONTH", perSqm: null, stayTotal: false };
   return { period: listing.pricePeriod, perSqm: null, stayTotal: stay && listing.pricePeriod === "NIGHT" && !listing.priceIsFrom };
 }
+
+/**
+ * Hotels without a price of their own: the room type their "from" price comes from. The cheapest
+ * by value (`priceUsd`, kept up to date by the exchange-rate job), not by the number: room types
+ * may be priced in different currencies, and ₾190 is cheaper than $120. Rooms without a USD value
+ * come last (as on the cards, src/lib/listing/mappers.ts), then by amount.
+ */
+export function cheapestRoomType<R extends { price: number | null; priceUsd: number | null }>(rooms: readonly R[]): R | null {
+  const priced = rooms.filter((room) => room.price !== null && room.price > 0);
+  const byValue = [...priced].sort((a, b) => {
+    if (a.priceUsd !== null && b.priceUsd !== null) return a.priceUsd - b.priceUsd;
+    if (a.priceUsd !== null || b.priceUsd !== null) return a.priceUsd !== null ? -1 : 1;
+    return (a.price ?? 0) - (b.price ?? 0);
+  });
+  return byValue[0] ?? null;
+}

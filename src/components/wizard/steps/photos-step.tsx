@@ -30,7 +30,9 @@ export function usePhotoActions({
   track: StepProps["track"];
 }) {
   const t = useTranslations("wizard");
-  const errorText = (code: string) => (t.has(`errors.${code}`) ? t(`errors.${code}`) : t("errors.server_error"));
+  const locale = useLocale();
+  const errorText = (code: string) =>
+    t.has(`errors.${code}`) ? t(`errors.${code}`, { min: formatNumber(siteConfig.listings.minPhotos, locale) }) : t("errors.server_error");
   // The latest list, updated synchronously (uploads finish in bursts, before React re-renders).
   const photosRef = useRef(photos);
   const apply = (update: (list: WizardPhoto[]) => WizardPhoto[]) => {

@@ -124,7 +124,9 @@
     "captcha_failed": "We couldn't confirm you're not a robot. Please refresh the page and try again.",
     "pledge_required": "To publish, please accept the Bayit pledge first.",
     "pledge_outdated": "The pledge wording was updated. Reload the page and read the new wording.",
-    "listing_mistakes": "Some things need fixing before you publish. They are listed under “Check before publishing”."
+    "listing_mistakes": "Some things need fixing before you publish. They are listed under “Check before publishing”.",
+    "photos_min": "A listing on the site keeps at least {min} photos that guests see. Add another photo first, then delete this one.",
+    "contact_in_text": "No phone number, email, link or @username in the text — guests contact you with the buttons."
   },
   "uploadErrors": {
     "file_too_large": "This photo is too large. Please choose a smaller one (up to 15 MB).",
@@ -144,6 +146,7 @@
   },
   "validation": {
     "invalid": "Please check this field.",
+    "contactInText": "No phone number, email, link or @username here — guests contact you with the buttons.",
     "required": "This field is required.",
     "tooLong": "This is too long.",
     "tooSmall": "This number is too small.",
@@ -175,7 +178,9 @@
     "invalidDate": "Please choose a valid date.",
     "invalidRange": "The end date must be after the start date.",
     "monthlyBelowWeekly": "The monthly discount can't be smaller than the weekly one.",
-    "discountTooLarge": "The discount can be up to 60%."
+    "discountTooLarge": "The discount can be up to 60%.",
+    "addressRequired": "A short stay or a hotel needs the exact address. Guests get it only after they book.",
+    "datePricesExist": "You have holiday prices in the current currency. Change or delete them in the calendar first, then switch the currency."
   },
   "options": {
     "dealType": {
@@ -1003,6 +1008,8 @@
       "photos_too_few": "{count, plural, =0 {There are no photos yet} one {There is only 1 photo} other {There are only {count} photos}}. You need at least {min} to publish.",
       "contact_in_title": "The title contains {kind}: {value}. Contact details are shown only through the contact buttons, to protect you and your guests from scams.",
       "contact_in_description": "The description contains {kind}: {value}. Contact details are shown only through the contact buttons, to protect you and your guests from scams.",
+      "contact_in_translation": "The {language} version you wrote yourself contains {kind}: {value}. Contact details are shown only through the contact buttons, to protect you and your guests from scams.",
+      "contact_in_room_name": "The room type name “{room}” contains {kind}: {value}. Contact details are shown only through the contact buttons, to protect you and your guests from scams.",
       "pin_outside_city": "The pin on the map is about {km} km from the center of the city you chose. Check that the city and the pin are right.",
       "guests_below_beds": "Maximum guests is {maxGuests}, but the beds sleep {sleeps}.",
       "guests_above_beds": "Maximum guests is {maxGuests}, but the beds sleep only {sleeps}. Add the beds or change the number of guests.",

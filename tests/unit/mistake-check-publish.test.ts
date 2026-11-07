@@ -5,8 +5,8 @@
  * - "פרסום" (acceptRulesAndPublish) refuses a short stay without an exact address, with fewer
  *   than 5 photos, or with a phone number in the description ("listing_mistakes"); the listing
  *   stays a draft. Warnings (0 bathrooms) never stop it.
- * - "Save changes" (saveChanges) of a changed live listing refuses too, and still runs the
- *   automatic checks on what auto-save already put on the site.
+ * - "Save changes" (saveChanges) of a live listing refuses too, and a live listing with errors
+ *   doesn't stay on the site: it waits for review (more cases: ./mistake-gates-db.test.ts).
  * - getListingMistakes is the owner's panel and the admin box: the same answer.
  * - The photo room label (updatePhotoRoom): owner only, one of the 7 rooms or null.
  *
@@ -55,6 +55,7 @@ vi.mock("@/lib/alerts/founder-admin", () => ({
 // The price guide belongs to another feature; here it never has enough data (no price warning).
 vi.mock("@/lib/pricing/guide-server", () => ({
   getPriceGuide: async () => ({ status: "not_enough", unit: "night", currency: "GEL", scope: { level: "city", cityId: "", matched: [] }, references: [] }),
+  getRoomTypePriceGuides: async () => new Map(),
 }));
 vi.mock("@/lib/pricing/guide", () => ({ pricePosition: () => null }));
 // Nearby places ask OpenStreetMap over the network: not part of this test.
@@ -172,7 +173,7 @@ describe("publishing refuses while the mistake check has errors (server-side)", 
 });
 
 describe("'Save changes' of a published listing", () => {
-  it("refuses while there are errors, and still runs the automatic checks on the live listing", async () => {
+  it("refuses while there are errors, and holds the live listing for review instead of leaving it on the site", async () => {
     const past = new Date(Date.now() - 86_400_000);
     const listingId = await draft({
       status: "LIVE",
@@ -187,7 +188,8 @@ describe("'Save changes' of a published listing", () => {
     const result = await saveChanges(listingId, null);
     expect(result).toEqual({ ok: false, error: "listing_mistakes", fieldErrors: { mistakes: ["address_missing"] } });
     const row = await db.listing.findUniqueOrThrow({ where: { id: listingId } });
-    expect(row.lastCheckedAt!.getTime()).toBeGreaterThan(past.getTime());
+    expect(row.status).toBe("IN_REVIEW");
+    expect(state.founder).toContain(listingId);
   });
 
   it("goes through when the error is fixed", { timeout: 20_000 }, async () => {

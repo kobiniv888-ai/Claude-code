@@ -40,7 +40,11 @@ export function mistakeMessage(issue: MistakeIssue, t: MistakeTranslator, locale
       break;
     case "contact_in_title":
     case "contact_in_description":
+    case "contact_in_translation":
+    case "contact_in_room_name":
       values.kind = label(t, "contactKind", p.kind);
+      values.language = label(t, "languages", p.locale);
+      values.room = isolate(String(p.room ?? ""));
       // An email address or a link is one word: no line break at its "-" or "/" (word joiners),
       // which would show "host-" and "p4g@example.com" as two pieces in a right-to-left sentence.
       values.value = isolateLtr(String(p.value ?? "").replace(/[-/]/g, "\u2060$&\u2060"));

@@ -6,6 +6,7 @@ import { cleanPaymentMethods, MAX_DAYS_AHEAD, MAX_STAY_NIGHTS, type PaymentMetho
 import { addDays, dateToDay, dayToDate, tbilisiToday } from "./dates";
 import { bookableRoomTypes, isInstantBookable, toNumber, type BookableDatePrice } from "./terms";
 import { roomQuantity } from "./room-availability";
+import { publicPriceLabel } from "./price-label";
 import { alertEnvironment, hostAlertSelect, hostAlertTarget } from "@/lib/alerts/host";
 import { hostAlertChannels, instantBookingGate, type AlertEnvironment } from "@/lib/alerts/rules";
 
@@ -148,7 +149,7 @@ export async function getGuestBookingTerms(
       end: dateToDay(p.endDate),
       price: toNumber(p.price) ?? 0,
       minNights: p.minNights,
-      label: p.label,
+      label: publicPriceLabel(p.label),
     })),
     weeklyDiscountPct: row.weeklyDiscountPct,
     monthlyDiscountPct: row.monthlyDiscountPct,

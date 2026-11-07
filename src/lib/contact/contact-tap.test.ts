@@ -32,6 +32,9 @@ vi.mock("@/lib/db", () => {
       },
     },
     rateLimit: {
+      // The day's pepper (src/lib/listing/stats.ts): none yet, so a fresh one is made.
+      findFirst: async () => null,
+      create: async (args: unknown) => args,
       createMany: async (args: { data: { key: string }[] }) => {
         const key = args.data[0].key;
         if (calls.keys.includes(key)) return { count: 0 };
@@ -39,6 +42,8 @@ vi.mock("@/lib/db", () => {
         return { count: 1 };
       },
     },
+    // No device link to the host's or a staff account.
+    deviceLink: { findFirst: async () => null },
     contactClick: {
       create: (args: unknown) => {
         calls.created.push(args);
@@ -46,7 +51,8 @@ vi.mock("@/lib/db", () => {
       },
     },
     $executeRaw: () => Promise.resolve(1),
-    $transaction: (items: Promise<unknown>[]) => Promise.all(items),
+    $transaction: (items: Promise<unknown>[] | ((tx: unknown) => Promise<unknown>)) =>
+      typeof items === "function" ? items(db) : Promise.all(items),
   };
   return { db };
 });

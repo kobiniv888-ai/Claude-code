@@ -4,7 +4,7 @@ import type { AppLocale } from "@/config/site";
 import type { ContactChannel, DealType } from "@/generated/prisma/enums";
 import { pickLocalized } from "@/i18n/locale";
 import { dateToDay, dayToDate, tbilisiToday } from "@/lib/booking/dates";
-import { hmacHash } from "@/lib/crypto";
+import { randomBytes } from "node:crypto";
 import { db } from "@/lib/db";
 import { CONTACT_CHANNELS } from "@/lib/listing/fields";
 import { getClientIp, getDeviceHash, getUserAgent } from "@/lib/request";
@@ -17,17 +17,23 @@ import {
   periodDays,
   stayOccupancy,
   type Occupancy,
+  type StatsClosed,
   type StatsStay,
   type StatsTotals,
 } from "./stats-math";
+import { rateLimit } from "@/lib/rate-limit";
 import {
   dailyAccountVisitorId,
+  dailyNetworkId,
   dailyVisitorId,
-  daySecretInput,
   isPrefetchRequest,
   skipReason,
   statsDedupeExpiry,
   statsDedupeKey,
+  statsNetworkKey,
+  statsPepperPrefix,
+  statsScope,
+  VIEWS_PER_NETWORK_PER_DAY,
   type StatsEvent,
   type StatsListing,
 } from "./stats-rules";
@@ -54,8 +60,30 @@ const CHANNELS = new Set<string>([...CONTACT_CHANNELS, "CHAT"]);
 
 const listingFacts = { status: true, isDemo: true, ownerId: true } as const;
 
+/** The day's pepper, once read (a server instance asks the database once a day). */
+const pepperCache = new Map<string, string>();
+
+/**
+ * The day's random pepper for the anonymous visitor IDs (privacy: it can't be recomputed from
+ * HASH_SALT, and it disappears with the day's keys, so no ID can be linked to an account later).
+ * Stored as a RateLimit row "stats-pepper:<day>:<hex>" that expires with the day's dedupe keys;
+ * made under an advisory lock, so every server instance uses the same one.
+ */
 async function daySecret(day: string): Promise<string> {
-  return hmacHash(daySecretInput(day));
+  const cached = pepperCache.get(day);
+  if (cached) return cached;
+  const prefix = statsPepperPrefix(day);
+  const pepper = await db.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${prefix}))`;
+    const existing = await tx.rateLimit.findFirst({ where: { key: { startsWith: prefix } }, orderBy: { key: "asc" }, select: { key: true } });
+    if (existing) return existing.key.slice(prefix.length);
+    const fresh = randomBytes(32).toString("hex");
+    await tx.rateLimit.create({ data: { key: `${prefix}${fresh}`, count: 0, resetAt: statsDedupeExpiry(day) } });
+    return fresh;
+  });
+  if (pepperCache.size >= 4) pepperCache.clear();
+  pepperCache.set(day, pepper);
+  return pepper;
 }
 
 /**
@@ -83,7 +111,7 @@ async function deviceOfHostOrStaff(deviceHash: string | null, ownerId: string): 
 
 /**
  * Counts one view of a LIVE, non-demo listing: once per visitor per day (the anonymous daily ID
- * from the IP and the browser), never the host (signed in, or on a device they signed in on),
+ * from the IP and the browser), at most VIEWS_PER_NETWORK_PER_DAY new visitors per network, never the host (signed in, or on a device they signed in on),
  * staff, bots or prefetches. Returns true when the view was counted.
  */
 export async function recordListingView(listingId: string, viewer?: StatsViewerInput): Promise<boolean> {
@@ -98,8 +126,16 @@ export async function recordListingView(listingId: string, viewer?: StatsViewerI
     if (await deviceOfHostOrStaff(deviceHash, listing.ownerId)) return false;
 
     const day = tbilisiToday();
-    const visitor = dailyVisitorId(await daySecret(day), ip, userAgent);
+    const secret = await daySecret(day);
+    const visitor = dailyVisitorId(secret, statsScope("view", listingId), ip, userAgent);
     if (!(await firstToday("view", day, listingId, visitor))) return false;
+    // A new visitor of this listing today, but at most VIEWS_PER_NETWORK_PER_DAY from one network
+    // (the IPv4 address or the IPv6 /64): a new user agent per call must not add views forever.
+    const network = await rateLimit(statsNetworkKey(day, listingId, dailyNetworkId(secret, ip)), {
+      limit: VIEWS_PER_NETWORK_PER_DAY,
+      windowSeconds: Math.max(1, Math.ceil((statsDedupeExpiry(day).getTime() - Date.now()) / 1000)),
+    });
+    if (!network.ok) return false;
 
     const { count } = await db.listing.updateMany({ where: { id: listingId, status: "LIVE" }, data: { viewCount: { increment: 1 } } });
     if (count === 0) return false;
@@ -116,7 +152,7 @@ export async function recordListingView(listingId: string, viewer?: StatsViewerI
 
 /**
  * One tap on a contact button of a LIVE, non-demo listing: once per visitor per day per contact
- * method, never by the host or staff. Writes a ContactClick row (the channel and the time,
+ * method, never by the host or staff (nor from a device they signed in on). Writes a ContactClick row (the channel and the time,
  * NEVER who tapped: founder's answer 8), Listing.contactCount and the day's count per channel.
  * The viewer's id is used only for the host/staff check and the anonymous daily ID.
  */
@@ -126,10 +162,13 @@ export async function recordContactClick(listingId: string, channel: ContactChan
     const listing = await db.listing.findUnique({ where: { id: listingId }, select: listingFacts });
     if (!listing) return false;
     if (skipReason(listing, { userId: viewer?.id ?? null, isStaff: !!viewer?.isStaff })) return false;
+    // Like views: a device the host or staff signed in on never counts (another account on it too).
+    if (await deviceOfHostOrStaff(await getDeviceHash(), listing.ownerId)) return false;
 
     const day = tbilisiToday();
     const secret = await daySecret(day);
-    const visitor = viewer?.id ? dailyAccountVisitorId(secret, viewer.id) : dailyVisitorId(secret, await getClientIp(), await getUserAgent());
+    const scope = statsScope("contact", listingId, channel);
+    const visitor = viewer?.id ? dailyAccountVisitorId(secret, scope, viewer.id) : dailyVisitorId(secret, scope, await getClientIp(), await getUserAgent());
     if (!(await firstToday("contact", day, listingId, visitor, channel))) return false;
 
     const { count } = await db.listing.updateMany({ where: { id: listingId, status: "LIVE" }, data: { contactCount: { increment: 1 } } });
@@ -173,10 +212,14 @@ export async function recordSave(listingId: string, delta: 1 | -1, viewer: Stats
     }
     await db.listing.updateMany({ where: { id: listingId }, data: { saveCount: { increment: 1 } } });
     if (listing.status !== "LIVE") return;
+    // The day's count skips a device the host or staff signed in on, like views. Not saveCount:
+    // the device of the −1 can differ from the +1's, and "saved by N" would drift.
+    if (await deviceOfHostOrStaff(await getDeviceHash(), listing.ownerId)) return;
 
     const day = tbilisiToday();
     const secret = await daySecret(day);
-    const visitor = viewer?.id ? dailyAccountVisitorId(secret, viewer.id) : dailyVisitorId(secret, await getClientIp(), await getUserAgent());
+    const scope = statsScope("save", listingId);
+    const visitor = viewer?.id ? dailyAccountVisitorId(secret, scope, viewer.id) : dailyVisitorId(secret, scope, await getClientIp(), await getUserAgent());
     if (!(await firstToday("save", day, listingId, visitor))) return;
     await db.$executeRaw`
       INSERT INTO "ListingStatDaily" ("listingId", "date", "saves")
@@ -253,6 +296,18 @@ async function loadStays(listingIds: string[], first: string, last: string): Pro
   }));
 }
 
+/**
+ * The period's nights the host closed or that another site booked (OWNER and ICAL blocks; a
+ * Bayit booking's own BOOKING block is the stay itself): not "offered on Bayit" (occupancy).
+ */
+async function loadClosed(listingId: string, first: string, last: string): Promise<StatsClosed[]> {
+  const rows = await db.availabilityBlock.findMany({
+    where: { listingId, source: { in: ["OWNER", "ICAL"] }, startDate: { lt: dayToDate(tbilisiNextDay(last)) }, endDate: { gt: dayToDate(first) } },
+    select: { startDate: true, endDate: true, roomTypeId: true, rooms: true },
+  });
+  return rows.map((row) => ({ start: dateToDay(row.startDate), end: dateToDay(row.endDate), roomTypeId: row.roomTypeId, rooms: row.rooms }));
+}
+
 function tbilisiNextDay(day: string): string {
   return dateToDay(new Date(dayToDate(day).getTime() + 86_400_000));
 }
@@ -273,7 +328,7 @@ export async function getListingStats(
   const bookable = isBookableDeal(listing.dealType);
   const hotel = listing.dealType === "HOTEL_ROOM";
 
-  const [counters, rows, stays, roomTypes] = await Promise.all([
+  const [counters, rows, stays, roomTypes, closed] = await Promise.all([
     db.listing.findUnique({ where: { id: listing.id }, select: { viewCount: true, contactCount: true, saveCount: true } }),
     db.listingStatDaily.findMany({ where: { listingId: listing.id, date: { gte: dayToDate(first), lte: dayToDate(today) } } }),
     bookable ? loadStays([listing.id], first, today) : Promise.resolve([]),
@@ -284,6 +339,7 @@ export async function getListingStats(
           select: { id: true, names: true, quantity: true, active: true },
         })
       : Promise.resolve([]),
+    bookable ? loadClosed(listing.id, first, today) : Promise.resolve([]),
   ]);
   const byDay = new Map(rows.map((row) => [dateToDay(row.date), row]));
   const bookingsByDay = bookingSeries(stays, days);
@@ -318,12 +374,12 @@ export async function getListingStats(
   let occupancy: Occupancy | null = null;
   let roomTypeStats: RoomTypeStats[] = [];
   if (hotel) {
-    const result = hotelOccupancy(stays, roomTypes, days);
+    const result = hotelOccupancy(stays, roomTypes, days, closed);
     occupancy = result.total;
     const names = new Map(roomTypes.map((room) => [room.id, pickLocalized(room.names, locale)]));
     roomTypeStats = result.byRoomType.map((room) => ({ ...room, name: names.get(room.id) ?? "" }));
   } else if (bookable) {
-    occupancy = stayOccupancy(stays, days);
+    occupancy = stayOccupancy(stays, days, closed);
   }
 
   return {

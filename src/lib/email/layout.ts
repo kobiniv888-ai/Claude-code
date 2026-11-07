@@ -101,8 +101,10 @@ function renderBlock(block: EmailBlock, align: "left" | "right"): string {
       const rows = block.rows
         .map(
           (row) =>
-            `<tr><td style="padding:6px 0;padding-${align === "left" ? "right" : "left"}:16px;font-size:14px;color:${colors.muted};vertical-align:top;white-space:nowrap;">${escapeHtml(row.label)}</td>` +
-            `<td style="padding:6px 0;font-size:14px;color:${colors.text};vertical-align:top;"${row.ltr ? ' dir="ltr"' : ' dir="auto"'}>${keepCodesTogether(escapeHtml(row.value))}</td></tr>`,
+            // A price line ("80 ₾ × 2 ночи (пятница и суббота)") wraps instead of widening the email
+            // past a phone screen; its amount then stays on one line.
+            `<tr><td style="padding:6px 0;padding-${align === "left" ? "right" : "left"}:16px;font-size:14px;color:${colors.muted};vertical-align:top;${row.wrap ? "white-space:normal;word-break:break-word;" : "white-space:nowrap;"}">${escapeHtml(row.label)}</td>` +
+            `<td style="padding:6px 0;font-size:14px;color:${colors.text};vertical-align:top;${row.wrap ? "white-space:nowrap;" : ""}"${row.ltr ? ' dir="ltr"' : ' dir="auto"'}>${keepCodesTogether(escapeHtml(row.value))}</td></tr>`,
         )
         .join("");
       return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px;border-collapse:collapse;">${rows}</table>`;

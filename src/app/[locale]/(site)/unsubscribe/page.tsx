@@ -7,6 +7,7 @@ import { Link } from "@/i18n/navigation";
 import { submitUnsubscribe } from "@/lib/alerts/unsubscribe-actions";
 import { weeklyStatsEmailOn } from "@/lib/alerts/unsubscribe-server";
 import { verifyUnsubscribeToken } from "@/lib/alerts/unsubscribe-token";
+import { unsubscribePlan } from "@/lib/alerts/unsubscribe-view";
 import { pageMetadata } from "@/lib/seo";
 
 type Props = {
@@ -21,8 +22,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const t = await getTranslations({ locale, namespace: "account.unsubscribe" });
   return pageMetadata({ locale, path: "/unsubscribe", title: t("metaTitle"), description: t("metaDescription"), noIndex: true });
 }
-
-type View = "confirm" | "alreadyOff" | "off" | "on" | "invalid" | "limited" | "error";
 
 /**
  * /unsubscribe?t=<signed token> — the link in the weekly host stats email (round 3, brief 6.2).
@@ -41,17 +40,8 @@ export default async function UnsubscribePage({ params, searchParams }: Props) {
   const verified = verifyUnsubscribeToken(token);
   const current = verified ? await weeklyStatsEmailOn(verified.userId) : null;
 
-  let view: View;
-  if (state === "invalid" || !verified || current === null) view = "invalid";
-  else if (state === "limited") view = "limited";
-  else if (state === "error") view = "error";
-  else if (state === "off" && current === false) view = "off";
-  else if (state === "on" && current === true) view = "on";
-  else view = current ? "confirm" : "alreadyOff";
-
-  const done = view === "off" || view === "on";
-  const turnOn = view === "off" || view === "alreadyOff";
-  const showsForm = view === "confirm" || turnOn || view === "error";
+  // After an error, "retry" repeats what was asked (`on=1`: turn it back on), never the opposite.
+  const { view, done, turnOn, showsForm, label } = unsubscribePlan({ valid: !!verified, current, state, retryOn: one(query.on) === "1" });
 
   return (
     <Container size="prose" className="py-10 sm:py-16">
@@ -71,7 +61,7 @@ export default async function UnsubscribePage({ params, searchParams }: Props) {
             <input type="hidden" name="locale" value={locale} />
             <input type="hidden" name="on" value={turnOn ? "1" : "0"} />
             <Button type="submit" size="lg" variant={turnOn ? "outline" : "default"} className="h-12 w-full rounded-xl text-base">
-              {t(turnOn ? "turnOn" : view === "error" ? "retry" : "turnOff")}
+              {t(label)}
             </Button>
           </form>
         ) : null}

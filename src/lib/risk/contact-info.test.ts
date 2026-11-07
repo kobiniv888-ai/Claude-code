@@ -25,6 +25,11 @@ describe("phones", () => {
     ["Tbilisi landline 032 2 12 34 56", "+995322123456"],
     ["full width ５５５１２３４５６", "+995555123456"],
     ["hidden 555​123​456 characters", "+995555123456"],
+    // A country code written without "+" or "00".
+    ["Call 972 54 123 4567", "+972541234567"],
+    ["WhatsApp 995 555 12 34 56", "+995555123456"],
+    ["Call 89161234567", "+79161234567"],
+    ["Звоните 916 123-45-67", "+79161234567"],
   ])("finds the number in %j", (text, expected) => {
     expect(phones(text)).toEqual([expected]);
   });
@@ -66,8 +71,25 @@ describe("phones", () => {
     "3.5 km to the sea, 15 min to the airport",
     "Land 1 200 000 m2 for development",
     "Plot 600 sq m, 1 250 000 USD",
+    // Season and holiday ranges of day.month dates, and lists of numbers.
+    "פנויה בקיץ 15.06-15.09.2026",
+    "Свободно 01.06-31.08.2026",
+    "Pesach 12.04-20.04.2026",
+    "Free 15/06-15/09/2026",
+    "Summer 01.07–31.08.2026",
+    "Available 15.06 - 15.09.2026",
+    "متاحة 15.06-15.09.2026",
+    "თავისუფალია 15.06-15.09.2026",
+    "Open 10.6-20.6",
+    "buses 37 61 102 150",
+    "Rooms 101 - 110 / 201 - 210",
+    "Rooms 101-110, 201-210",
   ])("ignores %j", (text) => {
     expect(phones(text)).toEqual([]);
+  });
+
+  it("gives each number as the text writes it, to find it in the description", () => {
+    expect(detectContactInfo("call 054-1234567 or +995 555 12 34 56").phoneTexts).toEqual(["054-1234567", "+995 555 12 34 56"]);
   });
 });
 
@@ -96,8 +118,27 @@ describe("links", () => {
     "3.5 km to the sea",
     "Sea view.To the beach 5 minutes",
     "Price is 2.5k per month",
+    // No space after a full stop, the next sentence starting with a word that is also a TLD.
+    "Close to the beach.Live like a local!",
+    "Great flat.By the sea",
+    "floor 5/12.Top location",
+    "Sea view.Info about the area below",
+    "Kitchen equipped.Online check-in",
+    "Near the market.Shop downstairs",
+    "Great place.App for the door lock",
+    "Close to Vake park.Org.",
+    "Walk to the sea.Club nearby",
   ])("ignores %j", (text) => {
     expect(urls(text)).toEqual([]);
+  });
+
+  it.each([
+    ["Listed on SS.ge too", "SS.ge"],
+    ["Also on Booking.com", "Booking.com"],
+    ["See MYFLAT.COM", "MYFLAT.COM"],
+    ["see myflat.Com/rooms", "myflat.Com/rooms"],
+  ])("still finds the capitalized link in %j", (text, expected) => {
+    expect(urls(text)).toEqual([expected]);
   });
 });
 
@@ -116,6 +157,11 @@ describe("emails and handles", () => {
     expect(handles("تيليجرام @gudauri.ski")).toEqual(["@gudauri.ski"]);
     expect(handles("me@example.com")).toEqual([]);
     expect(handles("only @100 per night")).toEqual([]);
+    // Times and words after "@".
+    expect(handles("Check-in @2pm, check-out @11am. Kosher kitchen.")).toEqual([]);
+    expect(handles("Check-in @14h")).toEqual([]);
+    expect(handles("Work @home friendly")).toEqual([]);
+    expect(handles("Insta @flat2pm_batumi")).toEqual(["@flat2pm_batumi"]);
   });
 });
 

@@ -38,5 +38,6 @@ export async function submitUnsubscribe(formData: FormData): Promise<void> {
     return null;
   });
   const state = changed === null ? "error" : !changed ? "invalid" : on ? "on" : "off";
-  redirect({ href: { pathname: "/unsubscribe", query: { t: token, state } }, locale });
+  // An error keeps the direction, so "retry" repeats the same change.
+  redirect({ href: { pathname: "/unsubscribe", query: { t: token, state, ...(state === "error" ? { on: on ? "1" : "0" } : {}) } }, locale });
 }

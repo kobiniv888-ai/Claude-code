@@ -6,6 +6,7 @@ import { pickLocalized } from "@/i18n/locale";
 import { db } from "@/lib/db";
 import { getRates } from "@/lib/currency";
 import { convert, isCurrencyCode, type Rates } from "@/lib/currency/convert";
+import { publicListingWhere } from "@/lib/listing/where";
 import {
   computeGuide,
   guideAsked,
@@ -30,7 +31,8 @@ import { isStaleReference, matchReferencePrices, referenceMonth } from "./refere
  *   const guide = await getPriceGuide({ excludeOwnerId: user.id, cityId, dealType, propertyType,
  *     bedrooms, displayCurrency: "GEL" });
  *
- * Numbers come only from LIVE, non-demo listings of OTHER owners (never `excludeOwnerId`'s, never
+ * Numbers come only from listings on the public site (LIVE, not expired, of an active owner),
+ * non-demo, of OTHER owners (never `excludeOwnerId`'s, never
  * `listingId`), priced in the unit their deal type compares (per night, per month, full price).
  * Hotels compare room types (their price and weekend price, what their beds sleep, their size).
  * Prices are converted to `displayCurrency` with today's rates. Reference prices (active, not
@@ -62,19 +64,25 @@ function toDisplay(amount: number | null, from: string, to: CurrencyCode, rates:
   return from === to ? { value: amount, converted: false } : { value: convert(amount, from, to, rates), converted: true };
 }
 
-/** LIVE, non-demo listings of other owners in the same city, deal type and property type. */
-function othersWhere(input: GuideInput): Prisma.ListingWhereInput {
+/**
+ * Listings on the public site (LIVE, not expired, of an active or warned owner: the same rule as
+ * search), non-demo, of other owners, in the same city, deal type and property type. AND keeps
+ * the two `owner` filters apart.
+ */
+export function othersWhere(input: GuideInput, now: Date = new Date()): Prisma.ListingWhereInput {
   return {
-    status: "LIVE",
-    isDemo: false,
-    deletedAt: null,
-    cityId: input.cityId,
-    dealType: input.dealType,
-    propertyType: input.propertyType,
-    ownerId: { not: input.excludeOwnerId },
-    owner: { isDemo: false },
-    ...(input.listingId ? { id: { not: input.listingId } } : {}),
-    ...(input.countryCode ? { countryCode: input.countryCode } : {}),
+    AND: [
+      publicListingWhere({ demoVisible: false, now }),
+      {
+        cityId: input.cityId,
+        dealType: input.dealType,
+        propertyType: input.propertyType,
+        ownerId: { not: input.excludeOwnerId },
+        owner: { isDemo: false },
+        ...(input.listingId ? { id: { not: input.listingId } } : {}),
+        ...(input.countryCode ? { countryCode: input.countryCode } : {}),
+      },
+    ],
   };
 }
 
@@ -264,6 +272,23 @@ export async function getPriceGuide(input: GuideInput): Promise<GuideResult> {
     if (row) room = { guests: roomSleeps(row), sizeSqm: row.sizeSqm };
   }
   return guideFromData(input, await loadGuideData(input), room);
+}
+
+/**
+ * The guides of several room types of one hotel (the mistake check): the candidates and the
+ * reference prices are loaded ONCE, then each room type is compared by its own beds and size.
+ * At most MAX_ROOM_TYPES room types. Same callers' rules as getPriceGuide.
+ */
+export async function getRoomTypePriceGuides(
+  input: GuideInput,
+  rooms: readonly { id: string; bedsSingle: number | null; bedsDouble: number | null; bedsSofa: number | null; maxGuests: number | null; sizeSqm: number | null }[],
+): Promise<Map<string, GuideResult>> {
+  const chosen = rooms.slice(0, MAX_ROOM_TYPES);
+  if (chosen.length === 0) return new Map();
+  const data = await loadGuideData(input);
+  return new Map(
+    chosen.map((room) => [room.id, guideFromData({ ...input, roomTypeId: room.id }, data, { guests: roomSleeps(room), sizeSqm: room.sizeSqm })]),
+  );
 }
 
 // ─── A host's own listing (the post form, the edit page, "מדריך מחירים") ───

@@ -48,11 +48,12 @@ async function listing(ownerKey: string, data: Partial<ListingData> = {}) {
 
 beforeAll(async () => {
   await db.user.createMany({
-    data: ["host", "o1", "o2", "o3", "o4", "demo"].map((key) => ({
+    data: ["host", "o1", "o2", "o3", "o4", "demo", "suspended"].map((key) => ({
       id: user(key),
       name: `${prefix} ${key}`,
       email: `${prefix}-${key}@example.com`,
       isDemo: key === "demo",
+      ...(key === "suspended" ? { status: "SUSPENDED" as const } : {}),
     })),
   });
   // Inactive: never listed on the site while the test runs.
@@ -74,6 +75,9 @@ beforeAll(async () => {
   await listing("o3", { price: 4000, pricePeriod: "WEEK" }); // another unit
   await listing("o3", { price: 4000, propertyType: "VILLA" }); // another type
   await listing("o3", { price: 4000, dealType: "MONTHLY_RENT", pricePeriod: "MONTH" }); // another deal
+  // Not on the public site either: a suspended owner's LIVE listing, and an expired one not swept yet.
+  await listing("suspended", { price: 1 });
+  await listing("o2", { price: 1, expiresAt: new Date(Date.now() - 86_400_000) });
 
   await db.referencePrice.createMany({
     data: [
@@ -187,5 +191,26 @@ describe("getListingPriceGuides", () => {
     const id = await listing("host", { cityId: null });
     const view = await getListingPriceGuides(id, user("host"), { locale: "en" });
     expect(view).toMatchObject({ needsCity: true, items: [] });
+  });
+});
+
+describe("the mistake check's price warnings for a hotel (mistake-6)", () => {
+  it("loads the comparison data once for all the room types, not once per room type", async () => {
+    const { getListingMistakes } = await import("@/lib/listing/mistake-check-server");
+    const hotel = await listing("host", { dealType: "HOTEL_ROOM", propertyType: "HOTEL", status: "DRAFT", price: null, bedrooms: null });
+    for (const [i, price] of [90, 100, 110].entries()) {
+      await db.roomType.create({
+        data: { listingId: hotel, names: { ...names, he: `חדר ${i}` }, price, currency: "GEL", pricePeriod: "NIGHT", maxGuests: 2, bedsDouble: 1, quantity: 1, active: true },
+      });
+    }
+    const spy = vi.spyOn(db.roomType, "findMany");
+    try {
+      await getListingMistakes(hotel);
+      // The candidates' query is the one that reads other listings' room types.
+      const candidateLoads = spy.mock.calls.filter(([args]) => !!(args as { where?: { listing?: unknown } } | undefined)?.where?.listing).length;
+      expect(candidateLoads).toBe(1);
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

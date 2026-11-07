@@ -32,6 +32,23 @@ export function parseStatsRange(value: unknown): StatsRange {
   return (STATS_RANGES as readonly number[]).includes(n) ? (n as StatsRange) : DEFAULT_STATS_RANGE;
 }
 
+/** How far back the stats page can end a period (`?to=`): about 13 months. */
+export const STATS_END_MAX_DAYS_BACK = 400;
+
+/**
+ * The last day of the stats page's period from `?to=YYYY-MM-DD` (the weekly email links to the
+ * week it reports): a real day, not after `today`, at most STATS_END_MAX_DAYS_BACK days back.
+ * null for anything else (the period then ends today).
+ */
+export function parseStatsEnd(value: unknown, today: string): string | null {
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (typeof raw !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+  const date = new Date(`${raw}T00:00:00Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== raw) return null;
+  if (raw > today || raw < addDays(today, -STATS_END_MAX_DAYS_BACK)) return null;
+  return raw;
+}
+
 /** Deal types guests book on Bayit: only these show bookings, booked nights and occupancy. */
 export function isBookableDeal(dealType: string): boolean {
   return dealType === "SHORT_STAY" || dealType === "HOTEL_ROOM";
@@ -85,13 +102,28 @@ export function occupancyRate(bookedNights: number, offeredNights: number): numb
 
 export type Occupancy = { bookedNights: number; offeredNights: number; rate: number | null };
 
-/** A short stay: one place, offered every day of the period. */
-export function stayOccupancy(stays: readonly StatsStay[], days: readonly string[]): Occupancy {
+/**
+ * Nights the host closed (an OWNER block) or that another site booked (an ICAL block), as
+ * AvailabilityBlock rows: [start, end) days. Hotels: `roomTypeId` null closes the whole hotel;
+ * otherwise `rooms` rooms of that type (null: all of them). They are not "offered on Bayit".
+ */
+export type StatsClosed = { start: string; end: string; roomTypeId: string | null; rooms: number | null };
+
+const covers = (range: { start: string; end: string }, day: string) => day >= range.start && day < range.end;
+
+/**
+ * A short stay: one place, offered on the days of the period that were not closed or booked
+ * elsewhere (a day a Bayit guest booked is offered, whatever else covers it).
+ */
+export function stayOccupancy(stays: readonly StatsStay[], days: readonly string[], closed: readonly StatsClosed[] = []): Occupancy {
   if (days.length === 0) return { bookedNights: 0, offeredNights: 0, rate: null };
   const first = days[0];
   const last = days[days.length - 1];
   const bookedNights = stays.reduce((sum, stay) => sum + nightsInPeriod({ ...stay, rooms: 1 }, first, last), 0);
-  return { bookedNights, offeredNights: days.length, rate: occupancyRate(bookedNights, days.length) };
+  const offeredNights = days.filter(
+    (day) => !closed.some((block) => covers(block, day)) || stays.some((stay) => covers({ start: stay.checkIn, end: stay.checkOut }, day)),
+  ).length;
+  return { bookedNights, offeredNights, rate: occupancyRate(bookedNights, offeredNights) };
 }
 
 export type StatsRoomType = { id: string; quantity: number; active: boolean };
@@ -106,6 +138,7 @@ export function hotelOccupancy(
   stays: readonly StatsStay[],
   roomTypes: readonly StatsRoomType[],
   days: readonly string[],
+  closed: readonly StatsClosed[] = [],
 ): { total: Occupancy; byRoomType: RoomTypeOccupancy[] } {
   if (days.length === 0) return { total: { bookedNights: 0, offeredNights: 0, rate: null }, byRoomType: [] };
   const first = days[0];
@@ -120,7 +153,21 @@ export function hotelOccupancy(
     .map((room) => {
       const quantity = Math.max(1, Math.floor(room.quantity || 1));
       const bookedNights = booked.get(room.id) ?? 0;
-      const offeredNights = quantity * days.length;
+      // Per night: the rooms of this type minus those closed or booked elsewhere (a whole-hotel
+      // block closes them all), but never fewer than the rooms Bayit guests booked that night.
+      let offeredNights = 0;
+      for (const day of days) {
+        let closedRooms = 0;
+        for (const block of closed) {
+          if (!covers(block, day)) continue;
+          if (block.roomTypeId === null) closedRooms = quantity;
+          else if (block.roomTypeId === room.id) closedRooms += block.rooms !== null && block.rooms >= 1 ? block.rooms : quantity;
+        }
+        const bookedRooms = stays
+          .filter((stay) => stay.roomTypeId === room.id && covers({ start: stay.checkIn, end: stay.checkOut }, day))
+          .reduce((sum, stay) => sum + Math.max(1, Math.floor(stay.rooms || 1)), 0);
+        offeredNights += Math.max(bookedRooms, quantity - Math.min(quantity, closedRooms));
+      }
       return { id: room.id, quantity, bookedNights, offeredNights, rate: occupancyRate(bookedNights, offeredNights) };
     });
   const bookedNights = [...booked.values()].reduce((a, b) => a + b, 0);

@@ -33,6 +33,7 @@ export function ModerationActions({
   ownerLocaleLabel,
   contentUpdatedAt,
   own = false,
+  mistakesBlocked = false,
 }: {
   listingId: string;
   status: ListingStatus;
@@ -41,6 +42,8 @@ export function ModerationActions({
   /** Listing.contentUpdatedAt as the page showed it (ISO). */
   contentUpdatedAt: string;
   own?: boolean;
+  /** The host's mistake check has errors (no exact address…): approving or restoring is refused. */
+  mistakesBlocked?: boolean;
 }) {
   const t = useTranslations("admin.moderation.actions");
   const tReasons = useTranslations("moderation.reasons");
@@ -69,13 +72,19 @@ export function ModerationActions({
   // The host saved a change since this page was opened (or the checks, run again, found something
   // new): show the fresh page instead of deciding on the old one.
   const refreshOnChange = (code: string) => {
-    if (code === "content_changed") router.refresh();
+    if (code === "content_changed" || code === "listing_has_mistakes") router.refresh();
   };
 
   if (own) return <p className="text-sm text-muted-foreground">{t("ownListing")}</p>;
 
+  const blocksPublishing = mistakesBlocked && (CAN_APPROVE.includes(status) || status === "HIDDEN");
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap items-center gap-2">
+      {blocksPublishing ? (
+        <p className="w-full text-sm text-pretty text-destructive" data-testid="moderation-blocked-by-mistakes">
+          {t("blockedByMistakes")}
+        </p>
+      ) : null}
       {CAN_APPROVE.includes(status) ? (
         <ActionDialog
           triggerLabel={t("approve")}
@@ -85,6 +94,7 @@ export function ModerationActions({
           title={t("approveTitle")}
           description={t("approveDescription", { title })}
           confirmLabel={t("approveConfirm")}
+          disabled={mistakesBlocked}
           onConfirm={() =>
             run(() => approveListingAction({ listingId, contentUpdatedAt }), {
               success: t("approved"),
@@ -103,6 +113,7 @@ export function ModerationActions({
           title={t("restoreTitle")}
           description={t("restoreDescription")}
           confirmLabel={t("restoreConfirm")}
+          disabled={mistakesBlocked}
           onConfirm={() =>
             run(() => restoreListingAction({ listingId, contentUpdatedAt }), {
               // Edited while hidden and the checks want a person: it waits for review instead.

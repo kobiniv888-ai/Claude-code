@@ -154,7 +154,7 @@ describe("weekly host stats email", () => {
       [stay.publicId, 100, true],
       [monthly.publicId, 20, false],
     ]);
-    expect(listings[0].statsUrl).toBe(`/account/listings/${stay.id}/stats?days=7`);
+    expect(listings[0].statsUrl).toBe(`/account/listings/${stay.id}/stats?days=7&to=${email.data.toDay}`);
     const token = decodeURIComponent(String(email.data.unsubscribeUrl).split("t=")[1]);
     expect(verifyUnsubscribeToken(token)).toEqual({ userId: host, kind: "weekly_stats" });
 
@@ -226,6 +226,64 @@ describe("weekly host stats email", () => {
       sent: 1,
     });
     expect(sent.emails[0].data).toMatchObject({ fromDay: "2026-11-01", toDay: "2026-11-07" });
+  });
+});
+
+describe("bounces, complaints and stuck claims (weekly-1, claim-1)", () => {
+  it("sends no digest to an address paused after a bounce or a spam complaint", async () => {
+    const host = await createHost("paused");
+    await db.user.update({
+      where: { id: host },
+      data: { notificationPrefs: { alerts: { email: { failing: { reason: "complained", since: "2026-11-01T10:00:00Z", address: `${host}@example.com` } } } } },
+    });
+    const listing = await createListing(host);
+    await addWeek(listing.id, [{ day: "2026-11-03", views: 5 }]);
+    const result = await run(host);
+    expect(result).toMatchObject({ status: "ran", paused: 1, sent: 0 });
+    expect(sent.emails).toHaveLength(0);
+  });
+
+  it("carries a one-click List-Unsubscribe header to /api/unsubscribe with the signed token", async () => {
+    const host = await createHost("headers");
+    const listing = await createListing(host);
+    await addWeek(listing.id, [{ day: "2026-11-03", views: 5 }]);
+    await run(host);
+    const headers = (sent.emails[0] as unknown as { headers: Record<string, string> }).headers;
+    expect(headers["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
+    const url = /^<(.+)>$/.exec(headers["List-Unsubscribe"])?.[1] ?? "";
+    expect(new URL(url).pathname).toBe("/api/unsubscribe");
+    expect(verifyUnsubscribeToken(new URL(url).searchParams.get("t"))).toEqual({ userId: host, kind: "weekly_stats" });
+  });
+
+  it("a stale claim whose email is already in the outbox is settled, not sent again", async () => {
+    const host = await createHost("stuck");
+    const listing = await createListing(host);
+    await addWeek(listing.id, [{ day: "2026-11-03", views: 5 }]);
+    // An earlier run claimed the host at 09:30, sent the email, and could not settle the claim.
+    const key = `${CLAIM_PREFIX}2026-11-08:${host}`;
+    await db.rateLimit.create({ data: { key, count: 0, resetAt: new Date(SUNDAY.getTime() + 8 * 24 * 3600_000) } });
+    const outbox = await db.emailOutbox.create({
+      data: { to: `${host}@example.com`, template: "weekly_host_stats", locale: "he", subject: "השבוע", html: "<p>x</p>", status: "LOGGED", createdAt: new Date(SUNDAY.getTime() + 1000) },
+    });
+    try {
+      const result = await run(host, new Date(SUNDAY.getTime() + 3600_000));
+      expect(result).toMatchObject({ status: "ran", sent: 0, already: 1 });
+      expect(sent.emails).toHaveLength(0);
+      expect((await db.rateLimit.findUniqueOrThrow({ where: { key } })).count).toBe(1);
+    } finally {
+      await db.emailOutbox.delete({ where: { id: outbox.id } });
+    }
+  });
+
+  it("a stale claim without an email is taken over and sent once", async () => {
+    const host = await createHost("stale");
+    const listing = await createListing(host);
+    await addWeek(listing.id, [{ day: "2026-11-03", views: 5 }]);
+    const key = `${CLAIM_PREFIX}2026-11-08:${host}`;
+    await db.rateLimit.create({ data: { key, count: 0, resetAt: new Date(SUNDAY.getTime() + 8 * 24 * 3600_000) } });
+    expect(await run(host, new Date(SUNDAY.getTime() + 3600_000))).toMatchObject({ sent: 1 });
+    expect(await run(host, new Date(SUNDAY.getTime() + 2 * 3600_000))).toMatchObject({ sent: 0, already: 1 });
+    expect(sent.emails).toHaveLength(1);
   });
 });
 

@@ -9,7 +9,7 @@ import { formatMoney } from "@/lib/format";
 import { MAX_ROOMS_PER_BOOKING } from "@/lib/booking/constants";
 import { bookHref, clampGuests, countedGuests, guestLimit, withBookParams, type GuestCounts } from "@/lib/booking/guest";
 import { quoteStay, type DatePriceTerm, type MinStayDatePrice, type Quote } from "@/lib/booking/pricing";
-import { freeFromSegments, type FreeSegment } from "@/lib/booking/room-availability";
+import { freeFromSegments, noRoomTypeFree, type FreeSegment } from "@/lib/booking/room-availability";
 import { roomGuestLimit } from "@/lib/booking/terms";
 import type { DateBlock } from "@/lib/listing-page/calendar";
 import { nightsBetween, withStayParams, type PickRules, type StayDates } from "@/lib/listing-page/stay";
@@ -81,6 +81,8 @@ export type StayRoomState = StayRooms & {
   guestLimit: number | null;
   /** Adults + children fit in the chosen rooms. */
   guestsFit: boolean;
+  /** Hotels: no room type has a free room for the chosen nights (each is full on some night). */
+  allFull: boolean;
 };
 
 /** Replaces the address in place (no server round trip), keeping the other parameters. */
@@ -283,6 +285,7 @@ export function StayProvider({
           freeRooms: (id) => freeOf(roomsInput.options.find((o) => o.id === id), dates),
           guestLimit: limit,
           guestsFit,
+          allFull: inventory && noRoomTypeFree(roomsInput.options, dates.checkIn, dates.checkOut),
         }
       : null;
     // Hotels: a room type with enough free rooms for the guests is chosen before booking. Other

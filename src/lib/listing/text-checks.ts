@@ -105,6 +105,14 @@ const KEYWORD_AT_START = new RegExp(`^\\s*${START}(?:${CHECK_IN_WORDS.join("|")}
 /** "late check-out", "צ'ק אאוט מאוחר", "поздний выезд", "المغادرة المتأخرة", "გვიანი გასვლა". */
 const LATE_EARLY = `(?:late|early|מאוחר[${L}]*|מוקדם[${L}]*|поздн[${L}]*|ранн[${L}]*|(?:ال)?متأخر[${L}]*|(?:ال)?مبكر[${L}]*|გვიან[${L}]*|ადრე[${L}]*)`;
 const LATE_BEFORE = new RegExp(`${START}${LATE_EARLY}[\\s-]*$`, "iu");
+/**
+ * Shabbat words: a check-out "after 20:15 on Saturday night" (or after Havdalah) is the Shabbat
+ * arrangement, not the usual time, so a sentence with one of these words is not compared.
+ */
+const SHABBAT = new RegExp(
+  `${START}(?:${HE_PREFIX}(?:שבת|הבדלה|מוצ"ש|מוצאי)|shabb?[ao]s|shabbat|sabbath|havdal+ah|motzei|шаб+ат[${L}]*|суббот[${L}]*|${AR_PREFIX}(?:ال)?سبت|შაბათ[${L}]*)`,
+  "iu",
+);
 const LATE_AFTER = new RegExp(`^[\\s-]*${LATE_EARLY}`, "iu");
 
 // ─── Times ────────────────────────────────────────────────────
@@ -169,6 +177,14 @@ const oclockAfterRegex = new RegExp(`^\\s?${OCLOCK_AFTER}`, "iu");
 const hourWordBeforeRegex = new RegExp(`${START}${HOUR_WORDS_BEFORE}\\s*-?\\s*$`, "iu");
 const prepositionBeforeRegex = new RegExp(`${START}${PREPOSITIONS_BEFORE}\\s*-?\\s*$`, "iu");
 
+/**
+ * "3-4pm", "3 and 6 pm" (after "between"), "3 to 6 pm" (after "from"), "3 ל-6 אחה"צ", "с 3 до 6
+ * вечера", "3 إلى 6 مساءً": a range of two bare hours with ONE marker at its end, which applies to
+ * both. Read as one mention that accepts either bound.
+ */
+const RANGE_SEPARATOR = `\\s*(?:-|to|till|until|and|ו?עד|ו-?|ל-?|до|по|и|إلى|الى|حتى|و)\\s*`;
+const HOUR_RANGE = new RegExp(`(?<![\\d.:,+])(\\d{1,2})${RANGE_SEPARATOR}(\\d{1,2})(?![\\d]|[.:,]\\d)`, "giu");
+
 /** "13:00", "13.00", "9:30" (not a date such as 14.11.2026, not a price such as 1.500). */
 const CLOCK = /(?<![\d.:,])([01]?\d|2[0-3])[:.]([0-5]\d)(?![\d]|[.:,]\d)/g;
 /** A bare 1–2 digit number (an hour candidate). */
@@ -226,6 +242,21 @@ export function findTimeMentions(text: string): TimeMention[] {
     // "საღამოს 8:00": the marker before the number is part of what was written.
     const shownFrom = !markerOf(after, "m") && before ? Math.max(0, start - 14) + before.index : start;
     found.push({ text: text.slice(shownFrom, end).trim(), minutes: applyMarker(hour, marker).map((h) => h * 60 + minute), start, end });
+  }
+
+  for (const match of text.matchAll(HOUR_RANGE)) {
+    const start = match.index;
+    let end = start + match[0].length;
+    if (taken(start, end)) continue;
+    const from = Number(match[1]);
+    const to = Number(match[2]);
+    if (from < 1 || from > 12 || to < 1 || to > 12) continue;
+    const after = markerAfterRegex.exec(text.slice(end));
+    const marker = markerOf(after, "m");
+    if (!after || !marker) continue;
+    end += after[0].length;
+    const minutes = [...new Set([...applyMarker(from, marker), ...applyMarker(to, marker)].map((h) => h * 60))];
+    found.push({ text: text.slice(start, end).trim(), minutes, start, end });
   }
 
   for (const match of text.matchAll(BARE)) {
@@ -305,6 +336,8 @@ export function findStayTimes(description: string): StayTimeMention[] {
 
     const next = keywords[i + 1]?.start ?? text.length;
     const sentenceEnd = sentenceEnds.find((e) => e >= keyword.end) ?? text.length;
+    const sentenceStart = [...sentenceEnds].reverse().find((e) => e < keyword.start) ?? -1;
+    if (SHABBAT.test(text.slice(sentenceStart + 1, sentenceEnd))) return;
     const windowEnd = Math.min(next, sentenceEnd, keyword.end + WINDOW_AFTER);
     const inside = times.filter((t) => t.start >= keyword.end && t.start < windowEnd);
     if (inside.length > 0) {
@@ -312,7 +345,6 @@ export function findStayTimes(description: string): StayTimeMention[] {
       return;
     }
     const previous = keywords[i - 1]?.end ?? 0;
-    const sentenceStart = [...sentenceEnds].reverse().find((e) => e < keyword.start) ?? -1;
     const windowStart = Math.max(previous, sentenceStart + 1, keyword.start - WINDOW_BEFORE);
     const close = times.filter((t) => t.start >= windowStart && t.end <= keyword.start && BEFORE_GAP.test(text.slice(t.end, keyword.start)));
     const last = close.at(-1);
@@ -425,15 +457,21 @@ export function dominantScript(text: string, minLetters = 4): AppLocale | null {
   return best[0];
 }
 
+/** A Latin word that starts with a capital letter ("Orbi", "City", "VIP"): a name. */
+const CAPITALIZED_LATIN_WORD = /(?<![\p{L}\p{N}])[A-Z][A-Za-z'-]*(?![\p{L}\p{N}])/gu;
+
 /**
  * True when a title is clearly not in the language the host chose ("I'm writing in"): its
- * letters are less than 40% in that language's alphabet and another alphabet has the most.
+ * letters are less than 40% in that language's alphabet and another alphabet has the most. A
+ * title with some letters of the chosen alphabet doesn't count its Capitalized Latin words: "דירה
+ * ב-Orbi City Twin Towers" names a building or a brand, it isn't written in English.
  */
 export function titleScriptMismatch(title: string, locale: AppLocale): AppLocale | null {
-  const counts = scriptCounts(title);
+  let counts = scriptCounts(title);
+  if (locale !== "en" && counts[locale] > 0) counts = scriptCounts(title.replace(CAPITALIZED_LATIN_WORD, " "));
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
   if (total < 4) return null;
-  const detected = dominantScript(title);
-  if (!detected || detected === locale) return null;
+  const [[detected]] = (Object.entries(counts) as [AppLocale, number][]).sort((a, b) => b[1] - a[1]);
+  if (detected === locale) return null;
   return counts[locale] / total < 0.4 ? detected : null;
 }

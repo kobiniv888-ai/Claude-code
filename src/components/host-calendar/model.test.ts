@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applySelection, dayKind, daysBetween, indexCalendar, monthStart, selectionCounts } from "./model";
+import { applySelection, dayKind, daysBetween, indexCalendar, indexRoomDatePrices, monthStart, selectionCounts } from "./model";
 
 const index = indexCalendar({
   today: "2026-11-10",
@@ -36,5 +36,28 @@ describe("host calendar model", () => {
     expect(monthStart("2026-11-10", 0)).toEqual({ year: 2026, month: 11 });
     expect(monthStart("2026-11-10", 2)).toEqual({ year: 2027, month: 1 });
     expect(monthStart("2026-01-31", -1)).toEqual({ year: 2025, month: 12 });
+  });
+});
+
+describe("holiday prices on one room type's calendar (ui-hotel-1)", () => {
+  const prices = [
+    { id: "hotel", roomTypeId: null, start: "2026-12-04", end: "2026-12-08", price: 300 },
+    { id: "double", roomTypeId: "double", start: "2026-12-06", end: "2026-12-10", price: 250 },
+    { id: "suite", roomTypeId: "suite", start: "2026-12-01", end: "2026-12-03", price: 500 },
+  ];
+
+  it("marks the room type's own price first, then the price for every room, never another room type's", () => {
+    const index = indexRoomDatePrices(prices, "double");
+    expect(index.get("2026-12-01")).toBeUndefined();
+    expect(index.get("2026-12-04")?.id).toBe("hotel");
+    expect(index.get("2026-12-06")?.id).toBe("double");
+    expect(index.get("2026-12-09")?.id).toBe("double");
+    expect(index.get("2026-12-10")).toBeUndefined();
+  });
+
+  it("leaves out the price for every room when the room type has another currency (the quote skips it too)", () => {
+    const index = indexRoomDatePrices(prices, "double", { listingWide: false });
+    expect(index.get("2026-12-04")).toBeUndefined();
+    expect(index.get("2026-12-07")?.id).toBe("double");
   });
 });

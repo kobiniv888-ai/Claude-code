@@ -79,10 +79,11 @@ export function BottomSheetImpl({
   size = "auto",
   desktop = "dialog",
   className,
+  onCloseAutoFocus,
   children,
 }: BottomSheetProps) {
   const isDesktop = useIsDesktop();
-  const returnFocus = useReturnFocus({});
+  const returnFocus = useReturnFocus({ onCloseAutoFocus });
 
   if (isDesktop) {
     return (

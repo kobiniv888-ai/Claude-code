@@ -52,22 +52,28 @@ export function DatePriceSheet({
   selection,
   pricing,
   roomTypes = [],
+  initialRoomTypeId = null,
   holidays,
   onClose,
   onSaved,
+  onCloseAutoFocus,
 }: {
   listingId: string;
   selection: PriceSelection | null;
   pricing: CalendarPricing;
   /** Hotels: the price can be for one room type instead of every room (round 3). */
   roomTypes?: PriceRoomType[];
+  /** Hotels: the room type the form starts with (a room type's own calendar); null = every room. */
+  initialRoomTypeId?: string | null;
   /** Names of the holidays inside the selection ("פסח"), to suggest the note. */
   holidays: string[];
   onClose: () => void;
   onSaved: (prices: HostDatePrice[]) => void;
+  /** Where focus goes when the sheet closes (the opener may be gone after a save). */
+  onCloseAutoFocus?: (event: Event) => void;
 }) {
   return (
-    <BottomSheet open={selection !== null} onOpenChange={(open) => !open && onClose()} title={<SheetTitle />}>
+    <BottomSheet open={selection !== null} onOpenChange={(open) => !open && onClose()} title={<SheetTitle />} onCloseAutoFocus={onCloseAutoFocus}>
       {selection ? (
         <DatePriceForm
           key={`${selection.start}|${selection.last}`}
@@ -75,6 +81,7 @@ export function DatePriceSheet({
           selection={selection}
           pricing={pricing}
           roomTypes={roomTypes}
+          initialRoomTypeId={initialRoomTypeId}
           holidays={holidays}
           onSaved={onSaved}
         />
@@ -93,6 +100,7 @@ function DatePriceForm({
   selection,
   pricing: listingPricing,
   roomTypes,
+  initialRoomTypeId,
   holidays,
   onSaved,
 }: {
@@ -100,6 +108,7 @@ function DatePriceForm({
   selection: PriceSelection;
   pricing: CalendarPricing;
   roomTypes: PriceRoomType[];
+  initialRoomTypeId: string | null;
   holidays: string[];
   onSaved: (prices: HostDatePrice[]) => void;
 }) {
@@ -112,8 +121,13 @@ function DatePriceForm({
   const [label, setLabel] = useState(holidays.length === 1 ? holidays[0] : "");
   const [error, setError] = useState<{ field: "price" | "minNights" | "label" | "form"; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
-  // Hotels (round 3): every room, or one room type (its own price wins on those nights).
-  const [roomTypeId, setRoomTypeId] = useState<string | null>(null);
+  // Hotels (round 3): every room, or one room type (its own price wins on those nights). A price
+  // for every room is in the listing's currency, so it is offered only while every room type
+  // uses that currency (the server refuses it otherwise).
+  const allRoomsAllowed = roomTypes.every((r) => r.currency === listingPricing.currency);
+  const [roomTypeId, setRoomTypeId] = useState<string | null>(() =>
+    initialRoomTypeId && roomTypes.some((r) => r.id === initialRoomTypeId) ? initialRoomTypeId : allRoomsAllowed ? null : (roomTypes[0]?.id ?? null),
+  );
   const room = roomTypes.find((r) => r.id === roomTypeId) ?? null;
   const pricing: CalendarPricing = room ?? listingPricing;
   const money = (amount: number) => formatMoney(amount, pricing.currency, locale);
@@ -139,16 +153,33 @@ function DatePriceForm({
     }
     const code = result && !result.ok ? result.error : null;
     setError({
-      field: code === "price_required" || code === "price_too_high" ? "price" : code === "label_too_long" ? "label" : "form",
+      field: code === "price_required" || code === "price_too_high" ? "price" : code === "label_too_long" || code === "label_contact_info" ? "label" : "form",
       text: errorText(code),
     });
   };
 
-  const regular = pricing.nightlyPrice
-    ? pricing.weekendPrice
-      ? t("priceHelpWeekend", { price: `⁦${money(pricing.nightlyPrice)}⁩`, weekend: `⁦${money(pricing.weekendPrice)}⁩` })
-      : t("priceHelp", { price: `⁦${money(pricing.nightlyPrice)}⁩` })
-    : undefined;
+  const regularOf = (of: CalendarPricing) => {
+    const cost = (amount: number) => `⁦${formatMoney(amount, of.currency, locale)}⁩`;
+    if (!of.nightlyPrice) return null;
+    return of.weekendPrice ? t("regularWeekend", { price: cost(of.nightlyPrice), weekend: cost(of.weekendPrice) }) : cost(of.nightlyPrice);
+  };
+  // Every room of a hotel: one price instead of each room type's own, so list what it replaces.
+  const allRoomsRegular = roomTypes
+    .map((r) => {
+      const text = regularOf(r);
+      return text ? `${r.name || t("roomUnnamed")} ${text}` : null;
+    })
+    .filter((text): text is string => text !== null);
+  const regular =
+    !room && roomTypes.length > 0
+      ? allRoomsRegular.length > 0
+        ? t("allRoomsHelp", { prices: allRoomsRegular.join(" · ") })
+        : undefined
+      : pricing.nightlyPrice
+        ? pricing.weekendPrice
+          ? t("priceHelpWeekend", { price: `⁦${money(pricing.nightlyPrice)}⁩`, weekend: `⁦${money(pricing.weekendPrice)}⁩` })
+          : t("priceHelp", { price: `⁦${money(pricing.nightlyPrice)}⁩` })
+        : undefined;
 
   return (
     <form
@@ -178,7 +209,7 @@ function DatePriceForm({
         <fieldset className="grid gap-2">
           <legend className="mb-1 text-small font-semibold">{t("roomScope")}</legend>
           <div className="flex flex-wrap gap-2">
-            {[null, ...roomTypes.map((r) => r.id)].map((id) => {
+            {[...(allRoomsAllowed ? [null] : []), ...roomTypes.map((r) => r.id)].map((id) => {
               const option = roomTypes.find((r) => r.id === id);
               return (
                 <label
@@ -194,7 +225,9 @@ function DatePriceForm({
               );
             })}
           </div>
-          {room ? <p className="text-caption text-muted-foreground">{t("roomScopeHelp")}</p> : null}
+          {/* "A room type's own price comes before the all-rooms price": only while there is one. */}
+          {room && allRoomsAllowed ? <p className="text-caption text-muted-foreground">{t("roomScopeHelp")}</p> : null}
+          {allRoomsAllowed ? null : <p className="text-caption text-muted-foreground">{t("roomCurrencyHelp")}</p>}
         </fieldset>
       ) : null}
 

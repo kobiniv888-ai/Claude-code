@@ -23,13 +23,16 @@
       "blocked": "مغلق من قبلك",
       "booked": "محجوز على الموقع",
       "imported": "محجوز على موقع آخر",
-      "past": "مضى"
+      "past": "مضى",
+      "hotelFull": "الفندق ممتلئ",
+      "hotelSome": "بعض الغرف محجوزة"
     },
     "dayBooked": "محجوز: {code}، {name}",
     "dayBookedCode": "محجوز: {code}",
     "dayImported": "محجوز حسب تقويم {source}",
     "legendLabel": "دليل الألوان",
     "nothingToChange": "لا توجد في هذه الفترة أيام يمكن تغييرها.",
+    "bookedNightsNotice": "في هذه الليالي حجوزات. الحجب يغلق باقي الفندق ولا يلغيها.",
     "block": "{count, plural, zero {إغلاق} one {إغلاق يوم واحد} two {إغلاق يومين} few {إغلاق {count} أيام} many {إغلاق {count} يومًا} other {إغلاق {count} يوم}}",
     "open": "{count, plural, zero {فتح} one {فتح يوم واحد} two {فتح يومين} few {فتح {count} أيام} many {فتح {count} يومًا} other {فتح {count} يوم}}",
     "clear": "إلغاء التحديد",
@@ -70,6 +73,8 @@
       "priceLabel": "السعر لليلة",
       "priceHelp": "سعرك العادي: {price} لليلة.",
       "priceHelpWeekend": "سعرك العادي: {price} لليلة، وفي نهاية الأسبوع: {weekend}.",
+      "regularWeekend": "{price}، وفي نهاية الأسبوع {weekend}",
+      "allRoomsHelp": "سعر واحد لكل أنواع الغرف، بدل الأسعار العادية: {prices}.",
       "minNightsLabel": "أقل عدد من الليالي",
       "minNightsHelp": "الحجز الذي فيه ليلة من هذه التواريخ يجب ألا يكون أقصر من ذلك.",
       "labelLabel": "ملاحظة للضيوف",
@@ -83,6 +88,7 @@
         "price_required": "يرجى كتابة السعر لليلة.",
         "price_too_high": "السعر مرتفع جدًا.",
         "label_too_long": "الملاحظة طويلة جدًا (حتى {max} حرفًا).",
+        "label_contact_info": "في الملاحظة رقم هاتف أو بريد إلكتروني أو رابط أو اسم مستخدم. احذفها — يتواصل معك الضيوف عبر الأزرار.",
         "overlap": "بعض هذه التواريخ لها سعر خاص بالفعل. احذفه أولًا أو اختر تواريخ أخرى.",
         "too_many": "يمكن حفظ حتى {max} سعرًا خاصًا. احذف سعرًا قديمًا لإضافة سعر جديد.",
         "dates_past": "لا يمكن تحديد سعر لتواريخ مضت.",
@@ -91,13 +97,16 @@
         "dates_invalid": "التواريخ غير صحيحة. يرجى اختيارها مرة أخرى في التقويم.",
         "not_bookable": "الأسعار حسب التاريخ متاحة فقط للأماكن التي تُحجز عبر الموقع.",
         "room_type_not_found": "لم نجد نوع الغرفة.",
+        "room_currency_differs": "بعض أنواع الغرف مسعّرة بعملة أخرى. حدّدوا السعر لكل نوع غرفة على حدة.",
         "rate_limited": "تغييرات كثيرة في وقت قصير. حاول مرة أخرى بعد بضع دقائق.",
         "failed": "لم يتم حفظ السعر. حاول مرة أخرى."
       },
       "minNightsRange": "اختر من ليلة واحدة إلى {max} ليلة.",
       "roomScope": "لأي غرف",
       "allRooms": "كل الغرف",
-      "roomScopeHelp": "سعر نوع الغرفة يسبق سعر كل الغرف في الليالي نفسها."
+      "roomScopeHelp": "سعر نوع الغرفة يسبق سعر كل الغرف في الليالي نفسها.",
+      "roomCurrencyHelp": "بعض أنواع الغرف مسعّرة بعملة أخرى، لذلك يُحدَّد السعر لكل نوع غرفة على حدة.",
+      "roomUnnamed": "نوع الغرفة"
     },
     "holidays": {
       "title": "الأعياد في هذه الأشهر",
@@ -107,7 +116,7 @@
     },
     "rooms": {
       "closedHotel": "الفندق مغلق",
-      "freeOf": "{free} من {total} غرف متاحة",
+      "freeOf": "{total, plural, one {{free, plural, =0 {الغرفة محجوزة} other {الغرفة متاحة}}} two {{freeText} من غرفتين متاحة} few {{freeText} من {totalText} غرف متاحة} other {{freeText} من {totalText} غرفة متاحة}}",
       "bookedRooms": "{count, plural, zero {لا غرف محجوزة} one {غرفة واحدة محجوزة} two {غرفتان محجوزتان} few {{count} غرف محجوزة} many {{count} غرفة محجوزة} other {{count} غرفة محجوزة}}",
       "importedRooms": "{count, plural, zero {لا غرف محجوزة في مواقع أخرى} one {غرفة واحدة محجوزة في موقع آخر} two {غرفتان محجوزتان في مواقع أخرى} few {{count} غرف محجوزة في مواقع أخرى} many {{count} غرفة محجوزة في مواقع أخرى} other {{count} غرفة محجوزة في مواقع أخرى}}",
       "blockedRooms": "{count, plural, zero {لم تغلقوا أي غرفة} one {أغلقتم غرفة واحدة} two {أغلقتم غرفتين} few {أغلقتم {count} غرف} many {أغلقتم {count} غرفة} other {أغلقتم {count} غرفة}}",

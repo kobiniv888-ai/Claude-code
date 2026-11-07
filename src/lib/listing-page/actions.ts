@@ -11,7 +11,10 @@ import { fail, ok, runAction, type ActionResult } from "@/lib/action";
 import { getCurrentUser } from "@/lib/auth/session";
 import { recordListingView } from "@/lib/listing/stats";
 import { recordAccountView } from "@/lib/recently-viewed/server";
-import { rateLimitByIp } from "@/lib/rate-limit";
+import { hmacHash } from "@/lib/crypto";
+import { ipNetwork } from "@/lib/listing/stats-rules";
+import { rateLimit } from "@/lib/rate-limit";
+import { getClientIp } from "@/lib/request";
 
 const idSchema = z.string().trim().min(1).max(64);
 
@@ -23,7 +26,9 @@ export async function trackListingView(listingId: string): Promise<ActionResult<
   return runAction<{ counted: boolean; signedIn: boolean }>(async () => {
     const id = idSchema.safeParse(listingId);
     if (!id.success) return fail("invalid_input");
-    const limit = await rateLimitByIp("listing-view", { limit: 300, windowSeconds: 3600 });
+    // Per network (the IPv4 address or the IPv6 /64), so rotating IPv6 addresses gets no new budget.
+    const ip = await getClientIp().catch(() => null);
+    const limit = await rateLimit(`listing-view:net:${ip ? hmacHash(`net:${ipNetwork(ip)}`) : "unknown"}`, { limit: 300, windowSeconds: 3600 });
     if (!limit.ok) return ok({ counted: false, signedIn: false });
     const user = await getCurrentUser().catch(() => null);
     const [counted] = await Promise.all([

@@ -137,6 +137,25 @@ describe("findStayTimes: Georgian", () => {
   });
 });
 
+describe("findStayTimes: ranges and Shabbat", () => {
+  it("reads 'N-Mpm', 'between N and M pm' and 'from N to M pm' as one range that accepts either bound", () => {
+    expect(times("Check-in 3-4pm.")).toEqual(["checkIn 15:00|16:00"]);
+    expect(times("Check-in between 3 and 6 pm.")).toEqual(["checkIn 15:00|18:00"]);
+    expect(times("Check-in from 3 to 6 pm.")).toEqual(["checkIn 15:00|18:00"]);
+    expect(times("צ'ק אין בין 3 ל-6 אחה\"צ.")).toEqual(["checkIn 15:00|18:00"]);
+    expect(times("Заезд с 3 до 6 вечера.")).toEqual(["checkIn 15:00|18:00"]);
+  });
+
+  it("does not compare the Shabbat check-out (after Havdalah, Saturday night)", () => {
+    expect(times("Shabbat: check-out after 20:15 Saturday night.")).toEqual([]);
+    expect(times("On Shabbat, check-out after Havdalah, about 20:15.")).toEqual([]);
+    expect(times("צ'ק אאוט בשבת אחרי צאת שבת, 20:15")).toEqual([]);
+    expect(times("Выезд в Шаббат после 20:15.")).toEqual([]);
+    // Another sentence still counts.
+    expect(times("Check-in 14:00. On Shabbat, check-out after Havdalah.")).toEqual(["checkIn 14:00"]);
+  });
+});
+
 describe("findTimeMentions", () => {
   it("12 pm is noon, 12 am and 12 at night are midnight", () => {
     expect(findTimeMentions("12 pm").map((t) => t.minutes)).toEqual([[720]]);
@@ -211,6 +230,14 @@ describe("titles: dominantScript and titleScriptMismatch", () => {
     expect(titleScriptMismatch("דירה מול הים ב-Orbi City", "he")).toBeNull();
     expect(titleScriptMismatch("Квартира в Orbi City у моря", "ru")).toBeNull();
     expect(titleScriptMismatch("שקט ונוף", "he")).toBeNull();
+    // Mostly Latin letters, but Capitalized names next to Hebrew words.
+    expect(titleScriptMismatch("דירה ב-Orbi City Twin Towers", "he")).toBeNull();
+    expect(titleScriptMismatch("דירה ב-Orbi City", "he")).toBeNull();
+    expect(titleScriptMismatch("Hotel Batumi Palace מלון", "he")).toBeNull();
+    expect(titleScriptMismatch("Sea View Apartment בבטומי", "he")).toBeNull();
+    // Still warns for a title with no Hebrew at all.
+    expect(titleScriptMismatch("Sea View Apartment In Batumi", "he")).toBe("en");
+    expect(titleScriptMismatch("sea view flat near the beach in batumi", "he")).toBe("en");
   });
 });
 

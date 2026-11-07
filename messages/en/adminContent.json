@@ -757,6 +757,7 @@
         "not_logged": "Only emails that were kept and not sent can be sent again.",
         "outbox_only": "A demo account's email: the address is made up, so it is never sent.",
         "login_code": "A login code is no longer valid, so it is not sent again.",
+        "expired": "A weekly summary is only sent in its own week: later its numbers are out of date, so it is not sent again.",
         "bad_address": "Email can't be sent to this address.",
         "demo_or_test": "A demo or test address (such as example.com): it doesn't really exist, so nothing is sent to it.",
         "reply_to_lost": "This email was first sent with the guest's reply address, which wasn't kept. Sent again, the host's reply wouldn't reach the guest."

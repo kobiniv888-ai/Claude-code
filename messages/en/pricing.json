@@ -107,5 +107,13 @@
     "editPrice": "Edit the price",
     "link": "Price guide",
     "linkHint": "What similar places cost"
+  },
+  "currencies": {
+    "GEL": "lari (₾)",
+    "USD": "US dollars ($)",
+    "ILS": "shekels (₪)",
+    "EUR": "euros (€)",
+    "GBP": "pounds (£)",
+    "AED": "dirhams"
   }
 }

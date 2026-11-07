@@ -134,6 +134,21 @@ export function freeFromSegments(quantity: number, segments: readonly FreeSegmen
   return free;
 }
 
+/**
+ * Every counted room type has no free room for the whole stay (ui-hotel-4): each one is full on
+ * some night, even when no single night is full for all of them (so the calendar let the guest
+ * pick those dates). The guest must choose other dates. False without counted room types.
+ */
+export function noRoomTypeFree(
+  options: readonly { quantity?: number; segments?: readonly FreeSegment[] }[],
+  checkIn: string | null | undefined,
+  checkOut: string | null | undefined,
+): boolean {
+  if (!checkIn || !checkOut || checkOut <= checkIn) return false;
+  const counted = options.filter((o) => o.quantity !== undefined);
+  return counted.length > 0 && counted.every((o) => freeFromSegments(o.quantity ?? 1, o.segments ?? [], checkIn, checkOut) === 0);
+}
+
 /** Nights [start, end) on which a room type has no free room (an iCal export of that type). */
 export function fullRanges(room: RoomCapacity, blocks: readonly RoomBlock[], from: string, to: string): DayRange[] {
   return mergeRanges(freeSegments(room, blocks, from, to).filter((s) => s.free === 0).map(({ start, end }) => ({ start, end })));

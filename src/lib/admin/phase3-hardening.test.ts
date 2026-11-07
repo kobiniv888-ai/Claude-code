@@ -74,6 +74,8 @@ describe("admin home counts", () => {
     const now = new Date("2026-11-04T10:00:00Z");
     const where = outboxListWhere({ waiting: true, recentDays: 7 }, now);
     expect(where).toMatchObject(OUTBOX_WAITING_WHERE);
+    // Weekly digests are never sent again, so they never wait (outbox-1).
+    expect(where.template).toEqual({ notIn: ["login_code", "weekly_host_stats"] });
     expect(where.createdAt).toEqual({ gte: new Date("2026-10-28T10:00:00Z") });
     expect(outboxListWhere({ status: "FAILED" })).toEqual({ status: "FAILED" });
   });

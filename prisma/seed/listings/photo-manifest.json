@@ -688,6 +688,19 @@
       "licenseUrl": "https://unsplash.com/license"
     }
   },
+  "/photos/listings/14-batumi-new-boulevard/sea4.webp": {
+    "width": 1600,
+    "height": 2400,
+    "bytes": 72694,
+    "blurDataURL": "data:image/webp;base64,UklGRoQAAABXRUJQVlA4IHgAAADwAwCdASoQABgAPu1krU2ppaSiMAgBMB2JaACdL1yBMtkBCivzumhgAPnjIsKW4yaXMfIv4KKfox+yH6iX1KsvP5EHshS6CMwOV3UHMmwD2yiMztygEh8eEcU8kCPgnvpi/m+/74+rwPpFGp21FvTUPqjaHm37yAA=",
+    "credit": {
+      "title": "Demo listing photo (sea4)",
+      "author": "Unsplash contributor",
+      "source": "https://images.unsplash.com/photo-1622396481328-9b1b78cdd9fd",
+      "license": "Unsplash License",
+      "licenseUrl": "https://unsplash.com/license"
+    }
+  },
   "/photos/listings/14-batumi-new-boulevard/wf1.webp": {
     "width": 1600,
     "height": 1067,

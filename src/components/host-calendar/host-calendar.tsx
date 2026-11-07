@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { ChevronLeftIcon, ChevronRightIcon, ExternalLinkIcon, LinkIcon, LockIcon, LockOpenIcon, TagIcon, UserRoundIcon, XIcon } from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon, ExternalLinkIcon, InfoIcon, LinkIcon, LockIcon, LockOpenIcon, TagIcon, UserRoundIcon, XIcon } from "lucide-react";
 import { BottomSheet } from "@/components/ds/bottom-sheet";
 import { Button, buttonStyles } from "@/components/ds/button";
 import { Ltr } from "@/components/common/ltr";
@@ -33,6 +33,7 @@ import {
   type CalendarHoliday,
   type DayKind,
   type HolidayPeriod,
+  type HotelNight,
   type ImportedRange,
 } from "./model";
 
@@ -73,6 +74,8 @@ export function HostCalendar({
   holidays = NO_HOLIDAYS,
   holidayPeriods = NO_PERIODS,
   roomTypes = NO_ROOMS,
+  onDatePricesChange,
+  hotelNights,
 }: {
   listingId: string;
   today: string;
@@ -91,6 +94,13 @@ export function HostCalendar({
   holidayPeriods?: HolidayPeriod[];
   /** Hotels: a holiday price can be for one room type (round 3). */
   roomTypes?: PriceRoomType[];
+  /**
+   * Hotels: the date prices are kept by the parent (shared with the room-type calendars); then
+   * `datePrices` is the current list and every change comes back here.
+   */
+  onDatePricesChange?: (prices: HostDatePrice[]) => void;
+  /** Hotels' whole-hotel calendar: the rooms of each night (./room-model indexHotelNights). */
+  hotelNights?: (day: string) => HotelNight | null;
 }) {
   const t = useTranslations("hostBooking.calendar");
   const tb = useTranslations("booking");
@@ -103,11 +113,15 @@ export function HostCalendar({
   const [sheet, setSheet] = useState<SheetState>(null);
   const [saving, setSaving] = useState(false);
   const [focusDay, setFocusDay] = useState<string | null>(null);
-  const [prices, setPrices] = useState<HostDatePrice[]>(datePrices);
+  const [ownPrices, setOwnPrices] = useState<HostDatePrice[]>(datePrices);
+  const prices = onDatePricesChange ? datePrices : ownPrices;
+  const setPrices = onDatePricesChange ?? setOwnPrices;
   const [priceSheet, setPriceSheet] = useState<PriceSelection | null>(null);
   const grid = useRef<HTMLDivElement>(null);
+  /** The day that gets focus once a save cleared the selection (its buttons are gone). */
+  const returnDay = useRef<string | null>(null);
 
-  const index = useMemo(() => indexCalendar({ today, owner, booked, imported }), [today, owner, booked, imported]);
+  const index = useMemo(() => indexCalendar({ today, owner, booked, imported, hotel: hotelNights }), [today, owner, booked, imported, hotelNights]);
   const priced = useMemo(() => indexDatePrices(prices), [prices]);
   const holidayNames = useMemo(() => indexHolidays(holidays), [holidays]);
   const months = useMemo(
@@ -135,6 +149,8 @@ export function HostCalendar({
   const selectedDays = selection ? daysBetween(selection.start, selection.end) : [];
   const selectedSet = new Set(selectedDays);
   const counts = selectionCounts(selectedDays, index);
+  // Hotels: the room-type bookings of the selected nights (blocking never cancels them).
+  const selectionCodes = hotelNights ? [...new Set(selectedDays.flatMap((day) => hotelNights(day)?.codes ?? []))] : [];
   const priceNights = pricing ? selectionNights(selectedDays, today) : null;
   const visiblePeriods = periodsBetween(holidayPeriods, first, last, today);
   /** Holiday names inside the nights of a holiday price (to suggest its note). */
@@ -154,6 +170,11 @@ export function HostCalendar({
       return booking ? t("dayBooked", { code, name: booking.guestName }) : t("dayBookedCode", { code });
     }
     if (kind === "imported") return t("dayImported", { source: index.imported.get(day) ?? "" });
+    const night = kind === "free" || kind === "hotelSome" || kind === "hotelFull" ? index.hotel?.(day) : null;
+    if (night && kind !== "hotelFull" && night.total > 0) {
+      const free = t("rooms.freeOf", { free: night.free, freeText: formatNumber(night.free, locale), total: night.total, totalText: formatNumber(night.total, locale) });
+      return night.booked > 0 ? `${free}, ${t("rooms.bookedRooms", { count: night.booked })}` : free;
+    }
     return t(`state.${kind}`);
   };
   /** ", פסח, מחיר מיוחד: ₾80 ללילה" after the day's state. */
@@ -171,6 +192,16 @@ export function HostCalendar({
     setSheet(null);
     setSelection({ start, end: period.last, open: false });
     setFocusDay(start);
+  };
+
+  /** Focus a day of the grid (after the selection bar that had focus is gone). */
+  const focusGridDay = (day: string | null | undefined) => {
+    if (!day) return false;
+    const cell = grid.current?.querySelector<HTMLButtonElement>(`[data-day="${day}"]`);
+    if (!cell) return false;
+    setFocusDay(day);
+    cell.focus({ preventScroll: true });
+    return true;
   };
 
   const onDay = (day: string) => {
@@ -222,8 +253,11 @@ export function HostCalendar({
     if (!selection || saving) return;
     const before = owner;
     const next = applySelection(owner, selectedDays, action, index);
+    const start = selectedDays[0];
     setOwner(next);
     setSelection(null);
+    // The selection bar (and the button that had focus) is gone: focus goes back to the grid.
+    requestAnimationFrame(() => focusGridDay(start));
     setSaving(true);
     const result = await saveHostBlocksAction({ listingId, blocked: next }).catch(() => null);
     setSaving(false);
@@ -234,6 +268,18 @@ export function HostCalendar({
       setOwner(before);
       toast.error(result && result.error === "rate_limited" ? t("rateLimited") : t("saveFailed"));
     }
+  };
+
+  /** Hotels: "free/total" rooms under the day's number (whole-hotel calendar), like a room type's calendar. */
+  const roomsLine = (day: string, kind: DayKind, selected: boolean) => {
+    if (!hotelNights || (kind !== "free" && kind !== "hotelSome" && kind !== "hotelFull")) return null;
+    const night = hotelNights(day);
+    if (!night || night.total === 0) return null;
+    return (
+      <span aria-hidden className={cn("mt-1 text-[0.6875rem] font-medium", selected ? "text-primary-foreground" : kind === "hotelFull" ? "text-primary-text" : "text-muted-foreground")}>
+        <Ltr>{`${formatNumber(night.free, locale)}/${formatNumber(night.total, locale)}`}</Ltr>
+      </span>
+    );
   };
 
   const booking = sheet?.type === "booking" ? bookings[sheet.code] : undefined;
@@ -288,15 +334,18 @@ export function HostCalendar({
                           data-day={cell.date}
                           tabIndex={cell.date === tabDay ? 0 : -1}
                           aria-disabled={kind === "past" || undefined}
-                          aria-pressed={kind === "free" || kind === "blocked" ? selected : undefined}
+                          aria-pressed={kind === "free" || kind === "blocked" || kind === "hotelSome" || kind === "hotelFull" ? selected : undefined}
                           aria-label={`${formatDate(cell.date, locale, { weekday: "long", day: "numeric", month: "long" })}, ${stateLabel(kind, cell.date)}${extraLabel(cell.date)}`}
                           onClick={() => onDay(cell.date)}
                           onKeyDown={(event) => onKeyDown(event, cell.date, column)}
                           onFocus={() => setFocusDay(cell.date)}
                           className={cn(
-                            "relative mx-auto flex h-11 w-full max-w-12 items-center justify-center rounded-xl text-small tabular-nums outline-none transition-colors duration-(--motion-fast) focus-visible:z-10 focus-visible:ring-3 focus-visible:ring-ring/60",
+                            "relative mx-auto flex w-full max-w-12 items-center justify-center rounded-xl text-small tabular-nums outline-none transition-colors duration-(--motion-fast) focus-visible:z-10 focus-visible:ring-3 focus-visible:ring-ring/60",
+                            hotelNights ? "h-12 flex-col leading-none" : "h-11",
                             kind === "past" && "cursor-default text-muted-foreground/60",
                             kind === "free" && !selected && "font-medium text-foreground hover:bg-surface-muted",
+                            kind === "hotelSome" && !selected && "bg-surface-muted font-medium text-foreground hover:bg-border",
+                            kind === "hotelFull" && !selected && "bg-primary-tint font-semibold text-primary-text",
                             kind === "blocked" &&
                               !selected &&
                               "bg-surface-muted text-muted-foreground line-through decoration-muted-foreground/70 hover:bg-border",
@@ -308,7 +357,8 @@ export function HostCalendar({
                             cell.today && !selected && kind !== "booked" && "ring-1 ring-border-strong",
                           )}
                         >
-                          {formatNumber(cell.day, locale)}
+                          <span>{formatNumber(cell.day, locale)}</span>
+                          {roomsLine(cell.date, kind, selected)}
                           {holidayNames.has(cell.date) ? (
                             <span
                               aria-hidden
@@ -318,7 +368,7 @@ export function HostCalendar({
                           {kind !== "past" && priced.has(cell.date) ? (
                             <span
                               aria-hidden
-                              className={cn("absolute inset-x-3 bottom-1 h-0.5 rounded-full", selected ? "bg-primary-foreground" : "bg-success")}
+                              className={cn("absolute inset-x-3 h-0.5 rounded-full", hotelNights ? "bottom-0.5" : "bottom-1", selected ? "bg-primary-foreground" : "bg-success")}
                             />
                           ) : null}
                         </button>
@@ -349,6 +399,18 @@ export function HostCalendar({
           <span className="size-4 rounded-md border border-dashed border-border-strong" aria-hidden />
           {t("state.imported")}
         </li>
+        {hotelNights ? (
+          <>
+            <li className="inline-flex items-center gap-1.5">
+              <span className="size-4 rounded-md bg-surface-muted ring-1 ring-border" aria-hidden />
+              {t("state.hotelSome")}
+            </li>
+            <li className="inline-flex items-center gap-1.5">
+              <span className="size-4 rounded-md bg-primary-tint ring-1 ring-primary-tint-border" aria-hidden />
+              {t("state.hotelFull")}
+            </li>
+          </>
+        ) : null}
         {pricing ? (
           <li className="inline-flex items-center gap-1.5">
             <span className="relative size-4 rounded-md border border-border-strong bg-card" aria-hidden>
@@ -376,7 +438,9 @@ export function HostCalendar({
               {selection.open && selectedDays.length === 1
                 ? formatDate(selection.start, locale, { weekday: "long", day: "numeric", month: "long" })
                 : formatDateRange(selectedDays[0], selectedDays[selectedDays.length - 1], locale)}
-              {counts.free === 0 && counts.blocked === 0 && !priceNights && <span className="block text-muted-foreground">{t("nothingToChange")}</span>}
+              {counts.free === 0 && counts.blocked === 0 && !priceNights && selectionCodes.length === 0 && (
+                <span className="block text-muted-foreground">{t("nothingToChange")}</span>
+              )}
             </p>
             <Button type="button" variant="ghost" size="icon" aria-label={t("clear")} onClick={() => setSelection(null)}>
               <XIcon aria-hidden />
@@ -413,6 +477,49 @@ export function HostCalendar({
               </Button>
             ) : null}
           </div>
+          {selectionCodes.length > 0 ? (
+            <div className="grid gap-1.5 border-t border-border pt-2">
+              {counts.free > 0 ? (
+                <p className="flex items-start gap-1.5 text-caption text-pretty text-muted-foreground">
+                  <InfoIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                  {t("bookedNightsNotice")}
+                </p>
+              ) : null}
+              <p className="text-caption font-semibold text-muted-foreground">{t("rooms.bookingsTitle")}</p>
+              <ul className="grid gap-1">
+                {selectionCodes.map((code) => {
+                  const item = bookings[code];
+                  return (
+                    <li key={code}>
+                      <Link
+                        href={item ? (returnTo ? { pathname: item.path, query: { from: returnTo } } : item.path) : `/account/host-bookings/${encodeURIComponent(code)}`}
+                        className="flex min-h-11 items-center justify-between gap-3 rounded-input px-2 text-small outline-none hover:bg-surface-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+                      >
+                        <span className="min-w-0 truncate">
+                          <Ltr className="font-semibold">{code}</Ltr>
+                          {item ? (
+                            <>
+                              {" · "}
+                              <span dir="auto">{item.guestName}</span>
+                              {item.roomTypeName ? (
+                                <>
+                                  {" · "}
+                                  <span dir="auto">{item.roomTypeName}</span>
+                                </>
+                              ) : null}
+                              {" · "}
+                              {t("rooms.roomsCount", { count: item.rooms })}
+                            </>
+                          ) : null}
+                        </span>
+                        <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground rtl:-scale-x-100" aria-hidden />
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -427,8 +534,15 @@ export function HostCalendar({
           onClose={() => setPriceSheet(null)}
           onSaved={(next) => {
             setPrices(next);
+            // The selection (and its "מחיר לתאריכים" button) goes: focus returns to its first night.
+            returnDay.current = priceSheet?.start ?? null;
             setPriceSheet(null);
             setSelection(null);
+          }}
+          onCloseAutoFocus={(event) => {
+            const day = returnDay.current;
+            returnDay.current = null;
+            if (day && focusGridDay(day)) event.preventDefault();
           }}
         />
       ) : null}

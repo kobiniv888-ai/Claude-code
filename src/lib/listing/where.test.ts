@@ -67,6 +67,26 @@ describe("buildListingWhere", () => {
     expect(minStay).toEqual({ OR: [{ minStayNights: null }, { minStayNights: { lte: 3 } }] });
   });
 
+  it("hotels: only a whole-hotel closure hides them, and they need a free room on every night (search-1)", () => {
+    const [availability] = parts({ checkIn: "2026-11-10", checkOut: "2026-11-13" }, { freeHotelIds: ["h1", "h2"] });
+    const overlap = { startDate: { lt: new Date("2026-11-13T00:00:00.000Z") }, endDate: { gt: new Date("2026-11-10T00:00:00.000Z") } };
+    expect(availability).toEqual({
+      OR: [
+        { dealType: { notIn: ["HOTEL_ROOM"] }, availability: { none: overlap } },
+        { dealType: { in: ["HOTEL_ROOM"] }, availability: { none: { ...overlap, roomTypeId: null } }, id: { in: ["h1", "h2"] } },
+        // A contact-only hotel (no bookable room type) is searched like a whole place.
+        {
+          dealType: { in: ["HOTEL_ROOM"] },
+          roomTypes: { none: { active: true, pricePeriod: "NIGHT", price: { gt: 0 } } },
+          availability: { none: overlap },
+        },
+      ],
+    });
+    // No hotel with a free room: hotels are left out, the other places are searched as before.
+    const [none] = parts({ checkIn: "2026-11-10", checkOut: "2026-11-13" }, { freeHotelIds: [] });
+    expect((none as { OR: { id?: unknown }[] }).OR[1].id).toEqual({ in: [] });
+  });
+
   it("checks the move-in day alone for monthly rentals", () => {
     expect(parts({ deal: "monthly", checkIn: "2026-12-01" })[1]).toEqual({
       availability: {

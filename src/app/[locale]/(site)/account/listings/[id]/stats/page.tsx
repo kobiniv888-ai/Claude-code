@@ -11,9 +11,10 @@ import type { AppLocale } from "@/config/site";
 import { Link } from "@/i18n/navigation";
 import { getOwnListing } from "@/lib/account/queries";
 import { requireUser } from "@/lib/auth/session";
-import { formatNumber } from "@/lib/format";
+import { tbilisiToday } from "@/lib/booking/dates";
+import { formatDateRange, formatNumber } from "@/lib/format";
 import { getListingStats } from "@/lib/listing/stats";
-import { STATS_RANGES, isQuietPeriod, parseStatsRange } from "@/lib/listing/stats-math";
+import { STATS_RANGES, isQuietPeriod, parseStatsEnd, parseStatsRange, periodDays } from "@/lib/listing/stats-math";
 import { pageMetadata } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 
@@ -45,7 +46,10 @@ export default async function ListingStatsPage({ params, searchParams }: Props) 
   const listing = await getOwnListing(user.id, id, locale as AppLocale);
   if (!listing) notFound();
   const range = parseStatsRange(query.days);
-  const stats = await getListingStats(listing, range, locale as AppLocale);
+  // The weekly email links to the week it reports (`?to=` its last day): the same numbers here.
+  const end = parseStatsEnd(query.to, tbilisiToday());
+  const stats = await getListingStats(listing, range, locale as AppLocale, end ?? undefined);
+  const covered = end ? periodDays(end, range) : null;
   const title = listing.title || tl("untitled");
   const hotel = listing.dealType === "HOTEL_ROOM";
 
@@ -89,7 +93,10 @@ export default async function ListingStatsPage({ params, searchParams }: Props) 
         {STATS_RANGES.map((option) => (
           <Link
             key={option}
-            href={{ pathname: `/account/listings/${listing.id}/stats`, query: option === 30 ? {} : { days: String(option) } }}
+            href={{
+              pathname: `/account/listings/${listing.id}/stats`,
+              query: { ...(option === 30 ? {} : { days: String(option) }), ...(end ? { to: end } : {}) },
+            }}
             aria-current={option === range ? "page" : undefined}
             className={cn(
               "inline-flex h-11 items-center rounded-lg px-4 text-sm font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50 sm:h-9",
@@ -100,6 +107,15 @@ export default async function ListingStatsPage({ params, searchParams }: Props) 
           </Link>
         ))}
       </nav>
+
+      {covered ? (
+        <p className="mb-3 text-sm font-medium" data-testid="stats-period">
+          {t("period", { dates: formatDateRange(covered[0], covered[covered.length - 1], locale as AppLocale) })}{" "}
+          <Link href={`/account/listings/${listing.id}/stats${range === 30 ? "" : `?days=${range}`}`} className="text-primary underline underline-offset-4">
+            {t("periodToToday")}
+          </Link>
+        </p>
+      ) : null}
 
       <p className="mb-4 flex max-w-3xl items-start gap-2 text-sm text-muted-foreground">
         <InfoIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />

@@ -2,7 +2,8 @@
 
 import { useId } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { BedDoubleIcon, CircleAlertIcon, MinusIcon, PlusIcon, UsersIcon } from "lucide-react";
+import { BedDoubleIcon, CalendarDaysIcon, CalendarXIcon, CircleAlertIcon, MinusIcon, PlusIcon, UsersIcon } from "lucide-react";
+import { Button } from "@/components/ds/button";
 import { useStay } from "@/components/listing-page/stay-dates";
 import { MAX_ROOMS_PER_BOOKING } from "@/lib/booking/constants";
 import { countedGuests } from "@/lib/booking/guest";
@@ -30,7 +31,7 @@ export function RoomPicker({ className, headingLevel = 3 }: { className?: string
   const ts = useTranslations("booking.sheet");
   const locale = useLocale();
   const ids = useId();
-  const { roomPicker, dates, nights, guests, rules, price } = useStay();
+  const { roomPicker, dates, setDates, nights, guests, rules, price, sheetOpen, setSheetOpen } = useStay();
   if (!roomPicker || roomPicker.options.length === 0) return null;
   const { options, roomTypeId, setRoomTypeId, rooms, setRooms, freeRooms, inventory, guestLimit, guestsFit } = roomPicker;
   const datesChosen = nights > 0 && !!dates.checkIn && !!dates.checkOut;
@@ -49,6 +50,27 @@ export function RoomPicker({ className, headingLevel = 3 }: { className?: string
         </Heading>
         <p className="text-caption text-muted-foreground">{datesChosen ? t("leadDates") : t("lead")}</p>
       </div>
+      {roomPicker.allFull && datesChosen ? (
+        // Every room type is full on some night of these dates (ui-hotel-4): a way to other dates.
+        <div role="status" className="grid justify-items-start gap-2.5 rounded-input border border-dashed border-border-strong p-3">
+          <p className="flex items-start gap-2 text-small text-pretty">
+            <CalendarXIcon className="mt-0.5 size-4.5 shrink-0 text-muted-foreground" aria-hidden />
+            {t("noneFree")}
+          </p>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              setDates({ checkIn: null, checkOut: null });
+              if (!sheetOpen) setSheetOpen(true);
+            }}
+          >
+            <CalendarDaysIcon aria-hidden />
+            {t("otherDates")}
+          </Button>
+        </div>
+      ) : null}
       <div role="radiogroup" aria-labelledby={`${ids}-title`} className="grid gap-2">
         {options.map((option) => {
           const free = freeRooms(option.id);
@@ -130,7 +152,9 @@ export function RoomPicker({ className, headingLevel = 3 }: { className?: string
                 {roomsLabel}
               </span>
               <span className="text-caption text-muted-foreground">
-                {guestLimit !== null ? t("fits", { guests: formatNumber(guestLimit, locale), rooms: tp("rooms", { count: rooms }) }) : tp("rooms", { count: rooms })}
+                {guestLimit !== null
+                  ? t("fits", { count: guestLimit, countText: formatNumber(guestLimit, locale), rooms, roomsText: formatNumber(rooms, locale) })
+                  : tp("rooms", { count: rooms })}
               </span>
             </span>
             <span className="flex shrink-0 items-center gap-1" role="group" aria-labelledby={`${ids}-rooms`}>
@@ -162,7 +186,7 @@ export function RoomPicker({ className, headingLevel = 3 }: { className?: string
           <CircleAlertIcon className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
           <span>
             {inventory && neededRooms !== null && neededRooms <= maxRooms
-              ? t("needRooms", { guests: formatNumber(guestCount, locale), rooms: tp("rooms", { count: neededRooms }) })
+              ? t("needRooms", { count: guestCount, countText: formatNumber(guestCount, locale), rooms: tp("rooms", { count: neededRooms }) })
               : inventory && roomPicker.room?.maxGuests && neededRooms !== null
                 ? // Not enough free rooms of this type for everyone: another type may fit.
                   t("noFit", { count: roomPicker.room.maxGuests * maxRooms })

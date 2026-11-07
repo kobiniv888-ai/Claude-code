@@ -217,7 +217,9 @@
     "guests": "{count, plural, one {Up to {count} guest} other {Up to {count} guests}}",
     "bedsDouble": "{count, plural, one {{count} double bed} other {{count} double beds}}",
     "bedsSingle": "{count, plural, one {{count} single bed} other {{count} single beds}}",
-    "bedsSofa": "{count, plural, one {1 sofa bed} other {{count} sofa beds}}"
+    "bedsSofa": "{count, plural, one {1 sofa bed} other {{count} sofa beds}}",
+    "amenitiesLabel": "In the room",
+    "moreAmenities": "+{count} more"
   },
   "calendar": {
     "title": "Availability",
@@ -347,6 +349,7 @@
     "barLabel": "Price and booking",
     "datesTitle": "Choose dates",
     "chooseDates": "Choose dates",
+    "chooseRoom": "Choose a room",
     "book": "Book",
     "clear": "Clear",
     "done": "Done",

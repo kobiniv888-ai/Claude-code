@@ -15,6 +15,7 @@ import { computeShabbatFriendly, MODERATION_REASONS, type ModerationReason } fro
 import { computeListingProximity } from "@/lib/nearby";
 import { PLEDGE_CURRENT_VERSION } from "@/lib/pledge";
 import { decideSubmitTarget, riskScoreNeedsReview, runReviewGate, type ReviewGate, type SubmitDecision } from "./review-rule";
+import { assertNoListingMistakes, ListingMistakesError } from "./mistake-gate-server";
 import { isHostFlagged, isHostSanctioned } from "./host-flags-server";
 import { notifyFounderListingInReview } from "@/lib/alerts/founder-admin";
 import { notifyListingDecision } from "@/lib/alerts/listing-decision";
@@ -152,6 +153,32 @@ async function transition(
     data,
   });
   return count === 1;
+}
+
+/**
+ * transition() for a change that puts a listing (back) on the site or in front of a moderator:
+ * under the listing's row lock, refused with ListingMistakesError while the mistake check
+ * (./mistake-check-server.ts) finds errors that block publishing. Edits that could add an error
+ * (the wizard's auto-save, deleting a photo) take the same lock, so none slips in between the
+ * check and the status change. Fails closed: a check that can't run refuses too.
+ */
+async function transitionWithoutMistakes(
+  listingId: string,
+  from: ListingStatus,
+  data: Prisma.ListingUncheckedUpdateManyInput,
+  ownerId?: string,
+  guard: Prisma.ListingWhereInput = {},
+  code: "listing_mistakes" | "listing_has_mistakes" = "listing_mistakes",
+): Promise<boolean> {
+  return db.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT "id" FROM "Listing" WHERE "id" = ${listingId} FOR UPDATE`;
+    await assertNoListingMistakes(listingId, { client: tx, code });
+    const { count } = await tx.listing.updateMany({
+      where: { ...guard, id: listingId, status: from, ...(ownerId ? { ownerId } : {}) },
+      data,
+    });
+    return count === 1;
+  });
 }
 
 async function liveData(
@@ -299,8 +326,9 @@ async function publicationGaps(listing: Prisma.ListingGetPayload<{ select: typeo
   const isHotel = listing.dealType === "HOTEL_ROOM";
   if (!listing.cityId || listing.lat === null || listing.lng === null) gaps.push("location");
   if (listing.title.trim().length === 0) gaps.push("details");
+  // The photos guests see: a switched-off room type's photos don't count (as in the mistake check).
   const photos = await db.listingPhoto.count({
-    where: { listingId: listing.id, ...(isHotel ? {} : { roomTypeId: null }) },
+    where: { listingId: listing.id, ...(isHotel ? { OR: [{ roomTypeId: null }, { roomType: { active: true } }] } : { roomTypeId: null }) },
   });
   if (photos < siteConfig.listings.minPhotos) gaps.push("photos");
   const hasPrice = listing.price !== null && Number(listing.price) > 0;
@@ -406,7 +434,16 @@ export async function submitForPublication(listingId: string, ownerId: string): 
   if (target === "LIVE" && from !== "LIVE") data = { ...data, ...(await liveData(listing, now)) };
   else if (target !== from) data = { ...data, status: target };
 
-  const applied = await transition(listing.id, from, data, ownerId);
+  // The mistake check's errors are checked again under the row lock, in the same transaction as
+  // the status change: an edit saved since the publish action's own check can't slip through.
+  let applied: boolean;
+  try {
+    applied = await transitionWithoutMistakes(listing.id, from, data, ownerId);
+  } catch (error) {
+    // A live listing with errors must not stay on the site: it waits for the host's fix and a person.
+    if (error instanceof ListingMistakesError && from === "LIVE") await holdLiveListingForReview(listing.id, ownerId);
+    throw error;
+  }
   if (!applied) {
     // Someone (a moderator, a second tab) changed the status meanwhile — report what it is now.
     const fresh = await loadListing(listing.id, { status: true });
@@ -653,12 +690,16 @@ export async function approveListing(listingId: string, staffId: string, seen: M
     throw new ContentChangedError();
   }
   const now = new Date();
-  const applied = await transition(
+  // The host's mistake-check errors block approval too (the review rule only gets stricter): the
+  // moderator asks for changes instead. Checked under the row lock, so an address cleared after
+  // the page was opened (it doesn't move contentUpdatedAt) is seen.
+  const applied = await transitionWithoutMistakes(
     listing.id,
     listing.status,
     { ...(fresh?.data ?? {}), ...(await liveData(listing, now)), reviewedAt: now, reviewedById: staffId },
     undefined,
     guard,
+    "listing_has_mistakes",
   );
   if (!applied) {
     const current = await loadListing(listing.id, { status: true, contentUpdatedAt: true });
@@ -804,13 +845,17 @@ export async function restoreHiddenListing(listingId: string, staffId: string, s
   const toReview = !!fresh && needsPerson(fresh.assessment);
   const now = new Date();
   const target: ListingStatus = toReview ? "IN_REVIEW" : listing.expiresAt && listing.expiresAt <= now ? "EXPIRED" : "LIVE";
-  const applied = await transition(
-    listing.id,
-    "HIDDEN",
-    { ...(fresh?.data ?? {}), status: target, ...(toReview ? {} : { reviewedAt: now, reviewedById: staffId }) },
-    undefined,
-    { contentUpdatedAt: listing.contentUpdatedAt },
-  );
+  const restoreData: Prisma.ListingUncheckedUpdateManyInput = {
+    ...(fresh?.data ?? {}),
+    status: target,
+    ...(toReview ? {} : { reviewedAt: now, reviewedById: staffId }),
+  };
+  const restoreGuard = { contentUpdatedAt: listing.contentUpdatedAt };
+  // Back on the site only without mistake-check errors (see approveListing).
+  const applied =
+    target === "LIVE"
+      ? await transitionWithoutMistakes(listing.id, "HIDDEN", restoreData, undefined, restoreGuard, "listing_has_mistakes")
+      : await transition(listing.id, "HIDDEN", restoreData, undefined, restoreGuard);
   if (!applied) {
     const current = await loadListing(listing.id, { status: true });
     if (current.status === "HIDDEN") throw new ContentChangedError();
@@ -937,7 +982,12 @@ async function ownerAction(
   let data = step.data;
   let toReview = false;
   let why: string[] = ["recheck"];
-  if (data.status === "LIVE" && listing.status !== "LIVE") {
+  const goesLive = data.status === "LIVE" && listing.status !== "LIVE";
+  if (goesLive) {
+    // Unpause and renew put the listing back on the site: the publishing requirements (photos,
+    // price, contact…) must still hold, as on publish (edits while paused are auto-saved).
+    const gaps = await publicationGaps(await loadListing(listing.id, SUBMIT_SELECT, ownerId));
+    if (gaps.length > 0) throw new MissingRequirementsError(gaps);
     const [recheck, sanctioned] = await Promise.all([recheckIfChanged(listing), ownerSanctioned(listing.ownerId)]);
     toReview = sanctioned || (!!recheck && needsPerson(recheck.assessment));
     if (sanctioned) why = ["flagged_host"];
@@ -945,7 +995,11 @@ async function ownerAction(
     if (toReview) data = { ...(recheck?.data ?? {}), status: "IN_REVIEW" };
     else if (recheck) data = { ...data, ...recheck.data };
   }
-  const applied = await transition(listing.id, listing.status, data, ownerId);
+  // ...and its mistake-check errors (no exact address, too few photos, contact details in the
+  // text) refuse the change: the listing stays paused / expired until the host fixes them.
+  const applied = goesLive
+    ? await transitionWithoutMistakes(listing.id, listing.status, data, ownerId)
+    : await transition(listing.id, listing.status, data, ownerId);
   const fresh = await loadListing(listing.id, { status: true, expiresAt: true });
   if (!applied) return { status: fresh.status, changed: false, expiresAt: fresh.expiresAt };
   if (action === "delete") await audit({ actorId: ownerId, action: "listing.delete", targetType: "Listing", targetId: listing.id });

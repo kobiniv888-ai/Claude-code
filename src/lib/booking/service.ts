@@ -28,6 +28,7 @@ import {
 import { quoteStay, type MinStayDatePrice, type Quote, type QuoteResult } from "./pricing";
 import { bookableRoomTypes, isInstantBookable, resolveTerms, roomsFor, toNumber, type BookableListing, type BookableRoomType } from "./terms";
 import { freeRoomsForStay } from "./room-availability";
+import { publicPriceLabel } from "./price-label";
 import { usesRoomInventory } from "./constants";
 import { normalizePhone } from "@/lib/phone";
 
@@ -137,7 +138,8 @@ function bookableListing(listing: LoadedListing): BookableListing {
       end: dateToDay(p.endDate),
       price: p.price,
       minNights: p.minNights,
-      label: p.label,
+      // The guest's quote, the booking's price lines and its emails never carry contact details.
+      label: publicPriceLabel(p.label),
     })),
   };
 }

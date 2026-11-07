@@ -447,7 +447,12 @@ function ReviewForm({
         ) : taken || busy ? (
           // Hotels: the room type has fewer free rooms (another type or fewer rooms may still fit).
           roomPicker?.inventory ? (
-            <Alert title={taken ? t("rooms.takenTitle") : t("rooms.shortTitle")} text={taken ? t("rooms.takenText") : t("rooms.shortText")} />
+            <Alert title={taken ? t("rooms.takenTitle") : t("rooms.shortTitle")} text={taken ? t("rooms.takenText") : t("rooms.shortText")}>
+              <Button variant="secondary" size="sm" className="justify-self-start" onClick={() => setSheetOpen(true)}>
+                <CalendarDaysIcon aria-hidden />
+                {t("review.pickOther")}
+              </Button>
+            </Alert>
           ) : (
             <Alert title={taken ? t("review.takenTitle") : t("review.busyTitle")} text={taken ? t("review.takenText") : t("review.busyText")}>
               <Button variant="secondary" size="sm" className="justify-self-start" onClick={() => setSheetOpen(true)}>

@@ -5,9 +5,12 @@
  * - Each visitor counts ONCE per day per listing (and per contact method for contact taps).
  * - Never counted: the listing's host, any staff account, bots (user agent) and prefetch /
  *   prerender requests, demo listings, and listings that are not LIVE.
- * - The visitor is identified by an anonymous ID that changes every day:
- *     daySecret = HMAC-SHA256(HASH_SALT, "stats-visitor-day:" + day)
- *     visitorId = HMAC-SHA256(daySecret, ip + "\n" + userAgent)
+ * - The visitor is identified by an anonymous ID that changes every day and is different for
+ *   every listing, event and contact method (so two keys never show the same visitor):
+ *     pepper    = 32 random bytes made for the day (src/lib/listing/stats.ts, deleted with the
+ *                 day's keys: nobody can recompute an ID afterwards, not even with HASH_SALT)
+ *     scope     = event + "\n" + listingId (+ "\n" + contact method)
+ *     visitorId = HMAC-SHA256(pepper, scope + "\n" + ip + "\n" + userAgent)
  *   The IP, the user agent and user ids are never stored: only a short slice of the ID, inside a
  *   RateLimit key that expires when the Georgian day ends (the daily clean-up deletes it).
  *   A signed-in visitor (saves, contact taps) is hashed the same way from the account id.
@@ -21,8 +24,13 @@ export type StatsEvent = "view" | "save" | "contact";
 /** RateLimit keys of the daily dedupe all start with this. */
 export const STATS_KEY_PREFIX = "stats:";
 
+/**
+ * Robots and scripts. Views count only from a request the page's own script makes after it shows
+ * (link-preview fetchers never run it), so this list must not catch people: no bare "bot" (CUBOT
+ * phones), no messenger names (Telegram's Android in-app browser, the Slack desktop app).
+ */
 const BOT_USER_AGENT =
-  /bot|crawl|spider|slurp|preview|facebookexternalhit|whatsapp|telegram|viber|skype|discord|slack|headless|lighthouse|pingdom|monitor|curl|wget|python|java\/|go-http|axios|node-fetch|okhttp|httpclient|scrapy|phantomjs|puppeteer|playwright|selenium|bingpreview|semrush|ahrefs|mj12|dataprovider/i;
+  /\bbot\b|bot\/\d|bot;|telegrambot|twitterbot|discordbot|slackbot|whatsapp\/|crawl|spider|slurp|facebookexternalhit|headless|lighthouse|pingdom|curl\/|wget\/|python-requests|python-urllib|aiohttp|java\/|go-http|axios\/|node-fetch|undici|okhttp|apache-httpclient|scrapy|phantomjs|puppeteer|playwright|selenium|webdriver|bingpreview|semrush|ahrefs|mj12|dataprovider/i;
 
 /** A missing user agent counts as a bot. */
 export function isBotUserAgent(userAgent: string | null | undefined): boolean {
@@ -42,19 +50,24 @@ export function isPrefetchRequest(header: (name: string) => string | null | unde
   return false;
 }
 
-/** The daily-rotating visitor ID (hex). `daySecret` comes from HASH_SALT and the day. */
-export function dailyVisitorId(daySecret: string, ip: string | null | undefined, userAgent: string | null | undefined): string {
-  return createHmac("sha256", daySecret).update(`${ip?.trim() || "unknown"}\n${userAgent?.trim() ?? ""}`, "utf8").digest("hex");
+/** What a visitor ID is for: one event of one listing (and one contact method). */
+export function statsScope(event: StatsEvent, listingId: string, channel?: string): string {
+  return `${event}\n${listingId}${channel ? `\n${channel}` : ""}`;
+}
+
+/** The daily-rotating visitor ID (hex) for one `scope` (statsScope). `daySecret`: the day's pepper. */
+export function dailyVisitorId(daySecret: string, scope: string, ip: string | null | undefined, userAgent: string | null | undefined): string {
+  return createHmac("sha256", daySecret).update(`${scope}\n${ip?.trim() || "unknown"}\n${userAgent?.trim() ?? ""}`, "utf8").digest("hex");
 }
 
 /** The same ID for a signed-in visitor (saves and contact taps need an account). */
-export function dailyAccountVisitorId(daySecret: string, userId: string): string {
-  return createHmac("sha256", daySecret).update(`account\n${userId}`, "utf8").digest("hex");
+export function dailyAccountVisitorId(daySecret: string, scope: string, userId: string): string {
+  return createHmac("sha256", daySecret).update(`${scope}\naccount\n${userId}`, "utf8").digest("hex");
 }
 
-/** The text HASH_SALT is mixed with to make a day's secret (the HMAC itself is in src/lib/crypto). */
-export function daySecretInput(day: string): string {
-  return `stats-visitor-day:${day}`;
+/** The RateLimit keys that hold a day's random pepper start with this (the key carries the pepper). */
+export function statsPepperPrefix(day: string): string {
+  return `${STATS_KEY_PREFIX.replace(/:$/, "")}-pepper:${day}:`;
 }
 
 /**
@@ -102,4 +115,67 @@ export function skipReason(
     if (isBotUserAgent(request.userAgent)) return "bot";
   }
   return null;
+}
+
+// ─── One network's share of a listing's views (views-1) ──────────
+
+/**
+ * New visitors one network may add to one listing's views in a day. The daily visitor ID comes
+ * from the IP and the browser, so a script that changes its user agent on every call would
+ * otherwise count again and again; an IPv6 user can also rotate through the 2^64 addresses of
+ * their /64. 20 leaves room for a hotel's Wi-Fi or a mobile carrier's shared address.
+ */
+export const VIEWS_PER_NETWORK_PER_DAY = 20;
+
+function expandIpv6(address: string): string[] | null {
+  const [head, tail, ...rest] = address.split("::");
+  if (rest.length) return null;
+  const parse = (part: string | undefined) => (part ? part.split(":") : []);
+  const left = parse(head);
+  const right = parse(tail);
+  // An IPv4 tail ("::ffff:1.2.3.4") takes two hextets.
+  const last = right.length ? right[right.length - 1] : left[left.length - 1];
+  const v4 = last && /^\d{1,3}(\.\d{1,3}){3}$/.test(last) ? last : null;
+  if (v4) (right.length ? right : left).pop();
+  const size = left.length + right.length + (v4 ? 2 : 0);
+  if (tail === undefined ? size !== 8 : size > 7) return null;
+  const middle = Array(8 - size).fill("0");
+  const groups = [...left, ...(tail === undefined ? [] : middle), ...right];
+  if (v4) {
+    const [a, b, c, d] = v4.split(".").map(Number);
+    groups.push(((a << 8) | b).toString(16), ((c << 8) | d).toString(16));
+  }
+  if (groups.length !== 8 || groups.some((g) => !/^[0-9a-f]{1,4}$/i.test(g))) return null;
+  return groups.map((g) => g.toLowerCase().replace(/^0+(?=.)/, ""));
+}
+
+/**
+ * The network an address belongs to, for the per-network cap: an IPv4 address as it is (an
+ * IPv4-mapped IPv6 address too), the /64 of an IPv6 address (its first 4 groups). Anything else
+ * comes back trimmed, as it is.
+ */
+export function ipNetwork(ip: string | null | undefined): string {
+  const value = ip?.trim().toLowerCase() ?? "";
+  if (!value) return "unknown";
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(value)) return value;
+  if (!value.includes(":")) return value;
+  const groups = expandIpv6(value.replace(/^\[|\]$/g, "").replace(/%.*$/, ""));
+  if (!groups) return value;
+  // ::ffff:a.b.c.d is an IPv4 address.
+  if (groups.slice(0, 5).every((g) => g === "0") && groups[5] === "ffff") {
+    const hi = parseInt(groups[6], 16);
+    const lo = parseInt(groups[7], 16);
+    return `${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`;
+  }
+  return `${groups.slice(0, 4).join(":")}::/64`;
+}
+
+/** The day's anonymous ID of a network (like the visitor ID: the network itself is never stored). */
+export function dailyNetworkId(daySecret: string, ip: string | null | undefined): string {
+  return createHmac("sha256", daySecret).update(`network\n${ipNetwork(ip)}`, "utf8").digest("hex");
+}
+
+/** The RateLimit key that counts one network's new visitors of one listing today. */
+export function statsNetworkKey(day: string, listingId: string, networkId: string): string {
+  return `${STATS_KEY_PREFIX}view-net:${day}:${listingId}:${networkId.slice(0, 32)}`;
 }

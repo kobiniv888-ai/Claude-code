@@ -20,7 +20,11 @@ export function AppToaster({ dir }: { dir: "ltr" | "rtl" }) {
       closeButton
       containerAriaLabel={t("notifications")}
       mobileOffset={{ bottom: "calc(var(--bottom-nav-height, 0px) + 12px)" }}
-      toastOptions={{ closeButtonAriaLabel: t("close"), classNames: { toast: "cn-toast rounded-xl! shadow-float!" } }}
+      toastOptions={{
+        closeButtonAriaLabel: t("close"),
+        // The action ("לתיקון", "לשמורים") is a real button on a phone: 44 px tall, not sonner's 24.
+        classNames: { toast: "cn-toast rounded-xl! shadow-float!", actionButton: "h-auto! min-h-11! rounded-lg! px-3! text-sm! font-semibold!" },
+      }}
       loggedOutMessage={tMenu("loggedOut")}
     />
   );

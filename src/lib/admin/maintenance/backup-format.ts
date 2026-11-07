@@ -69,6 +69,18 @@ export function isBackupId(value: unknown): value is string {
 }
 
 /** A table name that is safe as a file name ("User", "ListingStatDaily", "_prisma_migrations"). */
+/**
+ * Tables a backup leaves out: short-lived counters only, never data to keep. RateLimit holds the
+ * request limits and the host stats' anonymous once-a-day keys with the day's random pepper
+ * (src/lib/listing/stats.ts): they must end with their day, not live on in a backup file.
+ * A restore needs only the tables the backup lists, so the target keeps an empty RateLimit.
+ */
+export const EPHEMERAL_TABLES: readonly string[] = ["RateLimit"];
+
+export function isBackedUpTable(name: string): boolean {
+  return !EPHEMERAL_TABLES.includes(name);
+}
+
 export function isSafeTableName(name: string): boolean {
   return /^[A-Za-z_][A-Za-z0-9_]{0,62}$/.test(name);
 }

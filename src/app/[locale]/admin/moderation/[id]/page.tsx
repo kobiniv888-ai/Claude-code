@@ -227,6 +227,7 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
             ownerLocaleLabel={ownerLanguage}
             contentUpdatedAt={listing.contentUpdatedAt.toISOString()}
             own={staff.role !== "ADMIN" && listing.ownerId === staff.id}
+            mistakesBlocked={mistakes.status === "blocked"}
           />
           <p className="hidden text-xs text-muted-foreground lg:block">{t("shortcutsHint")}</p>
         </div>

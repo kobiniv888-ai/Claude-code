@@ -20,9 +20,13 @@ import { convert } from "@/lib/currency/convert";
  *     sleeps), with the neighborhood instead of the city when there is enough data; widen to the
  *     whole city, then all sizes, and say exactly what is compared (scope.matched);
  *   - then, while there is enough data, also bathrooms, kitchen, sea view, new or old building
- *     and size (fixed bands, never a window the host can slide);
+ *     and size (fixed bands, never a window the host can slide). These form ONE fixed chain
+ *     (size, neighborhood, bathrooms, kitchen, sea, building, size band) and a guide compares a
+ *     prefix of it: it stops at the first condition the host didn't give or the data can't
+ *     support, so any two answers are nested or disjoint;
  *   - no number points to a single listing: each place gives one value (a hotel's room types in
- *     the group count once, at their middle price), quartiles are interpolated, every number is
+ *     the group count once, at their middle price; a hotel in the group is never an "added" place
+ *     of a wider group), quartiles are interpolated, every number is
  *     rounded, and a group is used only when, against EVERY wider group the host could also be
  *     shown (fewer of the same conditions: the whole city, all sizes, without one of the extra
  *     criteria…), the places it leaves out are none or themselves a safe group. So comparing two
@@ -316,12 +320,21 @@ export function differencesSafe(all: readonly GuideCandidate[], criteria: readon
   const n = criteria.length;
   if (n === 0) return true;
   const full = (1 << n) - 1;
+  const maskOf = (c: GuideCandidate) => {
+    let mask = 0;
+    for (let i = 0; i < n; i++) if (criteria[i].test(c)) mask |= 1 << i;
+    return mask;
+  };
+  // A place is in the group when ANY of its rows meets every criterion (a hotel with a 2-guest and
+  // a 3-guest room is in the 2-guest group). Its other rows are not places a wider group adds: the
+  // place is in both answers, so only places outside the group count as added.
+  const inGroup = new Set<string>();
+  for (const c of all) if (maskOf(c) === full) inGroup.add(c.listingId);
   // The places of each combination of met criteria (bitmask), once.
   const buckets = new Map<number, { places: Set<string>; owners: Set<string> }>();
   for (const c of all) {
-    let mask = 0;
-    for (let i = 0; i < n; i++) if (criteria[i].test(c)) mask |= 1 << i;
-    if (mask === full) continue; // in the group itself
+    if (inGroup.has(c.listingId)) continue;
+    const mask = maskOf(c);
     let bucket = buckets.get(mask);
     if (!bucket) buckets.set(mask, (bucket = { places: new Set(), owners: new Set() }));
     bucket.places.add(c.listingId);
@@ -344,25 +357,24 @@ export function differencesSafe(all: readonly GuideCandidate[], criteria: readon
   return true;
 }
 
-/** The extra criteria, in the order they are tried (brief 5). Hotel rooms skip bathrooms and kitchen. */
-function refinements(query: GuideQuery, hotel: boolean): Criterion[] {
-  const out: Criterion[] = [];
-  const baths = hotel ? null : bathroomsKey(query.bathrooms);
-  if (baths !== null) out.push({ key: "bathrooms", value: baths, test: (c) => bathroomsKey(c.bathrooms) === baths });
-  if (!hotel && typeof query.hasKitchen === "boolean") {
-    const want = query.hasKitchen;
-    out.push({ key: "kitchen", value: want ? "yes" : "no", test: (c) => c.hasKitchen === want });
+/**
+ * The extra criteria, in their fixed order (brief 5), with null where the host gave no value.
+ * Hotel rooms skip bathrooms and kitchen.
+ */
+function refinements(query: GuideQuery, hotel: boolean): (Criterion | null)[] {
+  const out: (Criterion | null)[] = [];
+  if (!hotel) {
+    const baths = bathroomsKey(query.bathrooms);
+    out.push(baths === null ? null : { key: "bathrooms", value: baths, test: (c) => bathroomsKey(c.bathrooms) === baths });
+    const kitchen = query.hasKitchen;
+    out.push(typeof kitchen === "boolean" ? { key: "kitchen", value: kitchen ? "yes" : "no", test: (c) => c.hasKitchen === kitchen } : null);
   }
-  if (typeof query.seaView === "boolean") {
-    const want = query.seaView;
-    out.push({ key: "sea", value: want ? "yes" : "no", test: (c) => c.seaView === want });
-  }
-  if (typeof query.newBuilding === "boolean") {
-    const want = query.newBuilding;
-    out.push({ key: "building", value: want ? "new" : "old", test: (c) => c.newBuilding === want });
-  }
+  const sea = query.seaView;
+  out.push(typeof sea === "boolean" ? { key: "sea", value: sea ? "yes" : "no", test: (c) => c.seaView === sea } : null);
+  const fresh = query.newBuilding;
+  out.push(typeof fresh === "boolean" ? { key: "building", value: fresh ? "new" : "old", test: (c) => c.newBuilding === fresh } : null);
   const band = sizeBand(query.sizeSqm);
-  if (band !== null) out.push({ key: "size", value: band, test: (c) => sizeBand(c.sizeSqm) === band });
+  out.push(band === null ? null : { key: "size", value: band, test: (c) => sizeBand(c.sizeSqm) === band });
   return out;
 }
 
@@ -388,12 +400,15 @@ export function computeGuide(
   const neighborhoodCriterion: Criterion | null =
     neighborhoodId === null ? null : { key: "neighborhood", value: neighborhoodId, test: (c) => c.neighborhoodId === neighborhoodId };
 
-  // Neighborhood (with the size) → the city with the size → the whole city, all sizes.
-  type Level = { level: GuideLevel; criteria: Criterion[] };
-  const levels: Level[] = [];
-  if (neighborhoodCriterion) levels.push({ level: "neighborhood", criteria: sizeCriterion ? [neighborhoodCriterion, sizeCriterion] : [neighborhoodCriterion] });
-  if (sizeCriterion) levels.push({ level: "city", criteria: [sizeCriterion] });
-  levels.push({ level: "city_all_sizes", criteria: [] });
+  // ONE fixed chain: the size, the neighborhood, then bathrooms, kitchen, sea view, building and
+  // size band. A guide always compares a PREFIX of it, stopping at the first condition the host
+  // didn't give or the data can't support (never skipping one and going on). Any two answers are
+  // then nested (one prefix of the other: differencesSafe checks every wider group) or disjoint
+  // (they differ in a value at some step), so two answers can never differ by a single place.
+  const chain: (Criterion | null)[] = [sizeCriterion, neighborhoodCriterion, ...refinements(query, hotel)];
+  const firstMissing = chain.indexOf(null);
+  const reachable = (firstMissing === -1 ? chain : chain.slice(0, firstMissing)) as Criterion[];
+  const levelOf = (length: number): GuideLevel => (length >= 2 ? "neighborhood" : length === 1 ? "city" : "city_all_sizes");
 
   const rowsOf = (criteria: readonly Criterion[]) => all.filter((c) => criteria.every((k) => k.test(c)));
   const usable = (criteria: readonly Criterion[]): GuideCandidate[] | null => {
@@ -401,31 +416,36 @@ export function computeGuide(
     return isSafeGroup(rows) && differencesSafe(all, criteria) ? rows : null;
   };
 
-  let index = -1;
+  // Neighborhood (with the size) → the city with the size → the whole city, all sizes.
+  const levelLength = Math.min(2, reachable.length);
+  let length = -1;
   let rows: GuideCandidate[] = [];
-  for (let i = 0; i < levels.length; i++) {
-    const found = usable(levels[i].criteria);
+  for (let l = levelLength; l >= 0; l--) {
+    const found = usable(reachable.slice(0, l));
     if (found) {
-      index = i;
+      length = l;
       rows = found;
       break;
     }
   }
-  if (index === -1) {
+  if (length === -1) {
     return { status: "not_enough", unit, currency: context.currency, scope: { level: "city_all_sizes", cityId: context.cityId, matched: base }, references: [] };
   }
-
-  const chosen = levels[index];
-  const criteria = [...chosen.criteria];
-  const matched = [...base, ...(sizeCriterion && criteria.includes(sizeCriterion) ? [`${sizeCriterion.key}:${sizeCriterion.value}`] : [])];
-  for (const criterion of refinements(query, hotel)) {
-    const found = usable([...criteria, criterion]);
-    if (found) {
-      criteria.push(criterion);
+  // The extra criteria only on top of the full level (size and neighborhood), each while the
+  // data stays enough and safe; the first one that isn't ends the chain.
+  if (length === 2) {
+    for (let l = 3; l <= reachable.length; l++) {
+      const found = usable(reachable.slice(0, l));
+      if (!found) break;
+      length = l;
       rows = found;
-      matched.push(`${criterion.key}:${criterion.value}`);
     }
   }
+
+  const criteria = reachable.slice(0, length);
+  const level = levelOf(length);
+  const asked = (sizeCriterion ? 1 : 0) + (neighborhoodCriterion ? 1 : 0);
+  const matched = [...base, ...criteria.filter((c) => c !== neighborhoodCriterion).map((c) => `${c.key}:${c.value}`)];
 
   // The weekend price and the price per m² come from the places that have one: the same rule
   // applies to that smaller population, so a wider group can't add just one weekend price.
@@ -436,13 +456,13 @@ export function computeGuide(
   const perSqm = unit === "total" ? subStats((c) => c.sizeSqm !== null && c.sizeSqm > 0, (c) => c.price / (c.sizeSqm as number)) : undefined;
 
   return {
-    status: index === 0 ? "ok" : "widened",
+    status: Math.min(length, 2) < asked ? "widened" : "ok",
     unit,
     currency: context.currency,
     scope: {
-      level: chosen.level,
+      level,
       cityId: context.cityId,
-      ...(chosen.level === "neighborhood" && query.neighborhoodId ? { neighborhoodId: query.neighborhoodId } : {}),
+      ...(level === "neighborhood" && query.neighborhoodId ? { neighborhoodId: query.neighborhoodId } : {}),
       matched,
     },
     ...(price ? { price } : {}),

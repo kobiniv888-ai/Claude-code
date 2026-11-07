@@ -2,19 +2,31 @@
 
 import { useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { ChevronLeftIcon, ChevronRightIcon, LockIcon, LockOpenIcon, MinusIcon, PlusIcon, XIcon } from "lucide-react";
+import { ChevronLeftIcon, ChevronRightIcon, LockIcon, LockOpenIcon, MinusIcon, PlusIcon, TagIcon, XIcon } from "lucide-react";
 import { Button } from "@/components/ds/button";
 import { Ltr } from "@/components/common/ltr";
 import { Link } from "@/i18n/navigation";
 import { saveRoomBlocksAction } from "@/lib/booking/host-actions";
+import type { HostDatePrice } from "@/lib/booking/date-prices";
 import type { HostCalendarBooking, HostRoomCalendar } from "@/lib/booking/host-calendar";
 import { applyRoomSelection, type RoomBlockRange } from "@/lib/booking/room-blocks";
-import { formatDate, formatDateRange, formatNumber } from "@/lib/format";
+import { formatDate, formatDateRange, formatMoney, formatNumber } from "@/lib/format";
 import { buildMonth } from "@/lib/listing-page/calendar";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { addDays } from "@/lib/wizard/availability";
-import { daysBetween, monthStart, weekStartFor } from "./model";
+import { DatePriceList, DatePriceSheet, HolidayChips, type CalendarPricing, type PriceRoomType, type PriceSelection } from "./date-prices";
+import {
+  daysBetween,
+  indexHolidays,
+  indexRoomDatePrices,
+  monthStart,
+  periodsBetween,
+  selectionNights,
+  weekStartFor,
+  type CalendarHoliday,
+  type HolidayPeriod,
+} from "./model";
 import { indexRoomCalendar, roomSelectionSummary } from "./room-model";
 
 const NAV =
@@ -27,12 +39,20 @@ const SUNDAY = "2026-11-01";
 
 type Selection = { start: string; end: string; open: boolean };
 
+const NO_PRICES: HostDatePrice[] = [];
+const NO_HOLIDAYS: CalendarHoliday[] = [];
+const NO_PERIODS: HolidayPeriod[] = [];
+const NO_ROOMS: PriceRoomType[] = [];
+
 /**
  * One hotel room type's calendar (round 3, founder's answer 3): every night shows the free rooms
  * of the type ("2/3"), and full nights stand out. Select nights (tap one, then another), then close
  * N rooms on them (at most the rooms still free on each night) or open the rooms you closed; the
  * bookings of those nights are listed with links. Two months at a time, keyboard-navigable.
- * Text: `hostBooking.calendar.rooms`, `hostBooking.calendar`.
+ * Like the whole hotel's calendar (brief 6.3), it marks the Jewish holidays (with chips that select
+ * them) and this room type's holiday prices (its own, or the whole hotel's in the same currency),
+ * and "מחיר לתאריכים" sets one for this room type. Text: `hostBooking.calendar.rooms`,
+ * `hostBooking.calendar`.
  */
 export function RoomCalendar({
   listingId,
@@ -42,6 +62,12 @@ export function RoomCalendar({
   closed,
   bookings,
   returnTo,
+  datePrices = NO_PRICES,
+  onDatePricesChange,
+  pricing = null,
+  roomTypes = NO_ROOMS,
+  holidays = NO_HOLIDAYS,
+  holidayPeriods = NO_PERIODS,
 }: {
   listingId: string;
   room: HostRoomCalendar;
@@ -51,6 +77,15 @@ export function RoomCalendar({
   closed: { start: string; end: string }[];
   bookings: Record<string, HostCalendarBooking>;
   returnTo?: string;
+  /** The hotel's holiday prices from today on (all room types; shared with the other calendars). */
+  datePrices?: HostDatePrice[];
+  onDatePricesChange?: (prices: HostDatePrice[]) => void;
+  /** The hotel's own currency and prices (a price for every room is in its currency); null = no holiday prices. */
+  pricing?: CalendarPricing | null;
+  /** Every room type, for the holiday-price form and list. */
+  roomTypes?: PriceRoomType[];
+  holidays?: CalendarHoliday[];
+  holidayPeriods?: HolidayPeriod[];
 }) {
   const t = useTranslations("hostBooking.calendar.rooms");
   const tc = useTranslations("hostBooking.calendar");
@@ -63,7 +98,23 @@ export function RoomCalendar({
   const [count, setCount] = useState(1);
   const [saving, setSaving] = useState(false);
   const [focusDay, setFocusDay] = useState<string | null>(null);
+  const [ownPrices, setOwnPrices] = useState<HostDatePrice[]>(datePrices);
+  const prices = onDatePricesChange ? datePrices : ownPrices;
+  const setPrices = onDatePricesChange ?? setOwnPrices;
+  const [priceSheet, setPriceSheet] = useState<PriceSelection | null>(null);
   const grid = useRef<HTMLDivElement>(null);
+  /** The day that gets focus once a save cleared the selection (its buttons are gone). */
+  const returnDay = useRef<string | null>(null);
+  // The room type's own holiday prices win; the whole hotel's apply when they share its currency (as in the quote).
+  const priced = useMemo(
+    () => indexRoomDatePrices(prices, room.id, { listingWide: pricing !== null && pricing.currency === room.currency }),
+    [prices, room.id, room.currency, pricing],
+  );
+  const holidayNames = useMemo(() => indexHolidays(holidays), [holidays]);
+  const roomPrices = useMemo(
+    () => prices.filter((p) => p.roomTypeId === room.id || (p.roomTypeId === null && pricing?.currency === room.currency)),
+    [prices, room.id, room.currency, pricing],
+  );
 
   const index = useMemo(
     () => indexRoomCalendar({ today, quantity: room.quantity, owner, booked: room.booked, imported: room.imported, closed }),
@@ -103,12 +154,35 @@ export function RoomCalendar({
     const parts = [formatDate(day, locale, { weekday: "long", day: "numeric", month: "long" })];
     if (state.past) parts.push(tc("state.past"));
     else if (state.closed) parts.push(t("closedHotel"));
-    else parts.push(t("freeOf", { free: n(state.free), total: n(room.quantity) }));
+    else parts.push(t("freeOf", { free: state.free, freeText: n(state.free), total: room.quantity, totalText: n(room.quantity) }));
     if (state.booked) parts.push(t("bookedRooms", { count: state.booked }));
     if (state.imported) parts.push(t("importedRooms", { count: state.imported }));
     if (state.blocked) parts.push(t("blockedRooms", { count: state.blocked }));
+    const holiday = holidayNames.get(day);
+    if (holiday) parts.push(holiday);
+    const special = !state.past ? priced.get(day) : undefined;
+    if (special) parts.push(tc("dayPriced", { price: formatMoney(special.price, special.currency, locale) }));
     return parts.join(", ");
   };
+
+  /** Focus a day of the grid (after the selection bar that had focus is gone). */
+  const focusGridDay = (day: string | null | undefined) => {
+    if (!day) return false;
+    const cell = grid.current?.querySelector<HTMLButtonElement>(`[data-day="${day}"]`);
+    if (!cell) return false;
+    setFocusDay(day);
+    cell.focus({ preventScroll: true });
+    return true;
+  };
+
+  const selectPeriod = (period: HolidayPeriod) => {
+    const start = period.start < today ? today : period.start;
+    setCount(1);
+    setSelection({ start, end: period.last, open: false });
+    setFocusDay(start);
+  };
+  const holidaysIn = (range: PriceSelection | null) =>
+    range ? [...new Set(holidayPeriods.filter((p) => p.start <= range.last && p.last >= range.start).map((p) => p.name))] : [];
 
   const onDay = (day: string) => {
     if (day < today && index.day(day).codes.length === 0) return;
@@ -140,8 +214,11 @@ export function RoomCalendar({
     if (!selection || saving) return;
     const before = owner;
     const next = applyRoomSelection(owner, selectedDays, action, (day) => index.day(day).free, today);
+    const start = selectedDays.find((day) => day >= today) ?? selectedDays[0];
     setOwner(next);
     setSelection(null);
+    // The selection bar (and the button that had focus) is gone: focus goes back to the grid.
+    requestAnimationFrame(() => focusGridDay(start));
     setSaving(true);
     const result = await saveRoomBlocksAction({ listingId, roomTypeId: room.id, blocked: next }).catch(() => null);
     setSaving(false);
@@ -156,6 +233,8 @@ export function RoomCalendar({
 
   const monthRange = formatDateRange(first, last, locale, { month: "long", year: "numeric" });
   const futureSelected = selectedDays.some((day) => day >= today);
+  const priceNights = pricing ? selectionNights(selectedDays, today) : null;
+  const visiblePeriods = periodsBetween(holidayPeriods, first, last, today);
 
   return (
     <div className="grid gap-4">
@@ -226,6 +305,18 @@ export function RoomCalendar({
                               <Ltr>{`${n(state.free)}/${n(room.quantity)}`}</Ltr>
                             </span>
                           ) : null}
+                          {holidayNames.has(cell.date) ? (
+                            <span
+                              aria-hidden
+                              className={cn("absolute end-1.5 top-1.5 size-1.5 rounded-full", selected ? "bg-primary-foreground" : "bg-primary-text")}
+                            />
+                          ) : null}
+                          {!state.past && priced.has(cell.date) ? (
+                            <span
+                              aria-hidden
+                              className={cn("absolute inset-x-3 bottom-0.5 h-0.5 rounded-full", selected ? "bg-primary-foreground" : "bg-success")}
+                            />
+                          ) : null}
                         </button>
                       </td>
                     );
@@ -254,7 +345,25 @@ export function RoomCalendar({
           <span className="size-4 rounded-md bg-surface-muted line-through" aria-hidden />
           {t("legendClosed")}
         </li>
+        {pricing ? (
+          <li className="inline-flex items-center gap-1.5">
+            <span className="relative size-4 rounded-md border border-border-strong bg-card" aria-hidden>
+              <span className="absolute inset-x-0.5 bottom-0.5 h-0.5 rounded-full bg-success" />
+            </span>
+            {tc("legendPriced")}
+          </li>
+        ) : null}
+        {holidays.length > 0 ? (
+          <li className="inline-flex items-center gap-1.5">
+            <span className="relative size-4 rounded-md border border-border-strong bg-card" aria-hidden>
+              <span className="absolute end-0.5 top-0.5 size-1.5 rounded-full bg-primary-text" />
+            </span>
+            {tc("legendHoliday")}
+          </li>
+        ) : null}
       </ul>
+
+      <HolidayChips periods={visiblePeriods} onSelect={selectPeriod} />
 
       {selection && (
         <div className="sticky bottom-[calc(var(--bottom-nav-height)+0.75rem)] z-(--z-sticky) grid gap-3 rounded-card border border-border bg-card p-3 shadow-sheet motion-safe:animate-fade-up">
@@ -296,6 +405,13 @@ export function RoomCalendar({
               <span className="truncate">{t("open")}</span>
             </Button>
           ) : null}
+          {priceNights ? (
+            // "מחיר לתאריכים" (brief 6.3) for this room type's nights.
+            <Button type="button" variant="soft" className="min-w-0 px-3" disabled={saving} onClick={() => setPriceSheet(priceNights)}>
+              <TagIcon aria-hidden />
+              <span className="truncate">{tc("priceAction")}</span>
+            </Button>
+          ) : null}
           {summary.codes.length > 0 ? (
             <div className="grid gap-1.5 border-t border-border pt-2">
               <p className="text-caption font-semibold text-muted-foreground">{t("bookingsTitle")}</p>
@@ -330,6 +446,31 @@ export function RoomCalendar({
           {!futureSelected && summary.codes.length === 0 ? <p className="text-small text-muted-foreground">{tc("nothingToChange")}</p> : null}
         </div>
       )}
+
+      {pricing ? <DatePriceList listingId={listingId} prices={roomPrices} onChange={setPrices} roomTypes={roomTypes} /> : null}
+      {pricing ? (
+        <DatePriceSheet
+          listingId={listingId}
+          selection={priceSheet}
+          pricing={pricing}
+          roomTypes={roomTypes}
+          initialRoomTypeId={room.id}
+          holidays={holidaysIn(priceSheet)}
+          onClose={() => setPriceSheet(null)}
+          onSaved={(next) => {
+            setPrices(next);
+            // The selection (and its "מחיר לתאריכים" button) goes: focus returns to its first night.
+            returnDay.current = priceSheet?.start ?? null;
+            setPriceSheet(null);
+            setSelection(null);
+          }}
+          onCloseAutoFocus={(event) => {
+            const day = returnDay.current;
+            returnDay.current = null;
+            if (day && focusGridDay(day)) event.preventDefault();
+          }}
+        />
+      ) : null}
     </div>
   );
 }

@@ -3,6 +3,7 @@ import {
   BACKUP_FORMAT,
   BACKUP_FORMAT_VERSION,
   backupId,
+  isBackedUpTable,
   isBackupId,
   isSafeTableName,
   parseBackupMeta,
@@ -98,5 +99,12 @@ describe("pg_dump settings", () => {
     const text = redact('connection to "postgresql://bayit:secret@db.example:5432/bayit" failed, password=secret');
     expect(text).not.toContain("secret");
     expect(text).toContain("postgresql://***");
+  });
+});
+
+describe("tables a backup leaves out (privacy-1)", () => {
+  it("skips RateLimit (limits and the stats' daily anonymous keys and pepper), keeps the rest", () => {
+    expect(isBackedUpTable("RateLimit")).toBe(false);
+    for (const table of ["Listing", "User", "Booking", "ListingStatDaily", "AuditLog"]) expect(isBackedUpTable(table)).toBe(true);
   });
 });

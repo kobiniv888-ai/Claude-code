@@ -193,26 +193,78 @@ describe("the privacy rule against comparing two answers", () => {
     const twoBedrooms = computeGuide(all, { ...Q, neighborhoodId: "vake" }, CTX);
     expect(twoBedrooms.scope.level).toBe("city");
     expect(twoBedrooms.price?.count).toBe(10);
-    // The neighborhood with all sizes (a draft with no bedrooms) is a safe answer on its own.
+    // A draft with no bedrooms stops at the first missing condition (the size): the whole city.
     const anySize = computeGuide(all, { ...Q, bedrooms: null, neighborhoodId: "vake" }, CTX);
-    expect(anySize.scope.level).toBe("neighborhood");
-    expect(anySize.price?.count).toBe(6);
+    expect(anySize.scope.level).toBe("city_all_sizes");
+    expect(anySize.status).toBe("widened");
+    expect(anySize.price?.count).toBe(16);
   });
 
-  it("skips a later criterion when another order of the same criteria would isolate a place", () => {
+  it("stops at a later criterion when its wider group would isolate a place, and never skips to the next", () => {
+    const v = { neighborhoodId: "vake" };
     const rows = [
-      ...Array.from({ length: 5 }, (_, i) => place(80 + i, { seaView: true, newBuilding: true })),
-      ...Array.from({ length: 5 }, (_, i) => place(70 + i, { seaView: true, newBuilding: false })),
-      place(55, { seaView: false, newBuilding: true }),
-      ...Array.from({ length: 9 }, (_, i) => place(50 + i, { seaView: false, newBuilding: false })),
+      ...Array.from({ length: 5 }, (_, i) => place(80 + i, { ...v, seaView: true, newBuilding: true })),
+      ...Array.from({ length: 5 }, (_, i) => place(70 + i, { ...v, seaView: true, newBuilding: false })),
+      place(55, { ...v, seaView: false, newBuilding: true }),
+      ...Array.from({ length: 9 }, (_, i) => place(50 + i, { ...v, seaView: false, newBuilding: false })),
     ];
-    const both = computeGuide(rows, { ...Q, seaView: true, newBuilding: true }, CTX);
+    const q = { ...Q, ...v, bathrooms: 1, hasKitchen: true };
+    const both = computeGuide(rows, { ...q, seaView: true, newBuilding: true, sizeSqm: 70 }, CTX);
     expect(both.scope.matched).toContain("sea:yes");
     expect(both.scope.matched).not.toContain("building:new");
+    // The size band comes after the building in the chain: not tried once the building failed.
+    expect(both.scope.matched).not.toContain("size:60-80");
     expect(both.price?.count).toBe(10);
-    const newOnly = computeGuide(rows, { ...Q, newBuilding: true }, CTX);
-    expect(newOnly.scope.matched).toContain("building:new");
-    expect(newOnly.price?.count).toBe(6);
+    // Without a sea view given, the chain stops there: the building is never compared on its own.
+    const newOnly = computeGuide(rows, { ...q, newBuilding: true }, CTX);
+    expect(newOnly.scope.matched).not.toContain("building:new");
+    expect(newOnly.price?.count).toBe(20);
+  });
+
+  it("can't be made to differ by one place with two queries whose criteria aren't nested (prefix rule)", () => {
+    // Every 1-bathroom place has a kitchen; F (kitchen, 2 bathrooms) is the only other kitchen.
+    const mk = (id: string, owner: string, bathrooms: number, kitchen: boolean, price: number) =>
+      place(price, { listingId: id, ownerId: owner, neighborhoodId: "n1", bathrooms, hasKitchen: kitchen, newBuilding: null, sizeSqm: null });
+    const rows = [
+      mk("A", "o1", 1, true, 50),
+      mk("B", "o2", 1, true, 52),
+      mk("C", "o3", 1, true, 54),
+      mk("D", "o1", 1, true, 56),
+      mk("E", "o2", 1, true, 58),
+      mk("F", "o9", 2, true, 200),
+      ...["G", "H", "I", "J", "K"].map((id, i) => mk(id, ["o4", "o5", "o6", "o4", "o5"][i], 2, false, 60 + i)),
+    ];
+    const q = { ...Q, neighborhoodId: "n1" };
+    // Draft 1: 1 bathroom, kitchen not ticked. Draft 2: 3+ bathrooms (no data), kitchen ticked.
+    const q1 = computeGuide(rows, { ...q, bathrooms: 1, hasKitchen: null }, CTX);
+    const q2 = computeGuide(rows, { ...q, bathrooms: 3, hasKitchen: true }, CTX);
+    expect(q1.scope.matched).toContain("bathrooms:1");
+    expect(q1.price?.count).toBe(5);
+    // Draft 2 stops at the bathrooms it can't compare: it never goes on to the kitchen.
+    expect(q2.scope.matched).not.toContain("kitchen:yes");
+    expect(q2.price?.count).toBe(11);
+    expect(Math.abs((q2.price?.count ?? 0) - (q1.price?.count ?? 0))).toBeGreaterThanOrEqual(GUIDE_RULES.minPlaces);
+  });
+
+  it("counts a hotel already in the group once: its other room types are not places a wider group adds", () => {
+    const room = (id: string, owner: string, guests: number, price: number) =>
+      place(price, { listingId: id, ownerId: owner, guests, bedrooms: null, bathrooms: null, hasKitchen: false, newBuilding: null, sizeSqm: null });
+    const owners = ["o1", "o2", "o3", "o1", "o2"];
+    const hotels = [100, 110, 120, 130, 140].flatMap((p, i) => [room(`H${i + 1}`, owners[i], 2, p), room(`H${i + 1}`, owners[i], 3, p)]);
+    const all = [...hotels, room("H6", "o9", 3, 500)];
+    const two: Criterion = { key: "guests", value: "2", test: (c) => guestsKey(c.guests) === "2" };
+    // The all-sizes group adds only H6 to the 2-guest group: one place of one owner.
+    expect(differencesSafe(all, [two])).toBe(false);
+    const hotelQ = { dealType: "HOTEL_ROOM", propertyType: "HOTEL" } as const;
+    const g = computeGuide(all, { ...hotelQ, guests: 2 }, CTX);
+    const any = computeGuide(all, { ...hotelQ, guests: null }, CTX);
+    expect(g.scope.level).toBe("city_all_sizes");
+    expect(g.price).toEqual(any.price);
+    // Five more hotels of three owners with only a 3-guest room: the difference is a safe group.
+    const more = ["x1", "x2", "x3", "x4", "x5"].map((id, i) => room(id, `ox${i % 3}`, 3, 150 + i * 10));
+    const wide = computeGuide([...all, ...more], { ...hotelQ, guests: 2 }, CTX);
+    expect(wide.scope.level).toBe("city");
+    expect(wide.price?.count).toBe(5);
   });
 
   it("applies the rule to the places with a weekend price too", () => {
@@ -295,10 +347,12 @@ describe("computeGuide", () => {
   });
 
   it("adds bathrooms, kitchen, sea view, building and size only while the data stays enough and safe", () => {
-    const sea = Array.from({ length: 6 }, (_, i) => place(100 + i * 10, { seaView: true, sizeSqm: 50 }));
-    const noSea = Array.from({ length: 6 }, (_, i) => place(50 + i * 5, { seaView: false, sizeSqm: 50 }));
-    const g = computeGuide([...sea, ...noSea], { ...Q, bathrooms: 1, hasKitchen: true, seaView: true, newBuilding: true, sizeSqm: 55 }, CTX);
+    const sea = Array.from({ length: 6 }, (_, i) => place(100 + i * 10, { neighborhoodId: "old-batumi", seaView: true, sizeSqm: 50 }));
+    const noSea = Array.from({ length: 6 }, (_, i) => place(50 + i * 5, { neighborhoodId: "old-batumi", seaView: false, sizeSqm: 50 }));
+    const q = { ...Q, neighborhoodId: "old-batumi", bathrooms: 1, hasKitchen: true, seaView: true, newBuilding: true, sizeSqm: 55 };
+    const g = computeGuide([...sea, ...noSea], q, CTX);
     expect(g.status).toBe("ok");
+    expect(g.scope.level).toBe("neighborhood");
     expect(g.scope.matched).toEqual([
       "deal:SHORT_STAY",
       "type:APARTMENT",

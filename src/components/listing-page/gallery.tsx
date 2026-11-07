@@ -2,25 +2,27 @@
 
 import { useCallback, useMemo, useState, type MouseEvent } from "react";
 import dynamic from "next/dynamic";
-import Image from "next/image";
 import { useLocale, useTranslations } from "next-intl";
 import { ImageOffIcon, ImagesIcon, PlayIcon, Rotate3dIcon } from "lucide-react";
 import { ArrowStart } from "@/components/common/directional-icon";
 import { BottomSheet } from "@/components/ds/bottom-sheet";
-import { PhotoCarousel, isOptimizableImage } from "@/components/ds/photo-carousel";
+import { PhotoCarousel } from "@/components/ds/photo-carousel";
 import { FavoriteButton } from "@/components/listing/favorite-button";
 import { Link, useRouter } from "@/i18n/navigation";
 import { formatNumber } from "@/lib/format";
 import type { VideoEmbed } from "@/lib/listing-page/media";
-import { groupPhotosByRoom, type PhotoGroup } from "@/lib/listing-page/photo-groups";
+import { groupPhotosByRoom } from "@/lib/listing-page/photo-groups";
 import type { PagePhoto } from "@/lib/listing-page/types";
 import { cn } from "@/lib/utils";
+import { GalleryImage, TILE, ZOOM } from "./gallery-image";
 import { ShareMenu } from "./share-menu-island";
 
 /** The full-screen viewer (embla + dialog) loads only when a photo is opened. */
 const Lightbox = dynamic(() => import("./lightbox").then((m) => m.Lightbox), { ssr: false });
 // The video player's dialog (Radix Dialog) loads when the video is first opened.
 const VideoDialog = dynamic(() => import("./video-dialog").then((m) => m.VideoDialog), { ssr: false });
+// "All photos" by room (round 3) renders only inside the closed sheet: it loads at its first opening.
+const RoomSections = dynamic(() => import("./room-sections").then((m) => m.RoomSections), { ssr: false, loading: () => <SectionsSkeleton /> });
 
 /**
  * The same `sizes` for the phone carousel's first photo and the desktop mosaic's main photo, so
@@ -204,27 +206,6 @@ function NoPhotos({ className }: { className?: string }) {
   );
 }
 
-function GalleryImage({ photo, src, sizes, eager = false, className }: { photo: PagePhoto; src: string; sizes: string; eager?: boolean; className?: string }) {
-  return (
-    <Image
-      src={src}
-      alt={photo.alt}
-      fill
-      sizes={sizes}
-      loading={eager ? "eager" : "lazy"}
-      unoptimized={!isOptimizableImage(src)}
-      placeholder={photo.blurDataUrl ? "blur" : "empty"}
-      blurDataURL={photo.blurDataUrl ?? undefined}
-      draggable={false}
-      className={cn("object-cover", className)}
-    />
-  );
-}
-
-const TILE =
-  "group relative block overflow-hidden bg-muted outline-none focus-visible:z-10 focus-visible:ring-3 focus-visible:ring-ring focus-visible:ring-offset-2";
-const ZOOM = "transition-transform duration-500 ease-soft group-hover:scale-[1.03] motion-reduce:transition-none motion-reduce:group-hover:scale-100";
-
 /** 1 large + 4 (or 1 + 2, 2 side by side, or 1) photos; each opens the viewer. */
 function Mosaic({ photos, onOpen }: { photos: PagePhoto[]; onOpen: (index: number) => void }) {
   const t = useTranslations("listing.gallery");
@@ -278,68 +259,14 @@ function PhotoGrid({ photos, onOpen }: { photos: PagePhoto[]; onOpen: (index: nu
   );
 }
 
-/**
- * "All photos" in room sections ("חדר שינה", "מטבח"…, then the unlabelled ones), with a row of
- * room chips that jump to a section. `onOpen` takes the index in the viewer's (grouped) order.
- */
-function RoomSections({ groups, total, onOpen }: { groups: PhotoGroup<PagePhoto>[]; total: number; onOpen: (index: number) => void }) {
-  const t = useTranslations("listing.gallery");
-  const locale = useLocale();
-  const sectionId = (room: string | null) => `gallery-room-${(room ?? "other").toLowerCase()}`;
-  // One wide photo, then two side by side; a photo left alone in its row is wide too.
-  const wide = (i: number, count: number) => i % 3 === 0 || (i % 3 === 1 && i === count - 1);
-  const name = (room: string | null) => (room ? t(`rooms.${room}`) : t("otherPhotos"));
-  const sections = groups;
+/** While "All photos" by room loads (the first opening only). */
+function SectionsSkeleton() {
   return (
-    <div className="grid gap-5 p-3 sm:p-4">
-      <nav aria-label={t("roomsNav")}>
-        <ul className="flex flex-wrap gap-2">
-          {sections.map((section) => (
-            <li key={section.room ?? "other"}>
-              <button
-                type="button"
-                className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-border bg-card px-4 text-small font-medium text-foreground outline-none hover:bg-surface-muted focus-visible:ring-3 focus-visible:ring-ring/60"
-                onClick={() => document.getElementById(sectionId(section.room))?.scrollIntoView({ block: "start" })}
-              >
-                {name(section.room)}
-                <span className="text-muted-foreground tabular-nums">{formatNumber(section.photos.length, locale)}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      </nav>
-      {sections.map((section) => (
-        <section key={section.room ?? "other"} id={sectionId(section.room)} aria-labelledby={`${sectionId(section.room)}-title`} className="grid scroll-mt-3 gap-2.5">
-          <h3 id={`${sectionId(section.room)}-title`} className="flex items-baseline gap-2 text-h3 text-foreground">
-            {name(section.room)}
-            <span className="text-small font-normal text-muted-foreground">
-              {t("sectionCount", { count: section.photos.length, formatted: formatNumber(section.photos.length, locale) })}
-            </span>
-          </h3>
-          <ul className="grid grid-cols-2 gap-2 sm:gap-3">
-            {section.photos.map((photo, i) => (
-              <li
-                key={photo.id}
-                className={cn(wide(i, section.photos.length) ? "col-span-2 aspect-[16/10]" : "aspect-square sm:aspect-[4/3]")}
-              >
-                <button
-                  type="button"
-                  className={cn(TILE, "size-full rounded-xl")}
-                  onClick={() => onOpen(section.start + i)}
-                  aria-label={t("open", { index: section.start + i + 1, total })}
-                >
-                  <GalleryImage
-                    photo={photo}
-                    src={photo.medium}
-                    sizes={wide(i, section.photos.length) ? "(min-width: 768px) 56rem, 100vw" : "(min-width: 768px) 28rem, 50vw"}
-                    className={ZOOM}
-                  />
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
+    <div className="grid grid-cols-2 gap-2 p-3 sm:gap-3 sm:p-4" aria-hidden="true">
+      <div className="col-span-2 h-11 w-2/3 rounded-full bg-muted motion-safe:animate-pulse" />
+      <div className="col-span-2 aspect-[16/10] rounded-xl bg-muted motion-safe:animate-pulse" />
+      <div className="aspect-square rounded-xl bg-muted motion-safe:animate-pulse sm:aspect-[4/3]" />
+      <div className="aspect-square rounded-xl bg-muted motion-safe:animate-pulse sm:aspect-[4/3]" />
     </div>
   );
 }

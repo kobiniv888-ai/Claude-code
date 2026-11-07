@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { CalendarDaysIcon, CheckIcon, FlagIcon, GitCompareArrowsIcon, MessageCircleQuestionIcon, UsersRoundIcon } from "lucide-react";
+import { BedDoubleIcon, CalendarDaysIcon, CheckIcon, FlagIcon, GitCompareArrowsIcon, MessageCircleQuestionIcon, UsersRoundIcon } from "lucide-react";
 import { DatesGuestsSheet } from "@/components/booking/dates-guests-sheet";
 import { useGuestSummary } from "@/components/booking/guest-summary";
 import { PriceBreakdown } from "@/components/booking/price-breakdown";
@@ -54,7 +54,7 @@ function StaySummary({ className }: { className?: string }) {
  */
 function BookButton({ block = false }: { block?: boolean }) {
   const t = useTranslations("listing.booking");
-  const { bookHref, setSheetOpen, instant, needsRoom } = useStay();
+  const { bookHref, setSheetOpen, instant, needsRoom, roomPicker } = useStay();
   const { listing, availability, contact, revealing } = useContact();
   const { primary } = contactLayout(listing.channels);
   if (!instant && availability === "ok" && primary) {
@@ -71,6 +71,15 @@ function BookButton({ block = false }: { block?: boolean }) {
       <Link href={bookHref} className={buttonStyles({ block, className: "px-5" })}>
         {t("book")}
       </Link>
+    );
+  }
+  // Hotels with dates chosen but no room type (or not enough rooms) yet: the sheet picks the room.
+  if (bookHref && instant && needsRoom && !roomPicker?.allFull) {
+    return (
+      <Button block={block} className="px-4" onClick={() => setSheetOpen(true)}>
+        <BedDoubleIcon aria-hidden />
+        {t("chooseRoom")}
+      </Button>
     );
   }
   return (

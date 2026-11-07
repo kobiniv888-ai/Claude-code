@@ -11,6 +11,8 @@ import {
   BACKUP_FORMAT_VERSION,
   backupId,
   isBackupId,
+  EPHEMERAL_TABLES,
+  isBackedUpTable,
   isSafeTableName,
   parseBackupMeta,
   pgEnvFromUrl,
@@ -124,7 +126,8 @@ async function runPgDump(dir: string): Promise<BackupMeta["pgDump"]> {
         resolve(value);
       }
     };
-    const child = spawn("pg_dump", ["--format=custom", "--no-owner", "--no-privileges", `--file=${path.join(dir, file)}`], {
+    const skipData = EPHEMERAL_TABLES.map((table) => `--exclude-table-data="${table}"`);
+    const child = spawn("pg_dump", ["--format=custom", "--no-owner", "--no-privileges", ...skipData, `--file=${path.join(dir, file)}`], {
       env: { PATH: process.env.PATH ?? "", HOME: process.env.HOME ?? "", ...env } as unknown as NodeJS.ProcessEnv,
       stdio: ["ignore", "ignore", "pipe"],
     });
@@ -170,6 +173,7 @@ export async function createBackup(by: BackupMeta["createdBy"]): Promise<BackupM
     const info = await client.query<{ db: string; server: string }>("SELECT current_database() AS db, current_setting('server_version') AS server");
     const tables: BackupTable[] = [];
     for (const table of await listTables(client)) {
+      if (!isBackedUpTable(table.name)) continue;
       if (!isSafeTableName(table.name)) throw new Error(`Unexpected table name: ${table.name}`);
       tables.push(await dumpTable(client, table, path.join(partial, "tables", `${table.name}.jsonl`)));
     }

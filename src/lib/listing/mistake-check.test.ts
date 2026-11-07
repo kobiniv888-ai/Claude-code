@@ -148,8 +148,11 @@ describe("errors (block publishing)", () => {
 
   it("a phone number, an email, a link or a @username in the title or the description", () => {
     expect(checkListingMistakes(clean({ title: "דירה מול הים, להזמנות 0541234567" })).errors).toEqual([
-      { code: "contact_in_title", severity: "error", field: "title", step: "text", params: { kind: "phone", value: "+972541234567" } },
+      { code: "contact_in_title", severity: "error", field: "title", step: "text", params: { kind: "phone", value: "0541234567" } },
     ]);
+    // Shown as written, so the host can find it in the text.
+    const spaced = checkListingMistakes(clean({ description: `${clean().description} וואטסאפ +995 555 12 34 56` }));
+    expect(spaced.errors[0]?.params).toEqual({ kind: "phone", value: "+995 555 12 34 56" });
     const email = checkListingMistakes(clean({ description: `${clean().description} כתבו לי: host@example.com` }));
     expect(email.errors.map((e) => [e.code, e.params?.kind])).toEqual([["contact_in_description", "email"]]);
     // A Hebrew prefix with a hyphen ("ל-host@…") isn't shown as part of the address.
@@ -159,6 +162,12 @@ describe("errors (block publishing)", () => {
     expect(link.errors.map((e) => e.code)).toEqual(["contact_in_description"]);
     const handle = checkListingMistakes(clean({ description: `${clean().description} טלגרם @batumi_flat_owner` }));
     expect(handle.errors.map((e) => [e.code, e.params?.kind])).toEqual([["contact_in_description", "handle"]]);
+  });
+
+  it("a season or holiday range of dates, or a list of numbers, is not a phone number", () => {
+    for (const extra of ["פנויה בקיץ 15.06-15.09.2026.", "פסח 12.04-20.04.2026", "קווי אוטובוס 37 61 102 150", "חדרים 101 - 110 / 201 - 210"]) {
+      expect(checkListingMistakes(clean({ description: `${clean().description} ${extra}` })).errors, extra).toEqual([]);
+    }
   });
 
   it("errors come in the order of the wizard's steps", () => {

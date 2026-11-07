@@ -342,6 +342,8 @@ describe("outbox 'send again'", () => {
     // Demo accounts' emails ("outbox" provider) and login codes are never sent again.
     expect(resendBlock({ ...row, provider: "outbox" }, true)).toBe("outbox_only");
     expect(resendBlock({ ...row, template: "login_code" }, true)).toBe("login_code");
+    // The weekly digest is only worth sending that week (outbox-1).
+    expect(resendBlock({ ...row, template: "weekly_host_stats" }, true)).toBe("expired");
     expect(resendBlock({ ...row, to: "995555000011@phone.bayit.invalid" }, true)).toBe("bad_address");
     expect(resendBlock({ ...row, to: "admin-alerts@outbox.invalid" }, true)).toBe("bad_address");
     expect(resendBlock({ ...row, to: "not an email" }, true)).toBe("bad_address");

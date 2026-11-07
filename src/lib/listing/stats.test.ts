@@ -160,12 +160,18 @@ describe("counting views", () => {
     request.ip = "198.51.100.77";
     await stats.recordListingView(listing.id, { id: guest });
     const keys = await db.rateLimit.findMany({ where: { key: { contains: listing.id } }, select: { key: true, resetAt: true } });
-    expect(keys).toHaveLength(1);
-    expect(keys[0].key).toMatch(new RegExp(`^stats:view:\\d{4}-\\d{2}-\\d{2}:${listing.id}:[0-9a-f]{32}$`));
-    expect(keys[0].key).not.toContain("198.51.100.77");
-    expect(keys[0].key).not.toContain(guest);
-    // Gone after the Georgian day (the daily clean-up deletes ended keys).
-    expect(keys[0].resetAt.getTime()).toBeLessThanOrEqual(Date.now() + 25 * 3600_000);
+    // The visitor's dedupe key, and the network's daily count (views-1): both anonymous.
+    expect(keys).toHaveLength(2);
+    const visitor = keys.find((k) => k.key.startsWith("stats:view:"));
+    const network = keys.find((k) => k.key.startsWith("stats:view-net:"));
+    expect(visitor?.key).toMatch(new RegExp(`^stats:view:\\d{4}-\\d{2}-\\d{2}:${listing.id}:[0-9a-f]{32}$`));
+    expect(network?.key).toMatch(new RegExp(`^stats:view-net:\\d{4}-\\d{2}-\\d{2}:${listing.id}:[0-9a-f]{32}$`));
+    for (const { key, resetAt } of keys) {
+      expect(key).not.toContain("198.51.100");
+      expect(key).not.toContain(guest);
+      // Gone after the Georgian day (the daily clean-up deletes ended keys).
+      expect(resetAt.getTime()).toBeLessThanOrEqual(Date.now() + 25 * 3600_000);
+    }
   });
 
   it("never counts the host, staff, a device the host signed in on, bots, prefetches or demo listings", async () => {
@@ -235,6 +241,67 @@ describe("counting saves and contact taps", () => {
 
     const demo = await createListing(host, { isDemo: true });
     expect(await stats.recordContactClick(demo.id, "WHATSAPP", { id: guest })).toBe(false);
+  });
+
+  it("never counts a tap or a day's save from a device the host signed in on, even from another account (device-1)", async () => {
+    const listing = await createListing(host);
+    request.device = `${prefix}-host-phone`;
+    await db.deviceLink.create({ data: { userId: host, deviceHash: request.device } });
+    expect(await stats.recordContactClick(listing.id, "WHATSAPP", { id: guest })).toBe(false);
+    expect(await db.contactClick.count({ where: { listingId: listing.id } })).toBe(0);
+    await stats.recordSave(listing.id, 1, { id: guest });
+    expect((await dayRow(listing.id))?.saves ?? 0).toBe(0);
+    // "Saved by N" still follows the save and its removal, whatever the device.
+    expect((await db.listing.findUnique({ where: { id: listing.id } }))?.saveCount).toBe(1);
+    request.device = null;
+    await stats.recordSave(listing.id, -1, { id: guest });
+    expect((await db.listing.findUnique({ where: { id: listing.id } }))?.saveCount).toBe(0);
+  });
+});
+
+describe("the weekly email's week on the stats page (weekly-2)", () => {
+  it("the page's 7 days ending on the email's last day have the email's totals", async () => {
+    const listing = await createListing(host);
+    const today = tbilisiToday();
+    const lastDay = addDays(today, -1);
+    await db.listingStatDaily.createMany({
+      data: [
+        { listingId: listing.id, date: dayToDate(today), views: 50 }, // after the email's week
+        { listingId: listing.id, date: dayToDate(lastDay), views: 7, saves: 1 },
+        { listingId: listing.id, date: dayToDate(addDays(today, -7)), views: 3 }, // the week's first day
+      ],
+    });
+    const page = await stats.getListingStats(listing, 7, "en", lastDay);
+    const email = (await stats.getStatsTotals([listing], 7, lastDay)).get(listing.id)!;
+    expect(page.totals).toEqual(email);
+    expect(page.totals.views).toBe(10);
+  });
+});
+
+describe("the anonymous IDs can't be linked (privacy-1)", () => {
+  it("differ per listing and per event, and can't be recomputed from HASH_SALT and the account id", async () => {
+    const { createHmac } = await import("node:crypto");
+    const { hmacHash } = await import("@/lib/crypto");
+    const a = await createListing(host);
+    const b = await createListing(host);
+    await stats.recordListingView(a.id, null);
+    await stats.recordListingView(b.id, null);
+    await stats.recordContactClick(a.id, "WHATSAPP", { id: guest });
+    await stats.recordSave(a.id, 1, { id: guest });
+    const keys = (await db.rateLimit.findMany({ where: { OR: [{ key: { contains: a.id } }, { key: { contains: b.id } }] }, select: { key: true } }))
+      .map((row) => row.key)
+      .filter((key) => /^stats:(view|contact|save):/.test(key));
+    const slices = keys.map((key) => key.slice(-32));
+    expect(keys).toHaveLength(4);
+    expect(new Set(slices).size).toBe(4);
+    // The old, derivable ID (HASH_SALT + the day + the account id) is in none of them.
+    const day = tbilisiToday();
+    const derivable = createHmac("sha256", hmacHash(`stats-visitor-day:${day}`)).update(`account\n${guest}`, "utf8").digest("hex").slice(0, 32);
+    expect(slices).not.toContain(derivable);
+    // The day's random pepper exists once and expires with the day's keys.
+    const peppers = await db.rateLimit.findMany({ where: { key: { startsWith: `stats-pepper:${day}:` } } });
+    expect(peppers).toHaveLength(1);
+    expect(peppers[0].resetAt.getTime()).toBeLessThanOrEqual(Date.now() + 25 * 3600_000);
   });
 });
 

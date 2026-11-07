@@ -217,7 +217,9 @@
     "guests": "{count, plural, one {حتى ضيف واحد} two {حتى ضيفين} few {حتى {count} ضيوف} other {حتى {count} ضيفًا}}",
     "bedsDouble": "{count, plural, one {سرير مزدوج} two {سريران مزدوجان} few {{count} أسرّة مزدوجة} other {{count} سريرًا مزدوجًا}}",
     "bedsSingle": "{count, plural, one {سرير مفرد} two {سريران مفردان} few {{count} أسرّة مفردة} other {{count} سريرًا مفردًا}}",
-    "bedsSofa": "{count, plural, zero {لا أرائك سرير} one {أريكة سرير واحدة} two {أريكتا سرير} few {{count} أرائك سرير} many {{count} أريكة سرير} other {{count} أريكة سرير}}"
+    "bedsSofa": "{count, plural, zero {لا أرائك سرير} one {أريكة سرير واحدة} two {أريكتا سرير} few {{count} أرائك سرير} many {{count} أريكة سرير} other {{count} أريكة سرير}}",
+    "amenitiesLabel": "في الغرفة",
+    "moreAmenities": "و{count} أخرى"
   },
   "calendar": {
     "title": "التوفر",
@@ -347,6 +349,7 @@
     "barLabel": "السعر والحجز",
     "datesTitle": "اختيار التواريخ",
     "chooseDates": "اختيار التواريخ",
+    "chooseRoom": "اختيار غرفة",
     "book": "احجز",
     "clear": "مسح",
     "done": "تم",

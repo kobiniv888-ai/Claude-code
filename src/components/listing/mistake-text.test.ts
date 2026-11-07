@@ -38,6 +38,8 @@ const SAMPLES: MistakeIssue[] = [
   { code: "price_far_above", severity: "warning", step: "booking" },
   { code: "room_price_far_below", severity: "warning", step: "rooms", params: { room: "Suite" } },
   { code: "room_price_far_above", severity: "warning", step: "rooms", params: { room: "Suite" } },
+  { code: "contact_in_translation", severity: "error", step: "publish", params: { locale: "ru", kind: "phone", value: "+995 555 12 34 56" } },
+  { code: "contact_in_room_name", severity: "error", step: "rooms", params: { room: "Double", kind: "handle", value: "@batumi_rooms" } },
 ];
 
 describe("mistakeMessage", () => {
@@ -55,6 +57,12 @@ describe("mistakeMessage", () => {
         expect(text.length, `${locale} ${issue.code}`).toBeGreaterThan(15);
       }
     }
+  });
+
+  it("names the language of a hand-written version and the room type", () => {
+    const he = translator("he");
+    expect(plain(mistakeMessage(SAMPLES.find((s) => s.code === "contact_in_translation")!, he, "he"))).toContain("ברוסית");
+    expect(plain(mistakeMessage(SAMPLES.find((s) => s.code === "contact_in_room_name")!, he, "he"))).toContain("„Double”");
   });
 
   it("keeps an email address or a link on one line (no break at its - or /)", () => {

@@ -5,8 +5,9 @@
 import type { CurrencyCode } from "@/config/site";
 import { documentChecksOn } from "@/config/verification";
 import type { Prisma } from "@/generated/prisma/client";
+import { usesRoomInventory } from "@/lib/booking/constants";
 import { toUsd, type Rates } from "@/lib/currency/convert";
-import { AMENITIES, BIG_FAMILY_MIN_GUESTS, type Amenity } from "@/lib/listing/fields";
+import { AMENITIES, BIG_FAMILY_MIN_GUESTS, DEAL_TYPES, type Amenity } from "@/lib/listing/fields";
 import {
   DEAL_FILTER_TYPES,
   POSTED_WITHIN_MS,
@@ -24,7 +25,19 @@ export type ListingWhereContext = {
   /** settings.demoDataVisible */
   demoVisible: boolean;
   now?: Date;
+  /**
+   * Dated searches: the hotels with a free room for every night (freeHotelIdsForStay in
+   * ./queries.ts). A hotel sells rooms, so one booked or closed room never hides it (founder's
+   * answer 3); without this list hotels are filtered like whole places.
+   */
+  freeHotelIds?: readonly string[];
 };
+
+/** Deal types booked by room type (hotels): their dated search uses `freeHotelIds`. */
+const ROOM_INVENTORY_DEALS = DEAL_TYPES.filter((deal) => usesRoomInventory(deal));
+
+/** A room type a guest can book (as freeHotelIdsForStay and bookableRoomTypes count them). */
+const BOOKABLE_ROOM_TYPE = { active: true, pricePeriod: "NIGHT", price: { gt: 0 } } satisfies Prisma.RoomTypeWhereInput;
 
 const MAX_QUERY_WORDS = 6;
 
@@ -89,7 +102,21 @@ export function buildListingWhere(filters: SearchFilters, ctx: ListingWhereConte
   if (filters.checkIn) {
     const start = day(filters.checkIn);
     const end = filters.checkOut ? day(filters.checkOut) : new Date(start.getTime() + 86_400_000);
-    and.push({ availability: { none: { startDate: { lt: end }, endDate: { gt: start } } } });
+    const overlap = { startDate: { lt: end }, endDate: { gt: start } };
+    if (ctx.freeHotelIds) {
+      and.push({
+        OR: [
+          { dealType: { notIn: [...ROOM_INVENTORY_DEALS] }, availability: { none: overlap } },
+          // A hotel: no whole-hotel closure on those nights, and a room type with a free room on each.
+          { dealType: { in: [...ROOM_INVENTORY_DEALS] }, availability: { none: { ...overlap, roomTypeId: null } }, id: { in: [...ctx.freeHotelIds] } },
+          // A hotel that offers no bookable room type is contact-only ("שאלה למארח"): it isn't
+          // booked by room, so it is searched like a whole place (no block on those nights).
+          { dealType: { in: [...ROOM_INVENTORY_DEALS] }, roomTypes: { none: BOOKABLE_ROOM_TYPE }, availability: { none: overlap } },
+        ],
+      });
+    } else {
+      and.push({ availability: { none: overlap } });
+    }
     if (filters.checkOut) {
       const nights = nightsBetween(filters.checkIn, filters.checkOut);
       and.push({ OR: [{ minStayNights: null }, { minStayNights: { lte: nights } }] });

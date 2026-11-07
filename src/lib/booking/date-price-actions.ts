@@ -19,11 +19,13 @@ import {
   type HostDatePrice,
 } from "./date-prices";
 import { listHostDatePrices } from "./date-prices-server";
+import { labelHasContactInfo } from "./price-label";
 import { dateToDay, dayToDate, tbilisiToday } from "./dates";
 
 /**
  * Holiday prices in the place calendar (round 3, brief 6.3): add one for the selected nights, or
- * delete one. Only the listing's owner, for short stays and hotels; zod-validated and rate-limited.
+ * delete one. A price for every room of a hotel is refused while a room type has another currency
+ * (it could not apply to that room type); the host sets one per room type instead. Only the listing's owner, for short stays and hotels; zod-validated and rate-limited.
  * Adding runs in one transaction that locks the listing row (like a booking), so two saves can
  * never create overlapping date prices, and a booking being made waits for the new price.
  * Both return the listing's date prices from today on.
@@ -43,7 +45,7 @@ async function viewerLocale(): Promise<AppLocale> {
 async function ownBookableListing(listingId: string, userId: string) {
   const listing = await db.listing.findFirst({
     where: { id: listingId, ownerId: userId, deletedAt: null, status: { not: "DELETED" } },
-    select: { id: true, dealType: true },
+    select: { id: true, dealType: true, currency: true, roomTypes: { select: { id: true, currency: true } } },
   });
   if (!listing) throw new NotFoundError();
   return listing;
@@ -58,12 +60,17 @@ export async function saveDatePriceAction(input: unknown): Promise<ActionResult<
     const value = parsed.data;
     const listing = await ownBookableListing(value.listingId, user.id);
     if (!isBookableDealType(listing.dealType)) return fail("not_bookable");
+    // The note is shown to every visitor: contact details go through "show contact" only.
+    if (labelHasContactInfo(value.label)) return fail("label_contact_info");
     const today = tbilisiToday();
     const problem = datePriceDatesProblem(value, today);
     if (problem) return fail(problem);
     if (value.roomTypeId) {
-      const room = await db.roomType.findFirst({ where: { id: value.roomTypeId, listingId: listing.id }, select: { id: true } });
-      if (!room) return fail("room_type_not_found");
+      if (!listing.roomTypes.some((room) => room.id === value.roomTypeId)) return fail("room_type_not_found");
+    } else if (listing.roomTypes.some((room) => room.currency !== listing.currency)) {
+      // A price for every room is in the listing's currency, and the quote skips it for a room
+      // type in another currency (./terms datePricesFor): its minimum stay would silently not apply.
+      return fail("room_currency_differs");
     }
     const locale = await viewerLocale();
 

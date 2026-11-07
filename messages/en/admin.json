@@ -172,7 +172,8 @@
     "visit_date_too_old": "The visit date is too far back. Check the year.",
     "no_channel": "The host has no email address we can write to, so they can't be told. Nothing was saved.",
     "content_changed": "The listing changed since this page was opened, or the automatic checks found something new. The page was refreshed — check again before deciding.",
-    "changed_since_view": "A new report arrived since this page was opened. The page was refreshed — look at it, then mark reviewed."
+    "changed_since_view": "A new report arrived since this page was opened. The page was refreshed — look at it, then mark reviewed.",
+    "listing_has_mistakes": "The listing has errors that block publishing (in the host's mistake check). The page was refreshed — ask the host for changes."
   },
   "errorPage": {
     "title": "This admin page couldn't load",
@@ -627,6 +628,7 @@
       "restoreDescription": "The listing becomes visible again (or expired, if its time has run out).",
       "restoreConfirm": "Restore",
       "restored": "The listing was restored.",
+      "blockedByMistakes": "Approve and restore are off: the host's mistake check has errors that block publishing (see below). Ask the host for changes.",
       "requestChanges": "Ask for changes",
       "requestChangesTitle": "Ask the owner for changes",
       "requestChangesDescription": "The listing leaves the site until the owner fixes it and sends it again.",

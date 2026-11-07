@@ -39,7 +39,8 @@ const { addDays, tbilisiToday } = await import("@/lib/booking/dates");
 const prefix = `p4dp${randomUUID().replace(/-/g, "").slice(0, 10)}`;
 const id = (name: string) => `${prefix}-${name}`;
 const users = { host: id("host"), other: id("other") };
-const listings = { stay: "", monthly: "" };
+const listings = { stay: "", monthly: "", hotel: "", gelHotel: "" };
+const rooms = { gel: "", usd: "" };
 let cityId = "";
 const today = tbilisiToday();
 const day = (n: number) => addDays(today, n);
@@ -87,6 +88,15 @@ beforeAll(async () => {
     })
   ).id;
   listings.monthly = (await db.listing.create({ data: { ...base, dealType: "MONTHLY_RENT", pricePeriod: "MONTH", price: 900, title: "Monthly test flat" } })).id;
+  // A hotel in lari with a room type in lari and one in dollars, and a hotel with lari rooms only.
+  const hotel = { ...base, dealType: "HOTEL_ROOM" as const, propertyType: "HOTEL" as const, pricePeriod: "NIGHT" as const, price: null, bookingMode: "INSTANT" as const };
+  listings.hotel = (await db.listing.create({ data: { ...hotel, title: "Holiday price test hotel" } })).id;
+  listings.gelHotel = (await db.listing.create({ data: { ...hotel, title: "Holiday price test hotel in lari" } })).id;
+  const room = (listingId: string, currency: "GEL" | "USD", price: number) =>
+    db.roomType.create({ data: { listingId, names: { en: `Room ${currency}` }, currency, price, pricePeriod: "NIGHT", quantity: 2 } });
+  rooms.gel = (await room(listings.hotel, "GEL", 190)).id;
+  rooms.usd = (await room(listings.hotel, "USD", 150)).id;
+  await room(listings.gelHotel, "GEL", 190);
 });
 
 afterAll(async () => {
@@ -141,6 +151,35 @@ describe("holiday prices (server actions)", () => {
       ok: false,
       error: "room_type_not_found",
     });
+  });
+
+  it("refuses a note with contact details: every visitor sees it (guide-2)", async () => {
+    as(users.host);
+    for (const label of ["WhatsApp +995555123456", "t.me/myhandle", "host@example.com"]) {
+      expect(await saveDatePriceAction({ listingId: listings.stay, start: day(90), last: day(91), price: 80, label }), label).toEqual({ ok: false, error: "label_contact_info" });
+    }
+    expect(await db.datePrice.count({ where: { listingId: listings.stay, startDate: new Date(`${day(90)}T00:00:00Z`) } })).toBe(0);
+    const result = await saveDatePriceAction({ listingId: listings.stay, start: day(90), last: day(91), price: 80, label: "\u{1F56F} פסח" });
+    expect(result.ok && result.data.datePrices.find((p) => p.start === day(90))?.label).toBe("פסח");
+  });
+
+  it("drops a stored note with contact details from the guest's quote (a row saved before the check)", async () => {
+    await db.datePrice.create({
+      data: { listingId: listings.stay, startDate: new Date(`${day(100)}T00:00:00Z`), endDate: new Date(`${day(102)}T00:00:00Z`), price: 95, label: { he: "WhatsApp +995555123456" } },
+    });
+    const quote = await getBookingQuote({ listingId: listings.stay, checkIn: day(100), checkOut: day(102), adults: 2 });
+    const line = quote.ok ? quote.quote.lines.find((l) => l.kind === "date_price") : null;
+    expect(line).toMatchObject({ nights: 2, price: 95 });
+    expect(line && "label" in line ? line.label : undefined).toBeUndefined();
+  });
+
+  it("refuses a hotel price for every room while a room type has another currency, and takes one per room type (price-1)", async () => {
+    as(users.host);
+    expect(await saveDatePriceAction({ listingId: listings.hotel, start: day(110), last: day(112), price: 300, minNights: 3 })).toEqual({ ok: false, error: "room_currency_differs" });
+    expect((await saveDatePriceAction({ listingId: listings.hotel, roomTypeId: rooms.gel, start: day(110), last: day(112), price: 300, minNights: 3 })).ok).toBe(true);
+    expect((await saveDatePriceAction({ listingId: listings.hotel, roomTypeId: rooms.usd, start: day(110), last: day(112), price: 120, minNights: 3 })).ok).toBe(true);
+    // Every room type in the listing's currency: a price for every room is fine.
+    expect((await saveDatePriceAction({ listingId: listings.gelHotel, start: day(110), last: day(112), price: 300 })).ok).toBe(true);
   });
 
   it("deletes only the owner's own date price", async () => {

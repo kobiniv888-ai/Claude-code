@@ -349,6 +349,20 @@ describe("the post form's room-type save (quantity is required now)", () => {
     }
   });
 
+  it("refuses a name with contact details: it is public text like the title (guide-2)", async () => {
+    const { saveRoomType } = await import("@/lib/wizard/actions");
+    state.user = { id: ids.host, role: "USER" };
+    try {
+      const before = await db.roomType.count({ where: { listingId: ids.hotel } });
+      for (const name of ["Double WhatsApp +995555123456", "Suite t.me/myhandle"]) {
+        expect(await saveRoomType(ids.hotel, { ...input, name, quantity: 1 }), name).toMatchObject({ ok: false, error: "invalid_input", fieldErrors: { name: ["contactInText"] } });
+      }
+      expect(await db.roomType.count({ where: { listingId: ids.hotel } })).toBe(before);
+    } finally {
+      state.user = null;
+    }
+  });
+
   it("is refused for someone who is not the listing's owner", async () => {
     const { saveRoomType } = await import("@/lib/wizard/actions");
     state.user = { id: ids.guest, role: "USER" };

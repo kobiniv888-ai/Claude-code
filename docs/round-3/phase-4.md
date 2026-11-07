@@ -281,8 +281,10 @@ iCal is the calendar link that Airbnb, Booking.com and most other sites use to s
 - **Emails stay in the outbox** ("תיבת דואר יוצא") until Resend is connected.
 - **Hotels and other sites:** iCal can't share room counts (see above). Until a channel manager is
   added, a hotel should offer fewer rooms on Bayit than it has, as the calendar suggests.
-- **The hotel calendar** marks the Jewish holidays and lists the holiday prices under "כל המלון";
-  a single room type's calendar shows its free rooms per night but not the holiday marks.
+- ~~**The hotel calendar** marks the Jewish holidays only under "כל המלון".~~ Fixed in the phase-4
+  hardening: each room type's calendar now marks the holidays and its holiday prices, has the
+  holiday chips and "מחיר לתאריכים" for that room type, and "כל המלון" shows the rooms left per
+  night ("המלון מלא") and the bookings of the selected nights.
 - **"Later, also the nightly prices of completed bookings"** (brief 5): the price guide uses
   published listings only for now; completed bookings are too few to add yet.
 - **Russian, Arabic and Georgian texts** of this phase are our translations, like the earlier ones.
@@ -321,6 +323,11 @@ iCal is the calendar link that Airbnb, Booking.com and most other sites use to s
   wider group the host can also open can't reveal a single place. A hotel counts once, however
   many room types it has. Sizes are compared in fixed bands (bedrooms 0–4 and 5+, and so on).
 - A kitchen or sea view the host didn't tick is "not said", not "no".
+- The extra conditions are tried in one fixed order (size, neighborhood, bathrooms, kitchen, sea
+  view, building, size band), and the guide stops at the first one the host didn't give or the
+  data can't support, instead of skipping it: two answers can then never differ by one place.
+  The cost: when the neighborhood or an early condition can't be used, the later ones aren't
+  tried either. A hotel already in the group is never counted as a place the wider group adds.
 - The page is for anyone with at least one listing (drafts count); others see "מדריך המחירים
   מיועד למארחים". At most 60 guide questions per 10 minutes per account.
 - Reference prices: at most 3, none older than 24 months, converted with ≈ when needed.
@@ -348,3 +355,131 @@ iCal is the calendar link that Airbnb, Booking.com and most other sites use to s
 - The demo owner block that covered listing 89's demo Chanukah price is no longer created.
 - In Russian and Georgian, the dates sheet's button says "Continue" instead of "Continue to
   booking", so it fits on a phone.
+
+## Security and quality check after phase 4
+
+After phase 4 was built, five separate reviews went through it, each looking for one kind of
+problem: who can see what, money and bookings, the mistake check, the statistics and the weekly
+email, and the screens on a phone in all five languages. Everything they confirmed was fixed, and
+then the whole site was checked again in production mode.
+
+### What was found and fixed (most important first)
+
+**A listing with a mistake that blocks publishing can no longer reach the site another way**
+- Before, the mistake check stopped only "פרסום" and "שמירת שינויים". Switching a paused listing
+  back on, renewing an expired one, and an admin's approve or restore could still put a listing on
+  the site without its exact address, with too few photos or with a phone number in the text. All
+  of these now go through the same check, at the very moment of the change, and are refused while
+  an error is there. On the admin review page "אישור" and "שחזור" are switched off, with a line
+  that says why ("ask the host for changes").
+- A live listing's edits are saved as you type. An edit that would add such an error (a phone
+  number in the description, an empty address on a short stay, deleting a photo below 5) is now
+  refused instead of going public, with a message under the field. If a live listing has an
+  error anyway, "שמירת שינויים" takes it off the site and into review, instead of leaving it up.
+- Contact details are now also refused in a hand-written translation, a room type's name, a photo
+  description and a holiday-price note (and an old note that has them is never shown to guests).
+- If the check itself fails to run, nothing is published (it used to let the change through).
+- An edit saved from a second tab in the same second as "פרסום" is now caught too.
+
+**Money, bookings and hotels**
+- A search with dates hid a hotel as soon as one room of it was booked. Now a hotel is hidden only
+  when no room type has a free room on one of the nights, or the whole hotel is closed.
+- A hotel whose room types use different currencies could save a holiday price "for every room" in
+  the wrong currency. That choice is now offered only when every room type uses the hotel's
+  currency; otherwise each room type gets its own price.
+- Changing the currency of a listing or a room type that has upcoming holiday prices silently
+  changed what those prices meant (₾100 became $100). It is now refused until those holiday prices
+  are changed or deleted.
+- Deleting a room type at the moment a guest books it could leave the booking without its rooms.
+  The two now wait for each other, and a room type with bookings is never deleted.
+- Calendars read from other sites: a hotel with several calendars for one room type could lose
+  the closed nights of one calendar when another one failed to load, or count one booking twice.
+  Each calendar is now kept apart, and two reads at the same moment no longer clash.
+- "Download my data" now includes a booking's discount, price lines and rooms, and the host's
+  holiday prices, and no longer includes the secret calendar link of a room type.
+
+**The mistake check made fewer false alarms**
+- Dates ("10.12–15.12"), number lists and ranges no longer count as phone numbers, a missing space
+  after a full stop ("beach.Live") no longer counts as a link, and "@2pm" or "@home" no longer count
+  as a username. These were errors, so honest listings couldn't be published.
+- Time warnings read "3-4pm" and "between 3 and 6 pm" correctly and skip the Shabbat sentence; a
+  Latin building or brand name in a Hebrew title no longer warns about the title's language.
+- Photos of a room type you switched off no longer count towards the 5 photos.
+- Demo listing 102 got a 5th photo, so it no longer shows an error.
+
+**Statistics and the weekly email**
+- One computer could add many "visitors" to a listing by changing its browser details. Visitors
+  from one network now count at most 20 a day per listing, and the anonymous visitor ID can no
+  longer be linked across listings or to an account.
+- Some real phones and apps (Telegram's built-in browser, some Android phones) were treated as
+  robots and not counted. They count now.
+- Saves and contact taps from a device the host or staff used are no longer counted, like views.
+- Occupancy no longer counts nights you closed or nights taken on another site as "offered".
+- If a host marks the weekly email as spam, or it bounces, it now stops (before, it kept coming).
+  Mail apps get a one-tap "unsubscribe" that switches off only this email.
+- The same weekly email can no longer go out twice, its link opens the same week the email
+  reports, old weekly emails no longer pile up in the outbox, and "send again" checks the switch.
+- After an error, the unsubscribe page's "ניסיון נוסף" repeated the wrong change (it turned the
+  email off when you were turning it back on). It repeats what you asked now.
+- In booking emails the price lines are no longer wider than a phone screen.
+
+**The price guide**
+- Two answers about hotels could differ by exactly one competitor hotel (its other room types were
+  counted as extra places). They now can't, and two groups are always either one inside the other
+  or completely separate, so no comparison can single out one place.
+- Listings of suspended owners and expired listings no longer count.
+- "Converted" now names the currency ("הומרו לדולר ($)") instead of a code ("USD").
+
+**Hotel screens**
+- Each room type's calendar now shows the holidays, its holiday prices and "מחיר לתאריכים" for
+  that room type; "כל המלון" shows the rooms left each night (for example "3/6"), the bookings of
+  the selected nights, and says that closing those nights doesn't cancel the bookings.
+- The listing page shows up to 4 of a room's amenities ("+2" for the rest); the room picker says
+  when no room is free on the chosen dates and offers other dates; with dates but no room yet the
+  bottom button says "בחירת חדר"; numbers of guests and rooms read correctly in every language.
+- The room picker and "כל התמונות" by room now load only when opened, so the listing page is
+  lighter on a phone.
+
+### What this final check fixed itself
+- **Hotels without a room type** (they take questions only, "שאלה למארח") disappeared from every
+  search with dates after the hotel search fix. They are searched like a whole place again.
+- **A hotel's "החל מ־" price** was taken from the room with the smallest number, not the cheapest
+  one: a hotel with a ₾190 room and a $120 suite showed "from $120". It now compares the real value.
+- **The holiday-price form** of a hotel with mixed currencies said "a room type's price comes
+  before the all-rooms price" while there was no all-rooms option. That line is gone there.
+- **The button inside a message** ("לתיקון", "לשמורים") was 24 px tall on a phone; it is 44 px now.
+- **Two new automatic tests** for the most important fixes: a paused listing without its address
+  can't be switched back on (the message offers "לתיקון", and once fixed it comes back), and the
+  admin's "Approve" is off for a listing with an error; a dated search still finds a hotel with
+  2 of its rooms booked, and hides it once the whole hotel is closed on one of the nights.
+
+### How it was checked
+- **Automatic checks, all green:** database schema check, type check, code check, translation
+  check (45 groups × 5 languages) and 1,979 unit tests (about 115 of them new in this check).
+- **End-to-end tests in production mode: all 99 passed** in one clean run, nothing re-run, with
+  staff using the real 2-step login.
+- **Screenshots** in production mode at 390×844 in Hebrew (light and dark) and 1440×900 in English,
+  plus Georgian at 360 px where the layout changed, all looked at: a room type's calendar and
+  "כל המלון" with bookings, the holiday-price form (one currency and mixed currencies), the hotel's
+  listing page with room amenities, the room picker (2 rooms, and no room free), the bottom
+  "בחירת חדר" button, "כל התמונות", "אישור הזמנה" for a hotel, the room editor refusing a phone
+  number, a live listing refusing a phone number and the deletion of its 5th photo, "הנכסים שלי"
+  refusing to switch on a listing without its address, the stats page, the price guide with
+  converted prices, the admin review page with "Approve" off, the booking emails (Hebrew, English,
+  Georgian), the weekly email and the unsubscribe page.
+- **Lighthouse (phone, production, `/he`):** 88, 87 and one failed measurement right after the
+  end-to-end run, then 91, 91, 91. Phase 6 must reach 90 on every run.
+- Test accounts, listings, bookings, emails, the test city and sessions were removed afterwards.
+
+### Still open
+- **Calendars from other sites, once, after the update:** the first hourly read rewrites the
+  imported nights in the new form. If another site's calendar fails to load at exactly that
+  moment, its nights are missing until it loads again (usually the next hour).
+- **The post form's preview card** of a hotel whose room types use different currencies may still
+  show "from" the room with the smallest number. Only the host sees it; guests see the right one.
+- **A refused edit** (for example a phone number in a live listing's description) also shows the
+  general "יש פרטים שצריך לתקן" line with "לנסות שוב" at the top of the form; trying again without
+  changing the text is refused again. The message under the field says what to change.
+- **Leftovers from earlier test runs** in this computer's database (not on the real site), as
+  listed after phase 3: two "Gate" test accounts, an account named after a phone number and
+  deleted test listings. They disappear with the next database reset (`npm run db:reset`).

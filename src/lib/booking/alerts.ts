@@ -5,6 +5,8 @@ import { db } from "@/lib/db";
 import { notificationEmailFor } from "@/lib/email";
 import { personName } from "@/lib/auth/first-name";
 import { sendFounderAlert } from "@/lib/alerts/founder";
+import { setWeeklyStatsEmail } from "@/lib/alerts/unsubscribe-server";
+import { hmacHash } from "@/lib/crypto";
 import {
   alertEnvironment,
   alertHost,
@@ -288,6 +290,7 @@ export async function handleEmailBounce(event: EmailEvent): Promise<{ duplicate:
   const users = await usersWithAddress(addresses);
   const template = outbox?.template ?? event.tags.template ?? null;
   const paused: string[] = [];
+  let newlyPaused = false;
   for (const user of users) {
     const address = notificationEmailFor(user)!.toLowerCase();
     await audit({
@@ -298,8 +301,14 @@ export async function handleEmailBounce(event: EmailEvent): Promise<{ duplicate:
       details: { template, emailId: event.emailId },
     });
     // Paused now (or already, by an earlier bounce of the same address).
-    await reportChannelFailure({ userId: user.id, channel: "email", reason: kind, address, at, tellFounder: false });
+    const failure = await reportChannelFailure({ userId: user.id, channel: "email", reason: kind, address, at, tellFounder: false });
+    if (failure.changed) newlyPaused = true;
     paused.push(user.id);
+    // A bounce or complaint about the weekly digest switches the digest off too (the bulk email
+    // must not keep going to an address that refuses it).
+    if (template === "weekly_host_stats") {
+      await setWeeklyStatsEmail(user.id, false).catch((error: unknown) => console.error("[alerts] could not switch the weekly digest off:", error));
+    }
   }
 
   const code = event.tags.booking ?? bookingCodeIn(outbox?.text) ?? null;
@@ -322,6 +331,16 @@ export async function handleEmailBounce(event: EmailEvent): Promise<{ duplicate:
   // make sure the host expects them (email, and a text when Twilio is set up). The booking stands.
   const affected = booking && booking.status === "CONFIRMED" && bookingAffectedByFailure(booking.hostNotifiedVia, "email") ? booking : null;
   if (affected) await notifyGuestHostUnreached(affected.id);
+
+  // The founder hears once per address: when it was paused now, or matched no account (then at
+  // most once a week). A later bounce to an address already paused tells nobody again.
+  const firstAddress = addresses[0] ?? "";
+  const tellFounder =
+    !!affected ||
+    newlyPaused ||
+    (users.length === 0 &&
+      (await rateLimit(`alert:email-bounced:${hmacHash(firstAddress)}`, { limit: 1, windowSeconds: 7 * 24 * 3600 }).catch(() => ({ ok: true }))).ok);
+  if (!tellFounder) return { duplicate: false, paused, bookingCode: booking?.code ?? null };
 
   await sendFounderAlert(
     affected

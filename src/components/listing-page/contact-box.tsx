@@ -1,5 +1,4 @@
 import { useLocale, useTranslations } from "next-intl";
-import { MoonStarIcon } from "lucide-react";
 import { ContactPanel } from "@/components/contact/contact-panel";
 import { Ltr } from "@/components/common/ltr";
 import { SpriteIcon } from "@/components/ds/sprite-icons";
@@ -44,7 +43,7 @@ export function ShabbatReplyNotice({ now, className }: { now: ShabbatNow; classN
   if (!now.active) return null;
   return (
     <p className={cn("flex gap-2 rounded-input bg-primary-tint p-3 text-small text-primary-text", className)} role="status">
-      <MoonStarIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
+      <SpriteIcon name="moon-star" className="mt-0.5 size-4 shrink-0" />
       {now.kind === "holiday" ? t("repliesAfterHoliday") : t("repliesAfterShabbat")}
     </p>
   );

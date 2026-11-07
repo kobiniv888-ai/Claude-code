@@ -12,7 +12,15 @@ export type BusyRange = { start: string; end: string };
 export type BookedRange = BusyRange & { code: string };
 export type ImportedRange = BusyRange & { source: string };
 
-export type DayKind = "past" | "free" | "blocked" | "booked" | "imported";
+/**
+ * `hotelFull` / `hotelSome`: the whole-hotel calendar of a hotel (round 3), on a night it did not
+ * close itself: every room of every offered room type is taken, or some rooms are booked on Bayit.
+ * Both can still be blocked (that closes the rest of the hotel; it never cancels a booking).
+ */
+export type DayKind = "past" | "free" | "blocked" | "booked" | "imported" | "hotelFull" | "hotelSome";
+
+/** A hotel night over all its offered room types (./room-model indexHotelNights). */
+export type HotelNight = { free: number; total: number; booked: number; codes: string[] };
 
 export type CalendarIndex = {
   today: string;
@@ -21,6 +29,8 @@ export type CalendarIndex = {
   booked: Map<string, string>;
   /** Day → calendar host name ("airbnb.com"). */
   imported: Map<string, string>;
+  /** Hotels: the rooms of the night (whole-hotel calendar only). */
+  hotel?: (day: string) => HotelNight | null;
 };
 
 const MAX_DAYS = 3000;
@@ -35,21 +45,33 @@ export function indexCalendar(input: {
   owner: readonly DayRange[];
   booked: readonly BookedRange[];
   imported: readonly ImportedRange[];
+  hotel?: (day: string) => HotelNight | null;
 }): CalendarIndex {
   const booked = new Map<string, string>();
   for (const range of input.booked) eachNight(range, (day) => booked.set(day, range.code));
   const imported = new Map<string, string>();
   for (const range of input.imported) eachNight(range, (day) => imported.set(day, range.source));
-  return { today: input.today, owner: rangesToDays(input.owner), booked, imported };
+  return { today: input.today, owner: rangesToDays(input.owner), booked, imported, ...(input.hotel ? { hotel: input.hotel } : {}) };
 }
 
-/** What a day shows. A booking wins over everything; imported nights over the host's own blocks. */
+/**
+ * What a day shows. A booking wins over everything; imported nights over the host's own blocks.
+ * A hotel's open night shows its rooms: full, some booked on Bayit, or free.
+ */
 export function dayKind(day: string, index: CalendarIndex): DayKind {
   if (index.booked.has(day)) return "booked";
   if (day < index.today) return "past";
   if (index.imported.has(day)) return "imported";
   if (index.owner.has(day)) return "blocked";
+  const night = index.hotel?.(day);
+  if (night && night.total > 0 && night.free === 0) return "hotelFull";
+  if (night && night.booked > 0) return "hotelSome";
   return "free";
+}
+
+/** Open nights the host can block: free, or a hotel night with rooms taken (blocking closes the rest). */
+export function isBlockable(kind: DayKind): boolean {
+  return kind === "free" || kind === "hotelFull" || kind === "hotelSome";
 }
 
 /** Every day from `a` to `b` (either order), inclusive. */
@@ -66,7 +88,7 @@ export function selectionCounts(days: readonly string[], index: CalendarIndex): 
   let blocked = 0;
   for (const day of days) {
     const kind = dayKind(day, index);
-    if (kind === "free") free++;
+    if (isBlockable(kind)) free++;
     else if (kind === "blocked") blocked++;
   }
   return { free, blocked };
@@ -85,7 +107,7 @@ export function applySelection(
   const next = rangesToDays(owner);
   for (const day of days) {
     const kind = dayKind(day, index);
-    if (action === "block" && kind === "free") next.add(day);
+    if (action === "block" && isBlockable(kind)) next.add(day);
     if (action === "free" && kind === "blocked") next.delete(day);
   }
   return daysToRanges([...next].filter((day) => day >= index.today));
@@ -172,6 +194,25 @@ export function indexDatePrices<T extends PricedRange>(list: readonly T[]): Map<
     eachNight(price, (day) => {
       if (!map.has(day)) map.set(day, price);
     });
+  }
+  return map;
+}
+
+/**
+ * Night → the holiday price one hotel room type gets (round 3): its own price first, then a price
+ * for every room (`listingWide`: only when the room type uses the listing's currency, as in the
+ * quote: src/lib/booking/terms.ts datePricesFor). Another room type's prices are ignored.
+ */
+export function indexRoomDatePrices<T extends PricedRange>(list: readonly T[], roomTypeId: string, options: { listingWide?: boolean } = {}): Map<string, T> {
+  const map = new Map<string, T>();
+  for (const price of list) {
+    if (price.roomTypeId !== roomTypeId) continue;
+    eachNight(price, (day) => {
+      if (!map.has(day)) map.set(day, price);
+    });
+  }
+  if (options.listingWide !== false) {
+    for (const [day, price] of indexDatePrices(list)) if (!map.has(day)) map.set(day, price);
   }
   return map;
 }

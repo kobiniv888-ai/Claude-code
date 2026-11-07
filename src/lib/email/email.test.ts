@@ -15,6 +15,19 @@ vi.mock("next-intl/server", () => ({
   },
 }));
 
+/** What the (mocked) Resend client was asked to send. */
+const resendCalls = vi.hoisted(() => [] as Record<string, unknown>[]);
+vi.mock("resend", () => ({
+  Resend: class {
+    emails = {
+      send: async (payload: Record<string, unknown>) => {
+        resendCalls.push(payload);
+        return { data: { id: `re_${resendCalls.length}` }, error: null };
+      },
+    };
+  },
+}));
+
 const outbox: Record<string, unknown>[] = [];
 vi.mock("@/lib/db", () => ({
   db: { emailOutbox: { create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => outbox.push(data)) } },
@@ -304,6 +317,20 @@ describe("booking emails", () => {
     expect(translationErrors).toEqual([]);
   });
 
+  it("lets a long price line wrap on a phone; its amount stays on one line (ui-email-1)", async () => {
+    const priceLines = [{ kind: "weekend" as const, nights: 2, price: 80, amount: 160, rooms: 2 }];
+    const host = await renderEmail("booking_new_host", "ru", { ...samples.booking_new_host, priceLines });
+    const row = /<tr><td style="([^"]*)">([^<]*)<\/td><td style="([^"]*)"[^>]*>([^<]*)<\/td><\/tr>/g;
+    const rows = [...host.html.matchAll(row)];
+    const line = rows.find((m) => m[2].includes("×"));
+    expect(line, "the price line's row").toBeDefined();
+    expect(line![1]).not.toContain("white-space:nowrap");
+    expect(line![1]).toContain("white-space:normal");
+    expect(line![3]).toContain("white-space:nowrap");
+    // Other rows keep their label on one line.
+    expect(rows.some((m) => !m[2].includes("×") && m[1].includes("white-space:nowrap"))).toBe(true);
+  });
+
   it("gives the host the guest's phone and message, and the guest a way to report a cancellation", async () => {
     const host = await renderEmail("booking_new_host", "ru", samples.booking_new_host);
     expect(host.text).toContain("+995555000021");
@@ -374,6 +401,30 @@ describe("sendEmail", () => {
     const result = await sendEmail({ to: "yossi@demo.bayit.example", template: "welcome", locale: "he", data: samples.welcome, outboxOnly: true });
     expect(result).toEqual({ ok: true, delivery: "logged" });
     expect(outbox[0]).toMatchObject({ status: "LOGGED", provider: "outbox" });
+  });
+
+  it("passes the List-Unsubscribe headers to Resend, and nothing else (weekly-1)", async () => {
+    process.env.RESEND_API_KEY = "re_test_key";
+    resendCalls.length = 0;
+    const result = await sendEmail({
+      to: "dana@example.com",
+      template: "welcome",
+      locale: "he",
+      data: samples.welcome,
+      headers: {
+        "List-Unsubscribe": "<https://bayit.example/api/unsubscribe?t=x>",
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+        Bcc: "someone@example.com",
+        "X-Injected": "a\r\nBcc: b@example.com",
+      },
+    });
+    expect(result).toMatchObject({ ok: true, delivery: "sent" });
+    expect(resendCalls[0].headers).toEqual({
+      "List-Unsubscribe": "<https://bayit.example/api/unsubscribe?t=x>",
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    });
+    await sendEmail({ to: "dana@example.com", template: "welcome", locale: "he", data: samples.welcome });
+    expect(resendCalls[1].headers).toBeUndefined();
   });
 
   it("tags emails for Resend, dropping tags Resend would refuse", () => {

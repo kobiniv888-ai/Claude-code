@@ -5,9 +5,8 @@ import "server-only";
  */
 import { convert } from "@/lib/currency/convert";
 import { db } from "@/lib/db";
-import { countListings, type ListingQueryContext } from "@/lib/listing/queries";
+import { countListings, searchWhere, type ListingQueryContext } from "@/lib/listing/queries";
 import type { SearchFilters } from "@/lib/listing/search-params";
-import { buildListingWhere } from "@/lib/listing/where";
 import { loosenCandidates, rankLoosen, type RankedLoosenFix } from "@/lib/search/loosen";
 import { bucketPrices, type PriceHistogram } from "@/lib/search/price-histogram";
 import { priceSliderConfig } from "@/lib/search/price-range";
@@ -25,10 +24,8 @@ export async function getPriceHistogram(filters: SearchFilters, ctx: ListingQuer
   const config = priceSliderConfig(filters.deal, ctx.currency, ctx.rates);
   if (!config) return null;
   const settings = await getSettings();
-  const where = buildListingWhere(
-    { ...filters, priceMin: null, priceMax: null },
-    { currency: ctx.currency, rates: ctx.rates, demoVisible: settings.demoDataVisible, now: new Date() },
-  );
+  // A dated search counts the hotels that still have a free room (search-1), as the results do.
+  const where = await searchWhere({ ...filters, priceMin: null, priceMax: null }, ctx, { demoVisible: settings.demoDataVisible, now: new Date() });
   const rows = await db.listing.findMany({
     where: { AND: [where, { priceUsd: { not: null } }] },
     select: { priceUsd: true },

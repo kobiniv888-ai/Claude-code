@@ -13,6 +13,8 @@ import "server-only";
 import { siteConfig, type AppLocale, type CurrencyCode } from "@/config/site";
 import type { DealType, Prisma } from "@/generated/prisma/client";
 import type { Rates } from "@/lib/currency/convert";
+import { addDays, daysBetween, isDay } from "@/lib/booking/dates";
+import { MAX_STAY_NIGHTS } from "@/lib/booking/constants";
 import { db } from "@/lib/db";
 import { listingCardSelect, listingMapSelect, toListingCard, toListingMapPoint, type ListingCardRow } from "@/lib/listing/mappers";
 import type { SearchFilters } from "@/lib/listing/search-params";
@@ -57,8 +59,49 @@ async function runtime(): Promise<Runtime> {
   };
 }
 
-function whereFor(filters: SearchFilters, ctx: ListingQueryContext, rt: Runtime): Prisma.ListingWhereInput {
-  return buildListingWhere(filters, { currency: ctx.currency, rates: ctx.rates, demoVisible: rt.demoVisible, now: rt.now });
+/**
+ * Hotels with at least one active, nightly-priced room type that has a free room on EVERY night
+ * of [checkIn, checkOut) (one night when there is no check-out), for dated searches (search-1).
+ * The same rules as the booking (src/lib/booking/room-availability.ts): a block of a room type
+ * takes its `rooms` (null or below 1: all of them), a block without a room type closes the whole
+ * hotel, a quantity below 1 counts as 1. A stay longer than MAX_STAY_NIGHTS can't be booked: none.
+ */
+export async function freeHotelIdsForStay(checkIn: string, checkOut: string | null): Promise<string[]> {
+  const end = checkOut ?? addDays(checkIn, 1);
+  const nights = daysBetween(checkIn, end);
+  if (!isDay(checkIn) || !isDay(end) || !(nights >= 1) || nights > MAX_STAY_NIGHTS) return [];
+  const rows = await db.$queryRaw<{ id: string }[]>`
+    SELECT DISTINCT rt."listingId" AS "id"
+    FROM "RoomType" rt
+    JOIN "Listing" l ON l."id" = rt."listingId"
+    WHERE l."dealType" = 'HOTEL_ROOM' AND l."status" = 'LIVE' AND l."deletedAt" IS NULL
+      AND rt."active" = true AND rt."pricePeriod" = 'NIGHT' AND rt."price" > 0
+      AND NOT EXISTS (
+        SELECT 1
+        FROM generate_series(${checkIn}::date, ${end}::date - 1, interval '1 day') AS d("night")
+        WHERE GREATEST(rt."quantity", 1) <= (
+          SELECT COALESCE(SUM(CASE WHEN b."roomTypeId" IS NULL OR b."rooms" IS NULL OR b."rooms" < 1 THEN GREATEST(rt."quantity", 1) ELSE b."rooms" END), 0)
+          FROM "AvailabilityBlock" b
+          WHERE b."listingId" = rt."listingId"
+            AND (b."roomTypeId" = rt."id" OR b."roomTypeId" IS NULL)
+            AND b."startDate" <= d."night" AND b."endDate" > d."night"
+        )
+      )`;
+  return rows.map((row) => row.id);
+}
+
+/** The search's `where`; a dated search first asks which hotels still have a free room. */
+export async function searchWhere(
+  filters: SearchFilters,
+  ctx: Pick<ListingQueryContext, "currency" | "rates">,
+  rt: { demoVisible: boolean; now: Date },
+): Promise<Prisma.ListingWhereInput> {
+  const freeHotelIds = filters.checkIn ? await freeHotelIdsForStay(filters.checkIn, filters.checkOut) : undefined;
+  return buildListingWhere(filters, { currency: ctx.currency, rates: ctx.rates, demoVisible: rt.demoVisible, now: rt.now, freeHotelIds });
+}
+
+function whereFor(filters: SearchFilters, ctx: ListingQueryContext, rt: Runtime): Promise<Prisma.ListingWhereInput> {
+  return searchWhere(filters, ctx, rt);
 }
 
 function publicWhere(rt: Runtime, ...extra: Prisma.ListingWhereInput[]): Prisma.ListingWhereInput {
@@ -102,7 +145,7 @@ function pageSizeOf(ctx: ListingQueryContext): number {
  */
 export async function searchListings(filters: SearchFilters, ctx: ListingQueryContext): Promise<ListingSearchResult> {
   const rt = await runtime();
-  const where = whereFor(filters, ctx, rt);
+  const where = await whereFor(filters, ctx, rt);
   const sort = effectiveSort(filters);
   const orderBy = buildListingOrderBy(sort);
   const pageSize = pageSizeOf(ctx);
@@ -140,14 +183,14 @@ export async function searchListings(filters: SearchFilters, ctx: ListingQueryCo
 /** The number of results for the live "Show 123 results" button. */
 export async function countListings(filters: SearchFilters, ctx: ListingQueryContext): Promise<number> {
   const rt = await runtime();
-  return db.listing.count({ where: whereFor(filters, ctx, rt) });
+  return db.listing.count({ where: await whereFor(filters, ctx, rt) });
 }
 
 /** Up to 500 approximate map points for the filters (the map ignores `page`). */
 export async function getMapPoints(filters: SearchFilters, ctx: ListingQueryContext): Promise<ListingMapPoint[]> {
   const rt = await runtime();
   const rows = await db.listing.findMany({
-    where: { AND: [whereFor(filters, ctx, rt), { approxLat: { not: null } }, { approxLng: { not: null } }] },
+    where: { AND: [await whereFor(filters, ctx, rt), { approxLat: { not: null } }, { approxLng: { not: null } }] },
     orderBy: buildListingOrderBy(effectiveSort(filters)),
     take: MAX_MAP_POINTS,
     select: listingMapSelect(ctx.locale),

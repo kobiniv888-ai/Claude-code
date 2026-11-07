@@ -127,7 +127,12 @@ export function MyListingCard({ listing, stats }: { listing: MyListing; stats?: 
       const result = await runListingAction({ listingId: listing.id, action });
       setConfirming(null);
       if (!result.ok) {
-        toast.error(errorText(result.error));
+        // Unpause / renew refused for what the post form must fix first (round 3, brief 6.1: the
+        // mistake check's errors, or a requirement such as the photos): open the form's last step.
+        const fixable = result.error === "listing_mistakes" || result.error === "missing_requirements";
+        toast.error(errorText(result.error), {
+          ...(fixable ? { action: { label: t("fixInForm"), onClick: () => router.push(`/account/listings/${listing.id}/edit?step=publish`) } } : {}),
+        });
         return;
       }
       if (action === "bump" && !result.data.changed) toast(t("toast.bumpLater"));

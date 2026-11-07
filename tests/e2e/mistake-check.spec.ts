@@ -17,6 +17,8 @@ import { TEST_ADMIN_PHONE } from "./helpers/staff";
  * - Photo room labels: chosen under a photo in the edit form (saved), and the public "All photos"
  *   groups by room once two rooms are labelled.
  * - The admin review page's "בדיקה לפני פרסום" box lists the host's issues too.
+ * - An error also blocks the other ways back onto the site (phase-4 hardening): a paused listing
+ *   without its address can't be switched back on, and the admin's "Approve" is off.
  *
  * Test users get sessions without login codes (fixtures.ts); the global teardown removes them and their listings.
  */
@@ -165,6 +167,52 @@ test.describe("mistake check before publishing (brief 6.1)", () => {
     await expect(sheet.getByRole("heading", { name: /^מטבח/ })).toBeVisible();
     await expect(sheet.getByRole("heading", { name: /^עוד תמונות/ })).toBeVisible();
     await guest.context.close();
+  });
+
+  // Phase-4 hardening (mistake-3, mistake-4): an error blocks every way back onto the site, not
+  // only "פרסום". A paused short stay whose exact address was removed can't be switched back on
+  // from "הנכסים שלי"; the admin can't approve a listing with an error (the button is off).
+  test("a paused listing with an error can't come back on; the admin can't approve one", async ({ browser }) => {
+    test.slow();
+    const host = await createHost("E2E Mistake Gal");
+    const title = `E2E דירה מושהית ${digits()}`;
+    const paused = await createTestListing({ ownerId: host.id, title, status: "LIVE", photos: 6 });
+    await sql(`UPDATE "Listing" SET status = 'PAUSED', address = NULL, "reviewedAt" = now() WHERE id = $1`, [paused.id]);
+
+    const owner = await openAsUser(browser, host);
+    await owner.page.goto("/he/account/listings");
+    await settle(owner.page);
+    const card = owner.page.getByRole("article", { name: title });
+    await card.getByRole("button", { name: "הפעלה מחדש" }).click();
+    const toast = owner.page.locator("[data-sonner-toast]").filter({ hasText: "קודם צריך לתקן כמה דברים במודעה" });
+    await expect(toast).toBeVisible({ timeout: 30_000 });
+    expect((await listingByPublicId(paused.publicId)).status).toBe("PAUSED");
+    // "לתיקון" opens the edit form's last step, where the check lists the missing address.
+    await toast.getByRole("button", { name: "לתיקון" }).click();
+    await expect(owner.page).toHaveURL(new RegExp(`/he/account/listings/${paused.id}/edit\\?step=publish`));
+    await settle(owner.page);
+    await expect(owner.page.getByTestId("mistake-check").locator('[data-mistake="address_missing"]')).toBeVisible();
+    // Fixed, it comes back on.
+    await sql(`UPDATE "Listing" SET address = 'E2E Street 7, apartment 5' WHERE id = $1`, [paused.id]);
+    await owner.page.goto("/he/account/listings");
+    await settle(owner.page);
+    await owner.page.getByRole("article", { name: title }).getByRole("button", { name: "הפעלה מחדש" }).click();
+    await expect.poll(async () => (await listingByPublicId(paused.publicId)).status, { timeout: 30_000 }).not.toBe("PAUSED");
+    expect(["LIVE", "IN_REVIEW"]).toContain((await listingByPublicId(paused.publicId)).status);
+    expect(owner.consoleErrors).toEqual([]);
+    await owner.context.close();
+
+    // The admin's review page: approve is off while the host's check has an error.
+    const waiting = await createTestListing({ ownerId: host.id, title: `E2E דירה ממתינה ${digits()}`, status: "IN_REVIEW", photos: 6 });
+    await sql(`UPDATE "Listing" SET address = NULL WHERE id = $1`, [waiting.id]);
+    const admin = await openAs(browser, TEST_ADMIN_PHONE);
+    await admin.page.goto(`/en/admin/moderation/${waiting.id}`);
+    await settle(admin.page);
+    await expect(admin.page.getByTestId("admin-mistake-check").locator('[data-mistake="address_missing"]')).toBeVisible();
+    await expect(admin.page.getByTestId("moderation-blocked-by-mistakes")).toBeVisible();
+    await expect(admin.page.getByRole("button", { name: "Approve", exact: true })).toBeDisabled();
+    expect((await listingByPublicId(waiting.publicId)).status).toBe("IN_REVIEW");
+    await admin.context.close();
   });
 
   test("the admin review page shows the host's mistake check", async ({ browser }) => {

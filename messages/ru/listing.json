@@ -217,7 +217,9 @@
     "guests": "{count, plural, one {До {count} гостя} other {До {count} гостей}}",
     "bedsDouble": "{count, plural, one {{count} двуспальная кровать} few {{count} двуспальные кровати} many {{count} двуспальных кроватей} other {{count} двуспальной кровати}}",
     "bedsSingle": "{count, plural, one {{count} односпальная кровать} few {{count} односпальные кровати} many {{count} односпальных кроватей} other {{count} односпальной кровати}}",
-    "bedsSofa": "{count, plural, one {{count} диван-кровать} few {{count} дивана-кровати} many {{count} диванов-кроватей} other {{count} дивана-кровати}}"
+    "bedsSofa": "{count, plural, one {{count} диван-кровать} few {{count} дивана-кровати} many {{count} диванов-кроватей} other {{count} дивана-кровати}}",
+    "amenitiesLabel": "В номере",
+    "moreAmenities": "и ещё {count}"
   },
   "calendar": {
     "title": "Свободные даты",
@@ -347,6 +349,7 @@
     "barLabel": "Цена и бронирование",
     "datesTitle": "Выбор дат",
     "chooseDates": "Выбрать даты",
+    "chooseRoom": "Выбрать номер",
     "book": "Забронировать",
     "clear": "Сбросить",
     "done": "Готово",

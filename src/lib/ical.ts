@@ -7,6 +7,7 @@ import ical, { type CalendarResponse, type DateWithTimeZone, type VEvent } from 
 import { siteConfig } from "@/config/site";
 import { absoluteUrl, siteUrl } from "@/lib/site-url";
 import { db } from "@/lib/db";
+import type { Prisma } from "@/generated/prisma/client";
 import { fullRanges, hotelClosedRanges, overbookedRanges, type RoomBlock, type RoomCapacity } from "@/lib/booking/room-availability";
 
 /**
@@ -17,7 +18,9 @@ import { fullRanges, hotelClosedRanges, overbookedRanges, type RoomBlock, type R
  *   bookings made on Bayit as "Reserved", the rest as "Not available" (never a guest's details).
  * - Import: Listing.icalImportUrls (https only) are read by syncIcalImports() every hour
  *   (cron /api/cron/ical-sync) and replace the listing's AvailabilityBlock rows with source ICAL
- *   (sourceRef = the event's UID). Imported nights block bookings on Bayit like any other block.
+ *   (sourceRef = "<feed key>:<the event's UID>", note = the feed's host name). Imported nights block
+ *   bookings on Bayit like any other block. One scope (a listing's own feeds, or one room type's)
+ *   is replaced in one transaction under an advisory lock, so two syncs at once never double it.
  * - A guest's own booking as a calendar file: buildBookingIcs() (GET /api/ical/booking/<code>).
  *
  * Hotels (round 3, founder's answer 3) sync per room type. iCal carries busy dates only, never a
@@ -206,6 +209,8 @@ export type ParsedIcsEvent = {
   /** Day after the last blocked day (exclusive), "YYYY-MM-DD". */
   end: string;
   summary: string | null;
+  /** The feed gave the event no UID (ours is a hash of its start and summary, so two feeds can share it). */
+  generatedUid?: true;
 };
 
 function dayString(date: Date): string {
@@ -259,11 +264,11 @@ export function parseIcsText(text: string, now: Date = new Date()): ParsedIcsEve
   const toDay = dayString(to);
 
   const events: ParsedIcsEvent[] = [];
-  const push = (uid: string, start: string, end: string, summary: string | null) => {
+  const push = (uid: string, start: string, end: string, summary: string | null, generatedUid: boolean) => {
     if (events.length >= MAX_EVENTS) return;
     const safeEnd = end > start ? end : nextDay(start);
     if (safeEnd <= fromDay || start >= toDay) return;
-    events.push({ uid: uid.slice(0, 255), start, end: safeEnd, summary: summary?.slice(0, 200) ?? null });
+    events.push({ uid: uid.slice(0, 255), start, end: safeEnd, summary: summary?.slice(0, 200) ?? null, ...(generatedUid ? { generatedUid: true as const } : {}) });
   };
 
   for (const component of Object.values(data)) {
@@ -272,6 +277,7 @@ export function parseIcsText(text: string, now: Date = new Date()): ParsedIcsEve
     if (event.status === "CANCELLED" || event.transparency === "TRANSPARENT" || !event.start) continue;
     const isFullDay = event.datetype === "date" || Boolean(event.start.dateOnly);
     const summary = textValue(event.summary);
+    const generatedUid = !event.uid;
     const uid = event.uid || createHash("sha1").update(`${event.start.toISOString()}|${summary ?? ""}`).digest("hex");
 
     if (event.rrule) {
@@ -279,13 +285,13 @@ export function parseIcsText(text: string, now: Date = new Date()): ParsedIcsEve
       for (const instance of instances.slice(0, MAX_EVENTS)) {
         const start = dayOf(instance.start, instance.isFullDay);
         const end = instance.end ? endDayOf(instance.end, instance.isFullDay) : nextDay(start);
-        push(`${uid}#${start}`, start, end, summary);
+        push(`${uid}#${start}`, start, end, summary, generatedUid);
       }
       continue;
     }
     const start = dayOf(event.start, isFullDay);
     const end = event.end ? endDayOf(event.end, isFullDay) : nextDay(start);
-    push(uid, start, end, summary);
+    push(uid, start, end, summary, generatedUid);
   }
   return events.sort((a, b) => a.start.localeCompare(b.start));
 }
@@ -496,8 +502,107 @@ export function classifyFeedError(error: unknown): IcalFeedError {
 export type IcalFeedReport = { url: string; label: string; events: number; error: IcalFeedError | null };
 
 /**
+ * A short, stable key per import URL. Imported rows carry it in `sourceRef` ("<key>:<UID>"), so
+ * the rows of a feed that failed this time are kept by feed, never by host name: a hotel that
+ * connects 3 Booking.com calendars to one room type has 3 feeds on the same host.
+ */
+export function icalFeedKey(url: string): string {
+  return createHash("sha1").update(url).digest("hex").slice(0, 12);
+}
+
+type ImportedRow = {
+  listingId: string;
+  startDate: Date;
+  endDate: Date;
+  source: "ICAL";
+  sourceRef: string;
+  icalUid: string;
+  note: string;
+  roomTypeId: string | null;
+  rooms: number | null;
+};
+
+/**
+ * The rows one sync writes: one per event, the same event only once (the same calendar pasted
+ * twice in two URL forms, or a booking that two feeds both list). An event without a UID of its
+ * own is only de-duplicated within its feed: its UID is a hash of its start and summary, so two
+ * rooms closed on the same dates in two feeds must stay two rows (each takes a room).
+ */
+export function importedRows(
+  listingId: string,
+  roomType: { id: string } | null,
+  feeds: readonly { key: string; label: string; events: readonly ParsedIcsEvent[] | null }[],
+): ImportedRow[] {
+  const seen = new Set<string>();
+  const rows: ImportedRow[] = [];
+  for (const feed of feeds) {
+    for (const event of feed.events ?? []) {
+      const id = `${event.generatedUid ? `${feed.key}:` : ""}${event.uid}|${event.start}|${event.end}`;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      rows.push({
+        listingId,
+        startDate: new Date(`${event.start}T00:00:00Z`),
+        endDate: new Date(`${event.end}T00:00:00Z`),
+        source: "ICAL",
+        sourceRef: `${feed.key}:${event.uid}`,
+        icalUid: event.uid,
+        note: feed.label,
+        // A room type's event takes one room of that type (iCal has no room counts).
+        roomTypeId: roomType?.id ?? null,
+        rooms: roomType ? 1 : null,
+      });
+    }
+  }
+  return rows;
+}
+
+/** Imports of one scope (a listing's own feeds, or one room type's) never run at the same time. */
+function lockImportScope(tx: Prisma.TransactionClient, listingId: string, roomTypeId: string | null) {
+  return tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`ical:${listingId}:${roomTypeId ?? "listing"}`}))`;
+}
+
+const SYNC_TX = { maxWait: 15_000, timeout: 60_000 } as const;
+
+/**
+ * Replaces the imported rows of one scope in one transaction under that scope's lock (the hourly
+ * cron, "save" and "sync now" can run at once; without the lock both inserts would survive).
+ * The rows of the feeds in `keepFeedKeys` (could not be read this time) are kept.
+ */
+async function replaceImportedBlocks(
+  listingId: string,
+  roomTypeId: string | null,
+  rows: ImportedRow[],
+  keepFeedKeys: readonly string[] = [],
+): Promise<void> {
+  await db.$transaction(async (tx) => {
+    await lockImportScope(tx, listingId, roomTypeId);
+    await tx.availabilityBlock.deleteMany({
+      where: {
+        listingId,
+        source: "ICAL",
+        roomTypeId,
+        ...(keepFeedKeys.length ? { NOT: { OR: keepFeedKeys.map((key) => ({ sourceRef: { startsWith: `${key}:` } })) } } : {}),
+      },
+    });
+    if (rows.length) await tx.availabilityBlock.createMany({ data: rows });
+    if (roomTypeId) await tx.roomType.updateMany({ where: { id: roomTypeId, listingId }, data: { icalSyncedAt: new Date() } });
+    else await tx.listing.update({ where: { id: listingId }, data: { icalSyncedAt: new Date() } });
+  }, SYNC_TX);
+}
+
+/** A scope whose import links were all removed: its imported rows go (under the same lock). */
+async function clearImportedBlocks(listingId: string, roomTypeId: string | null): Promise<void> {
+  await db.$transaction(async (tx) => {
+    await lockImportScope(tx, listingId, roomTypeId);
+    await tx.availabilityBlock.deleteMany({ where: { listingId, source: "ICAL", roomTypeId } });
+  }, SYNC_TX);
+}
+
+/**
  * Re-imports one listing's own feeds, or (with `roomType`) one hotel room type's: each event of a
  * room type's feed takes one room of that type; the listing's own feeds close the whole place.
+ * The feeds are downloaded first, outside the transaction.
  */
 async function syncListing(
   listing: { id: string; icalImportUrls: string[] },
@@ -506,48 +611,22 @@ async function syncListing(
   const urls = [...new Set(listing.icalImportUrls)].slice(0, ICAL_MAX_FEEDS);
   const results = await Promise.all(
     urls.map(async (url) => {
+      const base = { url, key: icalFeedKey(url), label: feedLabel(url) };
       try {
-        return { url, label: feedLabel(url), events: await parseIcsFeed(url), error: null };
+        return { ...base, events: await parseIcsFeed(url), error: null };
       } catch (error) {
-        console.warn(`[ical] feed of listing ${listing.id} failed (${feedLabel(url)}):`, (error as Error).message);
-        return { url, label: feedLabel(url), events: null, error: classifyFeedError(error) };
+        console.warn(`[ical] feed of listing ${listing.id} failed (${base.label}):`, (error as Error).message);
+        return { ...base, events: null, error: classifyFeedError(error) };
       }
     }),
   );
-  const failedLabels = results.filter((r) => r.events === null).map((r) => r.label);
-  const rows = results.flatMap((r) =>
-    (r.events ?? []).map((event) => ({
-      listingId: listing.id,
-      startDate: new Date(`${event.start}T00:00:00Z`),
-      endDate: new Date(`${event.end}T00:00:00Z`),
-      source: "ICAL" as const,
-      sourceRef: event.uid,
-      icalUid: event.uid,
-      note: r.label,
-      // A room type's event takes one room of that type (iCal has no room counts).
-      roomTypeId: roomType?.id ?? null,
-      rooms: roomType ? 1 : null,
-    })),
-  );
-
-  await db.$transaction([
-    // Blocks of feeds that could not be read this time are kept until the next successful sync.
-    db.availabilityBlock.deleteMany({
-      where: {
-        listingId: listing.id,
-        source: "ICAL",
-        roomTypeId: roomType?.id ?? null,
-        ...(failedLabels.length ? { NOT: { note: { in: failedLabels } } } : {}),
-      },
-    }),
-    db.availabilityBlock.createMany({ data: rows }),
-    roomType
-      ? db.roomType.update({ where: { id: roomType.id }, data: { icalSyncedAt: new Date() } })
-      : db.listing.update({ where: { id: listing.id }, data: { icalSyncedAt: new Date() } }),
-  ]);
+  // Blocks of feeds that could not be read this time are kept until the next successful sync.
+  const failedKeys = results.filter((r) => r.events === null).map((r) => r.key);
+  const rows = importedRows(listing.id, roomType, results);
+  await replaceImportedBlocks(listing.id, roomType?.id ?? null, rows, failedKeys);
   return {
     feeds: urls.length,
-    failedFeeds: failedLabels.length,
+    failedFeeds: failedKeys.length,
     blocks: rows.length,
     conflicts: roomType ? await countRoomConflicts(listing.id, roomType) : await countConflicts(listing.id, rows),
     report: results.map((r) => ({ url: r.url, label: r.label, events: r.events?.length ?? 0, error: r.error })),
@@ -590,8 +669,8 @@ export async function syncListingCalendars(
     // One hotel room type's own import links (round 3).
     const room = await db.roomType.findFirst({ where: { id: roomTypeId, listingId }, select: { id: true, quantity: true, icalImportUrls: true } });
     if (!room || room.icalImportUrls.length === 0) {
-      await db.availabilityBlock.deleteMany({ where: { listingId, source: "ICAL", roomTypeId } });
-      if (room) await db.roomType.update({ where: { id: room.id }, data: { icalSyncedAt: new Date() } });
+      if (room) await replaceImportedBlocks(listingId, room.id, []);
+      else await clearImportedBlocks(listingId, roomTypeId);
       return { syncedAt: new Date(), feeds: [], conflicts: 0 };
     }
     const result = await syncListing({ id: listingId, icalImportUrls: room.icalImportUrls }, room);
@@ -599,7 +678,7 @@ export async function syncListingCalendars(
   }
   const listing = await db.listing.findUnique({ where: { id: listingId }, select: { id: true, icalImportUrls: true } });
   if (!listing || listing.icalImportUrls.length === 0) {
-    await db.availabilityBlock.deleteMany({ where: { listingId, source: "ICAL", roomTypeId: null } });
+    await clearImportedBlocks(listingId, null);
     return { syncedAt: new Date(), feeds: [], conflicts: 0 };
   }
   const result = await syncListing(listing);
@@ -651,7 +730,7 @@ export async function syncIcalImports(listingId?: string): Promise<IcalSyncResul
     for (let next = queue.shift(); next; next = queue.shift()) {
       try {
         if (next.icalImportUrls.length === 0) {
-          await db.availabilityBlock.deleteMany({ where: { listingId: next.id, source: "ICAL", roomTypeId: next.room?.id ?? null } });
+          await clearImportedBlocks(next.id, next.room?.id ?? null);
           continue;
         }
         const result = await syncListing(next, next.room);

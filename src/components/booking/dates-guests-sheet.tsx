@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useLocale, useTranslations } from "next-intl";
 import { CalendarClockIcon } from "lucide-react";
 import { BottomSheet } from "@/components/ds/bottom-sheet";
@@ -11,7 +12,21 @@ import { formatBookingMoney } from "@/lib/booking/price-lines";
 import { GuestCounters } from "./guest-counters";
 import { useMinStayText } from "./min-stay-text";
 import { PriceBreakdown } from "./price-breakdown";
-import { RoomPicker } from "./room-picker";
+
+// The room types (hotels only) render inside this sheet, which is closed on first paint: their code
+// loads at the first opening, not with every listing page (CONVENTIONS rule 6).
+const RoomPicker = dynamic(() => import("./room-picker").then((m) => m.RoomPicker), { ssr: false, loading: () => <RoomPickerSkeleton /> });
+
+/** While the room types load (the first opening only): the heading and two option rows. */
+function RoomPickerSkeleton() {
+  return (
+    <div className="grid gap-3 border-t border-border pt-4" aria-hidden="true">
+      <div className="h-6 w-32 rounded-md bg-muted motion-safe:animate-pulse" />
+      <div className="h-14 rounded-input bg-muted motion-safe:animate-pulse" />
+      <div className="h-14 rounded-input bg-muted motion-safe:animate-pulse" />
+    </div>
+  );
+}
 
 /**
  * "Dates and guests" (brief 5.5 step 1): the availability calendar (booked nights disabled, the
@@ -82,7 +97,7 @@ export function DatesGuestsSheet({ mode = "continue" }: { mode?: "continue" | "a
             </p>
           ) : roomMissing ? (
             <p role="status" className="text-caption text-pretty text-muted-foreground">
-              {roomPicker?.room ? tr("fixRooms") : tr("pickToContinue")}
+              {roomPicker?.allFull ? tr("noneFree") : roomPicker?.room ? tr("fixRooms") : tr("pickToContinue")}
             </p>
           ) : null}
           <div className="flex items-center gap-3">

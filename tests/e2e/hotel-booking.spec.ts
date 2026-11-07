@@ -11,6 +11,8 @@ import { createTestListing, createTestUser, newId, sql } from "./helpers/db";
  * - the host's calendar for that room type shows 1 of 3 rooms free on those nights;
  * - a second tab that asked for 2 more rooms of the same type is refused ("נתפסו הרגע"): only one
  *   is left, and the picker says so;
+ * - a dated search still finds the hotel with 2 of its rooms booked, but not once the whole hotel is
+ *   closed on one of the nights (phase-4 hardening, search-1);
  * - the guest cancels → the 3 rooms are free again.
  */
 
@@ -162,17 +164,39 @@ test.describe("hotel booking by room type", () => {
     const [{ count }] = await sql<{ count: string }>(`SELECT count(*)::text AS count FROM "Booking" WHERE "listingId" = $1 AND status = 'CONFIRMED'`, [ids.listing]);
     expect(count).toBe("1");
 
+    // ── 4b. A dated search still finds the hotel: 2 rooms booked never hide it (search-1) ──
+    await page.goto(`/he/search?city=mestia&deal=hotels&checkIn=${checkIn}&checkOut=${checkOut}&view=list`);
+    await settle(page);
+    const hotelCard = page.locator("main [data-listing-card]").filter({ hasText: "E2E Test hotel by room type" });
+    await expect(hotelCard.first()).toBeVisible();
+    // ...but closing the whole hotel on one of those nights does (a block without a room type).
+    const closure = newId();
+    await sql(
+      `INSERT INTO "AvailabilityBlock" (id, "listingId", "startDate", "endDate", source, "createdAt") VALUES ($1, $2, $3::date, $4::date, 'OWNER', now())`,
+      [closure, ids.listing, checkIn, addDays(checkIn, 1)],
+    );
+    await page.reload();
+    await settle(page);
+    await expect(hotelCard).toHaveCount(0);
+    await sql(`DELETE FROM "AvailabilityBlock" WHERE id = $1`, [closure]);
+
     // ── 5. The host's calendar for the room type: 1 of 3 rooms free, 2 booked ──
     const host = await openAsTestUser(browser, { id: ids.host });
     await host.page.goto(`/he/account/listings/${ids.listing}/calendar`);
     await settle(host.page);
-    await expect(host.page.getByRole("radio", { name: /E2E Double/ })).toHaveAttribute("aria-checked", "true");
+    // The scope switch is a group of native radios (a11y-hotel-chips-1).
+    await expect(host.page.getByRole("radio", { name: /E2E Double/ })).toBeChecked();
     const night = host.page.locator(`[data-day="${checkIn}"]`);
     await expect(night).toHaveAttribute("aria-label", /1 מתוך 3 חדרים פנויים/);
     await expect(night).toHaveAttribute("aria-label", /2 חדרים מוזמנים/);
     // The suite is untouched: one booking never blocks the whole hotel.
-    await host.page.getByRole("radio", { name: /E2E Suite/ }).click();
-    await expect(host.page.locator(`[data-day="${checkIn}"]`)).toHaveAttribute("aria-label", /1 מתוך 1 חדרים פנויים/);
+    await host.page.getByRole("radio", { name: /E2E Suite/ }).locator("xpath=ancestor::label[1]").click();
+    await expect(host.page.getByRole("radio", { name: /E2E Suite/ })).toBeChecked();
+    // One room of this type: "החדר פנוי" (plural-correct, i18n-1), never "1 מתוך 1 חדרים".
+    await expect(host.page.locator(`[data-day="${checkIn}"]`)).toHaveAttribute("aria-label", /החדר פנוי/);
+    // The whole hotel: the rooms left that night and the rooms booked (ui-hotel-2), never just "פנוי".
+    await host.page.getByRole("radio", { name: "כל המלון" }).locator("xpath=ancestor::label[1]").click();
+    await expect(host.page.locator(`[data-day="${checkIn}"]`)).toHaveAttribute("aria-label", /2 מתוך 4 חדרים פנויים, 2 חדרים מוזמנים/);
 
     // ── 6. The guest cancels → the rooms are free again ──
     await page.goto(`/he/account/trips/${code}`);

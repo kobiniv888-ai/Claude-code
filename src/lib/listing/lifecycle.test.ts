@@ -296,19 +296,29 @@ describe("automatic checks", () => {
     expect(await isPhotoOfOtherAccount("not-a-hash", copy.id, ownerB)).toBe(false);
   });
 
-  it("flags scam phrases and contact details, and sends the listing to review", async () => {
+  it("flags scam phrases and contact details; the phone number alone stops publishing (mistake check)", async () => {
     const listing = await createListing(ownerA, {
       description: "Nice flat. I am abroad, payment by Western Union only. Call +995 555 12 34 56.",
     });
-    const result = await lifecycle.submitForPublication(listing.id, ownerA);
-    expect(result.status).toBe("IN_REVIEW");
-    const codes = result.reasons.map((r) => r.code);
+    const assessment = await assessListing(listing.id);
+    const codes = assessment.reasons.map((r) => r.code);
     expect(codes).toContain("scam_phrase");
     expect(codes).toContain("contact_info_in_text");
-    const scam = result.reasons.find((r) => r.code === "scam_phrase")!;
+    const scam = assessment.reasons.find((r) => r.code === "scam_phrase")!;
     expect(scam.points).toBe(60); // western union 30 + abroad 35, capped at 60
+    expect(assessment.score).toBe(75);
+    // Round 3 (brief 6.1): contact details in the text are an error that blocks publishing, checked
+    // again under the row lock with the status change: the listing stays a draft.
+    await expect(lifecycle.submitForPublication(listing.id, ownerA)).rejects.toMatchObject({ code: "listing_mistakes", mistakes: ["contact_in_description"] });
+    expect((await db.listing.findUniqueOrThrow({ where: { id: listing.id } })).status).toBe("DRAFT");
+
+    // Without the number, the scam phrases send it to review.
+    await db.listing.update({ where: { id: listing.id }, data: { description: "Nice flat. I am abroad, payment by Western Union only." } });
+    const result = await lifecycle.submitForPublication(listing.id, ownerA);
+    expect(result.status).toBe("IN_REVIEW");
+    expect(result.reasons.map((r) => r.code)).toContain("scam_phrase");
     const saved = await db.listing.findUniqueOrThrow({ where: { id: listing.id } });
-    expect(saved.riskScore).toBe(75);
+    expect(saved.riskScore).toBe(60);
     expect(saved.riskReasons).toEqual(result.reasons);
   });
 

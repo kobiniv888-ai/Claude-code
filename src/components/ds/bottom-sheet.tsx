@@ -24,6 +24,11 @@ export type BottomSheetProps = {
   /** Desktop: a centered dialog (default) or a panel on the end side. */
   desktop?: "dialog" | "side";
   className?: string;
+  /**
+   * Runs when focus would return to the opener; call `event.preventDefault()` and focus something
+   * else when the opener is gone (e.g. a button inside a selection that a save cleared).
+   */
+  onCloseAutoFocus?: (event: Event) => void;
   children: React.ReactNode;
 };
 

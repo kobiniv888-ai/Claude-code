@@ -23,20 +23,22 @@ function resolveImport(from: string, spec: string): string | null {
   return found;
 }
 
-type ModuleInfo = { isClient: boolean; imports: string[]; namespaces: string[] };
+type ModuleInfo = { isClient: boolean; imports: string[]; staticImports: string[]; namespaces: string[] };
 const moduleCache = new Map<string, ModuleInfo>();
 export function moduleInfo(file: string): ModuleInfo {
   const cached = moduleCache.get(file);
   if (cached) return cached;
   const src = fs.readFileSync(file, "utf8");
   const isClient = /^\s*(?:\/\/[^\n]*\n|\/\*[\s\S]*?\*\/\s*)*["']use client["']/.test(src);
-  const imports = [...src.matchAll(/(?:import|export)\s[^;]*?from\s+["']([^"']+)["']|import\(\s*["']([^"']+)["']\s*\)/g)]
+  const found = [...src.matchAll(/(?:import|export)\s[^;]*?from\s+["']([^"']+)["']|import\(\s*["']([^"']+)["']\s*\)/g)]
     .filter((m) => !/^(?:import|export)\s+type\s/.test(m[0]))
-    .map((m) => resolveImport(file, m[1] ?? m[2]))
-    .filter((p): p is string => !!p && /\.(tsx?|mts)$/.test(p));
+    .map((m) => ({ path: resolveImport(file, m[1] ?? m[2]), dynamic: m[1] === undefined }))
+    .filter((m): m is { path: string; dynamic: boolean } => !!m.path && /\.(tsx?|mts)$/.test(m.path));
+  const imports = found.map((m) => m.path);
+  const staticImports = found.filter((m) => !m.dynamic).map((m) => m.path);
   const namespaces = [...src.matchAll(/useTranslations\(\s*["'`]([a-zA-Z.]+)/g)].map((m) => m[1].replace(/\.+$/, ""));
   if (/useTranslations\(\s*\)/.test(src)) namespaces.push("*");
-  const info = { isClient, imports, namespaces };
+  const info = { isClient, imports, staticImports, namespaces };
   moduleCache.set(file, info);
   return info;
 }
@@ -86,6 +88,27 @@ export function clientModules(entries: string[]): Set<string> {
     const client = inClient || info.isClient;
     if (client) out.add(file);
     for (const next of info.imports) stack.push({ file: next, inClient: client });
+  }
+  return out;
+}
+
+/**
+ * The client modules in the first load of `entries`: like clientModules, but `import("…")` (and so
+ * next/dynamic) is not followed, since those chunks load later.
+ */
+export function eagerClientModules(entries: string[]): Set<string> {
+  const out = new Set<string>();
+  const seen = new Set<string>();
+  const stack = entries.map((file) => ({ file, inClient: false }));
+  while (stack.length) {
+    const { file, inClient } = stack.pop()!;
+    const key = `${file}|${inClient}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const info = moduleInfo(file);
+    const client = inClient || info.isClient;
+    if (client) out.add(file);
+    for (const next of info.staticImports) stack.push({ file: next, inClient: client });
   }
   return out;
 }

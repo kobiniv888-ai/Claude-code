@@ -16,9 +16,11 @@ import { listingPath } from "@/lib/listing/urls";
 import { photoUrl } from "@/lib/media";
 import { parseNearby } from "@/lib/nearby";
 import { georgiaToday } from "./calendar";
+import { cheapestRoomType } from "./headline";
 import { usesRoomInventory } from "@/lib/booking/constants";
 import { freeSegments, hotelClosedRanges, roomQuantity, type RoomBlock } from "@/lib/booking/room-availability";
 import { isBookableRoomType } from "@/lib/booking/terms";
+import { publicPriceLabel } from "@/lib/booking/price-label";
 import type { ListingAccessInput, ListingViewer } from "./access";
 import type { ListingPageData, OwnerSummary, PagePhoto } from "./types";
 
@@ -211,6 +213,7 @@ function listingSelect(locale: AppLocale, today: Date, until: Date) {
         price: true,
         currency: true,
         pricePeriod: true,
+        priceUsd: true,
         weekendPrice: true,
         maxGuests: true,
         bedsSingle: true,
@@ -309,7 +312,8 @@ async function load(publicId: number, locale: AppLocale): Promise<LoadedListing 
   let pricePeriod = row.pricePeriod;
   let priceIsFrom = false;
   if (!(price && price > 0) && roomTypes.length) {
-    const cheapest = roomTypes.filter((r) => r.price && r.price > 0).sort((a, b) => (a.price ?? 0) - (b.price ?? 0))[0];
+    // By value, not by the number: ₾190 is cheaper than $120 (room types may differ in currency).
+    const cheapest = cheapestRoomType(roomTypes.map((room, i) => ({ ...room, priceUsd: num(row.roomTypes[i].priceUsd) })));
     if (cheapest) {
       price = cheapest.price;
       currency = cheapest.currency;
@@ -416,7 +420,8 @@ async function load(publicId: number, locale: AppLocale): Promise<LoadedListing 
       end: dayString(p.endDate),
       price: num(p.price) ?? 0,
       minNights: p.minNights,
-      label: p.label,
+      // Public text: a note with contact details (saved before the check) is dropped.
+      label: publicPriceLabel(p.label),
     })),
     owner: toOwnerSummary(row.owner),
   };

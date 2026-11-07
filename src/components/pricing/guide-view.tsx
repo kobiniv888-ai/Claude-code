@@ -48,6 +48,11 @@ function money(value: number, currency: CurrencyCode, locale: AppLocale, approx:
   return approx ? `≈ ${text}` : text;
 }
 
+/** "Some prices were converted to lari (₾)…": the currency by its name, never its ISO code. */
+export function convertedNote(t: Translator, currency: CurrencyCode): string {
+  return t("result.approx", { currency: isolate(t(`currencies.${currency}`)) });
+}
+
 /** "example.com" of a report's address (nothing for a broken one). */
 function hostOf(url: string): string | null {
   try {
@@ -340,7 +345,7 @@ export function GuideView({ guide, widened, dealType, place, locale, mine, title
           </p>
         ) : null}
         {widened.includes("size") ? <p className="text-xs text-pretty text-muted-foreground">{t("result.widenedSize")}</p> : null}
-        {enough && approx ? <p className="text-xs text-pretty text-muted-foreground">{t("result.approx", { currency: guide.currency })}</p> : null}
+        {enough && approx ? <p className="text-xs text-pretty text-muted-foreground">{convertedNote(t, guide.currency)}</p> : null}
         <p className="text-xs text-pretty text-muted-foreground">{t("result.source")}</p>
       </div>
 

@@ -12,7 +12,21 @@
  * The action also refuses demo and deleted accounts (src/lib/admin/actions/outbox.ts).
  */
 
-export type ResendBlock = "not_configured" | "not_logged" | "outbox_only" | "login_code" | "bad_address" | "demo_or_test" | "reply_to_lost";
+export type ResendBlock =
+  | "not_configured"
+  | "not_logged"
+  | "outbox_only"
+  | "login_code"
+  | "expired"
+  | "bad_address"
+  | "demo_or_test"
+  | "reply_to_lost";
+
+/**
+ * Emails only worth sending at the time they were made: the weekly host digest ("השבוע: …") would
+ * arrive weeks late with old numbers, and without the unsubscribe switch being looked at again.
+ */
+const TIME_SENSITIVE_TEMPLATES = new Set(["weekly_host_stats"]);
 
 const UNDELIVERABLE = /@(phone\.bayit\.invalid|outbox\.invalid)$|\.invalid$/i;
 /** Reserved for documentation and tests (RFC 2606 / 6761), the demo domain included. */
@@ -29,6 +43,7 @@ export function resendBlock(
   if (row.status !== "LOGGED") return "not_logged";
   if (row.provider === "outbox") return "outbox_only";
   if (row.template === "login_code") return "login_code";
+  if (TIME_SENSITIVE_TEMPLATES.has(row.template)) return "expired";
   const to = row.to.trim();
   if (!EMAIL.test(to) || to.length > 254 || UNDELIVERABLE.test(to)) return "bad_address";
   if (RESERVED.test(to)) return "demo_or_test";
@@ -38,8 +53,15 @@ export function resendBlock(
 
 // ─── The outbox list and the admin home counts (one filter for both) ───────
 
-/** "Kept and not sent": LOGGED, never a demo account's "outbox" email or a login code. */
-export const OUTBOX_WAITING_WHERE = { status: "LOGGED", provider: { not: "outbox" }, template: { not: "login_code" } } as const;
+/**
+ * "Kept and not sent": LOGGED, never a demo account's "outbox" email, a login code or a weekly
+ * digest (those are never sent again, see resendBlock: they would fill the row every week).
+ */
+export const OUTBOX_WAITING_WHERE = {
+  status: "LOGGED" as const,
+  provider: { not: "outbox" },
+  template: { notIn: ["login_code", "weekly_host_stats"] },
+};
 
 export type OutboxListFilters = {
   status?: "QUEUED" | "SENT" | "FAILED" | "LOGGED";

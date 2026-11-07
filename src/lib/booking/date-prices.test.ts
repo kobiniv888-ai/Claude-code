@@ -38,6 +38,9 @@ describe("the date-price form", () => {
     expect(datePriceInputSchema.parse(input({ label: "ערב\n  פסח" })).label).toBe("ערב פסח");
     const long = datePriceInputSchema.safeParse(input({ label: "א".repeat(DATE_PRICE_LIMITS.labelMax + 1) }));
     expect(!long.success && datePriceIssue(long.error)).toBe("label_too_long");
+    // A note is public text like a title: no emoji (guide-2).
+    expect(datePriceInputSchema.parse(input({ label: "\u{1F56F}\uFE0F חנוכה \u{1F389}" })).label).toBe("חנוכה");
+    expect(datePriceInputSchema.parse(input({ label: "\u{1F389}" })).label).toBeNull();
   });
 
   it("refuses dates that are not days or run backwards", () => {

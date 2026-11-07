@@ -66,7 +66,22 @@ export type SendEmailInput<K extends EmailTemplate> = {
    * carries them back. Names and values: ASCII letters, digits, "_" and "-" (others are dropped).
    */
   tags?: Record<string, string>;
+  /**
+   * Extra mail headers, e.g. List-Unsubscribe (RFC 8058 one-click) for bulk mail such as the
+   * weekly digest. Only these names are sent; values with a line break are dropped.
+   */
+  headers?: Record<string, string>;
 };
+
+/** The headers sendEmail passes on (anything else could be misused to forge the message). */
+const ALLOWED_HEADERS = new Set(["List-Unsubscribe", "List-Unsubscribe-Post"]);
+
+/** The allowed, single-line headers of an email (exported for the tests). */
+export function safeEmailHeaders(headers: Record<string, string> | undefined): Record<string, string> | undefined {
+  if (!headers) return undefined;
+  const out = Object.fromEntries(Object.entries(headers).filter(([name, value]) => ALLOWED_HEADERS.has(name) && typeof value === "string" && !/[\r\n]/.test(value)));
+  return Object.keys(out).length > 0 ? out : undefined;
+}
 
 /**
  * What happened to an email:
@@ -210,6 +225,7 @@ export async function sendEmail<K extends EmailTemplate>({
   redact,
   outboxOnly,
   tags,
+  headers,
 }: SendEmailInput<K>): Promise<SendEmailResult> {
   const locale: AppLocale = isAppLocale(localeInput) ? localeInput : siteConfig.i18n.fallbackLocale;
   const recipient = (to ?? "").trim();
@@ -266,6 +282,7 @@ export async function sendEmail<K extends EmailTemplate>({
       text: rendered.text,
       replyTo: reply && isEmailAddress(reply) ? reply : undefined,
       tags: resendTags(template, tags),
+      headers: safeEmailHeaders(headers),
     });
     if (error) {
       console.error(`[email] Resend rejected "${template}" to ${recipient}:`, error.message);

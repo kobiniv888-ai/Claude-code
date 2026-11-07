@@ -1,23 +1,28 @@
 "use client";
 
-import { useState, type ComponentProps } from "react";
+import { useMemo, useState, type ComponentProps } from "react";
 import { useTranslations } from "next-intl";
 import { BedDoubleIcon, CalendarClockIcon, EyeOffIcon, HotelIcon, InfoIcon } from "lucide-react";
 import { Card } from "@/components/ds/card";
+import type { HostDatePrice } from "@/lib/booking/date-prices";
 import type { HostRoomCalendar } from "@/lib/booking/host-calendar";
 import { cn } from "@/lib/utils";
 import { HostCalendar } from "./host-calendar";
 import { IcalPanel } from "./ical-panel";
 import { RoomCalendar } from "./room-calendar";
+import { indexHotelNights } from "./room-model";
 
 type CalendarProps = ComponentProps<typeof HostCalendar>;
 type PanelProps = Omit<ComponentProps<typeof IcalPanel>, "listingId" | "roomTypeId" | "returnTo">;
 
 /**
  * The hotel calendar (round 3, founder's answer 3): "the whole hotel" (blocks that close every
- * room, holiday prices) or one room type at a time (its free rooms per night, close N rooms, its
- * bookings), each with its own calendar links. Under the switch, the note about the sync gap with
- * other sites. Text: `hostBooking.calendar.rooms`, `hostBooking.calendar`.
+ * room, the rooms left per night and which bookings hold them) or one room type at a time (its
+ * free rooms per night, close N rooms, its bookings), each with its own calendar links. Both show
+ * the Jewish holidays and set holiday prices; the prices are kept here, so a price saved in one
+ * view shows in the other. Under the switch, the note about the sync gap with other sites.
+ * The switch is a group of native radios (one Tab stop, arrow keys). Text:
+ * `hostBooking.calendar.rooms`, `hostBooking.calendar`.
  */
 export function HotelCalendars({
   calendar,
@@ -39,19 +44,19 @@ export function HotelCalendars({
   const tc = useTranslations("hostBooking.calendar");
   const [scope, setScope] = useState<string>(rooms[0]?.id ?? "hotel");
   const room = rooms.find((r) => r.id === scope) ?? null;
+  // One list of holiday prices for every view (a save in one shows in the others).
+  const [datePrices, setDatePrices] = useState<HostDatePrice[]>(calendar.datePrices ?? []);
+  const hotelNights = useMemo(() => indexHotelNights(rooms, closed, calendar.today), [rooms, closed, calendar.today]);
 
   const chip = (id: string, label: string, off = false) => (
-    <button
+    <label
       key={id}
-      type="button"
-      role="radio"
-      aria-checked={scope === id}
-      onClick={() => setScope(id)}
       className={cn(
-        "inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-full border px-4 text-small font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50",
+        "inline-flex min-h-11 max-w-full cursor-pointer items-center gap-1.5 rounded-full border px-4 text-small font-medium transition-colors has-focus-visible:ring-3 has-focus-visible:ring-ring/50",
         scope === id ? "border-primary bg-primary text-primary-foreground" : "border-border-strong bg-card text-foreground hover:bg-surface-muted",
       )}
     >
+      <input type="radio" name="calendar-scope" value={id} className="sr-only" checked={scope === id} onChange={() => setScope(id)} />
       {id === "hotel" ? <HotelIcon className="size-4 shrink-0" aria-hidden /> : <BedDoubleIcon className="size-4 shrink-0" aria-hidden />}
       <span dir="auto" className="truncate">
         {label}
@@ -62,16 +67,19 @@ export function HotelCalendars({
           <span className="sr-only">{t("off")}</span>
         </>
       ) : null}
-    </button>
+    </label>
   );
 
   return (
     <div className="grid gap-6">
       <div className="grid gap-3">
-        <div role="radiogroup" aria-label={t("scopeLabel")} className="flex flex-wrap gap-2">
-          {rooms.map((r) => chip(r.id, r.name || t("unnamed"), !r.active))}
-          {chip("hotel", t("wholeHotel"))}
-        </div>
+        <fieldset className="min-w-0">
+          <legend className="sr-only">{t("scopeLabel")}</legend>
+          <div className="flex flex-wrap gap-2">
+            {rooms.map((r) => chip(r.id, r.name || t("unnamed"), !r.active))}
+            {chip("hotel", t("wholeHotel"))}
+          </div>
+        </fieldset>
         <p className="flex items-start gap-2.5 rounded-card border border-border bg-surface-muted p-3 text-small text-pretty">
           <InfoIcon className="mt-0.5 size-4.5 shrink-0 text-primary-text" aria-hidden />
           <span>{t("syncGap")}</span>
@@ -97,9 +105,15 @@ export function HotelCalendars({
             closed={closed}
             bookings={calendar.bookings}
             returnTo={returnTo}
+            datePrices={datePrices}
+            onDatePricesChange={setDatePrices}
+            pricing={calendar.pricing}
+            roomTypes={calendar.roomTypes}
+            holidays={calendar.holidays}
+            holidayPeriods={calendar.holidayPeriods}
           />
         ) : (
-          <HostCalendar {...calendar} returnTo={returnTo} />
+          <HostCalendar {...calendar} datePrices={datePrices} onDatePricesChange={setDatePrices} hotelNights={hotelNights} returnTo={returnTo} />
         )}
       </Card>
 

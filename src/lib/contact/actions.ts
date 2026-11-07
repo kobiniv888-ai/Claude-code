@@ -14,6 +14,7 @@ import { z } from "zod";
 import { isAppLocale } from "@/i18n/locale";
 import { fail, ok, runAction, type ActionResult } from "@/lib/action";
 import { requireUserForAction } from "@/lib/auth/session";
+import { hmacHash } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { isPlaceholderEmail, notificationEmailFor, sendEmail } from "@/lib/email";
 import { formatDateRange } from "@/lib/format";
@@ -77,7 +78,8 @@ export async function revealContact(listingId: string, turnstileToken?: string |
     if (await isBlockedBetween(user.id, listing.ownerId)) return fail("blocked");
 
     // The per-listing cap counts each visitor once a day, so a popular listing is not locked by refreshes.
-    const firstToday = await rateLimit(`contact-reveal:seen:${user.id}:${listing.id}`, { limit: 1, windowSeconds: DAY });
+    // Hashed: the key must not say which account looked at which listing's contact details.
+    const firstToday = await rateLimit(`contact-reveal:seen:${hmacHash(`contact-reveal|${user.id}|${listing.id}`)}`, { limit: 1, windowSeconds: DAY });
     if (firstToday.ok) await assertRateLimit(`contact-reveal:listing:${listing.id}`, { limit: 200, windowSeconds: DAY });
 
     // Phone numbers leave the server in E.164 without a national 0 (brief 2.5), so the browser's

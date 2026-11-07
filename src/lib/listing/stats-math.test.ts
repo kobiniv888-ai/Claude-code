@@ -8,6 +8,7 @@ import {
   isQuietPeriod,
   nightsInPeriod,
   occupancyRate,
+  parseStatsEnd,
   parseStatsRange,
   percent,
   periodDays,
@@ -113,8 +114,47 @@ describe("occupancy", () => {
     expect(result.total).toEqual({ bookedNights: 11, offeredNights: 63, rate: 11 / 63 });
   });
 
+  it("short stay: nights closed by the host or booked on another site are not offered on Bayit (occupancy-1)", () => {
+    const days = periodDays("2026-11-30", 30); // 1–30 Nov
+    const closed = [
+      { start: "2026-11-06", end: "2026-11-26", roomTypeId: null, rooms: null }, // 20 nights booked elsewhere (ICAL)
+      { start: "2026-11-26", end: "2026-12-01", roomTypeId: null, rooms: null }, // 5 nights closed (OWNER)
+    ];
+    const result = stayOccupancy([stay("2026-11-01", "2026-11-06")], days, closed);
+    expect(result).toEqual({ bookedNights: 5, offeredNights: 5, rate: 1 });
+    // A Bayit night under another block still counts as offered (never removed twice).
+    expect(stayOccupancy([stay("2026-11-06", "2026-11-08")], days, closed)).toMatchObject({ bookedNights: 2, offeredNights: 7 });
+  });
+
+  it("hotel: closed rooms are not offered; a whole-hotel block closes every room type (occupancy-1)", () => {
+    const days = periodDays("2026-11-30", 30);
+    const rooms = [{ id: "double", quantity: 3, active: true }];
+    const oneRoom = hotelOccupancy([], rooms, days, [{ start: "2026-11-01", end: "2026-11-11", roomTypeId: "double", rooms: 1 }]);
+    expect(oneRoom.byRoomType[0].offeredNights).toBe(80);
+    const twoTypes = [...rooms, { id: "family", quantity: 2, active: true }];
+    const whole = hotelOccupancy([], twoTypes, days, [{ start: "2026-11-01", end: "2026-11-11", roomTypeId: null, rooms: null }]);
+    expect(whole.byRoomType.map((r) => r.offeredNights)).toEqual([60, 40]);
+    // A booked room counts as offered even under a closure of the type.
+    const booked = hotelOccupancy([stay("2026-11-01", "2026-11-02", { roomTypeId: "double", rooms: 1 })], rooms, days, [
+      { start: "2026-11-01", end: "2026-11-02", roomTypeId: "double", rooms: null },
+    ]);
+    expect(booked.byRoomType[0]).toMatchObject({ bookedNights: 1, offeredNights: 88 });
+  });
+
   it("hotel without room types offers nothing", () => {
     expect(hotelOccupancy([stay("2026-11-02", "2026-11-03")], [], periodDays("2026-11-07", 7)).total.rate).toBeNull();
+  });
+});
+
+describe("the stats page's last day (?to=, weekly-2)", () => {
+  it("accepts a real past day up to about 13 months back, else null (the period ends today)", () => {
+    expect(parseStatsEnd("2026-11-07", "2026-11-08")).toBe("2026-11-07");
+    expect(parseStatsEnd(["2026-11-08"], "2026-11-08")).toBe("2026-11-08");
+    expect(parseStatsEnd("2026-11-09", "2026-11-08")).toBeNull(); // the future
+    expect(parseStatsEnd("2025-09-01", "2026-11-08")).toBeNull(); // too old
+    expect(parseStatsEnd("2026-02-30", "2026-11-08")).toBeNull(); // no such day
+    expect(parseStatsEnd("7.11.2026", "2026-11-08")).toBeNull();
+    expect(parseStatsEnd(undefined, "2026-11-08")).toBeNull();
   });
 });
 

@@ -10,6 +10,7 @@
  */
 import { addDays } from "@/lib/booking/dates";
 import { roomRangesToDays, type RoomBlockRange } from "@/lib/booking/room-blocks";
+import type { HotelNight } from "./model";
 
 export type RoomBooked = { start: string; end: string; code: string; rooms: number };
 export type RoomImported = { start: string; end: string; source: string };
@@ -86,4 +87,53 @@ export function roomSelectionSummary(days: readonly string[], index: RoomCalenda
   }
   for (const day of days) for (const code of index.day(day).codes) codes.add(code);
   return { minFree: Number.isFinite(minFree) ? minFree : 0, blocked, codes: [...codes] };
+}
+
+/** A hotel room type's calendar data, as indexHotelNights reads it. */
+export type HotelRoomInput = {
+  quantity: number;
+  /** Switched off: not offered to guests, so it does not count in the hotel's rooms. */
+  active: boolean;
+  owner: readonly RoomBlockRange[];
+  booked: readonly RoomBooked[];
+  imported: readonly RoomImported[];
+};
+
+/**
+ * The whole hotel per night (round 3): the free rooms of all offered room types, the rooms booked on
+ * Bayit and their booking codes. The whole-hotel calendar shows "full" when nothing is free, and
+ * which bookings a night holds. null when the hotel offers no room type (nothing to count).
+ */
+export function indexHotelNights(
+  rooms: readonly HotelRoomInput[],
+  closed: readonly { start: string; end: string }[],
+  today: string,
+): (day: string) => HotelNight | null {
+  const offered = rooms.filter((room) => room.active);
+  const indexes = offered.map((room) =>
+    indexRoomCalendar({ today, quantity: room.quantity, owner: room.owner, booked: room.booked, imported: room.imported, closed }),
+  );
+  // Bookings of switched-off room types still hold their rooms: list them, never count them as free.
+  const offIndexes = rooms
+    .filter((room) => !room.active)
+    .map((room) => indexRoomCalendar({ today, quantity: room.quantity, owner: [], booked: room.booked, imported: [], closed: [] }));
+  const total = indexes.reduce((sum, index) => sum + index.quantity, 0);
+  return (day) => {
+    if (total === 0 && offIndexes.length === 0) return null;
+    let free = 0;
+    let booked = 0;
+    const codes = new Set<string>();
+    for (const index of indexes) {
+      const state = index.day(day);
+      free += state.free;
+      booked += state.booked;
+      for (const code of state.codes) codes.add(code);
+    }
+    for (const index of offIndexes) {
+      const state = index.day(day);
+      booked += state.booked;
+      for (const code of state.codes) codes.add(code);
+    }
+    return { free, total, booked, codes: [...codes] };
+  };
 }
