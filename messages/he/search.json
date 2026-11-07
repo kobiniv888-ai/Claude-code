@@ -129,7 +129,11 @@
     "kosherShabbatHint": "מטבח כשר, מתאים לשבת או ארוחות כשרות: מספיק אחד מהם",
     "walkUpTo": "עד {count} דק׳",
     "visited": "ביקרנו במקום",
-    "visitedHint": "מישהו מצוות בית ביקר בנכס בעצמו."
+    "visitedHint": "מישהו מצוות בית ביקר בנכס בעצמו.",
+    "nearSea": "קרוב לים",
+    "nearSeaHint": "עד {minutes} דק׳ הליכה לחוף, לפי המפה",
+    "nearLifts": "קרוב למעליות",
+    "nearLiftsHint": "עד {minutes} דק׳ הליכה למעלית סקי, לפי המפה"
   },
   "chips": {
     "heading": "מסננים פעילים",
@@ -146,7 +150,9 @@
     "floor": "קומה {range}",
     "mapArea": "אזור במפה",
     "kosherShabbat": "כשר או מתאים לשבת",
-    "visited": "ביקרנו במקום"
+    "visited": "ביקרנו במקום",
+    "nearSea": "קרוב לים",
+    "nearLifts": "קרוב למעליות"
   },
   "toolbar": {
     "sortLabel": "מיון לפי",
@@ -212,7 +218,9 @@
       "shabbat": "מתאים לשבת",
       "synagogue": "ליד בית כנסת",
       "hebrew": "דובר עברית",
-      "kosherShabbat": "כשר ושבת"
+      "kosherShabbat": "כשר ושבת",
+      "nearSea": "קרוב לים",
+      "nearLifts": "קרוב למעליות"
     },
     "anywhere": "כל גאורגיה",
     "anyDates": "הוספת תאריכים",

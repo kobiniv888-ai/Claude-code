@@ -9,11 +9,19 @@ import { hmacHash, safeEqual } from "@/lib/crypto";
  *   "1.weekly_stats.<userId>.<32 hex>"
  *
  * It never expires (an unsubscribe link must keep working), and it can only switch that one email
- * of that one account off or back on. New kinds (price alerts, phase 5) are added to
- * UNSUBSCRIBE_KINDS and handled in src/lib/alerts/unsubscribe-actions.ts.
+ * of that one account off or back on. A new kind is added to UNSUBSCRIBE_KINDS, to the switch it
+ * changes (UNSUBSCRIBE_SWITCH in ./unsubscribe-server.ts) and to its page texts (UNSUBSCRIBE_COPY in
+ * ./unsubscribe-view.ts); the compiler asks for both.
  */
 
-export const UNSUBSCRIBE_KINDS = ["weekly_stats"] as const;
+export const UNSUBSCRIBE_KINDS = [
+  "weekly_stats",
+  // Round 3, brief 7.4 (src/lib/saved-searches): the daily saved-search email and the price-drop email.
+  "saved_search",
+  "price_drop",
+  // Round 3, brief 8.1 (src/lib/reviews/request.ts): the email after a stay that asks for a review.
+  "review_request",
+] as const;
 export type UnsubscribeKind = (typeof UNSUBSCRIBE_KINDS)[number];
 
 const VERSION = "1";

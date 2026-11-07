@@ -2,6 +2,7 @@ import { useLocale, useTranslations } from "next-intl";
 import {
   AlertTriangleIcon,
   BadgeCheckIcon,
+  BellRingIcon,
   CircleDashedIcon,
   ClockIcon,
   FilePenLineIcon,
@@ -285,14 +286,29 @@ export function AttentionList({ items }: { items: AttentionItem[] }) {
   );
 }
 
-export function QuickActions({ idVerified, favorites, openTickets }: { idVerified: boolean; favorites: number; openTickets: number }) {
+export function QuickActions({
+  idVerified,
+  favorites,
+  openTickets,
+  savedSearches,
+}: {
+  idVerified: boolean;
+  favorites: number;
+  openTickets: number;
+  /** Active saved searches (round 3, brief 7.4); the card is left out when not given. */
+  savedSearches?: number;
+}) {
   const t = useTranslations("account.overview.quick");
+  const ta = useTranslations("alerts.quick");
   const locale = useLocale();
   const actions: { href: string; icon: LucideIcon; label: string; hint: string; primary?: boolean }[] = [
     { href: "/post", icon: PlusIcon, label: t("post"), hint: t("postHint"), primary: true },
     // No "verify your ID" while there are no document checks (src/config/verification.ts).
     ...(idVerified || !documentChecksOn() ? [] : [{ href: "/account/verification#id", icon: BadgeCheckIcon, label: t("verify"), hint: t("verifyHint") }]),
     { href: "/account/favorites", icon: HeartIcon, label: t("favorites"), hint: t("favoritesHint", { count: favorites, countText: formatNumber(favorites, locale) }) },
+    ...(savedSearches === undefined
+      ? []
+      : [{ href: "/account/alerts", icon: BellRingIcon, label: ta("label"), hint: ta("hint", { count: savedSearches, countText: formatNumber(savedSearches, locale) }) }]),
     { href: "/account/tickets", icon: LifeBuoyIcon, label: t("support"), hint: t("supportHint", { count: openTickets, countText: formatNumber(openTickets, locale) }) },
   ];
   return (

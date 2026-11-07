@@ -1,8 +1,8 @@
 "use server";
 
 /**
- * The one-tap unsubscribe page's button (round 3, brief 6.2): turns an email kind off (or back on)
- * for the account named in a signed link, without logging in. The token is the only proof
+ * The one-tap unsubscribe page's button (round 3, brief 6.2; saved searches and price drops, brief
+ * 7.4): turns an email kind off (or back on) for the account named in a signed link, without logging in. The token is the only proof
  * (src/lib/alerts/unsubscribe-token.ts); it can change nothing but that one switch in
  * User.notificationPrefs. Rate-limited per IP. Works without JavaScript (a plain form post).
  */
@@ -11,7 +11,7 @@ import { redirect } from "@/i18n/navigation";
 import { isAppLocale } from "@/i18n/locale";
 import { siteConfig } from "@/config/site";
 import { rateLimitByIp } from "@/lib/rate-limit";
-import { setWeeklyStatsEmail } from "./unsubscribe-server";
+import { setUnsubscribeSwitch } from "./unsubscribe-server";
 import { verifyUnsubscribeToken } from "./unsubscribe-token";
 
 const formSchema = z.object({
@@ -33,7 +33,7 @@ export async function submitUnsubscribe(formData: FormData): Promise<void> {
     redirect({ href: { pathname: "/unsubscribe", query: { t: token, state: "limited" } }, locale });
   }
   const on = parsed.data!.on === "1";
-  const changed = await setWeeklyStatsEmail(verified!.userId, on).catch((error: unknown) => {
+  const changed = await setUnsubscribeSwitch(verified!.userId, verified!.kind, on).catch((error: unknown) => {
     console.error("[unsubscribe] could not change the preference:", error);
     return null;
   });

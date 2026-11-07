@@ -1,12 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { siteConfig } from "@/config/site";
-import { setWeeklyStatsEmail } from "@/lib/alerts/unsubscribe-server";
+import { setUnsubscribeSwitch } from "@/lib/alerts/unsubscribe-server";
 import { verifyUnsubscribeToken } from "@/lib/alerts/unsubscribe-token";
 import { rateLimit, rateLimitByIp } from "@/lib/rate-limit";
 
 /**
- * One-click unsubscribe (RFC 8058) for the weekly host digest's List-Unsubscribe header
- * (src/lib/alerts/weekly-host-stats.ts): the mail app POSTs "List-Unsubscribe=One-Click" to
+ * One-click unsubscribe (RFC 8058) for the List-Unsubscribe header of the weekly host digest
+ * (src/lib/alerts/weekly-host-stats.ts) and the saved-search and price-drop emails
+ * (src/lib/saved-searches/run.ts): the mail app POSTs "List-Unsubscribe=One-Click" to
  * /api/unsubscribe?t=<signed token>, and only that email of that account is switched off. The
  * signed token is the only proof (src/lib/alerts/unsubscribe-token.ts). Rate-limited per IP and
  * per account.
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
   ]);
   if (!perIp.ok || !perAccount.ok) return NextResponse.json({ ok: false, error: "rate_limited" }, { status: 429 });
   try {
-    await setWeeklyStatsEmail(verified.userId, false);
+    await setUnsubscribeSwitch(verified.userId, verified.kind, false);
   } catch (error) {
     console.error("[unsubscribe] one-click failed:", error);
     return NextResponse.json({ ok: false, error: "server_error" }, { status: 500 });

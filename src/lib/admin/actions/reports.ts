@@ -68,6 +68,8 @@ async function loadReport(id: string) {
       reporterRevealedAt: true,
       reporter: { select: { id: true, name: true, firstName: true, status: true } },
       booking: { select: { code: true } },
+      // Review reports (round 3, brief 8.1): the review's guest and host, for the own-item rule.
+      review: { select: { guestUserId: true, hostUserId: true } },
       listing: {
         select: {
           id: true,
@@ -95,7 +97,7 @@ function hostIdOf(report: LoadedReport): string {
 
 /** Staff other than an ADMIN never decide a report about themselves or one they sent. */
 function assertNotOwnReport(staff: CurrentUser, report: LoadedReport) {
-  assertNotOwnItem(staff, [report.targetUserId, report.listing?.ownerId, report.reporterId]);
+  assertNotOwnItem(staff, [report.targetUserId, report.listing?.ownerId, report.reporterId, report.review?.guestUserId, report.review?.hostUserId]);
 }
 
 function assertOpen(report: LoadedReport) {

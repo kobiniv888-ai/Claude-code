@@ -129,7 +129,11 @@
     "kosherShabbatHint": "مطبخ كوشير أو مناسب للسبت أو وجبات كوشير: يكفي واحد منها",
     "walkUpTo": "حتى {count} د",
     "visited": "زرنا المكان",
-    "visitedHint": "زار أحد أفراد فريق Bayit هذا المكان بنفسه."
+    "visitedHint": "زار أحد أفراد فريق Bayit هذا المكان بنفسه.",
+    "nearSea": "قريب من البحر",
+    "nearSeaHint": "حتى {minutes} د مشيًا إلى الشاطئ، حسب الخريطة",
+    "nearLifts": "قريب من مصاعد التزلج",
+    "nearLiftsHint": "حتى {minutes} د مشيًا إلى مصعد التزلج، حسب الخريطة"
   },
   "chips": {
     "heading": "الفلاتر المفعّلة",
@@ -146,7 +150,9 @@
     "floor": "الطابق {range}",
     "mapArea": "منطقة على الخريطة",
     "kosherShabbat": "كوشير أو مناسب للسبت",
-    "visited": "زرنا المكان"
+    "visited": "زرنا المكان",
+    "nearSea": "قريب من البحر",
+    "nearLifts": "قريب من مصاعد التزلج"
   },
   "toolbar": {
     "sortLabel": "الترتيب حسب",
@@ -212,7 +218,9 @@
       "shabbat": "مناسب للسبت",
       "synagogue": "قرب كنيس",
       "hebrew": "يتحدث العبرية",
-      "kosherShabbat": "كوشير وسبت"
+      "kosherShabbat": "كوشير وسبت",
+      "nearSea": "قريب من البحر",
+      "nearLifts": "قريب من المصاعد"
     },
     "anywhere": "كل جورجيا",
     "anyDates": "إضافة تواريخ",

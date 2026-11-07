@@ -355,7 +355,8 @@ describe("cancel, no-show, complete, remind", () => {
     await expectCode(service.markNoShow({ bookingId: created.id, hostUserId: ids.host, now: before }), "no_show_not_allowed");
     expect((await service.completeFinishedBookings(after, { listingId: ids.listing })).completed).toBeGreaterThanOrEqual(1);
     expect((await db.booking.findUniqueOrThrow({ where: { id: created.id } })).status).toBe("COMPLETED");
-    expect(sent.some((s) => s.template === "booking_completed")).toBe(true);
+    // The stay's one email: the review request (round 3, brief 8.1) when it can be reviewed, else the thank-you.
+    expect(sent.some((s) => s.template === "booking_completed" || s.template === "review_request")).toBe(true);
 
     await service.markNoShow({ bookingId: created.id, hostUserId: ids.host, now: after });
     expect(await db.booking.findUniqueOrThrow({ where: { id: created.id } })).toMatchObject({ status: "NO_SHOW" });

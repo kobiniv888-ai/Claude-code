@@ -78,7 +78,10 @@
     "visited": "ביקרנו במקום",
     "kosherKitchen": "מטבח כשר",
     "shabbatFriendly": "מתאים לשבת",
+    "sea": "{count, plural, one {≈ דקת הליכה לים} other {≈ {count} דק׳ הליכה לים}}",
+    "lift": "{count, plural, one {≈ דקת הליכה למעליות} other {≈ {count} דק׳ הליכה למעליות}}",
     "synagogue": "{count} דק׳ לבית כנסת",
     "hebrew": "דובר עברית"
-  }
+  },
+  "rating": "דירוג {average} מתוך 5, {count, plural, one {ביקורת אחת} two {שתי ביקורות} other {{count} ביקורות}}"
 }

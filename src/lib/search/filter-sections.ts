@@ -33,7 +33,7 @@ export const SECTION_CHIPS: Record<FilterSection, readonly ChipKey[]> = {
   dates: ["dates", "guests"],
   rooms: ["rooms", "bedrooms", "bathrooms", "bigFamily"],
   jewish: ["kosherShabbat", "kitchen", "shabbatFriendly", "synagogueMaxWalk", "jewish", "hotel", "sharedRoomFor"],
-  amenities: ["amenities"],
+  amenities: ["nearSea", "nearLifts", "amenities"],
   property: ["size", "floor", "condition", "heating", "views", "furnished", "elevator", "buildingAge"],
   owner: ["verifiedOnly", "ownerType"],
   listing: ["visited", "hasPhotos", "hasVideo", "postedWithin"],

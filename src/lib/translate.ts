@@ -57,6 +57,24 @@ export async function translateText(text: string, from: AppLocale, to: AppLocale
 }
 
 /**
+ * One user-written text (a review, a host's reply; round 3, brief 8.1) into several languages in
+ * one request: { en: "…", ru: "…" }. Languages the service returned empty are left out. Null when
+ * translation is off or the request failed (the caller shows the original).
+ */
+export async function translateTextInto(text: string, from: AppLocale, targets: readonly AppLocale[]): Promise<Partial<Record<AppLocale, string>> | null> {
+  const wanted = targets.filter((locale) => locale !== from);
+  if (!text.trim() || wanted.length === 0) return {};
+  const result = await translateMany([text], wanted, from);
+  if (!result) return null;
+  const out: Partial<Record<AppLocale, string>> = {};
+  for (const locale of wanted) {
+    const translated = result.get(locale)?.[0]?.text?.trim();
+    if (translated) out[locale] = translated;
+  }
+  return out;
+}
+
+/**
  * Translates `text` (any language, auto-detected) into `to` — used for moderator notes sent to
  * owners. Returns the original with translated: false when it is already in that language,
  * translation is off, or it failed.

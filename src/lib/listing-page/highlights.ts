@@ -43,14 +43,34 @@ type HighlightInput = {
   amenities: readonly string[];
   views: readonly ViewType[];
   kitchenKosher: KitchenKosher | null;
+} & WalkInput;
+
+type WalkInput = {
+  /** Round 3 (brief 7.3): computed from the pin (src/lib/geo/walk-targets.ts). Missing = none. */
+  seaWalkMinutes?: number | null;
+  liftWalkMinutes?: number | null;
 };
+
+/** "≈ 5 דקות הליכה לים" / "למעליות הסקי": the computed walk, shown first among the highlights. */
+export type WalkHighlight = { kind: "sea" | "lift"; minutes: number };
+
+/** The walk highlight of a listing in a sea or ski town (any stored value, i.e. up to 30 minutes). */
+export function walkHighlight(data: WalkInput): WalkHighlight | null {
+  const valid = (m: number | null | undefined): m is number => typeof m === "number" && Number.isFinite(m) && m > 0;
+  if (valid(data.seaWalkMinutes)) return { kind: "sea", minutes: data.seaWalkMinutes };
+  if (valid(data.liftWalkMinutes)) return { kind: "lift", minutes: data.liftWalkMinutes };
+  return null;
+}
 
 /**
  * Up to `max` highlights in a fixed priority order (the same listing always gets the same three).
  * A sea view makes "near the sea" redundant; self check-in and the kosher kitchen only matter
- * to people who stay (not to buyers).
+ * to people who stay (not to buyers). A computed walk to the sea / lifts (walkHighlight) takes
+ * the first of the `max` places and makes the host's "near the ski lifts" redundant ("near the
+ * sea" is already gone from a pinned listing's amenities, see displayAmenities).
  */
 export function listingHighlights(data: HighlightInput, max = 3): Highlight[] {
+  const walk = walkHighlight(data);
   const stays = data.dealType !== "SALE";
   const has = (key: Highlight): boolean => {
     switch (key) {
@@ -63,14 +83,16 @@ export function listingHighlights(data: HighlightInput, max = 3): Highlight[] {
       case "self_check_in":
         return stays && data.amenities.includes("self_check_in");
       case "near_sea":
-        return !data.views.includes("SEA") && data.amenities.includes("near_sea");
+        return !data.views.includes("SEA") && walk?.kind !== "sea" && data.amenities.includes("near_sea");
+      case "near_ski_lifts":
+        return walk?.kind !== "lift" && data.amenities.includes("near_ski_lifts");
       default: {
         const amenity = HIGHLIGHT_AMENITY[key];
         return !!amenity && data.amenities.includes(amenity);
       }
     }
   };
-  return HIGHLIGHTS.filter(has).slice(0, max);
+  return HIGHLIGHTS.filter(has).slice(0, Math.max(0, max - (walk ? 1 : 0)));
 }
 
 /**

@@ -360,7 +360,8 @@ export const siteConfig = {
   features: {
     reviews: false,
     chat: false,
-    savedSearchAlerts: false,
+    /** Round 3, brief 7.4: saved searches and price-drop emails (/account/alerts). */
+    savedSearchAlerts: true,
     payments: false,
     bump: false,
     featuredPurchase: false,

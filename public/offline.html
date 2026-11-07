@@ -79,6 +79,13 @@
       li { font-size: 0.875rem; }
       li strong { display: block; color: var(--fg); font-weight: 600; }
       li p { font-size: 0.8125rem; }
+      #trips { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); text-align: start; }
+      #trips h2 { font-size: 1rem; margin: 0 0 10px; }
+      #trips ul { margin: 0; padding: 0; border: 0; gap: 8px; }
+      #trips a { display: flex; flex-direction: column; justify-content: center; min-height: 48px; padding: 8px 14px; border: 1px solid var(--border); border-radius: 12px; color: var(--fg); text-decoration: none; }
+      #trips a:focus-visible { outline: 3px solid var(--ring); outline-offset: 2px; }
+      #trips a span { font-weight: 600; overflow-wrap: anywhere; }
+      #trips a small { color: var(--muted); font-size: 0.8125rem; }
     </style>
   </head>
   <body>
@@ -88,24 +95,28 @@
       </svg>
       <div class="primary" id="primary"></div>
       <button type="button" id="retry">Try again</button>
+      <section id="trips" hidden>
+        <h2 id="trips-title"></h2>
+        <ul id="trips-list"></ul>
+      </section>
       <ul id="others">
-        <li lang="he" dir="rtl" data-retry="לנסות שוב">
+        <li lang="he" dir="rtl" data-retry="לנסות שוב" data-trips="נסיעות ששמרתם במכשיר הזה">
           <strong>אין חיבור לאינטרנט</strong>
           <p>נראה שאינכם מחוברים. בדקו את החיבור ונסו שוב.</p>
         </li>
-        <li lang="en" dir="ltr" data-retry="Try again">
+        <li lang="en" dir="ltr" data-retry="Try again" data-trips="Trips saved on this device">
           <strong>You're offline</strong>
           <p>It looks like you're not connected. Check your connection and try again.</p>
         </li>
-        <li lang="ru" dir="ltr" data-retry="Попробовать снова">
+        <li lang="ru" dir="ltr" data-retry="Попробовать снова" data-trips="Поездки, сохранённые на этом устройстве">
           <strong>Нет подключения к интернету</strong>
           <p>Похоже, вы не в сети. Проверьте подключение и попробуйте снова.</p>
         </li>
-        <li lang="ar" dir="rtl" data-retry="حاول مرة أخرى">
+        <li lang="ar" dir="rtl" data-retry="حاول مرة أخرى" data-trips="رحلات محفوظة على هذا الجهاز">
           <strong>لا يوجد اتصال بالإنترنت</strong>
           <p>يبدو أنك غير متصل. تحقّق من الاتصال وحاول مرة أخرى.</p>
         </li>
-        <li lang="ka" dir="ltr" data-retry="ხელახლა ცდა">
+        <li lang="ka" dir="ltr" data-retry="ხელახლა ცდა" data-trips="ამ მოწყობილობაზე შენახული მოგზაურობები">
           <strong>ინტერნეტთან კავშირი არ არის</strong>
           <p>როგორც ჩანს, ხაზგარეშე ხართ. შეამოწმეთ კავშირი და სცადეთ ხელახლა.</p>
         </li>
@@ -133,6 +144,45 @@
         item.parentNode.removeChild(item);
         retry.addEventListener("click", function () { location.reload(); });
         window.addEventListener("online", function () { location.reload(); });
+        // Trips the guest saved for offline use (src/lib/trip/offline.ts, public/sw.js): links to them.
+        var tripsTitle = item.getAttribute("data-trips");
+        if (window.caches && tripsTitle) {
+          caches.has("bayit-trips").then(function (has) {
+            if (!has) return null;
+            return caches.open("bayit-trips").then(function (cache) { return cache.match("/offline-trips.json"); });
+          }).then(function (response) {
+            return response ? response.json() : null;
+          }).then(function (data) {
+            var today = new Date(Date.now() + 4 * 3600 * 1000).toISOString().slice(0, 10);
+            var pattern = /^\/(he|en|ru|ar|ka)\/account\/trips\/BT-[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{5}$/;
+            var trips = (data && data.trips ? data.trips : []).filter(function (t) {
+              return t && typeof t.path === "string" && pattern.test(t.path) && typeof t.keepUntil === "string" && t.keepUntil >= today;
+            });
+            if (!trips.length) return;
+            var section = document.getElementById("trips");
+            var list = document.getElementById("trips-list");
+            var heading = document.getElementById("trips-title");
+            heading.textContent = tripsTitle;
+            section.lang = item.lang;
+            section.dir = item.dir;
+            trips.forEach(function (t) {
+              var li = document.createElement("li");
+              var a = document.createElement("a");
+              a.href = t.path;
+              var title = document.createElement("span");
+              title.dir = "auto";
+              title.textContent = String(t.title || t.code);
+              var meta = document.createElement("small");
+              meta.dir = "ltr";
+              meta.textContent = String(t.code) + " \u00b7 " + String(t.checkIn) + " \u2192 " + String(t.checkOut);
+              a.appendChild(title);
+              a.appendChild(meta);
+              li.appendChild(a);
+              list.appendChild(li);
+            });
+            section.hidden = false;
+          }).catch(function () {});
+        }
       })();
     </script>
   </body>

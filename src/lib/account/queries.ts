@@ -290,12 +290,20 @@ export type FavoriteItem =
 
 export const FAVORITES_LIMIT = 300;
 
-export async function getFavoriteItems(userId: string, locale: AppLocale): Promise<FavoriteItem[]> {
+/**
+ * Saved places, newest first. `list` (round 3, saved lists): only the places in that list; the
+ * default list also holds the places saved without a list (listId null).
+ */
+export async function getFavoriteItems(
+  userId: string,
+  locale: AppLocale,
+  list?: { id: string; isDefault: boolean },
+): Promise<FavoriteItem[]> {
   const settings = await getSettings();
   const now = new Date();
   const base = listingCardSelect(locale);
   const rows = await db.favorite.findMany({
-    where: { userId },
+    where: list ? { userId, ...(list.isDefault ? { OR: [{ listId: list.id }, { listId: null }] } : { listId: list.id }) } : { userId },
     orderBy: { createdAt: "desc" },
     take: FAVORITES_LIMIT,
     select: {

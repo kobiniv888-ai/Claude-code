@@ -30,6 +30,7 @@ import { whatsappUrl } from "@/lib/booking/reveal";
 import { telHref } from "@/lib/phone";
 import { formatDate, formatDateRange, formatTime } from "@/lib/format";
 import { pageMetadata } from "@/lib/seo";
+import { HostBookingReview } from "@/components/reviews/host-booking-review";
 
 type Props = {
   params: Promise<{ locale: string; code: string }>;
@@ -189,6 +190,8 @@ export default async function HostBookingPage({ params, searchParams }: Props) {
               {t("openCalendar")}
             </Link>
           </Card>
+          {/* Real reviews (round 3, brief 8.1): the guest's review, the one reply and "report". */}
+          <HostBookingReview bookingId={booking.id} locale={locale as AppLocale} />
         </div>
 
         <div className="grid gap-5">

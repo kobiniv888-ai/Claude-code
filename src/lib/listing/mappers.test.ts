@@ -23,6 +23,8 @@ function row(overrides: Partial<ListingCardRow> = {}): ListingCardRow {
     isShabbatFriendly: true,
     kitchenKosher: "KOSHER",
     synagogueWalkMin: 6,
+    seaWalkMinutes: null,
+    liftWalkMinutes: null,
     jewishFeatures: [],
     hotelJewishFeatures: [],
     publishedAt: daysAgo(2),
@@ -31,6 +33,8 @@ function row(overrides: Partial<ListingCardRow> = {}): ListingCardRow {
     isDemo: false,
     ownerVerifiedAt: null,
     visitedAt: null,
+    reviewCount: 0,
+    ratingSum: 0,
     approxLat: 41.71,
     approxLng: 44.76,
     owner: { accountType: "PRIVATE", idVerifiedAt: daysAgo(100), welcomePledgeVersion: 1, keepsShabbat: false, spokenLanguages: ["en"] },
@@ -62,6 +66,12 @@ describe("listingCardSelect", () => {
 });
 
 describe("toListingCard", () => {
+  it("shows the rating only from 3 visible reviews (round 3, brief 8.1)", () => {
+    expect(toListingCard(row(), { locale: "en", now }).rating).toBeNull();
+    expect(toListingCard(row({ reviewCount: 2, ratingSum: 10 }), { locale: "en", now }).rating).toBeNull();
+    expect(toListingCard(row({ reviewCount: 12, ratingSum: 56 }), { locale: "en", now }).rating).toEqual({ average: 4.7, count: 12 });
+  });
+
   it("uses the translation, localized places and approximate coordinates", () => {
     const card = toListingCard(row(), { locale: "en", now });
     expect(card.title).toBe("Sunny flat in Vake");
@@ -106,6 +116,9 @@ describe("toListingCard", () => {
       kosherKitchen: true,
       synagogueWalkMin: 6,
       synagogueVerified: true,
+      // Brief 7.3: walking minutes to the sea / lifts (none outside those towns).
+      seaWalkMinutes: null,
+      liftWalkMinutes: null,
       isNew: true,
       priceDropped: false,
       promoted: true,

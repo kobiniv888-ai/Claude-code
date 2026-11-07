@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { notificationEmailFor } from "@/lib/email";
 import { personName } from "@/lib/auth/first-name";
 import { sendFounderAlert } from "@/lib/alerts/founder";
-import { setWeeklyStatsEmail } from "@/lib/alerts/unsubscribe-server";
+import { setEmailSwitch, setWeeklyStatsEmail } from "@/lib/alerts/unsubscribe-server";
 import { hmacHash } from "@/lib/crypto";
 import {
   alertEnvironment,
@@ -308,6 +308,12 @@ export async function handleEmailBounce(event: EmailEvent): Promise<{ duplicate:
     // must not keep going to an address that refuses it).
     if (template === "weekly_host_stats") {
       await setWeeklyStatsEmail(user.id, false).catch((error: unknown) => console.error("[alerts] could not switch the weekly digest off:", error));
+    }
+    // The same for the saved-search and price-drop emails (round 3, brief 7.4).
+    if (template === "saved_search_matches" || template === "price_drop") {
+      await setEmailSwitch(user.id, template === "price_drop" ? "priceDrops" : "savedSearches", false).catch((error: unknown) =>
+        console.error(`[alerts] could not switch the ${template} email off:`, error),
+      );
     }
   }
 

@@ -25,6 +25,7 @@ import {
   submitForPublication,
 } from "@/lib/listing/lifecycle";
 import { getCityById, getNeighborhoods } from "@/lib/places";
+import { walkMinutesFor } from "@/lib/geo/walk-targets";
 import { assertRateLimit } from "@/lib/rate-limit";
 import { detectContactInfo, hasContactInfo } from "@/lib/risk/contact-info";
 import { scanText } from "@/lib/risk/scan";
@@ -151,6 +152,7 @@ const stepUpdateDeps: StepUpdateDeps = {
   getNeighborhoodIds: async (cityId) => (await getNeighborhoods(cityId)).map((n) => n.id),
   getRates: () => getRates(),
   mapPoint: (point, listingId) => publicMapPoint(point, listingId),
+  walkMinutes: async (cityId, lat, lng) => walkMinutesFor(cityId ? (await getCityById(cityId))?.slug : null, lat, lng),
   parseContactMethods,
   countFutureDatePrices: (listingId) => countFutureDatePrices(listingId, null),
 };

@@ -20,6 +20,8 @@ import { listingPath } from "@/lib/listing/urls";
 import { canRevealReporter, reporterNameForHost } from "@/lib/reports/turned-away";
 import { ReportNoteForm } from "../_components/report-note-form";
 import { ReportScreenshotsViewer } from "../_components/report-screenshots-viewer";
+import { AdminReviewPanel } from "../_components/review-panel";
+import type { AppLocale } from "@/config/site";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/admin/reports/[id]">): Promise<Metadata> {
   const { locale } = await params;
@@ -86,7 +88,7 @@ export default async function ReportDetailPage({ params }: PageProps<"/[locale]/
               </span>
             ) : null}
             <ReportStatusBadge status={report.status} />
-            <span>{t(`kind.${report.kind}`)}</span>
+            <span>{report.targetType === "REVIEW" ? t("tabs.reviews") : t(`kind.${report.kind}`)}</span>
             <span aria-hidden>·</span>
             <WhenText date={report.createdAt} />
           </>
@@ -319,9 +321,8 @@ export default async function ReportDetailPage({ params }: PageProps<"/[locale]/
               </div>
             </AdminSection>
           ) : report.targetType === "REVIEW" ? (
-            <AdminSection title={t("reviewTitle")}>
-              <p className="text-sm text-muted-foreground">{t("reviewSoon")}</p>
-            </AdminSection>
+            // Round 3, brief 8.1: the reported review, and hide / show again (never edit).
+            <AdminReviewPanel reviewId={report.reviewId} reportId={report.id} staff={staff} locale={locale as AppLocale} />
           ) : null}
 
           <AdminSection title={t("otherReports", { count: otherReports.length })}>
@@ -372,6 +373,8 @@ export default async function ReportDetailPage({ params }: PageProps<"/[locale]/
         </div>
 
         <aside className="flex min-w-0 flex-col gap-4">
+          {/* A review report names no account (the review panel shows the guest and the host). */}
+          {report.targetType !== "REVIEW" ? (
           <AdminSection
             title={turnedAway ? t("hostTitle") : report.targetUser ? t("reportedUser") : t("listingOwner")}
             actions={
@@ -416,6 +419,7 @@ export default async function ReportDetailPage({ params }: PageProps<"/[locale]/
               <p className="text-sm text-muted-foreground">{t("targetGone")}</p>
             )}
           </AdminSection>
+          ) : null}
 
           <AdminSection
             title={

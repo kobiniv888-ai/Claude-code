@@ -459,7 +459,10 @@
       "scam_alert_update": "Scam alert updated",
       "scam_alert_delete": "Scam alert deleted",
       "translation_override": "Translation edited by hand",
-      "translation_reset": "Translation reset to automatic"
+      "translation_reset": "Translation reset to automatic",
+      "review_hide": "Review hidden",
+      "review_show": "Review shown again",
+      "report_review_hidden": "Review hidden (report closed)"
     }
   },
   "moderation": {
@@ -797,10 +800,11 @@
       "dismissed": "Dismissed",
       "warned": "Host warned",
       "listings_hidden": "Host's listings hidden",
-      "host_removed": "Host removed"
+      "host_removed": "Host removed",
+      "review_hidden": "Review hidden"
     },
     "emptyReviews": "No review reports yet",
-    "emptyReviewsDescription": "Once the site has reviews, hosts can report a review. Those reports will appear here.",
+    "emptyReviewsDescription": "Hosts can report a guest's review from their Reviews page. Those reports show here.",
     "happenedOn": "When it happened",
     "reporterRevealed": "The host was told the reporter's first name on {date}.",
     "reporterHidden": "The host doesn't know who reported. Only you can decide to tell them.",

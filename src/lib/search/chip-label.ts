@@ -95,6 +95,10 @@ export function chipLabel(chip: FilterChip, filters: SearchFilters, ctx: ChipLab
       return t("mapArea");
     case "visited":
       return t("visited");
+    case "nearSea":
+      return t("nearSea");
+    case "nearLifts":
+      return t("nearLifts");
     case "shabbatFriendly":
     case "bigFamily":
     case "verifiedOnly":

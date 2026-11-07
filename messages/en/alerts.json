@@ -123,5 +123,192 @@
     "notLinked": "This chat isn't connected to a {brand} account. Connect it from your account settings: {url}",
     "resumed": "Telegram alerts from {brand} are back on.",
     "disconnected": "You disconnected Telegram in your {brand} settings. You won't get alerts here any more."
+  },
+  "save": {
+    "button": "Save search",
+    "savedButton": "Search saved",
+    "sheetTitle": "Save this search",
+    "sheetLead": "We'll email you when new places match this search, at most once a day. You can pause or delete it at any time.",
+    "nameLabel": "Search name",
+    "namePlaceholder": "e.g. Batumi in August",
+    "submit": "Save",
+    "cancel": "Cancel",
+    "saved": "Search saved: {name}",
+    "savedHint": "We'll email you when new places are listed.",
+    "savedOffHint": "Emails for saved searches are off. You can turn them on in Alerts.",
+    "exists": "You already saved this search: {name}",
+    "manage": "Manage",
+    "errors": {
+      "name_required": "Give the search a name.",
+      "name_too_long": "Up to 80 characters.",
+      "too_many_searches": "You can save up to 20 searches. Delete one in Alerts to save a new one.",
+      "failed": "We couldn't save the search. Please try again."
+    }
+  },
+  "defaultName": {
+    "place": {
+      "any": "Homes in {place}",
+      "rent": "Homes for rent in {place}",
+      "shortStay": "Short stays in {place}",
+      "monthly": "Monthly rentals in {place}",
+      "buy": "Homes for sale in {place}",
+      "hotels": "Hotels and guesthouses in {place}"
+    },
+    "anywhere": {
+      "any": "Homes in Georgia",
+      "rent": "Homes for rent in Georgia",
+      "shortStay": "Short stays in Georgia",
+      "monthly": "Monthly rentals in Georgia",
+      "buy": "Homes for sale in Georgia",
+      "hotels": "Hotels and guesthouses in Georgia"
+    },
+    "text": "“{text}”",
+    "withDates": "{name} · {dates}",
+    "withMoveIn": "{name} · from {date}"
+  },
+  "page": {
+    "metaTitle": "Alerts and saved searches",
+    "metaDescription": "Emails about new places for your saved searches and price drops of places you saved.",
+    "title": "Alerts and saved searches",
+    "lead": "Emails about new places for the searches you saved, and when a place you saved lowers its price.",
+    "emails": {
+      "title": "Emails",
+      "savedSearches": {
+        "label": "New places for my saved searches",
+        "hint": "At most one email a day, in the morning. Never on Shabbat or Jewish holidays."
+      },
+      "priceDrops": {
+        "label": "Price drops of places I saved",
+        "hint": "When a place in your lists lowers its price by 3% or more."
+      },
+      "watching": "{count, plural, =0 {No saved places yet.} one {Watching 1 saved place.} other {Watching {countText} saved places.}}",
+      "lists": "My lists",
+      "noEmail": "To get these emails, add an email address to your account.",
+      "addEmail": "Add an email address",
+      "checkEmail": "Check the address",
+      "failing": "Emails to your address are paused because an earlier email didn't arrive. Check the address in Settings.",
+      "saved": "Saved",
+      "failed": "We couldn't save that. Please try again."
+    },
+    "searches": {
+      "title": "Saved searches",
+      "count": "{count, plural, one {1 search} other {{countText} searches}}",
+      "limit": "You can save up to {max} searches.",
+      "emptyTitle": "No saved searches yet",
+      "emptyBody": "Search for a place, then tap “Save search”. We'll email you when new places match.",
+      "emptyAction": "Start a search",
+      "status": {
+        "active": "On",
+        "paused": "Paused",
+        "datesPassed": "Dates passed"
+      },
+      "switchLabel": "Emails for {name}",
+      "datesPassed": "The dates of this search have passed, so we don't email about it. Open it, choose new dates and save it again.",
+      "lastSent": "Last email: {date}",
+      "neverSent": "No email yet",
+      "open": "Open search",
+      "rename": "Rename",
+      "delete": "Delete",
+      "deleteLabel": "Delete {name}",
+      "actionsLabel": "Actions for {name}",
+      "renameTitle": "Rename the search",
+      "renameSubmit": "Save",
+      "nameLabel": "Search name",
+      "deleteTitle": "Delete this search?",
+      "deleteBody": "“{name}” will be deleted and you won't get emails about it any more.",
+      "deleteConfirm": "Delete",
+      "cancel": "Cancel",
+      "deleted": "Search deleted",
+      "paused": "Search paused. No emails about it.",
+      "resumed": "Search on again. We'll email you about places listed from now on.",
+      "renamed": "Name changed",
+      "offNotice": "Emails for saved searches are off, so nothing is sent.",
+      "turnOn": "Turn on",
+      "allPlaces": "All places in Georgia"
+    },
+    "errors": {
+      "name_required": "Give the search a name.",
+      "name_too_long": "Up to 80 characters.",
+      "not_found": "We couldn't find this search. It may have been deleted.",
+      "failed": "Something went wrong. Please try again."
+    }
+  },
+  "quick": {
+    "label": "Saved searches",
+    "hint": "{count, plural, =0 {Emails about new places} one {1 active search} other {{countText} active searches}}"
+  },
+  "unsubscribe": {
+    "savedSearch": {
+      "metaTitle": "Saved-search emails",
+      "metaDescription": "Stop or restart the emails about new places for your saved searches.",
+      "confirm": {
+        "title": "Stop saved-search emails?",
+        "body": "We won't email you about new places for your saved searches any more. Your searches stay saved in your account."
+      },
+      "alreadyOff": {
+        "title": "Saved-search emails are already off",
+        "body": "You can turn them back on here or on the Alerts page of your account."
+      },
+      "off": {
+        "title": "Saved-search emails are off",
+        "body": "We won't send you these emails any more. You can turn them back on at any time, here or on the Alerts page of your account."
+      },
+      "on": {
+        "title": "Saved-search emails are back on",
+        "body": "We'll email you when new places are listed, at most once a day."
+      },
+      "invalid": {
+        "title": "This link doesn't work",
+        "body": "The link may be cut off, or the account was deleted. You can choose which emails you get on the Alerts page of your account."
+      },
+      "limited": {
+        "title": "Too many tries",
+        "body": "Try again in an hour, or change the setting on the Alerts page of your account."
+      },
+      "error": {
+        "title": "Something went wrong",
+        "body": "We couldn't save the change. Please try again in a moment."
+      },
+      "turnOff": "Stop the emails",
+      "turnOn": "Turn the emails back on",
+      "retry": "Try again",
+      "settings": "Go to Alerts"
+    },
+    "priceDrop": {
+      "metaTitle": "Price-drop emails",
+      "metaDescription": "Stop or restart the emails about price drops of places you saved.",
+      "confirm": {
+        "title": "Stop price-drop emails?",
+        "body": "We won't email you any more when a place you saved lowers its price. Your lists stay as they are."
+      },
+      "alreadyOff": {
+        "title": "Price-drop emails are already off",
+        "body": "You can turn them back on here or on the Alerts page of your account."
+      },
+      "off": {
+        "title": "Price-drop emails are off",
+        "body": "We won't send you these emails any more. You can turn them back on at any time, here or on the Alerts page of your account."
+      },
+      "on": {
+        "title": "Price-drop emails are back on",
+        "body": "We'll email you when a place you saved lowers its price by 3% or more."
+      },
+      "invalid": {
+        "title": "This link doesn't work",
+        "body": "The link may be cut off, or the account was deleted. You can choose which emails you get on the Alerts page of your account."
+      },
+      "limited": {
+        "title": "Too many tries",
+        "body": "Try again in an hour, or change the setting on the Alerts page of your account."
+      },
+      "error": {
+        "title": "Something went wrong",
+        "body": "We couldn't save the change. Please try again in a moment."
+      },
+      "turnOff": "Stop the emails",
+      "turnOn": "Turn the emails back on",
+      "retry": "Try again",
+      "settings": "Go to Alerts"
+    }
   }
 }

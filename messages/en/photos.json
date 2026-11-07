@@ -44,9 +44,9 @@
   },
   "credits": {
     "footerLink": "Photo credits",
-    "metaTitle": "Photo credits",
-    "metaDescription": "Who took the photos on this site and the licenses we use them under.",
-    "title": "Photo credits",
+    "metaTitle": "Photo and data credits",
+    "metaDescription": "Who took the photos on this site, the licenses we use them under, and where the map data comes from.",
+    "title": "Photo and data credits",
     "lead": "Thank you to the photographers who share their work for free. Here are the photos on this site, who took them and their licenses.",
     "groups": {
       "hero": "Home page hero",
@@ -59,6 +59,11 @@
     "source": "Photo page",
     "listings": "{count, plural, one {The photo in the demo listings is a stock photo} other {The {count} photos in the demo listings are stock photos}} from Unsplash, under the Unsplash License. They do not show the properties themselves.",
     "shareAlike": "Photos under a CC BY-SA license are shared under the same license.",
+    "dataTitle": "Map data",
+    "dataText": "The maps, the address search and the walking times (to the sea, the ski lifts, the supermarket and public transport) are based on OpenStreetMap data. The walking times to the sea and the lifts come from a copy of the data kept on the site, so they are estimates.",
+    "dataAttribution": "© OpenStreetMap contributors",
+    "dataLicense": "Open Database License (ODbL)",
+    "dataLink": "OpenStreetMap copyright",
     "empty": "No photos here yet."
   }
 }

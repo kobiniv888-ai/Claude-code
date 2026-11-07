@@ -4,11 +4,12 @@ import { Tag } from "@/components/ds/tag";
 import { Link } from "@/i18n/navigation";
 import { visitedMonthDate } from "@/lib/listing/visited";
 import { formatArea, formatDate } from "@/lib/format";
-import type { Highlight } from "@/lib/listing-page/highlights";
+import type { Highlight, WalkHighlight } from "@/lib/listing-page/highlights";
 import type { ListingPageData } from "@/lib/listing-page/types";
 import { ownerPath } from "@/lib/listing/urls";
 import { HIGHLIGHT_SPRITE } from "./icons";
 import { HeadlinePrice } from "./headline-price";
+import { RatingLine } from "@/components/reviews/rating-line";
 import { ListingTitle, OriginalLanguageNote } from "./listing-text";
 import { OwnerAvatar } from "./owner-avatar";
 
@@ -56,6 +57,8 @@ export function TitleBlock({ data, tags }: { data: ListingPageData; tags: ("demo
         sizeSqm={data.sizeSqm}
       />
       {place ? <p className="text-body text-muted-foreground">{place}</p> : null}
+      {/* Real reviews (round 3, brief 8.1): "★ 4.7 · 12 ביקורות", only from 3 visible reviews. */}
+      {stay ? <RatingLine reviewCount={data.reviewCount ?? 0} ratingSum={data.ratingSum ?? 0} /> : null}
       {facts.length ? (
         // Wraps between facts (never inside one), so long Georgian or Russian words never widen the page.
         <ul className="flex flex-wrap items-center gap-x-1.5 text-small text-foreground">
@@ -127,13 +130,26 @@ export function HostLine({ data, verified, welcomes }: { data: ListingPageData; 
   );
 }
 
-/** Three highlights with icons, computed from the listing's data (lib/listing-page/highlights). */
-export function Highlights({ items }: { items: Highlight[] }) {
+/**
+ * Three highlights with icons, computed from the listing's data (lib/listing-page/highlights).
+ * Round 3 (brief 7.3): the computed walk to the sea / ski lifts comes first, with "≈" and its
+ * source (OpenStreetMap).
+ */
+export function Highlights({ items, walk = null }: { items: Highlight[]; walk?: WalkHighlight | null }) {
   const t = useTranslations("listing.highlights");
-  if (items.length === 0) return null;
+  if (items.length === 0 && !walk) return null;
   return (
     <section aria-label={t("label")}>
       <ul className="grid gap-3">
+        {walk ? (
+          <li data-walk-highlight={walk.kind} className="flex items-center gap-3 text-body">
+            <SpriteIcon name={walk.kind === "sea" ? "waves-horizontal" : "mountain-snow"} className="size-6 shrink-0 text-primary-text" />
+            <span className="grid gap-0.5">
+              <span>{t(walk.kind === "sea" ? "seaWalk" : "liftWalk", { count: walk.minutes })}</span>
+              <span className="text-caption text-muted-foreground">{t("walkSource")}</span>
+            </span>
+          </li>
+        ) : null}
         {items.map((key) => (
           <li key={key} className="flex items-center gap-3 text-body">
             <SpriteIcon name={HIGHLIGHT_SPRITE[key]} className="size-6 shrink-0 text-primary-text" />

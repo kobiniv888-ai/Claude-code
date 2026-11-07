@@ -201,6 +201,62 @@ const samples: { [K in keyof Data]: Data[K] } = {
     listingsUrl: "/account/listings",
     unsubscribeUrl: "/unsubscribe?t=1.weekly_stats.u1.0123456789abcdef0123456789abcdef",
   },
+  // Saved searches and price drops (round 3, brief 7.4).
+  saved_search_matches: {
+    name: "Dana",
+    searches: [
+      {
+        name: "בטומי באוגוסט",
+        url: "/search?deal=short-stay&city=batumi",
+        places: [
+          { title: "Sea view flat", publicId: 1234, url: "/listing/1234-sea-view-flat", place: "Batumi", price: 85, currency: "USD", pricePeriod: "NIGHT", priceIsFrom: false },
+          { title: "", publicId: 1235, url: "/listing/1235", place: null, price: null, currency: "GEL", pricePeriod: "MONTH", priceIsFrom: false },
+        ],
+        more: 2,
+        total: 4,
+      },
+    ],
+    moreSearches: 1,
+    totalPlaces: 4,
+    manageUrl: "/account/alerts",
+    unsubscribeUrl: "/unsubscribe?t=1.saved_search.u1.0123456789abcdef0123456789abcdef",
+  },
+  price_drop: {
+    name: "Dana",
+    place: { title: "Sunny flat in Vake", publicId: 1234, url: "/listing/1234-sunny-flat", place: "Vake, Tbilisi", price: 90, currency: "GEL", pricePeriod: "NIGHT", priceIsFrom: true },
+    oldPrice: 100,
+    newPrice: 90,
+    pct: 10,
+    listName: "Tbilisi in May",
+    manageUrl: "/account/alerts",
+    unsubscribeUrl: "/unsubscribe?t=1.price_drop.u1.0123456789abcdef0123456789abcdef",
+  },  // Reviews (round 3, brief 8.1).
+  review_request: {
+    name: "Dana",
+    listingTitle: "Sunny flat in Vake",
+    checkIn: "2026-10-01",
+    checkOut: "2026-10-05",
+    closesOn: "2026-10-19",
+    writeUrl: "/account/reviews/write/BT-7K3Q9",
+    tripUrl: "/account/trips/BT-7K3Q9",
+    unsubscribeUrl: "/unsubscribe?t=1.review_request.u1.0123456789abcdef0123456789abcdef",
+  },
+  review_posted_host: {
+    name: "Giorgi",
+    listingTitle: "Sunny flat in Vake",
+    rating: 5,
+    guestName: "Dana",
+    text: "A lovely, quiet flat. The host met us at the door and everything was clean.",
+    reviewsUrl: "/account/reviews#review-r1",
+  },
+  review_reply_guest: {
+    name: "Dana",
+    listingTitle: "Sunny flat in Vake",
+    replyText: "Thank you, Dana! You are welcome back any time.",
+    listingUrl: "/listing/1234-sunny-flat#reviews",
+  },
+  review_hidden: { name: "Dana", role: "guest", listingTitle: "Sunny flat in Vake", reasonCode: "offensive", reviewsUrl: "/account/reviews" },
+  review_shown: { name: "Giorgi", role: "host", listingTitle: "Sunny flat in Vake", listingUrl: "/listing/1234-sunny-flat#reviews" },
 };
 
 afterEach(() => {

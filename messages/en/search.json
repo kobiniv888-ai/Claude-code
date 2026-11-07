@@ -129,7 +129,11 @@
     "kosherShabbatHint": "A kosher kitchen, Shabbat-friendly or kosher meals: any one is enough",
     "walkUpTo": "Up to {count} min",
     "visited": "We visited",
-    "visitedHint": "Someone from the Bayit team visited the place in person."
+    "visitedHint": "Someone from the Bayit team visited the place in person.",
+    "nearSea": "Near the sea",
+    "nearSeaHint": "Up to {minutes} min walk to a beach, from the map",
+    "nearLifts": "Near the lifts",
+    "nearLiftsHint": "Up to {minutes} min walk to a ski lift, from the map"
   },
   "chips": {
     "heading": "Active filters",
@@ -146,7 +150,9 @@
     "floor": "Floor {range}",
     "mapArea": "Map area",
     "kosherShabbat": "Kosher or Shabbat-friendly",
-    "visited": "We visited"
+    "visited": "We visited",
+    "nearSea": "Near the sea",
+    "nearLifts": "Near the lifts"
   },
   "toolbar": {
     "sortLabel": "Sort by",
@@ -212,7 +218,9 @@
       "shabbat": "Shabbat-friendly",
       "synagogue": "Near a synagogue",
       "hebrew": "Hebrew-speaking",
-      "kosherShabbat": "Kosher & Shabbat"
+      "kosherShabbat": "Kosher & Shabbat",
+      "nearSea": "Near the sea",
+      "nearLifts": "Near the lifts"
     },
     "anywhere": "All of Georgia",
     "anyDates": "Add dates",

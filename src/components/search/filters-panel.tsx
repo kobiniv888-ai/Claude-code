@@ -13,6 +13,7 @@ import {
   amenityFilterIcon,
 } from "@/components/listing/field-icons";
 import { formatNumber } from "@/lib/format";
+import { NEAR_SEA_AMENITY, NEAR_WALK_MINUTES, isSeaTown, isSkiTown } from "@/lib/geo/walk-towns";
 import {
   CONDITIONS,
   HEATING_TYPES,
@@ -188,6 +189,7 @@ export function FiltersPanel({ filters, onChange, holidays, histogram, className
       ) : null}
 
       <CollapsibleSection id="amenities" filters={filters} title={t("sections.amenities")}>
+        <WalkFilters filters={filters} onChange={onChange} />
         <AmenityGrid filters={filters} onChange={onChange} />
       </CollapsibleSection>
 
@@ -450,14 +452,50 @@ function SmallToggle({ icon: Icon, label, pressed, onToggle }: { icon: IconCompo
   );
 }
 
+/**
+ * "קרוב לים" / "קרוב למעליות" (round 3, brief 7.3): the walk from the pin is 15 minutes or less.
+ * Only in the sea / ski towns, where the walking times exist (a set filter always stays visible).
+ */
+function WalkFilters({ filters, onChange }: Pick<FiltersPanelProps, "filters" | "onChange">) {
+  const t = useTranslations("search.filters");
+  const locale = useLocale();
+  const minutes = formatNumber(NEAR_WALK_MINUTES, locale);
+  const sea = isSeaTown(filters.city) || filters.nearSea;
+  const lifts = isSkiTown(filters.city) || filters.nearLifts;
+  if (!sea && !lifts) return null;
+  return (
+    <div className="-my-1 grid divide-y divide-border">
+      {sea ? (
+        <SwitchRow checked={filters.nearSea} onChange={(nearSea) => onChange({ nearSea })} label={t("nearSea")} hint={t("nearSeaHint", { minutes })} />
+      ) : null}
+      {lifts ? (
+        <SwitchRow
+          checked={filters.nearLifts}
+          onChange={(nearLifts) => onChange({ nearLifts })}
+          label={t("nearLifts")}
+          hint={t("nearLiftsHint", { minutes })}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * The amenity toggles. The host's own "Near the sea" tick is not offered (brief 7.3: every
+ * published listing has a pin, and its computed walk replaces the tick; see WalkFilters), unless
+ * an old link set it.
+ */
+const AMENITY_TOGGLES = AMENITY_FILTERS.filter((a) => a !== NEAR_SEA_AMENITY);
+
 /** Amenities as two columns of small icon toggles; the first 8, then "Show all". */
 function AmenityGrid({ filters, onChange }: Pick<FiltersPanelProps, "filters" | "onChange">) {
   const t = useTranslations("search.filters");
   const f = useTranslations("listingFields");
   const [expanded, setExpanded] = useState(false);
-  const hiddenSelected = AMENITY_FILTERS.slice(AMENITIES_COLLAPSED).some((a) => filters.amenities.includes(a));
+  const options = filters.amenities.includes(NEAR_SEA_AMENITY) ? AMENITY_FILTERS : AMENITY_TOGGLES;
+  const hiddenSelected = options.slice(AMENITIES_COLLAPSED).some((a) => filters.amenities.includes(a));
   const showAll = expanded || hiddenSelected;
-  const shown = showAll ? AMENITY_FILTERS : AMENITY_FILTERS.slice(0, AMENITIES_COLLAPSED);
+  const shown = showAll ? options : options.slice(0, AMENITIES_COLLAPSED);
   const label = (amenity: AmenityFilter) =>
     amenity === "pets_allowed" || amenity === "smoking_allowed" ? f(`houseRule.${amenity}`) : f(`amenity.${amenity}`);
   return (
@@ -480,7 +518,7 @@ function AmenityGrid({ filters, onChange }: Pick<FiltersPanelProps, "filters" | 
           onClick={() => setExpanded((v) => !v)}
           className="min-h-11 w-fit text-sm font-semibold text-primary underline-offset-4 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
         >
-          {showAll ? t("showFewerAmenities") : t("showAllAmenities", { count: AMENITY_FILTERS.length })}
+          {showAll ? t("showFewerAmenities") : t("showAllAmenities", { count: options.length })}
         </button>
       ) : null}
     </div>

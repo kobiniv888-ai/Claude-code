@@ -464,6 +464,104 @@
       "unsubscribeText": "Don't want the weekly summary? You can stop it with one tap, and turn it back on in your account settings.",
       "unsubscribe": "Stop the weekly summary",
       "cta": "Go to My places"
+    },
+    "saved_search_matches": {
+      "subjectOne": "{count, plural, one {1 new place} other {{countText} new places}}: {name}",
+      "subjectMany": "{count, plural, one {1 new place for your saved searches} other {{countText} new places for your saved searches}}",
+      "preheader": "Places just listed on {brand} that match your saved searches",
+      "heading": "New places for your searches",
+      "intro": "New places on {brand} match the searches you saved:",
+      "searchCount": "{count, plural, one {1 new place} other {{countText} new places}}",
+      "openSearch": "See all results",
+      "openPlace": "View place",
+      "more": "{count, plural, one {And 1 more new place in this search.} other {And {countText} more new places in this search.}}",
+      "moreSearches": "{count, plural, one {Another saved search has new places too. We'll send them in the next email.} other {{countText} more saved searches have new places too. We'll send them in the next email.}}",
+      "unsubscribeText": "You get this email because you saved a search on {brand}. You can pause any search in your account, or stop these emails with one tap.",
+      "unsubscribe": "Stop saved-search emails",
+      "cta": "Go to my saved searches"
+    },
+    "price_drop": {
+      "subject": "Price down {pct}%: {title}",
+      "preheader": "Now {price}",
+      "heading": "A place you saved is cheaper",
+      "intro": "The price of {title} has gone down since you saved it.",
+      "before": "Before",
+      "now": "Now",
+      "drop": "Down by",
+      "dropValue": "{pct}%",
+      "where": "Where",
+      "list": "In your list",
+      "note": "Prices can change. Before you book, check the full price for your dates on the place's page.",
+      "unsubscribeText": "You get this email because this place is in one of your saved lists on {brand}. You can stop price-drop emails with one tap.",
+      "unsubscribe": "Stop price-drop emails",
+      "cta": "View place"
+    },
+    "review_request": {
+      "subject": "How was your stay at {title}?",
+      "preheader": "You can write a short review until {date}. It helps the next guests.",
+      "heading": "Thank you for staying!",
+      "body1": "Your stay at {title} ({dates}) is over. We hope you enjoyed it.",
+      "body2": "A short review helps the next guests choose. On {brand}, only guests who stayed can write reviews.",
+      "final": "You can write a review until {date}. Once posted it can't be edited or deleted, and it shows with your first name and the month.",
+      "tripText": "All the booking details stay on the booking page.",
+      "tripLink": "Go to the booking",
+      "unsubscribeText": "Don't want review requests by email from {brand}?",
+      "unsubscribe": "Stop review requests",
+      "cta": "Write a review"
+    },
+    "review_posted_host": {
+      "subject": "New review of {title}",
+      "preheader": "A guest gave {stars} stars out of 5.",
+      "heading": "A guest wrote a review",
+      "body": "A new review of {title}: {stars} stars out of 5.",
+      "bodyNamed": "{guest} wrote a review of {title}: {stars} stars out of 5.",
+      "quoteLabel": "The review",
+      "reply": "You can reply once, publicly, under the review. If it breaks the rules, you can report it to the {brand} team.",
+      "final": "Reviews and replies are final: they can't be edited or deleted.",
+      "cta": "See the review"
+    },
+    "review_reply_guest": {
+      "subject": "The host replied to your review of {title}",
+      "preheader": "The reply shows under your review.",
+      "heading": "The host replied",
+      "body": "The host of {title} replied to your review. The reply shows under your review on the listing.",
+      "quoteLabel": "The host's reply",
+      "cta": "See it on the listing"
+    },
+    "review_hidden": {
+      "subject": {
+        "guest": "Your review of {title} was hidden",
+        "host": "A review of {title} was hidden"
+      },
+      "heading": "A review was hidden",
+      "body": {
+        "guest": "The {brand} team hid your review of {title} because it doesn't follow the review rules. It no longer shows on the site or counts in the rating.",
+        "host": "The {brand} team hid a review of {title} because it doesn't follow the review rules. It no longer shows on the site or counts in the rating."
+      },
+      "reasonLabel": "Reason",
+      "reasons": {
+        "offensive": "Offensive content",
+        "discrimination": "Discrimination or hate",
+        "personal_info": "Personal or contact details",
+        "not_about_stay": "Not about the stay",
+        "not_genuine": "Not a genuine review",
+        "other": "Breaks the review rules"
+      },
+      "final": "Reviews are never edited: a review can only be hidden or shown again.",
+      "help": "Think this is a mistake? Write to us through the {brand} help page.",
+      "cta": "My reviews"
+    },
+    "review_shown": {
+      "subject": {
+        "guest": "Your review of {title} is back on the site",
+        "host": "A review of {title} is back on the site"
+      },
+      "heading": "A review is back on the site",
+      "body": {
+        "guest": "The {brand} team looked at your review of {title} again and put it back on the site. It shows on the listing and counts in the rating again.",
+        "host": "The {brand} team looked at a review of {title} again and put it back on the site. It shows on the listing and counts in the rating again."
+      },
+      "cta": "See the reviews"
     }
   },
   "ticketStatus": {
@@ -540,5 +638,15 @@
       "title": "Listing not approved",
       "body": "{title}: the reason is in \"My listings\"."
     }
+  },
+  "savedAlerts": {
+    "price": {
+      "NIGHT": "{price} a night",
+      "WEEK": "{price} a week",
+      "MONTH": "{price} a month",
+      "TOTAL": "{price}"
+    },
+    "priceFrom": "from {price}",
+    "untitled": "Listing {id}"
   }
 }

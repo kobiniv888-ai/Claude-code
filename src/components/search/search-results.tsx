@@ -15,6 +15,7 @@ import { getSearchMapPoints } from "@/lib/search/actions";
 import { cn } from "@/lib/utils";
 import { resultListClass } from "./result-cards";
 import { MapPill, SortButton, ViewSwitcher } from "./results-toolbar";
+import { SaveSearchButton } from "./save-search-button";
 import { useSearch } from "./search-context";
 import { useMediaQuery } from "./use-media-query";
 
@@ -34,6 +35,8 @@ export type SearchResultsProps = {
   notice: ReactNode;
   pagination: ReactNode;
   empty: ReactNode;
+  /** "שמירת חיפוש" (round 3, brief 7.4): the prefilled name and whether it is saved already. */
+  saveSearch?: { defaultName: string; saved: boolean };
 };
 
 /**
@@ -43,7 +46,7 @@ export type SearchResultsProps = {
  * While new results load, the cards fade into shimmering skeletons (after a short delay, so fast
  * changes do not flash).
  */
-export function SearchResults({ items, mapPoints, fitKey, header, cards, chips, notice, pagination, empty }: SearchResultsProps) {
+export function SearchResults({ items, mapPoints, fitKey, header, cards, chips, notice, pagination, empty, saveSearch }: SearchResultsProps) {
   const t = useTranslations("search.results");
   const { filters, isPending } = useSearch();
   const [hovered, setHovered] = useState<number | null>(null);
@@ -89,7 +92,8 @@ export function SearchResults({ items, mapPoints, fitKey, header, cards, chips, 
             ·
           </span>
           <SortButton />
-          <ViewSwitcher className="ms-auto hidden lg:inline-flex" />
+          {saveSearch ? <SaveSearchButton {...saveSearch} variant="inline" className="ms-auto hidden lg:inline-flex" /> : null}
+          <ViewSwitcher className={cn("hidden lg:inline-flex", !saveSearch && "ms-auto")} />
         </div>
       </div>
       <Fragment key="chips">{chips}</Fragment>
@@ -132,6 +136,7 @@ export function SearchResults({ items, mapPoints, fitKey, header, cards, chips, 
           className="pointer-events-none fixed inset-x-0 bottom-[calc(var(--bottom-nav-height)+1rem)] z-(--z-sticky) flex justify-center lg:hidden"
         >
           <MapPill className="pointer-events-auto" />
+          {saveSearch ? <SaveSearchButton {...saveSearch} variant="pill" className="pointer-events-auto ms-2" /> : null}
         </div>
       ) : null}
     </>

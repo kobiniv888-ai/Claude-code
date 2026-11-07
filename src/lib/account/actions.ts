@@ -42,6 +42,7 @@ import {
   contactEmailSchema,
   notificationsSchema,
   ownAvatarKey,
+  parseNotificationPrefs,
   preferencesSchema,
   profileSchema,
   remainingSignInMethods,
@@ -313,8 +314,16 @@ export async function updateNotifications(input: unknown): Promise<ActionResult>
     // Keep the booking-alert channel states (a paused email address, src/lib/booking/alert-rules.ts).
     const current = await db.user.findUnique({ where: { id: user.id }, select: { notificationPrefs: true } });
     const alerts = alertsPart(current?.notificationPrefs);
+    // The saved-search and price-drop switches live on /account/alerts (round 3, brief 7.4): kept when not sent.
+    const was = parseNotificationPrefs(current?.notificationPrefs).email;
     const prefs = {
-      email: parsed.data.email,
+      email: {
+        ...parsed.data.email,
+        savedSearches: parsed.data.email.savedSearches ?? was.savedSearches,
+        priceDrops: parsed.data.email.priceDrops ?? was.priceDrops,
+        // The review-request switch (round 3, brief 8.1) lives on /account/reviews: kept when not sent.
+        reviewRequests: parsed.data.email.reviewRequests ?? was.reviewRequests,
+      },
       whatsapp: siteConfig.features.whatsappNotifications ? parsed.data.whatsapp : false,
       ...(alerts ? { alerts } : {}),
     };

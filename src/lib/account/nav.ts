@@ -52,7 +52,8 @@ const HREFS: Record<AccountNavKey, string> = {
   favorites: "/account/favorites",
   compare: "/account/compare",
   messages: "/account/messages",
-  savedSearches: "/account/saved-searches",
+  // "התראות וחיפושים שמורים" (round 3, brief 7.4).
+  savedSearches: "/account/alerts",
   reviews: "/account/reviews",
   tickets: "/account/tickets",
   verification: "/account/verification",
@@ -65,7 +66,8 @@ type FeatureFlags = { chat: boolean; savedSearchAlerts: boolean; reviews: boolea
 const FLAG_FOR: Partial<Record<AccountNavKey, keyof FeatureFlags>> = {
   messages: "chat",
   savedSearches: "savedSearchAlerts",
-  reviews: "reviews",
+  // "ביקורות" (round 3, brief 8.1) is live for everyone; features.reviews now only gates the
+  // later extras (the "Top rated" sort and reviews on the owner's profile).
 };
 
 /**

@@ -19,6 +19,7 @@ import { publicListingWhere } from "@/lib/listing/where";
 import { photoUrl } from "@/lib/media";
 import { assertRateLimit } from "@/lib/rate-limit";
 import { getSettings } from "@/lib/settings";
+import { displayAmenities } from "@/lib/geo/walk-towns";
 
 export type CompareItem = {
   publicId: number;
@@ -113,6 +114,7 @@ export async function getCompareItems(publicIds: unknown): Promise<ActionResult<
         jewishFeatures: true,
         hotelJewishFeatures: true,
         amenities: true,
+        approxLat: true,
         ownerVerifiedAt: true,
         owner: { select: { idVerifiedAt: true } },
         city: { select: { names: true } },
@@ -171,7 +173,8 @@ export async function getCompareItems(publicIds: unknown): Promise<ActionResult<
             chabadWalkMin: row.chabadWalkMin,
             features: [...row.shabbatFeatures.map((f) => `shabbat:${f}`), ...row.jewishFeatures.map((f) => `jewish:${f}`), ...row.hotelJewishFeatures.map((f) => `hotel:${f}`)],
           },
-          amenities: row.amenities,
+          // Brief 7.3: with a pin, the computed walk replaces the host's "Near the sea" tick.
+          amenities: displayAmenities(row.amenities, row.approxLat !== null),
           costs: {
             currency: row.currency as CurrencyCode,
             deposit: num(row.deposit),

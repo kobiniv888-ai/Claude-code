@@ -154,6 +154,12 @@ export type ListingPageData = {
   sharedRoomFor: SharedRoomFor | null;
   synagogueWalkMin: number | null;
   chabadWalkMin: number | null;
+  /**
+   * Round 3 (brief 7.3): minutes on foot from the pin to the nearest beach / ski lift (sea and ski
+   * towns only, ≤ 30). Missing = none.
+   */
+  seaWalkMinutes?: number | null;
+  liftWalkMinutes?: number | null;
   nearby: NearbyInfo;
 
   deposit: number | null;
@@ -200,6 +206,12 @@ export type ListingPageData = {
    * ("YYYY-MM"), never the day or the staff note. Null (or missing) without the badge and on demo listings.
    */
   visitedMonth?: string | null;
+  /**
+   * Round 3 (brief 8.1): the VISIBLE reviews' count and the sum of their stars (Listing.reviewCount /
+   * ratingSum). The average shows only from 3 (getRatingSummary in src/lib/reviews). Missing = none.
+   */
+  reviewCount?: number;
+  ratingSum?: number;
   promoted: boolean;
   isNew: boolean;
 

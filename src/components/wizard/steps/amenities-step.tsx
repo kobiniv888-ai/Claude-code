@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { ClockIcon, ListChecksIcon, PartyPopperIcon, PawPrintIcon, CigaretteIcon, MoonIcon } from "lucide-react";
 import { AMENITIES } from "@/lib/listing/fields";
+import { displayAmenities } from "@/lib/geo/walk-towns";
 import { applies, usesBookingStep } from "@/lib/wizard/steps";
 import { CheckCards, CheckTimeSelect, Field, Section, TimeInput, YesNo } from "../fields";
 import { AMENITY_ICONS } from "../icons";
@@ -23,7 +24,12 @@ export function AmenitiesStep({ values, set, errors, kind }: StepProps) {
           values={values.amenities}
           onChange={(amenities) => set({ amenities })}
           layout="tiles"
-          options={AMENITIES.map((a) => ({ value: a, label: label("amenity", a), icon: AMENITY_ICONS[a] }))}
+          // Brief 7.3: with a pin, the computed walk to the sea replaces the "Near the sea" tick.
+          options={displayAmenities(AMENITIES, values.lat !== null && values.lng !== null).map((a) => ({
+            value: a,
+            label: label("amenity", a),
+            icon: AMENITY_ICONS[a],
+          }))}
         />
       </Section>
 

@@ -112,7 +112,8 @@ export function activeBottomNavKey(pathname: string): BottomNavKey | null {
   if (path === "/") return "home";
   if (under(path, "/search") || under(path, "/rent") || under(path, "/buy") || under(path, "/hotels")) return "search";
   if (under(path, "/post")) return "post";
-  if (under(path, "/account/favorites") || under(path, "/account/compare")) return "saved";
+  // "/saved": a signed-out visitor's lists on the device (round 3, brief 7.2).
+  if (under(path, "/account/favorites") || under(path, "/account/compare") || under(path, "/saved")) return "saved";
   if (ACCOUNT_PAGES.some((base) => under(path, base))) return "profile";
   return null;
 }

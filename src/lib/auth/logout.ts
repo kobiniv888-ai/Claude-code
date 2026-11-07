@@ -1,4 +1,4 @@
-import { clearPrivateDeviceData, markLoggedOut } from "./device-data";
+import { clearPrivateCaches, clearPrivateDeviceData, markLoggedOut } from "./device-data";
 
 /**
  * Logging out, the same everywhere (round 3, bug 2.9): the side menu, the desktop account menu,
@@ -32,6 +32,8 @@ export async function logOut({ homeHref, everywhere = false }: { homeHref: strin
     if (!everywhere) return { ok: false, error: "network" };
   }
   clearPrivateDeviceData();
+  // Trip pages saved for offline use (round 3, brief 7.1) are gone before the page is.
+  await clearPrivateCaches();
   markLoggedOut();
   window.location.assign(homeHref);
   return { ok: true };

@@ -12,6 +12,8 @@ import { checkTimeDisplay, clockLabel } from "@/lib/listing/check-times";
 import { ADMIN_EMAIL_TEMPLATES, adminEmailBuilders, type AdminEmailData } from "@/lib/alerts/founder-email-templates";
 import { REPORT_EMAIL_TEMPLATES, reportEmailBuilders, type ReportEmailData } from "@/lib/reports/email-templates";
 import { WEEKLY_EMAIL_TEMPLATES, weeklyEmailBuilders, type WeeklyEmailData } from "@/lib/alerts/weekly-host-email-template";
+import { SAVED_ALERT_EMAIL_TEMPLATES, savedAlertEmailBuilders, type SavedAlertEmailData } from "@/lib/saved-searches/email-templates";
+import { REVIEW_EMAIL_TEMPLATES, reviewEmailBuilders, type ReviewEmailData } from "@/lib/reviews/email-templates";
 
 export const EMAIL_TEMPLATES = [
   "login_code",
@@ -50,6 +52,10 @@ export const EMAIL_TEMPLATES = [
   ...ADMIN_EMAIL_TEMPLATES,
   // The weekly host stats (round 3, brief 6.2): src/lib/alerts/weekly-host-email-template.ts
   ...WEEKLY_EMAIL_TEMPLATES,
+  // Saved searches and price drops (round 3, brief 7.4): src/lib/saved-searches/email-templates.ts
+  ...SAVED_ALERT_EMAIL_TEMPLATES,
+  // Reviews (round 3, brief 8.1): src/lib/reviews/email-templates.ts
+  ...REVIEW_EMAIL_TEMPLATES,
 ] as const;
 export type EmailTemplate = (typeof EMAIL_TEMPLATES)[number];
 
@@ -225,7 +231,9 @@ export type EmailData = {
   };
 } & ReportEmailData &
   AdminEmailData &
-  WeeklyEmailData;
+  WeeklyEmailData &
+  SavedAlertEmailData &
+  ReviewEmailData;
 
 /**
  * - host_unreachable: a booking was refused because no alert channel of the host accepted the alert
@@ -1021,6 +1029,8 @@ const builders: { [K in EmailTemplate]: Builder<K> } = {
   ...reportEmailBuilders,
   ...adminEmailBuilders,
   ...weeklyEmailBuilders,
+  ...savedAlertEmailBuilders,
+  ...reviewEmailBuilders,
 };
 
 export function buildEmailContent<K extends EmailTemplate>(

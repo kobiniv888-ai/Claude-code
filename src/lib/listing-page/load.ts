@@ -15,6 +15,7 @@ import { isPromoted, localizedTitle } from "@/lib/listing/mappers";
 import { listingPath } from "@/lib/listing/urls";
 import { photoUrl } from "@/lib/media";
 import { parseNearby } from "@/lib/nearby";
+import { displayAmenities } from "@/lib/geo/walk-towns";
 import { georgiaToday } from "./calendar";
 import { cheapestRoomType } from "./headline";
 import { usesRoomInventory } from "@/lib/booking/constants";
@@ -153,6 +154,8 @@ function listingSelect(locale: AppLocale, today: Date, until: Date) {
     sharedRoomFor: true,
     synagogueWalkMin: true,
     chabadWalkMin: true,
+    seaWalkMinutes: true,
+    liftWalkMinutes: true,
     nearby: true,
     price: true,
     currency: true,
@@ -192,6 +195,9 @@ function listingSelect(locale: AppLocale, today: Date, until: Date) {
     propertyVerifiedAt: true,
     // "ביקרנו במקום": the date only; visitedNote and visitedById are staff-only and never selected here.
     visitedAt: true,
+    // Real reviews (round 3, brief 8.1): the visible reviews' counters.
+    reviewCount: true,
+    ratingSum: true,
     owner: { select: OWNER_PUBLIC_SELECT },
     city: { select: { slug: true, names: true, lat: true, lng: true, timezone: true } },
     neighborhood: { select: { names: true } },
@@ -361,7 +367,8 @@ async function load(publicId: number, locale: AppLocale): Promise<LoadedListing 
     condition: row.condition,
     heating: row.heating,
     views: row.views,
-    amenities: row.amenities,
+    // Brief 7.3: with a pin, the computed walk replaces the host's "Near the sea" tick.
+    amenities: displayAmenities(row.amenities, row.approxLat !== null && row.approxLng !== null),
     kitchenKosher: row.kitchenKosher,
     shabbatFeatures: row.shabbatFeatures,
     jewishFeatures: row.jewishFeatures,
@@ -371,6 +378,8 @@ async function load(publicId: number, locale: AppLocale): Promise<LoadedListing 
     sharedRoomFor: row.sharedRoomFor,
     synagogueWalkMin: row.synagogueWalkMin,
     chabadWalkMin: row.chabadWalkMin,
+    seaWalkMinutes: row.seaWalkMinutes,
+    liftWalkMinutes: row.liftWalkMinutes,
     nearby: parseNearby(row.nearby),
     deposit: num(row.deposit),
     cleaningFee: num(row.cleaningFee),
@@ -403,6 +412,8 @@ async function load(publicId: number, locale: AppLocale): Promise<LoadedListing 
     ownerVerified: showsDocumentBadge(row.ownerVerifiedAt),
     propertyVerified: showsDocumentBadge(row.propertyVerifiedAt),
     visitedMonth: visitedMonth(row),
+    reviewCount: row.reviewCount,
+    ratingSum: row.ratingSum,
     promoted: isPromoted(row, undefined, now),
     isNew: !!row.publishedAt && now.getTime() - row.publishedAt.getTime() <= siteConfig.listings.newLabelDays * DAY_MS,
     photos,

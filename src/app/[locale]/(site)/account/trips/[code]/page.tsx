@@ -1,44 +1,46 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import {
   BanknoteIcon,
-  CalendarPlusIcon,
   ChevronRightIcon,
   CircleCheckBigIcon,
   CreditCardIcon,
   LandmarkIcon,
   LifeBuoyIcon,
-  MapPinIcon,
-  NavigationIcon,
-  PhoneIcon,
-  SearchXIcon,
   ShieldAlertIcon,
   type LucideIcon,
 } from "lucide-react";
 import { BookingPriceLines } from "@/components/booking/booking-price-lines";
 import { CancelTrip } from "@/components/booking/cancel-trip";
 import { CopyCode } from "@/components/booking/copy-code";
-import { WhatsAppIcon } from "@/components/common/brand-icons";
 import { Ltr } from "@/components/common/ltr";
-import { buttonStyles } from "@/components/ds/button";
 import { Card } from "@/components/ds/card";
-import { EmptyState } from "@/components/ds/empty-state";
 import { Tag } from "@/components/ds/tag";
 import { TurnedAwayButton } from "@/components/report/turned-away-button";
+import { OfflineNotice } from "@/components/trip/offline-save";
+import { TripHost } from "@/components/trip/trip-host";
+import { TripKeep } from "@/components/trip/trip-keep";
+import { TripRules } from "@/components/trip/trip-rules";
+import { TripSafety } from "@/components/trip/trip-safety";
+import { TripShabbat } from "@/components/trip/trip-shabbat";
+import { TripWhere } from "@/components/trip/trip-where";
+import { TripReviewPrompt } from "@/components/reviews/trip-review-prompt";
 import { siteConfig, type AppLocale } from "@/config/site";
 import { Link } from "@/i18n/navigation";
-import { formatPhoneInternational } from "@/lib/auth/phone";
 import { requireUser } from "@/lib/auth/session";
 import { cleanPaymentMethods, TRIPS_PATH, tripPath, type PaymentMethod } from "@/lib/booking/constants";
 import { DEFAULT_CHECK_IN_TIME, tbilisiToday } from "@/lib/booking/dates";
 import { clockText } from "@/lib/booking/guest";
 import { formatBookingMoney } from "@/lib/booking/price-lines";
 import { getGuestTrip } from "@/lib/booking/queries";
-import { whatsappUrl } from "@/lib/booking/reveal";
-import { telHref } from "@/lib/phone";
 import { formatDate, formatDateRange, formatMoney, formatTime } from "@/lib/format";
 import { guestBookingReports } from "@/lib/reports/queries";
 import { pageMetadata } from "@/lib/seo";
+import { tripGoogleCalendarUrl } from "@/lib/trip/calendar-server";
+import { cancellationView } from "@/lib/trip/deadline";
+import { OFFLINE_TRIP_MARKER } from "@/lib/trip/offline";
+import { getTripExtras } from "@/lib/trip/server";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -46,10 +48,18 @@ type Props = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
+function decodedCode(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale, code } = await params;
   const t = await getTranslations({ locale, namespace: "booking.trip" });
-  return pageMetadata({ locale, path: tripPath(decodeURIComponent(code)), title: t("title"), description: t("confirmedText"), noIndex: true });
+  return pageMetadata({ locale, path: tripPath(decodedCode(code)), title: t("title"), description: t("confirmedText"), noIndex: true });
 }
 
 const PAYMENT_ICONS: Record<PaymentMethod, LucideIcon> = { cash: BanknoteIcon, card: CreditCardIcon, bank_transfer: LandmarkIcon };
@@ -64,45 +74,63 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 }
 
 /**
- * /account/trips/<code> — one trip, and the booking confirmation (?booked=1, brief 5.5 step 3):
- * the booking number, dates and guests; for a confirmed booking the exact address, directions and
- * the host's phone / WhatsApp (revealed only now), "Add to calendar", "What's next"; the price paid
- * at check-in; the cancellation policy and "Cancel booking" (with a reason).
+ * /account/trips/<code> — the trip page (round 3, brief 7.1), also the booking confirmation
+ * (?booked=1). Only for the guest of the booking (anyone else gets "not found"; the host has their
+ * own booking page). Linked from the confirmation, every booking email to the guest and "הנסיעות
+ * שלי". It shows, in this order:
+ *
+ * - status, booking number, dates with check-in / check-out times ("גמיש" too), guests, room type
+ *   and rooms for hotels;
+ * - the exact address (confirmed and completed bookings only, as before), a map of the exact point
+ *   that loads only near the screen, "פתיחה ב-Google Maps" / "פתיחה ב-Waze";
+ * - the host's contact buttons (every method the host chose) and contact hours;
+ * - "הוספה ליומן" (.ics + Google Calendar) and "שמירה לשימוש בלי אינטרנט" (on a tap only);
+ * - ONLY when the stay includes a Friday night or a night of a holiday (Israeli calendar):
+ *   candle-lighting and Havdalah times for the city, the nearest verified synagogue, Chabad house
+ *   and kosher place with walking times, "המארח לא עונה בשבת" (src/lib/trip/server.ts);
+ * - the house rules; the itemized total (Booking.priceLines) and how to pay on arrival;
+ * - the free-cancellation deadline with the cancel button; the safety note and emergency numbers;
+ * - "Turned away?" (round 3, brief 8.2) and help.
+ *
+ * Light on weak connections: a server component; the only client parts are the copy, cancel,
+ * report and offline buttons, and the map (lazy). The reviews prompt (brief 8.1) goes in its
+ * marked place below.
  */
 export default async function TripPage({ params, searchParams }: Props) {
   const { locale: raw, code } = await params;
   setRequestLocale(raw);
   const locale = raw as AppLocale;
-  const user = await requireUser({ next: tripPath(decodeURIComponent(code)) });
-  const [t, trip, query] = await Promise.all([
+  const user = await requireUser({ next: tripPath(decodedCode(code)) });
+  const [t, tt, trip, query] = await Promise.all([
     getTranslations({ locale, namespace: "booking" }),
-    getGuestTrip(user.id, decodeURIComponent(code), locale),
+    getTranslations({ locale, namespace: "trips" }),
+    getGuestTrip(user.id, decodedCode(code), locale),
     searchParams,
   ]);
-
-  const back = (
-    <Link
-      href={TRIPS_PATH}
-      className="inline-flex min-h-11 items-center gap-1 justify-self-start rounded-md text-small font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
-    >
-      <ChevronRightIcon className="size-4 ltr:-scale-x-100" aria-hidden />
-      {t("trip.back")}
-    </Link>
-  );
-
-  if (!trip) {
-    return (
-      <div className="grid gap-2 py-6">
-        {back}
-        <EmptyState icon={SearchXIcon} title={t("trip.notFoundTitle")} description={t("trip.notFoundText")} action={{ label: t("trips.title"), href: TRIPS_PATH }} />
-      </div>
-    );
-  }
+  // Not this account's booking (or no such booking): the same answer, nothing about it leaks.
+  if (!trip) notFound();
 
   const brand = siteConfig.localizedName[locale] ?? siteConfig.name;
+  const dates = formatDateRange(trip.checkIn, trip.checkOut, locale, { day: "numeric", month: "short" });
+  const reveal = trip.reveal;
+  const confirmed = trip.status === "CONFIRMED";
+  const cancelled = trip.status === "CANCELLED_BY_GUEST" || trip.status === "CANCELLED_BY_HOST";
+  const justBooked = query.booked === "1" && confirmed;
+  const [tr, reports, extras, googleUrl] = await Promise.all([
+    getTranslations({ locale, namespace: "report.turnedAway" }),
+    guestBookingReports(user.id, [trip.id]),
+    getTripExtras(
+      user.id,
+      { id: trip.id, status: trip.status, checkIn: trip.checkIn, checkOut: trip.checkOut, revealed: reveal !== null },
+      locale,
+      { message: t("trip.whatsappText", { brand, code: trip.code, dates }) },
+    ),
+    confirmed && reveal ? tripGoogleCalendarUrl(trip, locale) : Promise.resolve(null),
+  ]);
+  if (!extras) notFound();
+
   // "Turned away?" (round 3, brief 8.2): the guest can report the host from every trip; after a
   // host cancellation it is a card of its own. ?report=1 (the cancellation email) opens the form.
-  const [tr, reports] = await Promise.all([getTranslations({ locale, namespace: "report.turnedAway" }), guestBookingReports(user.id, [trip.id])]);
   const reportedAt = reports.get(trip.id) ?? null;
   const today = tbilisiToday();
   const reportProps = {
@@ -112,10 +140,6 @@ export default async function TripPage({ params, searchParams }: Props) {
     defaultDate: trip.status === "CANCELLED_BY_HOST" && trip.cancelledAt ? tbilisiToday(trip.cancelledAt) : today,
     autoOpen: query.report === "1" && !reportedAt,
   };
-  const confirmed = trip.status === "CONFIRMED";
-  const cancelled = trip.status === "CANCELLED_BY_GUEST" || trip.status === "CANCELLED_BY_HOST";
-  const justBooked = query.booked === "1" && confirmed;
-  const dates = formatDateRange(trip.checkIn, trip.checkOut, locale, { day: "numeric", month: "short" });
   const guests = [
     t("guests.adults", { count: trip.adults }),
     trip.children > 0 ? t("guests.children", { count: trip.children }) : null,
@@ -128,19 +152,34 @@ export default async function TripPage({ params, searchParams }: Props) {
   const checkOutTime = clockText(trip.checkOutUntil, locale);
   const total = formatBookingMoney(trip.total, trip.currency, locale);
   const methods = cleanPaymentMethods(trip.paymentMethods);
-  const reveal = trip.reveal;
-  const whatsapp = reveal?.contact.whatsapp ? whatsappUrl(reveal.contact.whatsapp, t("trip.whatsappText", { brand, code: trip.code, dates })) : null;
+  const deadline = cancellationView({
+    status: trip.status,
+    checkIn: trip.checkIn,
+    checkOut: trip.checkOut,
+    policy: trip.cancellation.policy,
+    checkInFrom: trip.checkInFrom,
+  });
   const freeLine =
-    confirmed && !trip.cancellation.lateNow
-      ? t("policy.freeUntil", {
-          date: formatDate(trip.cancellation.freeUntil, locale, { weekday: "short", day: "numeric", month: "long" }),
-          time: formatTime(trip.cancellation.freeUntil, locale),
+    deadline.kind === "free"
+      ? tt("cancel.freeUntil", {
+          date: formatDate(deadline.until, locale, { weekday: "short", day: "numeric", month: "long" }),
+          time: formatTime(deadline.until, locale),
         })
       : null;
+  const pagePath = `/${locale}${trip.path}`;
 
   return (
-    <div className="grid max-w-3xl gap-4 pt-2 pb-8">
-      {back}
+    // The mark tells the offline copy apart from "not found" and the login page (src/lib/trip/offline.ts).
+    <div className="grid max-w-3xl gap-4 pt-2 pb-8" {...{ [OFFLINE_TRIP_MARKER]: trip.code }}>
+      <Link
+        href={TRIPS_PATH}
+        className="inline-flex min-h-11 items-center gap-1 justify-self-start rounded-md text-small font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        <ChevronRightIcon className="size-4 ltr:-scale-x-100" aria-hidden />
+        {t("trip.back")}
+      </Link>
+
+      <OfflineNotice path={pagePath} />
 
       {justBooked ? (
         <div role="status" className="flex items-start gap-3 rounded-card border border-border bg-primary-tint p-4 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2">
@@ -174,13 +213,6 @@ export default async function TripPage({ params, searchParams }: Props) {
             <span dir="auto" className="line-clamp-2 text-h3 font-semibold group-hover:underline">
               {trip.listing.title}
             </span>
-            {trip.roomTypeName ? (
-              <span className="truncate text-caption text-muted-foreground">
-                <span dir="auto">{trip.roomTypeName}</span>
-                {/* Hotels (round 3): a family can book several rooms of one type. */}
-                {trip.rooms > 1 ? ` · ${t("price.rooms", { count: trip.rooms })}` : null}
-              </span>
-            ) : null}
             <span className="text-caption text-primary-text">{t("trip.viewListing")}</span>
           </span>
         </Link>
@@ -202,77 +234,37 @@ export default async function TripPage({ params, searchParams }: Props) {
           <Row label={t("review.dates")}>
             {dates} · {t("price.nights", { count: trip.nights })}
           </Row>
+          {trip.roomTypeName ? (
+            // Hotels (round 3): the room type and how many rooms of it (a family can book several).
+            <Row label={tt("room.label")}>
+              <span dir="auto">{tt("room.value", { name: trip.roomTypeName, count: trip.rooms })}</span>
+            </Row>
+          ) : null}
         </dl>
       </Card>
 
+      {/* Reviews (round 3, brief 8.1): renders nothing unless this stay can be reviewed now. */}
+      <TripReviewPrompt bookingCode={trip.code} locale={locale} />
+
       {reveal ? (
-        <Card as="section" aria-labelledby="trip-where" className="grid gap-4">
-          <div className="grid gap-2">
-            <h2 id="trip-where" className="text-h2">
-              {t("trip.address")}
-            </h2>
-            {reveal.address ? (
-              <p dir="auto" className="flex items-start gap-2 text-body">
-                <MapPinIcon className="mt-1 size-5 shrink-0 text-primary-text" aria-hidden />
-                <span>{reveal.address}</span>
-              </p>
-            ) : (
-              <p className="text-small text-muted-foreground">{t("trip.noAddress")}</p>
-            )}
-            {reveal.directions ? (
-              <div className="flex flex-wrap gap-2">
-                <a href={reveal.directions.google} target="_blank" rel="noopener noreferrer" className={buttonStyles({ variant: "secondary", size: "sm" })}>
-                  <NavigationIcon aria-hidden />
-                  {t("trip.googleMaps")}
-                </a>
-                <a href={reveal.directions.waze} target="_blank" rel="noopener noreferrer" className={buttonStyles({ variant: "secondary", size: "sm" })}>
-                  <NavigationIcon aria-hidden />
-                  {t("trip.waze")}
-                </a>
-              </div>
-            ) : null}
-          </div>
-          <div className="grid gap-2 border-t border-border pt-4">
-            <h2 className="text-h2">{t("trip.host")}</h2>
-            {reveal.hostName ? (
-              <p dir="auto" className="text-body font-medium">
-                {reveal.hostName}
-              </p>
-            ) : null}
-            {reveal.contact.phone || whatsapp ? (
-              <div className="grid gap-2 sm:flex sm:flex-wrap">
-                {whatsapp ? (
-                  <a href={whatsapp} target="_blank" rel="noopener noreferrer" className={buttonStyles({ variant: "whatsapp" })}>
-                    <WhatsAppIcon className="size-5" />
-                    {t("trip.whatsapp")}
-                  </a>
-                ) : null}
-                {reveal.contact.phone ? (
-                  <a href={telHref(reveal.contact.phone) ?? `tel:${reveal.contact.phone}`} className={buttonStyles({ variant: "outline" })}>
-                    <PhoneIcon aria-hidden />
-                    <span className="truncate">
-                      {t("trip.call")} <Ltr>{formatPhoneInternational(reveal.contact.phone)}</Ltr>
-                    </span>
-                  </a>
-                ) : null}
-              </div>
-            ) : (
-              <p className="text-small text-muted-foreground">{t("trip.noContact")}</p>
-            )}
-          </div>
-          {trip.icsPath ? (
-            <a
-              href={`${trip.icsPath}?lang=${locale}`}
-              download={`${trip.code}.ics`}
-              className={buttonStyles({ variant: "soft", className: "justify-self-start" })}
-            >
-              <CalendarPlusIcon aria-hidden />
-              {t("trip.calendar")}
-            </a>
-          ) : null}
-        </Card>
+        <>
+          <TripWhere locale={locale} address={reveal.address} directions={reveal.directions} point={extras.point} />
+          <TripHost locale={locale} hostName={reveal.hostName} buttons={extras.contactButtons} contactHours={extras.contactHours} />
+        </>
       ) : !cancelled ? (
         <p className="rounded-card border border-border bg-surface-muted p-4 text-small text-muted-foreground">{t("trip.hidden")}</p>
+      ) : null}
+
+      {!cancelled ? (
+        <TripKeep
+          locale={locale}
+          calendar={
+            confirmed && trip.icsPath && googleUrl
+              ? { icsHref: `${trip.icsPath}?lang=${locale}`, fileName: `${trip.code}.ics`, googleUrl }
+              : null
+          }
+          offline={{ path: pagePath, code: trip.code, title: trip.listing.title, checkIn: trip.checkIn, checkOut: trip.checkOut, status: trip.status }}
+        />
       ) : null}
 
       {confirmed && trip.upcoming ? (
@@ -297,37 +289,37 @@ export default async function TripPage({ params, searchParams }: Props) {
         </Card>
       ) : null}
 
+      {extras.shabbat ? <TripShabbat locale={locale} shabbat={extras.shabbat} /> : null}
+
+      {!cancelled ? <TripRules locale={locale} rules={extras.rules} /> : null}
+
       {cancelled ? null : (
-      <Card as="section" aria-labelledby="trip-pay" className="grid gap-3">
-        <h2 id="trip-pay" className="text-h2">
-          {t("trip.payTitle")}
-        </h2>
-        {/* The lines the guest confirmed (round 3, brief 6.3: Booking.priceLines). */}
-        <BookingPriceLines lines={trip.priceLines} total={trip.total} currency={trip.currency} locale={locale} />
-        {trip.display ? (
-          <p className="-mt-1 text-end text-caption text-muted-foreground">
-            {t("price.estimate", { amount: `⁦≈ ${formatMoney(trip.display.total, trip.display.currency, locale, { maximumFractionDigits: 0 })}⁩` })}
-          </p>
-        ) : null}
-        <p className="text-caption text-muted-foreground">{t("payAtCheckIn", { currency: t(`inCurrency.${trip.currency}`) })}</p>
-        {methods.length ? (
-          <ul className="flex flex-wrap gap-2">
-            {methods.map((method) => {
-              const Icon = PAYMENT_ICONS[method];
-              return (
-                <li key={method} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border px-3 text-small">
-                  <Icon className="size-4 text-primary-text" aria-hidden />
-                  {t(`paymentMethod.${method}`)}
-                </li>
-              );
-            })}
-          </ul>
-        ) : null}
-        <p className="flex items-start gap-2 rounded-input bg-surface-muted p-3 text-small">
-          <ShieldAlertIcon className="mt-0.5 size-5 shrink-0 text-primary-text" aria-hidden />
-          <span>{t("noPrepayment", { brand })}</span>
-        </p>
-      </Card>
+        <Card as="section" aria-labelledby="trip-pay" className="grid gap-3">
+          <h2 id="trip-pay" className="text-h2">
+            {t("trip.payTitle")}
+          </h2>
+          {/* The lines the guest confirmed (round 3, brief 6.3: Booking.priceLines). */}
+          <BookingPriceLines lines={trip.priceLines} total={trip.total} currency={trip.currency} locale={locale} />
+          {trip.display ? (
+            <p className="-mt-1 text-end text-caption text-muted-foreground">
+              {t("price.estimate", { amount: `⁦≈ ${formatMoney(trip.display.total, trip.display.currency, locale, { maximumFractionDigits: 0 })}⁩` })}
+            </p>
+          ) : null}
+          <p className="text-caption text-muted-foreground">{t("payAtCheckIn", { currency: t(`inCurrency.${trip.currency}`) })}</p>
+          {methods.length ? (
+            <ul className="flex flex-wrap gap-2">
+              {methods.map((method) => {
+                const Icon = PAYMENT_ICONS[method];
+                return (
+                  <li key={method} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border px-3 text-small">
+                    <Icon className="size-4 text-primary-text" aria-hidden />
+                    {t(`paymentMethod.${method}`)}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
+        </Card>
       )}
 
       {trip.messageToHost ? (
@@ -356,13 +348,13 @@ export default async function TripPage({ params, searchParams }: Props) {
         ) : (
           <>
             <p className="text-small">{t(`policy.${trip.cancellation.policy}.rule`)}.</p>
-            {confirmed ? (
-              <p className={cn("text-small", trip.cancellation.lateNow ? "text-foreground" : "text-muted-foreground")}>
-                {trip.cancellation.lateNow ? t("policy.lateNote") : freeLine}
+            {confirmed && deadline.kind !== "closed" ? (
+              <p className={cn("text-body", deadline.kind === "late" ? "text-foreground" : "font-semibold")}>
+                {deadline.kind === "late" ? t("policy.lateNote") : freeLine}
               </p>
             ) : null}
-            {trip.canCancel ? (
-              <CancelTrip bookingId={trip.id} late={trip.cancellation.lateNow} freeLine={freeLine} />
+            {deadline.canCancel ? (
+              <CancelTrip bookingId={trip.id} late={deadline.kind === "late"} freeLine={freeLine} />
             ) : confirmed ? (
               <p className="text-small text-muted-foreground">{t("trip.cantCancel")}</p>
             ) : null}
@@ -370,6 +362,8 @@ export default async function TripPage({ params, searchParams }: Props) {
         )}
         {trip.status === "COMPLETED" ? <p className="text-small">{t("trip.completedNote", { brand })}</p> : null}
       </Card>
+
+      {!cancelled ? <TripSafety locale={locale} emergencyNumber={extras.emergencyNumber} /> : null}
 
       {trip.status === "CANCELLED_BY_HOST" && !reportedAt ? (
         <Card as="section" aria-labelledby="trip-report" className="grid gap-3">

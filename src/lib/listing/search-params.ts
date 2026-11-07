@@ -24,6 +24,7 @@ import type {
   ViewType,
 } from "@/generated/prisma/enums";
 import { parseBounds, serializeBounds, type Bounds } from "@/lib/geo";
+import { isSeaTown, isSkiTown } from "@/lib/geo/walk-towns";
 import { clampBoundsToGeorgia } from "@/lib/map-bounds";
 import {
   AMENITIES,
@@ -171,6 +172,13 @@ export type SearchFilters = {
   verifiedOnly: boolean;
   /** Round 3 (brief 8.3): "ביקרנו במקום", a Bayit team member visited the place (`?visited=1`). */
   visited: boolean;
+  /**
+   * Round 3 (brief 7.3): "קרוב לים", the walk from the pin to a beach is 15 minutes or less
+   * (`?nearSea=1`). Only with a sea town as `city` (src/lib/geo/walk-towns.ts); dropped otherwise.
+   */
+  nearSea: boolean;
+  /** "קרוב למעליות", the walk to a ski lift is 15 minutes or less (`?nearLifts=1`; ski towns only). */
+  nearLifts: boolean;
   ownerType: OwnerType | null;
   hasPhotos: boolean;
   hasVideo: boolean;
@@ -225,6 +233,8 @@ export function emptyFilters(): SearchFilters {
     sharedRoomFor: null,
     verifiedOnly: false,
     visited: false,
+    nearSea: false,
+    nearLifts: false,
     ownerType: null,
     hasPhotos: false,
     hasVideo: false,
@@ -272,6 +282,8 @@ const PARAM_ORDER = [
   "sharedRoomFor",
   "verifiedOnly",
   "visited",
+  "nearSea",
+  "nearLifts",
   "ownerType",
   "hasPhotos",
   "hasVideo",
@@ -451,6 +463,9 @@ export function parseSearchParams(input: SearchParamsInput | null | undefined): 
   // Hidden with the document badges (src/config/verification.ts): an old link with it is ignored.
   filters.verifiedOnly = documentChecksOn() && flag(one("verifiedOnly"));
   filters.visited = flag(one("visited"));
+  // Brief 7.3: the walking-time chips exist only in the sea / ski towns.
+  filters.nearSea = isSeaTown(filters.city) && flag(one("nearSea"));
+  filters.nearLifts = isSkiTown(filters.city) && flag(one("nearLifts"));
   filters.ownerType = pickOne(one("ownerType"), OWNER_TYPES, exactKey);
   filters.hasPhotos = flag(one("hasPhotos"));
   filters.hasVideo = flag(one("hasVideo"));
@@ -538,6 +553,8 @@ export function withFilters(filters: SearchFilters, patch: Partial<SearchFilters
   const next: SearchFilters = { ...filters, ...patch, page: patch.page ?? 1 };
   if ("city" in patch && patch.city !== filters.city && !("neighborhood" in patch)) next.neighborhood = null;
   if (!next.city) next.neighborhood = null;
+  if (!isSeaTown(next.city)) next.nearSea = false;
+  if (!isSkiTown(next.city)) next.nearLifts = false;
   if (!availableSorts(next.deal).includes(next.sort)) next.sort = DEFAULT_SORT;
   return next;
 }
@@ -570,6 +587,8 @@ export type ChipKey =
   | "sharedRoomFor"
   | "verifiedOnly"
   | "visited"
+  | "nearSea"
+  | "nearLifts"
   | "ownerType"
   | "hasPhotos"
   | "hasVideo"
@@ -607,6 +626,8 @@ const FLAG_CHIPS = [
   "bigFamily",
   "verifiedOnly",
   "visited",
+  "nearSea",
+  "nearLifts",
   "hasPhotos",
   "hasVideo",
   "furnished",

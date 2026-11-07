@@ -78,7 +78,10 @@
     "visited": "ადგილზე ვიყავით",
     "kosherKitchen": "კოშერული სამზარეულო",
     "shabbatFriendly": "შაბათისთვის",
+    "sea": "≈ {count} წთ ფეხით ზღვამდე",
+    "lift": "≈ {count} წთ ფეხით საბაგირომდე",
     "synagogue": "{count} წთ სინაგოგამდე",
     "hebrew": "ებრაულად საუბრობს"
-  }
+  },
+  "rating": "შეფასება {average} 5-დან, {count, plural, one {{count} შეფასება} other {{count} შეფასება}}"
 }

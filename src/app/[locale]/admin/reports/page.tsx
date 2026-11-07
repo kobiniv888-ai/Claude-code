@@ -1,4 +1,4 @@
-import { Flag, ImageIcon, ShieldAlert, UserRound } from "lucide-react";
+import { Flag, ImageIcon, ShieldAlert, Star, UserRound } from "lucide-react";
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { ListingStatusBadge, ReportStatusBadge, UserStatusBadge } from "@/components/admin/badges";
@@ -40,10 +40,11 @@ export default async function ReportsPage({ params, searchParams }: PageProps<"/
     status: enumParam(query, "status", REPORT_STATUS_FILTERS, "OPEN"),
     reason: enumParam(query, "reason", REPORT_REASON_FILTERS),
   };
-  const [t, tAdmin, tFields, result] = await Promise.all([
+  const [t, tAdmin, tFields, tReviews, result] = await Promise.all([
     getTranslations("admin.reports"),
     getTranslations("admin"),
     getTranslations("listingFields"),
+    getTranslations("reviews"),
     listReports(filters, pageParam(query), locale),
   ]);
   const reasonLabel = (reason: string) => (tFields.has(`reportReason.${reason}`) ? tFields(`reportReason.${reason}`) : reason);
@@ -111,7 +112,7 @@ export default async function ReportsPage({ params, searchParams }: PageProps<"/
                   <ListingThumb src={coverUrl(row.listing.photos)} alt="" />
                 ) : (
                   <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                    <UserRound aria-hidden className="size-5" />
+                    {row.targetType === "REVIEW" ? <Star aria-hidden className="size-5" /> : <UserRound aria-hidden className="size-5" />}
                   </span>
                 )}
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -133,7 +134,7 @@ export default async function ReportsPage({ params, searchParams }: PageProps<"/
                     <ReportStatusBadge status={row.status} />
                   </div>
                   <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-                    <span className="text-xs text-muted-foreground">{t(`kind.${row.kind}`)}:</span>
+                    {row.targetType === "REVIEW" ? null : <span className="text-xs text-muted-foreground">{t(`kind.${row.kind}`)}:</span>}
                     {row.kind === "TURNED_AWAY" && host ? (
                       <>
                         <span dir="auto" className="font-medium">
@@ -143,7 +144,16 @@ export default async function ReportsPage({ params, searchParams }: PageProps<"/
                         {row.listing ? <PublicId id={row.listing.publicId} /> : null}
                       </>
                     ) : row.targetType === "REVIEW" ? (
-                      <span>{t("reviewTarget")}</span>
+                      <>
+                        <span>{t("reviewTarget")}</span>
+                        {row.review ? (
+                          <>
+                            <span className="text-xs text-muted-foreground">{tReviews("stars.label", { count: row.review.rating })}</span>
+                            <PublicId id={row.review.listing.publicId} />
+                            {row.review.hidden ? <span className="text-xs font-medium text-destructive">{tReviews("admin.hiddenBadge")}</span> : null}
+                          </>
+                        ) : null}
+                      </>
                     ) : row.listing ? (
                       <>
                         <PublicId id={row.listing.publicId} />

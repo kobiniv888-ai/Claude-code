@@ -8,6 +8,7 @@
  *   - the last search (src/lib/home/last-search-store.ts) and the device copy of saved lists (phase 5)
  *   (sessionStorage is cleared whole, including the "merged into the account" flag of recently viewed)
  *   - the remembered phone country (src/lib/auth/phone-defaults.ts)
+ *   - trip pages saved for offline use (Cache Storage "bayit-trips", src/lib/trip/offline.ts)
  * Not private, so kept: the theme (next-themes "theme"), "bayit:consent", dismissed alerts and the
  * demo banner, "bayit:safety-tip-seen" (a device hint, not personal data). The language and
  * currency choices are cookies and are not touched either.
@@ -51,7 +52,27 @@ export function clearPrivateData(storage: KeyedStorage | null | undefined): numb
   }
 }
 
-/** Clears this device's private data: localStorage keys above and the whole sessionStorage. */
+/** Cache Storage with trip pages the guest saved for offline use (round 3, src/lib/trip/offline.ts). */
+export const PRIVATE_CACHE_NAMES: readonly string[] = ["bayit-trips"];
+
+/**
+ * Deletes the private Cache Storage above. Resolves within `maxMs` even when the browser is slow
+ * (logout waits for it before leaving the page). Never throws.
+ */
+export async function clearPrivateCaches(maxMs = 1500): Promise<void> {
+  try {
+    if (typeof window === "undefined" || !("caches" in window)) return;
+    const deletions = Promise.all(PRIVATE_CACHE_NAMES.map((name) => window.caches.delete(name).catch(() => false)));
+    await Promise.race([deletions, new Promise((resolve) => window.setTimeout(resolve, maxMs))]);
+  } catch {
+    // Cache Storage blocked (private mode, insecure origin): nothing saved to clear.
+  }
+}
+
+/**
+ * Clears this device's private data: localStorage keys above, the whole sessionStorage, and (in
+ * the background) the saved trip pages; await clearPrivateCaches() before leaving the page.
+ */
 export function clearPrivateDeviceData(): void {
   try {
     clearPrivateData(window.localStorage);
@@ -59,6 +80,7 @@ export function clearPrivateDeviceData(): void {
   } catch {
     // Storage blocked: nothing to clear.
   }
+  void clearPrivateCaches();
 }
 
 export function markLoggedOut(): void {

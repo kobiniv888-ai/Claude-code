@@ -46,7 +46,14 @@ export const SHELL_MESSAGES = [
 ] as const;
 
 /** (site) layout: listing cards and the search bar's place field, on most public pages. */
-export const SITE_MESSAGES = ["listingCard", "listingFields.facts", "search.bar", "search.dates"] as const;
+export const SITE_MESSAGES = [
+  "listingCard",
+  "listingFields.facts",
+  // The heart's toasts and its list sheet (round 3, brief 7.2), on every card.
+  "lists.saving",
+  "search.bar",
+  "search.dates",
+] as const;
 
 /** Extra per route segment under (site) (those not listed need nothing beyond the two sets above). */
 export const ROUTE_MESSAGES = {
@@ -89,8 +96,14 @@ export const ROUTE_MESSAGES = {
   ],
   // The booking review page (/listing/<id>/book), on top of "listing": a nested segment.
   "listing/[id]/book": ["auth.verifyPhone", "booking"],
+  // Shared lists (round 3, brief 7.2): the view-only page and its "Copy to my lists".
+  lists: ["lists.shared"],
   owner: ["report"],
+  // A signed-out visitor's lists on the device.
+  saved: ["lists.device", "lists.page"],
   search: [
+    // "שמירת חיפוש" and its name sheet (round 3, brief 7.4).
+    "alerts.save",
     "listingFields",
     "map",
     "maps",

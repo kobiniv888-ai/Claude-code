@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { CheckIcon, CloudOffIcon, HeartIcon, HeartOffIcon, LoaderIcon, MapPinIcon, SearchIcon } from "lucide-react";
+import { CheckIcon, CloudOffIcon, FolderInputIcon, HeartIcon, HeartOffIcon, LoaderIcon, MapPinIcon, SearchIcon } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { EmptyState } from "@/components/ds/empty-state";
 import { siteConfig, type AppLocale } from "@/config/site";
 import { CompareToggle } from "@/components/listing/compare-toggle";
 import { ListingCard } from "@/components/listing/listing-card";
+import { ListPickerSheet } from "@/components/lists/list-picker-sheet";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useRouter } from "@/i18n/navigation";
@@ -109,7 +110,22 @@ function RemoveButton({ listingId, onRemoved }: { listingId: string; onRemoved: 
   );
 }
 
-export function FavoritesList({ items }: { items: FavoriteItem[] }) {
+/** "Move" (round 3, saved lists): the list sheet, to put the place in another list. */
+function MoveButton({ listingId, title, onMoved }: { listingId: string; title: string; onMoved: () => void }) {
+  const t = useTranslations("lists.page");
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button variant="ghost" className="h-11 rounded-full px-3 text-muted-foreground" onClick={() => setOpen(true)} aria-label={t("moveFor", { title })} aria-haspopup="dialog">
+        <FolderInputIcon aria-hidden="true" className="rtl:-scale-x-100" />
+        {t("move")}
+      </Button>
+      <ListPickerSheet open={open} onOpenChange={setOpen} listingId={listingId} title={title} onSaved={() => onMoved()} />
+    </>
+  );
+}
+
+export function FavoritesList({ items, empty }: { items: FavoriteItem[]; empty?: ReactNode }) {
   const t = useTranslations("account.favorites");
   const router = useRouter();
   const [removed, setRemoved] = useState<ReadonlySet<string>>(new Set());
@@ -121,7 +137,7 @@ export function FavoritesList({ items }: { items: FavoriteItem[] }) {
   };
 
   if (visible.length === 0) {
-    return <FavoritesEmpty />;
+    return empty ?? <FavoritesEmpty />;
   }
 
   return (
@@ -134,7 +150,10 @@ export function FavoritesList({ items }: { items: FavoriteItem[] }) {
               <NoteEditor listingId={item.listingId} initial={item.note} />
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <CompareToggle publicId={item.card.publicId} />
-                <RemoveButton listingId={item.listingId} onRemoved={() => onRemoved(item.listingId)} />
+                <div className="flex flex-wrap items-center gap-1">
+                  <MoveButton listingId={item.listingId} title={item.card.title} onMoved={() => onRemoved(item.listingId)} />
+                  <RemoveButton listingId={item.listingId} onRemoved={() => onRemoved(item.listingId)} />
+                </div>
               </div>
             </div>
           </li>
@@ -146,7 +165,8 @@ export function FavoritesList({ items }: { items: FavoriteItem[] }) {
             </p>
             <p className="text-small text-muted-foreground">{t("unavailableBody")}</p>
             <NoteEditor listingId={item.listingId} initial={item.note} />
-            <div className="mt-auto flex justify-end">
+            <div className="mt-auto flex flex-wrap justify-end gap-1">
+              <MoveButton listingId={item.listingId} title={item.title || t("untitled")} onMoved={() => onRemoved(item.listingId)} />
               <RemoveButton listingId={item.listingId} onRemoved={() => onRemoved(item.listingId)} />
             </div>
           </li>

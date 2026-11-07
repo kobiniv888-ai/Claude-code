@@ -13,6 +13,7 @@ import { photoUrl } from "@/lib/media";
 import type { ListingCardBadges, ListingCardData, ListingMapPoint } from "@/lib/listing/types";
 import { listingPath } from "@/lib/listing/urls";
 import { hasWelcomePledge, PLEDGE_CURRENT_VERSION } from "@/lib/pledge";
+import { cardRating } from "@/lib/reviews/rules";
 
 const DAY_MS = 86_400_000;
 /** Round 2: at most 5 photos (and so 5 dots) on a card. */
@@ -54,6 +55,9 @@ export function listingCardSelect(locale: AppLocale) {
     isShabbatFriendly: true,
     kitchenKosher: true,
     synagogueWalkMin: true,
+    // "≈ 5 דק׳ הליכה לים" / "למעליות" (brief 7.3): minutes only, never the pin.
+    seaWalkMinutes: true,
+    liftWalkMinutes: true,
     jewishFeatures: true,
     hotelJewishFeatures: true,
     publishedAt: true,
@@ -63,6 +67,9 @@ export function listingCardSelect(locale: AppLocale) {
     ownerVerifiedAt: true,
     // "ביקרנו במקום": the date only (never visitedNote / visitedById, which are staff-only).
     visitedAt: true,
+    // Real reviews (round 3, brief 8.1): the visible reviews' counters ("★ 4.7 (12)" from 3).
+    reviewCount: true,
+    ratingSum: true,
     approxLat: true,
     approxLng: true,
     owner: { select: CARD_OWNER_SELECT },
@@ -231,6 +238,8 @@ export function toListingCard(row: ListingCardRow, ctx: CardMapContext): Listing
       // (proximityPlaceWhere in src/lib/nearby.ts); a demo listing may use demo places, so it
       // never gets the tag.
       synagogueVerified: !row.isDemo && row.synagogueWalkMin != null,
+      seaWalkMinutes: row.seaWalkMinutes,
+      liftWalkMinutes: row.liftWalkMinutes,
       isNew: within(row.publishedAt, newLabelDays, now),
       priceDropped: within(row.priceDroppedAt, priceDropLabelDays, now),
       promoted: isPromoted(row, ctx.featuredIds, now),
@@ -240,6 +249,7 @@ export function toListingCard(row: ListingCardRow, ctx: CardMapContext): Listing
     lng: row.approxLng,
     isFavorite: ctx.favoriteIds?.has(row.id) ?? false,
     publishedAt: row.publishedAt?.toISOString() ?? null,
+    rating: cardRating(row),
   };
 }
 

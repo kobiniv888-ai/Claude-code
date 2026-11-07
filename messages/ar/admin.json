@@ -459,7 +459,10 @@
       "scam_alert_update": "حُدّث تنبيه احتيال",
       "scam_alert_delete": "حُذف تنبيه احتيال",
       "translation_override": "عُدّلت ترجمة يدويًا",
-      "translation_reset": "أُعيدت ترجمة إلى التلقائية"
+      "translation_reset": "أُعيدت ترجمة إلى التلقائية",
+      "review_hide": "إخفاء تقييم",
+      "review_show": "إعادة تقييم إلى الموقع",
+      "report_review_hidden": "تم إخفاء التقييم (أُغلق البلاغ)"
     }
   },
   "moderation": {
@@ -797,10 +800,11 @@
       "dismissed": "مرفوض",
       "warned": "تم تحذير المضيف",
       "listings_hidden": "تم إخفاء إعلانات المضيف",
-      "host_removed": "تمت إزالة المضيف"
+      "host_removed": "تمت إزالة المضيف",
+      "review_hidden": "تم إخفاء التقييم"
     },
     "emptyReviews": "لا توجد بلاغات عن التقييمات بعد",
-    "emptyReviewsDescription": "عندما تصبح على الموقع تقييمات، سيتمكن المضيفون من الإبلاغ عن تقييم. ستظهر هذه البلاغات هنا.",
+    "emptyReviewsDescription": "يمكن للمضيفين الإبلاغ عن تقييم ضيف من صفحة التقييمات لديهم. تظهر هذه البلاغات هنا.",
     "happenedOn": "متى حدث ذلك",
     "reporterRevealed": "أُبلغ المضيف بالاسم الأول لصاحب البلاغ في {date}.",
     "reporterHidden": "المضيف لا يعرف من أرسل البلاغ. أنت فقط من يقرر إخباره.",

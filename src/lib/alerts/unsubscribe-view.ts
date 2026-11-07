@@ -4,7 +4,27 @@
  * change the host asked for (`?on=1` turns it back on), never the opposite.
  */
 
+import type { UnsubscribeKind } from "./unsubscribe-token";
+
 export type UnsubscribeView = "confirm" | "alreadyOff" | "off" | "on" | "invalid" | "limited" | "error";
+
+/**
+ * Each kind's page texts (a message namespace with the keys of account.unsubscribe: metaTitle,
+ * metaDescription, <view>.title/body, turnOff, turnOn, retry, settings) and the account page with
+ * its switch. A link that cannot be read uses the weekly email's texts (they are general there).
+ */
+export const UNSUBSCRIBE_COPY = {
+  weekly_stats: { namespace: "account.unsubscribe", settingsHref: "/account/settings#notifications" },
+  // Round 3, brief 7.4: the switches are on "התראות וחיפושים שמורים" (/account/alerts).
+  saved_search: { namespace: "alerts.unsubscribe.savedSearch", settingsHref: "/account/alerts" },
+  price_drop: { namespace: "alerts.unsubscribe.priceDrop", settingsHref: "/account/alerts" },
+  // Round 3, brief 8.1: the review request after a stay; its switch is on "ביקורות" (/account/reviews).
+  review_request: { namespace: "reviews.unsubscribe", settingsHref: "/account/reviews" },
+} as const satisfies Record<UnsubscribeKind, { namespace: string; settingsHref: string }>;
+
+export function unsubscribeCopy(kind: UnsubscribeKind | null | undefined): { namespace: string; settingsHref: string } {
+  return kind ? UNSUBSCRIBE_COPY[kind] : UNSUBSCRIBE_COPY.weekly_stats;
+}
 
 export type UnsubscribePlan = {
   view: UnsubscribeView;

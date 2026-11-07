@@ -1,0 +1,95 @@
+{
+  "room": {
+    "label": "Rooms",
+    "value": "{name} · {count, plural, one {1 room} other {{count} rooms}}"
+  },
+  "where": {
+    "openGoogleMaps": "Open in Google Maps",
+    "openWaze": "Open in Waze",
+    "mapLabel": "Map with the place's location",
+    "showMap": "Show the map",
+    "mapSaver": "The map loads when you tap, to save data.",
+    "mapOffline": "The map isn't available offline. The address and the directions buttons are above."
+  },
+  "host": {
+    "title": "Contact your host",
+    "contactHours": "Replies: {from}–{to}",
+    "channel": {
+      "WHATSAPP": "WhatsApp",
+      "PHONE": "Call",
+      "SMS": "SMS",
+      "VIBER": "Viber",
+      "TELEGRAM": "Telegram",
+      "MESSENGER": "Messenger"
+    }
+  },
+  "rules": {
+    "title": "House rules",
+    "smoking": {
+      "yes": "Smoking allowed",
+      "no": "No smoking"
+    },
+    "pets": {
+      "yes": "Pets welcome",
+      "no": "No pets"
+    },
+    "parties": {
+      "yes": "Parties and events allowed",
+      "no": "No parties or events"
+    },
+    "quietHours": "Quiet hours: {from}–{to}"
+  },
+  "keep": {
+    "title": "Keep the details",
+    "calendar": "Add to calendar",
+    "calendarHint": "A calendar file with the dates, the address and the booking number. It opens in your phone's calendar.",
+    "google": "Google Calendar"
+  },
+  "offline": {
+    "title": "No internet",
+    "text": "You can save this page on your phone and open it without internet: the address, the times, your host's details and the payment. It is saved only on this device and is deleted when you log out.",
+    "save": "Save for offline use",
+    "saving": "Saving…",
+    "saved": "This page is saved on this device. You can open it without internet.",
+    "savedAt": "Updated {date}, {time}",
+    "savedToast": "Page saved for offline use",
+    "remove": "Remove from this device",
+    "removing": "Removing…",
+    "removed": "The copy was removed from this device",
+    "failed": "We couldn't save it. Check your internet connection and try again.",
+    "unsupported": "This browser can't save pages for offline use. You can add the trip to your calendar instead.",
+    "offlineCopy": "You're offline. This is the copy you saved on {date}, {time}; it may not be up to date.",
+    "offlineNow": "You're offline. Some actions will work only when you're back online."
+  },
+  "shabbat": {
+    "title": "{kind, select, shabbat {Shabbat during your stay} holiday {A holiday during your stay} other {Shabbat and a holiday during your stay}}",
+    "timesFor": "Times for {city}, on the Israeli calendar.",
+    "timesHere": "Times for the place's location, on the Israeli calendar.",
+    "candles": "Candle lighting",
+    "havdalah": "Havdalah",
+    "noTimes": "We don't have the times for this place right now.",
+    "calendarLink": "Shabbat times and calendar",
+    "nearby": "Near the place",
+    "nearbyNote": "Only places our team has checked. Walking times are estimates.",
+    "place": {
+      "synagogue": "Synagogue",
+      "chabad": "Chabad house",
+      "kosher": "Kosher food"
+    },
+    "walk": "{count, plural, one {≈ 1 min walk} other {≈ {count} min walk}}",
+    "route": "Walking route",
+    "noPlaces": "We haven't checked a synagogue, Chabad house or kosher place near this place yet.",
+    "placesLink": "Community places",
+    "hostNoReply": "The host doesn't reply on Shabbat",
+    "hostNoReplyText": "Agree on your arrival time and ask what you need before Shabbat or the holiday starts."
+  },
+  "cancel": {
+    "freeUntil": "Free cancellation until {date}, {time} (Georgia time)"
+  },
+  "safety": {
+    "title": "Safety",
+    "note": "{brand} never takes payment. Never pay in advance through a link someone sends you.",
+    "emergency": "Emergency numbers",
+    "call": "Emergency: <ltr>{number}</ltr>"
+  }
+}

@@ -12,6 +12,11 @@
  * Round 3 (brief 8.3): "ביקרנו במקום" (Bayit visited the place, set by the admin) is one of the two
  * tags and always comes FIRST: it is the strongest trust signal while the ID badges are hidden.
  *
+ * Round 3 (brief 7.3): "≈ 5 דק׳ הליכה לים" / "≈ 5 דק׳ הליכה למעליות" (kinds "sea" and "lift") when
+ * the computed walk from the pin is 15 minutes or less. Only listings in the sea and ski towns have
+ * those values (src/lib/geo/walk-towns.ts), and there the tag comes first, before "ביקרנו במקום";
+ * elsewhere nothing changes. It counts toward the two tags.
+ *
  * Round 3 (brief section 3): every card that isn't a short stay names its type on the price line —
  * "למכירה", "חודשי" or "מלון" (guesthouses share HOTEL_ROOM) — so a sale price never reads like a
  * nightly one. It is not one of the two tags.
@@ -19,17 +24,23 @@
 import type { DealType } from "@/generated/prisma/enums";
 import type { ListingCardBadges } from "@/lib/listing/types";
 import type { SearchFilters } from "@/lib/listing/search-params";
+import { isNearWalk } from "@/lib/geo/walk-towns";
 
 export type CardPhotoTag = "demo" | "promoted" | "new";
-export type CardTagKind = "visited" | "kosherKitchen" | "shabbatFriendly" | "synagogue" | "hebrew";
+export type CardTagKind = "sea" | "lift" | "visited" | "kosherKitchen" | "shabbatFriendly" | "synagogue" | "hebrew";
 export type CardTag = { kind: CardTagKind; minutes?: number };
 
-export const CARD_TAG_ORDER: readonly CardTagKind[] = ["visited", "kosherKitchen", "shabbatFriendly", "synagogue", "hebrew"];
+export const CARD_TAG_ORDER: readonly CardTagKind[] = ["sea", "lift", "visited", "kosherKitchen", "shabbatFriendly", "synagogue", "hebrew"];
+/** The tags that always lead, in this order (the walk only exists in the sea and ski towns). */
+const LEADING_TAGS: readonly CardTagKind[] = ["sea", "lift", "visited"];
 export const MAX_CARD_TAGS = 2;
 
 type PhotoSource = Partial<Pick<ListingCardBadges, "demo" | "promoted" | "isNew">>;
 type TagSource = Partial<
-  Pick<ListingCardBadges, "visited" | "kosherKitchen" | "shabbatFriendly" | "synagogueWalkMin" | "synagogueVerified" | "speaksHebrew">
+  Pick<
+    ListingCardBadges,
+    "visited" | "kosherKitchen" | "shabbatFriendly" | "synagogueWalkMin" | "synagogueVerified" | "speaksHebrew" | "seaWalkMinutes" | "liftWalkMinutes"
+  >
 >;
 
 export type CardDealLabel = Exclude<DealType, "SHORT_STAY">;
@@ -47,20 +58,33 @@ export function cardPhotoTag(badges: PhotoSource): CardPhotoTag | null {
   return null;
 }
 
-/** The small text tags under the price: at most two; "visited" first, then the visitor's filters. */
+/**
+ * The small text tags under the price: at most two; the walk to the sea / lifts (≤ 15 min) first,
+ * then "visited", then the visitor's filters.
+ */
 export function cardTags(badges: TagSource, preferred: readonly CardTagKind[] = []): CardTag[] {
   const has: Record<CardTagKind, boolean> = {
+    sea: isNearWalk(badges.seaWalkMinutes),
+    lift: isNearWalk(badges.liftWalkMinutes),
     visited: badges.visited === true,
     kosherKitchen: badges.kosherKitchen === true,
     shabbatFriendly: badges.shabbatFriendly === true,
     synagogue: badges.synagogueVerified === true && typeof badges.synagogueWalkMin === "number" && badges.synagogueWalkMin > 0,
     hebrew: badges.speaksHebrew === true,
   };
-  const order: CardTagKind[] = ["visited", ...preferred.filter((kind) => CARD_TAG_ORDER.includes(kind)), ...CARD_TAG_ORDER];
+  const order: CardTagKind[] = [...LEADING_TAGS, ...preferred.filter((kind) => CARD_TAG_ORDER.includes(kind)), ...CARD_TAG_ORDER];
   const picked: CardTag[] = [];
   for (const kind of order) {
     if (!has[kind] || picked.some((tag) => tag.kind === kind)) continue;
-    picked.push(kind === "synagogue" ? { kind, minutes: badges.synagogueWalkMin ?? 0 } : { kind });
+    picked.push(
+      kind === "synagogue"
+        ? { kind, minutes: badges.synagogueWalkMin ?? 0 }
+        : kind === "sea"
+          ? { kind, minutes: badges.seaWalkMinutes ?? 0 }
+          : kind === "lift"
+            ? { kind, minutes: badges.liftWalkMinutes ?? 0 }
+            : { kind },
+    );
     if (picked.length === MAX_CARD_TAGS) break;
   }
   return picked;

@@ -25,6 +25,8 @@ const COMPACT_SIZES = "160px";
 
 /** "ביקרנו במקום" (round 3, brief 8.3): the one green tag, with a map pin. */
 const VisitedIcon = spriteIcon("map-pin-check");
+/** The rating (round 3, brief 8.1). */
+const StarIcon = spriteIcon("star");
 
 /**
  * The one facts line, by deal type:
@@ -110,6 +112,7 @@ export function ListingCard({
   className?: string;
 }) {
   const t = useTranslations("listingCard");
+  const locale = useLocale();
   const facts = useFacts(listing);
   const place = [listing.neighborhoodName, listing.cityName].filter(Boolean).join(" · ");
   const isList = variant === "list";
@@ -181,22 +184,43 @@ export function ListingCard({
           isList && "sm:px-5 sm:py-4",
         )}
       >
-        <h3 id={titleId} className={cn("flex min-w-0 items-center gap-1 leading-snug font-medium", isList ? "text-base sm:text-lg" : "text-[0.9375rem]")}>
-          {listing.titleIsAutoTranslated ? (
-            <span title={t("autoTranslated")} className="shrink-0 text-muted-foreground">
-              <LanguagesIcon className="size-3.5" aria-hidden="true" />
-              <span className="sr-only">{t("autoTranslated")}</span>
+        {/* Real reviews (round 3, brief 8.1): "★ 4.7 (12)" on the title line, only from 3 visible reviews. */}
+        <div className="flex min-w-0 items-center gap-2">
+          <h3 id={titleId} className={cn("flex min-w-0 flex-1 items-center gap-1 leading-snug font-medium", isList ? "text-base sm:text-lg" : "text-[0.9375rem]")}>
+            {listing.titleIsAutoTranslated ? (
+              <span title={t("autoTranslated")} className="shrink-0 text-muted-foreground">
+                <LanguagesIcon className="size-3.5" aria-hidden="true" />
+                <span className="sr-only">{t("autoTranslated")}</span>
+              </span>
+            ) : null}
+            <Link
+              href={listing.href}
+              dir="auto"
+              data-card-link=""
+              className="block min-w-0 truncate outline-none after:absolute after:inset-0 after:z-0 after:rounded-card after:content-[''] focus-visible:underline"
+            >
+              {listing.title}
+            </Link>
+          </h3>
+          {listing.rating ? (
+            <span className="inline-flex shrink-0 items-center gap-1 text-sm">
+              <StarIcon aria-hidden="true" className="size-3.5 fill-current text-foreground" strokeWidth={1.75} />
+              <span aria-hidden="true" className="font-medium">
+                {formatNumber(listing.rating.average, locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+              </span>
+              <span aria-hidden="true" className="text-muted-foreground">
+                ({formatNumber(listing.rating.count, locale)})
+              </span>
+              <span className="sr-only">
+                {t("rating", {
+                  average: formatNumber(listing.rating.average, locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
+                  count: listing.rating.count,
+                  countText: formatNumber(listing.rating.count, locale),
+                })}
+              </span>
             </span>
           ) : null}
-          <Link
-            href={listing.href}
-            dir="auto"
-            data-card-link=""
-            className="block min-w-0 truncate outline-none after:absolute after:inset-0 after:z-0 after:rounded-card after:content-[''] focus-visible:underline"
-          >
-            {listing.title}
-          </Link>
-        </h3>
+        </div>
 
         {place ? <p className="truncate text-sm text-muted-foreground">{place}</p> : null}
 
@@ -242,7 +266,9 @@ export function ListingCard({
                     </Tag>
                   ) : (
                     <Tag key={tag.kind} as="li" size="sm">
-                      {tag.kind === "synagogue" ? t("tags.synagogue", { count: tag.minutes ?? 0 }) : t(`tags.${tag.kind}`)}
+                      {tag.kind === "synagogue" || tag.kind === "sea" || tag.kind === "lift"
+                        ? t(`tags.${tag.kind}`, { count: tag.minutes ?? 0 })
+                        : t(`tags.${tag.kind}`)}
                     </Tag>
                   ),
                 )}

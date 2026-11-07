@@ -24,6 +24,7 @@ import { getSearchContext } from "@/lib/search/context";
 import { getHolidayMarks, getPlaceNames, getPopularCities } from "@/lib/search/home";
 import { searchBarStateFrom } from "@/lib/search/search-bar";
 import { canonicalSearchPath, dealTitleKey, searchNoIndex } from "@/lib/search/seo";
+import { getSaveSearchState } from "@/lib/saved-searches/page-state";
 import { pageMetadata } from "@/lib/seo";
 
 type Props = {
@@ -82,6 +83,8 @@ export default async function SearchPage({ params, searchParams }: Props) {
   const popular = cities.map(({ slug, name }) => ({ slug, name }));
   // "המשך מאיפה שעצרתם" on the home page (round 3, brief 4): this search, on this device.
   const lastSearch = lastSearchDraft(filters, place, locale);
+  // "שמירת חיפוש" (round 3, brief 7.4): the prefilled name, and whether this search is saved already.
+  const saveSearch = await getSaveSearchState({ filters, place, locale, userId: ctx.userId, currency: ctx.currency });
 
   return (
     <SearchProvider filters={filters} total={result.total} holidays={holidays}>
@@ -143,6 +146,7 @@ export default async function SearchPage({ params, searchParams }: Props) {
           }
           pagination={<ResultsPagination filters={filters} page={result.page} pageCount={result.pageCount} locale={locale} />}
           empty={<SearchEmpty filters={filters} cities={cities} locale={locale} ctx={ctx} placeNames={names} />}
+          saveSearch={saveSearch}
         />
       </SearchSheets>
     </SearchProvider>

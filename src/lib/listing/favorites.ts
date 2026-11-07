@@ -3,15 +3,17 @@
 /**
  * Favorites ("Saved"): the heart on cards and on the listing page, plus a private note.
  * Every action needs a signed-in user and only touches that user's own favorites.
+ *
+ * Round 3 (brief 7.2): saved places are kept in lists (src/lib/lists). The heart saves into the
+ * list used last (the default list "שמורים" at first) and keeps the headline price for price-drop
+ * alerts; a signed-out visitor gets "auth_required" and the heart saves on the device instead.
  */
 import { z } from "zod";
 import { ok, fail, runAction, type ActionResult } from "@/lib/action";
 import { getCurrentUser, requireUserForAction } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { recordSave } from "@/lib/listing/stats";
-import { publicListingWhere } from "@/lib/listing/where";
+import { removeSaved, saveToList, type ListSummary } from "@/lib/lists/server";
 import { assertRateLimit } from "@/lib/rate-limit";
-import { getSettings } from "@/lib/settings";
 
 const MAX_NOTE_LENGTH = 500;
 const MAX_FAVORITES = 1000;
@@ -34,8 +36,8 @@ const noteSchema = z.object({
 export async function toggleFavorite(
   listingId: string,
   favorite?: boolean,
-): Promise<ActionResult<{ isFavorite: boolean }>> {
-  return runAction<{ isFavorite: boolean }>(async () => {
+): Promise<ActionResult<{ isFavorite: boolean; list: ListSummary | null }>> {
+  return runAction<{ isFavorite: boolean; list: ListSummary | null }>(async () => {
     const user = await requireUserForAction();
     const input = toggleSchema.safeParse({ listingId, favorite });
     if (!input.success) return fail("invalid_input");
@@ -49,28 +51,14 @@ export async function toggleFavorite(
     const want = input.data.favorite ?? !existing;
 
     if (!want) {
-      if (existing) {
-        const { count } = await db.favorite.deleteMany({ where: { userId: user.id, listingId: id } });
-        if (count > 0) await recordSave(id, -1, user);
-      }
-      return ok({ isFavorite: false });
+      if (existing) await removeSaved(user, id);
+      return ok({ isFavorite: false, list: null });
     }
-    if (existing) return ok({ isFavorite: true });
-
-    // Only listings visitors can see may be saved.
-    const settings = await getSettings();
-    const listing = await db.listing.findFirst({
-      where: { AND: [{ id }, publicListingWhere({ demoVisible: settings.demoDataVisible })] },
-      select: { id: true },
-    });
-    if (!listing) return fail("not_found");
-
-    const created = await db.favorite.createMany({
-      data: [{ userId: user.id, listingId: id }],
-      skipDuplicates: true,
-    });
-    if (created.count > 0) await recordSave(id, 1, user);
-    return ok({ isFavorite: true });
+    // Already saved: it stays in its list. Otherwise into the list used last (only listings
+    // visitors can see may be saved; "not_found" for the rest).
+    if (existing) return ok({ isFavorite: true, list: null });
+    const saved = await saveToList(user, id, null);
+    return ok({ isFavorite: true, list: saved.list });
   });
 }
 

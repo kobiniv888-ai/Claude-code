@@ -108,6 +108,8 @@ export async function listReports(filters: ReportFilters, page: number, locale: 
       attachments: true,
       actionTaken: true,
       reviewId: true,
+      // Review reports (round 3, brief 8.1): the stars, whether staff hid it, and which place.
+      review: { select: { rating: true, hidden: true, listing: { select: { publicId: true } } } },
       reporter: { select: { id: true, name: true } },
       handledBy: { select: { name: true } },
       listing: { select: listingPreviewSelect(locale) },

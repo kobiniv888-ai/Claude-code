@@ -7,6 +7,7 @@ import { documentChecksOn } from "@/config/verification";
 import type { Prisma } from "@/generated/prisma/client";
 import { usesRoomInventory } from "@/lib/booking/constants";
 import { toUsd, type Rates } from "@/lib/currency/convert";
+import { NEAR_SEA_AMENITY, NEAR_WALK_MINUTES } from "@/lib/geo/walk-towns";
 import { AMENITIES, BIG_FAMILY_MIN_GUESTS, DEAL_TYPES, type Amenity } from "@/lib/listing/fields";
 import {
   DEAL_FILTER_TYPES,
@@ -43,6 +44,21 @@ const MAX_QUERY_WORDS = 6;
 
 /** Listings with the "ביקרנו במקום" badge (the `?visited=1` filter; see src/lib/listing/visited.ts). */
 export const VISITED_WHERE = { visitedAt: { not: null }, isDemo: false } as const satisfies Prisma.ListingWhereInput;
+
+/** "קרוב לים" / "קרוב למעליות" (round 3, brief 7.3): the computed walk is 15 minutes or less. */
+export const NEAR_SEA_WHERE = { seaWalkMinutes: { lte: NEAR_WALK_MINUTES } } as const satisfies Prisma.ListingWhereInput;
+export const NEAR_LIFTS_WHERE = { liftWalkMinutes: { lte: NEAR_WALK_MINUTES } } as const satisfies Prisma.ListingWhereInput;
+
+/**
+ * The host's "Near the sea" amenity as a filter (brief 7.3): a listing with a pin is judged by its
+ * computed walk (the tick is ignored), one without a pin by the tick.
+ */
+export const NEAR_SEA_AMENITY_WHERE = {
+  OR: [
+    { AND: [{ lat: { not: null } }, { lng: { not: null } }, NEAR_SEA_WHERE] },
+    { AND: [{ OR: [{ lat: null }, { lng: null }] }, { amenities: { has: NEAR_SEA_AMENITY } }] },
+  ],
+} as const satisfies Prisma.ListingWhereInput;
 
 /** Only LIVE, not deleted, not expired listings of active owners (demo ones only while visible). */
 export function publicListingWhere(ctx: Pick<ListingWhereContext, "demoVisible" | "now">): Prisma.ListingWhereInput {
@@ -142,8 +158,11 @@ export function buildListingWhere(filters: SearchFilters, ctx: ListingWhereConte
   if (filters.bathrooms) and.push({ bathrooms: { gte: filters.bathrooms } });
   if (filters.propertyTypes.length) and.push({ propertyType: { in: filters.propertyTypes } });
 
-  const amenityKeys = filters.amenities.filter((a): a is Amenity => (AMENITIES as readonly string[]).includes(a));
+  const amenityKeys = filters.amenities.filter(
+    (a): a is Amenity => (AMENITIES as readonly string[]).includes(a) && a !== NEAR_SEA_AMENITY,
+  );
   if (amenityKeys.length) and.push({ amenities: { hasEvery: amenityKeys } });
+  if (filters.amenities.includes(NEAR_SEA_AMENITY)) and.push(NEAR_SEA_AMENITY_WHERE);
   if (filters.amenities.includes("pets_allowed")) and.push({ petsAllowed: true });
   if (filters.amenities.includes("smoking_allowed")) and.push({ smokingAllowed: true });
 
@@ -174,6 +193,9 @@ export function buildListingWhere(filters: SearchFilters, ctx: ListingWhereConte
   }
   // "ביקרנו במקום" (round 3, brief 8.3): never a demo listing, even if one was edited by hand.
   if (filters.visited) and.push(VISITED_WHERE);
+  // Brief 7.3: the walking time from the pin (only listings in the sea / ski towns have one).
+  if (filters.nearSea) and.push(NEAR_SEA_WHERE);
+  if (filters.nearLifts) and.push(NEAR_LIFTS_WHERE);
   if (filters.ownerType) {
     and.push({ owner: { accountType: filters.ownerType === "business" ? "BUSINESS" : "PRIVATE" } });
   }

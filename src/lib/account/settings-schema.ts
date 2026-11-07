@@ -6,7 +6,12 @@
  * Missing values fall back to NOTIFICATION_DEFAULTS — the same defaults the senders assume
  * (listing and ticket emails on unless turned off, tips & news off unless turned on). weeklyStats:
  * the hosts' weekly stats email (round 3, brief 6.2), on unless turned off here or with the
- * email's one-tap unsubscribe link (src/lib/alerts/unsubscribe-actions.ts).
+ * email's one-tap unsubscribe link (src/lib/alerts/unsubscribe-actions.ts). savedSearches and
+ * priceDrops (round 3, brief 7.4): the daily email with new places for the saved searches and the
+ * "a saved place lowered its price" email, on unless turned off on /account/alerts or with their
+ * unsubscribe links. The settings form sends them back unchanged. reviewRequests (round 3, brief
+ * 8.1): the email after a stay that asks for a review, on unless turned off with its unsubscribe
+ * link or on /account/reviews.
  */
 import { z } from "zod";
 import { FIRST_NAME_MAX, looksLikeContact } from "@/lib/auth/first-name";
@@ -111,12 +116,21 @@ export const preferencesSchema = z.object({
 export type PreferencesInput = z.input<typeof preferencesSchema>;
 
 export type NotificationPrefs = {
-  email: { listing: boolean; tickets: boolean; messages: boolean; marketing: boolean; weeklyStats: boolean };
+  email: {
+    listing: boolean;
+    tickets: boolean;
+    messages: boolean;
+    marketing: boolean;
+    weeklyStats: boolean;
+    savedSearches: boolean;
+    priceDrops: boolean;
+    reviewRequests: boolean;
+  };
   whatsapp: boolean;
 };
 
 export const NOTIFICATION_DEFAULTS: NotificationPrefs = {
-  email: { listing: true, tickets: true, messages: true, marketing: false, weeklyStats: true },
+  email: { listing: true, tickets: true, messages: true, marketing: false, weeklyStats: true, savedSearches: true, priceDrops: true, reviewRequests: true },
   whatsapp: false,
 };
 
@@ -127,6 +141,10 @@ export const notificationsSchema = z.object({
     messages: z.boolean(),
     marketing: z.boolean(),
     weeklyStats: z.boolean(),
+    // Older settings pages may not send them: kept as they are then (src/lib/account/actions.ts).
+    savedSearches: z.boolean().optional(),
+    priceDrops: z.boolean().optional(),
+    reviewRequests: z.boolean().optional(),
   }),
   whatsapp: z.boolean(),
 });
@@ -147,6 +165,9 @@ export function parseNotificationPrefs(value: unknown): NotificationPrefs {
       messages: bool(email.messages, d.email.messages),
       marketing: bool(email.marketing, d.email.marketing),
       weeklyStats: bool(email.weeklyStats, d.email.weeklyStats),
+      savedSearches: bool(email.savedSearches, d.email.savedSearches),
+      priceDrops: bool(email.priceDrops, d.email.priceDrops),
+      reviewRequests: bool(email.reviewRequests, d.email.reviewRequests),
     },
     whatsapp: bool(root.whatsapp, d.whatsapp),
   };

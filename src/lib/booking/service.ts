@@ -15,6 +15,7 @@ import { addDays, dateToDay, dayToDate, daysBetween, isDay, tbilisiToday } from 
 import { BookingError } from "./errors";
 import { findBlockingRange, freeRoomsOfType, getRoomBlocks, isRangeFree } from "./availability";
 import { notifyBookingCompleted, notifyBookingReminder } from "./notify";
+import { sendReviewRequest } from "@/lib/reviews/notify";
 import { afterBookingConfirmed, alertEnvironment, confirmWithHostAlert, hostInstantGate, notifyCancellation, reportHostUnreachable } from "./alerts";
 import type { AlertEnvironment } from "@/lib/alerts/rules";
 import {
@@ -728,7 +729,7 @@ export async function markNoShow(params: { bookingId: string; hostUserId: string
 
 const JOB_BATCH = 500;
 
-/** Cron: CONFIRMED bookings whose check-out day has passed become COMPLETED (and the guest gets a thank-you). */
+/** Cron: CONFIRMED bookings whose check-out day has passed become COMPLETED (and the guest gets a thank-you, or the review request). */
 export async function completeFinishedBookings(
   now: Date = new Date(),
   scope: { listingId?: string } = {},
@@ -748,7 +749,9 @@ export async function completeFinishedBookings(
     });
     if (updated.count !== 1) continue;
     completed++;
-    await notifyBookingCompleted(id);
+    // Reviews (round 3, brief 8.1): a stay that can be reviewed gets "how was it?" with the review
+    // form INSTEAD of the plain thank-you (one email after a stay); otherwise the thank-you.
+    if (!(await sendReviewRequest(id, now))) await notifyBookingCompleted(id);
   }
   return { completed };
 }

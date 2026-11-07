@@ -81,6 +81,7 @@ describe("activeBottomNavKey", () => {
     expect(activeBottomNavKey("/post/step/3")).toBe("post");
     expect(activeBottomNavKey("/account/favorites")).toBe("saved");
     expect(activeBottomNavKey("/account/compare")).toBe("saved");
+    expect(activeBottomNavKey("/saved")).toBe("saved");
     expect(activeBottomNavKey("/account")).toBe("profile");
     expect(activeBottomNavKey("/account/settings")).toBe("profile");
     expect(activeBottomNavKey("/login")).toBe("profile");

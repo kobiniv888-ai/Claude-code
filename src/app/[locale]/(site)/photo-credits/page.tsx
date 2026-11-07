@@ -2,6 +2,7 @@ import { ExternalLink } from "lucide-react";
 import type { Metadata } from "next";
 import Image from "next/image";
 import { getTranslations, setRequestLocale } from "next-intl/server";
+import { Ltr } from "@/components/common/ltr";
 import { ContentContainer } from "@/components/content/content-container";
 import { creditedPhotos, photoFile, type PhotoCredit } from "@/config/photos";
 import { db } from "@/lib/db";
@@ -23,7 +24,14 @@ const GROUPS = [
   { key: "jewish", prefix: "/photos/jewish/" },
 ] as const;
 
-/** /photo-credits — every photo of the site with its author, source and license (CC BY / BY-SA need it). */
+/** The OpenStreetMap licence pages (round 3, brief 7.3: the walking times use a copy of OSM data). */
+const OSM_COPYRIGHT_URL = "https://www.openstreetmap.org/copyright";
+const ODBL_URL = "https://opendatacommons.org/licenses/odbl/";
+
+/**
+ * /photo-credits — every photo of the site with its author, source and license (CC BY / BY-SA need
+ * it), and the map data (OpenStreetMap, ODbL: "© OpenStreetMap contributors" with a link).
+ */
 export default async function PhotoCreditsPage({ params }: Props) {
   const { locale } = await params;
   setRequestLocale(locale);
@@ -72,6 +80,36 @@ export default async function PhotoCreditsPage({ params }: Props) {
         </p>
       )}
       <p className="text-sm text-muted-foreground">{t("shareAlike")}</p>
+
+      <section aria-labelledby="credits-data" className="grid gap-3">
+        <h2 id="credits-data" className="text-xl font-semibold">
+          {t("dataTitle")}
+        </h2>
+        <div className="grid gap-2 rounded-2xl border bg-card p-4 text-sm">
+          <p className="text-pretty">{t("dataText")}</p>
+          <p className="flex flex-wrap items-center gap-x-4">
+            <Ltr className="font-medium">{t("dataAttribution")}</Ltr>
+            <a
+              href={ODBL_URL}
+              dir="ltr"
+              className="inline-flex min-h-11 items-center text-muted-foreground underline underline-offset-4 hover:text-foreground"
+              rel="noopener noreferrer license"
+              target="_blank"
+            >
+              {t("dataLicense")}
+            </a>
+            <a
+              href={OSM_COPYRIGHT_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-full font-medium text-primary underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+            >
+              {t("dataLink")}
+              <ExternalLink className="size-4 rtl:-scale-x-100" aria-hidden />
+            </a>
+          </p>
+        </div>
+      </section>
     </ContentContainer>
   );
 }

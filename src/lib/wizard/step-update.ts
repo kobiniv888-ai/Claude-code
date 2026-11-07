@@ -54,6 +54,16 @@ export type StepUpdateDeps = {
   getRates: () => Promise<Partial<Rates>>;
   /** The public, approximate map point of an exact pin (stable per listing). */
   mapPoint: (point: LatLng, listingId: string) => LatLng;
+  /**
+   * "≈ 5 דק׳ הליכה לים" / "למעליות" (brief 7.3): the Listing.seaWalkMinutes / liftWalkMinutes
+   * columns to write for a pin in a city (walkMinutesFor in src/lib/geo/walk-targets.ts, by the
+   * city's slug). Called whenever the pin or the city changes.
+   */
+  walkMinutes: (
+    cityId: string | null,
+    lat: number | null,
+    lng: number | null,
+  ) => Promise<Partial<{ seaWalkMinutes: number | null; liftWalkMinutes: number | null }>>;
   parseContactMethods: (value: unknown) => ContactMethod[];
   /**
    * The listing's holiday prices still to come for the whole place (DatePrice rows without a room
@@ -252,6 +262,10 @@ export async function buildStepUpdate<S extends SavableStepKey>(
         lng = hasPin ? Number(newLng.toFixed(6)) : null;
         const approx = hasPin ? deps.mapPoint({ lat: lat!, lng: lng! }, listing.id) : null;
         Object.assign(data, { lat, lng, approxLat: approx?.lat ?? null, approxLng: approx?.lng ?? null });
+      }
+      if (cityId !== listing.cityId || lat !== listing.lat || lng !== listing.lng) {
+        // "≈ 5 דק׳ הליכה לים" / "למעליות" (brief 7.3): recomputed with the pin, in the same update.
+        Object.assign(data, await deps.walkMinutes(cityId, lat, lng));
       }
       const changed = cityId !== listing.cityId || neighborhoodId !== listing.neighborhoodId || lat !== listing.lat || lng !== listing.lng;
       return { data, contentChanged: changed, textChanged: false };

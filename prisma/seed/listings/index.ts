@@ -3,8 +3,9 @@
  * scripts/photos/fetch-demo-photos.ts). Each run deletes demo listings of earlier seeds that are
  * gone, then rewrites the listing and its children (translations,
  * photos, room types, price history, booked dates) from the data files, then computes the derived
- * fields with the same code the site uses: approximate map point, USD prices, Shabbat badge and
- * search text (prepareListingDerivedFields) and walking times to the demo Jewish places
+ * fields with the same code the site uses: approximate map point, the walking time to the sea /
+ * ski lifts from the static OpenStreetMap data (brief 7.3), USD prices, Shabbat badge and search
+ * text (prepareListingDerivedFields) and walking times to the demo Jewish places
  * (computeListingProximity without OpenStreetMap calls).
  */
 import { locales } from "@/config/site";

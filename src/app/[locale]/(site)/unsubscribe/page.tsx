@@ -5,9 +5,9 @@ import { Container } from "@/components/common/container";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
 import { submitUnsubscribe } from "@/lib/alerts/unsubscribe-actions";
-import { weeklyStatsEmailOn } from "@/lib/alerts/unsubscribe-server";
+import { unsubscribeSwitchOn } from "@/lib/alerts/unsubscribe-server";
 import { verifyUnsubscribeToken } from "@/lib/alerts/unsubscribe-token";
-import { unsubscribePlan } from "@/lib/alerts/unsubscribe-view";
+import { unsubscribeCopy, unsubscribePlan } from "@/lib/alerts/unsubscribe-view";
 import { pageMetadata } from "@/lib/seo";
 
 type Props = {
@@ -17,14 +17,17 @@ type Props = {
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) ?? "";
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: "account.unsubscribe" });
+  // Each kind of email has its own texts (round 3: saved searches and price drops, brief 7.4).
+  const kind = verifyUnsubscribeToken(one((await searchParams).t))?.kind;
+  const t = await getTranslations({ locale, namespace: unsubscribeCopy(kind).namespace });
   return pageMetadata({ locale, path: "/unsubscribe", title: t("metaTitle"), description: t("metaDescription"), noIndex: true });
 }
 
 /**
- * /unsubscribe?t=<signed token> — the link in the weekly host stats email (round 3, brief 6.2).
+ * /unsubscribe?t=<signed token> — the link in the weekly host stats email (round 3, brief 6.2), the
+ * saved-search email and the price-drop email (brief 7.4); each kind has its own texts.
  * No login: the signed token names the account (src/lib/alerts/unsubscribe-token.ts). One tap
  * on the button turns the weekly email off; the same page offers to turn it back on, and the
  * account settings have the switch too. The link itself changes nothing (mail apps open links to
@@ -34,11 +37,12 @@ export default async function UnsubscribePage({ params, searchParams }: Props) {
   const { locale } = await params;
   setRequestLocale(locale);
   const query = await searchParams;
-  const t = await getTranslations("account.unsubscribe");
   const token = one(query.t);
   const state = one(query.state);
   const verified = verifyUnsubscribeToken(token);
-  const current = verified ? await weeklyStatsEmailOn(verified.userId) : null;
+  const copy = unsubscribeCopy(verified?.kind);
+  const t = await getTranslations(copy.namespace);
+  const current = verified ? await unsubscribeSwitchOn(verified.userId, verified.kind) : null;
 
   // After an error, "retry" repeats what was asked (`on=1`: turn it back on), never the opposite.
   const { view, done, turnOn, showsForm, label } = unsubscribePlan({ valid: !!verified, current, state, retryOn: one(query.on) === "1" });
@@ -66,7 +70,7 @@ export default async function UnsubscribePage({ params, searchParams }: Props) {
           </form>
         ) : null}
         <p className="text-sm">
-          <Link href="/account/settings#notifications" className="font-medium text-primary underline-offset-4 hover:underline">
+          <Link href={copy.settingsHref} className="font-medium text-primary underline-offset-4 hover:underline">
             {t("settings")}
           </Link>
         </p>

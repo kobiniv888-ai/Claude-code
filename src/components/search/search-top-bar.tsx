@@ -6,6 +6,7 @@ import { ChevronDownIcon, SearchIcon, SlidersHorizontalIcon } from "lucide-react
 import { Chip } from "@/components/ds/chip";
 import { useCurrency } from "@/components/providers/currency-provider";
 import { formatDate, formatNumber } from "@/lib/format";
+import { isSeaTown, isSkiTown } from "@/lib/geo/walk-towns";
 import { countActiveFilters, withFilters } from "@/lib/listing/search-params";
 import { chipLabel } from "@/lib/search/chip-label";
 import { formatStay } from "@/lib/search/format-stay";
@@ -19,7 +20,8 @@ import { useSearchSheets } from "./search-sheets";
  * - phones: a summary pill of the search ("Tbilisi · Dec 12–15 · 4 guests") that reopens the
  *   search sheet, and a "סינון" button with the number of filters set;
  * - every screen: a sideways-scrolling chip row — price, rooms, property type and the "כשר ושבת"
- *   quick chip (`?kosherShabbat=1`: a kosher kitchen OR Shabbat-friendly OR kosher hotel meals).
+ *   quick chip (`?kosherShabbat=1`: a kosher kitchen OR Shabbat-friendly OR kosher hotel meals);
+ *   in the sea and ski towns also "קרוב לים" / "קרוב למעליות" (round 3, brief 7.3: ≤ 15 min walk).
  *   Active chips are the purple tint with purple text. From 768px "Filters" leads the chip row
  *   (the full search bar sits above it).
  * Its height is published as --search-top-height for the map view below it.
@@ -137,6 +139,16 @@ export function SearchTopBar({
           >
             {t("quick.kosherShabbat")}
           </Chip>
+          {isSeaTown(filters.city) ? (
+            <Chip size="sm" pressed={filters.nearSea} onClick={() => navigate(withFilters(filters, { nearSea: !filters.nearSea }))}>
+              {t("quick.nearSea")}
+            </Chip>
+          ) : null}
+          {isSkiTown(filters.city) ? (
+            <Chip size="sm" pressed={filters.nearLifts} onClick={() => navigate(withFilters(filters, { nearLifts: !filters.nearLifts }))}>
+              {t("quick.nearLifts")}
+            </Chip>
+          ) : null}
         </div>
       </div>
     </div>

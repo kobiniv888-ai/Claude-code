@@ -78,7 +78,10 @@
     "visited": "We visited",
     "kosherKitchen": "Kosher kitchen",
     "shabbatFriendly": "Shabbat-friendly",
+    "sea": "{count, plural, one {≈ 1 min walk to the sea} other {≈ {count} min walk to the sea}}",
+    "lift": "{count, plural, one {≈ 1 min walk to the lifts} other {≈ {count} min walk to the lifts}}",
     "synagogue": "{count} min to synagogue",
     "hebrew": "Speaks Hebrew"
-  }
+  },
+  "rating": "Rated {average} out of 5, {count, plural, one {1 review} other {{count} reviews}}"
 }

@@ -459,7 +459,10 @@
       "scam_alert_update": "התראת הונאה עודכנה",
       "scam_alert_delete": "התראת הונאה נמחקה",
       "translation_override": "תרגום נערך ידנית",
-      "translation_reset": "תרגום הוחזר לתרגום האוטומטי"
+      "translation_reset": "תרגום הוחזר לתרגום האוטומטי",
+      "review_hide": "הסתרת ביקורת",
+      "review_show": "החזרת ביקורת לאתר",
+      "report_review_hidden": "הביקורת הוסתרה (הדיווח נסגר)"
     }
   },
   "moderation": {
@@ -797,10 +800,11 @@
       "dismissed": "נדחה",
       "warned": "המארח קיבל אזהרה",
       "listings_hidden": "המודעות של המארח הוסתרו",
-      "host_removed": "המארח הוסר"
+      "host_removed": "המארח הוסר",
+      "review_hidden": "הביקורת הוסתרה"
     },
     "emptyReviews": "אין עדיין דיווחים על ביקורות",
-    "emptyReviewsDescription": "כשיהיו באתר ביקורות, מארחים יוכלו לדווח על ביקורת. הדיווחים יופיעו כאן.",
+    "emptyReviewsDescription": "מארחים יכולים לדווח על ביקורת של אורח מעמוד הביקורות שלהם. הדיווחים יופיעו כאן.",
     "happenedOn": "מתי זה קרה",
     "reporterRevealed": "השם הפרטי של המדווח נמסר למארח ב-{date}.",
     "reporterHidden": "המארח לא יודע מי דיווח. רק אתם יכולים להחליט לספר לו.",

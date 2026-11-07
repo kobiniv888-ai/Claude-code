@@ -177,7 +177,8 @@ test.describe("booking", () => {
     const icsHref = await addToCalendar.getAttribute("href");
     const ics = await guest.context.request.get(icsHref ?? "");
     expect(ics.status()).toBe(200);
-    expect(await ics.text()).toContain(`DTSTART;VALUE=DATE:${icsDay}`);
+    // Round 3 (brief 7.1): a timed event from the check-in time (UTC), or all-day when "גמיש".
+    expect(await ics.text()).toMatch(new RegExp(`DTSTART(;VALUE=DATE)?:${icsDay}`));
 
     // ── 4. "הנסיעות שלי" lists it ──
     await page.goto("/he/account/trips");

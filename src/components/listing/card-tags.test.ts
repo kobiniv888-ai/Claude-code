@@ -82,3 +82,31 @@ describe("the visited tag (round 3, brief 8.3)", () => {
     expect(preferredCardTags({ ...emptyFilters(), visited: true })).toEqual(["visited"]);
   });
 });
+
+describe("cardTags: the walk to the sea / lifts (round 3, brief 7.3)", () => {
+  const jewish = { kosherKitchen: true, shabbatFriendly: true, speaksHebrew: true };
+
+  it("shows ≈ N min to the sea or the lifts at 15 minutes or less", () => {
+    expect(cardTags({ seaWalkMinutes: 5 })).toEqual([{ kind: "sea", minutes: 5 }]);
+    expect(cardTags({ seaWalkMinutes: 15 })).toEqual([{ kind: "sea", minutes: 15 }]);
+    expect(cardTags({ liftWalkMinutes: 7 })).toEqual([{ kind: "lift", minutes: 7 }]);
+    expect(cardTags({ seaWalkMinutes: 16 })).toEqual([]);
+    expect(cardTags({ liftWalkMinutes: 30 })).toEqual([]);
+    expect(cardTags({ seaWalkMinutes: null, liftWalkMinutes: null })).toEqual([]);
+    expect(cardTags({ seaWalkMinutes: 0 })).toEqual([]);
+  });
+
+  it("comes first in those towns, before ביקרנו במקום and the visitor's filters", () => {
+    expect(cardTags({ ...jewish, visited: true, seaWalkMinutes: 4 })).toEqual([{ kind: "sea", minutes: 4 }, { kind: "visited" }]);
+    expect(cardTags({ ...jewish, liftWalkMinutes: 9 }, ["hebrew"])).toEqual([{ kind: "lift", minutes: 9 }, { kind: "hebrew" }]);
+  });
+
+  it("counts toward the two-tag limit", () => {
+    expect(cardTags({ ...jewish, visited: true, seaWalkMinutes: 4 })).toHaveLength(MAX_CARD_TAGS);
+  });
+
+  it("changes nothing elsewhere (no walk value) or beyond 15 minutes", () => {
+    expect(cardTags({ ...jewish, visited: true })).toEqual([{ kind: "visited" }, { kind: "kosherKitchen" }]);
+    expect(cardTags({ ...jewish, visited: true, seaWalkMinutes: 22 })).toEqual([{ kind: "visited" }, { kind: "kosherKitchen" }]);
+  });
+});

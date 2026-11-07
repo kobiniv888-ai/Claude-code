@@ -26,6 +26,7 @@ import { RoomTypesSection } from "@/components/listing-page/room-types";
 import { Section } from "@/components/listing-page/section";
 import { StatusBanner } from "@/components/listing-page/status-banner";
 import { StayProvider } from "@/components/listing-page/stay-dates";
+import { ListingReviews, ListingReviewsSkeleton } from "@/components/reviews/listing-reviews";
 import { alertEnvironment, hostInstantGate } from "@/lib/booking/alerts";
 import { isInstantDealType, usesRoomInventory } from "@/lib/booking/constants";
 import { bookRequestFrom } from "@/lib/booking/guest";
@@ -44,7 +45,7 @@ import { isShabbatOrHolidayNow } from "@/lib/hebcal";
 import { previewReason } from "@/lib/listing-page/access";
 import { georgiaToday } from "@/lib/listing-page/calendar";
 import { getCardContext } from "@/lib/listing-page/context";
-import { hasKosherShabbat, listingHighlights } from "@/lib/listing-page/highlights";
+import { hasKosherShabbat, listingHighlights, walkHighlight } from "@/lib/listing-page/highlights";
 import { buildListingJsonLd } from "@/lib/listing-page/jsonld";
 import { getListingPaths, isListingSaved } from "@/lib/listing-page/load";
 import { parseVideoUrl, safeExternalUrl } from "@/lib/listing-page/media";
@@ -270,7 +271,7 @@ export default async function ListingPage({ params, searchParams }: Props) {
             <div className="grid gap-4">
               <TitleBlock data={data} tags={tags} />
               <HostLine data={data} verified={verified} welcomes={welcomes} />
-              <Highlights items={highlights} />
+              <Highlights items={highlights} walk={walkHighlight(data)} />
             </div>
 
             <Section id="description" title={t("description.title")}>
@@ -289,6 +290,12 @@ export default async function ListingPage({ params, searchParams }: Props) {
               <Section id="availability" title={t("calendar.title")}>
                 <AvailabilityPicker />
               </Section>
+            ) : null}
+            {isStay && isPublic ? (
+              // Real reviews (round 3, brief 8.1): streamed, so the page never waits for them.
+              <Suspense fallback={<ListingReviewsSkeleton />}>
+                <ListingReviews listingId={data.id} locale={locale} counters={{ reviewCount: data.reviewCount ?? 0, ratingSum: data.ratingSum ?? 0 }} />
+              </Suspense>
             ) : null}
             <LocationSection data={data} place={place} />
             <ImportantToKnow data={data} />

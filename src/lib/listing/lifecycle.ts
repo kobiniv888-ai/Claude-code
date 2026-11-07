@@ -13,6 +13,7 @@ import { AppError, NotFoundError, ValidationError } from "@/lib/errors";
 import { approximateLocation, type LatLng } from "@/lib/geo";
 import { computeShabbatFriendly, MODERATION_REASONS, type ModerationReason } from "@/lib/listing/fields";
 import { computeListingProximity } from "@/lib/nearby";
+import { walkMinutesFor } from "@/lib/geo/walk-targets";
 import { PLEDGE_CURRENT_VERSION } from "@/lib/pledge";
 import { decideSubmitTarget, riskScoreNeedsReview, runReviewGate, type ReviewGate, type SubmitDecision } from "./review-rule";
 import { assertNoListingMistakes, ListingMistakesError } from "./mistake-gate-server";
@@ -228,8 +229,8 @@ export function publicMapPoint(point: LatLng, listingId: string): LatLng {
 
 /**
  * Recomputes everything derived from the owner's input: the public approximate map point
- * (stable per listing), USD prices for filters and sorting, the Shabbat-friendly badge and the
- * search text. Safe to call after every save.
+ * (stable per listing), the walking time to the sea / ski lifts (brief 7.3), USD prices for
+ * filters and sorting, the Shabbat-friendly badge and the search text. Safe to call after every save.
  */
 export async function prepareListingDerivedFields(listingId: string): Promise<void> {
   const listing = await loadListing(listingId, {
@@ -241,6 +242,7 @@ export async function prepareListingDerivedFields(listingId: string): Promise<vo
     dealType: true,
     sizeSqm: true,
     shabbatFeatures: true,
+    city: { select: { slug: true } },
     roomTypes: { select: { id: true, price: true, currency: true }, orderBy: { sortOrder: "asc" } },
   });
   const rates = await getRates();
@@ -261,6 +263,7 @@ export async function prepareListingDerivedFields(listingId: string): Promise<vo
       data: {
         approxLat: approx?.lat ?? null,
         approxLng: approx?.lng ?? null,
+        ...walkMinutesFor(listing.city?.slug, listing.lat, listing.lng),
         priceUsd: prices.priceUsd,
         pricePerSqmUsd: prices.pricePerSqmUsd,
         isShabbatFriendly: computeShabbatFriendly(listing.shabbatFeatures),

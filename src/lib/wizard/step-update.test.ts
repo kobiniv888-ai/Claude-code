@@ -51,6 +51,7 @@ const deps: StepUpdateDeps = {
   getNeighborhoodIds: async (cityId) => (cityId === "batumi" ? ["batumi-center", "old-batumi"] : ["vake"]),
   getRates: async () => ({ USD: 1, GEL: 2.7, ILS: 3.7, EUR: 0.92 }),
   mapPoint: (point) => ({ lat: point.lat + 1, lng: point.lng + 1 }),
+  walkMinutes: async () => ({}), // the walking times are tested in src/lib/geo/walk-recompute.test.ts
   parseContactMethods: (value) => (Array.isArray(value) ? (value as never[]) : []),
   countFutureDatePrices: async (listingId) => (listingId === "with-date-prices" ? 2 : 0),
 };

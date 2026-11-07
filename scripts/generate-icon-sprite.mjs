@@ -99,6 +99,8 @@ const NAMES = [
   "bed-single",
   "sofa",
   "eye-off",
+  // Real reviews (round 3, brief 8.1): the stars on cards and the listing page.
+  "star",
 ];
 
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");

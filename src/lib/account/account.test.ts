@@ -38,7 +38,8 @@ describe("account nav", () => {
   it("hides Phase 2 sections until their flag is on", () => {
     const keys = accountNavItems(flags).map((i) => i.key);
     // The tabs first (brief 5.8), then the secondary pages.
-    expect(keys).toEqual(["overview", "trips", "listings", "favorites", "verification", "settings", "compare", "tickets"]);
+    // "ביקורות" (round 3, brief 8.1) is live for everyone.
+    expect(keys).toEqual(["overview", "trips", "listings", "favorites", "verification", "settings", "compare", "reviews", "tickets"]);
     expect(accountNavItems(flags, { host: true }).map((i) => i.key)).toContain("hostBookings");
     const withChat = accountNavItems({ ...flags, chat: true, reviews: true }).map((i) => i.key);
     expect(withChat).toContain("messages");
@@ -53,6 +54,7 @@ describe("account nav", () => {
     const secondary = accountNavItems(flags).filter((i) => !i.tab);
     expect(secondary.map((i) => [i.key, i.href])).toEqual([
       ["compare", "/account/compare"],
+      ["reviews", "/account/reviews"],
       ["tickets", "/account/tickets"],
     ]);
   });
@@ -198,7 +200,13 @@ describe("settings rules", () => {
       messages: true,
       marketing: true,
       weeklyStats: true,
+      // Saved-search and price-drop emails (round 3, brief 7.4): on unless turned off.
+      savedSearches: true,
+      priceDrops: true,
+      // The review request after a stay (round 3, brief 8.1): on unless turned off.
+      reviewRequests: true,
     });
+    expect(parseNotificationPrefs({ email: { reviewRequests: false } }).email.reviewRequests).toBe(false);
     // The hosts' weekly stats email (round 3): on unless turned off.
     expect(parseNotificationPrefs({ email: { weeklyStats: false } }).email.weeklyStats).toBe(false);
     expect(parseNotificationPrefs([1, 2]).email.marketing).toBe(false);

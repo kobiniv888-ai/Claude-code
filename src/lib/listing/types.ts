@@ -38,6 +38,13 @@ export type ListingCardBadges = {
    * tag ("6 דק׳ לבית כנסת"). Demo places never count. Missing = false.
    */
   synagogueVerified?: boolean;
+  /**
+   * Round 3 (brief 7.3): walking minutes from the pin to the nearest beach / ski lift, computed
+   * from the static OpenStreetMap data (src/lib/geo/walk-targets.ts). Null outside the sea and ski
+   * towns or beyond 30 minutes; the card tag shows it at 15 minutes or less. Missing = null.
+   */
+  seaWalkMinutes?: number | null;
+  liftWalkMinutes?: number | null;
   /** The host speaks Hebrew (Jewish feature "host_speaks_hebrew" or the owner's languages). */
   speaksHebrew: boolean;
   /** The host keeps Shabbat (the owner's profile or the Jewish feature "host_keeps_shabbat"). */
@@ -98,6 +105,11 @@ export type ListingCardData = {
   isFavorite: boolean;
   /** ISO date-time. */
   publishedAt: string | null;
+  /**
+   * Optional (round 3, brief 8.1): "★ 4.7 (12)" — the average of the visible reviews and their
+   * count, ONLY from 3 reviews on (cardRating in src/lib/reviews). Missing / null = not shown.
+   */
+  rating?: { average: number; count: number } | null;
 };
 
 /** One marker on the search map. */

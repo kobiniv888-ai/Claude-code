@@ -172,8 +172,12 @@ export type TimedObservance = {
   date: string;
 };
 
-/** Candle-lighting (Shabbat & Yom Tov, not Chanukah) and Havdalah times between two civil dates. */
-export function timedObservances(place: GeoPoint, start: Ymd, end: Ymd): TimedObservance[] {
+/**
+ * Candle-lighting (Shabbat & Yom Tov, not Chanukah) and Havdalah times between two civil dates.
+ * `il`: the holiday schedule (default: Israel's only for places in Israel). The trip page passes
+ * true (round 3, brief 7.1: the Israeli schedule, one day of Yom Tov); the times stay those of `place`.
+ */
+export function timedObservances(place: GeoPoint, start: Ymd, end: Ymd, il: boolean = isInIsrael(place)): TimedObservance[] {
   const events = HebrewCalendar.calendar({
     start: hebcalDate(start),
     end: hebcalDate(end),
@@ -181,7 +185,7 @@ export function timedObservances(place: GeoPoint, start: Ymd, end: Ymd): TimedOb
     candlelighting: true,
     candleLightingMins: siteConfig.shabbat.candleLightingMinutesBefore,
     havdalahMins: siteConfig.shabbat.havdalahMinutesAfter,
-    il: isInIsrael(place),
+    il,
     noRoshChodesh: true,
     noSpecialShabbat: true,
     noMinorFast: true,

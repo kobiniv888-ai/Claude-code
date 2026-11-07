@@ -1,19 +1,16 @@
-import { getTranslations } from "next-intl/server";
 import { siteConfig, type AppLocale } from "@/config/site";
 import { isAppLocale } from "@/i18n/locale";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getGuestTrip } from "@/lib/booking/queries";
-import { clockLabel } from "@/lib/listing/check-times";
-import { formatBookingMoney } from "@/lib/booking/price-lines";
-import { formatDate } from "@/lib/format";
-import { buildBookingIcs } from "@/lib/ical";
-import { absoluteUrl } from "@/lib/site-url";
 import { rateLimitByIp, rateLimitHeaders } from "@/lib/rate-limit";
+import { tripIcsFile } from "@/lib/trip/calendar-server";
 
 /**
- * GET /api/ical/booking/<code>(.ics)?lang=he — "הוספה ליומן" on the booking confirmation.
+ * GET /api/ical/booking/<code>(.ics)?lang=he — "הוספה ליומן" on the trip page (round 3, brief 7.1).
  * Only for the signed-in guest of a CONFIRMED booking: the file holds the exact address and the
- * host's phone. Texts in `lang` (else the account's language).
+ * host's phone. One event for the stay: from the check-in time to the check-out time, Georgia
+ * time (or all-day when "גמיש"), with the address, the booking number and the trip page
+ * (src/lib/trip/ics.ts). Texts in `lang` (else the account's language). Never cached.
  */
 
 export const runtime = "nodejs";
@@ -36,47 +33,20 @@ export async function GET(request: Request, context: Context) {
   if (!user) return plain(401, "Sign in to download this booking");
 
   const { code: raw } = await context.params;
-  const code = decodeURIComponent(raw ?? "").replace(/\.ics$/i, "");
+  let decoded = raw ?? "";
+  try {
+    decoded = decodeURIComponent(decoded);
+  } catch {
+    return plain(404, "Not found");
+  }
+  const code = decoded.replace(/\.ics$/i, "");
   const lang = new URL(request.url).searchParams.get("lang");
   const locale: AppLocale = isAppLocale(lang) ? lang : isAppLocale(user.locale) ? user.locale : siteConfig.i18n.fallbackLocale;
 
   try {
     const trip = await getGuestTrip(user.id, code, locale);
     if (!trip || trip.status !== "CONFIRMED" || !trip.reveal) return plain(404, "Not found");
-
-    const t = await getTranslations({ locale, namespace: "booking" });
-    const brand = siteConfig.localizedName[locale] ?? siteConfig.name;
-    const url = absoluteUrl(`/${locale}${trip.path}`);
-    const { reveal } = trip;
-    const phone = reveal.contact.phone ?? reveal.contact.whatsapp;
-    const description = [
-      t("ics.booking", { code: trip.code, brand }),
-      trip.checkInFlexible
-        ? t("ics.checkInFlexible", { date: formatDate(trip.checkIn, locale) })
-        : trip.checkInFrom
-          ? t("ics.checkIn", { date: formatDate(trip.checkIn, locale), time: clockLabel(trip.checkInFrom, locale) })
-          : "",
-      trip.checkOutFlexible
-        ? t("ics.checkOutFlexible", { date: formatDate(trip.checkOut, locale) })
-        : trip.checkOutUntil
-          ? t("ics.checkOut", { date: formatDate(trip.checkOut, locale), time: clockLabel(trip.checkOutUntil, locale) })
-          : "",
-      reveal.hostName ? t("ics.host", { name: reveal.hostName }) : "",
-      phone ? t("ics.phone", { phone }) : "",
-      t("ics.pay", { amount: formatBookingMoney(trip.total, trip.currency, locale) }),
-      t("ics.details", { url }),
-    ];
-    const body = buildBookingIcs({
-      code: trip.code,
-      checkIn: trip.checkIn,
-      checkOut: trip.checkOut,
-      summary: t("ics.summary", { title: trip.listing.title, code: trip.code }),
-      description,
-      location: reveal.address,
-      lat: reveal.lat,
-      lng: reveal.lng,
-      url,
-    });
+    const body = await tripIcsFile(trip, locale);
     return new Response(body, {
       status: 200,
       headers: {
