@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { isPlaceholderEmail } from "@/lib/email";
 import { absoluteMediaUrl, photoUrl } from "@/lib/media";
 import { bookingPriceLines } from "@/lib/booking/price-lines";
+import { parseHiddenReason } from "@/lib/reviews/rules";
 
 /**
  * "Download my data" (GDPR / Israeli privacy law / Georgian personal data law): everything we
@@ -13,12 +14,18 @@ import { bookingPriceLines } from "@/lib/booking/price-lines";
  * staff-internal ticket notes, staff-only visit notes ("ביקרנו במקום": the note and who entered
  * it; the visit date is the host's public badge and stays), other users' personal data (a host's
  * export has its bookings without the guests' names, phones or messages), secrets (2-step key,
- * iCal token) or internal anti-fraud data (scores, report counters).
+ * iCal token, a saved list's share-link token) or internal anti-fraud data (scores, report
+ * counters). Round 3, phase 5: the reviews the user wrote as a guest (a hidden one with the
+ * reason's name only, never the staff note or who hid it), the public replies they posted as a
+ * host (their own words only, not the guest's review or name), their saved lists (whether each is
+ * shared, never the link's token), each saved place's list and price-alert values, and their saved
+ * searches.
  */
 
 const MAX_ROWS = 5000;
 
-export const EXPORT_FORMAT_VERSION = 1;
+/** 2: round 3, phase 5 added reviewsWritten, reviewRepliesWritten, savedLists, savedSearches and the favorites' list and alert price. */
+export const EXPORT_FORMAT_VERSION = 2;
 
 /**
  * Every Listing column, and whether the owner's export carries it (`false` = never read). An
@@ -227,7 +234,23 @@ function exportBooking(row: {
 }
 
 export async function buildAccountExport(userId: string) {
-  const [user, listings, favorites, tickets, reports, contactClicks, verifications, sessions, tripsAsGuest, bookingsAsHost, recentlyViewed] = await Promise.all([
+  const [
+    user,
+    listings,
+    favorites,
+    tickets,
+    reports,
+    contactClicks,
+    verifications,
+    sessions,
+    tripsAsGuest,
+    bookingsAsHost,
+    recentlyViewed,
+    reviewsWritten,
+    repliesWritten,
+    savedLists,
+    savedSearches,
+  ] = await Promise.all([
     db.user.findUniqueOrThrow({
       where: { id: userId },
       select: {
@@ -284,7 +307,14 @@ export async function buildAccountExport(userId: string) {
       where: { userId },
       orderBy: { createdAt: "desc" },
       take: MAX_ROWS,
-      select: { note: true, createdAt: true, listing: { select: { publicId: true, title: true } } },
+      select: {
+        note: true,
+        createdAt: true,
+        alertPrice: true,
+        alertCurrency: true,
+        list: { select: { name: true, isDefault: true } },
+        listing: { select: { publicId: true, title: true } },
+      },
     }),
     db.ticket.findMany({
       where: { userId },
@@ -370,6 +400,59 @@ export async function buildAccountExport(userId: string) {
       take: MAX_ROWS,
       select: { viewedAt: true, listing: { select: { publicId: true, title: true } } },
     }),
+    // Reviews the user wrote as a guest (brief 8.1). Never the staff note, who hid it, or the
+    // machine translations (hiddenReason is read only for its reason code).
+    db.review.findMany({
+      where: { guestUserId: userId },
+      orderBy: { createdAt: "asc" },
+      take: MAX_ROWS,
+      select: {
+        rating: true,
+        cleanliness: true,
+        accuracy: true,
+        checkIn: true,
+        communication: true,
+        location: true,
+        value: true,
+        text: true,
+        language: true,
+        createdAt: true,
+        hidden: true,
+        hiddenReason: true,
+        hostReply: true,
+        hostReplyAt: true,
+        booking: { select: { code: true } },
+        listing: { select: { publicId: true, title: true } },
+      },
+    }),
+    // The public replies the user posted as a host: their own words only (the guest's review and
+    // name are the guest's data, as in bookingsOfMyPlaces).
+    db.review.findMany({
+      where: { hostUserId: userId, hostReply: { not: null } },
+      orderBy: { hostReplyAt: "asc" },
+      take: MAX_ROWS,
+      select: {
+        hostReply: true,
+        hostReplyLanguage: true,
+        hostReplyAt: true,
+        booking: { select: { code: true } },
+        listing: { select: { publicId: true } },
+      },
+    }),
+    // Saved lists (brief 7.2): whether each is shared, never the share link's token (a secret).
+    db.savedList.findMany({
+      where: { userId },
+      orderBy: { createdAt: "asc" },
+      take: MAX_ROWS,
+      select: { name: true, isDefault: true, sharedAt: true, lastUsedAt: true, createdAt: true },
+    }),
+    // Saved searches (brief 7.4); lastMatchIds/lastCheckedAt are the alert job's bookkeeping.
+    db.savedSearch.findMany({
+      where: { userId },
+      orderBy: { createdAt: "asc" },
+      take: MAX_ROWS,
+      select: { name: true, filters: true, active: true, lastSentAt: true, createdAt: true },
+    }),
   ]);
 
   const { accounts, ...profile } = user;
@@ -398,8 +481,31 @@ export async function buildAccountExport(userId: string) {
     favorites: favorites.map((f) => ({
       listingId: f.listing.publicId,
       listingTitle: f.listing.title,
+      /** The list's name; null = the default list ("שמורים"). */
+      list: f.list && !f.list.isDefault ? f.list.name : null,
       note: f.note,
       savedAt: f.createdAt,
+      /** The price-drop alert: the headline price when saved, in the listing's currency. */
+      alertPrice: f.alertPrice === null ? null : Number(f.alertPrice),
+      alertCurrency: f.alertCurrency,
+    })),
+    savedLists: savedLists.map(({ sharedAt, ...list }) => ({ ...list, shared: sharedAt !== null, sharedAt })),
+    savedSearches,
+    reviewsWritten: reviewsWritten.map(({ booking, listing, hidden, hiddenReason, ...review }) => ({
+      ...review,
+      listingId: listing.publicId,
+      listingTitle: listing.title,
+      bookingCode: booking.code,
+      hidden,
+      /** The reason's code only (as the guest was told); the staff note stays staff-only. */
+      hiddenReasonCode: hidden ? (parseHiddenReason(hiddenReason)?.code ?? "other") : null,
+    })),
+    reviewRepliesWritten: repliesWritten.map(({ booking, listing, hostReply, hostReplyLanguage, hostReplyAt }) => ({
+      listingId: listing.publicId,
+      bookingCode: booking.code,
+      reply: hostReply,
+      language: hostReplyLanguage,
+      repliedAt: hostReplyAt,
     })),
     recentlyViewed: recentlyViewed.map((r) => ({
       listingId: r.listing.publicId,

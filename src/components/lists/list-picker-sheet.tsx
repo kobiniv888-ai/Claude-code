@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { CheckIcon, HeartIcon, HeartOffIcon, ListIcon, LoaderIcon, PlusIcon } from "lucide-react";
 import { BottomSheet } from "@/components/ds/bottom-sheet";
+import { useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/ds/button";
 import { Skeleton } from "@/components/ds/skeleton";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,7 @@ import {
   deviceListOf,
   deviceRemove,
   deviceSave,
+  reservedNameKeys,
   type DeviceLists,
   type ListSummary,
 } from "@/lib/lists/core";
@@ -26,19 +28,28 @@ import { newDeviceListKey, readDeviceLists, useDeviceLists, writeDeviceLists } f
 import { mergeDeviceListsIntoAccount } from "@/lib/lists/merge-client";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
-import { displayListName, isListErrorCode } from "./list-text";
+import { displayListName, isListErrorCode, listNameArg } from "./list-text";
 
 type Option = { id: string; name: string; isDefault: boolean; count: number };
 
-/** Account lists from the server, or the device copy (signed out); "error" offers a retry. */
-type Source = { kind: "loading" } | { kind: "error" } | { kind: "device" } | { kind: "account"; lists: ListSummary[]; currentId: string | null };
+/**
+ * Account lists from the server, or the device copy (signed out); "error" offers a retry.
+ * `merged`: the device's places were just moved into the account (the page then refreshes its
+ * hearts, lists-alerts-12).
+ */
+type Source =
+  | { kind: "loading" }
+  | { kind: "error" }
+  | { kind: "device" }
+  | { kind: "account"; lists: ListSummary[]; currentId: string | null; merged?: boolean };
 
 async function loadSource(listingId: string): Promise<Source> {
   try {
     // Lists this device kept while signed out go into the account first.
-    if ((await mergeDeviceListsIntoAccount()) === "signed_out") return { kind: "device" };
+    const merge = await mergeDeviceListsIntoAccount();
+    if (merge === "signed_out") return { kind: "device" };
     const result = await getSaveTargetsAction(listingId);
-    if (result.ok) return { kind: "account", lists: result.data.lists, currentId: result.data.currentListId };
+    if (result.ok) return { kind: "account", lists: result.data.lists, currentId: result.data.currentListId, merged: merge === "merged" };
     return result.error === "auth_required" ? { kind: "device" } : { kind: "error" };
   } catch {
     return { kind: "error" };
@@ -57,7 +68,8 @@ function deviceOptions(device: DeviceLists): Option[] {
  * "Save to a list" (round 3, brief 7.2): opened by a long press on the heart, its "Change list"
  * button or toast, and the saved page's "Move". Lists the user's lists (or this device's, signed
  * out) with the current one checked; choosing one saves the place there, or MOVES it (one list per
- * place). "New list" makes one and saves into it. Loaded on demand (next/dynamic).
+ * place). "New list" makes one and saves into it. Loaded on demand (next/dynamic) and mounted from
+ * the first opening; every caller imports it that way.
  */
 export function ListPickerSheet({
   open,
@@ -65,6 +77,7 @@ export function ListPickerSheet({
   listingId,
   title,
   onSaved,
+  onCloseAutoFocus,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -74,11 +87,17 @@ export function ListPickerSheet({
   title: string;
   /** After a save, move or removal: whether the place is saved now, and where. */
   onSaved?: (saved: boolean, kind: "account" | "device") => void;
+  /**
+   * When the sheet gives focus back: call `event.preventDefault()` and focus something else when
+   * the opener is gone (a removed card's Move button, a heart's "Change list" button; a11y-2).
+   */
+  onCloseAutoFocus?: (event: Event) => void;
 }) {
   const t = useTranslations("lists.saving");
   const tc = useTranslations("listingCard.favorite");
   const te = useTranslations("errors");
   const locale = useLocale();
+  const router = useRouter();
   const ids = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const device = useDeviceLists();
@@ -96,12 +115,13 @@ export function ListPickerSheet({
     if (!open) return;
     let live = true;
     void loadSource(listingId).then((next) => {
+      if (next.kind === "account" && next.merged) router.refresh();
       if (live) setSource(next);
     });
     return () => {
       live = false;
     };
-  }, [open, listingId, attempt]);
+  }, [open, listingId, attempt, router]);
 
   useEffect(() => {
     if (creating) inputRef.current?.focus();
@@ -121,9 +141,9 @@ export function ListPickerSheet({
 
   const savedToast = (list: { name: string; isDefault: boolean }, moved: boolean, kind: "account" | "device") => {
     const shown = displayListName(list, defaultName);
-    if (kind === "device") toast.success(t("heart.savedOnDeviceInList", { name: shown }), { description: t("heart.deviceHint") });
-    else if (moved) toast.success(t("heart.movedTo", { name: shown }));
-    else toast.success(list.isDefault ? tc("saved") : t("heart.savedToList", { name: shown }));
+    if (kind === "device") toast.success(t("heart.savedOnDeviceInList", { name: listNameArg(shown) }), { description: t("heart.deviceHint") });
+    else if (moved) toast.success(t("heart.movedTo", { name: listNameArg(shown) }));
+    else toast.success(list.isDefault ? tc("saved") : t("heart.savedToList", { name: listNameArg(shown) }));
   };
 
   const writeDevice = (next: DeviceLists | null): boolean => {
@@ -169,14 +189,14 @@ export function ListPickerSheet({
     setError(null);
     setNameError(null);
     if (source.kind === "device") {
-      const made = deviceCreateList(readDeviceLists(), name, newDeviceListKey());
+      const made = deviceCreateList(readDeviceLists(), name, newDeviceListKey(), undefined, reservedNameKeys([defaultName]));
       if (!made.ok) {
         setNameError(t(`errors.${made.error === "not_found" ? "failed" : made.error}`));
         return inputRef.current?.focus();
       }
       if (!writeDevice(deviceSave(made.state, listingId, made.key))) return;
       onSaved?.(true, "device");
-      savedToast({ name: name.trim(), isDefault: false }, false, "device");
+      savedToast({ name: made.state.lists.find((list) => list.key === made.key)?.name ?? name.trim(), isDefault: false }, false, "device");
       return close();
     }
     setBusy("create");
@@ -228,6 +248,7 @@ export function ListPickerSheet({
     <BottomSheet
       open={open}
       onOpenChange={(next) => (next ? onOpenChange(true) : close())}
+      onCloseAutoFocus={onCloseAutoFocus}
       title={t("sheet.title")}
       description={
         <span dir="auto" className="line-clamp-2">

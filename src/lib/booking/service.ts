@@ -15,7 +15,7 @@ import { addDays, dateToDay, dayToDate, daysBetween, isDay, tbilisiToday } from 
 import { BookingError } from "./errors";
 import { findBlockingRange, freeRoomsOfType, getRoomBlocks, isRangeFree } from "./availability";
 import { notifyBookingCompleted, notifyBookingReminder } from "./notify";
-import { sendReviewRequest } from "@/lib/reviews/notify";
+import { notifyGuestOfNoShow, sendReviewRequest } from "@/lib/reviews/notify";
 import { afterBookingConfirmed, alertEnvironment, confirmWithHostAlert, hostInstantGate, notifyCancellation, reportHostUnreachable } from "./alerts";
 import type { AlertEnvironment } from "@/lib/alerts/rules";
 import {
@@ -698,20 +698,34 @@ export async function hostCancel(params: {
   return { code: booking.code, late, flagged };
 }
 
-/** "Didn't arrive" (host): from the day after check-in until a week after check-out. Logged; rules come later. */
+/**
+ * "Didn't arrive" (host): from the day after check-in until a week after check-out. Logged; the
+ * guest gets an email (with a way to contact Bayit if it is wrong), and staff can clear it
+ * (clearNoShow). Never once the guest has reviewed the stay: a no-show never counts toward the
+ * reviews, so a report after the review would leave a counted review on a stay that "didn't
+ * happen" — and a host could use it against a bad review. In one transaction that locks the
+ * booking row (FOR UPDATE), the same lock createReviewForBooking takes (src/lib/reviews/service.ts):
+ * a review and a no-show at the same moment never both succeed.
+ */
 export async function markNoShow(params: { bookingId: string; hostUserId: string; now?: Date }): Promise<{ code: string }> {
   const now = params.now ?? new Date();
-  const booking = await db.booking.findFirst({
-    where: { id: params.bookingId, hostUserId: params.hostUserId },
-    select: bookingStateSelect,
+  const booking = await db.$transaction(async (tx) => {
+    const rows = await tx.$queryRaw<{ id: string }[]>`SELECT "id" FROM "Booking" WHERE "id" = ${params.bookingId} AND "hostUserId" = ${params.hostUserId} FOR UPDATE`;
+    if (rows.length === 0) throw new NotFoundError();
+    const fresh = await tx.booking.findUnique({
+      where: { id: params.bookingId },
+      select: { ...bookingStateSelect, review: { select: { id: true } } },
+    });
+    if (!fresh) throw new NotFoundError();
+    if (fresh.review) throw new BookingError("no_show_reviewed");
+    if (!canReportNoShow(stateOf(fresh), now)) throw new BookingError("no_show_not_allowed");
+    const updated = await tx.booking.updateMany({
+      where: { id: fresh.id, status: { in: ["CONFIRMED", "COMPLETED"] } },
+      data: { status: "NO_SHOW", noShowReportedAt: now },
+    });
+    if (updated.count !== 1) throw new BookingError("no_show_not_allowed");
+    return fresh;
   });
-  if (!booking) throw new NotFoundError();
-  if (!canReportNoShow(stateOf(booking), now)) throw new BookingError("no_show_not_allowed");
-  const updated = await db.booking.updateMany({
-    where: { id: booking.id, status: { in: ["CONFIRMED", "COMPLETED"] } },
-    data: { status: "NO_SHOW", noShowReportedAt: now },
-  });
-  if (updated.count !== 1) throw new BookingError("no_show_not_allowed");
   console.info(`[booking] no-show reported for ${booking.code} by the host`);
   await audit({
     actorId: params.hostUserId,
@@ -724,7 +738,31 @@ export async function markNoShow(params: { bookingId: string; hostUserId: string
       previousStatus: booking.status,
     },
   });
+  await notifyGuestOfNoShow(booking.id);
   return { code: booking.code };
+}
+
+/**
+ * Staff clear a "didn't arrive" report that was wrong (the guest stayed): the booking is CONFIRMED
+ * again before its check-out day has passed, else COMPLETED, and the report's date is removed, so
+ * the guest can review the stay within the usual window. The booking flag counts as reviewed by
+ * this staff member. The caller checks the permission and logs it (booking.no_show_cleared).
+ */
+export async function clearNoShow(params: { bookingId: string; staffId: string; now?: Date }): Promise<{ code: string; status: "CONFIRMED" | "COMPLETED"; reportedAt: Date | null }> {
+  const now = params.now ?? new Date();
+  return db.$transaction(async (tx) => {
+    const rows = await tx.$queryRaw<{ id: string }[]>`SELECT "id" FROM "Booking" WHERE "id" = ${params.bookingId} FOR UPDATE`;
+    if (rows.length === 0) throw new NotFoundError();
+    const booking = await tx.booking.findUnique({ where: { id: params.bookingId }, select: { code: true, status: true, checkOut: true, noShowReportedAt: true } });
+    if (!booking) throw new NotFoundError();
+    if (booking.status !== "NO_SHOW") throw new BookingError("no_show_not_reported");
+    const status = tbilisiToday(now) > dateToDay(booking.checkOut) ? "COMPLETED" : "CONFIRMED";
+    await tx.booking.update({
+      where: { id: params.bookingId },
+      data: { status, noShowReportedAt: null, flagReviewedAt: now, flagReviewedById: params.staffId },
+    });
+    return { code: booking.code, status, reportedAt: booking.noShowReportedAt };
+  });
 }
 
 const JOB_BATCH = 500;

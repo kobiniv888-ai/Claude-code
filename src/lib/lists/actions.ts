@@ -23,6 +23,7 @@ import { DEVICE_MAX_ITEMS, DEVICE_MAX_LISTS, SHARED_LIST_MAX_PLACES, sanitizeDev
 import {
   copySharedList,
   createList,
+  createListAndSave,
   deleteList,
   getAccountLists,
   listOfListing,
@@ -102,11 +103,11 @@ export async function createListAction(input: { name: string; listingId?: string
     const parsed = createSchema.safeParse(input);
     if (!parsed.success) return fail("invalid_input");
     await assertRateLimit(`lists-create:${user.id}`, { limit: 20, windowSeconds: 600 });
-    const list = await createList(user.id, parsed.data.name);
-    if (!parsed.data.listingId) return ok({ list, moved: false, created: false });
+    if (!parsed.data.listingId) return ok({ list: await createList(user.id, parsed.data.name), moved: false, created: false });
+    // Both limits before any write, and the list and the save in one transaction: a save that
+    // fails leaves no empty list behind (lists-alerts-11).
     await assertRateLimit(`favorite:${user.id}`, { limit: 60, windowSeconds: 60 });
-    const saved = await saveToList(user, parsed.data.listingId, list.id);
-    return ok(saved);
+    return ok(await createListAndSave(user, parsed.data.name, parsed.data.listingId));
   });
 }
 

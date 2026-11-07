@@ -20,8 +20,9 @@ their walk to the sea or the lifts), which takes a minute longer.
 - **Every booking has its page** ("פרטי ההזמנה", from "הנסיעות שלי", the confirmation and every
   booking email). It shows the status, the dates with the check-in and check-out times, the
   guests, the itemized total and how to pay on arrival.
-- **The exact address with a map** (the map loads only when you tap, to save data on a weak
-  connection), and the buttons **"פתיחה ב-Google Maps"** and **"פתיחה ב-Waze"**.
+- **The exact address with a map** (the map loads by itself when you scroll to it; with data
+  saver on or on a very slow connection, only after a tap), and the buttons **"פתיחה ב-Google
+  Maps"** and **"פתיחה ב-Waze"**.
 - **The host's contact buttons** (WhatsApp, Telegram, phone…, the ones the host chose) and the
   hours the host answers, the house rules, the free-cancellation deadline in Georgia time with
   the cancel button, a short "מה עכשיו" list, and the safety note word for word: "בית לא גובה
@@ -36,7 +37,12 @@ their walk to the sea or the lifts), which takes a minute longer.
 - **"שמירה לשימוש בלי אינטרנט"** (your answer 10: a button, not automatic): one tap keeps a copy
   of this page on the phone; it then opens without internet, with a line that says it is the
   saved copy. The copy stays only on that device, is removed a week after check-out, and is
-  deleted when you log out.
+  deleted when you log out. It belongs to the account that saved it: when that sign-in ends in any
+  other way (30 days without use, "log out of all devices" or deleting the account on another
+  device, a suspension) or another account signs in on the phone, the copy is deleted the next
+  time any page of the site opens with internet. A cancelled trip's copy is deleted too. When the
+  internet is there but the site doesn't answer (a server error, a connection that stalls or
+  breaks off), the saved copy opens instead and says so, with "טעינת העמוד העדכני".
 - **After the stay**, the page asks "איך הייתה השהייה?" with five quick stars (see reviews below).
 
 ### Saved lists you can share (brief 7.2, your answer 7)
@@ -99,20 +105,26 @@ their walk to the sea or the lifts), which takes a minute longer.
   booking, from the day after check-out until 14 days later. Never demo listings: they have no
   reviews, and none were made up, seeded or imported.
 - **The review:** 1 to 5 stars, six optional quick ratings (ניקיון, התאמה לתיאור, צ׳ק-אין,
-  תקשורת עם המארח, מיקום, תמורה למחיר) and the text (at least 20 characters, no phone numbers,
-  emails or links). Before posting, the guest ticks "I understand it can't be edited or deleted".
+  תקשורת עם המארח, מיקום, תמורה למחיר) and the text (at least 20 characters, at least 15 of them
+  letters or digits, so a row of dots or emoji isn't a review; no phone numbers, emails or links). Before posting, the guest ticks "I understand it can't be edited or deleted".
 - **It shows** as "דנה · נובמבר 2026": the first name and the month only.
 - **The average** shows on the card ("★ 4.7 (3)") and on the listing page ("4.7 מתוך 5 · 3
   ביקורות", plus a topic only when 3 reviews rated it) only from 3 reviews. Before that the reviews
   show with "הדירוג הממוצע יופיע אחרי 3 ביקורות".
 - **Translation:** a review is translated automatically for other languages, with "הצגת המקור",
-  once the Azure key is set; until then it shows as written.
+  once the Azure key is set; until then it shows as written. Reviews and replies written before the
+  key was set, or whose translation failed once, are translated by the daily job (up to 100 a day)
+  and by `npm run translate:missing`.
+- **All reviews:** the listing page shows the newest 30; with more, "מוצגות 30 הביקורות האחרונות
+  מתוך N" and a link to a page with every review, 20 a page.
 - **The host** (Account → "ביקורות") can post one public reply, which is final, and can report a
-  review to the admin.
+  review to the admin. The guest can report the host's reply there too.
 - **The admin** (Admin → "דיווחים" → tab "ביקורות") sees each reported review in full and can hide
   it with a reason and an internal note (both logged), or show it again. Never edit it. Hiding
   removes it from the listing and from the average, and closes its reports. The guest and the host
-  get an email with the reason's name (never the note).
+  get an email with the reason's name (never the note). The same tab lists the newest reviews,
+  reported or not, so the admin can open and hide any review; the booking and user pages link to
+  their reviews.
 - **Asking for reviews:** the day after the stay, the guest gets "איך הייתה השהייה?" by email
   (instead of the plain thank-you, so one email, not two), and the trip page asks too. The guest can
   turn these emails off.
@@ -214,6 +226,11 @@ their walk to the sea or the lifts), which takes a minute longer.
   invented). They were checked end to end with test-only listings and stays, removed afterwards.
 - **Reviews are shown as written** until the Azure translation key is set (then each review is
   translated, with "הצגת המקור").
+- **Hiding a host's reply on its own** needs a database change (a "reply hidden" field). Until
+  then the admin can only hide the whole review with its reply.
+- **A saved trip copy on a phone that never comes back online** after its sign-in ended stays on
+  it until it does (or a week after check-out passes and the site opens offline). Nothing on the
+  phone can check the account without internet.
 - **Emails stay in the outbox** ("תיבת דואר יוצא") until Resend is connected. The daily
   saved-search and price-drop email and the review request after a stay run on the real site's
   scheduled jobs (`CRON_SECRET`), not in the codespace.
@@ -238,7 +255,14 @@ their walk to the sea or the lifts), which takes a minute longer.
 - Nearby places: only real places our team verified, within 5 km of the exact pin, one of each
   kind. Demo listings therefore say "we haven't checked places near here yet".
 - "שמירה לשימוש בלי אינטרנט" keeps only this page on this device, removes it a week after
-  check-out, and deletes it at logout.
+  check-out, and deletes it at logout. (Hardening:) The copy is tied to the account that saved it
+  (a coded key, never the account number): signed out in any way, or another account signed in,
+  and it is deleted at the next page load with internet. It is never offered or kept for a
+  cancelled trip or after the keep window. The site deletes a copy only on a clear sign (signed
+  out, "not found" for this account, cancelled), never because of a server error; with a saved copy
+  the trip page waits up to 8 seconds for the whole page, then shows the copy. The open page
+  refreshes the copy by itself when what it shows changed (times, address, host's buttons, price)
+  or the copy is more than an hour old.
 - The calendar file uses the check-in and check-out times; with "גמיש" it is an all-day event.
 
 **Lists**
@@ -274,6 +298,10 @@ their walk to the sea or the lifts), which takes a minute longer.
 **Reviews**
 - The window is the day after check-out to 14 days after, in Georgia days. No-shows and cancelled
   bookings never count. One review per booking, also for a hotel booking with 2 rooms.
+- (Hardening:) A host can't report "didn't arrive" once the guest reviewed the stay (a review and a
+  report at the same moment never both succeed). When a host reports it, the guest gets an email
+  with a link to contact us; the admin can clear a wrong report on the booking's page (with a
+  note, logged), and the guest can then review within the usual window.
 - The name shown is the first name only; a deleted account, or a name that looks like a phone
   number, shows "אורח".
 - The average needs 3 visible reviews, with one decimal; a topic's average needs 3 ratings of that

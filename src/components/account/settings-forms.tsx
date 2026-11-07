@@ -3,7 +3,7 @@
 import { useId, useRef, useState, useTransition, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { CameraIcon, CheckIcon, DownloadIcon, LinkIcon, LoaderIcon, Trash2Icon, UnlinkIcon, UserRoundIcon } from "lucide-react";
-import { clearPrivateDeviceData } from "@/lib/auth/device-data";
+import { clearPrivateCaches, clearPrivateDeviceData } from "@/lib/auth/device-data";
 import { toast } from "@/lib/toast";
 import { AppleIcon, GoogleIcon } from "@/components/common/brand-icons";
 import { Ltr } from "@/components/common/ltr";
@@ -734,8 +734,10 @@ export function DeleteAccount({ isStaff }: { isStaff: boolean }) {
                   return;
                 }
                 // A full page load on purpose: the session is gone and every cached page must forget the user.
-                // This device's private data goes too (recently viewed, compare list…: round 3, bug 2.9).
+                // This device's private data goes too (recently viewed, compare list…: round 3, bug 2.9),
+                // and the saved trip pages are gone BEFORE the page is, as at logout (trip-offline-6).
                 clearPrivateDeviceData();
+                await clearPrivateCaches();
                 // eslint-disable-next-line @next/next/no-location-assign-relative-destination
                 window.location.assign(`/${locale}`);
               });

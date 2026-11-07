@@ -24,7 +24,7 @@ import { getSearchContext } from "@/lib/search/context";
 import { getHolidayMarks, getPlaceNames, getPopularCities } from "@/lib/search/home";
 import { searchBarStateFrom } from "@/lib/search/search-bar";
 import { canonicalSearchPath, dealTitleKey, searchNoIndex } from "@/lib/search/seo";
-import { getSaveSearchState } from "@/lib/saved-searches/page-state";
+import { defaultSearchName, isSearchSaved } from "@/lib/saved-searches/page-state";
 import { pageMetadata } from "@/lib/seo";
 
 type Props = {
@@ -67,13 +67,15 @@ export default async function SearchPage({ params, searchParams }: Props) {
   const filters = parseSearchParams(await searchParams);
   const ctx = await getSearchContext(locale);
   const isMap = filters.view === "map";
-  const [result, points, names, holidays, cities, t] = await Promise.all([
+  const [result, points, names, holidays, cities, t, searchSaved] = await Promise.all([
     searchListings(filters, ctx),
     isMap ? getMapPoints(filters, ctx) : Promise.resolve(null),
     getPlaceNames(filters.city, filters.neighborhood, locale),
     getHolidayMarks(locale),
     getPopularCities(locale),
     getTranslations({ locale, namespace: "search.results" }),
+    // "שמירת חיפוש": is this search saved already? Alongside the rest, not after it (speed-3).
+    ctx.userId ? isSearchSaved(ctx.userId, filters, ctx.currency).catch(() => false) : Promise.resolve(false),
   ]);
 
   const place = placeLabel(names);
@@ -83,8 +85,8 @@ export default async function SearchPage({ params, searchParams }: Props) {
   const popular = cities.map(({ slug, name }) => ({ slug, name }));
   // "המשך מאיפה שעצרתם" on the home page (round 3, brief 4): this search, on this device.
   const lastSearch = lastSearchDraft(filters, place, locale);
-  // "שמירת חיפוש" (round 3, brief 7.4): the prefilled name, and whether this search is saved already.
-  const saveSearch = await getSaveSearchState({ filters, place, locale, userId: ctx.userId, currency: ctx.currency });
+  // "שמירת חיפוש" (round 3, brief 7.4): the prefilled name (no database), and whether this search is saved already.
+  const saveSearch = { defaultName: await defaultSearchName(filters, place, locale), saved: searchSaved };
 
   return (
     <SearchProvider filters={filters} total={result.total} holidays={holidays}>

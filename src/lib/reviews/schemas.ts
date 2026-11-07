@@ -14,6 +14,8 @@ import {
   REVIEW_REPORT_REASONS,
   REVIEW_TEXT_MAX,
   REVIEW_TEXT_MIN,
+  countMeaningful,
+  meaningfulMinimum,
 } from "./rules";
 
 const id = z.string().trim().min(1).max(64);
@@ -30,11 +32,21 @@ export function tidyReviewText(value: string): string {
     .trim();
 }
 
+/**
+ * A review or reply text: tidied, `min`–`max` characters (code points), and enough letters or
+ * digits (meaningfulMinimum in ./rules.ts: filler such as dots, "!" or emoji is not a review).
+ */
 const text = (min: number, max: number) =>
   z
     .string()
     .transform(tidyReviewText)
-    .pipe(z.string().min(min, { message: "too_short" }).max(max, { message: "too_long" }));
+    .pipe(
+      z
+        .string()
+        .min(min, { message: "too_short" })
+        .max(max, { message: "too_long" })
+        .refine((value) => countMeaningful(value) >= meaningfulMinimum(min), { message: "too_short" }),
+    );
 
 export const createReviewSchema = z.object({
   bookingCode: z.string().trim().min(3).max(32),

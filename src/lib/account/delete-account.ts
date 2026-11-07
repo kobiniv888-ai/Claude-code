@@ -32,12 +32,16 @@ async function removeFiles(keys: string[], remove: (key: string) => Promise<void
  *    user's bookings is cleared (releaseBookingsOfDeletedAccount, docs/redesign-2/booking.md);
  *  - every listing → DELETED (soft) with its contact details, exact address/map point, cadastral
  *    code, kosher certificate photo and calendar imports cleared;
- *  - favorites (save counters adjusted), recently viewed places, sessions, social/password accounts, device links,
- *    blocks are deleted;
+ *  - favorites (save counters adjusted), saved lists (with their share links) and saved searches,
+ *    recently viewed places, sessions, social/password accounts, device links, push-notification
+ *    subscriptions (endpoint, keys, device hint) and blocks are deleted (the user row is only
+ *    anonymized, so its onDelete: Cascade never fires: every table goes here by hand);
  *  - verification documents and the user's ticket attachments are deleted from private storage
  *    (decided requests keep only their status; undecided ones are removed);
  *  - the user row becomes "Deleted user" with a placeholder email, no phone, bio or photo,
  *    status DELETED and deletedAt now.
+ * Reviews the user wrote stay (founder's answer 6: final once posted); they show as "אורח" once
+ * the account is DELETED (reviewerFirstName, src/lib/reviews/rules.ts).
  */
 export async function deleteAccountData(userId: string): Promise<void> {
   const now = new Date();
@@ -95,10 +99,14 @@ export async function deleteAccountData(userId: string): Promise<void> {
       data: { saveCount: { decrement: 1 } },
     }),
     db.favorite.deleteMany({ where: { userId } }),
+    // After the favorites, so Favorite.listId's SetNull has nothing left to touch.
+    db.savedSearch.deleteMany({ where: { userId } }),
+    db.savedList.deleteMany({ where: { userId } }),
     db.recentlyViewed.deleteMany({ where: { userId } }),
     db.session.deleteMany({ where: { userId } }),
     db.account.deleteMany({ where: { userId } }),
     db.deviceLink.deleteMany({ where: { userId } }),
+    db.pushSubscription.deleteMany({ where: { userId } }),
     db.userBlock.deleteMany({ where: { OR: [{ blockerId: userId }, { blockedId: userId }] } }),
     db.verificationRequest.deleteMany({ where: { id: { in: undecided } } }),
     db.verificationRequest.updateMany({

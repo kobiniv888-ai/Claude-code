@@ -562,6 +562,16 @@
         "host": "The {brand} team looked at a review of {title} again and put it back on the site. It shows on the listing and counts in the rating again."
       },
       "cta": "See the reviews"
+    },
+    "review_no_show_guest": {
+      "subject": "Your host reported that you didn't arrive · {code}",
+      "preheader": "{title}: your host reported that you didn't arrive.",
+      "heading": "Your host reported that you didn't arrive",
+      "body1": "The host of {title} reported that you didn't arrive for your stay ({dates}, booking {code}).",
+      "body2": "A stay marked \"didn't arrive\" can't be reviewed.",
+      "wrong": "Did you arrive and stay there? Write to us through the {brand} contact page and we'll look into it. If the report is wrong, we'll remove it and you'll be able to write a review.",
+      "tripLink": "Booking details",
+      "cta": "Contact {brand}"
     }
   },
   "ticketStatus": {

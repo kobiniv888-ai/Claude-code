@@ -50,11 +50,15 @@ import type { AlertEmailPlace, SavedAlertEmailData } from "./email-templates";
  *   a RateLimit row "saved-search-alerts:<Israel day>:<user id>" (INSERT … ON CONFLICT DO
  *   NOTHING), so two servers running at once cannot both send. A run that finds nothing new does
  *   not claim the day (a later run that morning may still send). A failed send releases the
- *   claim and changes nothing else; a pending claim older than STALE_CLAIM_MINUTES is taken over
- *   unless the outbox shows the email went out after it was claimed.
+ *   claim and changes nothing else. Once the email went out the claim is settled at once and is
+ *   never released, whatever fails afterwards (lists-alerts-4). A pending claim older than
+ *   STALE_CLAIM_MINUTES (its run died) is taken over by the next run, unless the outbox shows the
+ *   email went out after it was claimed: then the claim is settled and the searches remember the
+ *   places that email had (published by the time of the claim), so tomorrow does not repeat them
+ *   (lists-alerts-8).
  * - After the email: every shown search remembers its places and the time (lastSentAt,
  *   lastMatchIds, lastCheckedAt); searches left out of a long email keep their window for the
- *   next one.
+ *   next one. A search deleted meanwhile is skipped (updateMany), never aborting the others.
  * Emails go through @/lib/email (the admin outbox until Resend is set up), in the user's language,
  * with a signed one-tap unsubscribe link and List-Unsubscribe headers.
  */
@@ -100,14 +104,19 @@ export function userLocale(value: string): AppLocale {
 
 // ─── The once-a-day claim ─────────────────────────────────────
 
-async function claimUser(day: string, userId: string, now: Date, to: string): Promise<boolean> {
+/** "claimed": this run sends; "busy": another run has the day; `{ sentAt }`: a dead run's email went out then. */
+type Claim = "claimed" | "busy" | { sentAt: Date };
+
+const staleMs = () => STALE_CLAIM_MINUTES * 60_000;
+
+async function claimUser(day: string, userId: string, now: Date, to: string): Promise<Claim> {
   const key = dailyClaimKey(day, userId);
   const resetAt = new Date(now.getTime() + CLAIM_MS);
   const { count } = await db.rateLimit.createMany({ data: [{ key, count: PENDING, resetAt }], skipDuplicates: true });
-  if (count === 1) return true;
+  if (count === 1) return "claimed";
   const claim = await db.rateLimit.findUnique({ where: { key }, select: { count: true, resetAt: true } });
-  const staleBefore = new Date(resetAt.getTime() - STALE_CLAIM_MINUTES * 60_000);
-  if (!claim || claim.count !== PENDING || claim.resetAt >= staleBefore) return false;
+  const staleBefore = new Date(resetAt.getTime() - staleMs());
+  if (!claim || claim.count !== PENDING || claim.resetAt >= staleBefore) return "busy";
   // A stale pending claim: the run that took it may have sent the email and then died. The
   // outbox says whether the day's email went out since it was claimed.
   const claimedAt = new Date(claim.resetAt.getTime() - CLAIM_MS);
@@ -116,15 +125,22 @@ async function claimUser(day: string, userId: string, now: Date, to: string): Pr
     select: { id: true },
   });
   if (sent) {
-    await db.rateLimit.updateMany({ where: { key }, data: { count: SENT } });
-    return false;
+    const settled = await db.rateLimit.updateMany({ where: { key, count: PENDING, resetAt: claim.resetAt }, data: { count: SENT } });
+    return settled.count === 1 ? { sentAt: claimedAt } : "busy";
   }
   const taken = await db.rateLimit.updateMany({ where: { key, count: PENDING, resetAt: claim.resetAt }, data: { resetAt } });
-  return taken.count === 1;
+  return taken.count === 1 ? "claimed" : "busy";
 }
 
-async function hasClaim(day: string, userId: string): Promise<boolean> {
-  return (await db.rateLimit.count({ where: { key: dailyClaimKey(day, userId) } })) > 0;
+/**
+ * Whether today's email is settled or being sent right now (a fresh pending claim). A stale
+ * pending claim does not count: its run died, and claimUser decides whether to take it over.
+ */
+async function hasLiveClaim(day: string, userId: string, now: Date): Promise<boolean> {
+  const claim = await db.rateLimit.findUnique({ where: { key: dailyClaimKey(day, userId) }, select: { count: true, resetAt: true } });
+  if (!claim) return false;
+  if (claim.count !== PENDING) return true;
+  return claim.resetAt.getTime() >= now.getTime() + CLAIM_MS - staleMs();
 }
 
 async function settleClaim(day: string, userId: string): Promise<void> {
@@ -171,6 +187,45 @@ async function markChecked(searchIds: string[], now: Date): Promise<void> {
   if (searchIds.length) await db.savedSearch.updateMany({ where: { id: { in: searchIds } }, data: { lastCheckedAt: now } });
 }
 
+type Found = { search: SearchRow; matches: ListingCardData[] };
+
+/**
+ * After an email that went out at `sentAt`: the shown searches remember every new place (the
+ * email links to all of them through the search) and the time; searches with nothing new are
+ * checked; the ones left out keep their window. Each row is its own updateMany (scoped to the
+ * user), so a search deleted while the email was being sent is skipped instead of failing the
+ * others. Retried; never throws (the email is out, the claim is settled).
+ */
+async function recordSent(userId: string, found: readonly Found[], shownIds: ReadonlySet<string>, sentAt: Date): Promise<void> {
+  const updates = found.flatMap(({ search, matches }) => {
+    const where = { id: search.id, userId };
+    if (shownIds.has(search.id)) {
+      return [db.savedSearch.updateMany({ where, data: { lastSentAt: sentAt, lastCheckedAt: sentAt, lastMatchIds: mergeMatchIds(search.lastMatchIds, matches.map((m) => m.id)) } })];
+    }
+    return matches.length === 0 ? [db.savedSearch.updateMany({ where, data: { lastCheckedAt: sentAt } })] : [];
+  });
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      await db.$transaction(updates);
+      return;
+    } catch (error) {
+      if (attempt === 3) console.error(`[saved-searches] user ${userId}: the email went out but the searches were not updated:`, error);
+    }
+  }
+}
+
+function digestOf(found: readonly Found[]) {
+  return buildDigest(found.map(({ search, matches }) => ({ id: search.id, name: search.name, query: readStoredFilters(search.filters)?.query ?? "", matches })));
+}
+
+/** The places a dead run's email had: the ones published by the time it claimed the day. */
+function foundBy(found: readonly Found[], at: Date): Found[] {
+  return found.map(({ search, matches }) => ({
+    search,
+    matches: matches.filter((m) => m.publishedAt !== null && new Date(m.publishedAt).getTime() <= at.getTime()),
+  }));
+}
+
 // ─── One user ─────────────────────────────────────────────────
 
 const userSelect = {
@@ -213,19 +268,28 @@ async function runForUser(user: User, day: string, ctx: Context): Promise<UserOu
     await markChecked(ids, ctx.now);
     return "paused";
   }
-  // Already emailed today: nothing changes, the places wait for tomorrow's email.
-  if (await hasClaim(day, user.id)) return "already";
+  // Already emailed today (or being emailed right now): nothing changes, the places wait for
+  // tomorrow's email.
+  if (await hasLiveClaim(day, user.id, ctx.now)) return "already";
 
   const locale = userLocale(user.locale);
-  const found = [];
+  const found: Found[] = [];
   for (const search of searches) found.push({ search, matches: await newPlacesFor(search, { id: user.id, locale }, ctx) });
-  const digest = buildDigest(found.map(({ search, matches }) => ({ id: search.id, name: search.name, query: readStoredFilters(search.filters)?.query ?? "", matches })));
+  const digest = digestOf(found);
   if (digest.shown.length === 0) {
     await markChecked(ids, ctx.now);
     return "quiet";
   }
-  if (!(await claimUser(day, user.id, ctx.now, to))) return "already";
+  const claim = await claimUser(day, user.id, ctx.now, to);
+  if (claim === "busy") return "already";
+  if (claim !== "claimed") {
+    // A dead run's email went out: remember what it had, so tomorrow does not repeat it.
+    const earlier = foundBy(found, claim.sentAt);
+    await recordSent(user.id, earlier, new Set(digestOf(earlier).shown.map((s) => s.id)), claim.sentAt);
+    return "already";
+  }
 
+  let result: Awaited<ReturnType<typeof sendEmail>>;
   try {
     const data: SavedAlertEmailData["saved_search_matches"] = {
       name: user.firstName?.trim() || null,
@@ -241,28 +305,20 @@ async function runForUser(user: User, day: string, ctx: Context): Promise<UserOu
       manageUrl: "/account/alerts",
       unsubscribeUrl: unsubscribePath(user.id, "saved_search"),
     };
-    const result = await sendEmail({ to, template: "saved_search_matches", locale, data, headers: unsubscribeHeaders(user.id, "saved_search") });
-    if (!result.ok) {
-      await releaseClaim(day, user.id);
-      return "failed";
-    }
-    // Shown searches remember every new place (the email links to all of them through the
-    // search); searches with nothing new are checked; the ones left out keep their window.
-    const shown = new Set(digest.shown.map((s) => s.id));
-    const updates = found.flatMap(({ search, matches }) => {
-      if (shown.has(search.id)) {
-        return [db.savedSearch.update({ where: { id: search.id }, data: { lastSentAt: ctx.now, lastCheckedAt: ctx.now, lastMatchIds: mergeMatchIds(search.lastMatchIds, matches.map((m) => m.id)) } })];
-      }
-      return matches.length === 0 ? [db.savedSearch.update({ where: { id: search.id }, data: { lastCheckedAt: ctx.now } })] : [];
-    });
-    await db.$transaction(updates);
-    await settleClaim(day, user.id);
-    return "sent";
+    result = await sendEmail({ to, template: "saved_search_matches", locale, data, headers: unsubscribeHeaders(user.id, "saved_search") });
   } catch (error) {
     console.error(`[saved-searches] user ${user.id} failed:`, error);
     await releaseClaim(day, user.id);
     return "failed";
   }
+  if (!result.ok) {
+    await releaseClaim(day, user.id);
+    return "failed";
+  }
+  // The email is out: the day is settled first and never released, whatever fails afterwards.
+  await settleClaim(day, user.id);
+  await recordSent(user.id, found, new Set(digest.shown.map((s) => s.id)), ctx.now);
+  return "sent";
 }
 
 /**

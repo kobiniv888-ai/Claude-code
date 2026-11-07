@@ -15,6 +15,7 @@ import { auditActionKey } from "@/lib/admin/audit-labels";
 import { getAdminBooking } from "@/lib/admin/server/bookings";
 import { requireStaff } from "@/lib/auth/session";
 import { formatDate, formatMoney, formatTime, isolate } from "@/lib/format";
+import { ClearNoShowButton } from "../../flags/_components/clear-no-show-button";
 import { FlagReviewButton } from "../../flags/_components/flag-review-button";
 import { BookingPriceLines } from "@/components/booking/booking-price-lines";
 
@@ -49,11 +50,12 @@ export default async function AdminBookingPage({ params }: Props) {
   const data = await getAdminBooking(id, locale as AppLocale);
   if (!data) notFound();
   const { booking, lines, history } = data;
-  const [t, tb, tAdmin, tFields] = await Promise.all([
+  const [t, tb, tAdmin, tFields, tReviews] = await Promise.all([
     getTranslations("admin.bookings"),
     getTranslations("booking"),
     getTranslations("admin"),
     getTranslations("listingFields"),
+    getTranslations("reviews"),
   ]);
   const currency = booking.currency as CurrencyCode;
   const when = (d: Date) => t("at", { date: formatDate(d, locale), time: formatTime(d, locale) });
@@ -103,8 +105,12 @@ export default async function AdminBookingPage({ params }: Props) {
             </span>
           </p>
           {/* Nobody reviews the flag of a booking they are part of (as host or guest). */}
-          {!booking.flagReviewedAt && booking.host.id !== staff.id && booking.guest.id !== staff.id ? (
-            <FlagReviewButton target={{ bookingId: booking.id }} label={booking.code} />
+          {booking.host.id !== staff.id && booking.guest.id !== staff.id ? (
+            <div className="flex flex-wrap gap-2">
+              {/* A wrong "didn't arrive" report: the guest can review the stay again. */}
+              {booking.status === "NO_SHOW" ? <ClearNoShowButton bookingId={booking.id} label={booking.code} /> : null}
+              {!booking.flagReviewedAt ? <FlagReviewButton target={{ bookingId: booking.id }} label={booking.code} /> : null}
+            </div>
           ) : null}
         </div>
       ) : null}
@@ -149,6 +155,16 @@ export default async function AdminBookingPage({ params }: Props) {
                 },
               ]}
             />
+            {booking.review ? (
+              // The guest's review of this stay (reviews-2): staff can hide it there, reported or not.
+              <p className="mt-4 flex flex-wrap items-center gap-2 text-sm">
+                <span className="text-xs text-muted-foreground">{tReviews("admin.title")}:</span>
+                <Link href={`/admin/reviews/${booking.review.id}`} className="font-medium text-primary hover:underline">
+                  {tReviews("stars.label", { count: booking.review.rating })}
+                </Link>
+                {booking.review.hidden ? <span className="text-xs font-medium text-destructive">{tReviews("admin.hiddenBadge")}</span> : null}
+              </p>
+            ) : null}
             {booking.messageToHost ? (
               <div className="mt-4">
                 <p className="mb-1 text-xs text-muted-foreground">{t("messageToHost")}</p>

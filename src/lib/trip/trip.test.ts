@@ -7,18 +7,28 @@ import { cancellationView } from "./deadline";
 import { buildTripIcs, escapeIcsText, foldIcsLine, googleCalendarUrl, tripEventTimes, type TripCalendarInput } from "./ics";
 import { isMapPoint, tripMapLinks, walkingDirectionsUrl } from "./map-links";
 import {
-  OFFLINE_PAGE_HEADERS,
+  OFFLINE_RESAVE_AFTER_MS,
+  OFFLINE_SAVED_AT_ATTR,
+  OFFLINE_TRIP_GONE_MARKER,
+  OFFLINE_TRIP_GONE_VALUE,
   OFFLINE_TRIP_MARKER,
   OFFLINE_TRIPS_CACHE,
   OFFLINE_TRIPS_INDEX,
   TRIP_PAGE_PATTERN,
+  hasTripGoneMarker,
   hasTripMarker,
+  htmlAssetUrls,
   isOfflineEntryExpired,
   isTripPagePath,
+  markSavedCopy,
+  needsResave,
   offlineAssetUrls,
   offlineKeepUntil,
   offlinePageHeaders,
+  offlineSaveAllowed,
+  ownedEntries,
   parseOfflineIndex,
+  reconcileOfflineEntries,
   tripCodeOfPath,
   withOfflineEntry,
   type OfflineTripEntry,
@@ -366,20 +376,93 @@ describe("offline trip pages", () => {
     ).toEqual(["https://bayit.example/_next/static/chunks/a.js", "https://bayit.example/_next/static/css/b.css", "https://bayit.example/icons/sprite-1.svg"]);
   });
 
+  const entry: OfflineTripEntry = {
+    path: "/he/account/trips/BT-7K3Q9",
+    code: "BT-7K3Q9",
+    owner: "a1b2c3d4e5f6a1b2c3d4e5f6",
+    title: "דירה",
+    checkIn: "2026-11-13",
+    checkOut: "2026-11-15",
+    status: "CONFIRMED",
+    savedAt: "2026-11-07T12:00:00.000Z",
+    keepUntil: "2026-11-22",
+    version: "0123456789abcdef",
+  };
+
   it("reads the index defensively and replaces an entry of the same page", () => {
-    const entry: OfflineTripEntry = {
-      path: "/he/account/trips/BT-7K3Q9",
-      code: "BT-7K3Q9",
-      title: "דירה",
-      checkIn: "2026-11-13",
-      checkOut: "2026-11-15",
-      status: "CONFIRMED",
-      savedAt: "2026-11-07T12:00:00.000Z",
-      keepUntil: "2026-11-22",
-    };
     expect(parseOfflineIndex({ trips: [entry, { ...entry, path: "/he/account" }, { path: 1 }, null] })).toEqual([entry]);
     expect(parseOfflineIndex("junk")).toEqual([]);
     expect(withOfflineEntry([entry], { ...entry, status: "CANCELLED_BY_GUEST" })).toEqual([{ ...entry, status: "CANCELLED_BY_GUEST" }]);
+    // The content key is optional (null when missing).
+    const { version: _version, ...withoutVersion } = entry;
+    void _version;
+    expect(parseOfflineIndex({ trips: [withoutVersion] })).toEqual([{ ...entry, version: null }]);
+  });
+
+  // privacy-1: a copy belongs to the account that saved it; copies from before owners existed go.
+  it("drops entries without an owner and keeps only the signed-in account's copies", () => {
+    const { owner: _owner, ...legacy } = entry;
+    void _owner;
+    expect(parseOfflineIndex({ trips: [legacy] })).toEqual([]);
+    expect(parseOfflineIndex({ trips: [{ ...entry, owner: "" }] })).toEqual([]);
+    const other = { ...entry, path: "/he/account/trips/BT-22222", code: "BT-22222", owner: "ffffffffffffffffffffffff" };
+    expect(ownedEntries([entry, other], entry.owner)).toEqual([entry]);
+    // Signed out: everything goes; another account: the other account's copies go.
+    expect(reconcileOfflineEntries([entry, other], null, "2026-11-07")).toEqual({ keep: [], drop: [entry.path, other.path] });
+    expect(reconcileOfflineEntries([entry, other], entry.owner, "2026-11-07")).toEqual({ keep: [entry], drop: [other.path] });
+    // privacy-5: past its last day it goes too.
+    expect(reconcileOfflineEntries([entry], entry.owner, "2026-11-23")).toEqual({ keep: [], drop: [entry.path] });
+  });
+
+  // trip-offline-5 / trip-offline-8: no saving (and no keeping) of a cancelled trip or after the keep window.
+  it("allows saving only while a copy may be kept", () => {
+    expect(offlineSaveAllowed({ status: "CONFIRMED", checkOut: "2026-11-15" }, "2026-11-07")).toBe(true);
+    expect(offlineSaveAllowed({ status: "COMPLETED", checkOut: "2026-11-15" }, "2026-11-22")).toBe(true);
+    expect(offlineSaveAllowed({ status: "COMPLETED", checkOut: "2026-11-15" }, "2026-11-23")).toBe(false);
+    expect(offlineSaveAllowed({ status: "CANCELLED_BY_HOST", checkOut: "2026-11-15" }, "2026-11-07")).toBe(false);
+    expect(offlineSaveAllowed({ status: "CANCELLED_BY_GUEST", checkOut: "2026-11-15" }, "2026-11-07")).toBe(false);
+  });
+
+  // trip-offline-4: the page refreshes its copy when what it shows changed, or the copy is old.
+  it("re-saves when the status or the content key changed, or the copy is older than an hour", () => {
+    const now = Date.parse(entry.savedAt) + 5 * 60 * 1000;
+    expect(needsResave(entry, { status: "CONFIRMED", version: entry.version! }, now)).toBe(false);
+    expect(needsResave(entry, { status: "COMPLETED", version: entry.version! }, now)).toBe(true);
+    expect(needsResave(entry, { status: "CONFIRMED", version: "fedcba9876543210" }, now)).toBe(true);
+    expect(needsResave({ ...entry, version: null }, { status: "CONFIRMED", version: entry.version! }, now)).toBe(true);
+    expect(needsResave(entry, { status: "CONFIRMED", version: entry.version! }, Date.parse(entry.savedAt) + OFFLINE_RESAVE_AFTER_MS + 1)).toBe(true);
+    expect(needsResave({ ...entry, savedAt: "junk" }, { status: "CONFIRMED", version: entry.version! }, now)).toBe(true);
+  });
+
+  // trip-offline-2: the saved copy knows it is the copy (whatever navigator.onLine says).
+  it("marks the saved copy with its time, once", () => {
+    const html = '<div class="grid" data-offline-trip="BT-7K3Q9"><p>x</p></div>';
+    const once = markSavedCopy(html, "BT-7K3Q9", "2026-11-07T12:00:00.000Z");
+    expect(once).toBe(`<div class="grid" data-offline-trip="BT-7K3Q9" ${OFFLINE_SAVED_AT_ATTR}="2026-11-07T12:00:00.000Z"><p>x</p></div>`);
+    expect(hasTripMarker(once, "BT-7K3Q9")).toBe(true);
+    const twice = markSavedCopy(once, "BT-7K3Q9", "2026-11-08T09:30:00.000Z");
+    expect(twice.match(new RegExp(OFFLINE_SAVED_AT_ATTR, "g"))).toHaveLength(1);
+    expect(twice).toContain(`${OFFLINE_SAVED_AT_ATTR}="2026-11-08T09:30:00.000Z"`);
+    expect(markSavedCopy("<p>no mark</p>", "BT-7K3Q9", "2026-11-07T12:00:00.000Z")).toBe("<p>no mark</p>");
+    expect(() => markSavedCopy(html, "BT-7K3Q9", '"><script>')).toThrow();
+  });
+
+  // trip-offline-1 / robustness-1: a positive "gone" mark, as written in HTML only.
+  it("tells the 'gone' mark in HTML apart from the name in the page's data stream", () => {
+    expect(hasTripGoneMarker(`<div class="grid gap-2 py-6" ${OFFLINE_TRIP_GONE_MARKER}="${OFFLINE_TRIP_GONE_VALUE}">`)).toBe(true);
+    expect(hasTripGoneMarker('self.__next_f.push([1,"{\\"data-offline-trip-gone\\":\\"1\\"}"])')).toBe(false);
+    expect(hasTripGoneMarker('<div data-offline-trip="BT-7K3Q9">')).toBe(false);
+    // The trip mark never matches the "gone" attribute.
+    expect(hasTripMarker(`<div ${OFFLINE_TRIP_GONE_MARKER}="1">`, "1")).toBe(false);
+  });
+
+  // trip-offline-3: the files a fresh copy's HTML names are saved with it.
+  it("finds the static files named in a page's HTML", () => {
+    const html = '<link rel="stylesheet" href="/_next/static/css/a.css"/><script src="/_next/static/chunks/app-NEW.js?dpl=1&amp;x=2" async=""></script><img src="/api/media/p.webp"/><a href="/he/account">';
+    expect(htmlAssetUrls(html, "https://bayit.example")).toEqual([
+      "https://bayit.example/_next/static/css/a.css",
+      "https://bayit.example/_next/static/chunks/app-NEW.js?dpl=1&x=2",
+    ]);
   });
 
   it("the service worker uses the same cache, index and address pattern, and still parses", () => {
@@ -389,12 +472,16 @@ describe("offline trip pages", () => {
     expect(sw).toContain(`const TRIPS_INDEX = "${OFFLINE_TRIPS_INDEX}";`);
     expect(sw).toContain(`const TRIP_PAGE = new RegExp("${TRIP_PAGE_PATTERN}");`);
     expect(sw).toContain(`const TRIP_MARKER = "${OFFLINE_TRIP_MARKER}";`);
-    expect(sw).toContain(`const TRIP_PAGE_HEADERS = ${JSON.stringify(OFFLINE_PAGE_HEADERS).replace(/,/g, ", ")};`);
+    expect(sw).toContain(`const TRIP_GONE_MARK = '${OFFLINE_TRIP_GONE_MARKER}="${OFFLINE_TRIP_GONE_VALUE}"';`);
+    // The worker never writes a copy itself (the page does, with its files and the index).
+    expect(sw).not.toMatch(/cache\.put\(path/);
     // Pages are cached only through the saved-trips path: no generic page caching crept in.
     expect(sw).toContain('if (url.pathname.startsWith("/api/")) return;');
     // The offline page lists saved trips from the same cache.
     const offline = fs.readFileSync(path.join(process.cwd(), "public", "offline.html"), "utf8");
     expect(offline).toContain(`caches.has("${OFFLINE_TRIPS_CACHE}")`);
     expect(offline).toContain(`cache.match("${OFFLINE_TRIPS_INDEX}")`);
+    // It lists only entries naming their owner.
+    expect(offline).toContain('typeof t.owner === "string"');
   });
 });

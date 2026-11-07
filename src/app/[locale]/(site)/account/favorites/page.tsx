@@ -98,7 +98,9 @@ export default async function FavoritesPage({ params, searchParams }: Props) {
         </ul>
       </nav>
 
-      <AccountListHeader list={selected} displayName={displayListName(selected, defaultName)} defaultName={defaultName} shareUrl={shareUrl} />
+      {/* Keyed by list: a tab is a soft navigation that keeps client state, and the header's
+          sheets (share link, rename text, delete error) must belong to THIS list (ui-1). */}
+      <AccountListHeader key={selected.id} list={selected} displayName={displayListName(selected, defaultName)} defaultName={defaultName} shareUrl={shareUrl} />
 
       <div className="mt-6">
         <FavoritesList

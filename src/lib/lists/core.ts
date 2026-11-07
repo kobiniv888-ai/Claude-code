@@ -52,6 +52,23 @@ export function listNameKey(name: string): string {
   return normalizeListName(name).toLocaleLowerCase("en-US");
 }
 
+/**
+ * The default list's names a named list may not take (lists-alerts-10): "שמורים", "Saved"… — the
+ * default list is shown under its localized name, so a named list called that would give two tabs
+ * with one name. Pass the names (every language's `lists.saving.defaultName` on the server, the
+ * reader's own in the browser); compared by listNameKey.
+ */
+export function reservedNameKeys(names: Iterable<string>): Set<string> {
+  const keys = new Set<string>();
+  for (const name of names) {
+    const key = listNameKey(name);
+    if (key) keys.add(key);
+  }
+  return keys;
+}
+
+const NO_RESERVED: ReadonlySet<string> = new Set();
+
 export function validateListName(raw: unknown): { ok: true; name: string } | { ok: false; error: ListNameError } {
   if (typeof raw !== "string") return { ok: false, error: "name_required" };
   const name = normalizeListName(raw);
@@ -288,22 +305,32 @@ export function deviceCreateList(
   rawName: string,
   key: string,
   now = Date.now(),
+  /** reservedNameKeys(): the default list's names. */
+  reserved: ReadonlySet<string> = NO_RESERVED,
 ): { ok: true; state: DeviceLists; key: string } | { ok: false; error: DeviceListError } {
   const valid = validateListName(rawName);
   if (!valid.ok) return valid;
+  const nameKey = listNameKey(valid.name);
+  if (reserved.has(nameKey)) return { ok: false, error: "name_taken" };
   if (state.lists.length >= DEVICE_MAX_LISTS) return { ok: false, error: "too_many_lists" };
   if (!LIST_KEY.test(key)) return { ok: false, error: "not_found" };
-  const nameKey = listNameKey(valid.name);
   const same = state.lists.find((list) => listNameKey(list.name) === nameKey);
   if (same) return { ok: true, state, key: same.key };
   return { ok: true, state: { ...state, lists: [...state.lists, { key, name: valid.name, usedAt: null, createdAt: now }] }, key };
 }
 
-export function deviceRenameList(state: DeviceLists, key: string, rawName: string): { ok: true; state: DeviceLists } | { ok: false; error: DeviceListError } {
+export function deviceRenameList(
+  state: DeviceLists,
+  key: string,
+  rawName: string,
+  /** reservedNameKeys(): the default list's names. */
+  reserved: ReadonlySet<string> = NO_RESERVED,
+): { ok: true; state: DeviceLists } | { ok: false; error: DeviceListError } {
   const valid = validateListName(rawName);
   if (!valid.ok) return valid;
   if (!state.lists.some((list) => list.key === key)) return { ok: false, error: "not_found" };
   const nameKey = listNameKey(valid.name);
+  if (reserved.has(nameKey)) return { ok: false, error: "name_taken" };
   if (state.lists.some((list) => list.key !== key && listNameKey(list.name) === nameKey)) return { ok: false, error: "name_taken" };
   return { ok: true, state: { ...state, lists: state.lists.map((list) => (list.key === key ? { ...list, name: valid.name } : list)) } };
 }
@@ -352,7 +379,8 @@ export type MergePlan = {
  * - The device's default list → the account's default list.
  * - A named device list → the account list with the same name (case and spacing ignored), or a
  *   new list; when the account is at MAX_LISTS, or the name is refused (`nameAllowed`), its
- *   places go to the default list.
+ *   places go to the default list. A device list named like the default list in any language
+ *   (`reservedNameKeys`, "Saved", "שמורים") IS the default list.
  * - No duplicates, and the account wins: a place the account already saved keeps its list.
  * - Only places that are public now are saved.
  * - Last list used: the device's, when it is more recent than any use on the account.
@@ -363,9 +391,12 @@ export function planDeviceMerge(
     lists: readonly { id: string; name: string; isDefault: boolean; lastUsedAt: Date | null; createdAt: Date }[];
     savedListingIds: ReadonlySet<string>;
     publicListingIds: ReadonlySet<string>;
+    /** reservedNameKeys(): the default list's names in every language. */
+    reservedNameKeys?: ReadonlySet<string>;
   },
   nameAllowed: (name: string) => boolean = () => true,
 ): MergePlan {
+  const reserved = account.reservedNameKeys ?? NO_RESERVED;
   const fallback = pickDefaultList(account.lists);
   const byName = new Map<string, string>();
   for (const list of account.lists) {
@@ -380,7 +411,9 @@ export function planDeviceMerge(
   for (const list of device.lists) {
     const nameKey = listNameKey(list.name);
     const existing = byName.get(nameKey);
-    if (existing) {
+    if (reserved.has(nameKey)) {
+      targets[list.key] = { kind: "default" };
+    } else if (existing) {
       targets[list.key] = { kind: "list", id: existing };
     } else if (createdByName.has(nameKey)) {
       targets[list.key] = { kind: "create", key: createdByName.get(nameKey)! };

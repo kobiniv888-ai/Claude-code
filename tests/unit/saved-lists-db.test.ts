@@ -146,6 +146,31 @@ describe("managing lists", () => {
     await expect(lists.deleteList(user.id, fallback.id)).rejects.toMatchObject({ code: "default_list" });
   });
 
+  it("a named list can never take the default list's name in any language (lists-alerts-10)", async () => {
+    const user = await newUser();
+    for (const name of ["שמורים", "Saved", " saved ", "Избранное", "المحفوظات", "შენახული"]) {
+      await expect(lists.createList(user.id, name), name).rejects.toMatchObject({ code: "name_taken" });
+    }
+    const trip = await lists.createList(user.id, "Trip");
+    await expect(lists.renameList(user.id, trip.id, "SAVED")).rejects.toMatchObject({ code: "name_taken" });
+    expect((await lists.getAccountLists(user.id)).lists.map((l) => l.name)).toEqual(["שמורים", "Trip"]);
+  });
+
+  it("'New list' with a place: a failed save leaves no list behind, a retry works (lists-alerts-11)", async () => {
+    const user = await newUser();
+    await expect(lists.createListAndSave(user, "Batumi August", ids.hidden)).rejects.toMatchObject({ code: "not_found" });
+    expect(await db.savedList.count({ where: { userId: user.id, name: "Batumi August" } })).toBe(0);
+    await db.listing.update({ where: { id: ids.hidden }, data: { status: "LIVE" } });
+    try {
+      const saved = await lists.createListAndSave(user, "Batumi August", ids.hidden);
+      expect(saved).toMatchObject({ created: true, moved: false, list: { name: "Batumi August", isDefault: false, count: 1 } });
+      expect((await favorites(user.id)).map((f) => f.listId)).toEqual([saved.list.id]);
+      expect(recordSave).toHaveBeenCalledTimes(1);
+    } finally {
+      await db.listing.update({ where: { id: ids.hidden }, data: { status: "HIDDEN" } });
+    }
+  });
+
   it("deleting a list moves its places to the default list, and the heart goes back there", async () => {
     const user = await newUser();
     const trip = await lists.createList(user.id, "Trip");
@@ -281,5 +306,19 @@ describe("merging a device's lists at sign-in", () => {
     // Merging the same device again changes nothing.
     expect(await lists.mergeDeviceLists(user, device)).toMatchObject({ added: 0, listsCreated: 0 });
     expect(await db.favorite.count({ where: { userId: user.id } })).toBe(4);
+  });
+
+  it("a device list named like the default list goes into the default list (lists-alerts-10)", async () => {
+    const user = await newUser();
+    const T0 = Date.now() - 60_000;
+    const result = await lists.mergeDeviceLists(user, {
+      lists: [{ key: "d_saved00001", name: "Saved", usedAt: null, createdAt: T0 }],
+      items: [{ listingId: ids.a, listKey: "d_saved00001", savedAt: T0 + 1 }],
+      defaultUsedAt: null,
+    });
+    expect(result).toMatchObject({ added: 1, listsCreated: 0 });
+    const fallback = await db.savedList.findFirstOrThrow({ where: { userId: user.id, isDefault: true } });
+    expect((await favorites(user.id)).map((f) => f.listId)).toEqual([fallback.id]);
+    expect(await db.savedList.count({ where: { userId: user.id } })).toBe(1);
   });
 });

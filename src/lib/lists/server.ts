@@ -9,7 +9,9 @@ import "server-only";
  * list; null = the default list. Changes to one user's lists run in a transaction holding that
  * user's advisory lock, so two taps at once can never make two default lists or lose a move.
  */
+import { locales } from "@/config/site";
 import type { Prisma } from "@/generated/prisma/client";
+import { getMessages } from "@/i18n/messages";
 import { db } from "@/lib/db";
 import { AppError, NotFoundError } from "@/lib/errors";
 import { recordSave } from "@/lib/listing/stats";
@@ -33,6 +35,7 @@ import {
   pickTargetList,
   planCopy,
   planDeviceMerge,
+  reservedNameKeys,
   resolveListId,
   uniqueListName,
   validateListName,
@@ -74,6 +77,28 @@ function checkedName(raw: unknown): string {
   if (!valid.ok) throw new ListError(valid.error);
   if (listNameHasContactInfo(valid.name)) throw new ListError("name_has_contact");
   return valid.name;
+}
+
+/**
+ * The default list's name in every language ("שמורים", "Saved", …: messages/<locale>/lists.json
+ * saving.defaultName, with admin overrides) and its stored name. A named list may not take one
+ * (lists-alerts-10): the default list is shown under it, so there would be two tabs of one name.
+ */
+export async function reservedListNames(): Promise<string[]> {
+  const names = await Promise.all(
+    locales.map(async (locale) => {
+      const lists = (await getMessages(locale)).lists as { saving?: { defaultName?: unknown } } | undefined;
+      return typeof lists?.saving?.defaultName === "string" ? lists.saving.defaultName : null;
+    }),
+  );
+  return [DEFAULT_LIST_STORED_NAME, ...names.filter((name): name is string => !!name)];
+}
+
+/** checkedName, and not one of the default list's names. */
+async function checkedNewName(raw: unknown): Promise<string> {
+  const name = checkedName(raw);
+  if (reservedNameKeys(await reservedListNames()).has(listNameKey(name))) throw new ListError("name_taken");
+  return name;
 }
 
 async function lockUser(tx: Tx, userId: string): Promise<void> {
@@ -167,32 +192,36 @@ export async function saveToList(user: { id: string; isStaff?: boolean }, listin
     const { lists } = await listsWithDefault(tx, user.id);
     const target = listId ? lists.find((list) => list.id === listId) : pickTargetList(lists);
     if (!target) throw new NotFoundError();
-    const existing = await tx.favorite.findUnique({ where: { userId_listingId: { userId: user.id, listingId } }, select: { id: true, listId: true } });
-    let created = false;
-    let moved = false;
-    if (existing) {
-      if (resolveListId(existing.listId, lists) !== target.id || existing.listId !== target.id) {
-        moved = resolveListId(existing.listId, lists) !== target.id;
-        await tx.favorite.update({ where: { id: existing.id }, data: { listId: target.id } });
-      }
-    } else {
-      const listing = await saveableListing(tx, listingId);
-      if (!listing) throw new NotFoundError();
-      if ((await tx.favorite.count({ where: { userId: user.id } })) >= MAX_SAVED_PLACES) throw new ListError("too_many_saved");
-      await tx.favorite.create({ data: { userId: user.id, listingId, listId: target.id, ...alertFields(listing) } });
-      created = true;
-    }
-    const now = new Date();
-    await tx.savedList.update({ where: { id: target.id }, data: { lastUsedAt: now } });
-    const count = await tx.favorite.count({
-      where: target.isDefault && target.id === pickDefaultList(lists)?.id
-        ? { userId: user.id, OR: [{ listId: target.id }, { listId: null }] }
-        : { userId: user.id, listId: target.id },
-    });
-    return { list: summary({ ...target, lastUsedAt: now }, count, target.id === pickDefaultList(lists)?.id), created, moved };
+    return saveInto(tx, user.id, listingId, lists, target);
   });
   if (result.created) await recordSave(listingId, 1, user);
   return result;
+}
+
+/** saveToList's body, inside the caller's transaction (which holds the user's lock). */
+async function saveInto(tx: Tx, userId: string, listingId: string, lists: readonly ListRow[], target: ListRow): Promise<SaveResult> {
+  const existing = await tx.favorite.findUnique({ where: { userId_listingId: { userId, listingId } }, select: { id: true, listId: true } });
+  let created = false;
+  let moved = false;
+  if (existing) {
+    if (resolveListId(existing.listId, lists) !== target.id || existing.listId !== target.id) {
+      moved = resolveListId(existing.listId, lists) !== target.id;
+      await tx.favorite.update({ where: { id: existing.id }, data: { listId: target.id } });
+    }
+  } else {
+    const listing = await saveableListing(tx, listingId);
+    if (!listing) throw new NotFoundError();
+    if ((await tx.favorite.count({ where: { userId } })) >= MAX_SAVED_PLACES) throw new ListError("too_many_saved");
+    await tx.favorite.create({ data: { userId, listingId, listId: target.id, ...alertFields(listing) } });
+    created = true;
+  }
+  const now = new Date();
+  await tx.savedList.update({ where: { id: target.id }, data: { lastUsedAt: now } });
+  const isTheDefault = target.id === pickDefaultList(lists)?.id;
+  const count = await tx.favorite.count({
+    where: target.isDefault && isTheDefault ? { userId, OR: [{ listId: target.id }, { listId: null }] } : { userId, listId: target.id },
+  });
+  return { list: summary({ ...target, lastUsedAt: now }, count, isTheDefault), created, moved };
 }
 
 /** Un-saves a place (from whichever list it is in). True when something was removed. */
@@ -204,22 +233,40 @@ export async function removeSaved(user: { id: string; isStaff?: boolean }, listi
 
 // ─── Managing lists ───────────────────────────────────────────
 
-/** A new named list (unique name, no contact details, at most MAX_LISTS lists). */
+/** createList's checks and the new row, inside the caller's transaction. */
+async function createIn(tx: Tx, userId: string, name: string): Promise<{ lists: ListRow[]; created: ListRow }> {
+  const { lists, fallback } = await listsWithDefault(tx, userId);
+  if (lists.length >= MAX_LISTS) throw new ListError("too_many_lists");
+  const key = listNameKey(name);
+  if (lists.some((list) => list !== fallback && listNameKey(list.name) === key)) throw new ListError("name_taken");
+  const created = await tx.savedList.create({ data: { userId, name }, select: LIST_SELECT });
+  return { lists: [...lists, created], created };
+}
+
+/** A new named list (unique name, not the default list's, no contact details, at most MAX_LISTS lists). */
 export async function createList(userId: string, rawName: unknown): Promise<ListSummary> {
-  const name = checkedName(rawName);
-  return transaction(userId, async (tx) => {
-    const { lists, fallback } = await listsWithDefault(tx, userId);
-    if (lists.length >= MAX_LISTS) throw new ListError("too_many_lists");
-    const key = listNameKey(name);
-    if (lists.some((list) => list !== fallback && listNameKey(list.name) === key)) throw new ListError("name_taken");
-    const created = await tx.savedList.create({ data: { userId, name }, select: LIST_SELECT });
-    return summary(created, 0);
+  const name = await checkedNewName(rawName);
+  return transaction(userId, async (tx) => summary((await createIn(tx, userId, name)).created, 0));
+}
+
+/**
+ * "New list" in the list sheet (lists-alerts-11): the list and the save in ONE transaction, so a
+ * save that fails (the listing went away, too many saved places) leaves no empty list behind and
+ * a retry with the same name works.
+ */
+export async function createListAndSave(user: { id: string; isStaff?: boolean }, rawName: unknown, listingId: string): Promise<SaveResult> {
+  const name = await checkedNewName(rawName);
+  const result = await transaction(user.id, async (tx) => {
+    const { lists, created } = await createIn(tx, user.id, name);
+    return saveInto(tx, user.id, listingId, lists, created);
   });
+  if (result.created) await recordSave(listingId, 1, user);
+  return result;
 }
 
 /** Renames a named list (the default list keeps its name). */
 export async function renameList(userId: string, listId: string, rawName: unknown): Promise<ListSummary> {
-  const name = checkedName(rawName);
+  const name = await checkedNewName(rawName);
   return transaction(userId, async (tx) => {
     const { lists, fallback } = await listsWithDefault(tx, userId);
     const list = lists.find((l) => l.id === listId);
@@ -323,6 +370,7 @@ export async function copySharedList(
   if (!shared) throw new NotFoundError();
   if (shared.ownerId === viewer.id) throw new ListError("own_list");
 
+  const reserved = await reservedListNames();
   const result = await transaction(viewer.id, async (tx) => {
     const { lists, fallback } = await listsWithDefault(tx, viewer.id);
     if (lists.length >= MAX_LISTS) throw new ListError("too_many_lists");
@@ -330,7 +378,8 @@ export async function copySharedList(
     const plan = planCopy(shared.listingIds, new Set(saved.map((row) => row.listingId)));
     const total = await tx.favorite.count({ where: { userId: viewer.id } });
     const room = Math.max(0, MAX_SAVED_PLACES - total);
-    const name = uniqueListName(shared.isDefault ? defaultListName : shared.name, lists.filter((l) => l !== fallback).map((l) => l.name));
+    // Never the default list's name in any language (a second "שמורים" tab).
+    const name = uniqueListName(shared.isDefault ? defaultListName : shared.name, [...lists.filter((l) => l !== fallback).map((l) => l.name), ...reserved]);
     const list = await tx.savedList.create({ data: { userId: viewer.id, name }, select: { id: true } });
     const settings = await getSettings();
     const listings = await tx.listing.findMany({
@@ -376,6 +425,7 @@ export async function mergeDeviceLists(
       })
     : [];
   const byId = new Map(publicRows.map((row) => [row.id, row]));
+  const reserved = reservedNameKeys(await reservedListNames());
 
   const result = await transaction(user.id, async (tx) => {
     const { lists, fallback } = await listsWithDefault(tx, user.id);
@@ -383,7 +433,7 @@ export async function mergeDeviceLists(
     const total = await tx.favorite.count({ where: { userId: user.id } });
     const plan = planDeviceMerge(
       device,
-      { lists, savedListingIds: new Set(saved.map((row) => row.listingId)), publicListingIds: new Set(byId.keys()) },
+      { lists, savedListingIds: new Set(saved.map((row) => row.listingId)), publicListingIds: new Set(byId.keys()), reservedNameKeys: reserved },
       (name) => !listNameHasContactInfo(name),
     );
     const createdIds = new Map<string, string>();

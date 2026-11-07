@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { MapIcon, WifiOffIcon } from "lucide-react";
 import { Button } from "@/components/ds/button";
 import { useNearViewport } from "@/hooks/use-near-viewport";
+import { OFFLINE_SAVED_AT_ATTR } from "@/lib/trip/offline";
 import type { TripMapViewProps } from "./trip-map-view";
 
 function MapPlaceholder({ children }: { children?: React.ReactNode }) {
@@ -38,8 +39,9 @@ function savesData(): boolean {
 
 /**
  * The exact-location map of the trip page, light on weak connections (round 3, brief 7.1): no map
- * code until the map scrolls near the screen; with "save data" or on 2G only after a tap; offline
- * (a saved copy of the page) a short note instead, because map tiles are never saved.
+ * code until the map scrolls near the screen; with "save data" or on 2G only after a tap; offline,
+ * and on the saved copy of the page whatever the connection says (the map's code and tiles may not
+ * be saved), a short note instead.
  */
 export function TripMap(props: TripMapViewProps) {
   const t = useTranslations("trips.where");
@@ -49,7 +51,8 @@ export function TripMap(props: TripMapViewProps) {
   const [tapped, setTapped] = useState(false);
 
   useEffect(() => {
-    const update = () => setMode(!navigator.onLine ? "offline" : savesData() ? "tap" : "auto");
+    const savedCopy = document.querySelector(`[${OFFLINE_SAVED_AT_ATTR}]`) !== null;
+    const update = () => setMode(savedCopy || !navigator.onLine ? "offline" : savesData() ? "tap" : "auto");
     update();
     window.addEventListener("online", update);
     window.addEventListener("offline", update);

@@ -27,6 +27,7 @@ import {
   pickTargetList,
   planCopy,
   planDeviceMerge,
+  reservedNameKeys,
   resolveListId,
   sanitizeDeviceLists,
   uniqueListName,
@@ -241,6 +242,16 @@ describe("device lists", () => {
     expect(deviceCreateList(tooMany, "One more", "d_onemore1", T0)).toEqual({ ok: false, error: "too_many_lists" });
   });
 
+  it("a device list can never take the default list's name (lists-alerts-10)", () => {
+    const reserved = reservedNameKeys(["שמורים", "Saved"]);
+    expect(deviceCreateList(EMPTY_DEVICE_LISTS, " saved ", "d_saved0001", T0, reserved)).toEqual({ ok: false, error: "name_taken" });
+    expect(deviceCreateList(EMPTY_DEVICE_LISTS, "שמורים", "d_saved0001", T0, reserved)).toEqual({ ok: false, error: "name_taken" });
+    const made = deviceCreateList(EMPTY_DEVICE_LISTS, "Batumi", "d_batumi01", T0, reserved);
+    if (!made.ok) throw new Error("expected ok");
+    expect(deviceRenameList(made.state, "d_batumi01", "SAVED", reserved)).toEqual({ ok: false, error: "name_taken" });
+    expect(deviceRenameList(made.state, "d_batumi01", "Batumi 2027", reserved).ok).toBe(true);
+  });
+
   it("deleting a device list moves its places to the default list, and the heart too", () => {
     const created = deviceCreateList(EMPTY_DEVICE_LISTS, "Batumi", "d_batumi01", T0);
     if (!created.ok) throw new Error("expected ok");
@@ -316,6 +327,16 @@ describe("merging the device copy into the account", () => {
     const result = planDeviceMerge(device, { lists: full, savedListingIds: new Set(), publicListingIds: new Set(["to-kobuleti"]) });
     expect(result.create).toEqual([]);
     expect(result.targets.d_kobu0001).toEqual({ kind: "default" });
+  });
+
+  it("a device list named like the default list in any language is the default list (lists-alerts-10)", () => {
+    const result = planDeviceMerge(
+      { lists: [{ key: "d_saved0001", name: "Saved", usedAt: null, createdAt: T0 }], items: [{ listingId: "x", listKey: "d_saved0001", savedAt: T0 }], defaultUsedAt: null },
+      { lists: accountLists, savedListingIds: new Set(), publicListingIds: new Set(["x"]), reservedNameKeys: reservedNameKeys(["שמורים", "Saved"]) },
+    );
+    expect(result.targets.d_saved0001).toEqual({ kind: "default" });
+    expect(result.create).toEqual([]);
+    expect(result.add).toEqual([{ listingId: "x", target: { kind: "default" }, savedAt: T0 }]);
   });
 
   it("an account without a default list yet keeps room for it", () => {

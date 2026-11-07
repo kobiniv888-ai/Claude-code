@@ -360,7 +360,8 @@
       "SiteSetting": "Setting",
       "Booking": "Booking",
       "ReferencePrice": "Reference price",
-      "EmailOutbox": "Email"
+      "EmailOutbox": "Email",
+      "Review": "Review"
     },
     "actions": {
       "listing_approve": "Listing approved",
@@ -407,6 +408,7 @@
       "booking_cancel_by_guest": "Guest cancelled",
       "booking_cancel_by_host": "Host cancelled",
       "booking_no_show": "Host reported a no-show",
+      "booking_no_show_cleared": "Staff cleared the \"didn't arrive\" report",
       "booking_cancel_account_deleted": "Cancelled because the account was deleted",
       "booking_host_unreachable": "Booking not saved: the host got no alert",
       "booking_refused_blocked": "Booking refused because of a block",
@@ -1337,6 +1339,16 @@
       "noteHint": "Required. Only staff see this note.",
       "notePlaceholder": "For example: I spoke with the host, there was a real problem with the flat.",
       "done": "Marked reviewed."
+    },
+    "noShowClear": {
+      "button": "Clear the report",
+      "title": "Clear the \"didn't arrive\" report?",
+      "description": "Booking {label} will be confirmed again (or completed, if the departure date has passed), and the guest can write a review within the usual time. The note is kept in the audit log.",
+      "confirm": "Clear the report",
+      "noteLabel": "Why is the report wrong?",
+      "noteHint": "Required. Only staff see the note.",
+      "notePlaceholder": "For example: the guest sent a photo of the host's receipt.",
+      "done": "The report was cleared."
     }
   },
   "bookings": {

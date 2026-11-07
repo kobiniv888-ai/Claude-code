@@ -198,16 +198,26 @@ export async function seedUsers(db: PrismaClient, now: Date): Promise<number> {
 /**
  * Logging in with a demo phone number before the demo data exists creates an ordinary account
  * that holds that number, and the demo user could then never be created (unique phone number).
- * Such an account came from the phone login (placeholder e-mail), so it is removed; any other
- * account keeps its data and only lets go of the number.
+ * Such an account came from the phone login (placeholder e-mail), so it is removed — but only
+ * while it holds nothing: an account with bookings, reviews or listings is a real person's, and
+ * deleting it would cascade their reviews away while the listings' review counters keep them
+ * (reviews-5). Any other account keeps its data and only lets go of the number.
  */
-async function releaseDemoPhone(db: PrismaClient, demoId: string, phone: string): Promise<void> {
+export async function releaseDemoPhone(db: PrismaClient, demoId: string, phone: string): Promise<void> {
   const holder = await db.user.findUnique({
     where: { phoneNumber: phone },
     select: { id: true, email: true, isDemo: true },
   });
   if (!holder || holder.id === demoId) return;
-  if (!holder.isDemo && holder.email.endsWith("@phone.bayit.invalid")) {
+  const holds = async () => {
+    const [bookings, reviews, listings] = await Promise.all([
+      db.booking.count({ where: { OR: [{ guestUserId: holder.id }, { hostUserId: holder.id }] } }),
+      db.review.count({ where: { OR: [{ guestUserId: holder.id }, { hostUserId: holder.id }] } }),
+      db.listing.count({ where: { ownerId: holder.id } }),
+    ]);
+    return bookings + reviews + listings > 0;
+  };
+  if (!holder.isDemo && holder.email.endsWith("@phone.bayit.invalid") && !(await holds())) {
     await db.user.delete({ where: { id: holder.id } });
     console.log(`  · removed an account created by logging in with the demo number ${phone}`);
   } else {

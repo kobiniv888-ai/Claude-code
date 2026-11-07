@@ -27,6 +27,7 @@ import { Section } from "@/components/listing-page/section";
 import { StatusBanner } from "@/components/listing-page/status-banner";
 import { StayProvider } from "@/components/listing-page/stay-dates";
 import { ListingReviews, ListingReviewsSkeleton } from "@/components/reviews/listing-reviews";
+import { ListingReviewsEmpty } from "@/components/reviews/listing-reviews-empty";
 import { alertEnvironment, hostInstantGate } from "@/lib/booking/alerts";
 import { isInstantDealType, usesRoomInventory } from "@/lib/booking/constants";
 import { bookRequestFrom } from "@/lib/booking/guest";
@@ -291,10 +292,18 @@ export default async function ListingPage({ params, searchParams }: Props) {
                 <AvailabilityPicker />
               </Section>
             ) : null}
-            {isStay && isPublic ? (
+            {isStay && isPublic && (data.reviewCount ?? 0) === 0 ? (
+              // No visible review (the counters say so): the empty state without a query (speed-2).
+              <ListingReviewsEmpty locale={locale} />
+            ) : isStay && isPublic ? (
               // Real reviews (round 3, brief 8.1): streamed, so the page never waits for them.
               <Suspense fallback={<ListingReviewsSkeleton />}>
-                <ListingReviews listingId={data.id} locale={locale} counters={{ reviewCount: data.reviewCount ?? 0, ratingSum: data.ratingSum ?? 0 }} />
+                <ListingReviews
+                  listingId={data.id}
+                  locale={locale}
+                  counters={{ reviewCount: data.reviewCount ?? 0, ratingSum: data.ratingSum ?? 0 }}
+                  allHref={`/listing/${canonical}/reviews`}
+                />
               </Suspense>
             ) : null}
             <LocationSection data={data} place={place} />
@@ -391,7 +400,13 @@ const SIMILAR_CARD_SIZES = "(min-width: 1280px) 200px, (min-width: 1024px) 250px
 async function SimilarListings({ listingId, locale, cityHref }: { listingId: string; locale: AppLocale; cityHref: string }) {
   const [t, listings] = await Promise.all([
     getTranslations({ locale, namespace: "listing.similar" }),
-    getCardContext(locale).then((context) => getSimilarListings(listingId, context, 8)),
+    // An optional section: a failed query hides it instead of taking the whole page down.
+    getCardContext(locale)
+      .then((context) => getSimilarListings(listingId, context, 8))
+      .catch((error: unknown) => {
+        console.error("[listing] similar listings failed", error);
+        return [];
+      }),
   ]);
   if (listings.length === 0) return null;
   return (

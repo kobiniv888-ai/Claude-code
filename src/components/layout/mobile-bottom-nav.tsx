@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { useLoginDialog } from "@/components/auth/login-dialog";
 import { Link, usePathname } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
-import { activeBottomNavKey, BOTTOM_NAV_ITEMS, bottomNavIndicator, isBottomNavHidden, type BottomNavKey } from "./nav-items";
+import { activeBottomNavKey, BOTTOM_NAV_ITEMS, bottomNavIndicator, isBottomNavHidden, savedHref, type BottomNavKey } from "./nav-items";
 
 const isPlainClick = (event: React.MouseEvent) =>
   !(event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0);
@@ -92,7 +92,7 @@ export function MobileBottomNav({ isSignedIn }: { isSignedIn: boolean }) {
             return (
               <li key={key} className="flex">
                 <Link
-                  href={isLogin ? "/login" : href}
+                  href={isLogin ? "/login" : key === "saved" ? savedHref(isSignedIn) : href}
                   aria-current={current ? "page" : undefined}
                   onClick={(event) => {
                     if (!isPlainClick(event)) return;

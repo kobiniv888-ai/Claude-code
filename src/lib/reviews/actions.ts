@@ -7,7 +7,8 @@
  *
  * - createReview: the guest posts the review of a stay (once, in the window).
  * - replyToReview: the host's one public reply.
- * - reportReview: the host asks Bayit to look at a review (Admin → Reports → "ביקורות").
+ * - reportReview: the host asks Bayit to look at a review, or the guest who wrote it at the host's
+ *   reply (Admin → Reports → "ביקורות").
  * - setReviewRequests: the guest's "ask me for reviews by email" switch (/account/reviews).
  *
  * After the response: translations into the other languages (when a key is set) and the emails.
@@ -21,7 +22,7 @@ import { assertRateLimit } from "@/lib/rate-limit";
 import { notifyFounderOfReport } from "@/lib/reports/notify";
 import { notifyGuestOfReply, notifyHostOfReview } from "./notify";
 import { createReviewSchema, quickRatingColumns, replySchema, reportReviewSchema } from "./schemas";
-import { createReviewForBooking, postHostReply, reportReviewByHost } from "./service";
+import { createReviewForBooking, postHostReply, reportReview as reportReviewOf } from "./service";
 import { translateReply, translateReview } from "./translate";
 
 const HOUR = 3600;
@@ -77,7 +78,7 @@ export async function reportReview(input: unknown): Promise<ActionResult> {
     const parsed = reportReviewSchema.safeParse(input);
     if (!parsed.success) return fail("invalid_input", z.flattenError(parsed.error).fieldErrors);
     await assertRateLimit(`review:report:${user.id}`, { limit: 10, windowSeconds: DAY });
-    const report = await reportReviewByHost({ hostId: user.id, ...parsed.data });
+    const report = await reportReviewOf({ reporterId: user.id, ...parsed.data });
     after(() => notifyFounderOfReport(report.id));
     return ok();
   });

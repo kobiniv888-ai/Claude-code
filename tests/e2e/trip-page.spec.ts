@@ -1,4 +1,5 @@
-import type { Locator } from "@playwright/test";
+import { createHmac } from "node:crypto";
+import type { Locator, Page } from "@playwright/test";
 import { expect, openAs, openAsTestUser, settle, test } from "./fixtures";
 import { DEMO } from "./helpers/auth";
 import { createTestUser, sql } from "./helpers/db";
@@ -11,7 +12,9 @@ import { createTestUser, sql } from "./helpers/db";
  * בשבת", the safety note and the emergency numbers link → "הוספה ליומן" downloads an .ics with
  * the stay (UTC times, CRLF), the address and the booking number → in production (service worker)
  * "שמירה לשימוש בלי אינטרנט" keeps the page and it opens offline → another account gets "not
- * found" (404) for the page and the file → the guest cancels with the cancel button.
+ * found" (404) for the page and the file → the guest cancels with the cancel button (and the
+ * saved copy goes). A second test: a copy saved on a device goes when the session ends or another
+ * account signs in there (the guard on every page, phase-5 hardening privacy-1).
  *
  * The booking's message to the host starts with "E2E ", so the global teardown removes it even
  * after a crash. #89 is used by no other spec.
@@ -144,6 +147,29 @@ test.describe("trip page", () => {
         } finally {
           await guest.context.setOffline(false);
         }
+        // The network answers nothing while the device says it is online (a hotel Wi-Fi without
+        // internet): the copy opens and says it is the saved copy, with "load the latest".
+        // The service worker asks for the page through navigation preload, which the browser sends
+        // itself and Playwright cannot route: switched off here, so the worker's own fetch() is
+        // the request that fails (the worker uses either, public/sw.js).
+        const preload = (on: boolean) =>
+          page.evaluate(async (enable) => {
+            const registration = await navigator.serviceWorker.ready;
+            if (!registration.navigationPreload) return;
+            if (enable) await registration.navigationPreload.enable();
+            else await registration.navigationPreload.disable();
+          }, on);
+        const abort = (route: { abort: (code: string) => Promise<void> }) => route.abort("internetdisconnected");
+        await preload(false);
+        await guest.context.route(`**${tripUrl}`, abort);
+        try {
+          await page.reload();
+          await expect(page.getByText("זה העותק ששמרתם", { exact: false }).first()).toBeVisible();
+          await expect(page.getByRole("button", { name: "טעינת העמוד העדכני" })).toBeVisible();
+        } finally {
+          await guest.context.unroute(`**${tripUrl}`, abort);
+          await preload(true);
+        }
         await page.goto(tripUrl);
         await settle(page);
         guest.consoleErrors.splice(errorsBefore);
@@ -157,6 +183,9 @@ test.describe("trip page", () => {
         await expect(stranger.page.locator("main").getByText("לא מצאנו את ההזמנה")).toBeVisible();
         await expect(stranger.page.locator("main")).not.toContainText(listing.address);
         await expect(stranger.page.locator(`[data-offline-trip="${code}"]`)).toHaveCount(0);
+        // The page's HTML itself (what the service worker reads) carries the "gone" mark, so a copy
+        // saved by another account on this device is deleted (a streamed notFound() would not).
+        expect(await (await stranger.context.request.get(tripUrl)).text()).toContain('data-offline-trip-gone="1"');
         expect((await stranger.context.request.get(icsHref ?? "")).status()).toBe(404);
       } finally {
         await stranger.context.close();
@@ -175,9 +204,73 @@ test.describe("trip page", () => {
       await page.goto(tripUrl);
       await expect(page.getByRole("region", { name: "שבת בזמן השהייה" })).toHaveCount(0);
       expect((await guest.context.request.get(icsHref ?? "")).status()).toBe(404);
+      // A cancelled trip can't be kept offline: the copy saved above is gone, and nothing offers it.
+      await expect(page.getByRole("button", { name: "שמירה לשימוש בלי אינטרנט" })).toHaveCount(0);
+      await expect.poll(() => page.evaluate(() => caches.has("bayit-trips"))).toBe(false);
       expect(guest.consoleErrors).toEqual([]);
     } finally {
       await guest.context.close();
+    }
+  });
+
+  // privacy-1: a copy belongs to the account that saved it.
+  test("a copy saved on this device goes when the session ends or another account signs in", async ({ browser }) => {
+    const salt = process.env.HASH_SALT;
+    test.skip(!salt, "HASH_SALT is not set (.env): the owner key can't be computed here");
+    const user = await createTestUser();
+    const ownerOf = (id: string) => createHmac("sha256", salt ?? "").update(`offline-trips:${id}`, "utf8").digest("hex").slice(0, 24);
+    const signedIn = await openAsTestUser(browser, user);
+    const page = signedIn.page;
+    /** Puts a copy into the cache the way the trip page saves it (the page's own address pattern). */
+    const seed = (p: Page, entries: { path: string; owner: string }[]) =>
+      p.evaluate(async (list) => {
+        const cache = await caches.open("bayit-trips");
+        for (const e of list) await cache.put(e.path, new Response("<div>EXACT ADDRESS + HOST PHONE</div>", { headers: { "Content-Type": "text/html" } }));
+        const trips = list.map((e) => ({ ...e, code: e.path.slice(-8), title: "x", checkIn: "2099-01-01", checkOut: "2099-01-03", status: "CONFIRMED", savedAt: new Date().toISOString(), keepUntil: "2099-01-10", version: "x" }));
+        await cache.put("/offline-trips.json", new Response(JSON.stringify({ trips }), { headers: { "Content-Type": "application/json" } }));
+      }, entries);
+    const paths = (p: Page) =>
+      p.evaluate(async () => {
+        if (!(await caches.has("bayit-trips"))) return null;
+        const index = await (await caches.open("bayit-trips")).match("/offline-trips.json");
+        return index ? ((await index.json()) as { trips: { path: string }[] }).trips.map((t) => t.path) : [];
+      });
+    try {
+      await page.goto("/he");
+      await settle(page);
+      // Another account's copy (it saved on this device, then this account signed in) and this account's own.
+      const mine = "/he/account/trips/BT-22222";
+      const theirs = "/he/account/trips/BT-33333";
+      await seed(page, [
+        { path: theirs, owner: "ffffffffffffffffffffffff" },
+        { path: mine, owner: ownerOf(user.id) },
+      ]);
+      await page.reload();
+      await settle(page);
+      await expect.poll(() => paths(page)).toEqual([mine]);
+      // The session ends somewhere else (expired, "log out of all devices", a suspension, the
+      // account deleted from another device): the next page load online deletes the whole cache.
+      await sql(`DELETE FROM "Session" WHERE "userId" = $1`, [user.id]);
+      await page.reload();
+      await settle(page);
+      await expect.poll(() => paths(page)).toBeNull();
+    } finally {
+      await signedIn.context.close();
+    }
+    // Logging out on the device itself ("התנתקות" on the account page) deletes this account's copy
+    // too, before the home page opens (gate, phase-5 hardening).
+    const again = await openAsTestUser(browser, user);
+    try {
+      await again.page.goto("/he/account");
+      await settle(again.page);
+      await seed(again.page, [{ path: "/he/account/trips/BT-44444", owner: ownerOf(user.id) }]);
+      expect(await paths(again.page)).toEqual(["/he/account/trips/BT-44444"]);
+      await again.page.getByRole("button", { name: "התנתקות", exact: true }).click();
+      await again.page.waitForURL(/\/he\/?$/);
+      await expect(again.page.getByText("התנתקתם")).toBeVisible();
+      expect(await paths(again.page)).toBeNull();
+    } finally {
+      await again.context.close();
     }
   });
 });

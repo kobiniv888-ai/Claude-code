@@ -2,42 +2,31 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { CircleCheckIcon, CloudDownloadIcon, Trash2Icon, WifiOffIcon } from "lucide-react";
+import { CircleCheckIcon, CloudDownloadIcon, RefreshCwIcon, Trash2Icon, WifiOffIcon } from "lucide-react";
 import { Button } from "@/components/ds/button";
 import { SPRITE_URL } from "@/components/ds/sprite-icons.generated";
 import { formatDate, formatTime } from "@/lib/format";
 import { toast } from "@/lib/toast";
+import { OFFLINE_SAVED_AT_ATTR, needsResave, type OfflineTripEntry } from "@/lib/trip/offline";
 import {
-  OFFLINE_TRIPS_CACHE,
-  OFFLINE_TRIPS_INDEX,
-  hasTripMarker,
-  isTripPagePath,
-  offlineAssetUrls,
-  offlinePageHeaders,
-  offlineKeepUntil,
-  parseOfflineIndex,
-  withOfflineEntry,
-  type OfflineTripEntry,
-} from "@/lib/trip/offline";
+  cacheStorageAvailable,
+  reconcileOfflineTrips,
+  removeOfflinePage,
+  saveOfflinePage,
+  savedOfflineEntry,
+  type OfflineTripProps,
+} from "@/lib/trip/offline-device";
+
+export type { OfflineTripProps } from "@/lib/trip/offline-device";
 
 /**
  * "שמירה לשימוש בלי אינטרנט" (round 3, brief 7.1, founder's answer 10: on a tap, never by itself).
- * The rules are in src/lib/trip/offline.ts; public/sw.js opens the saved copy when the network
- * fails. Text: trips.offline.
+ * The rules are in src/lib/trip/offline.ts, the cache helpers in src/lib/trip/offline-device.ts;
+ * public/sw.js opens the saved copy when the network fails. Text: trips.offline.
  */
 
-export type OfflineTripProps = {
-  /** The canonical page address with its language: "/he/account/trips/BT-7K3Q9". */
-  path: string;
-  code: string;
-  title: string;
-  checkIn: string;
-  checkOut: string;
-  status: string;
-};
-
 function cacheSupported(): boolean {
-  return typeof window !== "undefined" && window.isSecureContext && "caches" in window && "serviceWorker" in navigator;
+  return cacheStorageAvailable() && "serviceWorker" in navigator;
 }
 
 /** The service worker that would open the copy offline (it registers on page load in production). */
@@ -47,79 +36,14 @@ async function hasServiceWorker(): Promise<boolean> {
   return Promise.race([ready, new Promise<boolean>((resolve) => window.setTimeout(() => resolve(false), 5000))]);
 }
 
-async function readIndex(cache: Cache): Promise<OfflineTripEntry[]> {
-  const response = await cache.match(OFFLINE_TRIPS_INDEX);
-  return response ? parseOfflineIndex(await response.json().catch(() => null)) : [];
+/** The saved copy's time when this document IS the saved copy (sw.js served it), else null. */
+function savedCopyTime(): string | null {
+  if (typeof document === "undefined") return null;
+  return document.querySelector(`[${OFFLINE_SAVED_AT_ATTR}]`)?.getAttribute(OFFLINE_SAVED_AT_ATTR) ?? null;
 }
 
-async function writeIndex(cache: Cache, entries: OfflineTripEntry[]): Promise<void> {
-  if (entries.length === 0) {
-    await caches.delete(OFFLINE_TRIPS_CACHE);
-    return;
-  }
-  await cache.put(OFFLINE_TRIPS_INDEX, new Response(JSON.stringify({ trips: entries }), { headers: { "Content-Type": "application/json" } }));
-}
-
-async function savedEntry(path: string): Promise<OfflineTripEntry | null> {
-  if (!(await caches.has(OFFLINE_TRIPS_CACHE))) return null;
-  return (await readIndex(await caches.open(OFFLINE_TRIPS_CACHE))).find((entry) => entry.path === path) ?? null;
-}
-
-/** The static files this page loaded: scripts, styles, fonts and the icon sprite (same origin only). */
-function pageAssets(): string[] {
-  const urls = [
-    ...performance.getEntriesByType("resource").map((entry) => entry.name),
-    ...Array.from(document.querySelectorAll<HTMLScriptElement>("script[src]"), (script) => script.src),
-    ...Array.from(document.querySelectorAll<HTMLLinkElement>("link[href]"))
-      .filter((link) => /(^|\s)(stylesheet|preload|modulepreload)(\s|$)/.test(link.rel))
-      .map((link) => link.href),
-    new URL(SPRITE_URL, location.origin).href,
-  ];
-  return offlineAssetUrls(urls, location.origin);
-}
-
-/** Saves a fresh copy of this page (from the server, as this account sees it) and its files. */
-async function savePage(props: OfflineTripProps): Promise<OfflineTripEntry> {
-  if (!isTripPagePath(props.path)) throw new Error("not_a_trip_page");
-  const response = await fetch(props.path, { credentials: "same-origin", cache: "no-store", headers: { Accept: "text/html" } });
-  const type = response.headers.get("Content-Type") ?? "";
-  if (!response.ok || response.redirected || new URL(response.url).pathname !== props.path || !type.includes("text/html")) {
-    throw new Error("page_not_saved");
-  }
-  const html = await response.text();
-  if (!hasTripMarker(html, props.code)) throw new Error("page_not_saved");
-  const cache = await caches.open(OFFLINE_TRIPS_CACHE);
-  await cache.put(props.path, new Response(html, { headers: offlinePageHeaders(response.headers) }));
-  await Promise.all(
-    pageAssets().map(async (url) => {
-      try {
-        const cached = await caches.match(url);
-        if (cached) await cache.put(url, cached);
-        else await cache.add(url);
-      } catch {
-        // A file that can't be saved now: the page may look plainer offline, it still opens.
-      }
-    }),
-  );
-  const entry: OfflineTripEntry = {
-    path: props.path,
-    code: props.code,
-    title: props.title,
-    checkIn: props.checkIn,
-    checkOut: props.checkOut,
-    status: props.status,
-    savedAt: new Date().toISOString(),
-    keepUntil: offlineKeepUntil(props.checkOut),
-  };
-  await writeIndex(cache, withOfflineEntry(await readIndex(cache), entry));
-  return entry;
-}
-
-async function removePage(path: string): Promise<void> {
-  if (!(await caches.has(OFFLINE_TRIPS_CACHE))) return;
-  const cache = await caches.open(OFFLINE_TRIPS_CACHE);
-  await cache.delete(path);
-  await writeIndex(cache, (await readIndex(cache)).filter((entry) => entry.path !== path));
+function savePage(props: OfflineTripProps): Promise<OfflineTripEntry> {
+  return saveOfflinePage(props, SPRITE_URL);
 }
 
 function useSavedAt() {
@@ -144,19 +68,26 @@ export function OfflineSave(props: OfflineTripProps) {
         if (alive) setState("unsupported");
         return;
       }
-      let saved = await savedEntry(props.path).catch(() => null);
-      // The booking changed since the copy was saved (cancelled, completed): keep the copy current.
-      if (saved && saved.status !== props.status && navigator.onLine) saved = await savePage(props).catch(() => saved);
+      // Copies of another account or past their last day go first (the layout's guard does the
+      // same on every page; this covers a page that stayed open).
+      if (navigator.onLine) await reconcileOfflineTrips(props.owner).catch(() => undefined);
+      const saved = await savedOfflineEntry(props.path, props.owner).catch(() => null);
       if (!alive) return;
       setEntry(saved);
       setState(saved ? "saved" : "idle");
+      // Keep the copy current: the booking or what the page shows changed (the host moved the
+      // check-in time, the address, the contact buttons…), or the copy is old. In the background.
+      if (saved && navigator.onLine && needsResave(saved, props, Date.now())) {
+        const fresh = await savePage(props).catch(() => null);
+        if (alive && fresh) setEntry(fresh);
+      }
     })();
     return () => {
       alive = false;
     };
-    // Re-check when the page's data changes (router.refresh after a cancellation).
+    // Re-check when the page's data changes (router.refresh after a change of the booking).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.path, props.status]);
+  }, [props.path, props.status, props.version, props.owner]);
 
   const save = useCallback(async () => {
     setError(false);
@@ -174,7 +105,7 @@ export function OfflineSave(props: OfflineTripProps) {
 
   const remove = useCallback(async () => {
     setState("removing");
-    await removePage(props.path).catch(() => undefined);
+    await removeOfflinePage(props.path).catch(() => undefined);
     setEntry(null);
     setState("idle");
     toast.success(t("removed"));
@@ -225,17 +156,33 @@ export function OfflineSave(props: OfflineTripProps) {
   );
 }
 
-/** At the top of the page, only while offline: this is the saved copy (and from when). */
-export function OfflineNotice({ path }: { path: string }) {
+/**
+ * A trip page that may not (or no longer) be kept offline — a cancelled booking, a stay past its
+ * keep window: deletes a copy saved earlier on this device (in-app navigation never reaches the
+ * service worker, which does the same for a full page load). Renders nothing.
+ */
+export function OfflineForget({ path }: { path: string }) {
+  useEffect(() => {
+    if (cacheStorageAvailable()) void removeOfflinePage(path).catch(() => undefined);
+  }, [path]);
+  return null;
+}
+
+/**
+ * At the top of the page: on the SAVED copy (the service worker served it: no internet, a network
+ * that answers nothing, a server error), "this is the copy from …, it may be out of date" — with
+ * "load the latest" while the device says it is online; on the live page, only while offline.
+ */
+export function OfflineNotice() {
   const t = useTranslations("trips.offline");
   const savedAt = useSavedAt();
   const [offline, setOffline] = useState(false);
-  const [entry, setEntry] = useState<OfflineTripEntry | null>(null);
+  const [copyAt, setCopyAt] = useState<string | null>(null);
 
   useEffect(() => {
     const update = () => {
+      setCopyAt(savedCopyTime());
       setOffline(!navigator.onLine);
-      if (!navigator.onLine && cacheSupported()) savedEntry(path).then(setEntry, () => setEntry(null));
     };
     update();
     window.addEventListener("online", update);
@@ -244,13 +191,21 @@ export function OfflineNotice({ path }: { path: string }) {
       window.removeEventListener("online", update);
       window.removeEventListener("offline", update);
     };
-  }, [path]);
+  }, []);
 
-  if (!offline) return null;
+  if (!copyAt && !offline) return null;
   return (
-    <p role="status" className="flex items-start gap-2 rounded-card border border-border bg-warning-soft p-3 text-small text-foreground">
+    <div role="status" className="flex items-start gap-2 rounded-card border border-border bg-warning-soft p-3 text-small text-foreground">
       <WifiOffIcon className="mt-0.5 size-5 shrink-0" aria-hidden />
-      <span>{entry ? t("offlineCopy", savedAt(entry.savedAt)) : t("offlineNow")}</span>
-    </p>
+      <div className="grid gap-2">
+        <span>{copyAt ? t(offline ? "offlineCopy" : "savedCopy", savedAt(copyAt)) : t("offlineNow")}</span>
+        {copyAt && !offline ? (
+          <Button variant="secondary" size="sm" className="justify-self-start" onClick={() => window.location.reload()}>
+            <RefreshCwIcon aria-hidden />
+            {t("reload")}
+          </Button>
+        ) : null}
+      </div>
+    </div>
   );
 }

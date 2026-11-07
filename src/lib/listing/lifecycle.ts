@@ -203,13 +203,15 @@ async function liveData(
 /** USD prices for one listing and its room types (exported for the exchange-rate job and tests). */
 export function computeUsdPrices(
   listing: { price: number | null; currency: Currency; dealType: string; sizeSqm: number | null },
-  roomTypes: { price: number; currency: Currency }[],
+  roomTypes: { price: number; currency: Currency; active?: boolean }[],
   rates: Rates,
 ): { priceUsd: number | null; pricePerSqmUsd: number | null; roomTypePricesUsd: number[] } {
   const roomTypePricesUsd = roomTypes.map((room) => roundMoney(toUsd(room.price, room.currency, rates)));
   let priceUsd = listing.price !== null && listing.price > 0 ? roundMoney(toUsd(listing.price, listing.currency, rates)) : null;
-  // Hotels and guesthouses: "from" the cheapest room.
-  if (priceUsd === null && roomTypePricesUsd.length > 0) priceUsd = Math.min(...roomTypePricesUsd);
+  // Hotels and guesthouses: "from" the cheapest room offered to guests (a hidden room type is not
+  // for sale; the card's price ignores it too, src/lib/listing/mappers.ts).
+  const offered = roomTypePricesUsd.filter((_, i) => roomTypes[i].active !== false && roomTypes[i].price > 0);
+  if (priceUsd === null && offered.length > 0) priceUsd = Math.min(...offered);
   const pricePerSqmUsd =
     listing.dealType === "SALE" && priceUsd !== null && listing.sizeSqm && listing.sizeSqm > 0
       ? roundMoney(priceUsd / listing.sizeSqm)
@@ -243,12 +245,12 @@ export async function prepareListingDerivedFields(listingId: string): Promise<vo
     sizeSqm: true,
     shabbatFeatures: true,
     city: { select: { slug: true } },
-    roomTypes: { select: { id: true, price: true, currency: true }, orderBy: { sortOrder: "asc" } },
+    roomTypes: { select: { id: true, price: true, currency: true, active: true }, orderBy: { sortOrder: "asc" } },
   });
   const rates = await getRates();
   const prices = computeUsdPrices(
     { price: listing.price === null ? null : Number(listing.price), currency: listing.currency, dealType: listing.dealType, sizeSqm: listing.sizeSqm },
-    listing.roomTypes.map((room) => ({ price: Number(room.price), currency: room.currency })),
+    listing.roomTypes.map((room) => ({ price: Number(room.price), currency: room.currency, active: room.active })),
     rates,
   );
   const approx =
@@ -290,10 +292,10 @@ export async function refreshUsdPrices(rates?: Rates): Promise<{ listings: numbe
           THEN ROUND("price" / ${rate} / "sizeSqm"::numeric, 2) ELSE NULL END
       WHERE "currency" = ${code}::"Currency" AND "price" IS NOT NULL AND "price" > 0 AND "status" <> 'DELETED'`;
   }
-  // Hotels without their own price show "from" the cheapest room.
+  // Hotels without their own price show "from" the cheapest room offered to guests (none: no price).
   listings += await db.$executeRaw`
     UPDATE "Listing" l SET "priceUsd" = r."minUsd"
-    FROM (SELECT "listingId", MIN("priceUsd") AS "minUsd" FROM "RoomType" GROUP BY "listingId") r
+    FROM (SELECT "listingId", MIN("priceUsd") FILTER (WHERE "active" AND "price" > 0) AS "minUsd" FROM "RoomType" GROUP BY "listingId") r
     WHERE l."id" = r."listingId" AND (l."price" IS NULL OR l."price" <= 0) AND l."status" <> 'DELETED'`;
   return { listings, roomTypes };
 }

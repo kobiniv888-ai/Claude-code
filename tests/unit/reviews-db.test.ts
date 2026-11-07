@@ -3,7 +3,10 @@
  * and "once per booking", final reviews and replies, the host's report (never about a listing or
  * a user), hide / show again with the listing's counters in the same transaction, the review
  * request after a stay (instead of the thank-you, once, never for demo stays or after the guest
- * turned it off) and the translations. Creates its own users (fake @example.com addresses), city,
+ * turned it off) and the translations. Phase-5 hardening: "didn't arrive" vs reviews (reviews-1),
+ * guest reports of a reply and staff hiding any review (reviews-2), the translation catch-up
+ * (reviews-3), all reviews in pages (reviews-7, ux-2), a report racing a hide (reviews-9) and
+ * filler text (reviews-10). Creates its own users (fake @example.com addresses), city,
  * listings and bookings with a unique prefix and removes them afterwards. Emails are recorded, not
  * sent.
  */
@@ -43,6 +46,19 @@ vi.mock("@/lib/email", async (importOriginal) => {
   };
 });
 vi.mock("@/lib/sms", () => ({ isSmsConfigured: () => false, sendSms: vi.fn(async () => ({ ok: true, delivered: false })) }));
+// Staff actions (hide without a report, clear a no-show) run as this staff member.
+const staffSession = vi.hoisted(() => ({ user: null as null | { id: string; role: string } }));
+vi.mock("@/lib/auth/session", () => {
+  const staff = async () => {
+    if (!staffSession.user) throw Object.assign(new Error("no staff session in this test"), { code: "forbidden", status: 403 });
+    return staffSession.user;
+  };
+  return { requireStaffForAction: vi.fn(staff), requireUserForAction: vi.fn(staff), getCurrentUser: vi.fn(async () => staffSession.user) };
+});
+vi.mock("next/server", async (importOriginal) => {
+  const real = await importOriginal<typeof import("next/server")>();
+  return { ...real, after: (fn: () => unknown) => void Promise.resolve().then(fn).catch(() => undefined) };
+});
 const translation = vi.hoisted(() => ({ enabled: false, calls: 0 }));
 vi.mock("@/lib/translate", () => ({
   isTranslationEnabled: () => translation.enabled,
@@ -57,9 +73,12 @@ const { Prisma } = await import("@/generated/prisma/client");
 const { addDays, tbilisiToday } = await import("@/lib/booking/dates");
 const service = await import("@/lib/reviews/service");
 const { sendReviewRequest } = await import("@/lib/reviews/notify");
-const { translateReply, translateReview } = await import("@/lib/reviews/translate");
+const { translateMissingReviews, translateReply, translateReview } = await import("@/lib/reviews/translate");
 const { getRatingSummary } = await import("@/lib/reviews/rules");
-const { getListingReviews, getReviewPrompt } = await import("@/lib/reviews/queries");
+const { createReviewSchema, replySchema } = await import("@/lib/reviews/schemas");
+const { getGuestReviews, getListingReviews, getListingReviewsPage, getReviewPrompt, getReviewReports } = await import("@/lib/reviews/queries");
+const { hideReviewAction } = await import("@/lib/reviews/admin-actions");
+const { clearNoShowAction } = await import("@/lib/admin/actions/flags");
 const bookingService = await import("@/lib/booking/service");
 
 const prefix = `rvw${randomUUID().replace(/-/g, "").slice(0, 10)}`;
@@ -143,6 +162,7 @@ afterAll(async () => {
   await db.report.deleteMany({ where: { reviewId: { in: reviews.map((r) => r.id) } } });
   await db.report.deleteMany({ where: { reporterId: { startsWith: prefix } } });
   await db.auditLog.deleteMany({ where: { actorId: { startsWith: prefix } } });
+  await db.auditLog.deleteMany({ where: { targetType: "Review", targetId: { in: reviews.map((r) => r.id) } } });
   await db.rateLimit.deleteMany({ where: { key: { contains: prefix } } });
   await db.booking.deleteMany({ where: { hostUserId: ids.host } });
   await db.listing.deleteMany({ where: { ownerId: ids.host } });
@@ -186,10 +206,12 @@ describe("posting a review", () => {
     await post((await createBooking({ daysAgo: 1, status: "CONFIRMED" })).code);
   });
 
-  it("refuses cancelled and no-show stays, monthly rentals, demo listings and contact details", async () => {
+  it("refuses cancelled and no-show stays, demo listings and contact details", async () => {
     await expectCode(post((await createBooking({ status: "NO_SHOW" })).code), "not_stayed");
     await expectCode(post((await createBooking({ status: "CANCELLED_BY_HOST" })).code), "not_stayed");
-    await expectCode(post((await createBooking({ listingId: ids.monthly })).code), "not_reviewable_type");
+    // reviews-4: a booking was made as a stay (only bookable types take bookings); a listing that
+    // is a monthly rental NOW (switched after the stay) does not take the guest's review away.
+    await post((await createBooking({ listingId: ids.monthly })).code);
     await expectCode(post((await createBooking({ listingId: ids.demo })).code), "demo");
     const booking = await createBooking();
     await expectCode(post(booking.code, 5, "Lovely flat, call me on +995 555 12 34 56 for a discount next time"), "contact_in_text");
@@ -215,9 +237,9 @@ describe("the host's reply and report", () => {
 
   it("files a REVIEW report about no listing and no user (never a host flag), one open report at a time", async () => {
     const review = await post((await createBooking()).code, 1);
-    await expectCode(service.reportReviewByHost({ hostId: ids.host, reviewId: review.id, reason: "OTHER", details: "no" }), "details_required");
-    await expectCode(service.reportReviewByHost({ hostId: ids.other, reviewId: review.id, reason: "OFFENSIVE", details: "" }), "not_found");
-    const report = await service.reportReviewByHost({ hostId: ids.host, reviewId: review.id, reason: "OFFENSIVE", details: "" });
+    await expectCode(service.reportReview({ reporterId: ids.host, reviewId: review.id, reason: "OTHER", details: "no" }), "details_required");
+    await expectCode(service.reportReview({ reporterId: ids.other, reviewId: review.id, reason: "OFFENSIVE", details: "" }), "not_found");
+    const report = await service.reportReview({ reporterId: ids.host, reviewId: review.id, reason: "OFFENSIVE", details: "" });
     expect(await db.report.findUniqueOrThrow({ where: { id: report.id } })).toMatchObject({
       kind: "GENERAL",
       targetType: "REVIEW",
@@ -228,7 +250,7 @@ describe("the host's reply and report", () => {
       reporterId: ids.host,
       status: "OPEN",
     });
-    await expectCode(service.reportReviewByHost({ hostId: ids.host, reviewId: review.id, reason: "OTHER", details: "The guest never stayed here." }), "already_reported");
+    await expectCode(service.reportReview({ reporterId: ids.host, reviewId: review.id, reason: "OTHER", details: "The guest never stayed here." }), "already_reported");
   });
 });
 
@@ -236,7 +258,7 @@ describe("staff hide and show again", () => {
   it("drop and restore the counters, close the review's open reports, and never change the text", async () => {
     const before = await counters();
     const review = await post((await createBooking()).code, 2);
-    const report = await service.reportReviewByHost({ hostId: ids.host, reviewId: review.id, reason: "OFFENSIVE", details: "" });
+    const report = await service.reportReview({ reporterId: ids.host, reviewId: review.id, reason: "OFFENSIVE", details: "" });
     const hidden = await service.hideReview({ staffId: ids.staff, reviewId: review.id, reason: "offensive", note: "Insults the host" });
     expect(hidden).toEqual({ listingId: ids.listing, closedReports: [report.id] });
     expect(await counters()).toEqual(before);
@@ -324,5 +346,173 @@ describe("translations", () => {
     await service.postHostReply({ hostId: ids.host, reviewId: review.id, text: "Thanks a lot, Dana!", pageLocale: "en" });
     expect(await translateReply(review.id)).toBe(true);
     expect(translation.calls).toBe(2);
+  });
+});
+
+// ─── Phase-5 hardening ────────────────────────────────────────
+
+describe("\"didn't arrive\" and reviews (reviews-1)", () => {
+  it("refuses a no-show report once the guest reviewed the stay; the review and the counters stay", async () => {
+    const before = await counters();
+    const booking = await createBooking({ daysAgo: 2 });
+    const review = await post(booking.code, 1);
+    await expectCode(bookingService.markNoShow({ bookingId: booking.id, hostUserId: ids.host }), "no_show_reviewed");
+    expect((await db.booking.findUniqueOrThrow({ where: { id: booking.id } })).status).toBe("COMPLETED");
+    expect(await counters()).toEqual({ reviewCount: before.reviewCount + 1, ratingSum: before.ratingSum + 1 });
+    expect((await getListingReviews(ids.listing, "en", 200)).reviews.some((r) => r.id === review.id)).toBe(true);
+  });
+
+  it("never lets a review and a no-show report at the same moment both succeed", async () => {
+    for (let round = 0; round < 10; round++) {
+      const booking = await createBooking({ daysAgo: 2 });
+      const [review, noShow] = await Promise.allSettled([post(booking.code, 3), bookingService.markNoShow({ bookingId: booking.id, hostUserId: ids.host })]);
+      expect([review.status, noShow.status].filter((s) => s === "fulfilled")).toHaveLength(1);
+      const row = await db.booking.findUniqueOrThrow({ where: { id: booking.id }, select: { status: true, review: { select: { id: true } } } });
+      if (review.status === "fulfilled") {
+        expect(row.status).toBe("COMPLETED");
+        expect((noShow as PromiseRejectedResult).reason).toMatchObject({ code: "no_show_reviewed" });
+      } else {
+        expect(row).toMatchObject({ status: "NO_SHOW", review: null });
+        expect((review as PromiseRejectedResult).reason).toMatchObject({ code: "not_stayed" });
+      }
+    }
+  });
+
+  it("tells the guest, and staff can clear a wrong report so the guest can review", async () => {
+    // Still staying: from the day after check-in, the host can report (the guest can't review yet).
+    const booking = await createBooking({ daysAgo: -2, status: "CONFIRMED" });
+    await bookingService.markNoShow({ bookingId: booking.id, hostUserId: ids.host });
+    expect(sent.filter((s) => s.template === "review_no_show_guest" && s.data.code === booking.code)).toHaveLength(1);
+    expect(sent.find((s) => s.template === "review_no_show_guest")).toMatchObject({ to: `${ids.guest}@example.com`, data: { contactUrl: "/contact" } });
+    const afterStay = new Date(Date.now() + 4 * 86_400_000);
+    await expectCode(service.createReviewForBooking({ guestId: ids.guest, bookingCode: booking.code, rating: 5, quick, text: TEXT, now: afterStay }), "not_stayed");
+
+    // Nobody clears their own booking's report; a non-staff call is refused.
+    staffSession.user = null;
+    expect(await clearNoShowAction({ bookingId: booking.id, note: "The guest sent the host's receipt" })).toMatchObject({ ok: false });
+    staffSession.user = { id: ids.staff, role: "MODERATOR" };
+    try {
+      expect(await clearNoShowAction({ bookingId: booking.id, note: "The guest sent the host's receipt" })).toEqual({ ok: true, data: { status: "CONFIRMED" } });
+      expect(await clearNoShowAction({ bookingId: booking.id, note: "again" })).toMatchObject({ ok: false });
+    } finally {
+      staffSession.user = null;
+    }
+    expect(await db.booking.findUniqueOrThrow({ where: { id: booking.id } })).toMatchObject({ status: "CONFIRMED", noShowReportedAt: null, flagReviewedById: ids.staff });
+    expect(await db.auditLog.count({ where: { action: "booking.no_show_cleared", targetId: booking.id, actorId: ids.staff } })).toBe(1);
+    // After check-out the guest can review again.
+    await service.createReviewForBooking({ guestId: ids.guest, bookingCode: booking.code, rating: 5, quick, text: TEXT, now: afterStay });
+  });
+
+  it("clears to COMPLETED after the check-out day, and hides the host's button once reviewed", async () => {
+    // Real-looking codes: the host's booking page looks bookings up by "BT-XXXXX".
+    const realCode = () => `BT-${Array.from({ length: 5 }, () => "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"[Math.floor(Math.random() * 32)]).join("")}`;
+    const booking = await createBooking({ daysAgo: 3, code: realCode() });
+    await bookingService.markNoShow({ bookingId: booking.id, hostUserId: ids.host });
+    expect((await bookingService.clearNoShow({ bookingId: booking.id, staffId: ids.staff })).status).toBe("COMPLETED");
+    await post(booking.code, 4);
+    const { getHostBooking } = await import("@/lib/booking/queries");
+    expect((await getHostBooking(ids.host, booking.code, "en"))?.canReportNoShow).toBe(false);
+    expect((await getHostBooking(ids.host, (await createBooking({ daysAgo: 3, code: realCode() })).code, "en"))?.canReportNoShow).toBe(true);
+  });
+});
+
+describe("reporting a reply, and staff hiding any review (reviews-2)", () => {
+  it("lets the guest report the host's reply (only once there is one); anyone else gets not found", async () => {
+    const review = await post((await createBooking()).code);
+    await expectCode(service.reportReview({ reporterId: ids.guest, reviewId: review.id, reason: "OFFENSIVE", details: "" }), "not_found");
+    await service.postHostReply({ hostId: ids.host, reviewId: review.id, text: "You were rude to my neighbours, never again.", pageLocale: "en" });
+    await expectCode(service.reportReview({ reporterId: ids.other, reviewId: review.id, reason: "OFFENSIVE", details: "" }), "not_found");
+    const report = await service.reportReview({ reporterId: ids.guest, reviewId: review.id, reason: "OFFENSIVE", details: "Insulting" });
+    expect(report.part).toBe("reply");
+    expect(await db.report.findUniqueOrThrow({ where: { id: report.id } })).toMatchObject({ targetType: "REVIEW", reviewId: review.id, reporterId: ids.guest, status: "OPEN", listingId: null, targetUserId: null });
+    await expectCode(service.reportReview({ reporterId: ids.guest, reviewId: review.id, reason: "OFFENSIVE", details: "" }), "already_reported");
+    // The host's own report is about the review; both show on the staff page with their part.
+    await service.reportReview({ reporterId: ids.host, reviewId: review.id, reason: "OFFENSIVE", details: "" });
+    expect((await getReviewReports(review.id)).map((r) => r.part).sort()).toEqual(["reply", "review"]);
+    // The guest's page shows their open report of the reply.
+    const mine = (await getGuestReviews(ids.guest, "en")).written.find((r) => r.id === review.id);
+    expect(mine?.reportedAt).toBeInstanceOf(Date);
+  });
+
+  it("lets staff hide a review nobody reported, logged", async () => {
+    const before = await counters();
+    const review = await post((await createBooking()).code, 5);
+    staffSession.user = { id: ids.staff, role: "MODERATOR" };
+    try {
+      expect(await hideReviewAction({ reviewId: review.id, reason: "personal_info", note: "Names the neighbour" })).toEqual({ ok: true, data: { hidden: true } });
+    } finally {
+      staffSession.user = null;
+    }
+    expect(await db.review.findUniqueOrThrow({ where: { id: review.id } })).toMatchObject({ hidden: true, hiddenById: ids.staff });
+    expect(await counters()).toEqual(before);
+    expect(await db.auditLog.count({ where: { action: "review.hide", targetType: "Review", targetId: review.id, actorId: ids.staff } })).toBe(1);
+  });
+});
+
+describe("a report racing a hide (reviews-9)", () => {
+  it("never leaves an OPEN report on a hidden review", async () => {
+    let open = 0;
+    for (let round = 0; round < 25; round++) {
+      const review = await post((await createBooking()).code, 2);
+      await Promise.allSettled([
+        service.reportReview({ reporterId: ids.host, reviewId: review.id, reason: "OFFENSIVE", details: "" }),
+        service.hideReview({ staffId: ids.staff, reviewId: review.id, reason: "offensive", note: "Race" }),
+      ]);
+      open += await db.report.count({ where: { reviewId: review.id, status: "OPEN", review: { hidden: true } } });
+    }
+    expect(open).toBe(0);
+  });
+});
+
+describe("translations that were missed (reviews-3)", () => {
+  it("are caught up later, once", async () => {
+    const listing = await db.listing.create({ data: { ownerId: ids.host, status: "LIVE", dealType: "SHORT_STAY", cityId: ids.city, title: "Catch-up flat", currency: "GEL" } });
+    const review = await post((await createBooking({ listingId: listing.id })).code);
+    await service.postHostReply({ hostId: ids.host, reviewId: review.id, text: "Thanks a lot, Dana!", pageLocale: "en" });
+    // No key when it was posted: nothing stored, and a catch-up without a key does nothing.
+    expect(await translateMissingReviews({ listingId: listing.id })).toEqual({ reviews: 0, replies: 0 });
+    translation.enabled = true;
+    expect(await translateMissingReviews({ listingId: listing.id })).toEqual({ reviews: 1, replies: 1 });
+    const row = await db.review.findUniqueOrThrow({ where: { id: review.id } });
+    expect(Object.keys(row.translations as object).sort()).toEqual(["ar", "he", "ka", "ru"]);
+    expect(Object.keys(row.hostReplyTranslations as object).sort()).toEqual(["ar", "he", "ka", "ru"]);
+    const calls = translation.calls;
+    expect(await translateMissingReviews({ listingId: listing.id })).toEqual({ reviews: 0, replies: 0 });
+    expect(translation.calls).toBe(calls);
+  });
+});
+
+describe("every review can be read (reviews-7, ux-2)", () => {
+  it("pages through all visible reviews, newest first, without gaps", async () => {
+    const listing = await db.listing.create({ data: { ownerId: ids.host, status: "LIVE", dealType: "SHORT_STAY", cityId: ids.city, title: "Busy flat", currency: "GEL" } });
+    const posted: string[] = [];
+    for (let i = 0; i < 35; i++) {
+      const booking = await createBooking({ listingId: listing.id, daysAgo: 2 });
+      posted.push((await service.createReviewForBooking({ guestId: ids.guest, bookingCode: booking.code, rating: 4, quick, text: TEXT, now: new Date(Date.now() - (35 - i) * 60_000) })).id);
+    }
+    const newest = await getListingReviews(listing.id, "en", 30);
+    expect(newest.total).toBe(35);
+    expect(newest.reviews).toHaveLength(30);
+    const page2 = await getListingReviewsPage(listing.id, "en", 2, 30);
+    expect(page2).toMatchObject({ page: 2, pages: 2, total: 35 });
+    expect(page2.reviews.map((r) => r.id)).toEqual(posted.slice(0, 5).reverse());
+    // Past the end: the last page.
+    expect((await getListingReviewsPage(listing.id, "en", 9, 30)).page).toBe(2);
+  });
+});
+
+describe("filler text (reviews-10)", () => {
+  it("is refused by the schemas and by the service", async () => {
+    const base = { bookingCode: "BT-22222", rating: 5, confirmFinal: true as const };
+    for (const filler of [".".repeat(20), "!".repeat(20), "😀".repeat(20), "- ".repeat(15)]) {
+      const parsed = createReviewSchema.safeParse({ ...base, text: filler });
+      expect(parsed.success, filler).toBe(false);
+      expect(parsed.error?.issues.find((i) => i.path[0] === "text")?.message).toBe("too_short");
+    }
+    expect(createReviewSchema.safeParse({ ...base, text: "א".repeat(20) }).success).toBe(true);
+    expect(createReviewSchema.safeParse({ ...base, text: "מקום מעולה, מומלץ בחום!" }).success).toBe(true);
+    expect(replySchema.safeParse({ reviewId: "r1", text: "!!!!!", confirmFinal: true }).success).toBe(false);
+    expect(replySchema.safeParse({ reviewId: "r1", text: "תודה!", confirmFinal: true }).success).toBe(true);
+    await expectCode(post((await createBooking()).code, 5, "...................."), "too_short");
   });
 });

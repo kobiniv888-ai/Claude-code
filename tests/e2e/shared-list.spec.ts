@@ -17,6 +17,14 @@ const LIST = `E2E Batumi in August ${Date.now().toString(36)}`;
 
 const card = (page: Page, title: string) => page.getByRole("list", { name: "Search results" }).getByRole("article", { name: title });
 
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/**
+ * A sentence with a list's name in it: the page isolates the user-written name (FSI … PDI, so
+ * "2027 Gudauri" keeps its order in Hebrew; bidi-1), so withList("Share ", LIST) matches
+ * "Share “" + FSI + LIST + PDI + "”" (and the plain form).
+ */
+const withList = (before: string, name: string) => new RegExp(`${escapeRegExp(before)}“\u2068?${escapeRegExp(name)}\u2069?”`);
+
 async function openSearch(page: Page) {
   await page.goto("/en/search?city=tbilisi&deal=short-stay");
   await expect(card(page, VAKE)).toBeVisible();
@@ -34,7 +42,7 @@ test("a shared list: share, open logged out, copy, stop sharing", async ({ brows
   await sheet.getByRole("button", { name: "New list" }).click();
   await sheet.getByLabel("List name").fill(LIST);
   await sheet.getByRole("button", { name: "Create and save" }).click();
-  await expect(a.page.getByText(`Saved to “${LIST}”`).first()).toBeVisible();
+  await expect(a.page.getByText(withList("Saved to ", LIST)).first()).toBeVisible();
   await expect(sheet).toBeHidden();
 
   // The second place: choose the list in the sheet.
@@ -58,7 +66,7 @@ test("a shared list: share, open logged out, copy, stop sharing", async ({ brows
   await a.page.getByRole("navigation", { name: "My lists" }).getByRole("link", { name: new RegExp(LIST) }).click();
   await expect(a.page).toHaveURL(/\/en\/account\/favorites\?list=/);
   await a.page.getByRole("button", { name: "Share" }).first().click();
-  let share = a.page.getByRole("dialog", { name: `Share “${LIST}”` });
+  let share = a.page.getByRole("dialog", { name: withList("Share ", LIST) });
   await share.getByRole("button", { name: "Create a share link" }).click();
   const link = share.getByRole("textbox", { name: "Link to the list" });
   await expect(link).toHaveValue(/\/lists\/[A-Za-z0-9_-]{43}$/);
@@ -104,7 +112,7 @@ test("a shared list: share, open logged out, copy, stop sharing", async ({ brows
 
   // Stop sharing: the link (and its image) no longer work.
   await a.page.getByRole("button", { name: "Share" }).first().click();
-  share = a.page.getByRole("dialog", { name: `Share “${LIST}”` });
+  share = a.page.getByRole("dialog", { name: withList("Share ", LIST) });
   await share.getByRole("button", { name: "Stop sharing" }).click();
   await expect(a.page.getByText("Sharing stopped. The old link no longer works.").first()).toBeVisible();
   const after = await openAs(browser, null);
@@ -146,4 +154,75 @@ test("signed out, the heart saves on the device; signing in moves it into the ac
   await expect(signedIn.page.getByRole("article", { name: VAKE })).toBeVisible();
   expect(await signedIn.page.evaluate(() => localStorage.getItem("bayit:saved-lists"))).toBeNull();
   await signedIn.context.close();
+});
+
+test("any signed-in page moves the device's saved places into the account, not only the saved page (lists-alerts-3)", async ({ browser }) => {
+  const user = await createTestUser({ name: "E2E Lists Auto Merge" });
+  // The Vake demo place (its English title is a translation).
+  const listing = (await sql<{ id: string }>(`SELECT "listingId" AS id FROM "ListingTranslation" WHERE title = $1 LIMIT 1`, [VAKE]))[0];
+  expect(listing).toBeTruthy();
+  const signedIn = await openAsTestUser(browser, user);
+  await signedIn.page.goto("/en/help");
+  // What a signed-out visit left on this device (as the heart writes it).
+  await signedIn.page.evaluate((listingId) => {
+    localStorage.setItem("bayit:saved-lists", JSON.stringify({ lists: [], items: [{ listingId, listKey: "default", savedAt: Date.now() - 1000 }], defaultUsedAt: null }));
+  }, listing.id);
+  // The next page (any page) merges it: logging out later can no longer lose it.
+  await signedIn.page.goto("/en/help");
+  await expect
+    .poll(async () => (await sql(`SELECT 1 FROM "Favorite" WHERE "userId" = $1 AND "listingId" = $2`, [user.id, listing.id])).length)
+    .toBe(1);
+  await expect.poll(() => signedIn.page.evaluate(() => localStorage.getItem("bayit:saved-lists"))).toBeNull();
+  expect(signedIn.consoleErrors).toEqual([]);
+  await signedIn.context.close();
+});
+
+test("switching lists never carries the last list's share link or text over; a new list can't be called “Saved” (ui-1, ui-2, lists-alerts-10)", async ({ browser }) => {
+  const user = await createTestUser({ name: "E2E Lists Tabs" });
+  const stamp = Date.now().toString(36);
+  const shared = { id: `e2e-list-a-${stamp}`, name: `E2E Shared ${stamp}`, token: `e2e${stamp}`.padEnd(43, "x") };
+  const plain = { id: `e2e-list-b-${stamp}`, name: `E2E Plain ${stamp}` };
+  await sql(
+    `INSERT INTO "SavedList" (id, "userId", name, "isDefault", "shareToken", "sharedAt", "createdAt", "updatedAt") VALUES
+       ($1, $3, $4, false, $5, now(), now(), now()),
+       ($2, $3, $6, false, NULL, NULL, now(), now())`,
+    [shared.id, plain.id, user.id, shared.name, shared.token, plain.name],
+  );
+  const { context, page, consoleErrors } = await openAsTestUser(browser, user);
+  const tabs = page.getByRole("navigation", { name: "My lists" });
+
+  // The shared list's sheet shows its live link.
+  await page.goto(`/en/account/favorites?list=${shared.id}`);
+  await page.getByRole("button", { name: "Share" }).first().click();
+  let sheet = page.getByRole("dialog", { name: withList("Share ", shared.name) });
+  await expect(sheet.getByRole("textbox", { name: "Link to the list" })).toHaveValue(new RegExp(`/lists/${shared.token}$`));
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+
+  // Another tab (a soft navigation): its own sheet, never the other list's link.
+  await tabs.getByRole("link", { name: new RegExp(escapeRegExp(plain.name)) }).click();
+  await expect(page).toHaveURL(new RegExp(`list=${plain.id}`));
+  await page.getByRole("button", { name: "Share" }).first().click();
+  sheet = page.getByRole("dialog", { name: withList("Share ", plain.name) });
+  await expect(sheet.getByRole("button", { name: "Create a share link" })).toBeVisible();
+  await expect(sheet.getByRole("textbox", { name: "Link to the list" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(sheet).toBeHidden();
+
+  // "New list": the default list's name is taken; after a create the sheet starts empty again.
+  await page.getByRole("button", { name: "New list" }).click();
+  let create = page.getByRole("dialog", { name: "New list" });
+  await create.getByLabel("List name").fill("Saved");
+  await create.getByRole("button", { name: "Create list" }).click();
+  await expect(create.getByRole("alert")).toHaveText("You already have a list with this name.");
+  await create.getByLabel("List name").fill(`E2E Third ${stamp}`);
+  await create.getByRole("button", { name: "Create list" }).click();
+  await expect(create).toBeHidden();
+  await expect(tabs.getByRole("link", { name: new RegExp(`E2E Third ${stamp}`) })).toBeVisible();
+  await page.getByRole("button", { name: "New list" }).click();
+  create = page.getByRole("dialog", { name: "New list" });
+  await expect(create.getByLabel("List name")).toHaveValue("");
+  await expect(create.getByRole("alert")).toHaveCount(0);
+  expect(consoleErrors).toEqual([]);
+  await context.close();
 });

@@ -12,16 +12,23 @@ import { hasVisitedBadge } from "@/lib/listing/visited";
 import { photoUrl } from "@/lib/media";
 import type { ListingCardBadges, ListingCardData, ListingMapPoint } from "@/lib/listing/types";
 import { listingPath } from "@/lib/listing/urls";
+import { HEADLINE_ROOM_ORDER, HEADLINE_ROOM_WHERE } from "@/lib/lists/alert-price";
 import { hasWelcomePledge, PLEDGE_CURRENT_VERSION } from "@/lib/pledge";
-import { cardRating } from "@/lib/reviews/rules";
+import { cardRating, isReviewableDealType } from "@/lib/reviews/rules";
 
 const DAY_MS = 86_400_000;
 /** Round 2: at most 5 photos (and so 5 dots) on a card. */
 const MAX_CARD_PHOTOS = 5;
 
 const photoOrder = [{ isCover: "desc" }, { sortOrder: "asc" }] satisfies Prisma.ListingPhotoOrderByWithRelationInput[];
+/**
+ * The "from" price of a hotel: its cheapest room type offered to guests (a hidden room type keeps
+ * its bookings but is not for sale), with the order the price-drop alert uses
+ * (src/lib/lists/alert-price.ts, lists-alerts-7) and the listing page's active-only rooms.
+ */
 const cheapestRoom = {
-  orderBy: [{ priceUsd: { sort: "asc", nulls: "last" } }, { sortOrder: "asc" }],
+  where: HEADLINE_ROOM_WHERE,
+  orderBy: HEADLINE_ROOM_ORDER,
   take: 1,
   select: { price: true, currency: true, pricePeriod: true, priceUsd: true, maxGuests: true },
 } satisfies Prisma.Listing$roomTypesArgs;
@@ -249,7 +256,9 @@ export function toListingCard(row: ListingCardRow, ctx: CardMapContext): Listing
     lng: row.approxLng,
     isFavorite: ctx.favoriteIds?.has(row.id) ?? false,
     publishedAt: row.publishedAt?.toISOString() ?? null,
-    rating: cardRating(row),
+    // Reviews belong to stays (brief 8.1): a listing switched to a monthly rental or a sale shows
+    // no stars, as its page shows no reviews (reviews-4).
+    rating: isReviewableDealType(row.dealType) ? cardRating(row) : null,
   };
 }
 

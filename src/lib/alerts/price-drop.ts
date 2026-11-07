@@ -3,8 +3,9 @@
  * price". Pure, unit-tested (./price-drop.test.ts); the daily run is ./price-drop-run.ts.
  *
  * Favorite.alertPrice / alertCurrency hold the place's HEADLINE price (src/lib/lists/alert-price.ts,
- * contract (2)) when it was saved, in the listing's own currency and price period. Each run
- * compares the current headline price with it:
+ * contract (2)) when it was saved, in the listing's own currency and in its deal type's one price
+ * period (per night for stays; a price in another period is never watched, so a change of period
+ * cannot look like a drop). Each run compares the current headline price with it:
  *
  * - **A drop:** the same currency, at least PRICE_DROP_MIN_PCT lower (conservative: a few lari
  *   off a nightly price is not news) and at most PRICE_DROP_MAX_PCT lower → ONE email, and the
@@ -30,8 +31,11 @@ export const PRICE_DROP_MIN_PCT = 3;
 export const PRICE_DROP_MAX_PCT = 50;
 /** A larger drop becomes the new alert price once the listing was not edited for this long. */
 export const REBASE_AFTER_DAYS = 3;
-/** Price-drop emails per user and run (more drops wait for the next run). */
-export const MAX_PRICE_DROP_EMAILS_PER_RUN = 5;
+/**
+ * Price-drop emails per user and Israel day, across every run of the morning and every server
+ * (a RateLimit row counts them, src/lib/alerts/price-drop-run.ts); more drops wait for tomorrow.
+ */
+export const MAX_PRICE_DROP_EMAILS_PER_DAY = 5;
 
 const DAY_MS = 86_400_000;
 

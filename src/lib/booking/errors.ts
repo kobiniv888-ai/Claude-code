@@ -23,6 +23,10 @@ export const BOOKING_ERROR_CODES = [
   "reason_required",
   "reason_text_required",
   "no_show_not_allowed",
+  /** The guest already reviewed the stay: a "didn't arrive" report is no longer possible. */
+  "no_show_reviewed",
+  /** Staff: the booking has no "didn't arrive" report to clear. */
+  "no_show_not_reported",
   "payment_method_required",
   "terms_changed",
   /** None of the host's alert channels accepted the "new booking" alert: ask the host instead. */

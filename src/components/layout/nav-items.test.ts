@@ -9,7 +9,18 @@ import {
   NAV_ITEMS,
   normalizePath,
   pathWithQuery,
+  savedHref,
 } from "./nav-items";
+
+describe("savedHref (ux-1)", () => {
+  it("leads a signed-out visitor straight to the device's lists, a signed-in one to the account's", () => {
+    expect(savedHref(false)).toBe("/saved");
+    expect(savedHref(true)).toBe("/account/favorites");
+    // Both are the "saved" tab of the bottom bar.
+    expect(activeBottomNavKey(savedHref(false))).toBe("saved");
+    expect(activeBottomNavKey(savedHref(true))).toBe("saved");
+  });
+});
 
 describe("normalizePath", () => {
   it("drops trailing slashes, queries and hashes", () => {

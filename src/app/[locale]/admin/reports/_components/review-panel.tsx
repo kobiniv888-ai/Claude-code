@@ -13,7 +13,7 @@ import { can } from "@/lib/auth/permissions";
 import type { CurrentUser } from "@/lib/auth/session";
 import { formatDate, isolate } from "@/lib/format";
 import { getAdminReview } from "@/lib/reviews/queries";
-import { reviewMonthDate, QUICK_RATING_KEYS } from "@/lib/reviews/rules";
+import { reportedPart, reviewMonthDate, QUICK_RATING_KEYS } from "@/lib/reviews/rules";
 import { ReviewModerationForm } from "./review-moderation-form";
 
 /**
@@ -22,8 +22,24 @@ import { ReviewModerationForm } from "./review-moderation-form";
  * and booking, and the decision — hide with a reason and a note, or show again. Staff never edit a
  * review. Read-only for SUPPORT and for staff who wrote the review or host the place (an ADMIN
  * excepted, as everywhere in the panel).
+ *
+ * Also shown without a report (/admin/reviews/<id>, reviews-2): staff can hide any review, reported
+ * or not. With a report, `reporterId` tells which part was reported: the review (by the host) or
+ * the host's reply (by the guest) — hiding always hides the whole review with its reply.
  */
-export async function AdminReviewPanel({ reviewId, reportId, staff, locale }: { reviewId: string | null; reportId: string; staff: CurrentUser; locale: AppLocale }) {
+export async function AdminReviewPanel({
+  reviewId,
+  reportId,
+  reporterId,
+  staff,
+  locale,
+}: {
+  reviewId: string | null;
+  reportId?: string;
+  reporterId?: string | null;
+  staff: CurrentUser;
+  locale: AppLocale;
+}) {
   const [t, tAdmin, data] = await Promise.all([
     getTranslations({ locale, namespace: "reviews" }),
     getTranslations({ locale, namespace: "admin" }),
@@ -40,6 +56,7 @@ export async function AdminReviewPanel({ reviewId, reportId, staff, locale }: { 
   const own = isOwnItem(staff, [data.guest.id, data.host.id]);
   const month = (m: string) => formatDate(reviewMonthDate(m), locale, { month: "long", year: "numeric", timeZone: "UTC" });
   const quick = QUICK_RATING_KEYS.filter((key) => data.view.quick.some((q) => q.key === key));
+  const part = reportId ? reportedPart({ hostUserId: data.host.id }, reporterId) : null;
 
   return (
     <>
@@ -54,6 +71,7 @@ export async function AdminReviewPanel({ reviewId, reportId, staff, locale }: { 
         }
       >
         <div className="grid gap-4">
+          {part ? <p className="justify-self-start rounded-md bg-muted px-2 py-1 text-xs font-medium">{t(`admin.part.${part}`)}</p> : null}
           {data.hidden ? (
             <p className="flex items-start gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
               <EyeOffIcon aria-hidden className="mt-0.5 size-4 shrink-0" />
@@ -151,7 +169,10 @@ export async function AdminReviewPanel({ reviewId, reportId, staff, locale }: { 
         ) : own ? (
           <p className="text-sm text-muted-foreground">{t("admin.own")}</p>
         ) : (
-          <ReviewModerationForm reviewId={reviewId!} reportId={reportId} hidden={data.hidden} />
+          <div className="grid gap-3">
+            {data.originalReply && !data.hidden ? <p className="text-sm text-muted-foreground">{t("admin.hideWithReply")}</p> : null}
+            <ReviewModerationForm reviewId={reviewId!} reportId={reportId} hidden={data.hidden} />
+          </div>
         )}
       </AdminSection>
 

@@ -322,7 +322,7 @@ export default async function ReportDetailPage({ params }: PageProps<"/[locale]/
             </AdminSection>
           ) : report.targetType === "REVIEW" ? (
             // Round 3, brief 8.1: the reported review, and hide / show again (never edit).
-            <AdminReviewPanel reviewId={report.reviewId} reportId={report.id} staff={staff} locale={locale as AppLocale} />
+            <AdminReviewPanel reviewId={report.reviewId} reportId={report.id} reporterId={report.reporter?.id ?? null} staff={staff} locale={locale as AppLocale} />
           ) : null}
 
           <AdminSection title={t("otherReports", { count: otherReports.length })}>

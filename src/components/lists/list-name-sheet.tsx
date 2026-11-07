@@ -10,7 +10,9 @@ import { LIST_NAME_MAX } from "@/lib/lists/core";
 
 /**
  * A sheet with one field: the name of a new list, or a new name for a list. `onSubmit` returns
- * null when it worked, or the text of the error to show under the field.
+ * null when it worked, or the text of the error to show under the field. Every opening starts
+ * from `initial` with no error, however it was closed last time (the parent after a save,
+ * Cancel, Escape, a swipe) and whichever list it is for (ui-1, ui-2).
  */
 export function ListNameSheet({
   open,
@@ -34,6 +36,20 @@ export function ListNameSheet({
   const [name, setName] = useState(initial);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  // Reset while rendering when the sheet opens (not in an effect: no frame with the old text).
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setName(initial);
+      setError(null);
+    }
+  }
+
+  const close = () => {
+    if (pending) return;
+    onOpenChange(false);
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -60,14 +76,7 @@ export function ListNameSheet({
   return (
     <BottomSheet
       open={open}
-      onOpenChange={(next) => {
-        if (pending) return;
-        if (!next) {
-          setName(initial);
-          setError(null);
-        }
-        onOpenChange(next);
-      }}
+      onOpenChange={(next) => (next ? onOpenChange(true) : close())}
       title={title}
     >
       <form onSubmit={submit} className="grid gap-3 pb-1" noValidate>
@@ -97,7 +106,7 @@ export function ListNameSheet({
           </p>
         ) : null}
         <div className="flex gap-2">
-          <Button type="button" variant="outline" className="min-w-0 flex-1" onClick={() => onOpenChange(false)} disabled={pending}>
+          <Button type="button" variant="outline" className="min-w-0 flex-1" onClick={close} disabled={pending}>
             <span className="truncate">{t("cancel")}</span>
           </Button>
           <Button type="submit" className="min-w-0 flex-1" disabled={pending} aria-busy={pending || undefined}>

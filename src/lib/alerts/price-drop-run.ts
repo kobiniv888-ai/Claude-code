@@ -6,11 +6,11 @@ import { db } from "@/lib/db";
 import { notificationEmailFor, sendEmail } from "@/lib/email";
 import { publicListingWhere } from "@/lib/listing/where";
 import { listingCardSelect, toListingCard } from "@/lib/listing/mappers";
-import { ALERT_PRICE_SELECT, headlineAlertPrice } from "@/lib/lists/alert-price";
+import { ALERT_PRICE_SELECT, headlineAlertPrice, type HeadlinePrice } from "@/lib/lists/alert-price";
 import { emailPlace, unsubscribeHeaders, userLocale } from "@/lib/saved-searches/run";
 import { savedAlertsDue } from "@/lib/saved-searches/core";
 import { getSettings } from "@/lib/settings";
-import { MAX_PRICE_DROP_EMAILS_PER_RUN, priceDropDecision } from "./price-drop";
+import { MAX_PRICE_DROP_EMAILS_PER_DAY, priceDropDecision } from "./price-drop";
 import { parseAlertPrefs } from "./rules";
 import { unsubscribePath } from "./unsubscribe-token";
 import { isIsraelRestTime } from "./weekly-host-stats";
@@ -24,8 +24,13 @@ import { isIsraelRestTime } from "./weekly-host-stats";
  * - **One email per drop:** before sending, the drop is CLAIMED by moving Favorite.alertPrice
  *   from the old price to the new one with a conditional update (only if it still holds the old
  *   price), so two runs at once cannot both send it. A failed send moves it back.
- * - Up to MAX_PRICE_DROP_EMAILS_PER_RUN emails per user and run; the rest wait (their alert price
- *   has not moved).
+ * - Up to MAX_PRICE_DROP_EMAILS_PER_DAY emails per user and Israel day, whatever the number of
+ *   runs that morning or of servers running at once: each email first takes a slot in a RateLimit
+ *   row "price-drop-emails:<Israel day>:<user id>" (one atomic INSERT … ON CONFLICT DO UPDATE
+ *   … WHERE count < cap); a drop that does not go out gives its slot back. The rest wait (their
+ *   alert price has not moved).
+ * - The email shows the before/now prices in the alert's own currency and period (the watched
+ *   headline price), not the card's.
  * - Not for demo or blocked accounts, with the price-drop emails switched off
  *   (notificationPrefs.email.priceDrops), without an address, or to an address paused after a
  *   bounce. Silent "rebases" (a first alert price, another currency, a settled large drop) are
@@ -70,11 +75,38 @@ function listNameOf(list: FavoriteRow["list"]): string | null {
   return list.name.trim() || null;
 }
 
+export const DAILY_EMAILS_PREFIX = "price-drop-emails:";
+const SLOT_ROW_MS = 2 * 24 * 3600 * 1000;
+
+/** The RateLimit row counting one user's price-drop emails of one Israel day. */
+export function dailyEmailsKey(day: string, userId: string): string {
+  return `${DAILY_EMAILS_PREFIX}${day}:${userId}`;
+}
+
+/** Takes one of the day's MAX_PRICE_DROP_EMAILS_PER_DAY slots, atomically (false = the day is full). */
+async function takeDailySlot(day: string, userId: string, now: Date): Promise<boolean> {
+  const key = dailyEmailsKey(day, userId);
+  const resetAt = new Date(now.getTime() + SLOT_ROW_MS);
+  const rows = await db.$queryRaw<{ count: number }[]>`
+    INSERT INTO "RateLimit" ("key", "count", "resetAt") VALUES (${key}, 1, ${resetAt})
+    ON CONFLICT ("key") DO UPDATE SET "count" = "RateLimit"."count" + 1
+    WHERE "RateLimit"."count" < ${MAX_PRICE_DROP_EMAILS_PER_DAY}
+    RETURNING "count"`;
+  return rows.length === 1;
+}
+
+/** Gives a slot back (the drop did not go out). */
+async function giveBackSlot(day: string, userId: string): Promise<void> {
+  await db.rateLimit
+    .updateMany({ where: { key: dailyEmailsKey(day, userId), count: { gt: 0 } }, data: { count: { decrement: 1 } } })
+    .catch((error: unknown) => console.error(`[price-drop] could not give back a slot of ${userId}:`, error));
+}
+
 async function sendDrop(
   favorite: FavoriteRow,
   decision: Extract<ReturnType<typeof priceDropDecision>, { kind: "drop" }>,
-  now: Date,
-  pledgeRequiredVersion: number,
+  current: HeadlinePrice,
+  ctx: { now: Date; day: string; pledgeRequiredVersion: number },
 ): Promise<Outcome> {
   const user = favorite.user;
   if (!parseNotificationPrefs(user.notificationPrefs).email.priceDrops) return "off";
@@ -83,16 +115,28 @@ async function sendDrop(
   const failing = parseAlertPrefs(user.notificationPrefs).email.failing;
   if (failing && failing.address === to.trim().toLowerCase()) return "paused";
 
+  // At most MAX_PRICE_DROP_EMAILS_PER_DAY a day, across runs and servers.
+  if (!(await takeDailySlot(ctx.day, user.id, ctx.now))) return "capped";
   // The claim: the alert price moves to the new price only if it still holds the old one.
-  const claimed = await db.favorite.updateMany({
-    where: { id: favorite.id, alertPrice: favorite.alertPrice, alertCurrency: favorite.alertCurrency },
-    data: { alertPrice: decision.to.amount },
-  });
-  if (claimed.count !== 1) return "already";
-  const undo = () =>
-    db.favorite
+  const claimed = await db.favorite
+    .updateMany({
+      where: { id: favorite.id, alertPrice: favorite.alertPrice, alertCurrency: favorite.alertCurrency },
+      data: { alertPrice: decision.to.amount },
+    })
+    .catch(async (error: unknown) => {
+      await giveBackSlot(ctx.day, user.id);
+      throw error;
+    });
+  if (claimed.count !== 1) {
+    await giveBackSlot(ctx.day, user.id);
+    return "already";
+  }
+  const undo = async () => {
+    await db.favorite
       .updateMany({ where: { id: favorite.id, alertPrice: decision.to.amount }, data: { alertPrice: favorite.alertPrice } })
       .catch((error: unknown) => console.error(`[price-drop] could not restore the alert price of ${favorite.id}:`, error));
+    await giveBackSlot(ctx.day, user.id);
+  };
 
   try {
     const locale = userLocale(user.locale);
@@ -101,7 +145,7 @@ async function sendDrop(
       await undo();
       return "failed";
     }
-    const card = toListingCard(row, { locale, now, featuredIds: new Set(), favoriteIds: new Set(), pledgeRequiredVersion });
+    const card = toListingCard(row, { locale, now: ctx.now, featuredIds: new Set(), favoriteIds: new Set(), pledgeRequiredVersion: ctx.pledgeRequiredVersion });
     const result = await sendEmail({
       to,
       template: "price_drop",
@@ -111,6 +155,8 @@ async function sendDrop(
         place: emailPlace(card),
         oldPrice: decision.from.amount,
         newPrice: decision.to.amount,
+        // The before/now prices are the watched headline price: its own currency and period.
+        money: { currency: decision.to.currency, pricePeriod: current.period, priceIsFrom: current.fromRoom },
         pct: decision.pct,
         listName: listNameOf(favorite.list),
         manageUrl: "/account/alerts",
@@ -154,7 +200,7 @@ export async function runPriceDropAlerts(
   const started = Date.now();
   const budget = opts.timeBudgetMs ?? TIME_BUDGET_MS;
   const counts: Record<Outcome, number> = { sent: 0, rebased: 0, off: 0, noEmail: 0, paused: 0, capped: 0, already: 0, failed: 0 };
-  const sentPerUser = new Map<string, number>();
+  const fullToday = new Set<string>();
   let checked = 0;
   let unfinished = false;
   let cursor: string | undefined;
@@ -179,24 +225,25 @@ export async function runPriceDropAlerts(
       // Never about the user's own place.
       if (favorite.listing.ownerId === favorite.userId || isAccountBlocked(favorite.user, now)) continue;
       checked += 1;
+      const current = headlineAlertPrice(favorite.listing);
       const decision = priceDropDecision({
         alertPrice: favorite.alertPrice,
         alertCurrency: favorite.alertCurrency,
-        current: headlineAlertPrice(favorite.listing),
+        current,
         editedAt: favorite.listing.contentUpdatedAt,
         now,
       });
       try {
         if (decision.kind === "rebase") {
           if (await rebase(favorite, decision.to)) counts.rebased += 1;
-        } else if (decision.kind === "drop") {
-          const sent = sentPerUser.get(favorite.userId) ?? 0;
-          if (sent >= MAX_PRICE_DROP_EMAILS_PER_RUN) {
+        } else if (decision.kind === "drop" && current) {
+          // A fast path only: the day's real count is the RateLimit row (takeDailySlot).
+          if (fullToday.has(favorite.userId)) {
             counts.capped += 1;
             continue;
           }
-          const outcome = await sendDrop(favorite, decision, now, pledgeRequiredVersion);
-          if (outcome === "sent") sentPerUser.set(favorite.userId, sent + 1);
+          const outcome = await sendDrop(favorite, decision, current, { now, day: due.day, pledgeRequiredVersion });
+          if (outcome === "capped") fullToday.add(favorite.userId);
           counts[outcome] += 1;
         }
       } catch (error) {

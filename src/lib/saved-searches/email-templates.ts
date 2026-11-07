@@ -48,6 +48,12 @@ export type SavedAlertEmailData = {
     place: AlertEmailPlace;
     oldPrice: number;
     newPrice: number;
+    /**
+     * The currency and period oldPrice/newPrice are in: the watched headline price
+     * (src/lib/lists/alert-price.ts), which can differ from the card's (`place`). Missing in
+     * emails queued before round 3 phase 5 hardening: the card's.
+     */
+    money?: Pick<AlertEmailPlace, "currency" | "pricePeriod" | "priceIsFrom">;
     /** Rounded percentage (at least 3). */
     pct: number;
     /** The saved list the place is in (user text), or null for the default list. */
@@ -134,9 +140,11 @@ export const savedAlertEmailBuilders: { [K in SavedAlertEmailTemplate]: Builder<
     const key = "templates.price_drop";
     const title = placeTitle(data.place, ctx);
     const pct = formatNumber(data.pct, locale);
+    // The alert's own money, never the card's (a hotel card may show another room's currency).
+    const money = data.money ?? data.place;
     const rows: { label: string; value: string; ltr?: boolean }[] = [
-      { label: t(`${key}.before`), value: priceText(data.oldPrice, data.place, ctx) },
-      { label: t(`${key}.now`), value: priceText(data.newPrice, data.place, ctx) },
+      { label: t(`${key}.before`), value: priceText(data.oldPrice, money, ctx) },
+      { label: t(`${key}.now`), value: priceText(data.newPrice, money, ctx) },
       { label: t(`${key}.drop`), value: t(`${key}.dropValue`, { pct }) },
     ];
     if (data.place.place?.trim()) rows.push({ label: t(`${key}.where`), value: data.place.place.trim() });
@@ -153,7 +161,7 @@ export const savedAlertEmailBuilders: { [K in SavedAlertEmailTemplate]: Builder<
     ];
     return {
       subject: t(`${key}.subject`, { pct, title }),
-      preheader: t(`${key}.preheader`, { price: priceText(data.newPrice, data.place, ctx) }),
+      preheader: t(`${key}.preheader`, { price: priceText(data.newPrice, money, ctx) }),
       heading: t(`${key}.heading`),
       greetingName: data.name?.trim() || null,
       blocks,

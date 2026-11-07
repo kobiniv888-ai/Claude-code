@@ -28,6 +28,8 @@ import { blockFor } from "./service";
  * - notifyGuestOfReply: the host replied.
  * - notifyReviewVisibility: staff hid a review (the reason's name, never the note) or showed it
  *   again — to the guest who wrote it and to the host.
+ * - notifyGuestOfNoShow: the host reported that the guest didn't arrive (the stay can't be reviewed
+ *   then): the guest is told, with the contact page to dispute it.
  */
 
 function localeOf(value: string | null | undefined): AppLocale {
@@ -193,5 +195,36 @@ export async function notifyReviewVisibility(reviewId: string, change: "hidden" 
     );
   } catch (error) {
     console.error(`[reviews] the ${change} email for review ${reviewId} failed:`, error);
+  }
+}
+
+/** After the host reported "didn't arrive" (src/lib/booking/service.ts markNoShow): the guest is told at once. */
+export async function notifyGuestOfNoShow(bookingId: string): Promise<void> {
+  try {
+    const booking = await db.booking.findUnique({
+      where: { id: bookingId },
+      select: { code: true, status: true, checkIn: true, checkOut: true, locale: true, guestName: true, guest: { select: personSelect }, listing: { select: listingSelect } },
+    });
+    if (!booking || booking.status !== "NO_SHOW" || booking.guest.isDemo) return;
+    if (booking.guest.status === "DELETED" || booking.guest.status === "BANNED") return;
+    const to = notificationEmailFor(booking.guest);
+    if (!to) return;
+    const locale = localeOf(booking.guest.locale ?? booking.locale);
+    await sendEmail({
+      to,
+      locale,
+      template: "review_no_show_guest",
+      data: {
+        name: firstNameOf(booking.guest) ?? booking.guestName,
+        listingTitle: titleIn(booking.listing, locale),
+        code: booking.code,
+        checkIn: dateToDay(booking.checkIn),
+        checkOut: dateToDay(booking.checkOut),
+        tripUrl: tripPath(booking.code),
+        contactUrl: "/contact",
+      },
+    });
+  } catch (error) {
+    console.error(`[reviews] the no-show email for booking ${bookingId} failed:`, error);
   }
 }

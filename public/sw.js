@@ -6,30 +6,41 @@
  *   Pages are never cached automatically: they can contain the signed-in user's data.
  * - Saved trips (round 3, brief 7.1, "שמירה לשימוש בלי אינטרנט"): only after the guest taps the
  *   button, the trip page itself puts a copy of ITS page and its static files into the cache
- *   TRIPS_CACHE (src/components/trip/offline-save.tsx, rules in src/lib/trip/offline.ts). For a
- *   navigation to a trip page address (TRIP_PAGE, nothing else) the network still comes first;
- *   the saved copy opens only when the network fails, until a week after check-out. A visit
- *   online refreshes a saved copy; a "not found" or a redirect (another account, signed out)
- *   deletes it. Logging out deletes the whole cache (src/lib/auth/device-data.ts).
+ *   TRIPS_CACHE, with an index naming the account that saved it (src/lib/trip/offline-device.ts,
+ *   rules in src/lib/trip/offline.ts). For a navigation to a trip page address (TRIP_PAGE, nothing
+ *   else) the network still comes first; when that page has a saved copy, the whole answer is
+ *   awaited (at most TRIP_NETWORK_TIMEOUT_MS) and the copy is shown instead when the network
+ *   fails, stalls, breaks off mid-page, answers with a server error or with a page carrying
+ *   neither trip mark (an error page). Kept until a week after check-out (pruned on every
+ *   navigation). The copy is deleted only on positive evidence that it is no longer this device's
+ *   to keep: a redirect (signed out), 401/403/404/410, or the "gone" mark (another account's "not
+ *   found", a cancelled trip). This worker never rewrites a copy: the page refreshes it (with its
+ *   files and the index). Every page also checks the owner of the copies (PrivateCacheGuard), and
+ *   logging out deletes the whole cache (src/lib/auth/device-data.ts).
  * - /api and everything else: not handled (straight to the network), never cached.
  * - Push (round 3, booking alerts): shows the notification the server sent (src/lib/alerts/push.ts:
  *   { title, body, url, tag }); a click opens or focuses that page of this site.
  *
  * Bump VERSION whenever offline.html, the icons or the brand files change.
  */
-const VERSION = "v3";
+const VERSION = "v4";
 const STATIC_CACHE = `bayit-static-${VERSION}`;
 const OFFLINE_URL = "/offline.html";
 const PRECACHE = [OFFLINE_URL, "/brand/bayit-app-icon.svg", "/icons/icon-192.png"];
 
 // Saved trips — keep equal to src/lib/trip/offline.ts (OFFLINE_TRIPS_CACHE, OFFLINE_TRIPS_INDEX,
-// TRIP_PAGE_PATTERN); src/lib/trip/offline.test.ts checks it.
+// TRIP_PAGE_PATTERN, OFFLINE_TRIP_MARKER, OFFLINE_TRIP_GONE_MARKER); src/lib/trip/trip.test.ts
+// checks it and src/lib/trip/sw.test.ts runs this file.
 const TRIPS_CACHE = "bayit-trips";
 const TRIPS_INDEX = "/offline-trips.json";
 const TRIP_PAGE = new RegExp("^/(he|en|ru|ar|ka)/account/trips/BT-[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{5}$");
 const TRIP_MARKER = "data-offline-trip";
-// Kept with a saved page (src/lib/trip/offline.ts OFFLINE_PAGE_HEADERS): never cookies or caching headers.
-const TRIP_PAGE_HEADERS = ["Content-Type", "Content-Security-Policy", "X-Content-Type-Options", "X-Frame-Options", "Referrer-Policy", "Permissions-Policy"];
+// As written in HTML (the page's data stream mentions the name in another form).
+const TRIP_GONE_MARK = 'data-offline-trip-gone="1"';
+// A trip page with a saved copy waits this long for the whole answer before the copy is shown.
+const TRIP_NETWORK_TIMEOUT_MS = 8000;
+// Never copied onto a buffered answer (its body is already decoded).
+const DROPPED_HEADERS = ["Content-Encoding", "Content-Length", "Transfer-Encoding"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -85,14 +96,25 @@ function georgiaToday() {
   return new Date(Date.now() + 4 * 3600 * 1000).toISOString().slice(0, 10);
 }
 
-async function readTripIndex(cache) {
+/** A usable index entry: a trip page, the account that saved it, a last day. */
+function validTrip(t) {
+  return !!t && typeof t.path === "string" && TRIP_PAGE.test(t.path) && typeof t.owner === "string" && t.owner.length > 0 && typeof t.keepUntil === "string";
+}
+
+/** The raw index list (null when there is no index). */
+async function readRawTripIndex(cache) {
   try {
     const response = await cache.match(TRIPS_INDEX);
-    const data = response ? await response.json() : null;
-    return data && Array.isArray(data.trips) ? data.trips.filter((t) => t && typeof t.path === "string" && TRIP_PAGE.test(t.path)) : [];
+    if (!response) return null;
+    const data = await response.json();
+    return data && Array.isArray(data.trips) ? data.trips : [];
   } catch {
     return [];
   }
+}
+
+async function readTripIndex(cache) {
+  return ((await readRawTripIndex(cache)) || []).filter(validTrip);
 }
 
 async function writeTripIndex(cache, trips) {
@@ -112,15 +134,27 @@ async function forgetSavedTrip(path) {
   await writeTripIndex(cache, trips.filter((t) => t.path !== path));
 }
 
-/** Drops copies kept past their last day (a week after check-out). */
+/**
+ * Drops copies kept past their last day (a week after check-out) and entries without an owner
+ * (saved before owners existed), with their pages. Runs on every navigation: cheap when there is
+ * nothing to drop (one check, one read, no write). Without an index nothing is touched (a save
+ * may be under way).
+ */
 async function pruneSavedTrips() {
   if (!(await caches.has(TRIPS_CACHE))) return;
   const cache = await caches.open(TRIPS_CACHE);
+  const raw = await readRawTripIndex(cache);
+  if (raw === null) return;
   const today = georgiaToday();
-  const trips = await readTripIndex(cache);
-  const keep = trips.filter((t) => typeof t.keepUntil === "string" && t.keepUntil >= today);
-  for (const t of trips) if (!keep.includes(t)) await cache.delete(t.path, { ignoreSearch: true, ignoreVary: true });
-  await writeTripIndex(cache, keep);
+  const keep = (list) => list.filter((t) => validTrip(t) && t.keepUntil >= today);
+  if (keep(raw).length === raw.length) return;
+  for (const t of raw) {
+    if (!keep([t]).length && t && typeof t.path === "string" && TRIP_PAGE.test(t.path)) {
+      await cache.delete(t.path, { ignoreSearch: true, ignoreVary: true });
+    }
+  }
+  // Read again just before writing (a page may have saved a copy meanwhile).
+  await writeTripIndex(cache, keep((await readRawTripIndex(cache)) || []));
 }
 
 /** The saved copy of a trip page, if the guest saved it and it is still kept. */
@@ -128,53 +162,94 @@ async function savedTripPage(path) {
   if (!(await caches.has(TRIPS_CACHE))) return null;
   const cache = await caches.open(TRIPS_CACHE);
   const entry = (await readTripIndex(cache)).find((t) => t.path === path);
-  if (!entry || typeof entry.keepUntil !== "string" || entry.keepUntil < georgiaToday()) return null;
+  if (!entry || entry.keepUntil < georgiaToday()) return null;
   return (await cache.match(path, { ignoreSearch: true, ignoreVary: true })) || null;
 }
 
-/**
- * After a trip page came from the network: refresh the saved copy (a plain visit, no ?booked=1),
- * or delete it when the page is no longer this device's to keep: another account ("not found"),
- * signed out (the login page), an error. Account pages stream with HTTP 200 even then, so the
- * test is the trip's mark in the HTML (src/lib/trip/offline.ts OFFLINE_TRIP_MARKER).
- */
-async function updateSavedTrip(path, search, response) {
-  if (!(await caches.has(TRIPS_CACHE))) return;
-  const cache = await caches.open(TRIPS_CACHE);
-  if (!(await readTripIndex(cache)).some((t) => t.path === path)) return;
-  const finalPath = response.url ? new URL(response.url).pathname : path;
+/** The trip page itself, as HTML, from this address (not a redirect, an error or another page). */
+function isTripHtml(path, response) {
   const type = response.headers.get("Content-Type") || "";
-  const code = path.slice(path.lastIndexOf("/") + 1);
-  const html = response.status === 200 && type.includes("text/html") && !response.redirected && finalPath === path ? await response.text() : "";
-  if (!html.includes(`${TRIP_MARKER}="${code}"`)) {
-    await forgetSavedTrip(path);
-    return;
-  }
-  if (search) return;
-  const headers = new Headers();
-  for (const name of TRIP_PAGE_HEADERS) {
-    const value = response.headers.get(name);
-    if (value) headers.set(name, value);
-  }
-  await cache.put(path, new Response(html, { headers }));
+  const finalPath = response.url ? new URL(response.url).pathname : path;
+  return response.status === 200 && response.type !== "opaqueredirect" && !response.redirected && finalPath === path && type.includes("text/html");
+}
+
+/**
+ * Positive evidence that a saved copy is no longer this device's to keep: a redirect (over TLS
+ * only our server sends one: the login page for a signed-out visitor), 401/403/404/410, or the
+ * "gone" mark (another account's "not found", a cancelled trip, past the keep window). A server
+ * error, a page without any mark (an error page) or a broken answer keep the copy.
+ */
+function tripPageGone(path, response, html) {
+  if (response.type === "opaqueredirect" || (response.status >= 300 && response.status < 400)) return true;
+  if (response.redirected && response.url && new URL(response.url).pathname !== path) return true;
+  if ([401, 403, 404, 410].includes(response.status)) return true;
+  return typeof html === "string" && html.includes(TRIP_GONE_MARK);
+}
+
+/** The answer's headers for a buffered copy of it. */
+function bufferedHeaders(response) {
+  const headers = new Headers(response.headers);
+  for (const name of DROPPED_HEADERS) headers.delete(name);
+  return headers;
+}
+
+function withTimeout(promise, ms) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("timeout")), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
+async function offlinePage() {
+  const cache = await caches.open(STATIC_CACHE);
+  const offline = await cache.match(OFFLINE_URL);
+  return offline || new Response("Offline", { status: 503, headers: { "Content-Type": "text/plain" } });
 }
 
 async function networkWithOfflineFallback(event) {
   const url = new URL(event.request.url);
-  const tripPage = TRIP_PAGE.test(url.pathname);
+  const network = Promise.resolve(event.preloadResponse).then((preloaded) => preloaded || fetch(event.request));
+  // Not a saved trip: the network answer as it streams in.
+  const saved = TRIP_PAGE.test(url.pathname) ? await savedTripPage(url.pathname).catch(() => null) : null;
+  if (!saved) {
+    try {
+      return await network;
+    } catch {
+      return offlinePage();
+    }
+  }
+  const path = url.pathname;
+  // A saved trip: wait for the whole page (a weak link that stalls or breaks off mid-page shows
+  // the copy instead of a half-loaded page), and keep deciding about the copy even when the
+  // answer comes after the copy was shown.
+  const answer = network.then(async (response) => ({ response, html: isTripHtml(path, response) ? await response.text() : null }));
+  event.waitUntil(
+    answer
+      .then(({ response, html }) => (tripPageGone(path, response, html) ? forgetSavedTrip(path) : undefined))
+      .catch(() => undefined),
+  );
   try {
-    const preloaded = await event.preloadResponse;
-    const response = preloaded || (await fetch(event.request));
-    if (tripPage) event.waitUntil(updateSavedTrip(url.pathname, url.search, response.clone()).catch(() => undefined));
+    const { response, html } = await withTimeout(answer, TRIP_NETWORK_TIMEOUT_MS);
+    if (html !== null) {
+      // The live trip page or its "gone" page; an error page without any mark → the copy.
+      if (html.includes(`${TRIP_MARKER}="${path.slice(path.lastIndexOf("/") + 1)}"`) || html.includes(TRIP_GONE_MARK)) {
+        return new Response(html, { status: response.status, statusText: response.statusText, headers: bufferedHeaders(response) });
+      }
+      return saved;
+    }
+    if (response.status >= 500) return saved;
     return response;
   } catch {
-    if (tripPage) {
-      const saved = await savedTripPage(url.pathname).catch(() => null);
-      if (saved) return saved;
-    }
-    const cache = await caches.open(STATIC_CACHE);
-    const offline = await cache.match(OFFLINE_URL);
-    return offline || new Response("Offline", { status: 503, headers: { "Content-Type": "text/plain" } });
+    return saved;
   }
 }
 
@@ -187,6 +262,8 @@ self.addEventListener("fetch", (event) => {
   if (url.pathname.startsWith("/api/")) return;
 
   if (request.mode === "navigate") {
+    // Saved trips past their last day go, whatever page is opened.
+    event.waitUntil(pruneSavedTrips().catch(() => undefined));
     event.respondWith(networkWithOfflineFallback(event));
     return;
   }

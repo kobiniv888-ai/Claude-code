@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type MouseEvent, type PointerEvent } from "react";
+import { useRef, useState, type MouseEvent, type PointerEvent, type Ref } from "react";
 import { HeartIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -26,7 +26,10 @@ export function HeartButton({
   busy = false,
   onLongPress,
   className,
+  ref,
 }: {
+  /** The <button> (React 19 ref as a prop): FavoriteButton returns focus to it after the list sheet. */
+  ref?: Ref<HTMLButtonElement>;
   pressed: boolean;
   onClick: (event: MouseEvent<HTMLButtonElement>) => void;
   /** A long press, right click or the context-menu key (the list sheet). */
@@ -93,6 +96,7 @@ export function HeartButton({
     : {};
   return (
     <button
+      ref={ref}
       type="button"
       {...longPress}
       onClick={(event) => {

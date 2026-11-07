@@ -9,7 +9,7 @@
       "deviceHint": "Log in to keep it on all your devices and share it.",
       "movedTo": "Moved to “{name}”",
       "change": "Change list",
-      "changeFor": "Choose a list for {title}"
+      "changeFor": "Change list for {title}"
     },
     "sheet": {
       "title": "Save to a list",

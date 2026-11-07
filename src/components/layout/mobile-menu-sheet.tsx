@@ -35,7 +35,7 @@ import { isRtl } from "@/i18n/locale";
 import { cn } from "@/lib/utils";
 import { CurrencyChips } from "./currency-chips";
 import { LanguageList } from "./language-list";
-import { activeNavKey, DEAL_NAV_KEYS, NAV_ITEMS, normalizePath, type NavKey } from "./nav-items";
+import { activeNavKey, DEAL_NAV_KEYS, NAV_ITEMS, normalizePath, savedHref, type NavKey } from "./nav-items";
 import { ThemeSegmented } from "./theme-segmented";
 
 type Row = { id: string; href: string; label: string; icon: IconComponent; current?: boolean };
@@ -86,7 +86,7 @@ const SEARCH_KEYS: readonly NavKey[] = [...DEAL_NAV_KEYS, "map"];
  * "Find a place": the home page's four deal tabs (short stay, monthly, buy, hotels), the map — all
  * matched with the query, like the desktop tabs — and saved.
  */
-function SearchRows({ active, onNavigate }: { active: NavKey | null; onNavigate: () => void }) {
+function SearchRows({ active, onNavigate, isSignedIn }: { active: NavKey | null; onNavigate: () => void; isSignedIn: boolean }) {
   const t = useTranslations("nav");
   const path = normalizePath(usePathname());
   const rows: Row[] = [
@@ -99,10 +99,10 @@ function SearchRows({ active, onNavigate }: { active: NavKey | null; onNavigate:
     })),
     {
       id: "saved",
-      href: "/account/favorites",
+      href: savedHref(isSignedIn),
       label: t("saved"),
       icon: Heart,
-      current: path === "/account/favorites",
+      current: path === "/account/favorites" || path === "/saved",
     },
   ];
   return (
@@ -114,11 +114,11 @@ function SearchRows({ active, onNavigate }: { active: NavKey | null; onNavigate:
   );
 }
 
-function SearchRowsWithQuery(props: { onNavigate: () => void }) {
+function SearchRowsWithQuery(props: { onNavigate: () => void; isSignedIn: boolean }) {
   return <SearchRows active={activeNavKey(usePathname(), useSearchParams())} {...props} />;
 }
 
-function SearchRowsWithoutQuery(props: { onNavigate: () => void }) {
+function SearchRowsWithoutQuery(props: { onNavigate: () => void; isSignedIn: boolean }) {
   return <SearchRows active={activeNavKey(usePathname())} {...props} />;
 }
 
@@ -208,8 +208,8 @@ export function MobileMenuSheet({
 
           <nav aria-label={t("mainNav")} className="mt-5 grid grid-cols-1 gap-5">
             <MenuGroup title={t("menu.groups.search")}>
-              <Suspense fallback={<SearchRowsWithoutQuery onNavigate={close} />}>
-                <SearchRowsWithQuery onNavigate={close} />
+              <Suspense fallback={<SearchRowsWithoutQuery onNavigate={close} isSignedIn={isSignedIn} />}>
+                <SearchRowsWithQuery onNavigate={close} isSignedIn={isSignedIn} />
               </Suspense>
             </MenuGroup>
 

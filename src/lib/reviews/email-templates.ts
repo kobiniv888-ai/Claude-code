@@ -10,11 +10,14 @@
  * - review_reply_guest: the host replied to the guest's review.
  * - review_hidden / review_shown: staff hid a review (the reason's name only, never the staff
  *   note) or showed it again — to the guest who wrote it and to the host.
+ * - review_no_show_guest: the host reported that the guest didn't arrive. The stay then can't be
+ *   reviewed, so the guest is told at once, with a way to tell Bayit when it is wrong (staff can
+ *   clear the report).
  */
 import type { EmailBlock, EmailContent, TemplateContext } from "@/lib/email/templates";
 import { formatDateRange, formatNumber } from "@/lib/format";
 
-export const REVIEW_EMAIL_TEMPLATES = ["review_request", "review_posted_host", "review_reply_guest", "review_hidden", "review_shown"] as const;
+export const REVIEW_EMAIL_TEMPLATES = ["review_request", "review_posted_host", "review_reply_guest", "review_hidden", "review_shown", "review_no_show_guest"] as const;
 export type ReviewEmailTemplate = (typeof REVIEW_EMAIL_TEMPLATES)[number];
 
 /** Why staff hid a review, as the email names it (the same codes as REVIEW_HIDE_REASONS in ./rules). */
@@ -68,6 +71,19 @@ export type ReviewEmailData = {
     role: "guest" | "host";
     listingTitle: string;
     listingUrl: string;
+  };
+  review_no_show_guest: {
+    name?: string | null;
+    listingTitle: string;
+    /** "BT-7K3Q9" */
+    code: string;
+    /** "YYYY-MM-DD" (Georgia). */
+    checkIn: string;
+    checkOut: string;
+    /** The trip page. */
+    tripUrl: string;
+    /** Where the guest tells Bayit it is wrong ("/contact"). */
+    contactUrl: string;
   };
 };
 
@@ -165,6 +181,26 @@ export const reviewEmailBuilders: { [K in ReviewEmailTemplate]: Builder<K> } = {
         { type: "notice", text: t(`${key}.help`, { brand }) },
       ],
       cta: { label: t(`${key}.cta`), url: url(data.reviewsUrl) ?? page("/account/reviews") },
+      audience: "account",
+    };
+  },
+
+  review_no_show_guest: (data, ctx) => {
+    const { t, url, page, brand, locale } = ctx;
+    const key = "templates.review_no_show_guest";
+    const title = isolate(clean(data.listingTitle));
+    const dates = formatDateRange(data.checkIn, data.checkOut, locale, { day: "numeric", month: "short", year: "numeric" });
+    return {
+      subject: t(`${key}.subject`, { code: data.code }),
+      preheader: t(`${key}.preheader`, { title }),
+      heading: t(`${key}.heading`),
+      greetingName: clean(data.name) || null,
+      blocks: [
+        { type: "paragraph", text: t(`${key}.body1`, { title, dates, code: data.code }) },
+        { type: "paragraph", text: t(`${key}.body2`) },
+        { type: "notice", text: t(`${key}.wrong`, { brand }), link: { label: t(`${key}.tripLink`), url: url(data.tripUrl) ?? page("/account/trips") } },
+      ],
+      cta: { label: t(`${key}.cta`, { brand }), url: url(data.contactUrl) ?? page("/contact") },
       audience: "account",
     };
   },

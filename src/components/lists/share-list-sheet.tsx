@@ -12,6 +12,7 @@ import { errorMessageKey } from "@/lib/errors";
 import { isPermanentSiteUrl } from "@/lib/site-url";
 import { setListSharingAction } from "@/lib/lists/actions";
 import { toast } from "@/lib/toast";
+import { listNameArg } from "./list-text";
 
 /** wa.me with the list's name and link (no phone number: WhatsApp asks whom to send it to). */
 export function whatsappShareHref(text: string, url: string): string {
@@ -45,6 +46,13 @@ export function ShareListSheet({
   const [url, setUrl] = useState(initialUrl);
   const [pending, setPending] = useState<"on" | "off" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Another list, or a fresh link from the server: show that one (never a previous list's link, ui-1).
+  const [seen, setSeen] = useState({ listId, initialUrl });
+  if (seen.listId !== listId || seen.initialUrl !== initialUrl) {
+    setSeen({ listId, initialUrl });
+    setUrl(initialUrl);
+    setError(null);
+  }
 
   const setSharing = async (shared: boolean) => {
     if (pending) return;
@@ -67,7 +75,7 @@ export function ShareListSheet({
   };
 
   return (
-    <BottomSheet open={open} onOpenChange={(next) => !pending && onOpenChange(next)} title={t("title", { name })}>
+    <BottomSheet open={open} onOpenChange={(next) => !pending && onOpenChange(next)} title={t("title", { name: listNameArg(name) })}>
       <div className="grid gap-4 pb-1">
         <p className="flex items-start gap-3 rounded-input bg-surface-muted px-3 py-3 text-small text-pretty">
           <ShieldCheckIcon className="mt-0.5 size-5 shrink-0 text-primary-text" aria-hidden />

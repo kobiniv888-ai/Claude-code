@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { fail, ok, type ActionResult } from "@/lib/action";
 import { audit } from "@/lib/audit";
+import { clearNoShow } from "@/lib/booking/service";
 import { db } from "@/lib/db";
 import { bookingFlagKind, FLAG_NOTE_MAX } from "../flags";
 import { AdminActionError, runStaffAction } from "../server/common";
@@ -16,6 +17,11 @@ import { hostFlagSummary } from "../server/flags";
  * Nobody reviews a flag about themselves (their own booking as host or guest, their own host
  * flag), ADMIN included: a flag is about trust. And "mark host reviewed" covers only the reports
  * the staff member saw: `seenLatest` is the newest report on their page, and a newer one refuses.
+ *
+ * "Clear the no-show report" (round 3 phase-5 hardening): a host's "didn't arrive" that was wrong
+ * (the guest stayed and wrote to us) is undone from the booking's admin page — the booking is
+ * CONFIRMED / COMPLETED again, so the guest can review the stay. Same rules, with a note, logged as
+ * booking.no_show_cleared.
  */
 
 const note = z.string().trim().min(2).max(FLAG_NOTE_MAX);
@@ -91,6 +97,34 @@ export async function markHostFlagReviewedAction(input: unknown): Promise<Action
         },
       });
       return ok({ changed: true });
+    },
+    { limit: 60, windowSeconds: 60 },
+  );
+}
+
+export async function clearNoShowAction(input: unknown): Promise<ActionResult<{ status: "CONFIRMED" | "COMPLETED" }>> {
+  return runStaffAction<{ status: "CONFIRMED" | "COMPLETED" }>(
+    "moderation",
+    "flags.no_show_cleared",
+    async (staff) => {
+      const parsed = bookingSchema.safeParse(input);
+      if (!parsed.success) return fail("invalid_input", z.flattenError(parsed.error).fieldErrors);
+      const booking = await db.booking.findUnique({
+        where: { id: parsed.data.bookingId },
+        select: { id: true, code: true, status: true, hostUserId: true, guestUserId: true },
+      });
+      if (!booking) throw new AdminActionError("booking_not_found", 404);
+      if (booking.hostUserId === staff.id || booking.guestUserId === staff.id) throw new AdminActionError("not_allowed_on_self", 403);
+      if (booking.status !== "NO_SHOW") throw new AdminActionError("not_flagged", 409);
+      const result = await clearNoShow({ bookingId: booking.id, staffId: staff.id });
+      await audit({
+        actorId: staff.id,
+        action: "booking.no_show_cleared",
+        targetType: "Booking",
+        targetId: booking.id,
+        details: { code: booking.code, status: result.status, reportedAt: result.reportedAt, hostUserId: booking.hostUserId, note: parsed.data.note },
+      });
+      return ok({ status: result.status });
     },
     { limit: 60, windowSeconds: 60 },
   );

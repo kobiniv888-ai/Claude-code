@@ -387,6 +387,7 @@ export async function getHostBooking(
       cancelReasonCode: true,
       cancelReason: true,
       noShowReportedAt: true,
+      review: { select: { id: true } },
     },
   });
   if (!row) return null;
@@ -410,7 +411,8 @@ export async function getHostBooking(
       lateNow: isLateCancellation(row.cancellationPolicy, summary.checkIn, now, row.listing.checkInFrom),
     },
     canCancel: canHostCancel(state, now),
-    canReportNoShow: canReportNoShow(state, now),
+    // Never once the guest reviewed the stay (markNoShow refuses too: "no_show_reviewed").
+    canReportNoShow: !row.review && canReportNoShow(state, now),
   };
 }
 

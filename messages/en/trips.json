@@ -59,6 +59,8 @@
     "failed": "We couldn't save it. Check your internet connection and try again.",
     "unsupported": "This browser can't save pages for offline use. You can add the trip to your calendar instead.",
     "offlineCopy": "You're offline. This is the copy you saved on {date}, {time}; it may not be up to date.",
+    "savedCopy": "This is the copy you saved on {date}, {time}; it may not be up to date.",
+    "reload": "Load the latest version",
     "offlineNow": "You're offline. Some actions will work only when you're back online."
   },
   "shabbat": {

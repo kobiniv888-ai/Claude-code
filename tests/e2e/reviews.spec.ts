@@ -160,7 +160,18 @@ test.describe("reviews", () => {
       await stale.goto("/he/account/reviews");
       await settle(hostPage);
       await settle(stale);
-      await hostPage.getByRole("button", { name: "תגובה לביקורת" }).click();
+      // Keyboard (a11y-4): opening the reply moves the focus into its field, "ביטול" gives it back
+      // to the button, and an empty reply puts the focus back in the field with the message.
+      const replyButton = hostPage.getByRole("button", { name: "תגובה לביקורת" });
+      await replyButton.focus();
+      await hostPage.keyboard.press("Enter");
+      await expect(hostPage.getByLabel("התגובה הפומבית שלך")).toBeFocused();
+      await hostPage.locator("form").getByRole("button", { name: "ביטול" }).click();
+      await expect(replyButton).toBeFocused();
+      await hostPage.keyboard.press("Enter");
+      await hostPage.getByRole("button", { name: "פרסום התגובה" }).click();
+      await expect(hostPage.getByRole("alert").filter({ hasText: "קצרה מדי" })).toBeVisible();
+      await expect(hostPage.getByLabel("התגובה הפומבית שלך")).toBeFocused();
       await hostPage.getByLabel("התגובה הפומבית שלך").fill(REPLY);
       await hostPage.getByLabel("הבנתי שאי אפשר לערוך או למחוק את התגובה").check();
       await hostPage.getByRole("button", { name: "פרסום התגובה" }).click();

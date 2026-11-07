@@ -2,18 +2,18 @@
 
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { EllipsisVerticalIcon, LoaderIcon, PencilIcon, PlusIcon, Share2Icon, Trash2Icon, UsersIcon } from "lucide-react";
+import { LoaderIcon, PencilIcon, PlusIcon, Share2Icon, Trash2Icon, UsersIcon } from "lucide-react";
 import { BottomSheet } from "@/components/ds/bottom-sheet";
 import { Button } from "@/components/ds/button";
 import { Chip } from "@/components/ds/chip";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { OverflowMenu } from "@/components/ds/overflow-menu";
 import { useRouter } from "@/i18n/navigation";
 import { errorMessageKey } from "@/lib/errors";
 import { formatNumber } from "@/lib/format";
 import { createListAction, deleteListAction, renameListAction } from "@/lib/lists/actions";
 import { toast } from "@/lib/toast";
 import { ListNameSheet } from "./list-name-sheet";
-import { isListErrorCode } from "./list-text";
+import { isListErrorCode, listNameArg, SAVED_LIST_HEADING_ID } from "./list-text";
 import { ShareListSheet } from "./share-list-sheet";
 
 function useListErrorText() {
@@ -42,7 +42,7 @@ export function NewListChip() {
           const result = await createListAction({ name }).catch(() => ({ ok: false as const, error: "server_error" }));
           if (!result.ok) return errorText(result.error);
           setOpen(false);
-          toast.success(t("created", { name: result.data.list.name }));
+          toast.success(t("created", { name: listNameArg(result.data.list.name) }));
           router.push({ pathname: "/account/favorites", query: { list: result.data.list.id } });
           return null;
         }}
@@ -54,7 +54,9 @@ export function NewListChip() {
 /**
  * The selected list's title row on the saved page: its name, how many places, "Shared" when its
  * link is live, and Share; named lists also get Rename and Delete (their places then move to the
- * default list).
+ * default list). The page renders it with key={list.id}: switching tabs is a soft navigation that
+ * keeps the page's client state, and a header carried over from the last list would share, stop
+ * sharing or rename THAT list (ui-1). The "…" menu loads its code at the first tap (speed-1).
  */
 export function AccountListHeader({
   list,
@@ -98,7 +100,7 @@ export function AccountListHeader({
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 rounded-card border border-border bg-card px-4 py-3">
       <div className="grid min-w-0 gap-0.5">
-        <h2 className="truncate text-h3 font-semibold">
+        <h2 id={SAVED_LIST_HEADING_ID} tabIndex={-1} className="truncate text-h3 font-semibold outline-none">
           <span dir="auto">{displayName}</span>
         </h2>
         <p className="flex flex-wrap items-center gap-x-2 text-small text-muted-foreground">
@@ -117,23 +119,17 @@ export function AccountListHeader({
           {t("share")}
         </Button>
         {list.isDefault ? null : (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label={t("more", { name: displayName })}>
-                <EllipsisVerticalIcon aria-hidden />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-48">
-              <DropdownMenuItem className="min-h-11 gap-3" onSelect={() => setSheet("rename")}>
-                <PencilIcon className="size-4" aria-hidden />
-                {t("rename")}
-              </DropdownMenuItem>
-              <DropdownMenuItem className="min-h-11 gap-3 text-destructive focus:text-destructive" onSelect={() => setSheet("delete")}>
-                <Trash2Icon className="size-4" aria-hidden />
-                {t("delete")}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <OverflowMenu
+            label={t("more", { name: listNameArg(displayName) })}
+            variant="ghost"
+            icon="vertical"
+            side="bottom"
+            contentClassName="min-w-48"
+            items={[
+              { key: "rename", icon: <PencilIcon className="size-4" aria-hidden />, label: t("rename"), onSelect: () => setSheet("rename") },
+              { key: "delete", icon: <Trash2Icon className="size-4" aria-hidden />, label: t("delete"), onSelect: () => setSheet("delete"), tone: "destructive" },
+            ]}
+          />
         )}
       </div>
 
@@ -158,7 +154,7 @@ export function AccountListHeader({
           <BottomSheet
             open={sheet === "delete"}
             onOpenChange={(open) => !deleting && setSheet(open ? "delete" : null)}
-            title={t("deleteTitle", { name: displayName })}
+            title={t("deleteTitle", { name: listNameArg(displayName) })}
             footer={
               <div className="flex gap-2">
                 <Button variant="outline" className="min-w-0 flex-1" onClick={() => setSheet(null)} disabled={deleting}>

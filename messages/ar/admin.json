@@ -360,7 +360,8 @@
       "SiteSetting": "إعداد",
       "Booking": "حجز",
       "ReferencePrice": "سعر مرجعي",
-      "EmailOutbox": "رسالة بريد"
+      "EmailOutbox": "رسالة بريد",
+      "Review": "تقييم"
     },
     "actions": {
       "listing_approve": "تمت الموافقة على إعلان",
@@ -407,6 +408,7 @@
       "booking_cancel_by_guest": "ألغى الضيف",
       "booking_cancel_by_host": "ألغى المضيف",
       "booking_no_show": "أبلغ المضيف أن الضيف لم يحضر",
+      "booking_no_show_cleared": "ألغى الفريق بلاغ عدم وصول الضيف",
       "booking_cancel_account_deleted": "أُلغي لأن الحساب حُذف",
       "booking_host_unreachable": "لم يُحفظ الحجز: لم يصل التنبيه إلى المضيف",
       "booking_refused_blocked": "رُفض الحجز بسبب حظر",
@@ -1337,6 +1339,16 @@
       "noteHint": "إلزامي. لا يرى الملاحظة إلا الفريق.",
       "notePlaceholder": "مثلًا: تحدثت مع المضيف، كان هناك عطل حقيقي في الشقة.",
       "done": "تم التعليم كمُراجَع."
+    },
+    "noShowClear": {
+      "button": "إلغاء البلاغ",
+      "title": "إلغاء بلاغ عدم وصول الضيف؟",
+      "description": "سيعود الحجز {label} مؤكدًا (أو منتهيًا إذا مرّ تاريخ المغادرة)، ويمكن للضيف كتابة تقييم في الوقت المعتاد. تُحفظ الملاحظة في سجل الإجراءات.",
+      "confirm": "إلغاء البلاغ",
+      "noteLabel": "لماذا البلاغ خاطئ؟",
+      "noteHint": "إلزامي. لا يرى الملاحظة إلا الفريق.",
+      "notePlaceholder": "مثال: أرسل الضيف صورة للإيصال من المضيف.",
+      "done": "أُلغي البلاغ."
     }
   },
   "bookings": {

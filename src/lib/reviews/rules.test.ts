@@ -189,11 +189,50 @@ describe("translation fallback", () => {
 
 describe("emails and links", () => {
   it("has the review request and the notices", () => {
-    expect(REVIEW_EMAIL_TEMPLATES).toEqual(["review_request", "review_posted_host", "review_reply_guest", "review_hidden", "review_shown"]);
+    expect(REVIEW_EMAIL_TEMPLATES).toEqual(["review_request", "review_posted_host", "review_reply_guest", "review_hidden", "review_shown", "review_no_show_guest"]);
   });
 
   it("opens the form for one booking, with the stars tapped on the trip page", () => {
     expect(writeReviewPath("BT-7K3Q9")).toBe("/account/reviews/write/BT-7K3Q9");
     expect(writeReviewPath("BT-7K3Q9", 4)).toBe("/account/reviews/write/BT-7K3Q9?rating=4");
+  });
+});
+
+// ─── Phase-5 hardening ────────────────────────────────────────
+
+describe("text minimum (reviews-10)", () => {
+  it("counts letters and digits in any alphabet, by code point", async () => {
+    const { countMeaningful, meetsTextMinimum, meaningfulMinimum, textLength } = await import("./rules");
+    expect(countMeaningful("....!!!!😀😀")).toBe(0);
+    expect(countMeaningful("דנה 2026 Тбилиси ბათუმი")).toBe(3 + 4 + 7 + 6);
+    expect(textLength("😀😀 ")).toBe(2);
+    expect(meaningfulMinimum(20)).toBe(15);
+    expect(meaningfulMinimum(5)).toBe(4);
+    expect(meetsTextMinimum(".".repeat(20), 20)).toBe(false);
+    expect(meetsTextMinimum("😀".repeat(25), 20)).toBe(false);
+    expect(meetsTextMinimum("א".repeat(20), 20)).toBe(true);
+    expect(meetsTextMinimum("מקום מעולה, מומלץ בחום!", 20)).toBe(true);
+    expect(meetsTextMinimum("קצר מדי", 20)).toBe(false);
+  });
+});
+
+describe("what a review report is about (reviews-2)", () => {
+  it("is the review when the host reported it, the reply when the guest did", async () => {
+    const { reportedPart } = await import("./rules");
+    expect(reportedPart({ hostUserId: "h" }, "h")).toBe("review");
+    expect(reportedPart({ hostUserId: "h" }, "g")).toBe("reply");
+    expect(reportedPart({ hostUserId: "h" }, null)).toBe("review");
+  });
+});
+
+describe("all reviews (reviews-7, ux-2)", () => {
+  it("says how many the listing page shows and leaves to the reviews page", async () => {
+    const { listingReviewsPagePath, reviewsShown } = await import("./paths");
+    expect(reviewsShown(45, 30)).toEqual({ shown: 30, hidden: 15 });
+    expect(reviewsShown(12, 12)).toEqual({ shown: 12, hidden: 0 });
+    expect(reviewsShown(0, 0)).toEqual({ shown: 0, hidden: 0 });
+    expect(listingReviewsPagePath("/listing/12-flat")).toBe("/listing/12-flat/reviews");
+    expect(listingReviewsPagePath("/listing/12-flat", 1)).toBe("/listing/12-flat/reviews");
+    expect(listingReviewsPagePath("/listing/12-flat", 3)).toBe("/listing/12-flat/reviews?page=3");
   });
 });

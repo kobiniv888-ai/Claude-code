@@ -24,6 +24,9 @@ export function auditTargetHref(targetType: string | null | undefined, targetId:
       return `/admin/reference-prices/${id}`;
     case "EmailOutbox":
       return `/admin/outbox/${id}`;
+    // Round 3, phase 5 (reviews).
+    case "Review":
+      return `/admin/reviews/${id}`;
     default:
       return null;
   }

@@ -2,9 +2,11 @@ import { getTranslations } from "next-intl/server";
 import { SpriteIcon } from "@/components/ds/sprite-icons";
 import { Section } from "@/components/listing-page/section";
 import type { AppLocale } from "@/config/site";
+import { Link } from "@/i18n/navigation";
 import { formatNumber } from "@/lib/format";
 import { getListingReviews } from "@/lib/reviews/queries";
-import { getRatingSummary, LISTING_REVIEWS_ANCHOR, MIN_REVIEWS_FOR_AVERAGE } from "@/lib/reviews";
+import { getRatingSummary, LISTING_REVIEWS_ANCHOR, MIN_REVIEWS_FOR_AVERAGE, reviewsShown } from "@/lib/reviews";
+import { ReviewsEmptyNote } from "./listing-reviews-empty";
 import { ReviewItem } from "./review-item";
 import { StarValue } from "./stars";
 
@@ -19,13 +21,57 @@ const MAX = 30;
  * - From 3 visible reviews: the average and the count, and the quick ratings that 3 guests gave.
  * - Before that: the reviews themselves, without an average (and a line saying when it appears).
  * - None yet: an honest empty state.
+ * - More than MAX: "showing the newest 30 of N" and a link to every review (`allHref`,
+ *   /listing/<id>/reviews), so older reviews that count in the average can still be read.
  * A server component streamed in its own <Suspense> (the page doesn't wait for it), no JavaScript.
+ * If the reviews can't be read (a database error), the section says so and keeps the counters'
+ * summary: an optional section never takes the price and the booking box down with it.
  */
-export async function ListingReviews({ listingId, locale, counters }: { listingId: string; locale: AppLocale; counters: { reviewCount: number; ratingSum: number } }) {
-  const [t, data] = await Promise.all([getTranslations({ locale, namespace: "reviews" }), getListingReviews(listingId, locale, MAX)]);
+export async function ListingReviews({
+  listingId,
+  locale,
+  counters,
+  allHref,
+}: {
+  listingId: string;
+  locale: AppLocale;
+  counters: { reviewCount: number; ratingSum: number };
+  /** "All reviews" of this listing (listingReviewsPagePath in src/lib/reviews/paths.ts). */
+  allHref?: string;
+}) {
+  const [t, data] = await Promise.all([
+    getTranslations({ locale, namespace: "reviews" }),
+    getListingReviews(listingId, locale, MAX).catch((error: unknown) => {
+      console.error("[reviews] listing reviews failed", error);
+      return null;
+    }),
+  ]);
   const summary = getRatingSummary(counters);
   const n = (value: number) => formatNumber(value, locale, { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+  const averageLine =
+    summary.average !== null ? (
+      <span className="flex flex-wrap items-center gap-x-2 text-body text-foreground">
+        <StarValue>{t("summary.average", { average: n(summary.average) })}</StarValue>
+        <span aria-hidden="true" className="text-muted-foreground">
+          ·
+        </span>
+        <span>{t("section.count", { count: summary.count, countText: formatNumber(summary.count, locale) })}</span>
+      </span>
+    ) : null;
+
+  if (!data) {
+    return (
+      <Section id={LISTING_REVIEWS_ANCHOR} title={t("section.title")} description={averageLine}>
+        <p role="status" className="flex items-start gap-3 rounded-card border border-border bg-surface-muted p-4 text-small text-muted-foreground">
+          <SpriteIcon name="messages-square" className="mt-0.5 size-5 shrink-0" />
+          {t("section.unavailable")}
+        </p>
+      </Section>
+    );
+  }
+
   const count = data.total;
+  const { shown, hidden } = reviewsShown(count, data.reviews.length);
   const first = data.reviews.slice(0, FIRST);
   const rest = data.reviews.slice(FIRST);
 
@@ -33,28 +79,10 @@ export async function ListingReviews({ listingId, locale, counters }: { listingI
     <Section
       id={LISTING_REVIEWS_ANCHOR}
       title={t("section.title")}
-      description={
-        summary.average !== null ? (
-          <span className="flex flex-wrap items-center gap-x-2 text-body text-foreground">
-            <StarValue>{t("summary.average", { average: n(summary.average) })}</StarValue>
-            <span aria-hidden="true" className="text-muted-foreground">
-              ·
-            </span>
-            <span>{t("section.count", { count: summary.count, countText: formatNumber(summary.count, locale) })}</span>
-          </span>
-        ) : count > 0 ? (
-          t("section.noAverage", { min: MIN_REVIEWS_FOR_AVERAGE })
-        ) : null
-      }
+      description={averageLine ?? (count > 0 ? t("section.noAverage", { min: MIN_REVIEWS_FOR_AVERAGE }) : null)}
     >
       {count === 0 ? (
-        <div className="flex items-start gap-3 rounded-card border border-border bg-surface-muted p-4">
-          <SpriteIcon name="messages-square" className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
-          <div className="grid gap-1">
-            <p className="text-body font-medium">{t("section.empty")}</p>
-            <p className="text-small text-muted-foreground">{t("section.emptyHint")}</p>
-          </div>
-        </div>
+        <ReviewsEmptyNote title={t("section.empty")} hint={t("section.emptyHint")} />
       ) : (
         <div className="grid gap-5">
           {summary.average !== null && data.quick.length > 0 ? (
@@ -88,6 +116,22 @@ export async function ListingReviews({ listingId, locale, counters }: { listingI
                 ))}
               </ul>
             </details>
+          ) : null}
+          {hidden > 0 ? (
+            <div className="grid gap-1">
+              <p className="text-small text-muted-foreground">
+                {t("section.showingOf", { shown: formatNumber(shown, locale), total: formatNumber(count, locale) })}
+              </p>
+              {allHref ? (
+                <Link
+                  href={allHref}
+                  className="inline-flex min-h-11 items-center gap-1.5 justify-self-start rounded-md text-small font-medium text-primary-text underline underline-offset-4 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                >
+                  {t("section.allReviews", { count, countText: formatNumber(count, locale) })}
+                  <SpriteIcon name="chevron-right" className="size-4 rtl:-scale-x-100" />
+                </Link>
+              ) : null}
+            </div>
           ) : null}
           <p className="flex items-start gap-2 text-caption text-muted-foreground">
             <SpriteIcon name="shield-check" className="mt-px size-4 shrink-0" />

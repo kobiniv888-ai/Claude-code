@@ -9,10 +9,15 @@ import { DEVICE_DEFAULT_KEY, deviceListOf, deviceRemove, deviceSave, isDeviceLis
 import { readDeviceLists, writeDeviceLists } from "./device";
 import { mergeDeviceListsIntoAccount } from "./merge-client";
 
+/**
+ * `merged`: this tap first moved the device's saved places into the account (lists-alerts-12).
+ * The page's other hearts were drawn from the device copy, which is now empty: the caller
+ * refreshes the page so they show the account's places instead of turning empty.
+ */
 export type HeartOutcome =
-  | { kind: "account"; isFavorite: boolean; list: ListSummary | null }
+  | { kind: "account"; isFavorite: boolean; list: ListSummary | null; merged: boolean }
   | { kind: "device"; isFavorite: boolean; listName: string | null }
-  | { kind: "error"; code: string };
+  | { kind: "error"; code: string; merged?: boolean };
 
 function onDevice(listingId: string, want: boolean): HeartOutcome {
   const state = readDeviceLists();
@@ -27,12 +32,14 @@ function onDevice(listingId: string, want: boolean): HeartOutcome {
 }
 
 export async function saveFromHeart(listingId: string, want: boolean): Promise<HeartOutcome> {
+  let merged = false;
   if (!isDeviceListsEmpty(readDeviceLists())) {
-    const merged = await mergeDeviceListsIntoAccount();
-    if (merged === "signed_out") return onDevice(listingId, want);
+    const outcome = await mergeDeviceListsIntoAccount();
+    if (outcome === "signed_out") return onDevice(listingId, want);
+    merged = outcome === "merged";
   }
   const result = await toggleFavorite(listingId, want);
-  if (result.ok) return { kind: "account", isFavorite: result.data.isFavorite, list: result.data.list };
+  if (result.ok) return { kind: "account", isFavorite: result.data.isFavorite, list: result.data.list, merged };
   if (result.error === "auth_required") return onDevice(listingId, want);
-  return { kind: "error", code: result.error };
+  return { kind: "error", code: result.error, merged };
 }

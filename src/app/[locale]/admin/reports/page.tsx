@@ -16,7 +16,11 @@ import { ADMIN_PAGE_SIZE, coverUrl, localizedTitle } from "@/lib/admin/server/sh
 import { requireStaff } from "@/lib/auth/session";
 import { dateToDay } from "@/lib/booking/dates";
 import { formatDate, isolate } from "@/lib/format";
+import { getRecentReviews } from "@/lib/reviews/queries";
+import { reportedPart } from "@/lib/reviews/rules";
 import { cn } from "@/lib/utils";
+import type { AppLocale } from "@/config/site";
+import { StaffReviewList } from "./_components/staff-review-list";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/admin/reports">): Promise<Metadata> {
   const { locale } = await params;
@@ -26,7 +30,9 @@ export async function generateMetadata({ params }: PageProps<"/[locale]/admin/re
 
 /**
  * /admin/reports — the report queue (brief 8.2 and 9): turned-away reports (urgent, first),
- * listing and profile reports, review reports. Reports are never public: staff only.
+ * listing and profile reports, review reports. Reports are never public: staff only. The
+ * "ביקורות" tab also lists the newest reviews, reported or not (reviews-2): staff can open any
+ * review and hide it.
  */
 export default async function ReportsPage({ params, searchParams }: PageProps<"/[locale]/admin/reports">) {
   const { locale } = await params;
@@ -47,6 +53,7 @@ export default async function ReportsPage({ params, searchParams }: PageProps<"/
     getTranslations("reviews"),
     listReports(filters, pageParam(query), locale),
   ]);
+  const recentReviews = tab === "reviews" ? await getRecentReviews(20) : [];
   const reasonLabel = (reason: string) => (tFields.has(`reportReason.${reason}`) ? tFields(`reportReason.${reason}`) : reason);
   const tabHref = (key: ReportTab) => {
     const next = new URLSearchParams();
@@ -145,7 +152,7 @@ export default async function ReportsPage({ params, searchParams }: PageProps<"/
                       </>
                     ) : row.targetType === "REVIEW" ? (
                       <>
-                        <span>{t("reviewTarget")}</span>
+                        <span>{row.review && reportedPart(row.review, row.reporter?.id) === "reply" ? tReviews("admin.replyTarget") : t("reviewTarget")}</span>
                         {row.review ? (
                           <>
                             <span className="text-xs text-muted-foreground">{tReviews("stars.label", { count: row.review.rating })}</span>
@@ -204,6 +211,17 @@ export default async function ReportsPage({ params, searchParams }: PageProps<"/
         </ul>
       )}
       <AdminPagination pathname="/admin/reports" searchParams={query} page={result.page} pageSize={ADMIN_PAGE_SIZE} total={result.total} />
+      {tab === "reviews" ? (
+        <section aria-labelledby="recent-reviews" className="mt-8 grid gap-3">
+          <div className="grid gap-1">
+            <h2 id="recent-reviews" className="text-base font-semibold">
+              {tReviews("admin.recentTitle")}
+            </h2>
+            <p className="text-sm text-muted-foreground">{tReviews("admin.recentHint")}</p>
+          </div>
+          <StaffReviewList rows={recentReviews} locale={locale as AppLocale} empty={tReviews("admin.recentEmpty")} />
+        </section>
+      ) : null}
     </>
   );
 }

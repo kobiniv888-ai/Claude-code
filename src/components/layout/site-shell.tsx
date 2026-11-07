@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getConsent } from "@/lib/consent";
 import { getSettings } from "@/lib/settings";
+import { DeviceListsAutoMerge } from "@/components/lists/device-lists-auto-merge";
 import { CookieConsent } from "./cookie-consent";
 import { DemoDataBanner } from "./demo-data-banner";
 import { Footer } from "./footer";
@@ -45,6 +46,8 @@ export async function SiteShell({ children }: { children: ReactNode }) {
       </main>
       <Footer />
       <MobileBottomNav isSignedIn={!!user} />
+      {/* Saved places kept on the device while signed out go into the account (round 3, brief 7.2). */}
+      <DeviceListsAutoMerge signedIn={!!user} />
       {/* Last in the document: its place above the bottom bar comes from --bottom-nav-height,
           which the bottom bar, <HideBottomNav /> and the listing contact bar set from the markup
           above. Painted before them, it jumped by the bar's height when they arrived (CLS 0.04).

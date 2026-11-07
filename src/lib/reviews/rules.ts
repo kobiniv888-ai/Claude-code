@@ -31,6 +31,40 @@ export const REVIEW_TEXT_MIN = 20;
 export const REVIEW_TEXT_MAX = 2000;
 export const REPLY_TEXT_MIN = 5;
 export const REPLY_TEXT_MAX = 1000;
+/** Letters and digits in a text (any alphabet), counted by code point. */
+export function countMeaningful(text: string): number {
+  return text.match(/[\p{L}\p{N}]/gu)?.length ?? 0;
+}
+
+/**
+ * Of a text's minimum length, this many must be letters or digits (three quarters: 15 of a
+ * review's 20, 4 of a reply's 5), so 20 dots, 20 "!" or 20 emoji are not a review, while a short
+ * real one with spaces and punctuation ("מקום מעולה, מומלץ בחום!") still is.
+ */
+export function meaningfulMinimum(min: number): number {
+  return Math.ceil(min * 0.75);
+}
+
+/** The length the limits count, by code point (an emoji is one character, as on the server), after trimming. */
+export function textLength(text: string): number {
+  return [...text.trim()].length;
+}
+
+/** Long enough to post (the form and the server, ./schemas.ts, use the same rule). */
+export function meetsTextMinimum(text: string, min: number): boolean {
+  return textLength(text) >= min && countMeaningful(text) >= meaningfulMinimum(min);
+}
+
+/**
+ * Why a text is too short, for the message the form shows: "length" (fewer than `min`
+ * characters: "write at least 20 characters") or "letters" (enough characters, but too few of them
+ * letters or digits: "write at least 15 letters or digits"), or null when it is long enough.
+ */
+export function shortTextReason(text: string, min: number): "length" | "letters" | null {
+  if (textLength(text) < min) return "length";
+  return countMeaningful(text) < meaningfulMinimum(min) ? "letters" : null;
+}
+
 /** The average and the count show from this many visible reviews (brief 8.1). */
 export const MIN_REVIEWS_FOR_AVERAGE = 3;
 export const RATING_MIN = 1;
@@ -249,8 +283,17 @@ export function parseHiddenReason(value: string | null | undefined): { code: Rev
   return { code: isReviewHideReason(first) ? first : "other", note: rest.join("\n").trim() };
 }
 
-/** What a host may say about a review they report (Report.reason). */
+/** What a host may say about a review they report, or a guest about the host's reply (Report.reason). */
 export const REVIEW_REPORT_REASONS = ["OFFENSIVE", "OTHER"] as const;
 export type ReviewReportReason = (typeof REVIEW_REPORT_REASONS)[number];
 export const REVIEW_REPORT_DETAILS_MIN = 10;
+
+/**
+ * What a REVIEW report is about: the review itself (the host of the place reported it) or the
+ * host's public reply (the guest who wrote the review reported it). A deleted reporter counts as
+ * the review.
+ */
+export function reportedPart(review: { hostUserId: string }, reporterId: string | null | undefined): "review" | "reply" {
+  return reporterId && reporterId !== review.hostUserId ? "reply" : "review";
+}
 export const REVIEW_REPORT_DETAILS_MAX = 1000;

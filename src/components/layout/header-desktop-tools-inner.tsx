@@ -10,6 +10,7 @@ import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 import { CurrencySwitcher } from "./currency-switcher";
 import { LanguageSwitcher } from "./language-switcher";
+import { savedHref } from "./nav-items";
 import { ThemeToggle } from "./theme-toggle";
 
 export type HeaderDesktopToolsProps = {
@@ -62,7 +63,7 @@ export function HeaderDesktopTools({ labels, chat, user }: HeaderDesktopToolsPro
       <CurrencySwitcher />
       <ThemeToggle />
       <span aria-hidden className="mx-1.5 h-6 w-px bg-white/25" />
-      <IconLink href="/account/favorites" label={labels.saved}>
+      <IconLink href={savedHref(!!user)} label={labels.saved}>
         <Heart aria-hidden className="size-[18px]" />
       </IconLink>
       {chat ? (

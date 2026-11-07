@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, type MouseEvent } from "react";
+import { useRef, useState, type MouseEvent } from "react";
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import { toast } from "@/lib/toast";
 import { HeartButton } from "@/components/ds/heart-button";
+import { listNameArg } from "@/components/lists/list-text";
+import { useRouter } from "@/i18n/navigation";
 import { errorMessageKey } from "@/lib/errors";
 import { useDeviceSaved } from "@/lib/lists/device-store";
 
@@ -42,7 +44,10 @@ export function FavoriteButton({
   const t = useTranslations("listingCard.favorite");
   const tl = useTranslations("lists.saving");
   const te = useTranslations("errors");
+  const router = useRouter();
   const savedOnDevice = useDeviceSaved(listingId);
+  const heartRef = useRef<HTMLButtonElement>(null);
+  const changeRef = useRef<HTMLButtonElement>(null);
   /** `value` = what the visitor just did (null: the server's value, or the device's). */
   const [state, setState] = useState<{ value: boolean | null; server: boolean }>({ value: null, server: initial });
   const [pending, setPending] = useState(false);
@@ -66,6 +71,9 @@ export function FavoriteButton({
     try {
       const { saveFromHeart } = await import("@/lib/lists/heart");
       const outcome = await saveFromHeart(listingId, next);
+      // The device's places just went into the account: the page's other hearts were drawn from
+      // the device copy, so they are redrawn from the account (lists-alerts-12).
+      if (outcome.kind !== "device" && outcome.merged) router.refresh();
       if (outcome.kind === "error") {
         apply(before);
         const key = outcome.code in ERROR_KEYS ? ERROR_KEYS[outcome.code] : null;
@@ -82,11 +90,11 @@ export function FavoriteButton({
       if (!outcome.isFavorite) {
         toast(t("removed"));
       } else if (outcome.kind === "device") {
-        const text = outcome.listName ? tl("heart.savedOnDeviceInList", { name: outcome.listName }) : tl("heart.savedOnDevice");
+        const text = outcome.listName ? tl("heart.savedOnDeviceInList", { name: listNameArg(outcome.listName) }) : tl("heart.savedOnDevice");
         toast.success(text, { description: tl("heart.deviceHint"), action: change });
       } else {
         const list = outcome.list;
-        toast.success(list && !list.isDefault ? tl("heart.savedToList", { name: list.name }) : t("saved"), { action: change });
+        toast.success(list && !list.isDefault ? tl("heart.savedToList", { name: listNameArg(list.name) }) : t("saved"), { action: change });
       }
     } catch {
       apply(before);
@@ -99,6 +107,7 @@ export function FavoriteButton({
   return (
     <>
       <HeartButton
+        ref={heartRef}
         pressed={isFavorite}
         onClick={onClick}
         onLongPress={openSheet}
@@ -110,6 +119,7 @@ export function FavoriteButton({
       {isFavorite ? (
         // Visible only while it has keyboard focus (the long press has no keyboard equivalent).
         <button
+          ref={changeRef}
           type="button"
           onClick={(event) => {
             event.preventDefault();
@@ -131,6 +141,13 @@ export function FavoriteButton({
           onSaved={(saved, kind) => {
             apply(kind === "device" ? null : saved);
             onChange?.(saved);
+          }}
+          // "Remove" in the sheet unmounts the "Change list" button that opened it: focus goes
+          // back to the heart instead of the page's start (a11y-2).
+          onCloseAutoFocus={(event) => {
+            if (changeRef.current?.isConnected) return;
+            event.preventDefault();
+            heartRef.current?.focus({ preventScroll: true });
           }}
         />
       ) : null}

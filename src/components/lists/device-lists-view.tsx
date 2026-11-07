@@ -2,16 +2,16 @@
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { CloudOffIcon, EllipsisVerticalIcon, FolderInputIcon, HeartIcon, HeartOffIcon, LogInIcon, MapPinIcon, PencilIcon, PlusIcon, SearchIcon, Share2Icon, Trash2Icon } from "lucide-react";
+import { CloudOffIcon, FolderInputIcon, HeartIcon, HeartOffIcon, LogInIcon, MapPinIcon, PencilIcon, PlusIcon, SearchIcon, Share2Icon, Trash2Icon } from "lucide-react";
 import { useRequireLogin } from "@/components/auth/login-dialog";
 import { PageHeader } from "@/components/common/page-header";
 import { BottomSheet } from "@/components/ds/bottom-sheet";
 import { Button } from "@/components/ds/button";
 import { Chip, chipStyles } from "@/components/ds/chip";
 import { EmptyState } from "@/components/ds/empty-state";
+import { OverflowMenu } from "@/components/ds/overflow-menu";
 import { ListingCardSkeleton } from "@/components/ds/skeleton";
 import { ListingCard } from "@/components/listing/listing-card";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { siteConfig, type AppLocale } from "@/config/site";
 import { useRouter } from "@/i18n/navigation";
 import { formatNumber } from "@/lib/format";
@@ -25,6 +25,7 @@ import {
   deviceDeleteList,
   deviceRemove,
   deviceRenameList,
+  reservedNameKeys,
   type DeviceLists,
 } from "@/lib/lists/core";
 import { newDeviceListKey, readDeviceLists, useDeviceLists, writeDeviceLists } from "@/lib/lists/device";
@@ -33,8 +34,8 @@ import { ACCOUNT_LISTS_PATH } from "@/lib/lists/paths";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { ListNameSheet } from "./list-name-sheet";
-import { ListPickerSheet } from "./list-picker-sheet";
-import { displayListName } from "./list-text";
+import { displayListName, listNameArg, SAVED_LIST_HEADING_ID } from "./list-text";
+import { useMoveSheet } from "./move-sheet";
 
 const noSubscribe = () => () => {};
 type Cards = { ids: string; status: "loading" | "ready" | "error"; cards: ListingCardData[] };
@@ -92,6 +93,10 @@ export function DeviceListsView() {
   // Cards of places still in the list (an un-saved heart removes its card at once).
   const shown = ready ? cards.cards.filter((card) => ids.includes(card.id)) : [];
   const gone = ready ? ids.filter((id) => !cards.cards.some((card) => card.id === id)) : [];
+  // The cards follow the device copy: a moved or removed place leaves the list by itself.
+  const { openMove, moveSheet } = useMoveSheet({ order: shown.map((card) => card.id) });
+  /** The default list's names the visitor's lists may not take (lists-alerts-10). */
+  const reserved = reservedNameKeys([defaultName]);
 
   const write = (next: DeviceLists) => {
     if (!writeDeviceLists(next)) toast.error(ts("errors.storage_blocked"));
@@ -177,7 +182,7 @@ export function DeviceListsView() {
 
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 rounded-card border border-border bg-card px-4 py-3">
             <div className="grid min-w-0 gap-0.5">
-              <h2 className="truncate text-h3 font-semibold">
+              <h2 id={SAVED_LIST_HEADING_ID} tabIndex={-1} className="truncate text-h3 font-semibold outline-none">
                 <span dir="auto">{selectedName}</span>
               </h2>
               <p className="text-small text-muted-foreground">{ts("count", { count: counts[key] ?? 0, countText: formatNumber(counts[key] ?? 0, locale) })}</p>
@@ -188,23 +193,19 @@ export function DeviceListsView() {
                 {td("share")}
               </Button>
               {selected.isDefault ? null : (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" aria-label={tp("more", { name: selectedName })}>
-                      <EllipsisVerticalIcon aria-hidden />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="min-w-48">
-                    <DropdownMenuItem className="min-h-11 gap-3" onSelect={() => setSheet("rename")}>
-                      <PencilIcon className="size-4" aria-hidden />
-                      {tp("rename")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="min-h-11 gap-3 text-destructive focus:text-destructive" onSelect={() => setSheet("delete")}>
-                      <Trash2Icon className="size-4" aria-hidden />
-                      {tp("delete")}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                // The menu's code loads at the first tap (speed-1).
+                <OverflowMenu
+                  key={key}
+                  label={tp("more", { name: listNameArg(selectedName) })}
+                  variant="ghost"
+                  icon="vertical"
+                  side="bottom"
+                  contentClassName="min-w-48"
+                  items={[
+                    { key: "rename", icon: <PencilIcon className="size-4" aria-hidden />, label: tp("rename"), onSelect: () => setSheet("rename") },
+                    { key: "delete", icon: <Trash2Icon className="size-4" aria-hidden />, label: tp("delete"), onSelect: () => setSheet("delete"), tone: "destructive" },
+                  ]}
+                />
               )}
             </div>
           </div>
@@ -241,7 +242,7 @@ export function DeviceListsView() {
                     <li key={card.id} className="flex min-w-0 flex-col gap-2">
                       <ListingCard listing={card} />
                       <div className="flex flex-wrap justify-end gap-1">
-                        <DeviceMoveButton listingId={card.id} title={card.title} />
+                        <DeviceMoveButton listingId={card.id} title={card.title} onMove={openMove} />
                         <Button
                           variant="ghost"
                           size="sm"
@@ -274,6 +275,7 @@ export function DeviceListsView() {
           </div>
         </>
       )}
+      {moveSheet}
 
       <ListNameSheet
         open={sheet === "create"}
@@ -281,12 +283,12 @@ export function DeviceListsView() {
         title={tp("createTitle")}
         action={tp("createAction")}
         onSubmit={async (name) => {
-          const made = deviceCreateList(readDeviceLists(), name, newDeviceListKey());
+          const made = deviceCreateList(readDeviceLists(), name, newDeviceListKey(), undefined, reserved);
           if (!made.ok) return ts(`errors.${made.error === "not_found" ? "failed" : made.error}`);
           if (!writeDeviceLists(made.state)) return ts("errors.storage_blocked");
           setSheet(null);
           setSelectedKey(made.key);
-          toast.success(tp("created", { name: name.trim() }));
+          toast.success(tp("created", { name: listNameArg(made.state.lists.find((list) => list.key === made.key)?.name ?? name.trim()) }));
           return null;
         }}
       />
@@ -300,7 +302,7 @@ export function DeviceListsView() {
             action={tp("renameAction")}
             initial={selected.name}
             onSubmit={async (name) => {
-              const renamed = deviceRenameList(readDeviceLists(), key, name);
+              const renamed = deviceRenameList(readDeviceLists(), key, name, reserved);
               if (!renamed.ok) return ts(`errors.${renamed.error === "not_found" ? "failed" : renamed.error}`);
               if (!writeDeviceLists(renamed.state)) return ts("errors.storage_blocked");
               setSheet(null);
@@ -311,7 +313,7 @@ export function DeviceListsView() {
           <BottomSheet
             open={sheet === "delete"}
             onOpenChange={(open) => setSheet(open ? "delete" : null)}
-            title={tp("deleteTitle", { name: selectedName })}
+            title={tp("deleteTitle", { name: listNameArg(selectedName) })}
             footer={
               <div className="flex gap-2">
                 <Button variant="outline" className="min-w-0 flex-1" onClick={() => setSheet(null)}>
@@ -342,16 +344,21 @@ export function DeviceListsView() {
   );
 }
 
-function DeviceMoveButton({ listingId, title }: { listingId: string; title: string }) {
+/** "Move": opens the view's one list sheet (useMoveSheet). */
+function DeviceMoveButton({ listingId, title, onMove }: { listingId: string; title: string; onMove: (listingId: string, title: string) => void }) {
   const t = useTranslations("lists.page");
-  const [open, setOpen] = useState(false);
   return (
-    <>
-      <Button variant="ghost" size="sm" className="h-11 rounded-full px-3 text-muted-foreground" onClick={() => setOpen(true)} aria-label={t("moveFor", { title })} aria-haspopup="dialog">
-        <FolderInputIcon aria-hidden className="rtl:-scale-x-100" />
-        {t("move")}
-      </Button>
-      <ListPickerSheet open={open} onOpenChange={setOpen} listingId={listingId} title={title} />
-    </>
+    <Button
+      variant="ghost"
+      size="sm"
+      className="h-11 rounded-full px-3 text-muted-foreground"
+      onClick={() => onMove(listingId, title)}
+      aria-label={t("moveFor", { title })}
+      aria-haspopup="dialog"
+      data-move-for={listingId}
+    >
+      <FolderInputIcon aria-hidden className="rtl:-scale-x-100" />
+      {t("move")}
+    </Button>
   );
 }

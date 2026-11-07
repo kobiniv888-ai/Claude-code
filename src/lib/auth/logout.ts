@@ -7,6 +7,8 @@ import { clearPrivateCaches, clearPrivateDeviceData, markLoggedOut } from "./dev
  *   const result = await logOut({ homeHref: getPathname({ href: "/", locale }) });
  *   if (!result.ok) toast.error(t("logoutError"));
  *
+ * 0. places saved on this device while signed out and not merged yet go into the account first
+ *    (round 3, brief 7.2; lists-alerts-3): step 3 deletes the device copy. At most 1.5 s.
  * 1. everywhere: the server ends every session of the account (logOutEverywhere, audited for staff)
  * 2. the login library signs this browser out (its session cookie goes)
  * 3. this device's private data goes (./device-data.ts); theme, language, consent, currency stay
@@ -15,7 +17,21 @@ import { clearPrivateCaches, clearPrivateDeviceData, markLoggedOut } from "./dev
  */
 export type LogOutResult = { ok: true } | { ok: false; error: string };
 
+/** Merges the device's saved lists into the account, waiting at most `maxMs`. Never throws. */
+export async function keepDeviceLists(maxMs = 1500): Promise<void> {
+  try {
+    const { readDeviceRaw } = await import("@/lib/lists/device-store");
+    if (!readDeviceRaw()) return;
+    const { mergeDeviceListsIntoAccount } = await import("@/lib/lists/merge-client");
+    await Promise.race([mergeDeviceListsIntoAccount(), new Promise((resolve) => setTimeout(resolve, maxMs))]);
+  } catch {
+    // Not merged: the places are lost with the device copy, as before; the logout goes on.
+  }
+}
+
 export async function logOut({ homeHref, everywhere = false }: { homeHref: string; everywhere?: boolean }): Promise<LogOutResult> {
+  // While the session still exists (step 0).
+  await keepDeviceLists();
   if (everywhere) {
     const { logOutEverywhere } = await import("./logout-actions");
     const result = await logOutEverywhere().catch(() => null);

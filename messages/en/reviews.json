@@ -6,7 +6,10 @@
     "empty": "No reviews of this place yet",
     "emptyHint": "Only guests who booked through Bayit and stayed here can write a review.",
     "showMore": "{count, plural, one {1 more review} other {{count} more reviews}}",
-    "realOnly": "Every review was written by a guest who booked and stayed here. A review can't be edited or deleted once it is posted."
+    "realOnly": "Every review was written by a guest who booked and stayed here. A review can't be edited or deleted once it is posted.",
+    "unavailable": "Reviews can't be shown right now. Try refreshing the page in a few minutes.",
+    "showingOf": "Showing the newest {shown} of {total} reviews.",
+    "allReviews": "{count, plural, one {See the review} other {See all {countText} reviews}}"
   },
   "summary": {
     "average": "{average} out of 5",
@@ -65,6 +68,7 @@
     "placeholder": "For example: how clean it was, the welcome, the neighbourhood, and what you wish you had known before",
     "counter": "{count} / {max}",
     "textTooShort": "Your review is too short. Write at least {count} characters.",
+    "textTooFewLetters": "Your review is too short. Write at least {count} letters or digits, not just symbols.",
     "textTooLong": "Your review is too long. Up to {count} characters.",
     "quickTitle": "Ratings by topic",
     "optional": "Optional",
@@ -170,6 +174,7 @@
     "confirm": "I understand the reply can't be edited or deleted",
     "confirmRequired": "Tick the box to confirm that the reply is final.",
     "tooShort": "The reply is too short. Write at least {count} characters.",
+    "tooFewLetters": "The reply is too short. Write at least {count} letters or digits, not just symbols.",
     "tooLong": "The reply is too long. Up to {count} characters.",
     "submit": "Post the reply",
     "sending": "Posting…",
@@ -195,7 +200,16 @@
     "sending": "Sending…",
     "doneTitle": "Report sent",
     "done": "Thank you. We will look at the review and update you by email.",
-    "close": "Close"
+    "close": "Close",
+    "replyOpen": "Report the host's reply",
+    "replyReported": "You reported the host's reply on {date}. We are looking into it.",
+    "replyTitle": "Report a host's reply",
+    "replyIntro": "The Bayit team will look at the reply. If it breaks the rules, we will hide the review together with it. Replies are never edited.",
+    "replyDone": "Thank you. We will look at the reply and update you by email.",
+    "replyReasons": {
+      "OFFENSIVE": "Offensive, insulting or discriminatory",
+      "OTHER": "Something else (for example: it contains personal details about me)"
+    }
   },
   "hostBooking": {
     "title": "The guest's review",
@@ -239,7 +253,31 @@
     "hide": "Hide the review",
     "show": "Show the review again",
     "hiddenDone": "The review is hidden",
-    "shownDone": "The review is back on the site"
+    "shownDone": "The review is back on the site",
+    "part": {
+      "review": "The review was reported (by the host)",
+      "reply": "The host's reply was reported (by the guest)"
+    },
+    "replyTarget": "A host's reply to a review",
+    "hideWithReply": "Hiding hides the review together with the host's reply (the reply can't be hidden on its own).",
+    "pageTitle": "Review",
+    "backToReports": "Review reports",
+    "reportsTitle": "Reports about this review",
+    "noReports": "No one has reported this review.",
+    "recentTitle": "Recent reviews",
+    "recentHint": "Every new review, including ones nobody reported. Open a review to hide it if it breaks the rules.",
+    "recentEmpty": "There are no reviews on the site yet.",
+    "userWritten": "Reviews they wrote",
+    "userReceived": "Reviews of their places"
+  },
+  "all": {
+    "metaTitle": "Reviews of {title}",
+    "metaDescription": "Every review by guests who booked through Bayit and stayed here.",
+    "back": "Back to the listing",
+    "pagesLabel": "Review pages",
+    "pageOf": "Page {page} of {pages}",
+    "newer": "Newer reviews",
+    "older": "Older reviews"
   },
   "unsubscribe": {
     "metaTitle": "Review request emails",

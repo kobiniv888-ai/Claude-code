@@ -278,6 +278,8 @@ export async function getAdminBooking(id: string, locale: AppLocale) {
         take: 20,
         select: { id: true, kind: true, reason: true, status: true, priority: true, createdAt: true },
       },
+      // The guest's review of the stay (round 3, brief 8.1): staff open it at /admin/reviews/<id>.
+      review: { select: { id: true, rating: true, hidden: true } },
     },
   });
   if (!booking) return null;

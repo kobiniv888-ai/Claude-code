@@ -257,6 +257,15 @@ const samples: { [K in keyof Data]: Data[K] } = {
   },
   review_hidden: { name: "Dana", role: "guest", listingTitle: "Sunny flat in Vake", reasonCode: "offensive", reviewsUrl: "/account/reviews" },
   review_shown: { name: "Giorgi", role: "host", listingTitle: "Sunny flat in Vake", listingUrl: "/listing/1234-sunny-flat#reviews" },
+  review_no_show_guest: {
+    name: "Dana",
+    listingTitle: "Sunny flat in Vake",
+    code: "BT-7K3Q9",
+    checkIn: "2026-11-12",
+    checkOut: "2026-11-15",
+    tripUrl: "/account/trips/BT-7K3Q9",
+    contactUrl: "/contact",
+  },
 };
 
 afterEach(() => {

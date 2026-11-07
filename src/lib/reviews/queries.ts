@@ -2,7 +2,6 @@ import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
 import { type AppLocale } from "@/config/site";
 import { isAppLocale, pickLocalized } from "@/i18n/locale";
-import { BOOKABLE_DEAL_TYPES } from "@/lib/booking/constants";
 import { addDays, dateToDay, dayToDate, tbilisiToday } from "@/lib/booking/dates";
 import { db } from "@/lib/db";
 import { listingPath } from "@/lib/listing/urls";
@@ -13,6 +12,7 @@ import {
   parseHiddenReason,
   pickReviewText,
   quickRatingAverages,
+  reportedPart,
   reviewDaysLeft,
   reviewMonth,
   reviewWindow,
@@ -81,11 +81,14 @@ export function toReviewView(row: ViewRow, reader: AppLocale): ReviewView {
   };
 }
 
+/** Newest first, the id breaking ties, so pages never skip or repeat a review. */
+const NEWEST_FIRST = [{ createdAt: "desc" }, { id: "desc" }] satisfies Prisma.ReviewOrderByWithRelationInput[];
+
 /** The listing page: the newest visible reviews and the quick-rating averages (each from 3 ratings on). */
-export async function getListingReviews(listingId: string, reader: AppLocale, take = 20) {
+export async function getListingReviews(listingId: string, reader: AppLocale, take = 20, skip = 0) {
   const where = { listingId, hidden: false } satisfies Prisma.ReviewWhereInput;
   const [rows, aggregate] = await Promise.all([
-    db.review.findMany({ where, orderBy: { createdAt: "desc" }, take, select: viewSelect }),
+    db.review.findMany({ where, orderBy: NEWEST_FIRST, skip, take, select: viewSelect }),
     db.review.aggregate({
       where,
       _count: { _all: true, cleanliness: true, accuracy: true, checkIn: true, communication: true, location: true, value: true },
@@ -97,6 +100,21 @@ export async function getListingReviews(listingId: string, reader: AppLocale, ta
     total: aggregate._count._all,
     quick: quickRatingAverages(QUICK_RATING_KEYS.map((key) => ({ key, average: aggregate._avg[key], count: aggregate._count[key] }))),
   };
+}
+
+/** Reviews per page of "all reviews" (/listing/<id>/reviews). */
+export const REVIEWS_PAGE_SIZE = 20;
+
+/**
+ * "All reviews" of a listing, one page (1-based, clamped to the last page): every visible review
+ * can be read, not only the newest on the listing page.
+ */
+export async function getListingReviewsPage(listingId: string, reader: AppLocale, page: number, size = REVIEWS_PAGE_SIZE) {
+  const total = await db.review.count({ where: { listingId, hidden: false } });
+  const pages = Math.max(1, Math.ceil(total / size));
+  const current = Math.min(Math.max(1, Math.trunc(page) || 1), pages);
+  const data = await getListingReviews(listingId, reader, size, (current - 1) * size);
+  return { ...data, page: current, pages };
 }
 
 function titleIn(listing: { title: string; translations: { locale: string; title: string }[] }, locale: AppLocale): string {
@@ -166,22 +184,28 @@ function ownView(row: OwnRow, reader: AppLocale) {
 }
 
 export type OwnReviewView = ReturnType<typeof ownView>;
+/** `reportedAt`: the viewer's own open report (the host's of the review, the guest's of the reply). */
 export type HostReviewView = OwnReviewView & { reportedAt: Date | null };
+export type GuestReviewView = OwnReviewView & { reportedAt: Date | null };
+
+/** The viewer's open REVIEW reports on these reviews, by review id. */
+async function openReportsBy(reporterId: string, reviewIds: string[]): Promise<Map<string, Date>> {
+  if (reviewIds.length === 0) return new Map();
+  const reports = await db.report.findMany({
+    where: { reporterId, targetType: "REVIEW", status: "OPEN", reviewId: { in: reviewIds } },
+    orderBy: { createdAt: "desc" },
+    select: { reviewId: true, createdAt: true },
+  });
+  const out = new Map<string, Date>();
+  for (const r of reports) if (r.reviewId && !out.has(r.reviewId)) out.set(r.reviewId, r.createdAt);
+  return out;
+}
 
 /** "ביקורות" for a host: reviews of their places (hidden ones too, marked), newest first, with their own open report. */
 export async function getHostReviews(hostId: string, reader: AppLocale, take = 100): Promise<HostReviewView[]> {
-  const rows = await db.review.findMany({ where: { hostUserId: hostId }, orderBy: { createdAt: "desc" }, take, select: ownSelect });
-  const reports = rows.length
-    ? await db.report.findMany({
-        where: { reporterId: hostId, targetType: "REVIEW", reviewId: { in: rows.map((r) => r.id) } },
-        orderBy: { createdAt: "desc" },
-        select: { reviewId: true, createdAt: true, status: true },
-      })
-    : [];
-  return rows.map((row) => {
-    const report = reports.find((r) => r.reviewId === row.id && r.status === "OPEN") ?? null;
-    return { ...ownView(row, reader), reportedAt: report?.createdAt ?? null };
-  });
+  const rows = await db.review.findMany({ where: { hostUserId: hostId }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take, select: ownSelect });
+  const reports = await openReportsBy(hostId, rows.map((r) => r.id));
+  return rows.map((row) => ({ ...ownView(row, reader), reportedAt: reports.get(row.id) ?? null }));
 }
 
 /** One booking's review for its host (the host booking page), or null. */
@@ -196,7 +220,7 @@ export async function getHostBookingReview(hostId: string, bookingId: string, re
 export async function getGuestReviews(guestId: string, reader: AppLocale, now: Date = new Date()) {
   const today = tbilisiToday(now);
   const [rows, candidates] = await Promise.all([
-    db.review.findMany({ where: { guestUserId: guestId }, orderBy: { createdAt: "desc" }, take: 100, select: ownSelect }),
+    db.review.findMany({ where: { guestUserId: guestId }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: 100, select: ownSelect }),
     // Stays whose window may be open: checked out in the last REVIEW_WINDOW_DAYS days, no review yet.
     db.booking.findMany({
       where: {
@@ -204,17 +228,21 @@ export async function getGuestReviews(guestId: string, reader: AppLocale, now: D
         status: { in: ["COMPLETED", "CONFIRMED"] },
         review: null,
         checkOut: { gte: dayToDate(addDays(today, -REVIEW_WINDOW_DAYS)), lt: dayToDate(today) },
-        listing: { dealType: { in: [...BOOKABLE_DEAL_TYPES] } },
+        // No deal-type filter: every booking was made on a bookable (reviewable) type, and a later
+        // switch to a monthly rental or a sale does not take the review of a real stay away (reviews-4).
       },
       orderBy: { checkOut: "desc" },
       take: 20,
       select: { code: true },
     }),
   ]);
-  const pending = (
-    await Promise.all(candidates.map((c) => getReviewPrompt(guestId, c.code, reader, now)))
-  ).filter((p): p is NonNullable<typeof p> => p !== null);
-  return { written: rows.map((row) => ownView(row, reader)), pending };
+  const [prompts, reports] = await Promise.all([
+    Promise.all(candidates.map((c) => getReviewPrompt(guestId, c.code, reader, now))),
+    openReportsBy(guestId, rows.filter((r) => r.hostReply).map((r) => r.id)),
+  ]);
+  const pending = prompts.filter((p): p is NonNullable<typeof p> => p !== null);
+  const written: GuestReviewView[] = rows.map((row) => ({ ...ownView(row, reader), reportedAt: reports.get(row.id) ?? null }));
+  return { written, pending };
 }
 
 /** Staff: everything about one review (Admin → Reports, the "ביקורות" tab). */
@@ -266,3 +294,44 @@ export async function getAdminReview(reviewId: string, reader: AppLocale) {
 }
 
 export type AdminReview = NonNullable<Awaited<ReturnType<typeof getAdminReview>>>;
+
+/** A review in a staff list (newest first): enough to recognise it and open /admin/reviews/<id>. */
+const staffListSelect = {
+  id: true,
+  rating: true,
+  text: true,
+  hidden: true,
+  hostReply: true,
+  createdAt: true,
+  listing: { select: { publicId: true, title: true } },
+  guest: { select: { name: true } },
+} satisfies Prisma.ReviewSelect;
+
+export type StaffReviewRow = Prisma.ReviewGetPayload<{ select: typeof staffListSelect }>;
+
+/** Staff: the newest reviews on the site, reported or not (Admin → Reports → "ביקורות"). */
+export async function getRecentReviews(take = 20): Promise<StaffReviewRow[]> {
+  return db.review.findMany({ orderBy: [{ createdAt: "desc" }, { id: "desc" }], take, select: staffListSelect });
+}
+
+/** Staff: a user's reviews — written as a guest and received as a host (the admin user page). */
+export async function getUserReviewsForStaff(userId: string, take = 10): Promise<{ written: StaffReviewRow[]; received: StaffReviewRow[] }> {
+  const [written, received] = await Promise.all([
+    db.review.findMany({ where: { guestUserId: userId }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take, select: staffListSelect }),
+    db.review.findMany({ where: { hostUserId: userId }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take, select: staffListSelect }),
+  ]);
+  return { written, received };
+}
+
+/** Staff: the reports about one review (newest first), with which part each one is about. */
+export async function getReviewReports(reviewId: string) {
+  const review = await db.review.findUnique({ where: { id: reviewId }, select: { hostUserId: true } });
+  if (!review) return [];
+  const rows = await db.report.findMany({
+    where: { reviewId, targetType: "REVIEW" },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+    select: { id: true, status: true, reason: true, createdAt: true, reporterId: true, reporter: { select: { name: true } } },
+  });
+  return rows.map((row) => ({ ...row, part: reportedPart(review, row.reporterId) }));
+}

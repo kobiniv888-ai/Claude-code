@@ -145,19 +145,31 @@
         retry.addEventListener("click", function () { location.reload(); });
         window.addEventListener("online", function () { location.reload(); });
         // Trips the guest saved for offline use (src/lib/trip/offline.ts, public/sw.js): links to them.
+        // Only entries naming the account that saved them; copies past their last day are deleted here.
         var tripsTitle = item.getAttribute("data-trips");
         if (window.caches && tripsTitle) {
+          var tripsCache = null;
           caches.has("bayit-trips").then(function (has) {
             if (!has) return null;
-            return caches.open("bayit-trips").then(function (cache) { return cache.match("/offline-trips.json"); });
+            return caches.open("bayit-trips").then(function (cache) { tripsCache = cache; return cache.match("/offline-trips.json"); });
           }).then(function (response) {
             return response ? response.json() : null;
           }).then(function (data) {
             var today = new Date(Date.now() + 4 * 3600 * 1000).toISOString().slice(0, 10);
             var pattern = /^\/(he|en|ru|ar|ka)\/account\/trips\/BT-[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{5}$/;
-            var trips = (data && data.trips ? data.trips : []).filter(function (t) {
-              return t && typeof t.path === "string" && pattern.test(t.path) && typeof t.keepUntil === "string" && t.keepUntil >= today;
-            });
+            var all = data && Array.isArray(data.trips) ? data.trips : [];
+            var usable = function (t) {
+              return t && typeof t.path === "string" && pattern.test(t.path) && typeof t.owner === "string" && t.owner.length > 0 && typeof t.keepUntil === "string";
+            };
+            var trips = all.filter(function (t) { return usable(t) && t.keepUntil >= today; });
+            if (tripsCache && trips.length !== all.length) {
+              var cache = tripsCache;
+              var gone = all.filter(function (t) { return trips.indexOf(t) < 0 && t && typeof t.path === "string" && pattern.test(t.path); });
+              Promise.all(gone.map(function (t) { return cache.delete(t.path, { ignoreSearch: true }); })).then(function () {
+                if (!trips.length) return caches.delete("bayit-trips");
+                return cache.put("/offline-trips.json", new Response(JSON.stringify({ trips: trips }), { headers: { "Content-Type": "application/json" } }));
+              }).catch(function () {});
+            }
             if (!trips.length) return;
             var section = document.getElementById("trips");
             var list = document.getElementById("trips-list");
@@ -173,8 +185,18 @@
               title.dir = "auto";
               title.textContent = String(t.title || t.code);
               var meta = document.createElement("small");
-              meta.dir = "ltr";
-              meta.textContent = String(t.code) + " \u00b7 " + String(t.checkIn) + " \u2192 " + String(t.checkOut);
+              // The dates as the trip page wrote them, in its language (i18n-1); ISO dates for
+              // copies saved before that.
+              if (typeof t.datesLabel === "string" && t.datesLabel) {
+                // The page's direction (the section's), with the booking code isolated.
+                var code = document.createElement("bdi");
+                code.textContent = String(t.code);
+                meta.appendChild(code);
+                meta.appendChild(document.createTextNode(" · " + t.datesLabel));
+              } else {
+                meta.dir = "ltr";
+                meta.textContent = String(t.code) + " · " + String(t.checkIn) + " → " + String(t.checkOut);
+              }
               a.appendChild(title);
               a.appendChild(meta);
               li.appendChild(a);

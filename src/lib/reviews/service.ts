@@ -3,6 +3,7 @@ import { Prisma } from "@/generated/prisma/client";
 import type { ReportReason } from "@/generated/prisma/enums";
 import { isAppLocale } from "@/i18n/locale";
 import { siteConfig, type AppLocale } from "@/config/site";
+import { BOOKABLE_DEAL_TYPES } from "@/lib/booking/constants";
 import { dateToDay, tbilisiToday } from "@/lib/booking/dates";
 import { db } from "@/lib/db";
 import { NotFoundError } from "@/lib/errors";
@@ -10,8 +11,12 @@ import { dominantScript } from "@/lib/listing/text-checks";
 import { detectContactInfo, hasContactInfo } from "@/lib/risk/contact-info";
 import { ReviewError } from "./errors";
 import {
+  REPLY_TEXT_MIN,
   REVIEW_REPORT_DETAILS_MIN,
+  REVIEW_TEXT_MIN,
   formatHiddenReason,
+  meetsTextMinimum,
+  reportedPart,
   reviewBlock,
   type QuickRatingKey,
   type ReviewBlock,
@@ -52,12 +57,19 @@ const bookingSelect = {
 
 export type ReviewableBooking = Prisma.BookingGetPayload<{ select: typeof bookingSelect }>;
 
+/** What every booking was made as: bookable deal types are reviewable (checked in reviews-db tests). */
+const BOOKED_AS: (typeof BOOKABLE_DEAL_TYPES)[number] = BOOKABLE_DEAL_TYPES[0];
+
 /** Why this booking can't be reviewed today (null = it can). */
 export function blockFor(booking: ReviewableBooking, today: string): ReviewBlock | null {
   return reviewBlock({
     status: booking.status,
     checkOut: dateToDay(booking.checkOut),
-    dealType: booking.listing.dealType,
+    // The deal type when the guest BOOKED, not now (reviews-4): a booking can only be made on a
+    // bookable type (short stay, hotel), which are the reviewable ones, so every booking is a
+    // stay. Reading the listing's current type let a host switch to a monthly rental for the 14
+    // days of the window and block the reviews of real stays.
+    dealType: BOOKED_AS,
     demo: booking.listing.isDemo || booking.guest.isDemo || booking.host.isDemo,
     listingDeleted: booking.listing.deletedAt !== null || booking.listing.status === "DELETED",
     hasReview: booking.review !== null,
@@ -77,6 +89,11 @@ export function textLanguage(text: string, fallback: string | null | undefined):
 
 function assertNoContactInfo(text: string) {
   if (hasContactInfo(detectContactInfo(text))) throw new ReviewError("contact_in_text", 400);
+}
+
+/** The same minimum as the form and the schema (./schemas.ts), for any caller: filler is not a text. */
+function assertLongEnough(text: string, min: number) {
+  if (!meetsTextMinimum(text, min)) throw new ReviewError("too_short", 400);
 }
 
 function isUniqueViolation(error: unknown): boolean {
@@ -103,11 +120,14 @@ export async function createReviewForBooking(input: NewReview): Promise<{ id: st
   const before = blockFor(booking, today);
   if (before) throw new ReviewError(before);
   assertNoContactInfo(input.text);
+  assertLongEnough(input.text, REVIEW_TEXT_MIN);
   const language = textLanguage(input.text, input.pageLocale ?? booking.locale);
 
   try {
     return await db.$transaction(async (tx) => {
-      // A "didn't arrive" report or a cancellation at the same moment waits for this lock.
+      // A "didn't arrive" report at the same moment takes the same lock (src/lib/booking/service.ts
+      // markNoShow): whichever comes second re-reads the booking and is refused — the review sees
+      // NO_SHOW ("not_stayed"), the report sees the review ("no_show_reviewed"). Never both.
       await tx.$queryRaw`SELECT "id" FROM "Booking" WHERE "id" = ${booking.id} FOR UPDATE`;
       const fresh = await tx.booking.findUnique({ where: { id: booking.id }, select: bookingSelect });
       if (!fresh) throw new NotFoundError();
@@ -141,6 +161,7 @@ export async function createReviewForBooking(input: NewReview): Promise<{ id: st
 export async function postHostReply(input: { hostId: string; reviewId: string; text: string; pageLocale?: string | null; now?: Date }): Promise<void> {
   const now = input.now ?? new Date();
   assertNoContactInfo(input.text);
+  assertLongEnough(input.text, REPLY_TEXT_MIN);
   const language = textLanguage(input.text, input.pageLocale);
   const { count } = await db.review.updateMany({
     where: { id: input.reviewId, hostUserId: input.hostId, hostReply: null, hidden: false },
@@ -153,21 +174,39 @@ export async function postHostReply(input: { hostId: string; reviewId: string; t
 }
 
 /**
- * The host reports a review of their place to the admin: a Report with target REVIEW (the
- * "ביקורות" tab of Admin → Reports). It names no listing and no user, so it never counts toward
- * the listing's automatic hiding or the host's flags (src/lib/listing/host-flags.ts leaves REVIEW
- * reports out too). One open report per host and review.
+ * A party to a review asks Bayit to look at it: a Report with target REVIEW (the "ביקורות" tab of
+ * Admin → Reports). The HOST of the place reports the review; the GUEST who wrote it reports the
+ * host's public reply (only once there is one). Which part was reported follows from who reported
+ * it (reportedPart). It names no listing and no user, so it never counts toward the listing's
+ * automatic hiding or the host's flags (src/lib/listing/host-flags.ts leaves REVIEW reports out
+ * too). One open report per reporter and review. Anyone else gets "not found".
+ *
+ * Race with staff hiding the review (hideReview): the review row is locked (FOR NO KEY UPDATE,
+ * which waits for hideReview's update of the same row) and re-read, so a report is never left
+ * OPEN on a review that was hidden meanwhile — it is refused ("already_hidden"), or it committed
+ * first and hideReview closes it.
  */
-export async function reportReviewByHost(input: { hostId: string; reviewId: string; reason: ReviewReportReason; details: string }): Promise<{ id: string }> {
-  const review = await db.review.findFirst({ where: { id: input.reviewId, hostUserId: input.hostId }, select: { id: true, hidden: true } });
+export async function reportReview(input: { reporterId: string; reviewId: string; reason: ReviewReportReason; details: string }): Promise<{ id: string; part: "review" | "reply" }> {
+  const review = await db.review.findFirst({
+    where: {
+      id: input.reviewId,
+      OR: [{ hostUserId: input.reporterId }, { guestUserId: input.reporterId, hostReply: { not: null } }],
+    },
+    select: { id: true, hidden: true, hostUserId: true },
+  });
   if (!review) throw new NotFoundError();
   if (review.hidden) throw new ReviewError("already_hidden");
   if (input.reason === "OTHER" && input.details.length < REVIEW_REPORT_DETAILS_MIN) throw new ReviewError("details_required", 400);
-  return db.$transaction(async (tx) => {
-    // One report at a time per host: the check and the insert never interleave.
-    await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${input.hostId} FOR NO KEY UPDATE`;
+  const part = reportedPart(review, input.reporterId);
+  const report = await db.$transaction(async (tx) => {
+    // One report at a time per reporter: the check and the insert never interleave.
+    await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${input.reporterId} FOR NO KEY UPDATE`;
+    // Then the review itself (lock order User → Review; hideReview locks the Review only).
+    const rows = await tx.$queryRaw<{ hidden: boolean }[]>`SELECT "hidden" FROM "Review" WHERE "id" = ${review.id} FOR NO KEY UPDATE`;
+    if (rows.length === 0) throw new NotFoundError();
+    if (rows[0].hidden) throw new ReviewError("already_hidden");
     const open = await tx.report.findFirst({
-      where: { reviewId: review.id, reporterId: input.hostId, status: "OPEN", targetType: "REVIEW" },
+      where: { reviewId: review.id, reporterId: input.reporterId, status: "OPEN", targetType: "REVIEW" },
       select: { id: true },
     });
     if (open) throw new ReviewError("already_reported");
@@ -176,7 +215,7 @@ export async function reportReviewByHost(input: { hostId: string; reviewId: stri
         kind: "GENERAL",
         targetType: "REVIEW",
         reviewId: review.id,
-        reporterId: input.hostId,
+        reporterId: input.reporterId,
         reason: input.reason as ReportReason,
         details: input.details || null,
         priority: "NORMAL",
@@ -184,6 +223,7 @@ export async function reportReviewByHost(input: { hostId: string; reviewId: stri
       select: { id: true },
     });
   });
+  return { id: report.id, part };
 }
 
 /** A review is about to be hidden or shown again by staff: who wrote it and about whom (own-item rule). */

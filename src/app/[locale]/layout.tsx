@@ -12,6 +12,7 @@ import { CurrencyProvider } from "@/components/providers/currency-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { AppToaster } from "@/components/providers/toaster";
 import { RegisterServiceWorker } from "@/components/pwa/register-sw";
+import { PrivateCacheGuard } from "@/components/trip/private-cache-guard";
 import { DirectionProvider } from "@/components/ui/direction";
 import { siteConfig } from "@/config/site";
 import { SHELL_MESSAGES, pickMessages } from "@/i18n/client-messages";
@@ -20,6 +21,7 @@ import { routing } from "@/i18n/routing";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getDisplayCurrencyState, getRates } from "@/lib/currency";
 import { absoluteUrl, defaultOgImage, ogLocale, siteName, siteOrigin } from "@/lib/seo";
+import { offlineOwnerKeyFor } from "@/lib/trip/offline-server";
 import { ZOD_JITLESS_SCRIPT } from "@/lib/zod-jitless";
 import { DemoDataBanner } from "@/components/dev/demo-data-banner";
 import { DevServerStrip } from "@/components/dev/dev-server-strip";
@@ -79,9 +81,11 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
   // browser in the streamed payload.
   const scriptFont = scriptFontUrl(locale);
 
+  // `undefined` = the account couldn't be checked (an error): treated as signed out on the page,
+  // but saved trip copies are kept (PrivateCacheGuard).
   const [nonce, user, rates, messages] = await Promise.all([
     headers().then((h) => h.get("x-nonce") ?? undefined),
-    getCurrentUser().catch(() => null),
+    getCurrentUser().catch(() => undefined),
     getRates(),
     getMessages(),
   ]);
@@ -112,6 +116,8 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
           </DirectionProvider>
         </ThemeProvider>
         <RegisterServiceWorker />
+        {/* Trip pages saved for offline use belong to the account signed in (round 3, brief 7.1). */}
+        <PrivateCacheGuard owner={offlineOwnerKeyFor(user)} />
       </body>
     </html>
   );

@@ -105,6 +105,8 @@
     "reason_required": "Please choose a reason.",
     "reason_text_required": "Please write a few words about the reason.",
     "no_show_not_allowed": "You can report that a guest didn't arrive from the day after the arrival date until a week after departure.",
+    "no_show_reviewed": "The guest has already reviewed this stay, so you can no longer report that they didn't arrive. If something is wrong with the review, you can report it on your Reviews page.",
+    "no_show_not_reported": "This booking has no report that the guest didn't arrive.",
     "payment_method_required": "Please choose at least one payment method.",
     "terms_changed": "The host changed the price or the cancellation terms while you were filling in your details. The new terms are shown now: please check them and confirm again.",
     "host_unreachable": "We couldn't tell the host about this booking, so it wasn't saved. You can ask the host directly.",

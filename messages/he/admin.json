@@ -360,7 +360,8 @@
       "SiteSetting": "הגדרה",
       "Booking": "הזמנה",
       "ReferencePrice": "מחיר ייחוס",
-      "EmailOutbox": "מייל"
+      "EmailOutbox": "מייל",
+      "Review": "ביקורת"
     },
     "actions": {
       "listing_approve": "מודעה אושרה",
@@ -407,6 +408,7 @@
       "booking_cancel_by_guest": "האורח ביטל",
       "booking_cancel_by_host": "המארח ביטל",
       "booking_no_show": "המארח דיווח שהאורח לא הגיע",
+      "booking_no_show_cleared": "הצוות ביטל את הדיווח שהאורח לא הגיע",
       "booking_cancel_account_deleted": "בוטלה כי החשבון נמחק",
       "booking_host_unreachable": "הזמנה לא נשמרה: המארח לא קיבל התראה",
       "booking_refused_blocked": "הזמנה נדחתה בגלל חסימה",
@@ -1337,6 +1339,16 @@
       "noteHint": "חובה. רק הצוות רואה את ההערה.",
       "notePlaceholder": "לדוגמה: דיברתי עם המארח, הייתה תקלה אמיתית בדירה.",
       "done": "סומן כנבדק."
+    },
+    "noShowClear": {
+      "button": "ביטול הדיווח",
+      "title": "לבטל את הדיווח שהאורח לא הגיע?",
+      "description": "ההזמנה {label} תחזור להיות מאושרת (או שהסתיימה, אם תאריך העזיבה עבר), והאורח יוכל לכתוב ביקורת בזמן הרגיל. ההערה נשמרת ביומן הפעולות.",
+      "confirm": "ביטול הדיווח",
+      "noteLabel": "למה הדיווח שגוי?",
+      "noteHint": "חובה. רק הצוות רואה את ההערה.",
+      "notePlaceholder": "לדוגמה: האורח שלח צילום של הקבלה מהמארח.",
+      "done": "הדיווח בוטל."
     }
   },
   "bookings": {

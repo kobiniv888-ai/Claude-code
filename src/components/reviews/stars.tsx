@@ -15,7 +15,7 @@ export function Stars({ value, label, size = "sm", className }: { value: number;
         <SpriteIcon
           key={n}
           name="star"
-          className={cn(icon, n <= Math.round(value) ? "fill-current text-foreground" : "text-border-strong")}
+          className={cn(icon, n <= Math.round(value) ? "fill-current text-foreground" : "text-muted-foreground")}
           strokeWidth={1.75}
         />
       ))}

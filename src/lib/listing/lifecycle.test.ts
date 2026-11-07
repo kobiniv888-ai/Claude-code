@@ -586,6 +586,19 @@ describe("prices in USD", () => {
       ], rates),
     ).toEqual({ priceUsd: 80, pricePerSqmUsd: null, roomTypePricesUsd: [80, 80] });
   });
+
+  it("a hotel's 'from' price ignores hidden room types, like its card (lists-alerts-7)", () => {
+    const rates = { USD: 1, GEL: 2.5, ILS: 4, EUR: 0.8, GBP: 0.8, AED: 3.67 };
+    expect(
+      lifecycle.computeUsdPrices({ price: null, currency: "USD", dealType: "HOTEL_ROOM", sizeSqm: null }, [
+        { price: 40, currency: "USD", active: false },
+        { price: 150, currency: "GEL", active: true },
+      ], rates),
+    ).toEqual({ priceUsd: 60, pricePerSqmUsd: null, roomTypePricesUsd: [40, 60] });
+    expect(
+      lifecycle.computeUsdPrices({ price: null, currency: "USD", dealType: "HOTEL_ROOM", sizeSqm: null }, [{ price: 40, currency: "USD", active: false }], rates).priceUsd,
+    ).toBeNull();
+  });
 });
 
 // Stats (views, saves, contact taps, bookings): src/lib/listing/stats.test.ts.

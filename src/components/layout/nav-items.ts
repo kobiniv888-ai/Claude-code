@@ -14,6 +14,7 @@ import {
   Sunset,
   type LucideIcon,
 } from "lucide-react";
+import { ACCOUNT_LISTS_PATH, DEVICE_LISTS_PATH } from "@/lib/lists/paths";
 
 /**
  * Site navigation: the main tabs, the mobile bottom bar and which item is active.
@@ -59,6 +60,15 @@ export const BOTTOM_NAV_ITEMS: readonly BottomNavItem[] = [
   { key: "saved", href: "/account/favorites", icon: Heart },
   { key: "profile", href: "/account", icon: CircleUserRound },
 ];
+
+/**
+ * Where "שמורים" leads (bottom bar, header, menu): a signed-out visitor's lists are on the device
+ * (/saved), opened directly instead of through /account/favorites and its redirect, a whole extra
+ * request and server render on a phone (ux-1). The redirect stays for old links.
+ */
+export function savedHref(isSignedIn: boolean): string {
+  return isSignedIn ? ACCOUNT_LISTS_PATH : DEVICE_LISTS_PATH;
+}
 
 /** "/search/" → "/search", "" → "/". */
 export function normalizePath(pathname: string): string {

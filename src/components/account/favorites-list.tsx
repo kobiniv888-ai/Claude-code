@@ -8,7 +8,7 @@ import { EmptyState } from "@/components/ds/empty-state";
 import { siteConfig, type AppLocale } from "@/config/site";
 import { CompareToggle } from "@/components/listing/compare-toggle";
 import { ListingCard } from "@/components/listing/listing-card";
-import { ListPickerSheet } from "@/components/lists/list-picker-sheet";
+import { useMoveSheet } from "@/components/lists/move-sheet";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useRouter } from "@/i18n/navigation";
@@ -110,18 +110,21 @@ function RemoveButton({ listingId, onRemoved }: { listingId: string; onRemoved: 
   );
 }
 
-/** "Move" (round 3, saved lists): the list sheet, to put the place in another list. */
-function MoveButton({ listingId, title, onMoved }: { listingId: string; title: string; onMoved: () => void }) {
+/** "Move" (round 3, saved lists): opens the list's one sheet (useMoveSheet), to put the place in another list. */
+function MoveButton({ listingId, title, onMove }: { listingId: string; title: string; onMove: (listingId: string, title: string) => void }) {
   const t = useTranslations("lists.page");
-  const [open, setOpen] = useState(false);
   return (
-    <>
-      <Button variant="ghost" className="h-11 rounded-full px-3 text-muted-foreground" onClick={() => setOpen(true)} aria-label={t("moveFor", { title })} aria-haspopup="dialog">
-        <FolderInputIcon aria-hidden="true" className="rtl:-scale-x-100" />
-        {t("move")}
-      </Button>
-      <ListPickerSheet open={open} onOpenChange={setOpen} listingId={listingId} title={title} onSaved={() => onMoved()} />
-    </>
+    <Button
+      variant="ghost"
+      className="h-11 rounded-full px-3 text-muted-foreground"
+      onClick={() => onMove(listingId, title)}
+      aria-label={t("moveFor", { title })}
+      aria-haspopup="dialog"
+      data-move-for={listingId}
+    >
+      <FolderInputIcon aria-hidden="true" className="rtl:-scale-x-100" />
+      {t("move")}
+    </Button>
   );
 }
 
@@ -135,44 +138,53 @@ export function FavoritesList({ items, empty }: { items: FavoriteItem[]; empty?:
     setRemoved((prev) => new Set(prev).add(listingId));
     router.refresh();
   };
+  const { openMove, moveSheet } = useMoveSheet({ order: visible.map((item) => item.listingId), onSaved: onRemoved });
 
   if (visible.length === 0) {
-    return empty ?? <FavoritesEmpty />;
+    return (
+      <>
+        {empty ?? <FavoritesEmpty />}
+        {moveSheet}
+      </>
+    );
   }
 
   return (
-    <ul className="grid gap-x-4 gap-y-8 sm:grid-cols-2 xl:grid-cols-3">
-      {visible.map((item) =>
-        item.available ? (
-          <li key={item.listingId} className="flex min-w-0 flex-col gap-3">
-            <ListingCard listing={item.card} />
-            <div className="grid gap-2 rounded-card bg-muted/60 p-3">
-              <NoteEditor listingId={item.listingId} initial={item.note} />
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <CompareToggle publicId={item.card.publicId} />
-                <div className="flex flex-wrap items-center gap-1">
-                  <MoveButton listingId={item.listingId} title={item.card.title} onMoved={() => onRemoved(item.listingId)} />
-                  <RemoveButton listingId={item.listingId} onRemoved={() => onRemoved(item.listingId)} />
+    <>
+      <ul className="grid gap-x-4 gap-y-8 sm:grid-cols-2 xl:grid-cols-3">
+        {visible.map((item) =>
+          item.available ? (
+            <li key={item.listingId} className="flex min-w-0 flex-col gap-3">
+              <ListingCard listing={item.card} />
+              <div className="grid gap-2 rounded-card bg-muted/60 p-3">
+                <NoteEditor listingId={item.listingId} initial={item.note} />
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <CompareToggle publicId={item.card.publicId} />
+                  <div className="flex flex-wrap items-center gap-1">
+                    <MoveButton listingId={item.listingId} title={item.card.title} onMove={openMove} />
+                    <RemoveButton listingId={item.listingId} onRemoved={() => onRemoved(item.listingId)} />
+                  </div>
                 </div>
               </div>
-            </div>
-          </li>
-        ) : (
-          <li key={item.listingId} className="flex min-w-0 flex-col gap-3 rounded-card border border-dashed bg-muted/40 p-4">
-            <p className="text-caption font-semibold text-muted-foreground">{t("unavailable")}</p>
-            <p className="text-h3 break-words" dir="auto">
-              {item.title || t("untitled")}
-            </p>
-            <p className="text-small text-muted-foreground">{t("unavailableBody")}</p>
-            <NoteEditor listingId={item.listingId} initial={item.note} />
-            <div className="mt-auto flex flex-wrap justify-end gap-1">
-              <MoveButton listingId={item.listingId} title={item.title || t("untitled")} onMoved={() => onRemoved(item.listingId)} />
-              <RemoveButton listingId={item.listingId} onRemoved={() => onRemoved(item.listingId)} />
-            </div>
-          </li>
-        ),
-      )}
-    </ul>
+            </li>
+          ) : (
+            <li key={item.listingId} className="flex min-w-0 flex-col gap-3 rounded-card border border-dashed bg-muted/40 p-4">
+              <p className="text-caption font-semibold text-muted-foreground">{t("unavailable")}</p>
+              <p className="text-h3 break-words" dir="auto">
+                {item.title || t("untitled")}
+              </p>
+              <p className="text-small text-muted-foreground">{t("unavailableBody")}</p>
+              <NoteEditor listingId={item.listingId} initial={item.note} />
+              <div className="mt-auto flex flex-wrap justify-end gap-1">
+                <MoveButton listingId={item.listingId} title={item.title || t("untitled")} onMove={openMove} />
+                <RemoveButton listingId={item.listingId} onRemoved={() => onRemoved(item.listingId)} />
+              </div>
+            </li>
+          ),
+        )}
+      </ul>
+      {moveSheet}
+    </>
   );
 }
 

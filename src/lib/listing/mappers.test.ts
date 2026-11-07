@@ -57,6 +57,12 @@ function row(overrides: Partial<ListingCardRow> = {}): ListingCardRow {
 }
 
 describe("listingCardSelect", () => {
+  it("takes a hotel's 'from' price from active, priced room types only (lists-alerts-7)", () => {
+    const rooms = listingCardSelect("en").roomTypes;
+    expect(rooms.where).toEqual({ active: true, price: { gt: 0 } });
+    expect(rooms.orderBy).toEqual([{ priceUsd: { sort: "asc", nulls: "last" } }, { price: "asc" }, { sortOrder: "asc" }]);
+  });
+
   it("never selects private columns", () => {
     const select = listingCardSelect("en") as Record<string, unknown>;
     for (const key of ["address", "lat", "lng", "cadastralCode", "contactMethods", "description", "icalToken"]) {
@@ -70,6 +76,12 @@ describe("toListingCard", () => {
     expect(toListingCard(row(), { locale: "en", now }).rating).toBeNull();
     expect(toListingCard(row({ reviewCount: 2, ratingSum: 10 }), { locale: "en", now }).rating).toBeNull();
     expect(toListingCard(row({ reviewCount: 12, ratingSum: 56 }), { locale: "en", now }).rating).toEqual({ average: 4.7, count: 12 });
+  });
+
+  it("shows no rating once the listing is a monthly rental or a sale (reviews-4)", () => {
+    expect(toListingCard(row({ dealType: "MONTHLY_RENT", pricePeriod: "MONTH", reviewCount: 4, ratingSum: 18 }), { locale: "en", now }).rating).toBeNull();
+    expect(toListingCard(row({ dealType: "SALE", pricePeriod: "TOTAL", reviewCount: 4, ratingSum: 18 }), { locale: "en", now }).rating).toBeNull();
+    expect(toListingCard(row({ dealType: "HOTEL_ROOM", reviewCount: 4, ratingSum: 18 }), { locale: "en", now }).rating).toEqual({ average: 4.5, count: 4 });
   });
 
   it("uses the translation, localized places and approximate coordinates", () => {

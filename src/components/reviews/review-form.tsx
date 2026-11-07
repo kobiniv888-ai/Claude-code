@@ -12,7 +12,16 @@ import { errorMessageKey } from "@/lib/errors";
 import { formatNumber } from "@/lib/format";
 import { createReview } from "@/lib/reviews/actions";
 import { isReviewErrorCode } from "@/lib/reviews/errors";
-import { QUICK_RATING_KEYS, REVIEW_TEXT_MAX, REVIEW_TEXT_MIN, type QuickRatingKey } from "@/lib/reviews/rules";
+import {
+  QUICK_RATING_KEYS,
+  REVIEW_TEXT_MAX,
+  REVIEW_TEXT_MIN,
+  meaningfulMinimum,
+  meetsTextMinimum,
+  shortTextReason,
+  textLength,
+  type QuickRatingKey,
+} from "@/lib/reviews/rules";
 import { cn } from "@/lib/utils";
 import { StarPicker } from "./star-picker";
 
@@ -53,7 +62,8 @@ export function ReviewForm({
   const textRef = useRef<HTMLTextAreaElement>(null);
   const confirmRef = useRef<HTMLButtonElement>(null);
   const doneRef = useRef<HTMLHeadingElement>(null);
-  const length = text.trim().length;
+  // By code point, like the server (an emoji is one character).
+  const length = textLength(text);
 
   useEffect(() => {
     if (done) doneRef.current?.focus();
@@ -66,7 +76,12 @@ export function ReviewForm({
   }
 
   function errorText(code: string): string {
-    if (code === "too_short") return t("textTooShort", { count: REVIEW_TEXT_MIN });
+    if (code === "too_short") {
+      // Enough characters but mostly dots, "!" or emoji: say what is missing (letters or digits).
+      return shortTextReason(text, REVIEW_TEXT_MIN) === "letters"
+        ? t("textTooFewLetters", { count: meaningfulMinimum(REVIEW_TEXT_MIN) })
+        : t("textTooShort", { count: REVIEW_TEXT_MIN });
+    }
     if (code === "too_long") return t("textTooLong", { count: REVIEW_TEXT_MAX });
     if (isReviewErrorCode(code)) return te(code);
     return tc(errorMessageKey(code));
@@ -76,7 +91,7 @@ export function ReviewForm({
     event.preventDefault();
     if (pending) return;
     if (!rating) return show("rating", t("ratingRequired"));
-    if (length < REVIEW_TEXT_MIN) return show("text", errorText("too_short"));
+    if (!meetsTextMinimum(text, REVIEW_TEXT_MIN)) return show("text", errorText("too_short"));
     if (length > REVIEW_TEXT_MAX) return show("text", errorText("too_long"));
     if (!confirmed) return show("confirm", t("confirmRequired"));
     setPending(true);

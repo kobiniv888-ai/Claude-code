@@ -31,6 +31,9 @@ import { can } from "@/lib/auth/permissions";
 import { requireStaff } from "@/lib/auth/session";
 import { formatDate, formatDateRange, formatNumber, formatRelativeTime } from "@/lib/format";
 import { FlagReviewButton } from "../../flags/_components/flag-review-button";
+import { StaffReviewList } from "../../reports/_components/staff-review-list";
+import { getUserReviewsForStaff } from "@/lib/reviews/queries";
+import type { AppLocale } from "@/config/site";
 
 const BOOKING_TONE: Record<BookingStatus, PillTone> = {
   CONFIRMED: "success",
@@ -54,13 +57,16 @@ export default async function UserDetailPage({ params }: PageProps<"/[locale]/ad
   if (!data) notFound();
   const { user } = data;
   const canModerate = can(staff.role, "moderation");
-  const [t, tAdmin, tFields, tb, bookings, flags] = await Promise.all([
+  const [t, tAdmin, tFields, tb, bookings, flags, reviews, tReviews] = await Promise.all([
     getTranslations("admin.users"),
     getTranslations("admin"),
     getTranslations("listingFields"),
     getTranslations("booking"),
     getUserBookings(user.id),
     hostFlagSummary(user.id),
+    // Reviews written and received (round 3 phase-5 hardening, reviews-2): each opens /admin/reviews/<id>.
+    getUserReviewsForStaff(user.id),
+    getTranslations("reviews.admin"),
   ]);
   const n = (v: number) => formatNumber(v, locale);
   const self = user.id === staff.id;
@@ -273,6 +279,17 @@ export default async function UserDetailPage({ params }: PageProps<"/[locale]/ad
               <ReportList rows={data.reportsMade.map((r) => ({ ...r, who: r.targetUser?.name ?? null }))} empty={t("noReports")} />
             </AdminSection>
           </div>
+
+          {reviews.written.length > 0 || reviews.received.length > 0 ? (
+            <div className="grid gap-4 xl:grid-cols-2">
+              <AdminSection title={tReviews("userWritten")}>
+                <StaffReviewList rows={reviews.written} locale={locale as AppLocale} empty="—" />
+              </AdminSection>
+              <AdminSection title={tReviews("userReceived")}>
+                <StaffReviewList rows={reviews.received} locale={locale as AppLocale} empty="—" />
+              </AdminSection>
+            </div>
+          ) : null}
 
           <AdminSection title={t("ticketsTitle", { count: data.tickets.length })}>
             {data.tickets.length === 0 ? (

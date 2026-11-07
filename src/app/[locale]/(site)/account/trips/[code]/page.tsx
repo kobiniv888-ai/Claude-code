@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import {
   BanknoteIcon,
@@ -18,7 +17,7 @@ import { Ltr } from "@/components/common/ltr";
 import { Card } from "@/components/ds/card";
 import { Tag } from "@/components/ds/tag";
 import { TurnedAwayButton } from "@/components/report/turned-away-button";
-import { OfflineNotice } from "@/components/trip/offline-save";
+import { OfflineForget, OfflineNotice } from "@/components/trip/offline-save";
 import { TripHost } from "@/components/trip/trip-host";
 import { TripKeep } from "@/components/trip/trip-keep";
 import { TripRules } from "@/components/trip/trip-rules";
@@ -39,9 +38,11 @@ import { guestBookingReports } from "@/lib/reports/queries";
 import { pageMetadata } from "@/lib/seo";
 import { tripGoogleCalendarUrl } from "@/lib/trip/calendar-server";
 import { cancellationView } from "@/lib/trip/deadline";
-import { OFFLINE_TRIP_MARKER } from "@/lib/trip/offline";
+import { OFFLINE_TRIP_GONE_MARKER, OFFLINE_TRIP_GONE_VALUE, OFFLINE_TRIP_MARKER, offlineSaveAllowed } from "@/lib/trip/offline";
+import { offlineOwnerKey, offlineTripVersion } from "@/lib/trip/offline-server";
 import { getTripExtras } from "@/lib/trip/server";
 import { cn } from "@/lib/utils";
+import TripNotFound from "./not-found";
 
 type Props = {
   params: Promise<{ locale: string; code: string }>;
@@ -84,7 +85,8 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
  * - the exact address (confirmed and completed bookings only, as before), a map of the exact point
  *   that loads only near the screen, "פתיחה ב-Google Maps" / "פתיחה ב-Waze";
  * - the host's contact buttons (every method the host chose) and contact hours;
- * - "הוספה ליומן" (.ics + Google Calendar) and "שמירה לשימוש בלי אינטרנט" (on a tap only);
+ * - "הוספה ליומן" (.ics + Google Calendar) and "שמירה לשימוש בלי אינטרנט" (on a tap only; not
+ *   for a cancelled trip or after the keep window, when a copy saved earlier is deleted instead);
  * - ONLY when the stay includes a Friday night or a night of a holiday (Israeli calendar):
  *   candle-lighting and Havdalah times for the city, the nearest verified synagogue, Chabad house
  *   and kosher place with walking times, "המארח לא עונה בשבת" (src/lib/trip/server.ts);
@@ -108,7 +110,11 @@ export default async function TripPage({ params, searchParams }: Props) {
     searchParams,
   ]);
   // Not this account's booking (or no such booking): the same answer, nothing about it leaks.
-  if (!trip) notFound();
+  // Rendered here rather than with notFound(): this page streams (loading.tsx), and a streamed
+  // notFound() reaches the browser only in the page's data, so the service worker would not see
+  // the not-found page's "gone" mark in the HTML and could not delete another account's saved
+  // copy (public/sw.js). The page is "noindex" either way.
+  if (!trip) return <TripNotFound />;
 
   const brand = siteConfig.localizedName[locale] ?? siteConfig.name;
   const dates = formatDateRange(trip.checkIn, trip.checkOut, locale, { day: "numeric", month: "short" });
@@ -127,7 +133,7 @@ export default async function TripPage({ params, searchParams }: Props) {
     ),
     confirmed && reveal ? tripGoogleCalendarUrl(trip, locale) : Promise.resolve(null),
   ]);
-  if (!extras) notFound();
+  if (!extras) return <TripNotFound />;
 
   // "Turned away?" (round 3, brief 8.2): the guest can report the host from every trip; after a
   // host cancellation it is a card of its own. ?report=1 (the cancellation email) opens the form.
@@ -167,10 +173,40 @@ export default async function TripPage({ params, searchParams }: Props) {
         })
       : null;
   const pagePath = `/${locale}${trip.path}`;
+  // "שמירה לשימוש בלי אינטרנט" (src/lib/trip/offline.ts): the copy belongs to this account, and is
+  // re-saved when what it shows changes (the content key below).
+  const offlineAllowed = offlineSaveAllowed({ status: trip.status, checkOut: trip.checkOut }, today);
+  const offline = offlineAllowed
+    ? {
+        path: pagePath,
+        code: trip.code,
+        title: trip.listing.title,
+        checkIn: trip.checkIn,
+        checkOut: trip.checkOut,
+        // The offline page's list shows the dates as this page writes them (i18n-1).
+        datesLabel: dates,
+        status: trip.status,
+        owner: offlineOwnerKey(user.id),
+        version: offlineTripVersion({
+          status: trip.status,
+          dates: [trip.checkIn, trip.checkOut, trip.checkInFrom, trip.checkOutUntil, trip.checkInFlexible, trip.checkOutFlexible],
+          guests: [trip.adults, trip.children, trip.infants, trip.rooms, trip.roomTypeName],
+          title: trip.listing.title,
+          reveal,
+          extras,
+          price: [trip.total, trip.currency, trip.priceLines, trip.paymentMethods, trip.cancellation.policy],
+          message: trip.messageToHost,
+        }),
+      }
+    : null;
 
   return (
-    // The mark tells the offline copy apart from "not found" and the login page (src/lib/trip/offline.ts).
-    <div className="grid max-w-3xl gap-4 pt-2 pb-8" {...{ [OFFLINE_TRIP_MARKER]: trip.code }}>
+    // The mark tells the offline copy apart from "not found" and the login page; the "gone" mark
+    // tells the service worker to delete a copy that may no longer be kept (src/lib/trip/offline.ts).
+    <div
+      className="grid max-w-3xl gap-4 pt-2 pb-8"
+      {...{ [OFFLINE_TRIP_MARKER]: trip.code, ...(offlineAllowed ? {} : { [OFFLINE_TRIP_GONE_MARKER]: OFFLINE_TRIP_GONE_VALUE }) }}
+    >
       <Link
         href={TRIPS_PATH}
         className="inline-flex min-h-11 items-center gap-1 justify-self-start rounded-md text-small font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
@@ -179,7 +215,8 @@ export default async function TripPage({ params, searchParams }: Props) {
         {t("trip.back")}
       </Link>
 
-      <OfflineNotice path={pagePath} />
+      <OfflineNotice />
+      {offlineAllowed ? null : <OfflineForget path={pagePath} />}
 
       {justBooked ? (
         <div role="status" className="flex items-start gap-3 rounded-card border border-border bg-primary-tint p-4 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2">
@@ -263,7 +300,7 @@ export default async function TripPage({ params, searchParams }: Props) {
               ? { icsHref: `${trip.icsPath}?lang=${locale}`, fileName: `${trip.code}.ics`, googleUrl }
               : null
           }
-          offline={{ path: pagePath, code: trip.code, title: trip.listing.title, checkIn: trip.checkIn, checkOut: trip.checkOut, status: trip.status }}
+          offline={offline}
         />
       ) : null}
 
