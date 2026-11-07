@@ -266,17 +266,25 @@ export async function cleanupTestData(opts: { since?: Date } = {}) {
     [userIds, `%@${TEST_EMAIL_DOMAIN}`],
   );
   const ticketIds = tickets.map((t) => t.id);
-  const reports = await sql<{ id: string }>(`SELECT id FROM "Report" WHERE "reporterId" = ANY($1) OR "listingId" = ANY($2)`, [
-    userIds,
-    listingIds,
-  ]);
   // Bookings the tests made (the demo guest's included: their message to the host starts with "E2E ").
   const bookings = await sql<{ id: string; code: string }>(
     `SELECT id, code FROM "Booking" WHERE "guestUserId" = ANY($1) OR "listingId" = ANY($2) OR "messageToHost" LIKE 'E2E %'`,
     [userIds, listingIds],
   );
   const bookingIds = bookings.map((b) => b.id);
-  const targetIds = [...userIds, ...listingIds, ...ticketIds, ...reports.map((r) => r.id), ...bookingIds];
+  // Reviews of test stays (they go with their booking, listing or user; their reports and the
+  // staff's hide/show audit rows are removed here too).
+  const reviews = await sql<{ id: string; listingId: string }>(
+    `SELECT id, "listingId" FROM "Review" WHERE "bookingId" = ANY($1) OR "listingId" = ANY($2) OR "guestUserId" = ANY($3) OR "hostUserId" = ANY($3)`,
+    [bookingIds, listingIds, userIds],
+  );
+  const reviewIds = reviews.map((r) => r.id);
+  const reports = await sql<{ id: string }>(`SELECT id FROM "Report" WHERE "reporterId" = ANY($1) OR "listingId" = ANY($2) OR "reviewId" = ANY($3)`, [
+    userIds,
+    listingIds,
+    reviewIds,
+  ]);
+  const targetIds = [...userIds, ...listingIds, ...ticketIds, ...reports.map((r) => r.id), ...bookingIds, ...reviewIds];
 
   await sql(`DELETE FROM "AuditLog" WHERE "targetId" = ANY($1) OR "actorId" = ANY($2)`, [targetIds, userIds]);
   if (bookings.length > 0) {
@@ -289,6 +297,16 @@ export async function cleanupTestData(opts: { since?: Date } = {}) {
   }
   await sql(`DELETE FROM "Ticket" WHERE id = ANY($1)`, [ticketIds]);
   await sql(`DELETE FROM "Report" WHERE id = ANY($1)`, [reports.map((r) => r.id)]);
+  await sql(`DELETE FROM "Review" WHERE id = ANY($1)`, [reviewIds]);
+  // A test review on a listing that stays (a demo one): its counters again match its visible reviews.
+  const kept = [...new Set(reviews.map((r) => r.listingId))].filter((id) => !listingIds.includes(id));
+  if (kept.length > 0) {
+    await sql(
+      `UPDATE "Listing" l SET "reviewCount" = (SELECT count(*) FROM "Review" r WHERE r."listingId" = l.id AND NOT r.hidden),
+         "ratingSum" = (SELECT coalesce(sum(r.rating), 0) FROM "Review" r WHERE r."listingId" = l.id AND NOT r.hidden) WHERE l.id = ANY($1)`,
+      [kept],
+    );
+  }
   // Reference prices the test admin added (round 3; the table holds no real data in development).
   await sql(`DELETE FROM "ReferencePrice" WHERE "createdById" = ANY($1) OR "sourceName" LIKE 'E2E %'`, [userIds]);
   // Private uploads of test users (report screenshots, ticket images): the rows and the files.

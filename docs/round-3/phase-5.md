@@ -315,3 +315,135 @@ their walk to the sea or the lifts), which takes a minute longer.
 **Decided in this check**
 - The Hebrew review-request email no longer puts "ב-" before the place's name.
 - The tests check a kept sign-in before using it (see "How it was checked").
+
+## Security and quality check after phase 5
+
+After phase 5 was built, five separate reviews went through it, each looking for one kind of
+problem: who can see what (privacy), the saved trip pages on a phone, reviews, saved lists and the
+morning emails, and the screens on a phone in all five languages. Everything they confirmed was
+fixed (48 findings), and then the whole site was checked again in production mode.
+
+### What was found and fixed (most important first)
+
+**A trip page saved on a phone now belongs to the account that saved it**
+- Before, a trip page kept with "שמירה לשימוש בלי אינטרנט" (with the exact address and the host's
+  phone) stayed on the phone when the sign-in ended in another way than "התנתקות" on that phone:
+  30 days without use, "log out of all devices", deleting the account from another device, a
+  suspension. It also stayed when someone else signed in on the same phone. Now each saved copy
+  carries a coded key of its account (never the account number itself), and the next page of the
+  site that opens with internet deletes the copies of anyone who is no longer signed in there.
+  Deleting your account deletes them on that phone before the page changes, like "התנתקות".
+- A copy whose week after check-out has passed is deleted on the next page that opens (before, only
+  when the site was updated). A cancelled trip can't be saved, and its saved copy is deleted.
+- The phone deletes a copy only on a clear sign: signed out, "not found" for this account, or
+  cancelled. A server error or a slow connection never deletes it. When the internet is there but
+  the site doesn't answer, or the page stops halfway, the saved copy opens after at most 8 seconds,
+  with "זה העותק ששמרתם…" and "טעינת העמוד העדכני".
+- The copy refreshes itself while the page is open when something on it changed (times, address,
+  the host's buttons, rules, price) or it is more than an hour old.
+- Another account's trip page now says "not found" in a way the phone itself can read (before, that
+  answer arrived in a form the saved-page system never saw).
+
+**Your data: "download my data" and deleting an account**
+- "Download my data" now includes the reviews you wrote (for a hidden one, only the reason), the
+  replies you wrote as a host (without the guest's details), your lists (whether each is shared,
+  never its secret link), your saved searches, and each saved place's list and watched price.
+- Deleting an account now also deletes its saved searches, its lists (a shared list's link stops
+  working at once) and its browser-notification subscriptions. Its reviews stay on the listings
+  and show as "אורח".
+- Reloading the demo data no longer deletes an account that has bookings, reviews or listings just
+  because it uses a demo phone number; it only takes the number off it.
+
+**Reviews**
+- A host could mark "the guest didn't arrive" after the guest had already reviewed the stay, which
+  wrongly cast doubt on a real review. That is now refused, and a review and a report at the same
+  moment never both succeed. The "didn't arrive" button is hidden once there is a review.
+- When a host reports that a guest didn't arrive, the guest now gets an email (5 languages) with a
+  link to contact us. The admin can clear a wrong report on the booking's page, with a required
+  note that is logged; the booking goes back to confirmed (or finished), and the guest can review.
+- The guest can now report the host's public reply (Account → "ביקורות"). The admin can open any
+  review, reported or not: the "ביקורות" tab lists the newest reviews, and the booking and user
+  pages link to theirs.
+- A "review" made only of dots, "!" or emoji is refused: at least 15 of the 20 characters must be
+  letters or digits (a reply: 4 of 5).
+- Ratings show only on places booked per night (stays and hotels), never on monthly rentals or
+  places for sale. The review rules use the kind of stay that was booked, even if the host later
+  changes the listing's type.
+- The review counts on cards are repaired every night if they ever drift; reviews that were not
+  translated (no key yet, or a failed try) are translated by the nightly job, up to 100 a night.
+- The listing page shows the newest 30 reviews, with "מוצגות 30 הביקורות האחרונות מתוך N" and a
+  page with all of them. If reviews can't be loaded, the page says so instead of "no reviews yet".
+- With the keyboard, opening a reply puts the cursor in its box; empty stars are easier to see.
+
+**Saved searches and price-drop emails**
+- A morning email could go out twice after an interrupted run, or the next run could repeat the
+  same places. Once an email is sent, it is never sent again, and a run that stopped halfway is
+  picked up without repeating anything.
+- "At most 5 price-drop emails per person" now holds for the whole Israel day, also when two runs
+  happen at the same time; an email that failed to go out doesn't count.
+- A price is compared only with a price for the same period (a night with a night, a month with a
+  month). Before, a host who changed "₾700 a week" to "₾400 a night" set off a false "price
+  dropped" email. The email now shows the price in the place's own currency and period.
+- The card's "from" price, and sorting and filtering by price, ignore hidden hotel rooms and rooms
+  without a price.
+
+**Saved lists**
+- Places saved on a phone before logging in now move into the account on any page after logging
+  in (before, only on the saved page), and are saved into the account before "התנתקות".
+- A list can't be named "שמורים" (or "Saved" in any of the five languages), so it can't be confused
+  with the main list.
+- "רשימה חדשה" from a heart creates the list and saves the place in one step: a failed save no
+  longer leaves an empty list behind. After saving, the other hearts on the page update at once.
+- Switching between lists no longer shows the previous list's share link or name in its windows.
+  The list's actions sit in a "⋮" menu, with "מחיקת הרשימה" in red.
+- Signed out, "שמורים" in the menu and the bottom bar goes straight to the lists on this phone.
+- After "העברה", the keyboard focus moves to the next place instead of the top of the page; list
+  names with numbers ("גודאורי 2027") read in the right order.
+- Faster pages: the list window's code loads only when it opens, and a listing without reviews (all
+  of them today) no longer asks the database for reviews.
+
+### What this final check fixed itself
+- **The review form and the host's reply**: a text with 20 characters that were mostly dots or
+  emoji got "write at least 20 characters", which made no sense to the guest. It now says "write at
+  least 15 letters or digits, not just symbols" (all five languages).
+- **The automatic test for "the site doesn't answer"** blocked a request the phone doesn't make in
+  that case, so it failed although the site worked. It now blocks the request the phone really
+  makes, and passes.
+- **New automatic tests:** logging out on the phone deletes the saved trip page before the home
+  page opens; the new admin review page and the "ביקורות" tab answer "not found" to a signed-in user
+  who isn't staff, with a real review in place (and its text never appears).
+- **The tests' cleanup** now also removes test reviews, the reports about them and their log rows,
+  and puts a kept listing's review count back.
+
+### How it was checked
+- **Automatic checks, all green:** database schema check, type check, code check (lint), the
+  translation check (48 groups × 5 languages) and 2,322 unit tests (about 110 new in this check,
+  including the saved-page system run in a sandbox and database tests of the races above).
+- **End-to-end tests in production mode: all 110 passed** in one clean run, nothing re-run, with
+  staff using the real 2-step login. Among them: another account's trip page and calendar file are
+  "not found"; a saved trip page is gone after the session ends elsewhere, after another account
+  signs in, after "התנתקות" and after cancelling; a list whose sharing stopped, and its preview
+  image, are "not found"; places saved on a phone move into the account from any page.
+- **Screenshots** in production mode at 390×844 in Hebrew (light and dark), 1440×900 in English and
+  360 px in Georgian, all looked at: the trip page saved, opened offline and opened as the saved copy
+  while the site doesn't answer, the offline page with the saved trips, another account's trip
+  ("not found") and a cancelled trip (nothing to save); the review form refusing filler, the host's
+  reply, the guest reporting the reply, the host's booking page without "didn't arrive" after a
+  review, the listing's reviews, the all-reviews page and the empty state; the admin's "ביקורות" tab
+  with the newest reviews, a review's page, clearing a "didn't arrive" report; the saved lists
+  with the "⋮" menu, renaming to "שמורים" refused, "העברה", the share window, the phone's own lists
+  when signed out and a shared list; the price-drop, "didn't arrive" and saved-search emails.
+- **Lighthouse (phone, production, `/he`), 5 runs after a warm-up: 91, 91, 91, 90, 92.** Phase 6
+  must reach 90 on every run; 90 has very little room.
+- Test accounts, listings, bookings, reviews, reports, lists, saved searches, sessions and emails
+  were removed afterwards.
+
+### Still open
+- **Hiding a host's reply on its own** needs a database change (a "reply hidden" field). Until then
+  the admin hides the whole review with its reply, and the admin page says so.
+- **A phone that never comes back online** after its sign-in ended keeps its saved trip page until
+  it does (or a week after check-out, when the site opens offline). Nothing on the phone can check
+  the account without internet.
+- **Price-drop emails watch one period per kind of place** (per night for stays and hotels, per
+  month for monthly rentals, the total for sales). A short stay that a host prices per week isn't
+  watched until it is priced per night again.

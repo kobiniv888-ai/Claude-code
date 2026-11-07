@@ -529,6 +529,24 @@ test("every new admin page and file route answers 404 to a signed-in user who is
   const [booking] = await sql<{ id: string }>(`SELECT id FROM "Booking" ORDER BY "createdAt" LIMIT 1`);
   const [report] = await sql<{ id: string }>(`SELECT id FROM "Report" ORDER BY "createdAt" LIMIT 1`);
   const [listing] = await sql<{ id: string }>(`SELECT id FROM "Listing" WHERE "isDemo" LIMIT 1`);
+  // A real review (phase-5 hardening, reviews-2: staff open any review, reported or not), on a
+  // test host's draft listing: its staff page and the "ביקורות" tab that lists it are staff-only.
+  const host = await createTestUser({ name: "E2E Review Host" });
+  const draft = await createTestListing({ ownerId: host.id, title: "E2E admin 404 review flat", status: "DRAFT", photos: 1 });
+  const stayId = newId();
+  const reviewId = newId();
+  const day = (days: number) => new Date(Date.now() + 4 * 3_600_000 + days * 86_400_000).toISOString().slice(0, 10);
+  await sql(
+    `INSERT INTO "Booking" (id, code, "listingId", "guestUserId", "hostUserId", "checkIn", "checkOut", nights, adults, "nightlyPrice", subtotal, total,
+       currency, "cancellationPolicy", status, "guestName", "guestPhone", locale, "rulesAcceptedAt", "messageToHost", "updatedAt")
+     VALUES ($1, $2, $3, $4, $5, $6::date, $7::date, 2, 2, 55, 110, 110, 'GEL', 'MODERATE', 'COMPLETED', 'E2E', $8, 'he', now(), 'E2E admin 404 stay', now())`,
+    [stayId, `BT-${Array.from({ length: 5 }, () => "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"[randomInt(0, 32)]).join("")}`, draft.id, user.id, host.id, day(-5), day(-3), user.phone],
+  );
+  await sql(
+    `INSERT INTO "Review" (id, "bookingId", "listingId", "guestUserId", "hostUserId", rating, text, language, "updatedAt")
+     VALUES ($1, $2, $3, $4, $5, 4, 'E2E: a quiet flat, the host answered quickly', 'en', now())`,
+    [reviewId, stayId, draft.id, user.id, host.id],
+  );
   await loginByEmail(page, emailOf(user));
 
   const pages = [
@@ -544,6 +562,8 @@ test("every new admin page and file route answers 404 to a signed-in user who is
     "/en/admin/outbox",
     `/en/admin/users/${user.id}`,
     `/en/admin/moderation/${listing.id}`,
+    "/en/admin/reports?tab=reviews",
+    `/en/admin/reviews/${reviewId}`,
     ...(booking ? [`/en/admin/bookings/${booking.id}`] : []),
     ...(report ? [`/en/admin/reports/${report.id}`] : []),
   ];
@@ -552,6 +572,7 @@ test("every new admin page and file route answers 404 to a signed-in user who is
     expect(response?.status(), path).toBe(404);
     await expect(page.getByRole("heading", { level: 1 }), path).toBeVisible();
     await expect(page.locator("section[aria-labelledby='attention-title']"), path).toHaveCount(0);
+    await expect(page.getByText("E2E: a quiet flat"), path).toHaveCount(0);
   }
   // The staff-only file routes: report screenshots and (old) verification documents.
   for (const path of [`/api/admin/reports/${report?.id ?? "none"}/0`, "/api/admin/documents/none/0"]) {
