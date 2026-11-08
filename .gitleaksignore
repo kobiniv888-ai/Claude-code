@@ -1,0 +1,7 @@
+# Findings that were checked by hand and are not secrets.
+# Format: <commit>:<file>:<rule>:<line> (gitleaks fingerprint).
+#
+# A browser push subscription's public "auth" value, used as test data in a unit test.
+# It belongs to no account and grants no access.
+a05d801d501019094e8bdca01189ee798cfe3050:src/lib/alerts/push-subscription.test.ts:generic-api-key:6
+src/lib/alerts/push-subscription.test.ts:generic-api-key:6
