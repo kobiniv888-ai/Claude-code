@@ -112,7 +112,8 @@
     "host_unreachable": "We couldn't tell the host about this booking, so it wasn't saved. You can ask the host directly.",
     "rooms_unavailable": "There aren't enough free rooms of this type on these dates. Choose fewer rooms or another room type.",
     "too_many_upcoming": "{count, plural, one {This phone number already has {count} upcoming booking, the most allowed.} other {This phone number already has {count} upcoming bookings, the most allowed.}} You can book again once one of them ends or is cancelled.",
-    "request_reused": "Something went wrong sending the booking. Please reload the page and try again."
+    "request_reused": "Something went wrong sending the booking. Please reload the page and try again.",
+    "booking_in_progress": "Your booking is still being confirmed with the host. Check “My trips” in a moment, or try again."
   },
   "ics": {
     "summary": "{title} · {code}",
@@ -193,7 +194,8 @@
     "verifyFirst": "Please verify your phone number to continue.",
     "busyText": "Someone has already booked some of these nights. Pick other dates in the calendar.",
     "unreachableTitle": "We couldn't reach the host",
-    "unreachableText": "The booking wasn't saved and nothing was charged. Ask the host directly whether the place is free on your dates."
+    "unreachableText": "The booking wasn't saved and nothing was charged. Ask the host directly whether the place is free on your dates.",
+    "confirmingWithHost": "Confirming with the host…"
   },
   "closed": {
     "notBookableTitle": "This place can't be booked on the site",

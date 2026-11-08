@@ -3,6 +3,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import type { BannedWordAction, BannedWordCategory, EmailStatus, JewishPlaceType, Locale } from "@/generated/prisma/enums";
 import { pickLocalized } from "@/i18n/locale";
 import { db } from "@/lib/db";
+import { EMERGENCY_CONTACTS_SETTING_KEY } from "@/lib/jewish-life/emergency";
 import { photoUrl } from "@/lib/media";
 import { getSettings } from "@/lib/settings";
 import { extractAliases } from "../localized";
@@ -295,4 +296,17 @@ export async function outboxTemplates(): Promise<string[]> {
 
 export async function getOutboxEmail(id: string) {
   return db.emailOutbox.findUnique({ where: { id } });
+}
+
+// ─── Settings and saved replies ──────────────────────────────
+
+/** The stored emergency contacts as saved (unchecked: the editor shows invalid entries to fix). */
+export async function storedEmergencyContacts(): Promise<unknown> {
+  const row = await db.siteSetting.findUnique({ where: { key: EMERGENCY_CONTACTS_SETTING_KEY }, select: { value: true } });
+  return row?.value ?? null;
+}
+
+/** Every saved reply with its 5-language body (the saved-replies editor). */
+export async function listSavedReplies() {
+  return db.savedReply.findMany({ orderBy: { title: "asc" }, take: 200, select: { id: true, title: true, body: true } });
 }

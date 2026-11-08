@@ -6,11 +6,11 @@ import { db } from "@/lib/db";
 import { recordSecurityEvent } from "@/lib/security/events";
 import { secureCookiesFor, staffCookieName } from "./session-cookies";
 import {
-  STAFF_IDLE_LIMIT_MS,
   isStaffSessionIdle,
   nextStaffMarkerExpiry,
   shouldRefreshStaffMarker,
   staffActiveKey,
+  staffCookieMaxAgeSeconds,
   staffCookiePayload,
 } from "./staff-session-rules";
 
@@ -64,15 +64,22 @@ export async function forgetStaffSession(sessionId: string): Promise<void> {
 
 const cookieValueFor = (sessionId: string) => hmacHash(staffCookiePayload(sessionId));
 
-/** Sets the SameSite=Strict staff cookie for this session (server actions and route handlers only). */
-export async function issueStaffCookie(sessionId: string): Promise<void> {
+/**
+ * Sets the SameSite=Strict staff cookie for this session (server actions and route handlers only).
+ * It lives as long as the session (at most 30 days): the 12 IDLE hours are the server-side marker's
+ * job (checkStaffSessionIdle, fail closed), so an admin who keeps working is not asked for the code
+ * again just because 12 hours passed since it was entered. The value is an HMAC of the session id:
+ * it is worth nothing once the session ends, and logout clears it.
+ */
+export async function issueStaffCookie(sessionId: string, now = new Date()): Promise<void> {
   const isSecure = secure();
+  const session = await db.session.findUnique({ where: { id: sessionId }, select: { expiresAt: true } }).catch(() => null);
   (await cookies()).set(staffCookieName(isSecure), cookieValueFor(sessionId), {
     httpOnly: true,
     secure: isSecure,
     sameSite: "strict",
     path: "/",
-    maxAge: Math.round(STAFF_IDLE_LIMIT_MS / 1000),
+    maxAge: staffCookieMaxAgeSeconds(session?.expiresAt ?? null, now),
   });
 }
 

@@ -10,6 +10,8 @@ import { VerifyPhonePanel } from "@/components/auth/verify-phone-panel";
 import { redirect } from "@/i18n/navigation";
 import { getLoginConfig } from "@/lib/auth/config";
 import { safeNextPath, withNext } from "@/lib/auth/next-path";
+import { isPostFormPath } from "@/lib/auth/phone-check-policy";
+import { issuePostPhoneStepToken } from "@/lib/auth/phone-check-token";
 import { getCurrentUser } from "@/lib/auth/session";
 
 type Props = {
@@ -58,7 +60,14 @@ export default async function VerifyPhonePage({ params, searchParams }: Props) {
           </span>
         }
       >
-        <VerifyPhonePanel config={(await getLoginConfig(locale)).phone} next={next} verifiedPhone={verifiedPhone} />
+        <VerifyPhonePanel
+          config={(await getLoginConfig(locale)).phone}
+          next={next}
+          verifiedPhone={verifiedPhone}
+          // The post form's phone step: the server sends a text to an account without a listing
+          // only with this signed, 2-hour token (SECURITY_REPORT 3.2.f).
+          postStepToken={hasNext && isPostFormPath(next) ? issuePostPhoneStepToken(user.id) : null}
+        />
       </AuthShell>
     </>
   );

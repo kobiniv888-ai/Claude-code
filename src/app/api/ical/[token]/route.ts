@@ -21,7 +21,10 @@ import { rateLimitByIp, rateLimitHeaders } from "@/lib/rate-limit";
  * SECURITY_REPORT 4.5.b — a block left out would let another site sell those nights).
  *
  * A host can replace the link (SECURITY_REPORT 4.7.b, replaceCalendarLinkAction): the old token
- * then matches nothing and answers 404 like any unknown one.
+ * then matches nothing and answers 404 like any unknown one. Never cached by a CDN or proxy
+ * (11.b: no shared cache keyed by the secret token): the feed is "private, max-age=300" (the
+ * calendar app may keep it 5 minutes; Airbnb and Booking.com poll hourly anyway, and the per-IP
+ * limit protects the database), and a 404 is "no-store", so a replaced link stops at once.
  */
 
 export const runtime = "nodejs";
@@ -38,7 +41,7 @@ type Context = { params: Promise<{ token: string }> };
 function notFound(): Response {
   return new Response("Not found\n", {
     status: 404,
-    headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=300" },
+    headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
   });
 }
 
@@ -91,7 +94,7 @@ export async function GET(_request: Request, context: Context) {
       headers: {
         "Content-Type": "text/calendar; charset=utf-8",
         "Content-Disposition": `inline; filename="listing-${listing.publicId}${room ? `-room-${room.id.slice(-6)}` : ""}.ics"`,
-        "Cache-Control": "public, max-age=900, s-maxage=900",
+        "Cache-Control": "private, max-age=300",
         "X-Content-Type-Options": "nosniff",
         "X-Robots-Tag": "noindex",
       },

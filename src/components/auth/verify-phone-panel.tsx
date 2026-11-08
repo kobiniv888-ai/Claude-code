@@ -6,12 +6,8 @@ import { BadgeCheckIcon, EyeOffIcon, MessageCircleIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "@/i18n/navigation";
 import type { LoginConfig } from "@/lib/auth/config";
+import { isPostFormPath } from "@/lib/auth/phone-check-policy";
 import { PhoneCheck } from "./phone-check";
-
-/** Sent here by the post form ("/post", "/post/<id>…", or a listing's edit page)? */
-function fromPostForm(next: string): boolean {
-  return /^\/(post|account\/listings\/[^/?#]+\/edit)(?:[/?#]|$)/.test(next);
-}
 
 /**
  * /verify-phone: a host verifies a phone number before posting (once per number). The server
@@ -21,9 +17,12 @@ export function VerifyPhonePanel({
   config,
   next,
   verifiedPhone,
+  postStepToken,
 }: {
   config: LoginConfig["phone"];
   next: string;
+  /** From the post form: the signed phone-step token the server asks for before the first draft (3.2.f). */
+  postStepToken?: string | null;
   /** The account's verified number, if it already has one. */
   verifiedPhone: string | null;
 }) {
@@ -57,7 +56,8 @@ export function VerifyPhonePanel({
       )}
       <PhoneCheck
         config={config}
-        place={fromPostForm(next) ? "post" : "account"}
+        place={isPostFormPath(next) ? "post" : "account"}
+        postStepToken={postStepToken}
         verifiedPhone={verifiedPhone}
         onVerified={(phoneNumber) => {
           setVerified(phoneNumber);

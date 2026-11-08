@@ -1,21 +1,23 @@
 import "server-only";
 import { betterAuth, type BetterAuthOptions } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
+import { APIError, createAuthMiddleware, getSessionFromCtx, isAPIError } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
 import { emailOTP } from "better-auth/plugins/email-otp";
 import { phoneNumber } from "better-auth/plugins/phone-number";
 import { siteConfig } from "@/config/site";
 import { db } from "@/lib/db";
-import { accountBlock } from "./account-status";
-import { demoAllowed, readSiteEnv, testModeOn } from "@/lib/site-env";
+import { sessionCreateBlock } from "./account-status";
+import { readSiteEnv, testModeOn } from "@/lib/site-env";
+import { recordSecurityEvent } from "@/lib/security/events";
+import { authIpAddressHeaders, betterAuthRateLimitStorage } from "./auth-rate-limit";
 import { codeDisplayForHeaders } from "./code-display";
 import { authProviders } from "./config";
 import { extraTrustedOrigins } from "./dev-origins";
 import { LOGIN_CODE_MAX_ATTEMPTS, LOGIN_CODE_TTL_SECONDS, type CodeSendDecision } from "./code-rules";
-import { checkLoginEmail, hashEmailCode, sendLoginEmailCode } from "./email-code";
+import { checkLoginEmail, exactLoginEmail, hashEmailCode, sendLoginEmailCode } from "./email-code";
 import { AUTH_HOOK_ERRORS } from "./error-codes";
-import { hasFreshProof } from "./fresh-proof";
+import { consumeFreshProof, hasFreshProof } from "./fresh-proof";
 import { afterSignIn, linkDevice, sendWelcomeEmail } from "./hooks";
 import { notifySecurityChange } from "./security-notices";
 import { authCookieOptions, secureCookiesFor } from "./session-cookies";
@@ -25,15 +27,19 @@ import {
   limitEmailCodeRequests,
   limitLoginCodeChecks,
   limitLoginCodeRequests,
+  refundCodeSend,
+  refundConfirmedCodeSend,
+  rememberCodeDevice,
 } from "./login-rate-limit";
 import { checkLoginPhoneNumber, placeholderEmailForPhone } from "./phone";
 import { checkPhoneCode, hashPhoneCodeRow } from "./phone-code";
-import { getDeviceHash, getIpHash } from "@/lib/request";
+import { getIpLimitHash } from "@/lib/rate-limit";
+import { getDeviceHash } from "@/lib/request";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { localeFromRequest } from "./request-locale";
 import { isTwoFactorPending, needsTwoFactorSession } from "./two-factor-gate";
 import { SmsUnavailableError, emailCodeRoute, phoneCodeRoute, sendLoginCode } from "./sms";
-import { isSmsCountryPaused, recordSmsCodeVerified } from "./sms-guard";
+import { recordSmsCodeVerified, smsBudgetAvailable, smsPausedFor, smsSourceForThisCall } from "./sms-guard";
 
 /**
  * Better Auth — password-free login (redesign round 2, founder request):
@@ -73,7 +79,11 @@ function hookError(status: HookErrorStatus, code: string, message: string) {
   return new APIError(status, { code, message });
 }
 
-/** Better Auth endpoints that send a code: a Turnstile token is required over HTTP. */
+/**
+ * Better Auth endpoints that send a code: a Turnstile token is required over HTTP. Google/Apple
+ * sign-up has no Turnstile of ours: it relies on the provider's own bot checks (a bot needs a real
+ * Google or Apple account), SECURITY_REPORT 3.8.a.
+ */
 const CODE_SEND_PATHS = new Set(["/phone-number/send-otp", "/email-otp/send-verification-otp"]);
 
 /**
@@ -95,10 +105,35 @@ function codeLimitError(decision: Extract<CodeSendDecision, { ok: false }>) {
   );
 }
 
-/** The visitor's hashed IP and device id for the code caps (null when they cannot be read). */
+/** The visitor's hashed IP (an IPv6 address by its /64) and device id for the code caps (null when unreadable). */
 async function requestKeys() {
-  const [ipHash, deviceHash] = await Promise.all([getIpHash().catch(() => null), getDeviceHash().catch(() => null)]);
+  const [ipHash, deviceHash] = await Promise.all([getIpLimitHash(), getDeviceHash().catch(() => null)]);
   return { ipHash, deviceHash };
+}
+
+/** Better Auth endpoints that check a login code (the security event log records refusals). */
+const LOGIN_CODE_PATHS = new Set(["/sign-in/email-otp", "/phone-number/verify"]);
+
+/**
+ * A refused login code: `login_failed` (channel and the error code, never the address). An email
+ * code that has just used up its 5 tries is also `login_code_locked` (the plugin answers
+ * INVALID_OTP to the 5th wrong try and stores 5 attempts; phone codes record their own lock in
+ * ./phone-code.ts).
+ */
+async function recordLoginCodeFailure(path: string, code: unknown, rawEmail: unknown): Promise<void> {
+  const channel = path === "/sign-in/email-otp" ? "email" : "sms";
+  const reason = typeof code === "string" && /^[A-Z_]{2,40}$/.test(code) ? code : "UNKNOWN";
+  await recordSecurityEvent({ type: "login_failed", meta: { channel, reason } });
+  if (channel !== "email" || reason !== "INVALID_OTP") return;
+  const email = checkLoginEmail(rawEmail);
+  if (!email) return;
+  const row = await db.verification
+    .findFirst({ where: { identifier: `sign-in-otp-${email}` }, orderBy: { createdAt: "desc" }, select: { value: true } })
+    .catch(() => null);
+  const attempts = Number.parseInt(row?.value.split(":").pop() ?? "", 10);
+  if (Number.isFinite(attempts) && attempts >= OTP_ALLOWED_ATTEMPTS) {
+    await recordSecurityEvent({ type: "login_code_locked", meta: { channel: "email" } });
+  }
 }
 
 // Google / Apple: redirect flow only (no ID-token sign-in), verified emails only, no automatic
@@ -177,13 +212,19 @@ export const auth = betterAuth({
   },
 
   // "__Host-bayit.*" cookies wherever they are Secure (SECURITY_REPORT 3.5.a, ./session-cookies.ts).
-  advanced: authCookieOptions(secureCookiesFor(process.env)),
+  advanced: {
+    ...authCookieOptions(secureCookiesFor(process.env)),
+    // The client IP for the limiter and session rows: the same headers as src/lib/request.ts.
+    ipAddress: { ipAddressHeaders: authIpAddressHeaders(process.env) },
+  },
 
   rateLimit: {
     // The browser reads the session on every page view. With the default limit (100 per 10 s per
     // IP and path) visitors sharing one carrier/office IP would start getting 429s. It only reads
     // the caller's own cookie; sign-in and login codes keep their own limits.
     customRules: { "/get-session": false },
+    // In our Postgres table, shared by every server instance and failing closed (12.5.b).
+    customStorage: betterAuthRateLimitStorage,
   },
 
   hooks: {
@@ -211,14 +252,18 @@ export const auth = betterAuth({
               ? hookError("BAD_REQUEST", AUTH_HOOK_ERRORS.NOT_MOBILE_NUMBER, "SMS codes go to mobile numbers only")
               : hookError("BAD_REQUEST", "INVALID_PHONE_NUMBER", "Invalid phone number");
         }
-        if (!(await limitLoginCodeRequests(check.e164))) {
+        // Resend waits, hourly and daily caps for codes that really go out by SMS (counted only when
+        // sent). A code shown on screen in test mode (development / staging only) sends nothing and
+        // costs nothing: only the hourly request limits apply to it.
+        const route = await phoneCodeRoute(check.e164, ctx.headers);
+        if (!(await limitLoginCodeRequests(check.e164, { perTarget: route !== "sms" }))) {
           throw hookError("TOO_MANY_REQUESTS", AUTH_HOOK_ERRORS.RATE_LIMITED, "Too many codes requested");
         }
-        // Resend waits and daily caps for codes that really go out by SMS. A code shown on screen in
-        // test mode (development / staging only) sends nothing and costs nothing: not counted.
-        const route = await phoneCodeRoute(check.e164, ctx.headers);
         if (route === "sms") {
-          if (await isSmsCountryPaused(check.country)) {
+          // A paused country, or no budget left for this source: refused BEFORE anything is
+          // counted (a retry costs the person nothing). Trusted sources go through a pause.
+          const source = await smsSourceForThisCall();
+          if ((await smsPausedFor(check.country, source)) || !(await smsBudgetAvailable(source.trusted))) {
             throw hookError("SERVICE_UNAVAILABLE", AUTH_HOOK_ERRORS.SMS_PAUSED, "SMS codes are paused right now");
           }
           const decision = await limitCodeSend({ channel: "phone", target: check.e164, ...(await requestKeys()) });
@@ -234,23 +279,25 @@ export const auth = betterAuth({
         if (ctx.body?.type !== "sign-in") {
           throw hookError("BAD_REQUEST", "INVALID_OTP_TYPE", "Email codes are for signing in only");
         }
-        const email = checkLoginEmail(ctx.body?.email);
+        // Exactly what the plugin accepts (no spaces around it, a valid address), BEFORE anything is
+        // charged: a padded address the plugin then refuses must not use up someone's limits.
+        const email = exactLoginEmail(ctx.body?.email);
         if (!email) throw hookError("BAD_REQUEST", AUTH_HOOK_ERRORS.INVALID_EMAIL, "Invalid email address");
         if (emailCodeRoute(ctx.headers) === "unavailable") {
           throw hookError("SERVICE_UNAVAILABLE", AUTH_HOOK_ERRORS.EMAIL_UNAVAILABLE, "Email codes are not set up");
         }
-        if (!(await limitEmailCodeRequests(email))) {
+        if (!(await limitEmailCodeRequests(email, { perTarget: emailCodeRoute(ctx.headers) !== "email" }))) {
           throw hookError("TOO_MANY_REQUESTS", AUTH_HOOK_ERRORS.RATE_LIMITED, "Too many codes requested");
         }
-        // Resend waits and daily caps per address (and IP, device) for codes that really go out by
-        // email. The same answer whether or not an account exists (SECURITY_REPORT 3.1.d).
+        // Resend waits, hourly and daily caps per inbox (and IP, device) for codes that really go out
+        // by email, counted only when sent. The same answer whether or not an account exists (3.1.d).
         if (emailCodeRoute(ctx.headers) === "email") {
           const decision = await limitCodeSend({ channel: "email", target: email, ...(await requestKeys()) });
           if (!decision.ok) throw codeLimitError(decision);
         }
       }
       if (ctx.path === "/sign-in/email-otp") {
-        if (!checkLoginEmail(ctx.body?.email)) {
+        if (!exactLoginEmail(ctx.body?.email)) {
           throw hookError("BAD_REQUEST", AUTH_HOOK_ERRORS.INVALID_EMAIL, "Invalid email address");
         }
         // The name comes from the first-name step, the photo from the settings: not from here.
@@ -264,6 +311,9 @@ export const auth = betterAuth({
         if (!session || !(await hasFreshProof(session.session.id))) {
           throw hookError("FORBIDDEN", "FRESH_PROOF_REQUIRED", "Confirm it's you with a fresh code first");
         }
+        // One code, one change: the proof is spent when the link starts (a failed round trip to
+        // Google needs a new code).
+        await consumeFreshProof(session.session.id);
       }
       // The phone number changes only through our own phone check (a fresh code, a notice and the
       // other sessions ended: ./phone-check-actions.ts), never through the library's endpoint.
@@ -283,6 +333,23 @@ export const auth = betterAuth({
           }
         }
       }
+    }),
+    // Refused login codes in the security event log (SECURITY_REPORT 16.2, 3.1.b): never blocks.
+    after: createAuthMiddleware(async (ctx) => {
+      if (!LOGIN_CODE_PATHS.has(ctx.path)) return;
+      const returned = ctx.context.returned;
+      if (!isAPIError(returned)) {
+        // A code that went out by email was entered: its IP and device share comes back, and this
+        // device gets its own allowance for the address next time (3.1.c/f).
+        if (ctx.path === "/sign-in/email-otp" && emailCodeRoute(ctx.headers) === "email") {
+          const keys = await requestKeys();
+          await refundConfirmedCodeSend(keys);
+          const email = checkLoginEmail(ctx.body?.email);
+          if (email) await rememberCodeDevice({ channel: "email", target: email, deviceHash: keys.deviceHash });
+        }
+        return;
+      }
+      await recordLoginCodeFailure(ctx.path, (returned.body as { code?: unknown } | undefined)?.code, ctx.body?.email);
     }),
   },
 
@@ -331,11 +398,12 @@ export const auth = betterAuth({
             where: { id: session.userId },
             select: { status: true, suspendedUntil: true, isDemo: true },
           });
-          // Demo accounts never sign in on the real site (SECURITY_REPORT 3.4.c, decision 1).
-          if (user?.isDemo && !demoAllowed()) {
+          // Demo accounts never sign in on the real site (SECURITY_REPORT 3.4.c, decision 1); no
+          // session for a blocked or missing account (./account-status.ts sessionCreateBlock).
+          const block = sessionCreateBlock(user, process.env);
+          if (block === "demo_disabled") {
             throw hookError("FORBIDDEN", AUTH_HOOK_ERRORS.DEMO_ACCOUNT_DISABLED, "Demo accounts cannot sign in here");
           }
-          const block = user ? accountBlock(user) : "deleted";
           if (block === "suspended") {
             throw hookError("FORBIDDEN", AUTH_HOOK_ERRORS.ACCOUNT_SUSPENDED, "This account is suspended");
           }
@@ -381,20 +449,25 @@ export const auth = betterAuth({
       allowedAttempts: OTP_ALLOWED_ATTEMPTS,
       phoneNumberValidator: (value) => checkLoginPhoneNumber(value).ok,
       sendOTP: async ({ phoneNumber: to, code }, ctx) => {
+        const route = await phoneCodeRoute(to, ctx?.headers);
         try {
           await sendLoginCode({
             phoneNumber: to,
             code,
             ttlSeconds: OTP_EXPIRES_IN_SECONDS,
             locale: ctx?.getCookie("NEXT_LOCALE"),
-            route: await phoneCodeRoute(to, ctx?.headers),
+            route,
           });
         } catch (error) {
           if (error instanceof SmsUnavailableError) {
             console.error("[auth] could not send a phone code:", error.message);
+            // No text went out: the waits and caps the send hook counted are given back (3.1.c).
+            if (route === "sms") await refundCodeSend({ channel: "phone", target: to, ...(await requestKeys()) });
             throw error.reason === "paused"
               ? hookError("SERVICE_UNAVAILABLE", AUTH_HOOK_ERRORS.SMS_PAUSED, "SMS codes are paused right now")
-              : hookError("SERVICE_UNAVAILABLE", AUTH_HOOK_ERRORS.SMS_UNAVAILABLE, "Could not send the code");
+              : error.reason === "limited"
+                ? hookError("TOO_MANY_REQUESTS", AUTH_HOOK_ERRORS.RATE_LIMITED, "Too many codes requested")
+                : hookError("SERVICE_UNAVAILABLE", AUTH_HOOK_ERRORS.SMS_UNAVAILABLE, "Could not send the code");
           }
           throw error;
         }
@@ -407,8 +480,14 @@ export const auth = betterAuth({
         const number = checkLoginPhoneNumber(to);
         const country = number.ok ? number.country : null;
         const right = await checkPhoneCode(adapter, to, code, { country });
-        // Confirmed ÷ sent per country (./sms-guard.ts) counts codes that went out by SMS only.
-        if (right && country && (await phoneCodeRoute(to, ctx?.headers)) === "sms") await recordSmsCodeVerified(country);
+        // Confirmed ÷ sent per country (./sms-guard.ts) counts codes that went out by SMS only; the
+        // source's brake is released and its IP and device share comes back.
+        if (right && country && (await phoneCodeRoute(to, ctx?.headers)) === "sms") {
+          await recordSmsCodeVerified(country, await smsSourceForThisCall());
+          const keys = await requestKeys();
+          await refundConfirmedCodeSend(keys);
+          await rememberCodeDevice({ channel: "phone", target: to, deviceHash: keys.deviceHash });
+        }
         return right;
       },
       signUpOnVerification: {

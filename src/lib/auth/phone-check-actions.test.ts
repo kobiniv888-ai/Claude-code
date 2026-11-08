@@ -8,14 +8,23 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
   limitsOk: true,
+  newHostOk: true,
   captchaOk: true,
   otherAccount: true as boolean,
   findFirst: vi.fn(),
   send: vi.fn(),
+  consume: vi.fn(),
+  update: vi.fn(),
   limit: vi.fn(),
+  newHostLimit: vi.fn(),
+  freshProof: vi.fn(),
+  replacement: false,
   bookable: true as boolean,
   listingOwner: "host-1",
   listings: 0,
+  user: { id: "me", sessionId: "session-me", phoneNumber: "+995555000099", phoneNumberVerified: true } as Record<string, unknown>,
+  /** Verification rows by identifier (the session bindings). */
+  verifications: new Map<string, { value: string; expiresAt: Date; createdAt: Date }>(),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -23,10 +32,26 @@ vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 vi.mock("@/lib/monitoring", () => ({ reportError: async () => {} }));
 vi.mock("@/lib/db", () => ({
   db: {
+    $transaction: async (ops: Promise<unknown>[]) => Promise.all(ops),
+    verification: {
+      deleteMany: async ({ where }: { where: { identifier: string } }) => {
+        state.verifications.delete(where.identifier);
+        return { count: 1 };
+      },
+      create: async ({ data }: { data: { identifier: string; value: string; expiresAt: Date } }) => {
+        state.verifications.set(data.identifier, { value: data.value, expiresAt: data.expiresAt, createdAt: new Date() });
+        return data;
+      },
+      findFirst: async ({ where }: { where: { identifier: string } }) => state.verifications.get(where.identifier) ?? null,
+    },
     user: {
       findFirst: (...args: unknown[]) => {
         state.findFirst(...args);
         return Promise.resolve(state.otherAccount ? { id: "someone-else" } : null);
+      },
+      update: async (...args: unknown[]) => {
+        state.update(...args);
+        return {};
       },
     },
     listing: {
@@ -35,8 +60,17 @@ vi.mock("@/lib/db", () => ({
     },
   },
 }));
-vi.mock("./fresh-proof", () => ({ requireFreshProof: async () => {} }));
-vi.mock("./fresh-proof-rules", () => ({ isPhoneReplacement: () => false }));
+vi.mock("./fresh-proof", async () => {
+  const { FreshProofRequiredError } = await vi.importActual<typeof import("./fresh-proof")>("./fresh-proof");
+  return {
+    FreshProofRequiredError,
+    requireFreshProof: async (user: unknown) => {
+      state.freshProof(user);
+      throw new FreshProofRequiredError();
+    },
+  };
+});
+vi.mock("./fresh-proof-rules", () => ({ isPhoneReplacement: () => state.replacement }));
 vi.mock("./phone-change", () => ({ afterPhoneChanged: async () => {} }));
 vi.mock("@/lib/turnstile", () => ({ verifyTurnstile: async () => state.captchaOk }));
 vi.mock("./login-rate-limit", () => ({
@@ -45,9 +79,13 @@ vi.mock("./login-rate-limit", () => ({
     state.limit(userId);
     return state.limitsOk;
   },
+  limitNewHostPhoneChecks: async (userId: string) => {
+    state.newHostLimit(userId);
+    return state.newHostOk;
+  },
 }));
 vi.mock("./session", () => ({
-  requireUserForAction: async () => ({ id: "me", phoneNumber: "+995555000099", phoneNumberVerified: true }),
+  requireUserForAction: async () => state.user,
 }));
 vi.mock("./server", () => ({
   auth: {
@@ -55,6 +93,10 @@ vi.mock("./server", () => ({
       sendPhoneNumberOTP: (...args: unknown[]) => {
         state.send(...args);
         return Promise.resolve({});
+      },
+      consumePhoneNumberOTP: (...args: unknown[]) => {
+        state.consume(...args);
+        return Promise.resolve({ status: true });
       },
     },
   },
@@ -66,8 +108,14 @@ vi.mock("./sms", () => ({
   forgetScreenCode: () => {},
 }));
 vi.mock("./code-display", () => ({ codeDisplayForHeaders: () => "screen" }));
+vi.mock("./sms-guard", () => ({
+  requestSmsSource: async (userId: string) => ({ userId, ipBlock: null, trusted: false }),
+  withSmsSource: (_source: unknown, fn: () => Promise<unknown>) => fn(),
+}));
 
-const { sendPhoneCheckCode } = await import("./phone-check-actions");
+const { sendPhoneCheckCode, confirmPhoneCheckCode } = await import("./phone-check-actions");
+const { issuePostPhoneStepToken } = await import("./phone-check-token");
+const { phoneCheckBindingKey } = await import("./phone-check-policy");
 
 const NUMBER = "+995555000123";
 const BOOKING = { place: "booking", listingId: "listing-1" } as const;
@@ -83,6 +131,10 @@ describe("sendPhoneCheckCode", () => {
     state.bookable = true;
     state.listingOwner = "host-1";
     state.listings = 0;
+    state.newHostOk = true;
+    state.newHostLimit.mockClear();
+    state.verifications.clear();
+    state.user = { id: "me", sessionId: "session-me", phoneNumber: "+995555000099", phoneNumberVerified: true };
   });
 
   it("does not say whether a number has an account when the CAPTCHA fails", async () => {
@@ -142,13 +194,37 @@ describe("sendPhoneCheckCode", () => {
     expect(state.send).not.toHaveBeenCalled();
   });
 
-  it("the account page sends codes to hosts only; the post form to anyone signed in", async () => {
+  it("the account page sends codes to hosts only", async () => {
     state.otherAccount = false;
     expect(await sendPhoneCheckCode({ phoneNumber: NUMBER, place: "account" })).toEqual({ ok: false, error: "phone_check_not_here" });
     state.listings = 1;
     expect(await sendPhoneCheckCode({ phoneNumber: NUMBER, place: "account" })).toMatchObject({ ok: true, data: { status: "sent" } });
-    state.listings = 0;
+    expect(state.send).toHaveBeenCalledTimes(1);
+  });
+
+  it("the post form: only an account really starting a listing (a draft, or the signed phone-step token) — 3.2.f", async () => {
+    state.otherAccount = false;
+    // Any signed-in account calling the action directly: no SMS.
+    expect(await sendPhoneCheckCode({ phoneNumber: NUMBER, place: "post" })).toEqual({ ok: false, error: "phone_check_not_here" });
+    expect(await sendPhoneCheckCode({ phoneNumber: NUMBER, place: "post", postStepToken: "123.abc" })).toEqual({ ok: false, error: "phone_check_not_here" });
+    // Another account's token, or an old one, does not count.
+    expect(await sendPhoneCheckCode({ phoneNumber: NUMBER, place: "post", postStepToken: issuePostPhoneStepToken("someone-else") })).toEqual({ ok: false, error: "phone_check_not_here" });
+    expect(await sendPhoneCheckCode({ phoneNumber: NUMBER, place: "post", postStepToken: issuePostPhoneStepToken("me", Date.now() - 3 * 60 * 60 * 1000) })).toEqual({ ok: false, error: "phone_check_not_here" });
+    expect(state.send).not.toHaveBeenCalled();
+    expect(state.limit).not.toHaveBeenCalled();
+
+    // The post form's phone step (no draft yet): sent, within the tight new-host limit.
+    expect(await sendPhoneCheckCode({ phoneNumber: NUMBER, place: "post", postStepToken: issuePostPhoneStepToken("me") })).toMatchObject({ ok: true, data: { status: "sent" } });
+    expect(state.newHostLimit).toHaveBeenCalledWith("me");
+    state.newHostOk = false;
+    expect(await sendPhoneCheckCode({ phoneNumber: NUMBER, place: "post", postStepToken: issuePostPhoneStepToken("me") })).toEqual({ ok: false, error: "rate_limited" });
+    expect(state.send).toHaveBeenCalledTimes(1);
+
+    // A host with a draft: no token needed, and not the new-host limit.
+    state.newHostLimit.mockClear();
+    state.listings = 1;
     expect(await sendPhoneCheckCode({ phoneNumber: NUMBER, place: "post" })).toMatchObject({ ok: true, data: { status: "sent" } });
+    expect(state.newHostLimit).not.toHaveBeenCalled();
     expect(state.send).toHaveBeenCalledTimes(2);
   });
 
@@ -157,5 +233,72 @@ describe("sendPhoneCheckCode", () => {
     expect(await sendPhoneCheckCode({ phoneNumber: "+12015550123", ...BOOKING })).toEqual({ ok: false, error: "country_not_supported" });
     expect(await sendPhoneCheckCode({ phoneNumber: "+995322123456", ...BOOKING })).toEqual({ ok: false, error: "not_mobile" });
     expect(state.send).not.toHaveBeenCalled();
+  });
+});
+
+describe("confirmPhoneCheckCode: the code belongs to the session that asked for it (3.6.a, 3.5.e)", () => {
+  const OTHER = "+995555000124";
+  beforeEach(() => {
+    state.otherAccount = false;
+    state.replacement = false;
+    state.consume.mockClear();
+    state.update.mockClear();
+    state.freshProof.mockClear();
+    state.send.mockClear();
+    state.verifications.clear();
+    state.listings = 1;
+    state.user = { id: "me", sessionId: "session-me", phoneNumber: null, phoneNumberVerified: false };
+  });
+
+  it("a send writes this session's binding; the confirm then uses up the code and saves the number", async () => {
+    expect(await sendPhoneCheckCode({ phoneNumber: OTHER, place: "account" })).toMatchObject({ ok: true });
+    expect(state.verifications.get(phoneCheckBindingKey("session-me", OTHER))?.value).toBe("first:me");
+    expect(await confirmPhoneCheckCode({ phoneNumber: OTHER, code: "123456" })).toEqual({ ok: true, data: { phoneNumber: OTHER } });
+    expect(state.consume).toHaveBeenCalledTimes(1);
+    expect(state.update).toHaveBeenCalledTimes(1);
+    expect(state.verifications.has(phoneCheckBindingKey("session-me", OTHER))).toBe(false);
+  });
+
+  it("no binding for this session: refused before the code is touched (another session's code, or griefing)", async () => {
+    expect(await confirmPhoneCheckCode({ phoneNumber: OTHER, code: "123456" })).toEqual({ ok: false, error: "code_expired" });
+    expect(state.consume).not.toHaveBeenCalled();
+    expect(state.update).not.toHaveBeenCalled();
+  });
+
+  it("a binding made in session A does not work in session V, even for the same account", async () => {
+    await sendPhoneCheckCode({ phoneNumber: OTHER, place: "account" });
+    state.user = { id: "me", sessionId: "session-other", phoneNumber: null, phoneNumberVerified: false };
+    expect(await confirmPhoneCheckCode({ phoneNumber: OTHER, code: "123456" })).toEqual({ ok: false, error: "code_expired" });
+    expect(state.consume).not.toHaveBeenCalled();
+  });
+
+  it("another account's binding row (same session id) is refused", async () => {
+    state.verifications.set(phoneCheckBindingKey("session-me", OTHER), { value: "replace:someone-else", expiresAt: new Date(Date.now() + 60_000), createdAt: new Date() });
+    expect(await confirmPhoneCheckCode({ phoneNumber: OTHER, code: "123456" })).toEqual({ ok: false, error: "code_expired" });
+    expect(state.consume).not.toHaveBeenCalled();
+  });
+
+  it("an expired binding is refused", async () => {
+    state.verifications.set(phoneCheckBindingKey("session-me", OTHER), { value: "first:me", expiresAt: new Date(Date.now() - 1000), createdAt: new Date() });
+    expect(await confirmPhoneCheckCode({ phoneNumber: OTHER, code: "123456" })).toEqual({ ok: false, error: "code_expired" });
+    expect(state.consume).not.toHaveBeenCalled();
+  });
+
+  it("a replacement whose binding is 'first' (the number became verified after the send) asks for a fresh proof", async () => {
+    await sendPhoneCheckCode({ phoneNumber: OTHER, place: "account" });
+    state.replacement = true;
+    state.user = { id: "me", sessionId: "session-me", phoneNumber: "+995555000099", phoneNumberVerified: true };
+    expect(await confirmPhoneCheckCode({ phoneNumber: OTHER, code: "123456" })).toEqual({ ok: false, error: "fresh_proof_required" });
+    expect(state.freshProof).toHaveBeenCalledTimes(1);
+    expect(state.consume).not.toHaveBeenCalled();
+    expect(state.update).not.toHaveBeenCalled();
+  });
+
+  it("a replacement bound as 'replace' (fresh proof at send time) goes through without asking again", async () => {
+    state.verifications.set(phoneCheckBindingKey("session-me", OTHER), { value: "replace:me", expiresAt: new Date(Date.now() + 60_000), createdAt: new Date() });
+    state.replacement = true;
+    state.user = { id: "me", sessionId: "session-me", phoneNumber: "+995555000099", phoneNumberVerified: true };
+    expect(await confirmPhoneCheckCode({ phoneNumber: OTHER, code: "123456" })).toEqual({ ok: true, data: { phoneNumber: OTHER } });
+    expect(state.freshProof).not.toHaveBeenCalled();
   });
 });

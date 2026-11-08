@@ -11,7 +11,7 @@
  */
 import { z } from "zod";
 import { COUNTRIES, isInCountry } from "@/config/countries";
-import { allowListedHttpsUrl, CALENDAR_IMPORT_DOMAINS, isTourUrl } from "@/config/external-hosts";
+import { allowListedHttpsUrl, CALENDAR_IMPORT_DOMAINS, canonicalCalendarImportUrl, isTourUrl } from "@/config/external-hosts";
 import { isValidPhone as isValidPhoneNumber, normalizePhone } from "@/lib/phone";
 import { locales, siteConfig, type AppLocale, type CurrencyCode } from "@/config/site";
 import type {
@@ -436,7 +436,8 @@ export const priceStepSchema = z.object({
   weeklyDiscountPct: int(0, LIMITS.discountMax),
   monthlyDiscountPct: int(0, LIMITS.discountMax),
   icalImportUrls: z
-    .array(z.string().trim().max(LIMITS.urlMax, "tooLong").superRefine(allowListRefine(isCalendarImportUrl, "calendarHost")))
+    // Airbnb's other country sites are stored as www.airbnb.com (canonicalCalendarImportUrl).
+    .array(z.string().trim().max(LIMITS.urlMax, "tooLong").transform(canonicalCalendarImportUrl).superRefine(allowListRefine(isCalendarImportUrl, "calendarHost")))
     .max(LIMITS.maxIcalImports, "tooMany")
     .transform((list) => [...new Set(list.filter(Boolean))]),
 });

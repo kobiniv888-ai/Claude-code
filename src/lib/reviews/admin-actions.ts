@@ -59,7 +59,7 @@ export async function hideReviewAction(input: unknown): Promise<ActionResult<{ h
     });
     after(() => notifyReviewVisibility(reviewId, "hidden"));
     return ok({ hidden: true });
-  });
+  }, { freshProof: "window" });
 }
 
 export async function showReviewAction(input: unknown): Promise<ActionResult<{ hidden: boolean }>> {

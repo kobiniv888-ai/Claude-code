@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { FRAMEWORK_FLOORS } from "../../scripts/security-check-lib.mjs";
 
 /**
  * Version floor for the framework (SECURITY_REPORT 2.1.a): the installed Next.js and React must
@@ -8,12 +9,8 @@ import { describe, expect, it } from "vitest";
  * fails here before it can ship. Raise the floors after every security upgrade.
  */
 
-const FLOORS: Record<string, string> = {
-  next: "16.4.5",
-  "eslint-config-next": "16.4.5",
-  react: "19.3.1",
-  "react-dom": "19.3.1",
-};
+// The same floors as `npm run security:check` (scripts/security-check-lib.mjs, SECURITY_REPORT 2.1.b).
+const FLOORS: Record<string, string> = FRAMEWORK_FLOORS;
 
 const ROOT = path.resolve(__dirname, "../..");
 const installed = (name: string) =>

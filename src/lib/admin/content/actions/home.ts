@@ -151,7 +151,7 @@ export async function removeFeaturedListing(input: unknown): Promise<ActionResul
       details: { publicId: listing?.publicId ?? null },
     });
     return ok();
-  });
+  }, { freshProof: "window" });
 }
 
 /** Removes featured listings whose date has passed or that are no longer LIVE. */
@@ -184,5 +184,5 @@ export async function removeEndedFeatured(): Promise<ActionResult<{ removed: num
       details: { count: ended.size },
     });
     return ok({ removed: ended.size });
-  });
+  }, { freshProof: "window" });
 }

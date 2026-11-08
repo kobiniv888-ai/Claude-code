@@ -36,7 +36,15 @@ export const CODE_SEND_DAILY_CAPS = {
   phoneRange: 10,
 } as const;
 
-export type CodeSendScope = keyof typeof CODE_SEND_DAILY_CAPS;
+/**
+ * Codes per phone number or email address per HOUR (the window starts at the first code). Counted
+ * only when a code is really sent (in the same transaction as the waits), so refused requests never
+ * use up someone else's allowance (SECURITY_REPORT 3.1.c/f).
+ */
+export const CODE_SEND_HOURLY_CAP = 5;
+export const CODE_SEND_HOUR_SECONDS = 60 * 60;
+
+export type CodeSendScope = keyof typeof CODE_SEND_DAILY_CAPS | "hour" | "account";
 
 /** Seconds to wait after the `sent`-th code of the day before the next one (sent ≥ 1). */
 export function resendWaitSeconds(sent: number): number {
@@ -63,6 +71,10 @@ export type CodeSendState = {
   device: DayCounter | null;
   /** Phones only. */
   phoneRange?: DayCounter | null;
+  /** Codes to the target in the current hour (CODE_SEND_HOURLY_CAP). */
+  targetHour?: DayCounter | null;
+  /** An extra daily counter of the caller's (the account's emailed security codes) with its cap. */
+  account?: { counter: DayCounter | null; cap: number } | null;
 };
 
 export type CodeSendDecision =
@@ -108,11 +120,16 @@ export function decideCodeSend(
     ...(channel === "phone" ? [["phoneRange", state.phoneRange, CODE_SEND_DAILY_CAPS.phoneRange] as [CodeSendScope, DayCounter | null | undefined, number]] : []),
     ["device", state.device, CODE_SEND_DAILY_CAPS.device],
     ["ip", state.ip, CODE_SEND_DAILY_CAPS.ip],
+    ...(state.account ? [["account", state.account.counter, state.account.cap] as [CodeSendScope, DayCounter | null | undefined, number]] : []),
   ];
   for (const [scope, counter, cap] of checks) {
     if (counter && liveCount(counter, now) >= cap) {
       return { ok: false, reason: "daily_cap", scope, retryAfterSeconds: secondsUntil(counter.resetAt, now) };
     }
+  }
+  // The hour's allowance: a wait until the hour is over.
+  if (state.targetHour && liveCount(state.targetHour, now) >= CODE_SEND_HOURLY_CAP) {
+    return { ok: false, reason: "wait", scope: "hour", retryAfterSeconds: secondsUntil(state.targetHour.resetAt, now) };
   }
   const sent = liveCount(state.target, now) + 1;
   return { ok: true, nextSendInSeconds: resendWaitSeconds(sent), sendsLeftToday: Math.max(0, targetCap - sent) };

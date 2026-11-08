@@ -31,6 +31,67 @@ export const CALENDAR_IMPORT_DOMAINS = [
   "calendar.google.com",
 ] as const;
 
+/**
+ * Airbnb's other country sites. Airbnb shows the calendar export link on the site the host
+ * browses, and the same path works on www.airbnb.com, so a link on one of these is stored as
+ * https://www.airbnb.com/<same path and query> (canonicalCalendarImportUrl, on save). We never
+ * download from these hosts, so this list widens nothing: each entry is an exact domain (with its
+ * subdomains), never a pattern like "airbnb.*".
+ */
+export const AIRBNB_COUNTRY_DOMAINS = [
+  "airbnb.at",
+  "airbnb.be",
+  "airbnb.ch",
+  "airbnb.cl",
+  "airbnb.co.cr",
+  "airbnb.co.id",
+  "airbnb.co.in",
+  "airbnb.co.kr",
+  "airbnb.co.nz",
+  "airbnb.co.ve",
+  "airbnb.co.za",
+  "airbnb.com.ar",
+  "airbnb.com.bo",
+  "airbnb.com.br",
+  "airbnb.com.co",
+  "airbnb.com.ec",
+  "airbnb.com.gt",
+  "airbnb.com.hk",
+  "airbnb.com.mt",
+  "airbnb.com.my",
+  "airbnb.com.pe",
+  "airbnb.com.ph",
+  "airbnb.com.sg",
+  "airbnb.com.tr",
+  "airbnb.com.tw",
+  "airbnb.com.ua",
+  "airbnb.cz",
+  "airbnb.dk",
+  "airbnb.fi",
+  "airbnb.gr",
+  "airbnb.hu",
+  "airbnb.ie",
+  "airbnb.is",
+  "airbnb.jp",
+  "airbnb.lu",
+  "airbnb.mx",
+  "airbnb.no",
+  "airbnb.pt",
+  "airbnb.se",
+] as const;
+
+/**
+ * The form an import link is stored in: a link on one of Airbnb's other country sites
+ * (AIRBNB_COUNTRY_DOMAINS) becomes the same path and query on https://www.airbnb.com; anything
+ * else is returned trimmed and unchanged (the allow-list check still follows).
+ */
+export function canonicalCalendarImportUrl(value: string): string {
+  const raw = value.trim();
+  const url = allowListedHttpsUrl(raw, AIRBNB_COUNTRY_DOMAINS);
+  if (!url) return raw;
+  return `https://www.airbnb.com${url.pathname}${url.search}`;
+}
+
 /** Matterport, Kuula, Momento360 and Roundme. */
 export const TOUR_DOMAINS = ["matterport.com", "kuula.co", "momento360.com", "roundme.com"] as const;
 

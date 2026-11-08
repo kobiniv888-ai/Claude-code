@@ -24,6 +24,9 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock("server-only", () => ({}));
+// The fresh authenticator code of destructive staff actions (3.6.c) is granted here; its rule is
+// tested in tests/unit/endpoints/staff-fresh-proof-db.test.ts and endpoint-registry.test.ts.
+vi.mock("@/lib/admin/server/staff-proof", () => ({ requireFreshStaffProof: async () => {}, spendStaffProof: async () => {} }));
 vi.mock("next/server", async (importOriginal) => ({
   ...(await importOriginal<typeof import("next/server")>()),
   after: () => undefined,

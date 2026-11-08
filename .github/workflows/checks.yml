@@ -1,0 +1,94 @@
+# Supply-chain checks on every push and pull request, Dependabot's included (SECURITY_REPORT 2.3.d,
+# 2.3.g, 2.1.b): a new install script, a framework below the patched floor or a start-up rule that
+# stops working fails here before the pull request is merged. Make "supply-chain tests" a REQUIRED
+# check once main is protected (2.4.b, OWNER_TODO).
+# No third-party actions: the code is fetched with git, and Node.js comes from nodejs.org,
+# checked against its published SHA-256 list. `npm ci` runs no install scripts (.npmrc).
+name: Checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22.23.4"
+
+jobs:
+  supply-chain-tests:
+    name: supply-chain tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git init -q .
+          git config --local http.https://github.com/.extraheader \
+            "AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git fetch -q --no-tags --depth 1 origin "$GITHUB_SHA"
+          git checkout -q --detach "$GITHUB_SHA"
+          git config --local --unset-all http.https://github.com/.extraheader
+
+      - name: Install Node.js (checksum-verified)
+        run: |
+          cd "$RUNNER_TEMP"
+          file="node-v${NODE_VERSION}-linux-x64.tar.xz"
+          curl -fsSLO "https://nodejs.org/dist/v${NODE_VERSION}/${file}"
+          curl -fsSLO "https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt"
+          grep " ${file}\$" SHASUMS256.txt | sha256sum -c -
+          tar -xJf "$file"
+          echo "$RUNNER_TEMP/node-v${NODE_VERSION}-linux-x64/bin" >> "$GITHUB_PATH"
+
+      - name: Install the locked packages (no install scripts)
+        run: npm ci
+
+      - name: Install scripts, version floor, start-up rules, security-check rules
+        run: >-
+          npx vitest run
+          tests/unit/install-scripts.test.ts
+          tests/unit/framework-versions.test.ts
+          tests/unit/security-check.test.ts
+          src/lib/startup-check.test.ts
+
+  security-check:
+    name: security check (audit, floor, package age)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git init -q .
+          git config --local http.https://github.com/.extraheader \
+            "AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git fetch -q --no-tags --depth 1 origin "$GITHUB_SHA"
+          git checkout -q --detach "$GITHUB_SHA"
+          git config --local --unset-all http.https://github.com/.extraheader
+
+      - name: Install Node.js (checksum-verified)
+        run: |
+          cd "$RUNNER_TEMP"
+          file="node-v${NODE_VERSION}-linux-x64.tar.xz"
+          curl -fsSLO "https://nodejs.org/dist/v${NODE_VERSION}/${file}"
+          curl -fsSLO "https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt"
+          grep " ${file}\$" SHASUMS256.txt | sha256sum -c -
+          tar -xJf "$file"
+          echo "$RUNNER_TEMP/node-v${NODE_VERSION}-linux-x64/bin" >> "$GITHUB_PATH"
+
+      - name: Install the locked packages (no install scripts)
+        run: npm ci
+
+      - name: npm run security:check
+        run: npm run security:check

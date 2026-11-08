@@ -92,6 +92,26 @@ describe("codeDisplayMode — may login codes be shown on screen? (SITE_ENV, fou
   });
 });
 
+describe("codeDisplayMode — never for the real site's names (src/config/production-hosts.ts)", () => {
+  const REAL = ["bayit.example.com", "www.bayit.example.com"];
+  const STAGING = {
+    NODE_ENV: "production",
+    SITE_ENV: "staging",
+    AUTH_TEST_MODE: "true",
+    NEXT_PUBLIC_SITE_URL: "https://staging.bayit-test.example.com",
+    BETTER_AUTH_URL: "https://staging.bayit-test.example.com",
+  };
+
+  it("a staging label on the real domain shows no codes; the staging host itself still does", () => {
+    const onReal = { ...STAGING, NEXT_PUBLIC_SITE_URL: "https://bayit.example.com", BETTER_AUTH_URL: "https://bayit.example.com" };
+    expect(codeDisplayMode(onReal, ["bayit.example.com"], REAL)).toBeNull();
+    expect(codeDisplayMode(onReal, null, REAL)).toBeNull();
+    expect(codeDisplayMode(STAGING, ["staging.bayit-test.example.com"], REAL)).toBe("test");
+    // A forged Host naming the real domain on the staging site: no codes either.
+    expect(codeDisplayMode(STAGING, ["staging.bayit-test.example.com", "WWW.bayit.example.com:443"], REAL)).toBeNull();
+  });
+});
+
 describe("requestHostsOf", () => {
   it("reads Host and every X-Forwarded-Host entry", () => {
     const headers = new Headers({ host: "localhost:3000", "x-forwarded-host": `${codespace}, proxy.internal` });

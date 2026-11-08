@@ -102,8 +102,9 @@ export default async function UsersPage({ params, searchParams }: PageProps<"/[l
                 </div>
                 <AccountMarkers user={u} />
                 <p className="text-xs text-muted-foreground">
-                  {u.phoneNumber ? <Ltr>{u.phoneNumber}</Ltr> : null}
-                  {u.phoneNumber && realEmail(u.email) ? " · " : null}
+                  {/* The number for an ADMIN, the last 2 digits for other staff (Q12, (c)). */}
+                  {u.phoneNumber || u.phoneMasked ? <Ltr>{u.phoneNumber ?? u.phoneMasked}</Ltr> : null}
+                  {(u.phoneNumber || u.phoneMasked) && realEmail(u.email) ? " · " : null}
                   {realEmail(u.email) ? <Ltr className="break-all">{realEmail(u.email)}</Ltr> : null}
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -141,7 +142,7 @@ export default async function UsersPage({ params, searchParams }: PageProps<"/[l
                       </div>
                     </TableCell>
                     <TableCell className="text-xs">
-                      {u.phoneNumber ? <Ltr className="block">{u.phoneNumber}</Ltr> : null}
+                      {u.phoneNumber || u.phoneMasked ? <Ltr className="block">{u.phoneNumber ?? u.phoneMasked}</Ltr> : null}
                       {realEmail(u.email) ? <Ltr className="block max-w-56 truncate text-muted-foreground">{realEmail(u.email)}</Ltr> : null}
                     </TableCell>
                     <TableCell>

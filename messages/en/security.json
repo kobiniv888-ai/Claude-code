@@ -36,7 +36,8 @@
     "contact_email_unchanged": "That’s already your email for notifications.",
     "contact_email_needs_code": "A new address is saved only after a code sent to it.",
     "totp_not_enabled": "2-step login isn’t on for this account.",
-    "logout_failed": "We couldn’t log you out. Check your connection and try again."
+    "logout_failed": "We couldn’t log you out. Check your connection and try again.",
+    "totp_unlock_cap": "You've already reset the code count twice today. Sign in with your authenticator app or a recovery code, or wait: the account opens again 24 hours after it was locked."
   },
   "challenge": {
     "useRecovery": "No access to your app? Use a recovery code",
@@ -100,5 +101,18 @@
     "cancel": "Cancel",
     "saved": "The address was saved.",
     "savedSignedOut": "The address was saved. We logged you out on your other devices."
+  },
+  "smsControls": {
+    "title": "SMS codes",
+    "description": "Today's code-text budget and the countries whose texts are paused (too few codes were confirmed). Every action here asks for a fresh authenticator code and is written to the audit log.",
+    "budget": "<used></used> of <limit></limit> code texts sent today.",
+    "reserve": "New accounts may use {untrusted} texts; the rest is kept for known accounts.",
+    "resetBudget": "Reset today's budget",
+    "budgetReset": "Today's budget was reset",
+    "noPause": "No country is paused right now.",
+    "paused": "Texts to <country></country> are paused until <time></time>.",
+    "resume": "Resume texts",
+    "resumed": "Texts resumed",
+    "proofNote": "Known accounts still get their codes during a pause."
   }
 }

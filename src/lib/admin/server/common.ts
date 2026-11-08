@@ -5,10 +5,11 @@ import { isAppLocale } from "@/i18n/locale";
 import { toActionError, type ActionResult } from "@/lib/action";
 import type { Permission } from "@/lib/auth/permissions";
 import { requireStaffForAction, type CurrentUser } from "@/lib/auth/session";
-import { AppError } from "@/lib/errors";
+import { AppError, ForbiddenError } from "@/lib/errors";
 import { assertRateLimit, type RateLimitOptions } from "@/lib/rate-limit";
 import { translateForLocale } from "@/lib/translate";
 import type { UserActionReason, VerificationReason } from "../reasons";
+import { requireFreshStaffProof, spendStaffProof, type StaffProofMode } from "./staff-proof";
 
 /**
  * Shared plumbing for admin server actions (server-only, not an action file itself).
@@ -20,6 +21,13 @@ import type { UserActionReason, VerificationReason } from "../reasons";
  * Checks the staff session + permission (2-step login), rate-limits per staff member and turns
  * thrown errors into ActionResult failures. Error codes the admin UI translates itself
  * (admin.errors.<code>) are thrown as AdminActionError.
+ *
+ * Destructive actions pass `{ freshProof: "consume" | "window" }` (SECURITY_REPORT 3.6.c,
+ * ./staff-proof.ts): after the permission check and before anything else runs, the session needs a
+ * fresh AUTHENTICATOR code (an emailed code never counts), or the action answers
+ * "fresh_proof_required" and the admin UI asks for the code and tries again (useAdminAction).
+ * The list of such actions and their modes: FRESH_PROOF_STAFF_ACTIONS in
+ * tests/unit/endpoints/registry.ts (checked by tests/unit/endpoints/endpoint-registry.test.ts).
  */
 
 export const ADMIN_ERROR_CODES = [
@@ -68,16 +76,36 @@ export class AdminActionError extends AppError {
 
 const DEFAULT_LIMIT: RateLimitOptions = { limit: 120, windowSeconds: 60 };
 
+export type StaffActionOptions = {
+  limit?: RateLimitOptions;
+  /** A destructive action: a fresh authenticator code first (./staff-proof.ts). */
+  freshProof?: StaffProofMode;
+  /**
+   * A narrower rule than the permission (an ADMIN-only action, e.g. canRevealReporter): checked
+   * before the fresh code is asked for, so nobody is asked for a code for an action they may not do.
+   */
+  allow?: (staff: CurrentUser) => boolean;
+};
+
+function isRateLimitOptions(value: RateLimitOptions | StaffActionOptions): value is RateLimitOptions {
+  return "windowSeconds" in value;
+}
+
 export async function runStaffAction<T>(
   permission: Permission,
   scope: string,
   fn: (staff: CurrentUser) => Promise<ActionResult<T>>,
-  limit: RateLimitOptions = DEFAULT_LIMIT,
+  limitOrOptions: RateLimitOptions | StaffActionOptions = DEFAULT_LIMIT,
 ): Promise<ActionResult<T>> {
+  const options: StaffActionOptions = isRateLimitOptions(limitOrOptions) ? { limit: limitOrOptions } : limitOrOptions;
   try {
     const staff = await requireStaffForAction(permission);
-    await assertRateLimit(`admin:${scope}:${staff.id}`, limit);
-    return await fn(staff);
+    if (options.allow && !options.allow(staff)) throw new ForbiddenError();
+    await assertRateLimit(`admin:${scope}:${staff.id}`, options.limit ?? DEFAULT_LIMIT);
+    if (options.freshProof) await requireFreshStaffProof(staff);
+    const result = await fn(staff);
+    if (result.ok && options.freshProof === "consume") await spendStaffProof(staff);
+    return result;
   } catch (error) {
     return toActionError(error);
   }

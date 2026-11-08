@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Container } from "@/components/common/container";
 import { ContactOptions } from "@/components/help/contact-options";
-import { getPublishedFaq } from "@/components/help/get-faq";
 import { HelpCenter } from "@/components/help/help-center";
+import { getPublishedFaq } from "@/lib/help/faq";
 import { absoluteUrl, localizedPath, pageMetadata, siteName } from "@/lib/seo";
 
 type Props = { params: Promise<{ locale: string }> };

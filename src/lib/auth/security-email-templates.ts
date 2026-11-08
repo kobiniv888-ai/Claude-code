@@ -31,6 +31,8 @@ export const SECURITY_CHANGE_KINDS = [
   "recovery_codes_new",
   "recovery_code_used",
   "totp_locked",
+  // A listing's guest-facing contact details changed (SECURITY_REPORT 3.6.a, src/lib/wizard/contact-proof.ts).
+  "listing_contact",
 ] as const;
 export type SecurityChangeKind = (typeof SECURITY_CHANGE_KINDS)[number];
 export const STAFF_ALERT_KINDS = ["new_device", "totp_locked", "recovery_code_used"] as const;

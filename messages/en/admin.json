@@ -175,7 +175,8 @@
     "content_changed": "The listing changed since this page was opened, or the automatic checks found something new. The page was refreshed — check again before deciding.",
     "changed_since_view": "A new report arrived since this page was opened. The page was refreshed — look at it, then mark reviewed.",
     "listing_has_mistakes": "The listing has errors that block publishing (in the host's mistake check). The page was refreshed — ask the host for changes.",
-    "audit_failed": "The action was not carried out: we could not record it in the audit log. Nothing changed. Try again in a moment."
+    "audit_failed": "The action was not carried out: we could not record it in the audit log. Nothing changed. Try again in a moment.",
+    "fresh_proof_required": "Not done: this action needs a new code from your authenticator app."
   },
   "errorPage": {
     "title": "This admin page couldn't load",
@@ -317,7 +318,9 @@
         "flagNoShows": "{count, plural, one {1 guest no-show} other {{count} guest no-shows}}",
         "hostUnreachable": "{count, plural, one {1 booking not saved: the host got no alert} other {{count} bookings not saved: the host got no alert}}",
         "failedEmails": "{count, plural, one {1 email failed} other {{count} emails failed}}",
-        "outboxWaiting": "{count, plural, one {1 email waiting in the outbox} other {{count} emails waiting in the outbox}}"
+        "outboxWaiting": "{count, plural, one {1 email waiting in the outbox} other {{count} emails waiting in the outbox}}",
+        "flagGuests": "{count, plural, one {1 guest with repeated cancellations or no-shows} other {{count} guests with repeated cancellations or no-shows}}",
+        "flagLongStays": "{count, plural, one {1 long stay (14 nights or more)} other {{count} long stays (14 nights or more)}}"
       },
       "hints": {
         "turnedAwayReports": "A guest says a host cancelled, refused or asked questions because of who they are. Check today.",
@@ -329,7 +332,9 @@
         "hostUnreachable": "In the last {days} days. Check the host's alert channels.",
         "failedEmails": "In the last {days} days. The error is shown in the outbox.",
         "outboxWaitingResend": "Kept before the email service was connected. You can send them now from the outbox.",
-        "outboxWaitingNoResend": "The email service (Resend) is not connected yet, so emails are only kept here."
+        "outboxWaitingNoResend": "The email service (Resend) is not connected yet, so emails are only kept here.",
+        "flagGuests": "For review only: 3 cancellations in 90 days or 2 no-shows in a year. Nothing happens automatically.",
+        "flagLongStays": "For information only: one booking that holds the host's calendar for a long time."
       },
       "partial": "We couldn't count everything that is waiting, so something may be missing here. Reload the page in a moment."
     }
@@ -471,12 +476,16 @@
       "auth_two_factor_on": "Turned on 2-step login",
       "auth_authenticator_changed": "Moved 2-step login to a new phone",
       "auth_recovery_codes_new": "Made new recovery codes",
+      "sms_country_resumed": "Resumed SMS codes for a paused country",
+      "sms_budget_reset": "Reset today's SMS budget",
       "flag_long_stay_reviewed": "Long stay reviewed",
       "flag_guest_reviewed": "Guest reviewed",
       "user_view": "User page viewed",
       "booking_view": "Booking viewed",
       "verification_documents_left": "Documents not deleted after a decision",
-      "demo_remove_start": "Demo data removal started"
+      "demo_remove_start": "Demo data removal started",
+      "maintenance_cleanup_started": "Clean-up started",
+      "maintenance_dry_run": "Clean-up dry run (nothing changed)"
     }
   },
   "moderation": {
@@ -837,7 +846,8 @@
       "cancelled": "Cancelled on",
       "hoursToCancel": "{count, plural, one {{count} hour after booking} other {{count} hours after booking}}",
       "flagged": "Flagged: cancelled within 48 hours",
-      "cancelReason": "The host's reason"
+      "cancelReason": "The host's reason",
+      "withheld": "Hidden: the booking code shows who reported, so only an administrator sees it"
     },
     "listingFromTitle": "The listing the report came from",
     "reviewTitle": "The reported review",
@@ -867,7 +877,8 @@
       "noAccess": "{count, plural, one {{count} screenshot. Only moderators can open it.} other {{count} screenshots. Only moderators can open them.}}",
       "show": "{count, plural, one {Show the screenshot} other {Show {count} screenshots}}",
       "privacy": "Screenshots may show other people's details. Every opening is written to the audit log.",
-      "alt": "Screenshot {number} of {count}"
+      "alt": "Screenshot {number} of {count}",
+      "withheld": "{count, plural, one {{count} screenshot. In a turned-away report only an administrator opens the screenshots: they show who reported.} other {{count} screenshots. In a turned-away report only an administrator opens the screenshots: they show who reported.}}"
     }
   },
   "users": {
@@ -1005,7 +1016,8 @@
       "asHost": "{count, plural, =0 {As host} one {As host: 1 booking} other {As host: {count} bookings}}",
       "asGuest": "{count, plural, =0 {As guest} one {As guest: 1 booking} other {As guest: {count} bookings}}",
       "none": "No bookings.",
-      "flagged": "Cancelled within 48 hours"
+      "flagged": "Cancelled within 48 hours",
+      "withheldRow": "A booking with a turned-away report. Its details are visible to administrators only"
     },
     "flags": {
       "title": "Flags",
@@ -1026,7 +1038,8 @@
       "guests": "No listings"
     },
     "rowBookings": "Bookings: {host} as host · {guest} as guest",
-    "phoneWithheld": "The phone number is visible to administrators only"
+    "phoneWithheld": "The phone number is visible to administrators only",
+    "phoneLast2Only": "Last 2 digits only. The full number is visible to administrators only"
   },
   "verifications": {
     "title": "Verifications",
@@ -1490,7 +1503,9 @@
       "GENERAL": "Report",
       "TURNED_AWAY": "Turned away"
     },
-    "priceSubtotal": "{count, plural, one {Stay, 1 night} other {Stay, {count} nights}}"
+    "priceSubtotal": "{count, plural, one {Stay, 1 night} other {Stay, {count} nights}}",
+    "guestWithheld": "Guest hidden: they reported being turned away on this booking, and only an administrator sees who reported",
+    "guestHidden": "hidden"
   },
   "referencePrices": {
     "title": "Reference prices",
@@ -1644,5 +1659,13 @@
       "notePlaceholder": "For example: the host moved",
       "done": "Badge removed"
     }
+  },
+  "staffProof": {
+    "title": "Confirm with your authenticator",
+    "description": "This action deletes, removes or changes access. To go on, type a new code from your authenticator app.",
+    "codeLabel": "Authenticator code",
+    "emailNotAccepted": "In the admin panel an email code is not enough for this: only your authenticator app.",
+    "confirm": "Confirm and continue",
+    "checking": "Checking…"
   }
 }

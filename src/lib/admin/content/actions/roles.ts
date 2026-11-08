@@ -65,7 +65,7 @@ export async function assignStaffRole(input: unknown): Promise<ActionResult<{ ne
       await applyRole(staff.id, user, parsed.data.role);
       return ok({ needsTwoFactor: !user.twoFactorEnabled });
     },
-    { limit: 20, windowSeconds: 60 },
+    { limit: { limit: 20, windowSeconds: 60 }, freshProof: "consume" },
   );
 }
 
@@ -81,7 +81,7 @@ export async function removeStaffRole(input: unknown): Promise<ActionResult> {
       await applyRole(staff.id, user, "USER");
       return ok();
     },
-    { limit: 20, windowSeconds: 60 },
+    { limit: { limit: 20, windowSeconds: 60 }, freshProof: "consume" },
   );
 }
 

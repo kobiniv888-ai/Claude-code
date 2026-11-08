@@ -126,6 +126,6 @@ export async function clearVisitedAction(input: unknown): Promise<ActionResult<{
       });
       return ok({ cleared: true });
     },
-    LIMIT,
+    { limit: LIMIT, freshProof: "window", allow: (staff) => canSetVisited(staff.role) },
   );
 }

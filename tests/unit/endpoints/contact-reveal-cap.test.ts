@@ -9,6 +9,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
   counts: new Map<string, number>(),
+  /** The "shown today" markers (src/lib/contact/seen-store.ts). */
+  seen: new Set<string>(),
   storeBroken: false,
   events: [] as { type: string; userId?: string | null; meta?: Record<string, unknown> | null }[],
 }));
@@ -53,8 +55,13 @@ vi.mock("@/lib/rate-limit", async () => {
       return result;
     },
     resetRateLimit: async (key: string) => void state.counts.delete(key),
+    STORE_ERROR_RETRY_SECONDS: 30,
   };
 });
+vi.mock("@/lib/contact/seen-store", () => ({
+  wasSeen: async (key: string) => (state.storeBroken ? null : state.seen.has(key)),
+  markSeen: async (key: string) => void state.seen.add(key),
+}));
 
 const { revealContact } = await import("@/lib/contact/actions");
 const { CONTACT_REVEALS_PER_DAY } = await import("@/lib/contact/limits");
@@ -62,6 +69,7 @@ const { CONTACT_REVEALS_PER_DAY } = await import("@/lib/contact/limits");
 describe("show contact: at most 40 different listings a day (4.6.e)", () => {
   beforeEach(() => {
     state.counts.clear();
+    state.seen.clear();
     state.storeBroken = false;
     state.events = [];
   });
@@ -76,7 +84,10 @@ describe("show contact: at most 40 different listings a day (4.6.e)", () => {
     }
     expect(await revealContact("listing-41")).toEqual(expect.objectContaining({ ok: false, error: "rate_limited" }));
     // In the security log (for the alerts), without the listing or any contact detail.
-    expect(state.events).toEqual([{ type: "show_contact_cap_hit", userId: "guest-1", meta: { limit: 40 } }]);
+    expect(state.events.filter((e) => e.type !== "contact_revealed")).toEqual([{ type: "show_contact_cap_hit", userId: "guest-1", meta: { limit: 40 } }]);
+    // Each reveal that went through is in the log too (16.2), by account only.
+    expect(state.events.filter((e) => e.type === "contact_revealed")).toHaveLength(40);
+    expect(state.events.find((e) => e.type === "contact_revealed")).toEqual({ type: "contact_revealed", userId: "guest-1" });
     // A listing already shown today: no new count.
     expect((await revealContact("listing-3")).ok).toBe(true);
     // The refused listing was not marked as shown: asking again is refused again, not let through.

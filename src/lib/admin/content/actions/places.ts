@@ -150,5 +150,5 @@ export async function deletePlace(input: unknown): Promise<ActionResult<{ listin
     });
     const listingsUpdated = await recompute([place]);
     return ok({ listingsUpdated });
-  });
+  }, { freshProof: "window" });
 }

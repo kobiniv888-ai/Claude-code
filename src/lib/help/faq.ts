@@ -1,10 +1,12 @@
 import "server-only";
+import type { FaqCategory } from "@/generated/prisma/enums";
 import { pickLocalized } from "@/i18n/locale";
 import { db } from "@/lib/db";
-import type { HelpFaqItem } from "./help-center";
+
+export type PublishedFaqItem = { id: string; category: FaqCategory; question: string; answer: string };
 
 /** Published FAQ items in `locale` (falling back to English), by topic and admin order. */
-export async function getPublishedFaq(locale: string): Promise<HelpFaqItem[]> {
+export async function getPublishedFaq(locale: string): Promise<PublishedFaqItem[]> {
   const rows = await db.faqItem.findMany({
     where: { published: true },
     orderBy: [{ category: "asc" }, { sortOrder: "asc" }, { createdAt: "asc" }],

@@ -3,7 +3,10 @@
 // For a quick preview deployment you can let the build prepare the database:
 //   DB_PUSH_ON_BUILD=true   → create/update the tables (prisma db push; refuses data-loss changes)
 //   SEED_ON_BUILD=true      → load cities, FAQ, banned words and the demo listings (safe to repeat)
-// For the real launch, leave both off and run migrations deliberately (see README).
+// For the real launch, leave both off and run migrations deliberately (see README): with
+// SITE_ENV=production the settings check below refuses them, and before either one runs the
+// database is checked for the real site's marker (scripts/check-site-marker.ts, SECURITY_REPORT
+// 12.1.b): a preview or staging build never pushes to or seeds the real database.
 import { execSync } from "node:child_process";
 
 const run = (cmd) => execSync(cmd, { stdio: "inherit" });
@@ -13,6 +16,9 @@ const run = (cmd) => execSync(cmd, { stdio: "inherit" });
 // must be set in the hosting's environment settings for this deployment.
 run("npx tsx scripts/check-startup-env.ts");
 
+if (process.env.DB_PUSH_ON_BUILD === "true" || process.env.SEED_ON_BUILD === "true") {
+  run("npx tsx --require ./scripts/server-script.cjs scripts/check-site-marker.ts");
+}
 if (process.env.DB_PUSH_ON_BUILD === "true") {
   // Lets the push add the booking index without a consent prompt (see the file; idempotent).
   run("npx prisma db execute --file prisma/sql/before-push.sql");

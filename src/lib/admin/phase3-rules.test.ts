@@ -133,6 +133,8 @@ describe("admin home 'דורש טיפול'", () => {
     flagCancellations: 1,
     flagHosts: 0,
     flagNoShows: 4,
+    flagGuests: 2,
+    flagLongStays: 3,
     hostUnreachable: 1,
     failedEmails: 2,
     outboxWaiting: 9,
@@ -155,7 +157,10 @@ describe("admin home 'דורש טיפול'", () => {
 
   it("counts what needs a person (not the info rows)", () => {
     const rows = attentionRows(counts, "ADMIN");
-    expect(attentionTotal(rows)).toBe(1 + 3 + 2 + 1 + 1 + 2);
+    // Guest flags need a person; long stays are for information (like no-shows and the outbox).
+    expect(attentionTotal(rows)).toBe(1 + 3 + 2 + 1 + 2 + 1 + 2);
+    expect(rows.find((r) => r.key === "flagGuests")).toEqual({ key: "flagGuests", count: 2, href: "/admin/flags?view=guests", tone: "attention" });
+    expect(rows.find((r) => r.key === "flagLongStays")).toEqual({ key: "flagLongStays", count: 3, href: "/admin/flags?view=longStays", tone: "info" });
     expect(ATTENTION_KEYS).toHaveLength(Object.keys(counts).length);
   });
 });

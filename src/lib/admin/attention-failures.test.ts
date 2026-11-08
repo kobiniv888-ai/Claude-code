@@ -25,6 +25,7 @@ vi.mock("./server/flags", () => ({
     throw new Error("flags query failed");
   },
 }));
+vi.mock("./server/guest-flags", () => ({ getOpenGuestFlagCounts: async () => ({ longStays: 3, guests: 1 }) }));
 
 const { loadAttentionCounts } = await import("./server/attention");
 const { attentionState } = await import("./attention");
@@ -32,7 +33,7 @@ const { attentionState } = await import("./attention");
 describe("a failed attention count", () => {
   it("is reported as failed, the rest still load, and the block never says all clear", async () => {
     const counts = await loadAttentionCounts(new Date("2026-11-04T10:00:00Z"));
-    expect(counts).toMatchObject({ inReview: 2, otherReports: 1, turnedAwayReports: 0 });
+    expect(counts).toMatchObject({ inReview: 2, otherReports: 1, turnedAwayReports: 0, flagGuests: 1, flagLongStays: 3 });
     expect([...counts.failed].sort()).toEqual(["flagCancellations", "flagHosts", "flagNoShows", "turnedAwayReports"]);
     expect(attentionState(counts, "ADMIN")).toBe("partial");
   });

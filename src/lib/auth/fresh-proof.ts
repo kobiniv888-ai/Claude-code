@@ -79,17 +79,33 @@ export type IssueResult = { ok: true; code: string; nextWaitSeconds: number } | 
  * Makes a new code for `purpose` (replacing an older one), unless the resend wait is not over.
  * `bindTo`: what the code is for besides the account (the new contact address), part of its HMAC.
  */
-export async function issueSecurityCode(input: { userId: string; purpose: SecurityCodePurpose; bindTo?: string }, now = new Date()): Promise<IssueResult> {
+export async function issueSecurityCode(
+  input: {
+    userId: string;
+    purpose: SecurityCodePurpose;
+    bindTo?: string;
+    /**
+     * false when the caller already applied the per-inbox waits (`limitCodeSend` in
+     * ./login-rate-limit.ts, for every code that really goes out by email): then only this code's row
+     * is replaced here.
+     */
+    enforceWait?: boolean;
+  },
+  now = new Date(),
+): Promise<IssueResult> {
   const identifier = securityCodeKey(input.userId, input.purpose);
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
   return db.$transaction(async (tx) => {
+    // One issuer at a time per account and purpose, even before the first row exists (a SELECT …
+    // FOR UPDATE on no row locks nothing: parallel first sends would each email a code).
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${identifier}))`;
     const rows = await tx.$queryRaw<{ id: string; value: string; createdAt: Date }[]>`
       SELECT id, value, "createdAt" FROM "Verification" WHERE identifier = ${identifier} ORDER BY "createdAt" DESC LIMIT 1 FOR UPDATE`;
     const previous = rows[0];
     const state = decodeSecurityCode(previous?.value);
     // The growing waits count the codes of the last day.
     const sameRow = state && now.getTime() - state.lastSentAt < 24 * 3600 * 1000 ? state : null;
-    const wait = secondsUntilResend(sameRow, now.getTime());
+    const wait = input.enforceWait === false ? 0 : secondsUntilResend(sameRow, now.getTime());
     if (wait > 0) return { ok: false as const, retryAfterSeconds: wait };
     const sent = (sameRow?.sent ?? 0) + 1;
     await tx.verification.deleteMany({ where: { identifier } });

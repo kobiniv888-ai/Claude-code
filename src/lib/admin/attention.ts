@@ -14,6 +14,10 @@ export const ATTENTION_KEYS = [
   "flagCancellations",
   "flagHosts",
   "flagNoShows",
+  /** Guests with 3 cancellations in 90 days or 2 no-shows in a year (founder's decision 7, review only). */
+  "flagGuests",
+  /** Stays of 14 nights or more (decision 7, review only). */
+  "flagLongStays",
   "hostUnreachable",
   "failedEmails",
   "outboxWaiting",
@@ -37,6 +41,8 @@ const ROWS: Record<AttentionKey, RowSpec> = {
   flagCancellations: { permission: "moderation", href: "/admin/flags", tone: "attention" },
   flagHosts: { permission: "moderation", href: "/admin/flags?view=hosts", tone: "attention" },
   flagNoShows: { permission: "moderation", href: "/admin/flags?view=noShows", tone: "info" },
+  flagGuests: { permission: "moderation", href: "/admin/flags?view=guests", tone: "attention" },
+  flagLongStays: { permission: "moderation", href: "/admin/flags?view=longStays", tone: "info" },
   hostUnreachable: { permission: "moderation", href: "/admin/bookings?view=unreachable", tone: "attention" },
   failedEmails: { permission: "settings", href: `/admin/outbox?status=FAILED&recent=${ATTENTION_EVENT_DAYS}`, tone: "attention" },
   outboxWaiting: { permission: "settings", href: `/admin/outbox?waiting=1&recent=${ATTENTION_EVENT_DAYS}`, tone: "info" },

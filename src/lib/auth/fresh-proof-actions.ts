@@ -1,24 +1,16 @@
 "use server";
 
-import { headers } from "next/headers";
 import { z } from "zod";
 import { fail, ok, runAction, type ActionResult } from "@/lib/action";
 import { AuthRequiredError } from "@/lib/errors";
-import { rateLimit, rateLimitByIp } from "@/lib/rate-limit";
+import { rateLimit } from "@/lib/rate-limit";
 import { recordSecurityEvent } from "@/lib/security/events";
-import { codeDisplayForHeaders } from "./code-display";
-import { checkSecurityCode, issueSecurityCode, markFreshProof } from "./fresh-proof";
-import {
-  SECURITY_CODES_PER_DAY_ACCOUNT,
-  SECURITY_CODES_PER_DAY_IP,
-  SECURITY_CODE_PATTERN,
-  maskEmail,
-  type SecurityCodePurpose,
-} from "./fresh-proof-rules";
-import { sendSecurityCodeEmail, notifyTotpLocked } from "./security-notices";
+import { checkSecurityCode, markFreshProof } from "./fresh-proof";
+import { SECURITY_CODE_PATTERN, maskEmail, type SecurityCodePurpose } from "./fresh-proof-rules";
+import { sendSecurityCodeWithLimits, type CodeSent } from "./security-code-send";
+import { notifyTotpLocked } from "./security-notices";
 import { getCurrentUser, requireUserForAction, type CurrentUser } from "./session";
-import { emailCodeRoute } from "./sms";
-import { recordWrongTotp, resetTotpCounter, totpLockState } from "./totp-lockout";
+import { chargeUnlockReset, recordUnlockCapHit, recordWrongTotp, resetTotpCounter, totpLockState, unlockResetsLeft } from "./totp-lockout";
 import { checkAccountTotp } from "./two-factor";
 
 /**
@@ -43,8 +35,7 @@ export type ProofOptions = {
   totp: boolean;
 };
 
-/** `sent: false`: the wait before another code is not over (`retryAfterSeconds` to go). */
-export type CodeSent = { sent: boolean; sentTo: string; retryAfterSeconds: number; screenCode?: string };
+export type { CodeSent } from "./security-code-send";
 
 function realLoginEmail(user: Pick<CurrentUser, "email" | "emailIsPlaceholder">): string | null {
   return user.emailIsPlaceholder ? null : user.email;
@@ -58,23 +49,11 @@ export async function getProofOptions(): Promise<ActionResult<ProofOptions>> {
   });
 }
 
-/** Sends a code to the login email for `purpose` (limits and waits included). */
+/** Sends a code to the login email for `purpose` (the per-inbox limits and waits: ./security-code-send.ts). */
 async function sendCode(user: CurrentUser, purpose: SecurityCodePurpose): Promise<ActionResult<CodeSent>> {
   const email = realLoginEmail(user);
   if (!email) return fail("no_email_for_code");
-  const [perAccount, perIp] = await Promise.all([
-    rateLimit(`auth:security-code:day:${user.id}`, { limit: SECURITY_CODES_PER_DAY_ACCOUNT, windowSeconds: 86_400 }),
-    rateLimitByIp("auth:security-code:day", { limit: SECURITY_CODES_PER_DAY_IP, windowSeconds: 86_400 }),
-  ]);
-  if (!perAccount.ok || !perIp.ok) return fail("rate_limited");
-
-  const issued = await issueSecurityCode({ userId: user.id, purpose });
-  if (!issued.ok) return ok({ sent: false, sentTo: maskEmail(email), retryAfterSeconds: issued.retryAfterSeconds });
-  const requestHeaders = await headers();
-  const showOnScreen = codeDisplayForHeaders(requestHeaders) !== null && (emailCodeRoute(requestHeaders) === "screen" || user.isDemo);
-  const sent = await sendSecurityCodeEmail({ userId: user.id, to: email, code: issued.code, purpose });
-  if (!sent && !showOnScreen) return fail("email_unavailable");
-  return ok({ sent: true, sentTo: maskEmail(email), retryAfterSeconds: issued.nextWaitSeconds, ...(showOnScreen ? { screenCode: issued.code } : {}) });
+  return sendSecurityCodeWithLimits({ user, purpose, to: email });
 }
 
 export async function sendProofCode(): Promise<ActionResult<CodeSent>> {
@@ -118,6 +97,11 @@ export async function sendUnlockCode(): Promise<ActionResult<CodeSent>> {
     const user = await getCurrentUser();
     if (!user) throw new AuthRequiredError();
     if (!user.twoFactorEnabled || !(await totpLockState(user.id)).locked) return fail("not_locked");
+    // Resets have their own daily cap (SECURITY_REPORT 3.7.a): no code is sent past it.
+    if ((await unlockResetsLeft(user.id)) <= 0) {
+      await recordUnlockCapHit(user.id);
+      return fail("totp_unlock_cap");
+    }
     const result = await sendCode(user, "unlock");
     if (result.ok) await recordSecurityEvent({ type: "totp_unlock_email", userId: user.id, meta: { step: "sent" } });
     return result;
@@ -133,10 +117,19 @@ export async function confirmUnlockCode(input: unknown): Promise<ActionResult> {
     const parsed = unlockSchema.safeParse(input);
     if (!parsed.success) return fail("invalid_code");
     if (!(await rateLimit(`auth:security-code:check:${user.id}`, { limit: 10, windowSeconds: 600 })).ok) return fail("rate_limited");
+    // The daily cap on resets, checked BEFORE the code is used up (a code is not wasted on a refusal).
+    if ((await unlockResetsLeft(user.id)) <= 0) {
+      await recordUnlockCapHit(user.id);
+      return fail("totp_unlock_cap");
+    }
     const result = await checkSecurityCode({ userId: user.id, purpose: "unlock", code: parsed.data.code });
     if (result === "wrong") return fail("invalid_code");
     if (result === "expired") return fail("code_expired");
     if (result === "too_many_attempts") return fail("too_many_attempts");
+    if (!(await chargeUnlockReset(user.id))) {
+      await recordUnlockCapHit(user.id);
+      return fail("totp_unlock_cap");
+    }
     // Decision 5: the counter starts again. Nothing else: the 2-step code is still needed.
     await resetTotpCounter(user.id);
     return ok();

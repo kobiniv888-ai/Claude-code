@@ -5,7 +5,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Ltr } from "@/components/common/ltr";
 import { ContentContainer } from "@/components/content/content-container";
 import { creditedPhotos, photoFile, type PhotoCredit } from "@/config/photos";
-import { db } from "@/lib/db";
+import { visibleDemoListingPhotoCount } from "@/lib/demo";
 import { pageMetadata } from "@/lib/seo";
 
 type Props = { params: Promise<{ locale: string }> };
@@ -37,8 +37,8 @@ export default async function PhotoCreditsPage({ params }: Props) {
   setRequestLocale(locale);
   const t = await getTranslations("photos.credits");
   const photos = creditedPhotos();
-  // Demo listings use stock photos (they disappear with the demo data).
-  const demoCount = await db.listingPhoto.count({ where: { listing: { isDemo: true } } }).catch(() => 0);
+  // Demo listings use stock photos (mentioned only while the demo data is shown).
+  const demoCount = await visibleDemoListingPhotoCount();
 
   return (
     <ContentContainer size="narrow" className="grid gap-8 py-8 sm:py-12">

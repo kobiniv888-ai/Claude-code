@@ -49,6 +49,8 @@ export function fakeProductionEnv(options: FakeEnvOptions = {}): Record<string, 
     VAPID_PUBLIC_KEY: random(65),
     VAPID_PRIVATE_KEY: random(32),
     DEV_SKIP_STAFF_2FA: "false",
+    // Off Vercel, the header our own proxy sets with the visitor's IP (behind Cloudflare).
+    CLIENT_IP_HEADER: "cf-connecting-ip",
   };
 }
 

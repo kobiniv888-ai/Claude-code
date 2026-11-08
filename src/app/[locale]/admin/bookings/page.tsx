@@ -119,7 +119,7 @@ export default async function AdminBookingsPage({ params, searchParams }: PagePr
                     </span>
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {t("hostGuest", { host: isolate(row.host.name || t("noName")), guest: isolate(row.guest.name || t("noName")) })}
+                    {t("hostGuest", { host: isolate(row.host.name || t("noName")), guest: row.guest ? isolate(row.guest.name || t("noName")) : t("guestHidden") })}
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {formatDateRange(row.checkIn, row.checkOut, locale)} · {tb("nights", { count: row.nights })} · {tb("guests.total", { count: row.guests })} ·{" "}

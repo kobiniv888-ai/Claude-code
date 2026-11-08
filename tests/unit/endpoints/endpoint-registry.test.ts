@@ -19,7 +19,7 @@ import path from "node:path";
 import ts from "typescript";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { can, STAFF_ROLES } from "@/lib/auth/permissions";
-import { ROUTE_HANDLERS, SERVER_ACTIONS, type Access } from "./registry";
+import { FRESH_PROOF_STAFF_ACTIONS, ROUTE_HANDLERS, SERVER_ACTIONS, SESSION_HELPERS_WITHOUT_2FA, UNGUARDED_LAYOUTS, type Access } from "./registry";
 
 const REPO = path.resolve(__dirname, "../../..");
 const SRC = path.join(REPO, "src");
@@ -58,8 +58,11 @@ function exportsOf(file: string): Endpoint[] {
   const { text, sf } = parse(file);
   const found: Endpoint[] = [];
   for (const st of sf.statements) {
+    if (ts.isExportAssignment(st) && !st.isExportEquals) found.push({ file, name: "default", node: st.expression, sf, text });
     if (!isExported(st)) continue;
-    if (ts.isFunctionDeclaration(st) && st.name) found.push({ file, name: st.name.text, node: st, sf, text });
+    const isDefault = (ts.canHaveModifiers(st) ? ts.getModifiers(st) : undefined)?.some((m) => m.kind === ts.SyntaxKind.DefaultKeyword) ?? false;
+    if (ts.isFunctionDeclaration(st) && isDefault) found.push({ file, name: "default", node: st, sf, text });
+    else if (ts.isFunctionDeclaration(st) && st.name) found.push({ file, name: st.name.text, node: st, sf, text });
     if (ts.isVariableStatement(st)) {
       for (const decl of st.declarationList.declarations) {
         if (ts.isIdentifier(decl.name)) found.push({ file, name: decl.name.text, node: decl.initializer ?? null, sf, text });
@@ -72,8 +75,12 @@ function exportsOf(file: string): Endpoint[] {
   return found;
 }
 
-/** Every call made by the endpoint, following the module's own functions (one module deep). */
-function callsOf(endpoint: Endpoint): string[] {
+/**
+ * Every call made by the endpoint, following the module's own functions (one module deep), and
+ * the source text of what it reaches (the endpoint and those functions, not the whole file: one
+ * 2-step check elsewhere in the module does not clear this endpoint).
+ */
+function reach(endpoint: Endpoint): { calls: string[]; text: string } {
   const locals = new Map<string, ts.Node>();
   for (const st of endpoint.sf.statements) {
     if (ts.isFunctionDeclaration(st) && st.name) locals.set(st.name.text, st);
@@ -81,9 +88,11 @@ function callsOf(endpoint: Endpoint): string[] {
   }
   const seen = new Set<ts.Node>();
   const calls: string[] = [];
+  const texts: string[] = [];
   const visit = (node: ts.Node | null | undefined) => {
     if (!node || seen.has(node)) return;
     seen.add(node);
+    texts.push(node.getText(endpoint.sf));
     const walk = (n: ts.Node) => {
       if (ts.isCallExpression(n)) {
         const first = n.arguments[0];
@@ -96,27 +105,62 @@ function callsOf(endpoint: Endpoint): string[] {
     walk(node);
   };
   visit(endpoint.node);
-  return calls;
+  return { calls, text: texts.join("\n") };
 }
+
 
 const actionModules = sourceFiles(SRC).filter((file) => isUseServer(readFileSync(file, "utf8")));
 const routeFiles = sourceFiles(path.join(SRC, "app")).filter((file) => /\/route\.tsx?$/.test(file));
+/** Metadata routes answer GET requests too: share images, icons, sitemap, robots, manifest. */
+const isMetadataRoute = (file: string) =>
+  /\/(opengraph-image|twitter-image|icon|apple-icon)\.tsx?$/.test(file) || /^src\/app\/(sitemap|robots|manifest)\.ts$/.test(rel(file));
+const metadataFiles = sourceFiles(path.join(SRC, "app")).filter(isMetadataRoute);
 const actions = actionModules.flatMap(exportsOf);
-const routes = routeFiles.flatMap((file) => exportsOf(file).filter((e) => (HTTP_METHODS as readonly string[]).includes(e.name)));
+const routes = [
+  ...routeFiles.flatMap((file) => exportsOf(file).filter((e) => (HTTP_METHODS as readonly string[]).includes(e.name))),
+  ...metadataFiles.flatMap((file) => exportsOf(file).filter((e) => e.name === "default")),
+];
+
+/**
+ * Helpers in src/lib that read the session (they call getCurrentUser()), with whether they treat a
+ * 2-step-pending session as signed out themselves. An endpoint calling one reads the session too.
+ */
+const SESSION_MODULE = "src/lib/auth/session.ts";
+const RATE_LIMIT = /(^|\.)(assertRateLimit|assertRateLimitByIp|rateLimit|rateLimitByIp|assertTurnstile)\b/;
+const sessionHelpers = new Map<string, { file: string; checksTwoFactor: boolean }[]>();
+/** Helpers in src/lib that apply a rate limit themselves (e.g. sendSecurityCodeWithLimits): name → every same-named export does. */
+const rateLimitHelpers = new Map<string, boolean>();
+for (const file of sourceFiles(path.join(SRC, "lib"))) {
+  if (actionModules.includes(file)) continue;
+  for (const helper of exportsOf(file)) {
+    const { calls, text } = reach(helper);
+    if (rel(file) !== "src/lib/rate-limit.ts") {
+      const limits = calls.some((c) => RATE_LIMIT.test(c));
+      rateLimitHelpers.set(helper.name, (rateLimitHelpers.get(helper.name) ?? true) && limits);
+    }
+    if (rel(file) === SESSION_MODULE || !calls.some((c) => /(^|\.)getCurrentUser$/.test(c))) continue;
+    const list = sessionHelpers.get(helper.name) ?? [];
+    list.push({ file: rel(file), checksTwoFactor: /twoFactorVerified/.test(text) });
+    sessionHelpers.set(helper.name, list);
+  }
+}
 
 function ruleFor(endpoint: Endpoint, table: Record<string, Record<string, Access>>): Access | undefined {
   return table[rel(endpoint.file)]?.[endpoint.name];
 }
 
-const has = (calls: string[], pattern: RegExp) => calls.some((c) => pattern.test(c));
-const RATE_LIMIT = /(^|\.)(assertRateLimit|assertRateLimitByIp|rateLimit|rateLimitByIp|assertTurnstile)\b/;
+const has = (calls: string[], pattern: RegExp) =>
+  calls.some((c) => pattern.test(c) || (pattern === RATE_LIMIT && rateLimitHelpers.get(c.replace(/\(.*$/, "").replace(/^.*\./, "")) === true));
 
 /** The guard problems of one endpoint (empty = fine). */
 function guardProblems(endpoint: Endpoint, access: Access): string[] {
-  const calls = callsOf(endpoint);
+  const { calls, text } = reach(endpoint);
   const problems: string[] = [];
-  const usesSession = has(calls, /(^|\.)getCurrentUser$/) || has(calls, /getCurrentUser\(\)/);
-  const checksTwoFactor = /twoFactorVerified/.test(endpoint.text);
+  const helpers = calls.flatMap((c) => sessionHelpers.get(c.replace(/^.*\./, "")) ?? []);
+  const readsSessionItself = has(calls, /(^|\.)getCurrentUser$/) || has(calls, /getCurrentUser\(\)/);
+  const usesSession = readsSessionItself || helpers.length > 0;
+  // Its own code, or every helper it uses, counts a 2-step-pending session as signed out.
+  const checksTwoFactor = /twoFactorVerified/.test(text) || (!readsSessionItself && helpers.length > 0 && helpers.every((h) => h.checksTwoFactor));
   switch (access.kind) {
     case "staff": {
       const p = access.permission.replace(/\./g, "\\.");
@@ -140,7 +184,7 @@ function guardProblems(endpoint: Endpoint, access: Access): string[] {
       if (usesSession && !checksTwoFactor) problems.push("reads the session: a 2-step-pending session must count as signed out (twoFactorVerified)");
       break;
     case "token":
-      if (!has(calls, RATE_LIMIT) && !/rateLimit/.test(endpoint.text)) problems.push("a token endpoint needs a rate limit");
+      if (!has(calls, RATE_LIMIT) && !/rateLimit/.test(text)) problems.push("a token endpoint needs a rate limit");
       break;
     case "cron":
       if (!has(calls, /^isAuthorizedCron$/)) problems.push("needs isAuthorizedCron(request)");
@@ -152,7 +196,7 @@ function guardProblems(endpoint: Endpoint, access: Access): string[] {
       if (!has(calls, /^codeDisplayForHeaders$/)) problems.push("needs the test-mode host check (codeDisplayForHeaders)");
       break;
     case "auth":
-      if (!/toNextJsHandler\(auth\)/.test(endpoint.text)) problems.push("only Better Auth's own handler");
+      if (!/toNextJsHandler\(auth\)/.test(text)) problems.push("only Better Auth's own handler");
       break;
   }
   // Route handlers: getCurrentUser() alone lets a 2-step-pending session through (4.2.a).
@@ -185,6 +229,43 @@ describe("the endpoint registry covers every endpoint (4.8.b)", () => {
     expect(stale).toEqual([]);
   });
 
+  it("finds the metadata routes (share images, sitemap, robots, manifest) as GET endpoints", () => {
+    const found = routes.filter((e) => e.name === "default").map((e) => rel(e.file));
+    expect(found).toEqual(expect.arrayContaining(["src/app/sitemap.ts", "src/app/robots.ts", "src/app/manifest.ts", "src/app/[locale]/(site)/lists/[token]/opengraph-image.tsx"]));
+    expect(found.length).toBe(metadataFiles.length);
+  });
+
+  it("session helpers in src/lib count a 2-step-pending session as signed out (getSearchContext, getCardContext…)", () => {
+    expect([...sessionHelpers.keys()]).toEqual(expect.arrayContaining(["getSearchContext", "getCardContext", "resolveListing"]));
+    const problems = [...sessionHelpers.entries()].flatMap(([name, list]) =>
+      list.filter((h) => !h.checksTwoFactor && !(`${h.file}#${name}` in SESSION_HELPERS_WITHOUT_2FA)).map((h) => `${h.file}#${name}`),
+    );
+    expect(problems, "check twoFactorVerified (or list it in SESSION_HELPERS_WITHOUT_2FA with why)").toEqual([]);
+    for (const key of Object.keys(SESSION_HELPERS_WITHOUT_2FA)) {
+      const [file, name] = key.split("#") as [string, string];
+      expect(sessionHelpers.get(name)?.some((h) => h.file === file), `${key} is not a session helper any more`).toBe(true);
+    }
+  });
+
+  it("every page under /account, /post and /admin calls requireUser / requireStaff itself; layouts too, unless listed", () => {
+    const roots = ["src/app/[locale]/(site)/account", "src/app/[locale]/(site)/post", "src/app/[locale]/admin"].map((r) => path.join(REPO, r));
+    const files = roots.flatMap((root) => sourceFiles(root)).filter((file) => /\/(page|layout)\.tsx$/.test(file));
+    expect(files.length).toBeGreaterThan(60);
+    const guard = /\b(requireUser|requireStaff)\(/;
+    const problems = files.flatMap((file) => {
+      const key = rel(file);
+      if (guard.test(readFileSync(file, "utf8"))) return [];
+      if (key.endsWith("/layout.tsx") && key in UNGUARDED_LAYOUTS) return [];
+      return [key];
+    });
+    expect(problems, "call requireUser() / requireStaff() in the page (a layout's check does not stop the page from rendering)").toEqual([]);
+    for (const key of Object.keys(UNGUARDED_LAYOUTS)) {
+      const text = readFileSync(path.join(REPO, key), "utf8");
+      // Listed layouts stay thin: no data, no session.
+      expect(/@\/lib\/(db|auth|admin|account|booking)\b|getCurrentUser|await /.test(text), `${key} reads data now: give it a guard`).toBe(false);
+    }
+  });
+
   it("server action modules export only functions (no value export becomes an endpoint by accident)", () => {
     const notFunctions = actions.filter((e) => e.node && !ts.isFunctionDeclaration(e.node) && !ts.isArrowFunction(e.node) && !ts.isFunctionExpression(e.node));
     expect(notFunctions.map((e) => `${rel(e.file)}#${e.name}`)).toEqual([]);
@@ -208,6 +289,24 @@ describe("the code carries the guard its rule asks for (4.8.b, 4.2.a)", () => {
     expect(problems).toEqual([]);
   });
 
+  it("destructive staff actions ask for a fresh authenticator code (3.6.c): the listed ones carry freshProof, and only they", () => {
+    const byKey = new Map(actions.map((e) => [`${rel(e.file)}#${e.name}`, e]));
+    const problems: string[] = [];
+    for (const [key, mode] of Object.entries(FRESH_PROOF_STAFF_ACTIONS)) {
+      const endpoint = byKey.get(key);
+      if (!endpoint?.node) {
+        problems.push(`${key}: no such action`);
+        continue;
+      }
+      if (!new RegExp(`freshProof:\\s*"${mode}"`).test(endpoint.node.getText(endpoint.sf))) problems.push(`${key}: needs { freshProof: "${mode}" }`);
+    }
+    for (const [key, endpoint] of byKey) {
+      if (endpoint.node && /freshProof:/.test(endpoint.node.getText(endpoint.sf)) && !(key in FRESH_PROOF_STAFF_ACTIONS)) problems.push(`${key}: list it in FRESH_PROOF_STAFF_ACTIONS`);
+    }
+    expect(problems).toEqual([]);
+    expect(Object.keys(FRESH_PROOF_STAFF_ACTIONS).length).toBeGreaterThanOrEqual(20);
+  });
+
   it("the guard check itself catches a missing guard", () => {
     const fake = (body: string, file = "src/lib/x/actions.ts"): Endpoint => {
       const text = `"use server";\nexport async function x(input: unknown) {\n${body}\n}\n`;
@@ -221,6 +320,16 @@ describe("the code carries the guard its rule asks for (4.8.b, 4.2.a)", () => {
     expect(guardProblems(fake("return search(input);"), { kind: "public", why: "test" })).not.toEqual([]);
     expect(guardProblems(fake('const u = await getCurrentUser(); await assertRateLimitByIp("x", L); return u?.id;'), { kind: "public", why: "test" })).not.toEqual([]);
     expect(guardProblems(fake("const u = await getCurrentUser(); return u?.id;", "src/app/api/x/route.ts"), { kind: "user" })).not.toEqual([]);
+    // A 2-step check elsewhere in the module does not clear this endpoint (only what it reaches counts).
+    const sharedModule = (file: string): Endpoint => {
+      const text = `export async function GET() {\n  const u = await getCurrentUser();\n  return Response.json({ id: u?.id });\n}\nexport function other(u: { twoFactorVerified: boolean }) {\n  return u.twoFactorVerified;\n}\n`;
+      const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
+      return { file: path.join(REPO, file), name: "GET", node: sf.statements[0]!, sf, text };
+    };
+    expect(guardProblems(sharedModule("src/app/api/x/route.ts"), { kind: "public", why: "test", noRateLimit: "test" })).not.toEqual([]);
+    // A helper that reads the session counts as reading it.
+    expect(guardProblems(fake("return getSearchContext(input);"), { kind: "public", why: "test", noRateLimit: "test" })).toEqual([]);
+    expect(guardProblems(fake("return redirectSignedOutFromSaved(input);", "src/app/api/x/route.ts"), { kind: "public", why: "test", noRateLimit: "test" })).not.toEqual([]);
   });
 });
 
@@ -437,6 +546,53 @@ describe("the rules hold when the endpoints are called directly (4.8.a, 12.6.a)"
       if (role === "ADMIN") expect(allowed).toBe(calls.filter((c) => c.access.kind === "staff").length);
     }, 120_000);
   }
+
+  it("an ADMIN with the 2-step code but no fresh authenticator proof: every destructive action answers fresh_proof_required before any write (3.6.c)", async () => {
+    actAs(account({ id: "staff-admin-proof", role: "ADMIN" }), new Date());
+    const wrong: string[] = [];
+    const destructive = calls.filter((c) => c.key in FRESH_PROOF_STAFF_ACTIONS);
+    expect(destructive.length).toBe(Object.keys(FRESH_PROOF_STAFF_ACTIONS).length);
+    for (const call of destructive) {
+      const { error, touched } = await outcome(call);
+      // The only read allowed is the proof lookup itself (it fails here, so the proof is "none").
+      if (error !== "fresh_proof_required" || touched.some((t) => t !== "verification.findFirst")) wrong.push(`${call.key} → ${error} ${touched.join(",")}`);
+    }
+    expect(wrong).toEqual([]);
+  }, 60_000);
+
+  it("every signed-in and staff route handler: signed out and 2-step pending get 401/403/404 before the database", async () => {
+    const guarded = routes.filter((e) => {
+      const kind = ruleFor(e, ROUTE_HANDLERS)?.kind;
+      return kind === "user" || kind === "staff";
+    });
+    expect(guarded.length).toBeGreaterThanOrEqual(9);
+    const anyParam = new Proxy({}, { get: (_t, key) => (key === "then" ? undefined : key === "all" || key === "key" ? ["x"] : "x") });
+    const wrong: string[] = [];
+    for (const endpoint of guarded) {
+      const mod = (await import(endpoint.file)) as Record<string, (req: Request, ctx: unknown) => Promise<Response>>;
+      for (const [who, user, verifiedAt] of [
+        ["signed out", null, null],
+        ["2-step pending", account({ role: "ADMIN" }), null],
+      ] as const) {
+        actAs(user, verifiedAt);
+        state.dbTouched = [];
+        const method = endpoint.name;
+        const init = method === "GET" || method === "HEAD" ? { method } : { method, body: new FormData() };
+        let status = 0;
+        try {
+          const { NextRequest } = await import("next/server");
+          const res = await mod[method]!(new NextRequest(`https://bayit.example/api/x?q=Tbilisi&lat=41.7&lng=44.8&key=x`, init), { params: Promise.resolve(anyParam) });
+          status = res.status;
+        } catch (error) {
+          status = 0;
+          wrong.push(`${rel(endpoint.file)}#${method} ${who} threw ${String(error).slice(0, 80)}`);
+          continue;
+        }
+        if (![401, 403, 404].includes(status) || state.dbTouched.length) wrong.push(`${rel(endpoint.file)}#${method} ${who} → ${status} ${state.dbTouched.join(",")}`);
+      }
+    }
+    expect(wrong).toEqual([]);
+  }, 60_000);
 
   it("staff file routes: refused for roles without the permission, signed out and 2-step pending", async () => {
     const documents = await import("@/app/api/admin/documents/[requestId]/[index]/route");

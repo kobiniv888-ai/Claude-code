@@ -1,8 +1,11 @@
 import "server-only";
+import { z } from "zod";
 import { isAppLocale } from "@/i18n/locale";
 import { hmacHash } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { isEmailAddress, sendEmail } from "@/lib/email";
+import { getCountryCode } from "@/lib/request";
+import { recordSecurityEvent } from "@/lib/security/events";
 import { firstNameOf } from "./first-name";
 import { isPlaceholderEmail } from "./phone";
 import { emailCodeKey, rememberScreenCode, type EmailCodeRoute } from "./sms";
@@ -27,6 +30,19 @@ export function checkLoginEmail(value: unknown): string | null {
   const email = value.trim().toLowerCase();
   if (!email || !isEmailAddress(email) || isPlaceholderEmail(email)) return null;
   return email;
+}
+
+/**
+ * The address EXACTLY as Better Auth's email-OTP plugin accepts it (it lowercases, then checks
+ * z.email() without trimming), normalized, or null. The send hook (./server.ts) checks this before
+ * it charges any limit, so an address the plugin would refuse (" victim@example.com",
+ * "a..b@example.com") never uses up the real address's waits and caps (SECURITY_REPORT 3.1.c/f).
+ */
+export function exactLoginEmail(value: unknown): string | null {
+  if (typeof value !== "string" || value !== value.trim()) return null;
+  const email = value.toLowerCase();
+  if (!z.email().safeParse(email).success) return null;
+  return checkLoginEmail(email);
 }
 
 export async function sendLoginEmailCode(input: {
@@ -57,4 +73,7 @@ export async function sendLoginEmailCode(input: {
     redact: [input.code],
   });
   if (!result.ok) console.error("[auth] the login code email could not be sent");
+  // Codes sent by country (SECURITY_REPORT 16.2): the visitor's country and the route, never the address.
+  const country = await getCountryCode().catch(() => null);
+  void recordSecurityEvent({ type: "email_code_sent", meta: { route: input.route, sent: result.ok, ...(country ? { country } : {}) } });
 }

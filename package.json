@@ -15,6 +15,7 @@
     "check": "npm run typecheck && npm run lint && npm run i18n:check && npm test",
     "postinstall": "prisma generate",
     "deps:scripts": "node scripts/allowed-install-scripts.mjs",
+    "security:check": "node scripts/security-check.mjs",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
@@ -95,6 +96,6 @@
     "vitest": "4.1.12"
   },
   "engines": {
-    "node": ">=20.9"
+    "node": "^22.12 || >=24.0"
   }
 }

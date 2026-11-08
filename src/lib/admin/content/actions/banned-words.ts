@@ -107,7 +107,7 @@ export async function deleteBannedWord(input: unknown): Promise<ActionResult> {
     });
     clearBannedWordsCache();
     return ok();
-  });
+  }, { freshProof: "window" });
 }
 
 export type BannedWordTestHit = ScanHit & { source: "builtin" | "banned_word"; wordId: string | null };

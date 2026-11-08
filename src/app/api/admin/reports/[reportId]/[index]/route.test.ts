@@ -9,6 +9,7 @@ const state = vi.hoisted(() => ({
   audits: [] as Record<string, unknown>[],
   staff: { id: "staff-1", role: "ADMIN" } as { id: string; role: "ADMIN" | "MODERATOR" },
   report: null as null | {
+    kind?: "GENERAL" | "TURNED_AWAY";
     reporterId: string | null;
     targetUserId?: string | null;
     listing?: { ownerId: string } | null;
@@ -70,6 +71,23 @@ describe("GET /api/admin/reports/[reportId]/[index]", () => {
     expect((await open("report-1", "0")).status).toBe(200);
     // An ADMIN may (audited): the founder is the only admin and may be a host too.
     state.staff = { id: "host-1", role: "ADMIN" };
+    expect((await open("report-1", "0")).status).toBe(200);
+  });
+
+  it("the screenshots of a turned-away report are its sender's evidence: ADMIN only (Q12, 4.3.d, 9.j)", async () => {
+    const turnedAway = { kind: "TURNED_AWAY" as const, reporterId: "guest-1", targetUserId: "host-1", attachments: [{ key: KEY, mime: "image/jpeg", bytes: 10, name: "a.jpg" }], attachmentsDeletedAt: null };
+    for (const role of ["MODERATOR", "SUPPORT"] as const) {
+      state.staff = { id: "mod-1", role: role as "MODERATOR" };
+      state.report = turnedAway;
+      expect((await open("report-1", "0")).status, role).toBe(404);
+    }
+    expect(state.audits).toEqual([]);
+    // A listing report's screenshots stay open to moderators.
+    state.staff = { id: "mod-1", role: "MODERATOR" };
+    state.report = { ...turnedAway, kind: "GENERAL" };
+    expect((await open("report-1", "0")).status).toBe(200);
+    state.staff = { id: "staff-1", role: "ADMIN" };
+    state.report = turnedAway;
     expect((await open("report-1", "0")).status).toBe(200);
   });
 });

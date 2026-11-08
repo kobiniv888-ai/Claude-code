@@ -1,7 +1,7 @@
 import "server-only";
 import { getTranslations } from "next-intl/server";
 import { DatabaseIcon } from "lucide-react";
-import { db } from "@/lib/db";
+import { seedDataMissing } from "@/lib/demo";
 
 /**
  * Development only: a one-line strip when the database has no cities (the seed never ran or did
@@ -9,13 +9,7 @@ import { db } from "@/lib/db";
  */
 export async function DemoDataBanner() {
   if (process.env.NODE_ENV !== "development") return null;
-  let cities = 0;
-  try {
-    cities = await db.city.count();
-  } catch {
-    cities = 0;
-  }
-  if (cities > 0) return null;
+  if (!(await seedDataMissing())) return null;
   const t = await getTranslations("devNotices");
   return (
     <p

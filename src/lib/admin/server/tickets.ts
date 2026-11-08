@@ -7,7 +7,7 @@ import { can } from "@/lib/auth/permissions";
 import { db } from "@/lib/db";
 import { ACTIVE_TICKET_STATUSES, TICKET_CATEGORIES, TICKET_STATUSES } from "@/lib/tickets/constants";
 import { ADMIN_PAGE_SIZE, coverPhotoSelect, realEmail } from "./shared";
-import { canSeeGuestPhone, type StaffViewer } from "../staff-visibility";
+import { staffPhone, type StaffViewer } from "../staff-visibility";
 
 /** The support queue and the ticket page (server-only). */
 
@@ -167,9 +167,10 @@ export async function ticketContext(ticket: { userId: string | null; listing: { 
         })
       : Promise.resolve(null),
   ]);
-  const showPhone = canSeeGuestPhone(viewer);
+  // The number for an ADMIN, the last 2 digits for other staff (Q12, founder's answer (c)).
+  const phone = staffPhone(viewer, requester?.phoneNumber);
   return {
-    requester: requester ? { ...requester, email: realEmail(requester.email), phoneNumber: showPhone ? requester.phoneNumber : null, phoneWithheld: !showPhone && !!requester.phoneNumber } : null,
+    requester: requester ? { ...requester, email: realEmail(requester.email), phoneNumber: phone.phoneNumber, phoneMasked: phone.phoneMasked, phoneWithheld: phone.phoneWithheld } : null,
     listing,
   };
 }

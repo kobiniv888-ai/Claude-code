@@ -46,6 +46,8 @@ const PROD: StartupEnv = {
   NEXT_PUBLIC_MEDIA_BASE_URL: "https://media.bayit.example.com",
   VAPID_PUBLIC_KEY: "BFakePublicKeyForTests0123456789",
   VAPID_PRIVATE_KEY: "FakePrivateKeyForTests0123456789",
+  // Off Vercel: the header our proxy sets with the visitor's IP (Cloudflare here).
+  CLIENT_IP_HEADER: "cf-connecting-ip",
 };
 
 const STAGING: StartupEnv = {
@@ -77,9 +79,62 @@ describe("SITE_ENV", () => {
   it("`next dev` only as a development site; Vercel's production deployment only as production", () => {
     expect(problemsOf({ ...STAGING, NODE_ENV: "development" })).toMatch(/next dev/);
     expect(problemsOf({ ...DEV, NODE_ENV: "development" })).toBe("");
-    expect(problemsOf({ ...DEV, NODE_ENV: "development", VERCEL: "1" })).toMatch(/never runs on Vercel/);
+    // A Vercel deployment never runs `next dev`; `vercel env pull` / `vercel dev` on a laptop
+    // (VERCEL=1, VERCEL_ENV=development) is fine.
+    expect(problemsOf({ ...DEV, NODE_ENV: "development", VERCEL: "1", VERCEL_ENV: "development" })).toBe("");
+    expect(problemsOf({ ...DEV, NODE_ENV: "development", VERCEL: "1", VERCEL_ENV: "preview" })).toMatch(/never runs on a Vercel deployment/);
+    expect(problemsOf({ ...DEV, NODE_ENV: "development", VERCEL: "1", VERCEL_ENV: "production" })).toMatch(/never runs on a Vercel deployment/);
     expect(problemsOf({ ...STAGING, VERCEL_ENV: "production" })).toMatch(/VERCEL_ENV=production/);
     expect(problemsOf({ ...PROD, VERCEL_ENV: "production" })).toBe("");
+  });
+});
+
+describe("the label matches the address (2.2.j, decision 1)", () => {
+  it("SITE_ENV=development runs only on a local or Codespaces address", () => {
+    expect(problemsOf({ ...DEV, NEXT_PUBLIC_SITE_URL: "https://bayit.example.com" })).toMatch(/NEXT_PUBLIC_SITE_URL \(bayit\.example\.com\) is a public address/);
+    expect(problemsOf({ ...DEV, BETTER_AUTH_URL: "https://bayit.example.com" })).toMatch(/BETTER_AUTH_URL .* is a public address/);
+    // A production build labelled "development" on a public host with production-like settings.
+    expect(problemsOf({ ...PROD, SITE_ENV: "development" })).toMatch(/is a public address/);
+    const codespace = "https://fuzzy-space-3000.app.github.dev";
+    expect(problemsOf({ ...DEV, NEXT_PUBLIC_SITE_URL: codespace, BETTER_AUTH_URL: codespace })).toBe("");
+    // SITE_URL (the permanent address for outgoing links) may name the real domain in a codespace.
+    expect(problemsOf({ ...DEV, SITE_URL: "https://bayit.example.com" })).toBe("");
+  });
+
+  it("development and staging never run on one of the real site's host names", () => {
+    const hosts = ["bayit.example.com", "www.bayit.example.com"];
+    expect(startupProblems(PROD, { productionHosts: hosts })).toEqual([]);
+    expect(startupProblems({ ...PROD, SITE_ENV: "staging" }, { productionHosts: hosts }).join("\n")).toMatch(/real site's address \(bayit\.example\.com\)/);
+    expect(startupProblems({ ...STAGING, VERCEL_PROJECT_PRODUCTION_URL: "www.bayit.example.com" }, { productionHosts: hosts }).join("\n")).toMatch(
+      /VERCEL_PROJECT_PRODUCTION_URL is the real site's address/,
+    );
+    expect(startupProblems({ ...STAGING, URL: "https://bayit.example.com" }, { productionHosts: hosts }).join("\n")).toMatch(/URL is the real site's address/);
+    expect(startupProblems({ ...DEV, URL: "https://BAYIT.example.com:443/" }, { productionHosts: hosts }).join("\n")).toMatch(/real site's address/);
+    // The staging site on its own host starts.
+    expect(startupProblems(STAGING, { productionHosts: hosts })).toEqual([]);
+  });
+});
+
+describe("staging and production: platform", () => {
+  it("Node.js 22 or newer (20 is out of support; Prisma 7 needs 20.19+/22.12+)", () => {
+    expect(startupProblems(PROD, { nodeVersion: "20.18.1" }).join("\n")).toMatch(/Node\.js 20\.18\.1 is too old/);
+    expect(startupProblems(STAGING, { nodeVersion: "v20.19.0" }).join("\n")).toMatch(/too old/);
+    expect(startupProblems(PROD, { nodeVersion: "22.12.0" })).toEqual([]);
+    expect(startupProblems(PROD, { nodeVersion: "24.1.0" })).toEqual([]);
+    expect(startupProblems(DEV, { nodeVersion: "20.9.0" })).toEqual([]);
+  });
+
+  it("a trusted client-IP source: Vercel, or CLIENT_IP_HEADER behind another proxy", () => {
+    expect(problemsOf(without(PROD, "CLIENT_IP_HEADER"))).toMatch(/CLIENT_IP_HEADER is not set/);
+    expect(problemsOf(without(STAGING, "CLIENT_IP_HEADER"))).toMatch(/CLIENT_IP_HEADER is not set/);
+    expect(problemsOf({ ...without(PROD, "CLIENT_IP_HEADER"), VERCEL: "1" })).toBe("");
+    expect(problemsOf(without(DEV, "CLIENT_IP_HEADER"))).toBe("");
+  });
+
+  it("the real database is never pushed or seeded by a build", () => {
+    expect(problemsOf({ ...PROD, DB_PUSH_ON_BUILD: "true" })).toMatch(/DB_PUSH_ON_BUILD is on with SITE_ENV=production/);
+    expect(problemsOf({ ...PROD, SEED_ON_BUILD: "true" })).toMatch(/SEED_ON_BUILD is on with SITE_ENV=production/);
+    expect(problemsOf({ ...STAGING, DB_PUSH_ON_BUILD: "true", SEED_ON_BUILD: "true" })).toBe("");
   });
 });
 

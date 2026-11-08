@@ -93,9 +93,10 @@ const staffSession = await import("@/lib/auth/staff-session");
 const { staffActiveKey } = await import("@/lib/auth/staff-session-rules");
 const { securityCodeKey, decodeSecurityCode } = await import("@/lib/auth/fresh-proof-rules");
 const { resetRateLimit } = await import("@/lib/rate-limit");
-const { totpWrongKey } = await import("@/lib/auth/totp-lockout");
+const { totpLockState, totpWrongKey } = await import("@/lib/auth/totp-lockout");
 const { afterSignIn } = await import("@/lib/auth/hooks");
 const { staffCookieName, secureCookiesFor } = await import("@/lib/auth/session-cookies");
+const accountActions = await import("@/lib/account/actions");
 
 const prefix = `s2fa${randomUUID().replace(/-/g, "").slice(0, 10)}`;
 const userIds: string[] = [];
@@ -276,6 +277,33 @@ describe("2-step login: daily lock and the email reset (3.7.a, decision 5)", () 
     expect(await twoStep.verifyTotpForSession({ code: totpNow(secret) })).toEqual({ ok: true, data: undefined });
   });
 
+  it("caps the email resets at 2 a day: the third is refused before the code is used, and the lock stays (3.7.a)", async () => {
+    const secret = new OTPAuth.Secret({ size: 20 }).base32;
+    const u = await makeUser("unlockcap", { twoFactorEnabled: true, totpSecret: encryptString(secret) });
+    current.user = asCurrent(u, { twoFactorEnabled: true, twoFactorVerified: false });
+    const wrong = totpNow(secret) === "000000" ? "111111" : "000000";
+    const lockAgain = async () => {
+      for (let i = 0; i < 20; i++) {
+        await resetRateLimit(`auth:totp:${u.id}`);
+        await twoStep.verifyTotpForSession({ code: wrong });
+      }
+      expect((await totpLockState(u.id)).locked).toBe(true);
+    };
+    for (let round = 1; round <= 2; round++) {
+      await lockAgain();
+      // The resend waits are tested elsewhere: start each round's waits again.
+      await db.verification.deleteMany({ where: { identifier: `security-code:unlock:${u.id}` } });
+      expect(await proofActions.sendUnlockCode(), `round ${round}`).toMatchObject({ ok: true, data: { sent: true } });
+      expect(await proofActions.confirmUnlockCode({ code: lastCode(u.email) }), `round ${round}`).toEqual({ ok: true, data: undefined });
+      expect((await totpLockState(u.id)).locked).toBe(false);
+    }
+    await lockAgain();
+    expect(await proofActions.sendUnlockCode()).toEqual({ ok: false, error: "totp_unlock_cap" });
+    expect((await totpLockState(u.id)).locked).toBe(true);
+    expect(await db.securityEvent.count({ where: { userId: u.id, type: "totp_unlock_email", meta: { path: ["step"], equals: "cap" } } })).toBe(1);
+    await db.rateLimit.deleteMany({ where: { key: { in: [`auth:totp-unlock:day:${u.id}`, totpWrongKey(u.id)] } } });
+  });
+
   it("refuses the unlock code for an account that is not locked", async () => {
     const u = await makeUser("notlocked", { twoFactorEnabled: true, totpSecret: encryptString(new OTPAuth.Secret({ size: 20 }).base32) });
     current.user = asCurrent(u, { twoFactorEnabled: true, twoFactorVerified: false });
@@ -391,10 +419,29 @@ describe("new-device alerts (3.6.e)", () => {
   it("does not email a guest (no listings, not staff) about a new device", async () => {
     const u = await makeUser("guest");
     jar.set("bayit_did", { value: randomUUID() });
-    await afterSignIn({ id: u.sessionId, userId: u.id }, undefined);
+    await afterSignIn({ id: u.sessionId, userId: u.id }, "/sign-in/email-otp");
+    jar.set("bayit_did", { value: randomUUID() });
+    await afterSignIn({ id: u.sessionId, userId: u.id }, "/sign-in/email-otp");
+    // Our own session rotation (no login endpoint) records nothing: the login before it did.
     jar.set("bayit_did", { value: randomUUID() });
     await afterSignIn({ id: u.sessionId, userId: u.id }, undefined);
     expect(sent).toHaveLength(0);
     expect(await db.securityEvent.count({ where: { userId: u.id, type: "new_device_login" } })).toBe(1);
+  });
+});
+
+describe("one fresh code, one login-method change (3.6.a)", () => {
+  it("disconnecting Google uses up the fresh code: disconnecting Apple right after needs a new one", async () => {
+    const u = await makeUser("unlink");
+    for (const providerId of ["google", "apple", "credential"]) {
+      await db.account.create({ data: { id: `${u.id}-${providerId}`, accountId: `${u.id}-${providerId}`, providerId, userId: u.id } });
+    }
+    current.user = asCurrent(u);
+    expect(await accountActions.unlinkSocialAccount("google")).toEqual({ ok: false, error: "fresh_proof_required" });
+    await freshProof.markFreshProof(u.sessionId, "email_code");
+    expect(await accountActions.unlinkSocialAccount("google")).toEqual({ ok: true });
+    expect(await accountActions.unlinkSocialAccount("apple")).toEqual({ ok: false, error: "fresh_proof_required" });
+    expect((await db.account.findMany({ where: { userId: u.id }, select: { providerId: true } })).map((a) => a.providerId).sort()).toEqual(["apple", "credential"]);
+    expect(sent.filter((m) => m.template === "security_change" && m.data.kind === "login_method_removed")).toHaveLength(1);
   });
 });

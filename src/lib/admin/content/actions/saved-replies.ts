@@ -45,5 +45,5 @@ export async function deleteSavedReply(input: unknown): Promise<ActionResult> {
       await auditOrThrow({ actorId: staff.id, action: "saved_reply.delete", targetType: "SavedReply", targetId: reply.id, details: { title: reply.title } }, tx);
     });
     return ok();
-  });
+  }, { freshProof: "window" });
 }

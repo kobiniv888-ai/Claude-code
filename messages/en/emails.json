@@ -629,7 +629,8 @@
         "authenticator_changed": "Your {brand} authenticator app was replaced",
         "recovery_codes_new": "New recovery codes were made for your {brand} account",
         "recovery_code_used": "A recovery code was used to log in to {brand}",
-        "totp_locked": "Logging in to your {brand} account is locked until tomorrow"
+        "totp_locked": "Logging in to your {brand} account is locked until tomorrow",
+        "listing_contact": "The contact details of your {brand} listing were changed"
       },
       "preheader": "If this wasn’t you, secure your account now.",
       "heading": "A change on your account",
@@ -644,7 +645,8 @@
         "authenticator_changed": "2-step login was moved to an app on a new phone. The previous app no longer works.",
         "recovery_codes_new": "New recovery codes were made. The previous codes no longer work.",
         "recovery_code_used": "Someone logged in with a recovery code instead of the code from the app. {left, plural, one {{left} recovery code is left} other {{left} recovery codes are left}}.",
-        "totp_locked": "20 wrong 2-step login codes were entered today, so logging in is locked until tomorrow."
+        "totp_locked": "20 wrong 2-step login codes were entered today, so logging in is locked until tomorrow.",
+        "listing_contact": "The contact details guests see on your listing were changed (WhatsApp, phone or another channel). If you did not change them, guests may be reaching someone else."
       },
       "providers": {
         "google": "Google",

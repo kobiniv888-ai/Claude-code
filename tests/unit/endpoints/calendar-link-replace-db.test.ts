@@ -74,7 +74,11 @@ afterAll(async () => {
 describe("replace the calendar export link (4.7.b)", () => {
   it("the old link answers 404, the new one serves the feed", async () => {
     const before = (await db.listing.findUniqueOrThrow({ where: { id: ids.flat }, select: { icalToken: true } })).icalToken;
-    expect((await getFeed(before)).status).toBe(200);
+    const first = await getFeed(before);
+    expect(first.status).toBe(200);
+    // Never kept by a CDN under the secret token (11.b, ical-cdn-cache-1): no shared cache at all.
+    expect(first.headers.get("cache-control")).toBe("private, max-age=300");
+    expect(first.headers.get("cache-control")).not.toMatch(/public|s-maxage/);
 
     state.user = { id: ids.host };
     state.events = [];
@@ -86,7 +90,9 @@ describe("replace the calendar export link (4.7.b)", () => {
     expect(token).not.toBe(before);
     expect((await db.listing.findUniqueOrThrow({ where: { id: ids.flat }, select: { icalToken: true } })).icalToken).toBe(token);
 
-    expect((await getFeed(before)).status).toBe(404);
+    const gone = await getFeed(before);
+    expect(gone.status).toBe(404);
+    expect(gone.headers.get("cache-control")).toBe("no-store");
     const fresh = await getFeed(token);
     expect(fresh.status).toBe(200);
     expect(await fresh.text()).toContain("BEGIN:VCALENDAR");

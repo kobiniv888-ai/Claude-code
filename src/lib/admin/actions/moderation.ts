@@ -70,7 +70,7 @@ export async function rejectListingAction(input: unknown): Promise<Result> {
     await assertNotOwnListing(staff, listingId);
     const result = await rejectListing(listingId, staff.id, reason, note);
     return ok({ ...result, next: await nextInReview(listingId) });
-  });
+  }, { freshProof: "window" });
 }
 
 export async function restoreListingAction(input: unknown): Promise<Result> {

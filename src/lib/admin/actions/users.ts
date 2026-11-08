@@ -92,7 +92,7 @@ export async function suspendUserAction(input: unknown): Promise<ActionResult<{ 
     }
     const result = await suspendUser(staff, parsed.data.userId, parsed.data.reason, parsed.data.note, until);
     return ok(result);
-  });
+  }, { freshProof: "consume" });
 }
 
 export async function banUserAction(input: unknown): Promise<ActionResult<{ sessionsRevoked: number; listingsPaused: number }>> {
@@ -100,7 +100,7 @@ export async function banUserAction(input: unknown): Promise<ActionResult<{ sess
     const parsed = reasonSchema.safeParse(input);
     if (!parsed.success) return fail("invalid_input", z.flattenError(parsed.error).fieldErrors);
     return ok(await banUser(staff, parsed.data.userId, parsed.data.reason, parsed.data.note));
-  });
+  }, { freshProof: "consume" });
 }
 
 export async function reactivateUserAction(input: unknown): Promise<ActionResult> {
@@ -146,7 +146,7 @@ export async function changeRole(input: unknown): Promise<ActionResult<{ needsTw
       );
     });
     return ok({ needsTwoFactor: isStaffRole(role) && !user.twoFactorEnabled });
-  });
+  }, { freshProof: "consume" });
 }
 
 /** Internal staff note about an account (never shown to the user). Support may add notes too. */

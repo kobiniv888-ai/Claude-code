@@ -13,12 +13,15 @@ import { getListingPage, toListingViewer } from "./load";
 export async function resolveListing(locale: AppLocale, id: string) {
   const publicId = parseListingParam(id);
   if (!publicId) return null;
-  const [loaded, user, settings] = await Promise.all([
+  const [loaded, session, settings] = await Promise.all([
     getListingPage(publicId, locale),
     getCurrentUser().catch(() => null),
     getSettings(),
   ]);
   if (!loaded) return null;
+  // A session whose 2-step code is not entered yet counts as signed out (SECURITY_REPORT 4.2.a):
+  // no name or phone of it reaches the booking step, no saved heart, no owner view.
+  const user = session?.twoFactorVerified ? session : null;
   const access = listingAccess(loaded.access, toListingViewer(user), { demoVisible: settings.demoDataVisible });
   if (access === "none") return null;
   return { data: loaded.data, ownerId: loaded.ownerId, accessInput: loaded.access, user, settings, access };

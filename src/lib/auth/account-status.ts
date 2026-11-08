@@ -1,4 +1,5 @@
 import type { UserStatus } from "@/generated/prisma/enums";
+import { demoAllowed } from "../site-env";
 
 /**
  * Whether an account may sign in / use its session. Pure, safe on server and client.
@@ -42,4 +43,23 @@ export function isAccountBlocked(
   now: Date = new Date(),
 ): boolean {
   return accountBlock(user, now) !== null;
+}
+
+/** Why Better Auth must not create a session for this account (null: it may). */
+export type SessionCreateBlock = "demo_disabled" | AccountBlock;
+
+/**
+ * The rule of the `session.create.before` hook (src/lib/auth/server.ts): no session at all for a
+ * missing, banned, deleted or suspended account, nor for a DEMO account on the real site
+ * (SECURITY_REPORT 3.4.c, founder's decision 1: demo logins only where SITE_ENV is development or
+ * staging; SITE_ENV missing counts as the real site). Pure, so it is unit-tested.
+ */
+export function sessionCreateBlock(
+  user: { status: UserStatus | string; suspendedUntil?: Date | string | null; isDemo: boolean } | null,
+  env: Partial<Record<string, string | undefined>> = process.env,
+  now: Date = new Date(),
+): SessionCreateBlock | null {
+  if (!user) return "deleted";
+  if (user.isDemo && !demoAllowed(env)) return "demo_disabled";
+  return accountBlock(user, now);
 }

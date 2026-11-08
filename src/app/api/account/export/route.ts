@@ -3,6 +3,7 @@ import { buildAccountExport } from "@/lib/account/export";
 import { requireUserForAction } from "@/lib/auth/session";
 import { AuthRequiredError, RateLimitError } from "@/lib/errors";
 import { assertRateLimit } from "@/lib/rate-limit";
+import { recordSecurityEvent } from "@/lib/security/events";
 import { slugify } from "@/lib/listing/urls";
 
 /**
@@ -22,6 +23,8 @@ export async function GET() {
     const data = await buildAccountExport(user.id);
     const day = data.exportedAt.slice(0, 10);
     const name = `${slugify(siteConfig.name) || "account"}-my-data-${day}.json`;
+    // The security event log (SECURITY_REPORT 16.2): an account's data left the site.
+    await recordSecurityEvent({ type: "data_export", userId: user.id });
     return new Response(JSON.stringify(data, null, 2), {
       status: 200,
       headers: {

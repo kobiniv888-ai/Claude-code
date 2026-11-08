@@ -29,7 +29,7 @@ import { Card } from "@/components/ds/card";
 import { CopyLinkField } from "@/components/common/copy-link-field";
 import { Ltr } from "@/components/common/ltr";
 import { Input } from "@/components/ui/input";
-import { allowListedHttpsUrl, CALENDAR_IMPORT_DOMAINS } from "@/config/external-hosts";
+import { allowListedHttpsUrl, CALENDAR_IMPORT_DOMAINS, canonicalCalendarImportUrl } from "@/config/external-hosts";
 import { Link } from "@/i18n/navigation";
 import { HOST_BOOKINGS_PATH } from "@/lib/booking/constants";
 import { replaceCalendarLinkAction, saveIcalImportsAction, syncIcalNowAction, type CalendarSyncResult } from "@/lib/booking/host-actions";
@@ -204,7 +204,8 @@ export function IcalPanel({
 
   const onAdd = async (event: FormEvent) => {
     event.preventDefault();
-    const url = draft.trim();
+    // Airbnb's other country sites are saved as www.airbnb.com (the server does the same).
+    const url = canonicalCalendarImportUrl(draft);
     setDraftError(null);
     if (!url) return;
     if (!/^https:\/\/\S+$/i.test(url)) {

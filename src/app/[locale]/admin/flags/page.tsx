@@ -63,10 +63,11 @@ export default async function FlagsPage({ params, searchParams }: Props) {
   const query = await searchParams;
   const view = enumParam(query, "view", FLAG_VIEWS, "cancellations");
   const state = enumParam(query, "state", FLAG_STATES, "open");
-  const [t, tb, result] = await Promise.all([
+  const [t, tb, tAdmin, result] = await Promise.all([
     getTranslations("admin.flags"),
     getTranslations("booking"),
-    listFlags(view, state, pageParam(query), locale as AppLocale),
+    getTranslations("admin"),
+    listFlags(view, state, pageParam(query), locale as AppLocale, staff),
   ]);
   const n = (v: number) => formatNumber(v, locale);
   const when = (d: Date) => t("at", { date: formatDate(d, locale), time: formatTime(d, locale) });
@@ -152,9 +153,14 @@ export default async function FlagsPage({ params, searchParams }: Props) {
                 </span>
                 <span>
                   {t("guest")}{" "}
-                  <Link href={`/admin/users/${row.guest.id}`} className="font-medium underline-offset-4 hover:underline">
-                    <span dir="auto">{row.guest.name || t("noName")}</span>
-                  </Link>
+                  {row.guest ? (
+                    <Link href={`/admin/users/${row.guest.id}`} className="font-medium underline-offset-4 hover:underline">
+                      <span dir="auto">{row.guest.name || t("noName")}</span>
+                    </Link>
+                  ) : (
+                    // A turned-away report on this booking was sent by its guest: ADMIN only (Q12).
+                    <span className="text-muted-foreground">{tAdmin("bookings.guestHidden")}</span>
+                  )}
                 </span>
                 {row.guestCreatedAt ? <span className="text-muted-foreground">{t("accountSince", { when: formatDate(row.guestCreatedAt, locale) })}</span> : null}
               </p>
@@ -164,7 +170,7 @@ export default async function FlagsPage({ params, searchParams }: Props) {
               <div className="flex flex-wrap items-center gap-2">
                 {row.reviewedAt ? (
                   <span className="text-xs text-muted-foreground">{t("reviewedBy", { name: isolate(row.reviewedBy ?? "—"), when: when(row.reviewedAt) })}</span>
-                ) : row.host.id === staff.id || row.guest.id === staff.id ? null : (
+                ) : row.host.id === staff.id || row.guestIsViewer ? null : (
                   <FlagReviewButton target={{ longStayId: row.id }} label={row.code} />
                 )}
                 <Link href={`/admin/bookings/${row.id}`} className="inline-flex h-8 min-h-11 items-center rounded-md px-2 text-sm font-medium text-primary hover:underline sm:min-h-0">
@@ -269,9 +275,14 @@ export default async function FlagsPage({ params, searchParams }: Props) {
                   </span>
                   <span>
                     {t("guest")}{" "}
-                    <Link href={`/admin/users/${row.guest.id}`} className="font-medium underline-offset-4 hover:underline">
-                      <span dir="auto">{row.guest.name || t("noName")}</span>
-                    </Link>
+                    {row.guest ? (
+                      <Link href={`/admin/users/${row.guest.id}`} className="font-medium underline-offset-4 hover:underline">
+                        <span dir="auto">{row.guest.name || t("noName")}</span>
+                      </Link>
+                    ) : (
+                      // A turned-away report on this booking was sent by its guest: ADMIN only (Q12).
+                      <span className="text-muted-foreground">{tAdmin("bookings.guestHidden")}</span>
+                    )}
                   </span>
                 </p>
                 <p className="text-sm text-muted-foreground">
@@ -296,7 +307,7 @@ export default async function FlagsPage({ params, searchParams }: Props) {
                 <div className="flex flex-wrap items-center gap-2">
                   {row.flagReviewedAt ? (
                     <span className="text-xs text-muted-foreground">{t("reviewedBy", { name: isolate(row.reviewedBy ?? "—"), when: when(row.flagReviewedAt) })}</span>
-                  ) : row.host.id === staff.id || row.guest.id === staff.id ? null : (
+                  ) : row.host.id === staff.id || row.guestIsViewer ? null : (
                     <FlagReviewButton target={{ bookingId: row.id }} label={row.code} />
                   )}
                   <Link href={`/admin/bookings/${row.id}`} className="inline-flex h-8 min-h-11 items-center rounded-md px-2 text-sm font-medium text-primary hover:underline sm:min-h-0">

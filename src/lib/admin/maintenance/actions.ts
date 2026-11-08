@@ -41,19 +41,31 @@ export async function createBackupAction(): Promise<ActionResult<{ backup: Backu
       });
       return ok({ backup, backups: (await backupGate(5)).backups });
     },
-    { limit: 6, windowSeconds: 3600 },
+    { limit: { limit: 6, windowSeconds: 3600 }, freshProof: "window" },
   );
 }
 
-/** The dry run of one clean-up: counts and a few masked examples, nothing changed. */
+/**
+ * The dry run of one clean-up: counts and a few masked examples, nothing changed. Written to the
+ * audit log too (SECURITY_REPORT 12.6.d: who looked at what a clean-up would touch); it changes
+ * nothing, so a failed audit write does not stop it.
+ */
 export async function dryRunCleanupAction(input: unknown): Promise<ActionResult<CleanupReport>> {
   return runStaffAction(
     "settings",
     "maintenance.dry_run",
-    async () => {
+    async (staff) => {
       const parsed = nameInput.safeParse(input);
       if (!parsed.success) return fail("invalid_input");
-      return ok(await dryRunCleanup(parsed.data.name));
+      const report = await dryRunCleanup(parsed.data.name);
+      await audit({
+        actorId: staff.id,
+        action: "maintenance.dry_run",
+        targetType: "Cleanup",
+        targetId: parsed.data.name,
+        details: { changes: report.changes, lines: Object.fromEntries(report.lines.map((l) => [l.key, l.count])) },
+      });
+      return ok(report);
     },
     { limit: 60, windowSeconds: 3600 },
   );
@@ -69,6 +81,6 @@ export async function runCleanupAction(input: unknown): Promise<ActionResult<Cle
       if (!parsed.success) return fail("invalid_input");
       return ok(await runCleanup(parsed.data.name, { userId: staff.id, via: "admin" }));
     },
-    { limit: 12, windowSeconds: 3600 },
+    { limit: { limit: 12, windowSeconds: 3600 }, freshProof: "consume" },
   );
 }

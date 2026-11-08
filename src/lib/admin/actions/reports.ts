@@ -271,7 +271,7 @@ export async function hideHostListings(input: unknown): Promise<ActionResult<{ h
     await auditDecision(staff, report, "report.hide_host_listings", parsed.data.note, { reason: parsed.data.reason, hostId, hidden: count });
     await emailListingsHidden(host, parsed.data.reason, parsed.data.note, count);
     return ok({ hidden: count });
-  });
+  }, { freshProof: "window" });
 }
 
 async function emailListingsHidden(
@@ -306,7 +306,7 @@ export async function removeReportedHost(input: unknown): Promise<ActionResult> 
     const result = await decide(staff, report, decision, () => banUser(staff, hostId, parsed.data.reason, parsed.data.note));
     await auditDecision(staff, report, "report.remove_host", parsed.data.note, { reason: parsed.data.reason, hostId, ...result });
     return ok();
-  });
+  }, { freshProof: "consume", allow: (staff) => can(staff.role, "users.manage") });
 }
 
 /**
@@ -375,7 +375,7 @@ export async function revealReporter(input: unknown): Promise<ActionResult> {
       },
     });
     return ok();
-  });
+  }, { freshProof: "consume", allow: (staff) => canRevealReporter(staff.role) });
 }
 
 /** Internal working notes on a report (staff only, never shown to the reporter or the host). */
@@ -426,7 +426,7 @@ export async function hideReportedListing(input: unknown): Promise<ActionResult<
       });
     }
     return ok({ status: "HIDDEN" });
-  });
+  }, { freshProof: "window" });
 }
 
 /** Puts a hidden listing back online (the lifecycle audits "listing.restore"). */

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isOwnItem } from "@/lib/admin/server/common";
 import { auditFileView } from "@/lib/admin/server/file-views";
+import { canSeeReporter } from "@/lib/admin/staff-visibility";
 import { requireStaffForAction, type CurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { isAppError } from "@/lib/errors";
@@ -17,7 +18,9 @@ import { getPrivate } from "@/lib/storage";
  * staff member and screenshot every FILE_VIEW_DEDUPE_MINUTES (10) minutes; a failed audit write
  * is logged and never hides the file). Staff other than an ADMIN never open the screenshots of a
  * report about themselves or sent by them (the own-item rule of the report page and its actions,
- * SECURITY_REPORT 4.3.d): 404.
+ * SECURITY_REPORT 4.3.d): 404. The screenshots of a turned-away report are its sender's evidence
+ * (the guest's chat with the host, often with their name): ADMIN only, like who sent it (Q12): 404
+ * for other staff.
  */
 
 export const dynamic = "force-dynamic";
@@ -58,9 +61,10 @@ export async function GET(_request: Request, ctx: { params: Promise<{ reportId: 
 
   const report = await db.report.findUnique({
     where: { id: reportId },
-    select: { reporterId: true, targetUserId: true, attachments: true, attachmentsDeletedAt: true, listing: { select: { ownerId: true } } },
+    select: { kind: true, reporterId: true, targetUserId: true, attachments: true, attachmentsDeletedAt: true, listing: { select: { ownerId: true } } },
   });
   if (!report || report.attachmentsDeletedAt || !report.reporterId) return plain(404, "Not found");
+  if (report.kind === "TURNED_AWAY" && !canSeeReporter(staff)) return plain(404, "Not found");
   if (isOwnItem(staff, [report.reporterId, report.targetUserId, report.listing?.ownerId])) return plain(404, "Not found");
   const file = parseReportAttachments(report.attachments)[index];
   if (!file || !isOwnReportUpload(file.key, report.reporterId)) return plain(404, "Not found");

@@ -136,6 +136,9 @@ describe("every staff action writes the audit log (12.6.d)", () => {
 const state = vi.hoisted(() => ({ breakAudit: false, staff: { id: "", role: "ADMIN" as string } }));
 
 vi.mock("server-only", () => ({}));
+// The fresh authenticator code of destructive staff actions (3.6.c) is granted here; its rule is
+// tested in tests/unit/endpoints/staff-fresh-proof-db.test.ts and endpoint-registry.test.ts.
+vi.mock("@/lib/admin/server/staff-proof", () => ({ requireFreshStaffProof: async () => {}, spendStaffProof: async () => {} }));
 vi.mock("next/server", async (importOriginal) => ({ ...(await importOriginal<typeof import("next/server")>()), after: () => {} }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {}, revalidateTag: () => {}, unstable_cache: (fn: unknown) => fn, updateTag: () => {} }));
 vi.mock("next-intl/server", () => ({ getTranslations: async () => (key: string) => key, getLocale: async () => "he" }));

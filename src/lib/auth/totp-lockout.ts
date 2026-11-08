@@ -11,7 +11,9 @@ import { recordSecurityEvent } from "@/lib/security/events";
  *   right or wrong, until the 24 hours are over.
  * - An email code to the account's login address ONLY RESETS THE COUNTER (decision 5). Logging in
  *   still needs the authenticator code or a recovery code, so an attacker who controls the email
- *   only gets 20 more guesses per code they can read.
+ *   only gets 20 more guesses per reset. Resets have their own cap, TOTP_UNLOCK_RESETS_PER_DAY (2)
+ *   in 24 hours, whatever the emailed-code quota: at most 20 × (1 + 2) = 60 guesses a day. Over the
+ *   cap the lock stays until its 24 hours are over (or a recovery code is used).
  * - The short limit (5 tries per 10 minutes, ./actions.ts) stays in front of it.
  * - Fail closed: when the counter cannot be read, the account counts as locked.
  *
@@ -21,6 +23,10 @@ import { recordSecurityEvent } from "@/lib/security/events";
 
 export const TOTP_DAILY_WRONG_LIMIT = 20;
 export const TOTP_LOCK_WINDOW_SECONDS = 24 * 60 * 60;
+/** Email-code resets of the counter per account in 24 hours (SECURITY_REPORT 3.7.a). */
+export const TOTP_UNLOCK_RESETS_PER_DAY = 2;
+
+export const totpUnlockKey = (userId: string) => `auth:totp-unlock:day:${userId}`;
 
 export const totpWrongKey = (userId: string) => `auth:totp-wrong:${userId}`;
 
@@ -59,4 +65,27 @@ export async function recordWrongTotp(userId: string, kind: "totp" | "recovery")
 export async function resetTotpCounter(userId: string): Promise<void> {
   await resetRateLimit(totpWrongKey(userId));
   await recordSecurityEvent({ type: "totp_unlock_email", userId, meta: { step: "reset" } });
+}
+
+/** Resets still allowed in the current 24 hours (nothing counted). A database error answers 0 (fail closed). */
+export async function unlockResetsLeft(userId: string, now = new Date()): Promise<number> {
+  try {
+    const row = await db.rateLimit.findUnique({ where: { key: totpUnlockKey(userId) }, select: { count: true, resetAt: true } });
+    const used = row && row.resetAt.getTime() > now.getTime() ? row.count : 0;
+    return Math.max(0, TOTP_UNLOCK_RESETS_PER_DAY - used);
+  } catch (error) {
+    console.error("[auth] could not read the 2-step unlock cap — refusing the reset:", (error as Error)?.message);
+    return 0;
+  }
+}
+
+/** Counts one reset. False when the cap is reached (or the store failed): then nothing is reset. */
+export async function chargeUnlockReset(userId: string): Promise<boolean> {
+  const result = await rateLimit(totpUnlockKey(userId), { limit: TOTP_UNLOCK_RESETS_PER_DAY, windowSeconds: TOTP_LOCK_WINDOW_SECONDS });
+  return result.ok;
+}
+
+/** The cap was hit: a security event (the founder's alerts read it). */
+export async function recordUnlockCapHit(userId: string): Promise<void> {
+  await recordSecurityEvent({ type: "totp_unlock_email", userId, meta: { step: "cap", cap: TOTP_UNLOCK_RESETS_PER_DAY } });
 }

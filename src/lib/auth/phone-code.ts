@@ -50,6 +50,9 @@ export function hashPhoneCodeRow(row: { identifier?: unknown; value?: unknown })
 
 /** The part of Better Auth's internal adapter this check uses (a test can pass a fake). */
 export type PhoneCodeStore = {
+  /** The latest row, expired ones included (Better Auth's adapter returns them, then cleans up). */
+  findVerificationValue(identifier: string): Promise<{ value: string; expiresAt: Date } | null>;
+  /** Atomic: the first caller gets the row; an EXPIRED row is deleted and answers null. */
   consumeVerificationValue(identifier: string): Promise<{ value: string; expiresAt: Date } | null>;
   createVerificationValue(data: { identifier: string; value: string; expiresAt: Date }): Promise<unknown>;
 };
@@ -70,6 +73,13 @@ export async function checkPhoneCode(
   { country }: { country?: string | null } = {},
 ): Promise<boolean> {
   const identifier = phoneOtpIdentifier(phone);
+  // An expired code says so ("ask for a new one"), not "wrong code": the atomic consume below
+  // answers null for an expired row, like for no row at all (SECURITY_REPORT 3.1.a).
+  const latest = await store.findVerificationValue(identifier);
+  if (latest && latest.expiresAt.getTime() < Date.now()) {
+    await store.consumeVerificationValue(identifier); // gone for good
+    throw codeError("BAD_REQUEST", "OTP_EXPIRED", "The code has expired");
+  }
   // Atomic: the first caller gets the row (and it is gone for everyone else until we put it back).
   const row = await store.consumeVerificationValue(identifier);
   if (!row) return false;

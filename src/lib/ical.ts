@@ -52,6 +52,10 @@ export const FEED_TIMEOUT_MS = 10_000;
 export const FEED_MAX_BYTES = 1024 * 1024;
 const FEED_MAX_REDIRECTS = 3;
 const MAX_EVENTS = 2000;
+/** Events (VEVENTs) a feed may hold at all; 1 MB of real Airbnb/Google events is far below this. */
+const MAX_FEED_EVENTS = 5000;
+/** CPU time one feed may take to parse and expand (a real feed takes well under 100 ms). */
+export const PARSE_BUDGET_MS = 1500;
 /** Imported/exported range: from 30 days ago to 2 years ahead. */
 const PAST_DAYS = 30;
 const FUTURE_DAYS = 730;
@@ -252,18 +256,62 @@ function textValue(value: unknown): string | null {
   return null;
 }
 
+/** Recurrence steps shorter than a day: never used by rental calendars, and costly to expand. */
+const SUB_DAILY_FREQS = new Set(["SECONDLY", "MINUTELY", "HOURLY"]);
+
+/** Thrown when a feed asks for more work than we allow (classified as "too_large", like an oversized file). */
+function tooMuchWork(what: string): Error {
+  return new Error(`Calendar file is larger than we can read (${what})`);
+}
+
+/**
+ * Expands one recurring event inside [from, to]. node-ical checks an all-day event's EXDATEs by
+ * walking every EXDATE value for every instance (instances x EXDATEs: one daily event with 30,000
+ * EXDATEs blocked the server for 13 s). Its EXDATE object is keyed by the same day keys it compares
+ * (getDateKey), so for all-day events we drop the excluded days from the rule's dates ourselves
+ * with one Set lookup each, and hand node-ical the event without EXDATEs. A RECURRENCE-ID override
+ * of an excluded day is still added by node-ical, exactly as before. Timed events keep node-ical's
+ * own check, which is already one lookup per instance.
+ */
+function expandRecurring(event: VEvent, from: Date, to: Date, limit: number) {
+  const isFullDay = event.datetype === "date" || Boolean(event.start.dateOnly);
+  const exdate = event.exdate as Record<string, unknown> | undefined;
+  if (!isFullDay || !exdate || Object.keys(exdate).length === 0) {
+    return ical.expandRecurringEvent(event, { from, to, expandOngoing: true }).slice(0, limit);
+  }
+  const excluded = new Set(Object.keys(exdate).filter((key) => exdate[key] instanceof Date));
+  const rule = event.rrule!;
+  const localDay = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  const filteredRule = {
+    between: (after: Date, before: Date, inclusive?: boolean) => rule.between(after, before, inclusive).filter((date) => !excluded.has(localDay(date))),
+  };
+  const withoutExdates = { ...event, exdate: undefined, rrule: filteredRule } as unknown as VEvent;
+  return ical.expandRecurringEvent(withoutExdates, { from, to, expandOngoing: true }).slice(0, limit);
+}
+
 /**
  * Busy ranges from an iCalendar text. Cancelled and "free" (TRANSP:TRANSPARENT) events are
  * skipped, recurring events are expanded, and only ranges overlapping [today − 30 days,
  * today + 2 years] are returned (at most 2000).
+ *
+ * The work is bounded, not only the output (SECURITY_REPORT 7.m / 8.1.d): a 1 MB feed must not
+ * hold the server for seconds. A feed with more than MAX_FEED_EVENTS events is refused; rules that
+ * repeat more often than daily are skipped; reading stops once 2000 ranges are found; an event
+ * whose rule cannot be expanded is skipped (the rest of the feed still counts); and the whole parse
+ * stops with "too_large" after PARSE_BUDGET_MS. A refused feed keeps its earlier blocks (syncListing).
  */
-export function parseIcsText(text: string, now: Date = new Date()): ParsedIcsEvent[] {
+export function parseIcsText(text: string, now: Date = new Date(), budgetMs: number = PARSE_BUDGET_MS): ParsedIcsEvent[] {
+  const startedAt = performance.now();
   let data: CalendarResponse;
   try {
     data = ical.sync.parseICS(text);
   } catch (error) {
     throw new Error(`Invalid iCalendar data: ${(error as Error).message}`);
   }
+  const components = Object.values(data).filter(
+    (component): component is VEvent => Boolean(component) && typeof component === "object" && (component as { type?: string }).type === "VEVENT",
+  );
+  if (components.length > MAX_FEED_EVENTS) throw tooMuchWork(`${components.length} events`);
   const from = new Date(now.getTime() - PAST_DAYS * DAY_MS);
   const to = new Date(now.getTime() + FUTURE_DAYS * DAY_MS);
   const fromDay = dayString(from);
@@ -277,9 +325,9 @@ export function parseIcsText(text: string, now: Date = new Date()): ParsedIcsEve
     events.push({ uid: uid.slice(0, 255), start, end: safeEnd, summary: summary?.slice(0, 200) ?? null, ...(generatedUid ? { generatedUid: true as const } : {}) });
   };
 
-  for (const component of Object.values(data)) {
-    if (!component || typeof component !== "object" || (component as { type?: string }).type !== "VEVENT") continue;
-    const event = component as VEvent;
+  for (const event of components) {
+    if (events.length >= MAX_EVENTS) break;
+    if (performance.now() - startedAt > budgetMs) throw tooMuchWork("took too long");
     if (event.status === "CANCELLED" || event.transparency === "TRANSPARENT" || !event.start) continue;
     const isFullDay = event.datetype === "date" || Boolean(event.start.dateOnly);
     const summary = textValue(event.summary);
@@ -287,8 +335,15 @@ export function parseIcsText(text: string, now: Date = new Date()): ParsedIcsEve
     const uid = event.uid || createHash("sha1").update(`${event.start.toISOString()}|${summary ?? ""}`).digest("hex");
 
     if (event.rrule) {
-      const instances = ical.expandRecurringEvent(event, { from, to, expandOngoing: true });
-      for (const instance of instances.slice(0, MAX_EVENTS)) {
+      if (SUB_DAILY_FREQS.has(String(event.rrule.options?.freq ?? "").toUpperCase())) continue;
+      let instances: ReturnType<typeof ical.expandRecurringEvent>;
+      try {
+        instances = expandRecurring(event, from, to, MAX_EVENTS - events.length);
+      } catch {
+        // A rule rrule-temporal cannot expand (its own iteration cap): skip this event only.
+        continue;
+      }
+      for (const instance of instances) {
         const start = dayOf(instance.start, instance.isFullDay);
         const end = instance.end ? endDayOf(instance.end, instance.isFullDay) : nextDay(start);
         push(`${uid}#${start}`, start, end, summary, generatedUid);
@@ -326,10 +381,17 @@ const blockList = (() => {
     list.addSubnet(address, prefix, "ipv4");
   }
   for (const [address, prefix] of [
-    ["::", 128],
-    ["::1", 128],
+    // IPv4-compatible (deprecated; "::7f00:1", "::10.0.0.1"), so "::" and "::1" too.
+    ["::", 96],
+    // IPv4-translated (RFC 2765: "::ffff:0:7f00:1").
+    ["::ffff:0:0:0", 96],
     ["64:ff9b::", 96],
+    // Local-use NAT64 (RFC 8215), which embeds any IPv4 address.
+    ["64:ff9b:1::", 48],
     ["100::", 64],
+    // Teredo and 6to4 tunnels embed an IPv4 address (6to4: "2002:7f00:1::" is 127.0.0.1).
+    ["2001::", 32],
+    ["2002::", 16],
     ["2001:db8::", 32],
     ["fc00::", 7],
     ["fe80::", 10],
@@ -347,8 +409,9 @@ export function isPrivateAddress(address: string): boolean {
   if (family === 0) return true;
   if (family === 4) return blockList.check(address, "ipv4");
   const lower = address.toLowerCase();
-  // IPv4-mapped / -compatible IPv6 ("::ffff:10.0.0.1", "::ffff:a00:1").
-  const mapped = /^::(?:ffff:)?(\d{1,3}(?:\.\d{1,3}){3})$/.exec(lower);
+  // IPv4-mapped IPv6 ("::ffff:10.0.0.1", "::ffff:a00:1"): judged by the IPv4 address inside.
+  // IPv4-compatible, -translated, NAT64, 6to4 and Teredo ranges are refused whole (block list).
+  const mapped = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/.exec(lower);
   if (mapped) return blockList.check(mapped[1], "ipv4");
   const mappedHex = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(lower);
   if (mappedHex) {

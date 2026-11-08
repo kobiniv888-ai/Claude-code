@@ -1,6 +1,7 @@
 import {
   AlertTriangle,
   BellOff,
+  CalendarRange,
   CalendarX2,
   CheckCircle2,
   ChevronRight,
@@ -11,6 +12,7 @@ import {
   ShieldAlert,
   UserRoundX,
   UserX,
+  UsersRound,
   type LucideIcon,
 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
@@ -28,6 +30,8 @@ const ICONS: Record<AttentionKey, LucideIcon> = {
   flagCancellations: CalendarX2,
   flagHosts: UserRoundX,
   flagNoShows: UserX,
+  flagGuests: UsersRound,
+  flagLongStays: CalendarRange,
   hostUnreachable: BellOff,
   failedEmails: MailWarning,
   outboxWaiting: Mail,

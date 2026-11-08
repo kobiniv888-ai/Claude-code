@@ -5,26 +5,41 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const events = vi.hoisted(() => ({ record: vi.fn(async () => true) }));
+const events = vi.hoisted(() => ({ record: vi.fn(async () => true), compares: 0 }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/security/events", () => ({ recordSecurityEvent: events.record }));
+// Counts every constant-time compare of a guess against a stored code.
+vi.mock("@/lib/crypto", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@/lib/crypto")>();
+  return {
+    ...original,
+    safeEqual: (a: string, b: string) => {
+      events.compares++;
+      return original.safeEqual(a, b);
+    },
+  };
+});
 
 const { checkPhoneCode, hashPhoneCodeRow, phoneCodeDigest, phoneOtpIdentifier } = await import("./phone-code");
 
 const PHONE = "+972500000123";
 const ID = phoneOtpIdentifier(PHONE);
 
-/** One row per identifier; `consume` takes it atomically (later callers get null). */
+/**
+ * One row per identifier, like Better Auth's adapter: `find` returns the latest row (expired too);
+ * `consume` takes it atomically (later callers get null) and answers null for an expired row.
+ */
 function memoryStore(value: string, expiresAt = new Date(Date.now() + 600_000)) {
   const rows = new Map<string, { value: string; expiresAt: Date }>([[ID, { value, expiresAt }]]);
   return {
     rows,
+    findVerificationValue: async (identifier: string) => rows.get(identifier) ?? null,
     consumeVerificationValue: async (identifier: string) => {
       const row = rows.get(identifier) ?? null;
       rows.delete(identifier);
       // Let parallel callers interleave like real requests.
       await new Promise((resolve) => setTimeout(resolve, 1));
-      return row;
+      return row && row.expiresAt.getTime() < Date.now() ? null : row;
     },
     createVerificationValue: async (data: { identifier: string; value: string; expiresAt: Date }) => {
       rows.set(data.identifier, { value: data.value, expiresAt: data.expiresAt });
@@ -35,7 +50,10 @@ function memoryStore(value: string, expiresAt = new Date(Date.now() + 600_000)) 
 
 const stored = (code: string, attempts = 0) => hashPhoneCodeRow({ identifier: ID, value: `${code}:${attempts}` })!;
 
-beforeEach(() => events.record.mockClear());
+beforeEach(() => {
+  events.record.mockClear();
+  events.compares = 0;
+});
 
 describe("hashPhoneCodeRow (the verification.create.before hook)", () => {
   it("replaces a plain phone code with a keyed hash bound to the number", () => {
@@ -82,9 +100,19 @@ describe("checkPhoneCode", () => {
     expect(results.every((r) => r.status === "rejected" || r.value === false)).toBe(true);
   });
 
-  it("an expired code fails", async () => {
+  it("an expired code says so (OTP_EXPIRED, not a wrong code), and is gone afterwards", async () => {
     const store = memoryStore(stored("482913"), new Date(Date.now() - 1000));
     await expect(checkPhoneCode(store, PHONE, "482913")).rejects.toMatchObject({ body: { code: "OTP_EXPIRED" } });
+    expect(store.rows.has(ID)).toBe(false);
+    expect(events.compares).toBe(0);
+  });
+
+  it("10 parallel guesses compare at most 5 times in all — even with the right code among them (atomic)", async () => {
+    const store = memoryStore(stored("482913"));
+    const guesses = Array.from({ length: 10 }, (_, i) => (i === 7 ? "482913" : "111111"));
+    await Promise.allSettled(guesses.map((guess) => checkPhoneCode(store, PHONE, guess)));
+    expect(events.compares).toBeGreaterThan(0);
+    expect(events.compares).toBeLessThanOrEqual(5);
   });
 
   it("a plain-text row (from before this rule) is never accepted", async () => {

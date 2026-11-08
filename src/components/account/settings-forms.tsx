@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, useTransition, type ReactNode } from "react";
+import { Turnstile, type TurnstileHandle } from "@/components/common/turnstile";
 import { useLocale, useTranslations } from "next-intl";
 import { CameraIcon, CheckIcon, DownloadIcon, LinkIcon, LoaderIcon, MailCheckIcon, Trash2Icon, UnlinkIcon, UserRoundIcon } from "lucide-react";
 import { clearPrivateCaches, clearPrivateDeviceData } from "@/lib/auth/device-data";
@@ -418,6 +419,9 @@ export function ContactEmailForm({ loginEmail, contactEmail }: { loginEmail: str
   const [waitUntil, setWaitUntil] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   const secondsLeft = Math.max(0, Math.ceil((waitUntil - now) / 1000));
+  // A code to a typed address needs the CAPTCHA (checked on the server: SECURITY_REPORT 3.2.b).
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const captcha = useRef<TurnstileHandle>(null);
 
   useEffect(() => {
     if (waitUntil <= Date.now()) return;
@@ -439,7 +443,11 @@ export function ContactEmailForm({ loginEmail, contactEmail }: { loginEmail: str
         router.refresh();
         return;
       }
-      const result = await proof.run(() => sendContactEmailCode({ contactEmail: value }));
+      const token = captchaToken;
+      const result = await proof.run(() => sendContactEmailCode({ contactEmail: value, captchaToken: token }));
+      // Turnstile tokens are single-use: a new one for the next send.
+      setCaptchaToken(null);
+      captcha.current?.reset();
       if (!result) return;
       if (!result.ok) {
         setFieldError(result.fieldErrors?.contactEmail);
@@ -512,13 +520,16 @@ export function ContactEmailForm({ loginEmail, contactEmail }: { loginEmail: str
         </div>
         {!sentTo ? (
           <div>
-            <Button type="submit" disabled={pending || !changed} className="h-11 rounded-xl px-5">
+            <Button type="submit" disabled={pending || !changed || (!!value.trim() && !captchaToken)} className="h-11 rounded-xl px-5">
               {pending ? <LoaderIcon className="animate-spin" aria-hidden="true" /> : <MailCheckIcon aria-hidden="true" />}
               {value.trim() ? tc("sendCode") : tc("remove")}
             </Button>
           </div>
         ) : null}
       </form>
+
+      {/* Invisible unless Cloudflare needs a click; the token goes with "send code". */}
+      <Turnstile ref={captcha} action="contact_email" onToken={setCaptchaToken} onExpire={() => setCaptchaToken(null)} onError={() => setCaptchaToken(null)} />
 
       {sentTo ? (
         <form
@@ -562,7 +573,7 @@ export function ContactEmailForm({ loginEmail, contactEmail }: { loginEmail: str
               {pending ? <LoaderIcon className="animate-spin" aria-hidden="true" /> : <CheckIcon aria-hidden="true" />}
               {tc("confirm")}
             </Button>
-            <Button type="button" variant="ghost" className="h-11 rounded-xl" disabled={pending || secondsLeft > 0} onClick={sendCode}>
+            <Button type="button" variant="ghost" className="h-11 rounded-xl" disabled={pending || secondsLeft > 0 || !captchaToken} onClick={sendCode}>
               {secondsLeft > 0 ? tc("resendIn", { time: formatCountdown(secondsLeft) }) : tc("resend")}
             </Button>
             <Button

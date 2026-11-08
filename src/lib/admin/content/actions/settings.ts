@@ -66,6 +66,6 @@ export async function deleteAllDemoData(input: unknown): Promise<ActionResult<De
       await audit({ actorId: staff.id, action: "demo.remove", targetType: "SiteSetting", targetId: "demoData", details: { removed } });
       return ok(removed);
     },
-    { limit: 3, windowSeconds: 600 },
+    { limit: { limit: 3, windowSeconds: 600 }, freshProof: "consume" },
   );
 }

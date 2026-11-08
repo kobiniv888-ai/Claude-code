@@ -41,6 +41,7 @@ export function PhoneCodeForm({
   onStepChange,
   place = "account",
   listingId,
+  postStepToken,
 }: {
   purpose: "sign-in" | "check";
   config: LoginConfig["phone"];
@@ -48,6 +49,8 @@ export function PhoneCodeForm({
   place?: PhoneCheckPlace;
   /** `place="booking"`: the listing being booked. */
   listingId?: string | null;
+  /** `place="post"` before the first draft: the post form's phone-step token (the server checks it). */
+  postStepToken?: string | null;
   onVerified: (phoneNumber: string) => void | Promise<void>;
   autoFocus?: boolean;
   initialPhone?: string;
@@ -113,7 +116,7 @@ export function PhoneCodeForm({
     setCaptchaToken(null);
     captcha.current?.reset();
     if (purpose === "check") {
-      const result = await sendPhoneCheckCode({ phoneNumber, captchaToken: token, place, listingId }).catch(() => null);
+      const result = await sendPhoneCheckCode({ phoneNumber, captchaToken: token, place, listingId, postStepToken }).catch(() => null);
       if (!result) return { error: { key: "network", retryAfter: null } };
       if (!result.ok) return { error: parseActionFailure(result.error) };
       if (result.data.status === "already_verified") return { alreadyVerified: true };

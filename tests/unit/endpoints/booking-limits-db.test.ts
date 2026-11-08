@@ -9,8 +9,14 @@
  *   accounts, checked in the booking transaction: a third is refused, also when two arrive at once;
  *   cancelled and finished stays do not count.
  *
- * Creates its own users (fake @example.com addresses, +995 59… test numbers), city and listings, and
- * removes them afterwards. Emails and texts are not sent.
+ * - idempotency-unalerted-1: a repeat that arrives while the first attempt is still telling the
+ *   host answers "booking_in_progress" (never "booked": the booking may still be undone), and a
+ *   booking cancelled since is no repeat.
+ * - booking-cap-tests-1: the per-account clause (a new number does not reset the cap) and the phone
+ *   lock (two accounts whose numbers are the same E.164) each have a test that fails without them.
+ *
+ * Creates its own users (fake @example.com addresses, +995 59… / +972 50… test numbers), city and
+ * listings, and removes them afterwards. Emails and texts are not sent.
  */
 import "dotenv/config";
 import { randomUUID } from "node:crypto";
@@ -30,6 +36,23 @@ vi.mock("@/lib/email", async (importOriginal) => {
   return { ...real, sendEmail: vi.fn(async () => ({ ok: true, delivery: "logged" as const })) };
 });
 vi.mock("@/lib/sms", () => ({ isSmsConfigured: () => false, sendSms: vi.fn(async () => ({ ok: true, delivered: false })) }));
+
+/** "slow_fail" / "slow_ok": the host alert takes 400 ms, then is refused (the booking is undone) or accepted. */
+const alertMode = vi.hoisted(() => ({ mode: "real" as "real" | "slow_fail" | "slow_ok" }));
+vi.mock("@/lib/booking/alerts", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/booking/alerts")>();
+  const { BookingError } = await import("@/lib/booking/errors");
+  return {
+    ...real,
+    confirmWithHostAlert: async (...args: Parameters<typeof real.confirmWithHostAlert>) => {
+      if (alertMode.mode === "real") return real.confirmWithHostAlert(...args);
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      if (alertMode.mode === "slow_ok") return real.confirmWithHostAlert(...args);
+      await real.undoUnalertedBooking(args[0].id);
+      throw new BookingError("host_unreachable");
+    },
+  };
+});
 
 const { db } = await import("@/lib/db");
 const service = await import("@/lib/booking/service");
@@ -125,9 +148,13 @@ describe("idempotency key: a double tap never books twice (4.5.c)", () => {
     const guest = await makeUser("DoubleTap", "2");
     const attempt = key();
     const tap = () => service.createBooking(stay(guest, ids.hotel, day(20), day(22), { roomTypeId: ids.room, rooms: 1, adults: 1, idempotencyKey: attempt }));
-    const [a, b] = await Promise.all([tap(), tap()]);
-    expect(a.id).toBe(b.id);
-    expect([a.repeated, b.repeated].filter(Boolean)).toHaveLength(1);
+    const results = await Promise.allSettled([tap(), tap()]);
+    // One tap makes the booking. The other meets it either while the host is still being told
+    // ("booking_in_progress": the browser asks again) or after (the same booking, repeated).
+    const made = results.filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof tap>>> => r.status === "fulfilled");
+    expect(made.filter((r) => !r.value.repeated)).toHaveLength(1);
+    for (const r of results) if (r.status === "rejected") expect(r.reason).toMatchObject({ code: "booking_in_progress" });
+    if (made.length === 2) expect(made[0]!.value.id).toBe(made[1]!.value.id);
     expect(await db.booking.count({ where: { guestUserId: guest } })).toBe(1);
     // The rooms left are right: one room taken, two free.
     const free = await service.getStayAvailability({ listingId: ids.hotel, checkIn: day(20), checkOut: day(22), adults: 1, roomTypeId: ids.room, rooms: 1 });
@@ -201,5 +228,87 @@ describe("at most 2 upcoming bookings per verified phone (decision 8)", () => {
     const refused = results.find((r): r is PromiseRejectedResult => r.status === "rejected");
     expect(refused?.reason).toMatchObject({ code: "too_many_upcoming" });
     expect(await service.countUpcomingBookings(db, guest, `+99559${digits}7`)).toBe(2);
+  });
+});
+
+/** Waits until the attempt's booking row exists (its transaction committed). */
+async function committed(guestUserId: string, idempotencyKey: string) {
+  for (let i = 0; i < 100; i++) {
+    if (await db.booking.findUnique({ where: { guestUserId_idempotencyKey: { guestUserId, idempotencyKey } }, select: { id: true } })) return;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  throw new Error("the first attempt never committed");
+}
+
+describe("a repeat while the host is still being told is never 'booked' (idempotency-unalerted-1)", () => {
+  it("the host is never reached: the retry is not told 'booked' and no booking is left", async () => {
+    const guest = await makeUser("SlowFail", "8");
+    const attempt = key();
+    alertMode.mode = "slow_fail";
+    try {
+      const first = service.createBooking(stay(guest, ids.flat, day(90), day(92), { idempotencyKey: attempt }));
+      await committed(guest, attempt);
+      const retry = service.createBooking(stay(guest, ids.flat, day(90), day(92), { idempotencyKey: attempt }));
+      const [a, b] = await Promise.allSettled([first, retry]);
+      expect(a.status).toBe("rejected");
+      expect((a as PromiseRejectedResult).reason).toMatchObject({ code: "host_unreachable" });
+      expect(b.status).toBe("rejected");
+      expect(["booking_in_progress", "host_unreachable"]).toContain((b as PromiseRejectedResult).reason?.code);
+      expect(await db.booking.count({ where: { guestUserId: guest } })).toBe(0);
+    } finally {
+      alertMode.mode = "real";
+    }
+  });
+
+  it("the host is reached: the retry during the alert waits, the one after it gets the same booking", async () => {
+    const guest = await makeUser("SlowOk", "9");
+    const attempt = key();
+    alertMode.mode = "slow_ok";
+    try {
+      const first = service.createBooking(stay(guest, ids.flat, day(95), day(97), { idempotencyKey: attempt }));
+      await committed(guest, attempt);
+      await expect(service.createBooking(stay(guest, ids.flat, day(95), day(97), { idempotencyKey: attempt }))).rejects.toMatchObject({ code: "booking_in_progress" });
+      const made = await first;
+      const after = await service.createBooking(stay(guest, ids.flat, day(95), day(97), { idempotencyKey: attempt }));
+      expect(after).toMatchObject({ id: made.id, code: made.code, repeated: true });
+    } finally {
+      alertMode.mode = "real";
+    }
+  });
+
+  it("a booking cancelled since is no repeat: request_reused", async () => {
+    const guest = await makeUser("Cancelled", "a");
+    const attempt = key();
+    const made = await service.createBooking(stay(guest, ids.flat3, day(100), day(101), { idempotencyKey: attempt }));
+    await service.guestCancel({ bookingId: made.id, guestUserId: guest, reasonCode: "CHANGE_OF_PLANS", notify: false });
+    await expect(service.createBooking(stay(guest, ids.flat3, day(100), day(101), { idempotencyKey: attempt }))).rejects.toMatchObject({ code: "request_reused" });
+  });
+});
+
+describe("the cap's two halves each have a test (booking-cap-tests-1)", () => {
+  it("per account: a new verified number does not reset the cap (the guestUserId clause)", async () => {
+    const guest = await makeUser("NewNumber", "b");
+    await service.createBooking(stay(guest, ids.flat2, day(110), day(111)));
+    await service.createBooking(stay(guest, ids.flat2, day(112), day(113)));
+    // The account moves to another verified number (in real life: a fresh code, then an SMS code).
+    await db.user.update({ where: { id: guest }, data: { phoneNumber: `+99559${digits}c` } });
+    await expect(service.createBooking(stay(guest, ids.flat2, day(114), day(115)))).rejects.toMatchObject({ code: "too_many_upcoming" });
+  });
+
+  it("per number: two accounts whose numbers are the same E.164 book at once, at most one passes (the phone lock)", async () => {
+    // A number saved in a legacy spelling (+972 0…) and its E.164 form: two User rows, one number.
+    const national = `50${digits}9`;
+    const a = await makeUser("SpellingA", "d");
+    const b = await makeUser("SpellingB", "e");
+    await db.user.update({ where: { id: a }, data: { phoneNumber: `+972${national}` } });
+    await db.user.update({ where: { id: b }, data: { phoneNumber: `+9720${national}` } });
+    await service.createBooking(stay(a, ids.flat, day(120), day(121)));
+    const results = await Promise.allSettled([
+      service.createBooking(stay(a, ids.flat2, day(120), day(121))),
+      service.createBooking(stay(b, ids.flat3, day(120), day(121))),
+    ]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    expect((results.find((r) => r.status === "rejected") as PromiseRejectedResult | undefined)?.reason).toMatchObject({ code: "too_many_upcoming" });
+    expect(await db.booking.count({ where: { guestPhone: `+972${national}`, status: "CONFIRMED" } })).toBe(2);
   });
 });

@@ -1,3 +1,4 @@
+import { PRODUCTION_HOSTS, isRealSiteHost } from "../../config/production-hosts";
 import { readSiteEnv, testModeOn, testModeRequested } from "../site-env";
 
 /**
@@ -17,6 +18,7 @@ import { readSiteEnv, testModeOn, testModeRequested } from "../site-env";
  *   addresses.
  * - A request without any host: never. `requestHosts = null` means "no request at all" (a job):
  *   then only the configured addresses count.
+ * - The real site's names (src/config/production-hosts.ts): never, whatever the settings say.
  *
  * Pure (no server imports) so it is unit-tested; the server reads it with `codeDisplayForHeaders`.
  */
@@ -78,6 +80,7 @@ export function isTestModeOn(env: CodeDisplayEnv): boolean {
 export function codeDisplayMode(
   env: CodeDisplayEnv,
   requestHosts: readonly (string | null | undefined)[] | null,
+  productionHosts: readonly string[] = PRODUCTION_HOSTS,
 ): CodeDisplayMode | null {
   if (!testModeOn(env)) return null;
   const configured = [hostOfUrl(env.NEXT_PUBLIC_SITE_URL), hostOfUrl(env.BETTER_AUTH_URL)].filter(
@@ -86,6 +89,8 @@ export function codeDisplayMode(
   if (configured.length === 0) return null;
   const fromRequest = requestHosts === null ? [] : requestHosts.filter((host): host is string => !!host?.trim());
   if (requestHosts !== null && fromRequest.length === 0) return null;
+  // The real site's names never show codes, even with a wrong label (decision 1, 3.4.a).
+  if ([...fromRequest, ...configured].some((host) => isRealSiteHost(normalizeHost(host), productionHosts))) return null;
   const label: CodeDisplayMode = env.NODE_ENV === "production" ? "test" : "development";
   if (readSiteEnv(env) === "development") {
     return [...fromRequest, ...configured].every(isTestHost) ? label : null;

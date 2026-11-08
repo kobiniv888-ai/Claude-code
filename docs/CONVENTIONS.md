@@ -178,7 +178,9 @@ docs/
 | `@/lib/rate-limit` | `rateLimit(key, { limit, windowSeconds, failOpen? })`, `assertRateLimit(...)`, `rateLimitByIp`, `assertRateLimitByIp`: **fail closed** (a broken store refuses: `{ ok: false, failed: true }` / RateLimitError); `failOpen: true` only for harmless counters (alert quotas) |
 | `@/lib/site-env` | `readSiteEnv`, `siteEnv`, `isProductionSite`, `testModeAllowed`, `testModeOn`, `demoAllowed` (pure): THE place for "which kind of site is this" (`SITE_ENV`) |
 | `@/lib/startup-check` | `startupProblems(env)`, `startupWarnings(env)`, `formatStartupProblems` (pure): the start-up settings rules; `src/instrumentation-node.ts` exits when a problem is listed |
-| `@/lib/security/events` | `recordSecurityEvent({ type, userId?, ip?, meta? })` (never throws, no personal data), `purgeOldSecurityEvents(now)` (90 days); types in `@/lib/security/event-types` (`SECURITY_EVENT_TYPES`) |
+| `@/config/production-hosts` | `PRODUCTION_HOSTS` (the real domain names, added on launch day), `isRealSiteHost`: development/staging never start on them, codes never show on screen for them |
+| `@/lib/site-env-marker` | The real site marks its database at start (`SiteSetting` "siteEnvironment"); a development/staging server, `scripts/check-site-marker.ts` (build) and the seed refuse a marked database |
+| `@/lib/security/events` | `recordSecurityEvent({ type, userId?, ip?, meta? })` (never throws, no personal data), `purgeOldSecurityEvents(now)` (90 days); types in `@/lib/security/event-types` (`SECURITY_EVENT_TYPES`; tests/unit/security-events-emitters.test.ts checks each one is recorded somewhere). Logins, refused codes, codes sent, permission denials, the first refusal of each rate-limit window, contact reveals, exports and deletions are all recorded |
 | `@/lib/listing/ical-token` | `newIcalToken()` (256-bit base64url), `isStrongIcalToken()`: every listing create path and "replace calendar link" |
 | `@/lib/geocode` | `geocodeAddress(query, locale)` (server): address search through OpenStreetMap Nominatim, cached, 1 request per second site-wide. The browser calls `GET /api/geocode?q=&locale=` (signed in, once per Search/Enter), never Nominatim |
 | `@/lib/turnstile` | `verifyTurnstile(token)` |
@@ -287,4 +289,14 @@ versions younger than about two weeks unless they are a security fix. Dependabot
 Several dev servers can run side by side: `NEXT_DIST_DIR=.next-b npx next dev -H 127.0.0.1 -p 3101` (a development server only ever listens on this machine: `npm run dev` binds 127.0.0.1).
 Scripts that import server modules run with `tsx --require ./scripts/server-script.cjs` (it makes `server-only` a no-op; avoid `--conditions=react-server`, which breaks tsx on some Node 22 versions).
 
+**Remembered devices** (`DeviceLink`, 1 year) only mean "don't send a new-device alert again" and
+risk links between accounts. Nothing skips or shortens a login step because a device is known: no
+"trusted device" for the 2-step code, for staff or anyone (tests/unit/no-trusted-device.test.ts).
+
+**Login codes and SMS** go through `limitCodeSend` (`@/lib/auth/login-rate-limit`) for every code
+that really goes out (login, "confirm it's you", unlock, contact address): per inbox/number, IP
+(IPv6 by /64), device; counted only when sent. Paid texts also pass `@/lib/auth/sms-guard`, per
+source first (account + IP block, `withSmsSource`): brake, share of the budget, trusted reserve.
+
 Checks before you finish: `npm run typecheck`, `npm run lint`, `npm run i18n:check`, `npm test`.
+Before a release: `npm run security:check`.

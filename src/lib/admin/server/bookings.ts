@@ -11,8 +11,9 @@ import { db } from "@/lib/db";
 import { parseBookingSearch, stayOverlap, type AdminBookingStatus } from "../booking-search";
 import { bookingFlagKind, hoursFromBookingToCancel } from "../flags";
 import { pageInfo } from "../params";
-import { canSeeGuestPhone, type StaffViewer } from "../staff-visibility";
+import { canSeeGuestPhone, canSeeReporter, guestWithheldFor, staffPhone, type StaffPhone, type StaffViewer } from "../staff-visibility";
 import { HOST_UNREACHABLE_ACTION } from "./attention";
+import { turnedAwayBookingIds } from "./shared";
 
 /**
  * Admin → Bookings (server-only, "moderation"): search by booking code, guest, host, listing
@@ -21,7 +22,12 @@ import { HOST_UNREACHABLE_ACTION } from "./attention";
  *
  * The guest's phone is ADMIN only (founder's decision Q12, ../staff-visibility.ts): the booking
  * page reads Booking.guestPhone only for a viewer who may see it, and only they may search bookings
- * by a phone number (a search is an answer too: "this number booked that place").
+ * by a phone number (a search is an answer too: "this number booked that place"). Other staff see
+ * its last 2 digits only (founder's answer (c)).
+ *
+ * The guest of a booking with a turned-away report sent that report, and who sent a report is ADMIN
+ * only too: for other staff such a booking comes without its guest (name, account, phone digits)
+ * on the booking page and in the search, and a search for a guest never finds it.
  */
 
 export const ADMIN_BOOKINGS_PAGE_SIZE = 25;
@@ -70,11 +76,14 @@ export async function bookingSearchWhere(filters: BookingSearchFilters, viewer: 
     const phones = canSeeGuestPhone(viewer);
     if (code) or.push({ code });
     if (people.listingPublicId) or.push({ listing: { publicId: people.listingPublicId } });
-    if (people.text && people.text.length >= 2) or.push({ guestName: { contains: people.text, mode: "insensitive" } });
+    // Without the reporter right a guest search never finds a booking with a turned-away report:
+    // that the guest booked it would name the report's sender (Q12).
+    const guestSide: Prisma.BookingWhereInput = canSeeReporter(viewer) ? {} : { reports: { none: { kind: "TURNED_AWAY" } } };
+    if (people.text && people.text.length >= 2) or.push({ guestName: { contains: people.text, mode: "insensitive" }, ...guestSide });
     if (phones && people.phones.length) or.push({ guestPhone: { in: people.phones } });
     if (phones && people.phoneDigits) or.push({ guestPhone: { contains: people.phoneDigits } });
     const users = userSearchWhere(q, phones);
-    if (users) or.push({ guest: users }, { host: users });
+    if (users) or.push({ guest: users, ...guestSide }, { host: users });
     // Something was typed but nothing can match it.
     and.push(or.length ? { OR: or } : { id: "__none__" });
   }
@@ -102,7 +111,8 @@ export type AdminBookingListRow = {
   flag: "host_cancellation" | "no_show" | null;
   flagOpen: boolean;
   reportCount: number;
-  guest: { id: string; name: string };
+  /** Null when withheld: the booking has a turned-away report and the viewer may not see its sender (Q12). */
+  guest: { id: string; name: string } | null;
   host: { id: string; name: string };
   listing: { id: string; publicId: number; title: string };
 };
@@ -138,6 +148,7 @@ export async function searchBookings(filters: BookingSearchFilters, requestedPag
       _count: { select: { reports: true } },
     },
   });
+  const turnedAway = canSeeReporter(viewer) ? new Set<string>() : await turnedAwayBookingIds(rows.map((r) => r.id));
   return {
     total,
     page: info.page,
@@ -156,7 +167,7 @@ export async function searchBookings(filters: BookingSearchFilters, requestedPag
         flag: bookingFlagKind(row),
         flagOpen: !!bookingFlagKind(row) && !row.flagReviewedAt,
         reportCount: row._count.reports,
-        guest: { id: row.guestUserId, name: row.guestName },
+        guest: guestWithheldFor(viewer, turnedAway.has(row.id)) ? null : { id: row.guestUserId, name: row.guestName },
         host: { id: row.hostUserId, name: row.host.businessName || personName(row.host) || row.host.name },
         listing: { id: row.listing.id, publicId: row.listing.publicId, title: row.listing.translations[0]?.title?.trim() || row.listing.title },
       }),
@@ -291,8 +302,13 @@ export async function getAdminBooking(id: string, locale: AppLocale, viewer: Sta
     },
   });
   if (!booking) return null;
-  // ADMIN only (Q12): read in its own query, never for other staff.
-  const guestPhone = showPhone ? ((await db.booking.findUnique({ where: { id: booking.id }, select: { guestPhone: true } }))?.guestPhone ?? null) : null;
+  // A turned-away report on this booking was sent by its guest: withheld from staff who may not see
+  // who sent a report (Q12), with the guest's name, account, phone digits and their own history lines.
+  const guestWithheld = guestWithheldFor(viewer, booking.reports.some((r) => r.kind === "TURNED_AWAY"));
+  // The number for an ADMIN, the last 2 digits for other staff (Q12, (c)); read in its own query.
+  const phone: StaffPhone = guestWithheld
+    ? staffPhone(viewer, null)
+    : staffPhone(viewer, (await db.booking.findUnique({ where: { id: booking.id }, select: { guestPhone: true } }))?.guestPhone);
 
   const [history, staff] = await Promise.all([
     db.auditLog.findMany({
@@ -327,11 +343,19 @@ export async function getAdminBooking(id: string, locale: AppLocale, viewer: Sta
     rooms: booking.rooms,
     priceLines: booking.priceLines,
   });
+  const { guest, guestName, ...rest } = booking;
   return {
     booking: {
-      ...booking,
-      /** ADMIN only (Q12); null for other staff (guestPhoneWithheld). */
-      guestPhone,
+      ...rest,
+      /** Null when withheld (a turned-away report by this guest; Q12): see `guestWithheld`. */
+      guest: guestWithheld ? null : guest,
+      guestName: guestWithheld ? null : guestName,
+      guestWithheld,
+      /** The viewer is this booking's guest (the own-item rule), without the guest's id on the page. */
+      guestIsViewer: guest.id === viewer.id,
+      /** ADMIN only (Q12); null for other staff (guestPhoneWithheld, guestPhoneMasked). */
+      guestPhone: phone.phoneNumber,
+      guestPhoneMasked: phone.phoneMasked,
       guestPhoneWithheld: !showPhone,
       checkIn,
       checkOut,
@@ -352,7 +376,8 @@ export async function getAdminBooking(id: string, locale: AppLocale, viewer: Sta
     },
     /** The itemized price (nights, date prices, discount, cleaning fee), adding up to the total. */
     lines,
-    history: history.map((h) => ({ ...h, details: record(h.details) })),
+    // The guest's own history lines name them (the actor): withheld like the guest.
+    history: history.map((h) => ({ ...h, actor: guestWithheld && h.actor?.id === guest.id ? null : h.actor, details: record(h.details) })),
   };
 }
 

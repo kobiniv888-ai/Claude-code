@@ -108,7 +108,7 @@ export default async function AdminBookingPage({ params }: Props) {
             </span>
           </p>
           {/* Nobody reviews the flag of a booking they are part of (as host or guest). */}
-          {booking.host.id !== staff.id && booking.guest.id !== staff.id ? (
+          {booking.host.id !== staff.id && !booking.guestIsViewer ? (
             <div className="flex flex-wrap gap-2">
               {/* A wrong "didn't arrive" report: the guest can review the stay again. */}
               {booking.status === "NO_SHOW" ? <ClearNoShowButton bookingId={booking.id} label={booking.code} /> : null}
@@ -257,14 +257,28 @@ export default async function AdminBookingPage({ params }: Props) {
             <div className="flex flex-col gap-4 text-sm">
               <div className="flex flex-col gap-1">
                 <span className="text-xs text-muted-foreground">{t("guestLabel")}</span>
-                <span className="flex flex-wrap items-center gap-1.5">
-                  <Link href={`/admin/users/${booking.guest.id}`} className="font-medium text-primary hover:underline">
-                    <span dir="auto">{booking.guestName || booking.guest.name}</span>
-                  </Link>
-                  <UserStatusBadge status={booking.guest.status} className="h-5" />
-                </span>
-                {/* ADMIN only (Q12): other staff get no phone from the query at all. */}
-                {booking.guestPhone ? <Ltr className="text-xs">{booking.guestPhone}</Ltr> : booking.guestPhoneWithheld ? <span className="text-xs text-muted-foreground">{t("guestPhoneWithheld")}</span> : null}
+                {booking.guest ? (
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    <Link href={`/admin/users/${booking.guest.id}`} className="font-medium text-primary hover:underline">
+                      <span dir="auto">{booking.guestName || booking.guest.name}</span>
+                    </Link>
+                    <UserStatusBadge status={booking.guest.status} className="h-5" />
+                  </span>
+                ) : (
+                  // The guest sent a turned-away report about this booking: who sent it is ADMIN only (Q12).
+                  <span className="text-xs text-muted-foreground">{t("guestWithheld")}</span>
+                )}
+                {/* ADMIN only (Q12): other staff get the last 2 digits from the query, never the number. */}
+                {booking.guestPhone ? (
+                  <Ltr className="text-xs">{booking.guestPhone}</Ltr>
+                ) : booking.guestPhoneMasked ? (
+                  <span className="inline-flex flex-wrap items-center gap-x-1.5 text-xs">
+                    <Ltr>{booking.guestPhoneMasked}</Ltr>
+                    <span className="text-muted-foreground">{tAdmin("users.phoneLast2Only")}</span>
+                  </span>
+                ) : booking.guestPhoneWithheld && !booking.guestWithheld ? (
+                  <span className="text-xs text-muted-foreground">{t("guestPhoneWithheld")}</span>
+                ) : null}
                 <span className="text-xs text-muted-foreground">{t("guestLanguage", { language: siteConfig.i18n.nativeNames[booking.locale] ?? booking.locale })}</span>
               </div>
               <div className="flex flex-col gap-1">

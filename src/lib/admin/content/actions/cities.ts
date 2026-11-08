@@ -101,7 +101,7 @@ export async function deleteCity(input: unknown): Promise<ActionResult> {
     });
     await removeUploadedPhoto(city.photoUrl);
     return ok();
-  });
+  }, { freshProof: "window" });
 }
 
 export async function saveNeighborhood(input: unknown): Promise<ActionResult<{ id: string }>> {
@@ -156,7 +156,7 @@ export async function deleteNeighborhood(input: unknown): Promise<ActionResult> 
       await auditOrThrow({ actorId: staff.id, action: "neighborhood.delete", targetType: "Neighborhood", targetId: hood.id, details: { cityId: hood.cityId, slug: hood.slug } }, tx);
     });
     return ok();
-  });
+  }, { freshProof: "window" });
 }
 
 const CITY_PHOTO_MAX_BYTES = 8 * 1024 * 1024;

@@ -36,6 +36,22 @@ export const SECURITY_EVENT_TYPES = [
   "calendar_link_replaced",
   /** The browser reported a Content-Security-Policy violation. */
   "csp_report",
+  /** A new session from a login (meta: method email_code / phone_code / social, staff). Not our own rotation. */
+  "login_success",
+  /** A login code was refused (meta: channel email / sms, reason: the error code). */
+  "login_failed",
+  /** A login code went out by email (meta: the visitor's country, route). Never the address. */
+  "email_code_sent",
+  /** A signed-in account was refused a staff page or action (meta: access, permission). */
+  "permission_denied",
+  /** A rate limit refused its first request of a window (meta: scope, the key's first parts; never ids). */
+  "rate_limited",
+  /** "Show contact" revealed a listing's contact details (userId only, no listing id). */
+  "contact_revealed",
+  /** An account downloaded its data ("Download my data"). */
+  "data_export",
+  /** An account deleted itself. */
+  "account_deleted",
 ] as const;
 
 export type SecurityEventType = (typeof SECURITY_EVENT_TYPES)[number];

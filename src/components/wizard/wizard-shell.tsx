@@ -8,6 +8,7 @@ import { toast } from "@/lib/toast";
 import { Button } from "@/components/ds/button";
 import { Tag } from "@/components/ds/tag";
 import { Ltr } from "@/components/common/ltr";
+import { useFreshProof } from "@/components/auth/use-fresh-proof";
 import type { AppLocale } from "@/config/site";
 import { Link, useRouter } from "@/i18n/navigation";
 import { DEFAULT_PRICE_PERIOD, PROPERTY_TYPES_BY_DEAL } from "@/lib/listing/fields";
@@ -193,7 +194,10 @@ export function WizardShell({
     },
     [listing.id],
   );
+  // A published listing's contact details change only after a fresh code (SECURITY_REPORT 3.6.a).
+  const proof = useFreshProof();
   const autosave = useAutosave({
+    askProof: proof.ask,
     listingId: listing.id,
     getValues: () => valuesRef.current,
     getKind: () => kindOf(valuesRef.current),
@@ -829,6 +833,7 @@ export function WizardShell({
         />
       </div>
       {calendarSheet}
+      {proof.dialog}
     </WizardBusyContext.Provider>
   );
 }

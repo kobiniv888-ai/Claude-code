@@ -97,6 +97,10 @@ type Props = {
 
 const PAYMENT_ICONS: Record<PaymentMethod, LucideIcon> = { cash: BanknoteIcon, card: CreditCardIcon, bank_transfer: LandmarkIcon };
 
+/** "booking_in_progress": how often, and how far apart, the same attempt is sent again (about 15 s). */
+const BOOKING_IN_PROGRESS_TRIES = 10;
+const BOOKING_IN_PROGRESS_WAIT_MS = 1500;
+
 /**
  * "אישור הזמנה" (brief 5.5 step 2): the stay, the price, how to pay, the cancellation policy, the
  * house rules with "I agree", the guest's name and verified phone, a message to the host, and
@@ -252,6 +256,8 @@ function ReviewForm({
   // One attempt key per stay (SECURITY_REPORT 4.5.c): every tap for the same stay sends the same
   // key, so a double tap or a retry gets the booking already made instead of a second one.
   const attemptKeys = useRef(new Map<string, string>());
+  /** A repeat of this attempt waits for its first try to finish telling the host. */
+  const [confirming, setConfirming] = useState(false);
   const phoneBlocked = !!user && !phone && !phoneConfig.available;
 
   const errorText = (code: string) => {
@@ -306,7 +312,7 @@ function ReviewForm({
       attemptKeys.current.set(stayKey, idempotencyKey);
     }
     startTransition(async () => {
-      const result = await createBookingAction({
+      const send = () => createBookingAction({
         listingId: terms.id,
         checkIn: request.checkIn,
         checkOut: request.checkOut,
@@ -323,6 +329,15 @@ function ReviewForm({
         expectedPolicy: terms.cancellationPolicy,
         idempotencyKey,
       }).catch(() => ({ ok: false as const, error: "server_error" }));
+      let result = await send();
+      // The first attempt with this key is still telling the host (a lost answer, a double tap):
+      // ask again with the same key until it stands or was refused (idempotency-unalerted-1).
+      for (let tries = 0; !result.ok && result.error === "booking_in_progress" && tries < BOOKING_IN_PROGRESS_TRIES; tries++) {
+        setConfirming(true);
+        await new Promise((resolve) => setTimeout(resolve, BOOKING_IN_PROGRESS_WAIT_MS));
+        result = await send();
+      }
+      setConfirming(false);
       if (result.ok) {
         router.push(`${result.data.path}?booked=1`);
         return;
@@ -386,7 +401,7 @@ function ReviewForm({
       <AskHostButton className={block ? "w-full" : "flex-1 shrink"} />
     ) : (
       <Button block={block} className={block ? undefined : "min-w-0 flex-1 shrink"} onClick={submit} disabled={pending} aria-busy={pending || undefined}>
-        <span className="truncate">{pending ? t("review.submitting") : t("review.submit")}</span>
+        <span className="truncate">{pending ? (confirming ? t("review.confirmingWithHost") : t("review.submitting")) : t("review.submit")}</span>
       </Button>
     );
 

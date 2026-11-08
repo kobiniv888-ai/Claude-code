@@ -10,8 +10,8 @@ import { hostCancelHours } from "@/lib/listing/host-flags";
 import { countOpenReports } from "@/lib/reports/queries";
 import { parseReportAttachments, reporterNameForHost, screenshotsDeleteAt, TURNED_AWAY_REASONS } from "@/lib/reports/turned-away";
 import { reportedPart } from "@/lib/reviews/rules";
-import { canSeeReporter, type StaffViewer } from "../staff-visibility";
-import { ADMIN_PAGE_SIZE, coverPhotoSelect, ownerBadgeSelect } from "./shared";
+import { canSeeReporter, guestWithheldFor, type StaffViewer } from "../staff-visibility";
+import { accountPhoneFor, ADMIN_PAGE_SIZE, coverPhotoSelect, ownerBadgeSelect } from "./shared";
 
 /**
  * Reports: the queue and the report page (server-only; brief 8.2 and 9).
@@ -25,6 +25,12 @@ import { ADMIN_PAGE_SIZE, coverPhotoSelect, ownerBadgeSelect } from "./shared";
  * true). What the page needs from the reporter id is worked out here instead: which part of a
  * review was reported (`reviewPart`), whether the viewer sent it (`reporterIsViewer`, the own-item
  * rule) and whether the host could be told (`reporterRevealable`, for the ADMIN's reveal step).
+ *
+ * A turned-away report is always sent by its booking's guest, so for other staff its booking comes
+ * without the code and the id (`booking.withheld`): status, dates, nights and the host's
+ * cancellation stay, which is what the decision needs. Its screenshots (the guest's evidence) are
+ * for an ADMIN only too (the screenshot route). The reported account's phone: ADMIN only, the last
+ * 2 digits for other staff (founder's answer (c), `accountPhoneFor`).
  */
 
 export const REPORT_STATUSES = ["OPEN", "RESOLVED", "DISMISSED"] as const satisfies readonly ReportStatus[];
@@ -137,8 +143,14 @@ export async function listReports(filters: ReportFilters, page: number, locale: 
   const names = await reporterNames(viewer, rows.map((r) => r.reporterId));
   const shown = canSeeReporter(viewer);
   return {
-    rows: rows.map(({ attachments, reporterId, ...row }) => ({
+    rows: rows.map(({ attachments, reporterId, booking, ...row }) => ({
       ...row,
+      /** A turned-away report's booking names its sender (the guest): no code for other staff. */
+      booking: booking
+        ? guestWithheldFor(viewer, row.kind === "TURNED_AWAY")
+          ? { code: null, status: booking.status, withheld: true as const }
+          : { code: booking.code, status: booking.status, withheld: false as const }
+        : null,
       screenshots: parseReportAttachments(attachments).length,
       reporter: reporterId ? (names.get(reporterId) ?? null) : null,
       reporterWithheld: !shown,
@@ -194,7 +206,6 @@ export async function getReportDetail(id: string, locale: string, viewer: StaffV
           cancelledAt: true,
           cancelReasonCode: true,
           cancelReason: true,
-          cancelledById: true,
           hostUserId: true,
           flaggedForReview: true,
         },
@@ -294,9 +305,15 @@ export async function getReportDetail(id: string, locale: string, viewer: StaffV
     reporterNameForHost({ reporterRevealedAt: new Date(), reporter: reporterAccount }) !== null;
   const otherNames = await reporterNames(viewer, otherReports.map((r) => r.reporterId));
 
+  // The booking of a turned-away report names its sender (its guest): no code or id for other staff.
+  const bookingWithheld = guestWithheldFor(viewer, report.kind === "TURNED_AWAY");
+  const accountPhone = await accountPhoneFor(viewer, account?.id);
   const booking = report.booking
     ? {
         ...report.booking,
+        id: bookingWithheld ? null : report.booking.id,
+        code: bookingWithheld ? null : report.booking.code,
+        withheld: bookingWithheld,
         checkIn: dateToDay(report.booking.checkIn),
         checkOut: dateToDay(report.booking.checkOut),
         /** Hours from the booking to the host's cancellation (the 48-hour flag rule). */
@@ -320,8 +337,12 @@ export async function getReportDetail(id: string, locale: string, viewer: StaffV
       /** A turned-away report whose reporter's first name could be told to the host (ADMIN's step). */
       reporterRevealable,
       reviewPart: review ? reportedPart(review, reporterId) : null,
+      /** The screenshots of a turned-away report are its sender's evidence: ADMIN only (Q12). */
+      screenshotsWithheld: bookingWithheld,
     },
+    /** The reported account; its phone as the viewer may see it (`accountPhone`, Q12 (c)). */
     account,
+    accountPhone,
     accountStats: { liveListings, upcomingBookings },
     otherReports: otherReports.map(({ reporterId: other, ...r }) => ({
       ...r,

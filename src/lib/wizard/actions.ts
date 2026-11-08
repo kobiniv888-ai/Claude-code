@@ -7,6 +7,8 @@ import { locales, siteConfig, type AppLocale, type Localized } from "@/config/si
 import { isAppLocale } from "@/i18n/locale";
 import { absoluteUrl } from "@/lib/site-url";
 import { fail, ok, toActionError, type ActionResult } from "@/lib/action";
+import { consumeFreshProof, requireFreshProof } from "@/lib/auth/fresh-proof";
+import { notifySecurityChange } from "@/lib/auth/security-notices";
 import { requireUserForAction, type CurrentUser } from "@/lib/auth/session";
 import { getRates } from "@/lib/currency";
 import { toUsd } from "@/lib/currency/convert";
@@ -43,6 +45,7 @@ import { deactivationLeavesTooFewPhotos, deletePhotoLocked, deleteRoomTypeLocked
 import { scheduleRoomTypeNameTranslation } from "./room-type-names";
 import { presentStepKeys } from "./patch";
 import { buildStepUpdate, type StepUpdate, type StepUpdateDeps } from "./step-update";
+import { contactChangeNeedsProof, maskedContactSummary } from "./contact-proof";
 import {
   availabilitySchema,
   photoAltSchema,
@@ -195,6 +198,11 @@ export async function updateDraft(
     // details in the text, no exact address) is refused, not saved (round 3, brief 6.1).
     const liveErrors = liveEditFieldErrors(step, parsed.data as Record<string, unknown>, listing);
     if (liveErrors && listing.status === "LIVE") return fail("invalid_input", liveErrors);
+    // SECURITY_REPORT 3.6.a / 14.3.b: the guest-facing contact details of a listing that was ever
+    // published change only after a fresh code in this session (a stolen session must not point
+    // guests to another number). Refused, not saved: the form keeps the value and asks for the code.
+    const contactChange = contactChangeNeedsProof(step, listing.status, update.contentChanged);
+    if (contactChange) await requireFreshProof(user);
 
     const wizardStep = z.number().int().min(1).max(20).optional().safeParse(options.wizardStep);
     const now = new Date();
@@ -202,6 +210,7 @@ export async function updateDraft(
       ...update.data,
       ...(wizardStep.success && wizardStep.data !== undefined && listing.status === "DRAFT" ? { wizardStep: wizardStep.data } : {}),
       ...(update.contentChanged ? { contentUpdatedAt: now } : {}),
+      ...(contactChange ? { contactChangedAt: now } : {}),
     };
     if (Object.keys(listingData).length === 0 && !update.userUpdate) {
       return ok({ savedAt: now.toISOString(), updatedAt: listing.updatedAt.toISOString() });
@@ -220,6 +229,15 @@ export async function updateDraft(
       return row;
     });
     if (!saved) return fail("invalid_input", liveErrors ?? {});
+    if (contactChange) {
+      // One code, one change; and the host hears of it ("if this wasn't you…", never throws).
+      await consumeFreshProof(user.sessionId);
+      await notifySecurityChange({
+        userId: user.id,
+        kind: "listing_contact",
+        masked: maskedContactSummary((parsed.data as Partial<ParsedStep<"contact">>).contactMethods ?? []),
+      });
+    }
 
     if (update.textChanged && listing.status === "LIVE") {
       // Brief 2.4: an autosaved edit of a live listing is public at once, so its translations are

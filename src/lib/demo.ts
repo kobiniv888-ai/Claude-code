@@ -2,7 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import { isOwnPrivateUpload } from "@/lib/media";
 import { isOwnReportUpload, parseReportAttachments } from "@/lib/reports/turned-away";
-import { clearSettingsCache } from "@/lib/settings";
+import { clearSettingsCache, getSettings } from "@/lib/settings";
 import { deletePrivate } from "@/lib/storage";
 
 /**
@@ -38,12 +38,48 @@ export function isDemoAlertTitle(title: unknown): boolean {
   );
 }
 
+/** The seeded example alert, or any alert with a "Demo:" title. */
+export function isDemoScamAlert(alert: { id: string; title: unknown }): boolean {
+  return alert.id === DEMO_SCAM_ALERT_ID || isDemoAlertTitle(alert.title);
+}
+
+/**
+ * The scam alerts the public may see: demo alerts only while "Show demo data" is on (the same
+ * setting that shows demo listings), so a forgotten seed never warns visitors with demo text.
+ */
+export function withoutHiddenDemoAlerts<T extends { id: string; title: unknown }>(alerts: T[], demoDataVisible: boolean): T[] {
+  return demoDataVisible ? alerts : alerts.filter((alert) => !isDemoScamAlert(alert));
+}
+
 const demoListingWhere = { OR: [{ isDemo: true }, { owner: { isDemo: true } }] };
 
 /** Ids of scam alerts that are demo content (the seeded one, or any "Demo:" title). */
 async function demoAlertIds(client: Pick<typeof db, "scamAlert"> = db): Promise<string[]> {
   const alerts = await client.scamAlert.findMany({ select: { id: true, title: true } });
-  return alerts.filter((a) => a.id === DEMO_SCAM_ALERT_ID || isDemoAlertTitle(a.title)).map((a) => a.id);
+  return alerts.filter(isDemoScamAlert).map((a) => a.id);
+}
+
+/**
+ * How many photos of demo listings the public credits page mentions: 0 while "Show demo data" is
+ * off (the demo listings are hidden then) or when the count fails.
+ */
+export async function visibleDemoListingPhotoCount(): Promise<number> {
+  try {
+    const settings = await getSettings();
+    if (!settings.demoDataVisible) return 0;
+    return await db.listingPhoto.count({ where: { listing: { isDemo: true } } });
+  } catch {
+    return 0;
+  }
+}
+
+/** True when the database has no cities (the seed never ran or did not finish). */
+export async function seedDataMissing(): Promise<boolean> {
+  try {
+    return (await db.city.count()) === 0;
+  } catch {
+    return true;
+  }
 }
 
 /** How much demo data there is (for the admin confirmation dialog). */

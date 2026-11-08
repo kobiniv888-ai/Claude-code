@@ -188,6 +188,12 @@ describe("step save schemas", () => {
     ).toBe(false);
   });
 
+  // SECURITY_REPORT 8.1.a: a real export link from another Airbnb country site is kept, as www.airbnb.com.
+  it("stores an Airbnb country-site calendar link as www.airbnb.com", () => {
+    const parsed = priceStepSchema.parse({ ...pickStepData("price", base), icalImportUrls: ["https://www.airbnb.com.br/calendar/ical/123.ics?s=abc"] });
+    expect(parsed.icalImportUrls).toEqual(["https://www.airbnb.com/calendar/ical/123.ics?s=abc"]);
+  });
+
   // SECURITY_REPORT 8.1.a / Q15: calendars only from Airbnb, Booking.com, Vrbo / HomeAway, Google Calendar.
   it("accepts calendar links only from the allowed calendar sites", () => {
     const ical = (url: string) => priceStepSchema.safeParse({ ...pickStepData("price", base), icalImportUrls: [url] });

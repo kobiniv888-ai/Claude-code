@@ -1,7 +1,7 @@
 import "server-only";
 import type { z } from "zod";
 import { fail, type ActionResult } from "@/lib/action";
-import { runStaffAction } from "@/lib/admin/server/common";
+import { runStaffAction, type StaffActionOptions } from "@/lib/admin/server/common";
 import type { Permission } from "@/lib/auth/permissions";
 import type { CurrentUser } from "@/lib/auth/session";
 import { AppError } from "@/lib/errors";
@@ -48,13 +48,15 @@ export class ContentActionError extends AppError {
 /** Default: 60 writes a minute per staff member and area. */
 const WRITE_LIMIT: RateLimitOptions = { limit: 60, windowSeconds: 60 };
 
+/** `limitOrOptions`: a rate limit, or { limit, freshProof } for a destructive action (3.6.c). */
 export function runContentAction<T>(
   permission: Permission,
   scope: string,
   fn: (staff: CurrentUser) => Promise<ActionResult<T>>,
-  limit: RateLimitOptions = WRITE_LIMIT,
+  limitOrOptions: RateLimitOptions | StaffActionOptions = WRITE_LIMIT,
 ): Promise<ActionResult<T>> {
-  return runStaffAction(permission, `content:${scope}`, fn, limit);
+  const options: StaffActionOptions = "windowSeconds" in limitOrOptions ? { limit: limitOrOptions } : { limit: WRITE_LIMIT, ...limitOrOptions };
+  return runStaffAction(permission, `content:${scope}`, fn, options);
 }
 
 /** Validates input; on failure returns an "invalid_input" result with dotted field paths. */

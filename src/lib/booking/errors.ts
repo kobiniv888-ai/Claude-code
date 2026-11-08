@@ -33,8 +33,10 @@ export const BOOKING_ERROR_CODES = [
   "host_unreachable",
   /** This phone number (or account) already has the most upcoming bookings (details.count = the limit). */
   "too_many_upcoming",
-  /** A booking attempt's key came back for another stay (a broken or replayed request). */
+  /** A booking attempt's key came back for another stay (a broken or replayed request), or for a booking cancelled since. */
   "request_reused",
+  /** The first attempt with this key made the booking and is still telling the host: try again in a moment (idempotency-unalerted-1). */
+  "booking_in_progress",
 ] as const;
 export type BookingErrorCode = (typeof BOOKING_ERROR_CODES)[number];
 
@@ -47,7 +49,7 @@ export class BookingError extends AppError {
   readonly details: Record<string, number> | undefined;
 
   constructor(code: BookingErrorCode, details?: Record<string, number>) {
-    super(code, `Booking refused: ${code}`, { status: code === "dates_unavailable" || code === "rooms_unavailable" ? 409 : 400 });
+    super(code, `Booking refused: ${code}`, { status: code === "dates_unavailable" || code === "rooms_unavailable" || code === "booking_in_progress" ? 409 : 400 });
     this.details = details;
   }
 }

@@ -153,6 +153,96 @@ describe("parseIcsText", () => {
   });
 });
 
+// SECURITY_REPORT 7.m / 8.1.d: a feed under 1 MB must not hold the server for seconds. Each case
+// must finish well under a second and still return the feed's ordinary events.
+describe("parseIcsText work limits", () => {
+  const feed = (body: string) => `BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//test//EN\r\n${body}END:VCALENDAR\r\n`;
+  const normal =
+    "BEGIN:VEVENT\r\nDTSTART;VALUE=DATE:20261110\r\nDTEND;VALUE=DATE:20261115\r\nUID:normal-1\r\nSUMMARY:Reserved\r\nEND:VEVENT\r\n" +
+    "BEGIN:VEVENT\r\nDTSTART;VALUE=DATE:20261201\r\nDTEND;VALUE=DATE:20261203\r\nUID:normal-2\r\nSUMMARY:Reserved\r\nEND:VEVENT\r\n";
+  const timed = (fn: () => unknown) => {
+    const started = performance.now();
+    const result = fn();
+    return { result, ms: performance.now() - started };
+  };
+  const ymd = (d: Date) => d.toISOString().slice(0, 10).replace(/-/g, "");
+
+  it("stops expanding once 2000 ranges are found (3000 daily rules)", () => {
+    const body = Array.from(
+      { length: 3000 },
+      (_, i) => `BEGIN:VEVENT\r\nDTSTART;VALUE=DATE:20261101\r\nDTEND;VALUE=DATE:20261102\r\nRRULE:FREQ=DAILY\r\nUID:daily-${i}\r\nEND:VEVENT\r\n`,
+    ).join("");
+    const { result, ms } = timed(() => parseIcsText(feed(normal + body), NOW));
+    const events = result as ReturnType<typeof parseIcsText>;
+    expect(ms).toBeLessThan(1000);
+    expect(events.length).toBeLessThanOrEqual(2000);
+    expect(events.map((e) => e.uid)).toEqual(expect.arrayContaining(["normal-1", "normal-2"]));
+  });
+
+  it("skips rules that repeat more often than daily (100 two-hourly rules, one plain hourly rule)", () => {
+    const twoHourly = Array.from(
+      { length: 100 },
+      (_, i) => `BEGIN:VEVENT\r\nDTSTART:20261101T100000Z\r\nDTEND:20261101T110000Z\r\nRRULE:FREQ=HOURLY;INTERVAL=2\r\nUID:h2-${i}\r\nEND:VEVENT\r\n`,
+    ).join("");
+    const hourly = "BEGIN:VEVENT\r\nDTSTART:20261101T100000Z\r\nDTEND:20261101T110000Z\r\nRRULE:FREQ=HOURLY\r\nUID:hourly\r\nEND:VEVENT\r\n";
+    const minutely = "BEGIN:VEVENT\r\nDTSTART:20261101T100000Z\r\nDTEND:20261101T100100Z\r\nRRULE:FREQ=MINUTELY\r\nUID:minutely\r\nEND:VEVENT\r\n";
+    const { result, ms } = timed(() => parseIcsText(feed(twoHourly + hourly + normal + minutely), NOW));
+    expect(ms).toBeLessThan(1000);
+    expect((result as ReturnType<typeof parseIcsText>).map((e) => e.uid)).toEqual(["normal-1", "normal-2"]);
+  });
+
+  it("checks 30,000 EXDATEs of an all-day daily rule in linear time, and still honours them", () => {
+    const start = new Date("2026-11-01T00:00:00Z");
+    const exdates: string[] = [];
+    // Every day from 2026-11-01 on is excluded except 2026-11-05 (index 4), for 30,000 days.
+    for (let i = 0; i < 30_000; i++) {
+      if (i === 4) continue;
+      exdates.push(`EXDATE;VALUE=DATE:${ymd(new Date(start.getTime() + i * 86_400_000))}`);
+    }
+    const body = `BEGIN:VEVENT\r\nDTSTART;VALUE=DATE:20261101\r\nDTEND;VALUE=DATE:20261102\r\nRRULE:FREQ=DAILY\r\n${exdates.join("\r\n")}\r\nUID:exdates\r\nEND:VEVENT\r\n`;
+    const { result, ms } = timed(() => parseIcsText(feed(normal + body), NOW));
+    const events = result as ReturnType<typeof parseIcsText>;
+    expect(ms).toBeLessThan(1500);
+    expect(events.filter((e) => e.uid.startsWith("exdates#")).map((e) => e.start)).toEqual(["2026-11-05"]);
+    expect(events.map((e) => e.uid)).toEqual(expect.arrayContaining(["normal-1", "normal-2"]));
+  });
+
+  it("keeps node-ical's EXDATE and override behaviour for an all-day weekly rule", () => {
+    const body =
+      "BEGIN:VEVENT\r\nDTSTART;VALUE=DATE:20261106\r\nDTEND;VALUE=DATE:20261107\r\nRRULE:FREQ=WEEKLY;COUNT=4\r\nEXDATE;VALUE=DATE:20261113\r\nUID:wk\r\nEND:VEVENT\r\n" +
+      "BEGIN:VEVENT\r\nRECURRENCE-ID;VALUE=DATE:20261120\r\nDTSTART;VALUE=DATE:20261121\r\nDTEND;VALUE=DATE:20261122\r\nUID:wk\r\nEND:VEVENT\r\n";
+    expect(parseIcsText(feed(body), NOW).map((e) => e.start)).toEqual(["2026-11-06", "2026-11-21", "2026-11-27"]);
+  });
+
+  it("skips only the event whose rule cannot be expanded", () => {
+    // COUNT-limited rules are walked from DTSTART: a daily rule from 1900 hits rrule-temporal's cap.
+    const broken = "BEGIN:VEVENT\r\nDTSTART;VALUE=DATE:19000101\r\nDTEND;VALUE=DATE:19000102\r\nRRULE:FREQ=DAILY;COUNT=60000\r\nUID:broken\r\nEND:VEVENT\r\n";
+    const events = parseIcsText(feed(broken + normal), NOW);
+    expect(events.map((e) => e.uid)).toEqual(expect.arrayContaining(["normal-1", "normal-2"]));
+  });
+
+  it("refuses a feed with more than 5000 events, and one that takes longer than its budget, as too large", () => {
+    const many = Array.from(
+      { length: 5001 },
+      (_, i) => `BEGIN:VEVENT\r\nDTSTART;VALUE=DATE:20261110\r\nUID:m${i}\r\nEND:VEVENT\r\n`,
+    ).join("");
+    let error: unknown;
+    try {
+      parseIcsText(feed(many), NOW);
+    } catch (caught) {
+      error = caught;
+    }
+    expect(classifyFeedError(error)).toBe("too_large");
+    error = undefined;
+    try {
+      parseIcsText(feed(normal), NOW, -1);
+    } catch (caught) {
+      error = caught;
+    }
+    expect(classifyFeedError(error)).toBe("too_large");
+  });
+});
+
 describe("SSRF guards", () => {
   it.each([
     ["127.0.0.1", true],
@@ -167,6 +257,19 @@ describe("SSRF guards", () => {
     ["fe80::1", true],
     ["::ffff:10.0.0.1", true],
     ["::ffff:7f00:1", true],
+    // IPv4-compatible (hex and dotted), IPv4-translated, 6to4, Teredo and local-use NAT64 (8.1.b).
+    ["::7f00:1", true],
+    ["::a00:1", true],
+    ["::127.0.0.1", true],
+    ["::8.8.8.8", true],
+    ["::ffff:0:7f00:1", true],
+    ["2002:7f00:1::", true],
+    ["2002:a00:1::1", true],
+    ["2001:0:4136:e378:8000:63bf:3fff:fdd2", true],
+    ["64:ff9b:1::a00:1", true],
+    ["64:ff9b::a00:1", true],
+    ["::ffff:8.8.8.8", false],
+    ["2001:4860:4860::8888", false],
     ["not-an-ip", true],
     ["8.8.8.8", false],
     ["151.101.1.140", false],

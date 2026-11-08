@@ -1,7 +1,9 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { RateLimitError } from "@/lib/errors";
-import { getIpHash } from "@/lib/request";
+import { hmacHash } from "@/lib/crypto";
+import { getClientIp, getIpHash } from "@/lib/request";
+import { recordSecurityEvent } from "@/lib/security/events";
 
 /**
  * Fixed-window rate limiting stored in Postgres (table RateLimit), so it works the same
@@ -49,6 +51,20 @@ export const STORE_ERROR_RETRY_SECONDS = 30;
 
 const MAX_KEY_LENGTH = 200;
 
+/**
+ * What a key limits, for the security event log: its leading NAME parts ("auth:otp-send",
+ * "listing:create", "places:ip"), at most two, stopping at the first part that could be an id, a
+ * hash or a value (digits, long, or anything but lowercase words). Never an id, IP hash or address.
+ */
+export function rateLimitScope(key: string): string {
+  const parts: string[] = [];
+  for (const part of key.split(":")) {
+    if (parts.length === 2 || !/^[a-z][a-z_-]{0,23}$/.test(part)) break;
+    parts.push(part);
+  }
+  return parts.join(":") || "other";
+}
+
 function normalizeKey(key: string): string {
   const trimmed = key.trim();
   if (!trimmed) throw new Error("rateLimit: key is required");
@@ -76,6 +92,9 @@ export async function rateLimit(key: string, { limit, windowSeconds, failOpen = 
     const resetAt = row?.resetAt instanceof Date ? row.resetAt : new Date(row?.resetAt ?? windowEnd);
 
     maybePrune();
+    // The FIRST refusal of a window is a security event (SECURITY_REPORT 16.2): one row per window
+    // and key, so a flood of refused requests is not a flood of writes. Alert quotas (failOpen) are not.
+    if (count === limit + 1 && !failOpen) void recordSecurityEvent({ type: "rate_limited", meta: { scope: rateLimitScope(id) } });
     return { ok: count <= limit, remaining: Math.max(0, limit - count), resetAt };
   } catch (error) {
     if (failOpen) {
@@ -94,9 +113,45 @@ export async function assertRateLimit(key: string, options: RateLimitOptions): P
   return result;
 }
 
-/** Rate limit keyed by the visitor's hashed IP: `${prefix}:ip:<hash>`. */
+/**
+ * The block an IP address is limited as (SECURITY_REPORT 3.1.c, 3.2.c): an IPv4 address itself, an
+ * IPv6 address its /64 (one home or phone network owns a whole /64 and could otherwise rotate
+ * through it for fresh limits). Null for anything that is not an IP address. Pure.
+ */
+export function rateLimitIpBlock(ip: string | null | undefined): string | null {
+  const value = ip?.trim().toLowerCase();
+  if (!value) return null;
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(value)) return value;
+  if (!value.includes(":")) return null;
+  const [head = "", tail = ""] = value.split("::");
+  const left = head ? head.split(":") : [];
+  const right = tail ? tail.split(":") : [];
+  const groups = value.includes("::") ? [...left, ...Array(Math.max(0, 8 - left.length - right.length)).fill("0"), ...right] : left;
+  if (groups.length < 4 || groups.some((group) => !/^[0-9a-f]{1,4}$/.test(group))) return null;
+  return `${groups.slice(0, 4).map((group) => group.replace(/^0+(?=.)/, "")).join(":")}::/64`;
+}
+
+/**
+ * The hashed IP for limits: the same as getIpHash() for IPv4, the /64 for IPv6. Null when the IP
+ * cannot be read.
+ */
+export async function getIpLimitHash(): Promise<string | null> {
+  let ip: string | null = null;
+  try {
+    ip = await getClientIp();
+  } catch {
+    ip = null;
+  }
+  if (ip && ip.includes(":")) {
+    const block = rateLimitIpBlock(ip);
+    if (block) return hmacHash(`ip:${block}`);
+  }
+  return getIpHash().catch(() => null);
+}
+
+/** Rate limit keyed by the visitor's hashed IP (an IPv6 address by its /64): `${prefix}:ip:<hash>`. */
 export async function rateLimitByIp(prefix: string, options: RateLimitOptions): Promise<RateLimitResult> {
-  const ipHash = await getIpHash().catch(() => null);
+  const ipHash = await getIpLimitHash();
   return rateLimit(`${prefix}:ip:${ipHash ?? "unknown"}`, options);
 }
 

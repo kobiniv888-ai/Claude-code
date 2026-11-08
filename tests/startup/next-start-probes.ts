@@ -156,6 +156,23 @@ async function main() {
     server.child.kill("SIGTERM");
     await Promise.race([server.exited, sleep(10_000)]);
     if (server.child.exitCode === null) server.child.kill("SIGKILL");
+    // A production start marks its database as the real site's (src/lib/site-env-marker.ts): this
+    // probe ran on the shared development database, so take the mark off again, or every
+    // development server on it would refuse to start.
+    await removeSiteMarker();
+  }
+}
+
+async function removeSiteMarker(): Promise<void> {
+  const client = new pg.Client({ connectionString: localDatabaseUrl() });
+  try {
+    await client.connect();
+    const removed = await client.query(`DELETE FROM "SiteSetting" WHERE "key" = 'siteEnvironment'`);
+    console.log(`[probe] removed the real-site marker from the development database (${removed.rowCount ?? 0} row).`);
+  } catch (error) {
+    console.error("[probe] could NOT remove the real-site marker — delete it by hand:", (error as Error)?.message ?? error);
+  } finally {
+    await client.end().catch(() => undefined);
   }
 }
 

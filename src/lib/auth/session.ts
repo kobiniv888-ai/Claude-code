@@ -14,6 +14,7 @@ import { needsFirstName } from "./first-name";
 import { requestHostsOf } from "./code-display";
 import { can, isStaffRole, type Permission } from "./permissions";
 import { isPlaceholderEmail } from "./phone";
+import { recordSecurityEvent } from "@/lib/security/events";
 import { taintObject, taintValue } from "@/lib/security/taint";
 import { auth } from "./server";
 import { checkStaffSessionIdle, hasStaffCookie } from "./staff-session";
@@ -232,13 +233,27 @@ export async function requireStaff(
   const user = await getCurrentUser();
   if (!user) return redirectWithNext("/login", await resolveNext(opts.next, "/admin"));
   const access = await staffAccessForRequest(user);
-  if (access === "not_staff" || access === "demo_blocked") notFound();
+  if (access === "not_staff" || access === "demo_blocked") {
+    await recordPermissionDenied(user, access, permission);
+    notFound();
+  }
   if (access === "needs_setup") return redirectWithNext("/two-factor/setup", await resolveNext(opts.next, "/admin"));
   if (access === "needs_code" || access === "needs_strict_cookie") {
     return redirectWithNext("/two-factor", await resolveNext(opts.next, "/admin"));
   }
-  if (permission && !can(user.role, permission)) notFound();
+  if (permission && !can(user.role, permission)) {
+    await recordPermissionDenied(user, "missing_permission", permission);
+    notFound();
+  }
   return user;
+}
+
+/**
+ * A signed-in account refused a staff page or action: a security event (SECURITY_REPORT 16.2; the
+ * "many permission denials" alert reads them). Never throws.
+ */
+async function recordPermissionDenied(user: Pick<CurrentUser, "id">, access: string, permission: Permission | undefined): Promise<void> {
+  await recordSecurityEvent({ type: "permission_denied", userId: user.id, meta: { access, ...(permission ? { permission } : {}) } });
 }
 
 // ── Server action / route handler helpers (throw) ──
@@ -268,9 +283,19 @@ export async function requireUserForAction(
 export async function requireStaffForAction(permission: Permission): Promise<CurrentUser> {
   const user = await requireUserForAction();
   const access = await staffAccessForRequest(user);
-  if (access === "not_staff" || access === "demo_blocked") throw new ForbiddenError();
-  if (access === "needs_setup") throw new ForbiddenError("2-step login must be enabled for staff");
+  if (access === "not_staff" || access === "demo_blocked") {
+    await recordPermissionDenied(user, access, permission);
+    throw new ForbiddenError();
+  }
+  if (access === "needs_setup") {
+    // Every "forbidden" from a staff action is logged; "sign in again" (needs_code) is not.
+    await recordPermissionDenied(user, access, permission);
+    throw new ForbiddenError("2-step login must be enabled for staff");
+  }
   if (access === "needs_code" || access === "needs_strict_cookie") throw new AuthRequiredError("2-step login required");
-  if (!can(user.role, permission)) throw new ForbiddenError();
+  if (!can(user.role, permission)) {
+    await recordPermissionDenied(user, "missing_permission", permission);
+    throw new ForbiddenError();
+  }
   return user;
 }

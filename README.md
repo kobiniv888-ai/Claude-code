@@ -118,6 +118,7 @@ Emails are not sent until Resend is configured. You can read them under **Admin 
 | `npm run check` | Typecheck + lint + translation check + unit tests |
 | `npm ci && npm run deps:scripts` | Install exactly the locked packages, then the allowed install scripts (see "Installing packages") |
 | `npx tsx scripts/check-startup-env.ts` | The server's start-up settings check, by hand (exit 1 + the list of problems) |
+| `npm run security:check` | Before a release and on launch day: `npm audit --omit=dev` (fails on high/critical), Next.js/React at or above the patched floor, every locked package at least 14 days old unless listed with a reason in `scripts/package-age-allow.json` (security upgrades only), plus a reminder to read the Next.js/React advisories. `-- --skip-age` works offline but counts as a failure |
 | `npm run ical:backfill-tokens -- --dry-run` / without the flag | Replace old, guessable calendar export tokens with 256-bit ones (idempotent) |
 | `npm run i18n:check` | Checks that all 5 languages have the same text keys |
 | `npm test` | Unit tests (Vitest) |
@@ -239,18 +240,26 @@ no "quick preview" on a public address any more: test mode and demo accounts nev
    requests to its host are indexed, every other address says "noindex". On your own server
    behind a reverse proxy, pass the original `Host` (or `X-Forwarded-Host`) header through. The
    scheduled jobs in `vercel.json` (exchange rates, expiring listings, iCal sync, cleanup) start
-   automatically with `CRON_SECRET`.
-4. **Create the tables** in the production database once: `DATABASE_URL=<prod url> npx prisma db push`
+   automatically with `CRON_SECRET`. Use Node.js 22.12 or newer (staging and production refuse
+   to start on older Node). Add the real domain(s) to `src/config/production-hosts.ts`: a
+   development or staging server on those names then refuses to start, and no login code is
+   ever shown on screen for them.
+4. **Create the tables** in the production database once (by hand: with `SITE_ENV=production`
+   the build refuses `DB_PUSH_ON_BUILD` / `SEED_ON_BUILD`): `DATABASE_URL=<prod url> npx prisma db push`
    (or `npx prisma migrate deploy` if you use migrations). Then
-   `DATABASE_URL=<prod url> npm run db:seed` to load cities, FAQ and banned words. Remove the demo
-   data afterwards, as described above.
+   `SITE_ENV=production DATABASE_URL=<prod url> npm run db:seed` to load cities, FAQ and banned
+   words. With `SITE_ENV=production` the seed adds no demo users, staff, listings or scam alert;
+   neither does a `SITE_ENV=development` that comes only from `.env` when the database is not on
+   this machine (`prisma/seed/demo-decision.ts`). When the real site first starts it marks its
+   database ("siteEnvironment" in `SiteSetting`): from then on a staging, preview or development
+   server, build or seed refuses to run on it (`src/lib/site-env-marker.ts`).
 5. **Phone codes** (only for bookings and a host's phone check, once per number — not a login on
    the real site). Create a Twilio **Messaging Service** and fill in `TWILIO_ACCOUNT_SID`,
    `TWILIO_AUTH_TOKEN` and `TWILIO_MESSAGING_SERVICE_SID` (the site makes the code and sends its own
-   text; Twilio Verify is not used). In the Twilio console, turn on **Fraud Guard / SMS Pumping
-   Protection** and allow only Israel and Georgia in the Messaging geo permissions (this protects
-   against SMS-pumping fraud). The list of countries we send codes to is also in
-   `src/config/site.ts` → `phone.smsAllowedCountries`. Without it, the phone check says "not
+   text; Twilio Verify is not used). In the Twilio console, allow only Israel and Georgia in the
+   Messaging geo permissions. **SMS Pumping Protection for Programmable Messaging** has a Basic
+   tier that is on by default and a paid Advanced tier (see `OWNER_TODO.md`, your decision). The
+   list of countries we send codes to is also in `src/config/site.ts` → `phone.smsAllowedCountries`. Without it, the phone check says "not
    available yet".
 6. **Google and Apple login.** Create OAuth credentials and fill in `GOOGLE_*` / `APPLE_*`. The
    redirect URL is `https://<your domain>/api/auth/callback/google` (or `/apple`); after Google
@@ -355,7 +364,7 @@ production:** `DEV_SKIP_STAFF_2FA`, `NEXT_PUBLIC_SHOW_DEV_UI`.
 | `EXTRA_ALLOWED_ORIGINS` | Extra hosts/origins allowed to open the site and log in (e.g. a tunnel); refused on the real site | This codespace's own address and localhost are allowed automatically on development sites |
 | `OVERPASS_ENABLED`, `OVERPASS_URL` | Nearby supermarkets and transport from OpenStreetMap | On, public Overpass server |
 | `CRON_SECRET` | Protects the scheduled jobs (`/api/cron/*`); required (32+ characters) on staging and production | Jobs refuse to run |
-| `CLIENT_IP_HEADER` | Trusted header with the visitor IP (e.g. `cf-connecting-ip`) | Standard proxy headers |
+| `CLIENT_IP_HEADER` | Trusted header with the visitor IP: `cf-connecting-ip` whenever Cloudflare proxies the site (on Vercel too), `x-nf-client-connection-ip` on Netlify. Required off Vercel on staging/production (the server refuses to start) | Vercel's own header (Vercel only, nothing in front) |
 | `MALWARE_SCAN_URL`, `MALWARE_SCAN_TOKEN` | External malware scanner for uploads | Built-in checks only |
 | `SENTRY_DSN` (+ optional `SENTRY_ENVIRONMENT`, `SENTRY_RELEASE`) | Error monitoring: server crashes, failed actions and failed scheduled jobs go to Sentry (no SDK; path without query, no user data) | Errors only in the server log |
 | `DEV_SKIP_STAFF_2FA` | Skip 2-step login for the demo staff accounts (a development server of a development site only; never for a real account) | Off; ignored by production builds; staging/production refuse to start with it |

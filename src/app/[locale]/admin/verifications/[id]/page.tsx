@@ -7,6 +7,7 @@ import { DocumentViewer } from "@/components/admin/document-viewer";
 import { ListingThumb, PublicId, WhenText } from "@/components/admin/listing-bits";
 import { AdminPageHeader, AdminSection, FactList } from "@/components/admin/page-header";
 import { VerificationActions } from "@/components/admin/verification-actions";
+import { StaffPhoneValue } from "@/components/admin/staff-phone";
 import { Ltr } from "@/components/common/ltr";
 import { documentChecksOn } from "@/config/verification";
 import { Link } from "@/i18n/navigation";
@@ -26,7 +27,7 @@ export default async function VerificationDetailPage({ params }: PageProps<"/[lo
   const { locale, id } = await params;
   setRequestLocale(locale);
   const staff = await requireStaff("verifications");
-  const data = await getVerificationDetail(id);
+  const data = await getVerificationDetail(id, staff);
   if (!data) notFound();
   const { request, documents } = data;
   const { user, listing } = request;
@@ -205,7 +206,7 @@ export default async function VerificationDetailPage({ params }: PageProps<"/[lo
                 items={[
                   ...(user.businessName ? [{ label: t("businessName"), value: <span dir="auto">{user.businessName}</span> }] : []),
                   { label: tAdmin("common.joined"), value: `${formatDate(user.createdAt, locale)} · ${formatRelativeTime(user.createdAt, locale)}` },
-                  { label: tAdmin("common.phone"), value: user.phoneNumber ? <Ltr>{user.phoneNumber}</Ltr> : "—" },
+                  { label: tAdmin("common.phone"), value: <StaffPhoneValue phone={data.userPhone} withheldNote={tAdmin("users.phoneLast2Only")} /> },
                   { label: tAdmin("common.email"), value: realEmail(user.email) ? <Ltr className="break-all">{realEmail(user.email)}</Ltr> : "—" },
                   {
                     label: t("stats"),

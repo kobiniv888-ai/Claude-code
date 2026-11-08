@@ -44,6 +44,8 @@ const state = vi.hoisted(() => ({
   twoFactorVerifiedAt: null as Date | null,
   host: "localhost:3000",
   dbTouched: [] as string[],
+  /** Security events written (a refused signed-in account is logged as permission_denied, 16.2). */
+  events: [] as string[],
   // The SameSite=Strict staff cookie and the 12-hour idle marker (src/lib/auth/staff-session.ts).
   staffCookie: true,
   staffIdle: false,
@@ -55,6 +57,14 @@ vi.mock("next/headers", () => ({
   cookies: async () => ({ get: () => undefined, getAll: () => [], set: () => {}, delete: () => {}, has: () => false }),
 }));
 vi.mock("@/lib/monitoring", () => ({ reportError: async () => {} }));
+// The refusal itself is logged (src/lib/auth/session.ts recordPermissionDenied): captured here, so
+// "nothing is read or changed before the staff check" stays strict for every other table.
+vi.mock("@/lib/security/events", () => ({
+  recordSecurityEvent: async (event: { type: string }) => {
+    state.events.push(event.type);
+    return true;
+  },
+}));
 vi.mock("@/lib/auth/staff-session", () => ({
   checkStaffSessionIdle: async () => (state.staffIdle ? "idle" : "active"),
   hasStaffCookie: async () => state.staffCookie,
@@ -229,6 +239,7 @@ describe("admin server actions refuse accounts without panel access", () => {
 
   beforeEach(() => {
     state.dbTouched = [];
+    state.events = [];
   });
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -262,6 +273,8 @@ describe("admin server actions refuse accounts without panel access", () => {
       }
       expect(state.dbTouched).toEqual([]);
       expect(checked).toBeGreaterThan(40);
+      // The only thing written is the refusal's own "permission_denied" security event.
+      expect(state.events.every((type) => type === "permission_denied")).toBe(true);
     });
   }
 

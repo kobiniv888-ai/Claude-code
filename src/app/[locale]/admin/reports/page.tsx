@@ -179,7 +179,8 @@ export default async function ReportsPage({ params, searchParams }: PageProps<"/
                   </p>
                   {row.booking || row.happenedOn || row.screenshots > 0 ? (
                     <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                      {row.booking ? (
+                      {/* A turned-away report's booking code names its sender: ADMIN only (Q12). */}
+                      {row.booking?.code ? (
                         <span>
                           {t("bookingLabel")} <Ltr className="font-medium text-foreground">{row.booking.code}</Ltr>
                         </span>

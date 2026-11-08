@@ -9,22 +9,39 @@
  *   SITE_ENV (development | staging | production), DATABASE_URL, BETTER_AUTH_SECRET (32+
  *   characters, not a placeholder), BETTER_AUTH_URL, NEXT_PUBLIC_SITE_URL, APP_ENCRYPTION_KEY
  *   (32 bytes, base64), HASH_SALT (16+ characters); the three secrets all different; no secret-looking
- *   NEXT_PUBLIC_* value (those are sent to every browser); `next dev` only with SITE_ENV=development;
- *   Vercel's production deployment only with SITE_ENV=production.
+ *   NEXT_PUBLIC_* value (those are sent to every browser); `next dev` only with SITE_ENV=development
+ *   and never on a Vercel deployment; Vercel's production deployment only with SITE_ENV=production.
+ * Development: its own addresses (BETTER_AUTH_URL, NEXT_PUBLIC_SITE_URL) are local or Codespaces
+ *   addresses. Development and staging: never on one of the real site's host names
+ *   (src/config/production-hosts.ts).
  * Staging and production add (the same rules, so staging proves the production setup):
  *   https site addresses on one origin (no localhost or Codespaces address); a TLS database
  *   connection; CRON_SECRET (32+); Turnstile keys; email (Resend key + sender); SMS (Twilio
  *   account + Messaging sender); S3 storage with an https public URL that NEXT_PUBLIC_MEDIA_BASE_URL
- *   matches; VAPID keys; never DEV_SKIP_STAFF_2FA or NEXT_PUBLIC_SHOW_DEV_UI.
+ *   matches; VAPID keys; never DEV_SKIP_STAFF_2FA or NEXT_PUBLIC_SHOW_DEV_UI; Node.js 22 or newer;
+ *   a trusted client-IP source (Vercel, or CLIENT_IP_HEADER behind another proxy).
  *   Staging only: AUTH_TEST_MODE may be on, and with it email and SMS may be missing.
  * Production only: AUTH_TEST_MODE must be off ("false" or unset), SITE_URL must be the same https
- *   origin, no EXTRA_ALLOWED_ORIGINS, no Cloudflare test keys.
+ *   origin, no EXTRA_ALLOWED_ORIGINS, no Cloudflare test keys, no DB_PUSH_ON_BUILD / SEED_ON_BUILD
+ *   (the real database is migrated deliberately).
  *
  * Pure (no server or "@/" imports) so scripts and tests can import it.
  */
+import { PRODUCTION_HOSTS, hostOfAddress, isRealSiteHost } from "../config/production-hosts";
 import { readSiteEnv, testModeRequested, type SiteEnv } from "./site-env";
 
 export type StartupEnv = Partial<Record<string, string | undefined>>;
+
+/** What the check reads besides the environment (tests pass their own). */
+export type StartupOptions = {
+  /** The real site's host names (default: src/config/production-hosts.ts). */
+  productionHosts?: readonly string[];
+  /** The running Node.js version (default: process.versions.node). */
+  nodeVersion?: string;
+};
+
+/** The lowest Node.js major a staging or production server runs on (Prisma 7 needs 20.19+ / 22.12+; Node 20 is out of support). */
+export const MIN_NODE_MAJOR = 22;
 
 const PLACEHOLDER_FRAGMENTS = [
   "changeme",
@@ -141,12 +158,62 @@ function everySiteProblems(env: StartupEnv, site: SiteEnv | null): string[] {
   if (env.NODE_ENV === "development" && site && site !== "development") {
     problems.push(`The development server (next dev) only runs with SITE_ENV=development, not "${site}".`);
   }
-  if (env.NODE_ENV === "development" && value(env, "VERCEL")) {
-    problems.push("The development server (next dev) never runs on Vercel: deploy a production build.");
+  // A Vercel deployment (production or preview) never runs `next dev`. VERCEL=1 alone is also set
+  // by `vercel env pull` / `vercel dev` on a laptop (VERCEL_ENV=development): that is fine.
+  if (env.NODE_ENV === "development" && ["production", "preview"].includes(value(env, "VERCEL_ENV"))) {
+    problems.push("The development server (next dev) never runs on a Vercel deployment: deploy a production build.");
   }
   // Vercel's production deployment is the real site.
   if (value(env, "VERCEL_ENV") === "production" && site && site !== "production") {
     problems.push(`This is Vercel's production deployment (VERCEL_ENV=production): SITE_ENV must be production, not "${site}".`);
+  }
+  return problems;
+}
+
+/**
+ * The label must match the address (2.2.j, decision 1): a DEVELOPMENT site runs only on a local or
+ * Codespaces address (else a production build labelled "development" on a public host would run
+ * without the TLS, Turnstile and provider rules); development and staging never on one of the real
+ * site's names (src/config/production-hosts.ts). SITE_URL (the permanent address for outgoing links)
+ * may name the real domain in a codespace, so it is not checked here.
+ */
+function addressLabelProblems(env: StartupEnv, site: SiteEnv | null, productionHosts: readonly string[]): string[] {
+  if (site !== "development" && site !== "staging") return [];
+  const problems: string[] = [];
+  if (site === "development") {
+    for (const name of ["BETTER_AUTH_URL", "NEXT_PUBLIC_SITE_URL"]) {
+      const url = parseUrl(value(env, name));
+      if (url && !isTestHostname(url.hostname)) {
+        problems.push(
+          `${name} (${url.host}) is a public address, but SITE_ENV=development runs only on localhost or a Codespaces address. A public site is SITE_ENV=staging or production.`,
+        );
+      }
+    }
+  }
+  for (const name of ["BETTER_AUTH_URL", "NEXT_PUBLIC_SITE_URL", "URL", "VERCEL_PROJECT_PRODUCTION_URL"]) {
+    const host = hostOfAddress(value(env, name));
+    if (host && isRealSiteHost(host, productionHosts)) {
+      problems.push(`${name} is the real site's address (${host}): it only ever runs with SITE_ENV=production, not "${site}".`);
+    }
+  }
+  return problems;
+}
+
+/** "22.23.4" → 22 (NaN when unreadable). */
+const nodeMajor = (version: string | undefined) => Number.parseInt((version ?? "").replace(/^v/, "").split(".")[0] ?? "", 10);
+
+function platformProblems(env: StartupEnv, site: "staging" | "production", nodeVersion: string | undefined): string[] {
+  const problems: string[] = [];
+  const major = nodeMajor(nodeVersion);
+  if (!Number.isFinite(major) || major < MIN_NODE_MAJOR) {
+    problems.push(`Node.js ${nodeVersion ?? "?"} is too old for a ${site} site: use Node.js ${MIN_NODE_MAJOR} or newer (package.json engines).`);
+  }
+  // Rate limits and code caps key on the client IP (src/lib/request.ts): off Vercel, only a header
+  // our own proxy sets may be trusted, never a client-controlled X-Forwarded-For entry.
+  if (!value(env, "VERCEL") && !value(env, "CLIENT_IP_HEADER")) {
+    problems.push(
+      `CLIENT_IP_HEADER is not set: outside Vercel, name the header your proxy sets with the visitor's IP (e.g. cf-connecting-ip behind Cloudflare). Without it the limits would trust the visitor's own X-Forwarded-For.`,
+    );
   }
   return problems;
 }
@@ -255,15 +322,27 @@ function productionOnlyProblems(env: StartupEnv): string[] {
   if (value(env, "EXTRA_ALLOWED_ORIGINS")) {
     problems.push("EXTRA_ALLOWED_ORIGINS is set: the real site trusts only its own address. Remove it.");
   }
+  // The build may push the schema or load demo data only for test sites (scripts/vercel-build.mjs):
+  // the real database is migrated deliberately (README "Going live").
+  for (const name of ["DB_PUSH_ON_BUILD", "SEED_ON_BUILD"]) {
+    if (flagOn(env, name)) problems.push(`${name} is on with SITE_ENV=production: the real database is never changed by a build. Remove it.`);
+  }
   return problems;
 }
 
 /** Every reason the server must not start with this environment (empty: it may start). */
-export function startupProblems(env: StartupEnv): string[] {
+export function startupProblems(env: StartupEnv, options: StartupOptions = {}): string[] {
+  const productionHosts = options.productionHosts ?? PRODUCTION_HOSTS;
+  const nodeVersion = options.nodeVersion ?? (typeof process === "undefined" ? undefined : process.versions?.node);
   const { site, problems } = siteEnvProblems(env);
-  problems.push(...everySiteProblems(env, site));
+  problems.push(...everySiteProblems(env, site), ...addressLabelProblems(env, site, productionHosts));
   if (site === "staging" || site === "production") {
-    problems.push(...urlProblems(env, site), ...databaseTlsProblems(env, site), ...servicesProblems(env, site));
+    problems.push(
+      ...urlProblems(env, site),
+      ...databaseTlsProblems(env, site),
+      ...servicesProblems(env, site),
+      ...platformProblems(env, site, nodeVersion),
+    );
   }
   if (site === "production") problems.push(...productionOnlyProblems(env));
   return problems;

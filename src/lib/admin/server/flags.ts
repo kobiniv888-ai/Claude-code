@@ -9,7 +9,9 @@ import { db } from "@/lib/db";
 import { bookingFlagKind, hoursFromBookingToCancel, type BookingFlagKind } from "@/lib/listing/host-flags";
 import { countHostFlags, hostFlagRows, OPEN_CANCELLATION, type FlagState } from "@/lib/listing/host-flags-server";
 import { pageInfo } from "../params";
+import type { StaffViewer } from "../staff-visibility";
 import { countLongStays, guestFlagRows, listLongStays, type GuestFlagRow, type LongStayRow } from "./guest-flags";
+import { withholdTurnedAwayGuests } from "./shared";
 
 /**
  * Admin → Flags lists (server-only; the rules are in src/lib/listing/host-flags.ts and the shared
@@ -58,7 +60,10 @@ export type FlagBookingRow = {
   flagReviewedAt: Date | null;
   reviewedBy: string | null;
   reportCount: number;
-  guest: { id: string; name: string };
+  /** Null when withheld: a turned-away report on this booking was sent by its guest (Q12). */
+  guest: { id: string; name: string } | null;
+  /** The viewer is this booking's guest (the own-item rule, also when the guest is withheld). */
+  guestIsViewer: boolean;
   host: { id: string; name: string };
   listing: { id: string; publicId: number; title: string };
 };
@@ -81,6 +86,8 @@ export async function listFlags(
   state: FlagState,
   requestedPage: number,
   locale: AppLocale,
+  /** Who is looking: the guest of a booking with a turned-away report is ADMIN only (Q12). Without it, withheld. */
+  viewer?: Pick<StaffViewer, "id" | "role">,
   now: Date = new Date(),
 ): Promise<{
   counts: Record<FlagView, number>;
@@ -88,7 +95,7 @@ export async function listFlags(
   page: number;
   bookings: FlagBookingRow[];
   hosts: FlagHostRow[];
-  longStays: LongStayRow[];
+  longStays: (Omit<LongStayRow, "guest"> & { guest: LongStayRow["guest"] | null; guestIsViewer: boolean })[];
   guests: GuestFlagRow[];
 }> {
   const [cancellations, noShows, hosts, longStays, guestRows] = await Promise.all([
@@ -101,11 +108,11 @@ export async function listFlags(
   ]);
   const counts = { cancellations, noShows, hosts, longStays, guests: guestRows.length };
   const info = pageInfo(counts[view], requestedPage, FLAGS_PAGE_SIZE);
-  const empty = { bookings: [] as FlagBookingRow[], hosts: [] as FlagHostRow[], longStays: [] as LongStayRow[], guests: [] as GuestFlagRow[] };
+  const empty = { bookings: [] as FlagBookingRow[], hosts: [] as FlagHostRow[], longStays: [] as (Omit<LongStayRow, "guest"> & { guest: LongStayRow["guest"] | null; guestIsViewer: boolean })[], guests: [] as GuestFlagRow[] };
 
   if (view === "longStays") {
     const result = await listLongStays(state, { limit: FLAGS_PAGE_SIZE, offset: info.skip }, locale, now);
-    return { ...empty, counts, total: counts.longStays, page: info.page, longStays: result.rows };
+    return { ...empty, counts, total: counts.longStays, page: info.page, longStays: (await withholdTurnedAwayGuests(viewer, result.rows)).map((r) => ({ ...r, guestCreatedAt: r.guest ? r.guestCreatedAt : null })) };
   }
   if (view === "guests") {
     return { ...empty, counts, total: counts.guests, page: info.page, guests: guestRows.slice(info.skip, info.skip + FLAGS_PAGE_SIZE) };
@@ -188,7 +195,7 @@ export async function listFlags(
     total: counts[view],
     page: info.page,
     ...empty,
-    bookings: rows.map((row) => ({
+    bookings: await withholdTurnedAwayGuests(viewer, rows.map((row) => ({
       id: row.id,
       code: row.code,
       kind: bookingFlagKind(row) ?? "no_show",
@@ -210,6 +217,6 @@ export async function listFlags(
       guest: { id: row.guestUserId, name: row.guestName },
       host: { id: row.hostUserId, name: personName(row.host) ?? row.host.name },
       listing: { id: row.listing.id, publicId: row.listing.publicId, title: row.listing.translations[0]?.title?.trim() || row.listing.title },
-    })),
+    }))),
   };
 }

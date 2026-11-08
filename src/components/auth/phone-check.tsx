@@ -38,11 +38,14 @@ export function PhoneCheck({
   autoFocus,
   place,
   listingId,
+  postStepToken,
 }: {
   config: LoginConfig["phone"];
   /** Where the check happens: a guest's booking (with `listingId`), the post form, or a host's account. */
   place: PhoneCheckPlace;
   listingId?: string | null;
+  /** `place="post"` before the first draft: the post form's phone-step token (given by /verify-phone). */
+  postStepToken?: string | null;
   /** The account's verified number (E.164), if it has one. */
   verifiedPhone: string | null;
   onVerified?: (phoneNumber: string) => void | Promise<void>;
@@ -104,6 +107,7 @@ export function PhoneCheck({
         config={config}
         place={place}
         listingId={listingId}
+        postStepToken={postStepToken}
         autoFocus={autoFocus}
         onVerified={async (phoneNumber) => {
           setVerified(phoneNumber);

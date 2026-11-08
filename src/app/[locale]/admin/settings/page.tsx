@@ -5,12 +5,11 @@ import { LoginMethodsBanner } from "@/components/auth/login-methods-banner";
 import { siteConfig } from "@/config/site";
 import { toLocalizedForm } from "@/lib/admin/content/localized";
 import { adminContentMetadata } from "@/lib/admin/content/server/metadata";
+import { storedEmergencyContacts } from "@/lib/admin/content/server/queries";
 import { requireStaff } from "@/lib/auth/session";
 import { enabledCurrencies } from "@/lib/currency/convert";
-import { db } from "@/lib/db";
 import { countDemoData } from "@/lib/demo";
 import { isShabbatOrHolidayNow } from "@/lib/hebcal";
-import { EMERGENCY_CONTACTS_SETTING_KEY } from "@/lib/jewish-life/emergency";
 import { getSettings } from "@/lib/settings";
 import { demoAllowed } from "@/lib/site-env";
 
@@ -39,7 +38,7 @@ export default async function SettingsPage({ params }: PageProps<"/[locale]/admi
     getTranslations("adminContent.settings"),
     getSettings(),
     countDemoData(),
-    db.siteSetting.findUnique({ where: { key: EMERGENCY_CONTACTS_SETTING_KEY }, select: { value: true } }),
+    storedEmergencyContacts(),
   ]);
   let shabbatNow: ReturnType<typeof isShabbatOrHolidayNow> | null = null;
   try {
@@ -74,7 +73,7 @@ export default async function SettingsPage({ params }: PageProps<"/[locale]/admi
           }}
           demoCounts={demoCounts}
           demoLocked={!demoAllowed()}
-          emergency={emergencyRows(emergency?.value)}
+          emergency={emergencyRows(emergency)}
         />
       </div>
     </>

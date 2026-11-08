@@ -1,10 +1,12 @@
 import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
 import type { UserRole, UserStatus } from "@/generated/prisma/enums";
+import { countsAsGuestCancellation } from "@/lib/booking/guest-flags";
+import { dateToDay } from "@/lib/booking/dates";
 import { db } from "@/lib/db";
-import { canSeeGuestPhone, canSeeReporter, type StaffViewer } from "../staff-visibility";
+import { canSeeGuestPhone, canSeeReporter, guestWithheldFor, staffPhone, type StaffViewer } from "../staff-visibility";
 import { parseUserSearch, type UserSearchTerms } from "../search";
-import { ADMIN_PAGE_SIZE, coverPhotoSelect, sharedDeviceAccounts, staffNames } from "./shared";
+import { ADMIN_PAGE_SIZE, coverPhotoSelect, sharedDeviceAccounts, staffNames, turnedAwayBookingIds } from "./shared";
 
 /** The user search and the user page (server-only). */
 
@@ -52,7 +54,10 @@ async function searchConditions(terms: UserSearchTerms, phones: boolean): Promis
   return or;
 }
 
-/** The user list. Phone numbers (shown and searched) are ADMIN only (Q12, ../staff-visibility.ts). */
+/**
+ * The user list. Phone numbers (shown and searched) are ADMIN only (Q12, ../staff-visibility.ts);
+ * other staff get the last 2 digits to match a person (founder's answer (c)), never the number.
+ */
 export async function searchUsers(filters: UserFilters, page: number, viewer: Pick<StaffViewer, "role">) {
   const showPhone = canSeeGuestPhone(viewer);
   const terms = parseUserSearch(filters.q);
@@ -97,8 +102,16 @@ export async function searchUsers(filters: UserFilters, page: number, viewer: Pi
       _count: { select: { listings: true, reportsAgainst: true, bookingsAsHost: true, bookingsAsGuest: true } },
     },
   });
-  // Read with the row but never returned to other staff (the page has no phone to show).
-  return { rows: rows.map((row) => ({ ...row, phoneNumber: showPhone ? row.phoneNumber : null })), total, page: current, phoneWithheld: !showPhone };
+  // Read with the row but never returned to other staff: they get "••• ••• ••45" only.
+  return {
+    rows: rows.map(({ phoneNumber, ...row }) => {
+      const phone = staffPhone(viewer, phoneNumber);
+      return { ...row, phoneNumber: phone.phoneNumber, phoneMasked: phone.phoneMasked };
+    }),
+    total,
+    page: current,
+    phoneWithheld: !showPhone,
+  };
 }
 
 export type UserListRow = Awaited<ReturnType<typeof searchUsers>>["rows"][number];
@@ -111,8 +124,6 @@ export type UserListRow = Awaited<ReturnType<typeof searchUsers>>["rows"][number
  */
 export async function getUserDetail(id: string, viewer: StaffViewer) {
   const showReporter = canSeeReporter(viewer);
-  // The account's phone is the guest phone of its bookings: ADMIN only (Q12).
-  const showPhone = canSeeGuestPhone(viewer);
   const user = await db.user.findUnique({
     where: { id },
     select: {
@@ -242,10 +253,12 @@ export async function getUserDetail(id: string, viewer: StaffViewer) {
       ? new Map((await db.user.findMany({ where: { id: { in: senderIds } }, select: { id: true, name: true } })).map((u) => [u.id, u]))
       : new Map<string, { id: string; name: string }>();
 
+  const phone = staffPhone(viewer, user.phoneNumber);
   return {
-    user: { ...user, phoneNumber: showPhone ? user.phoneNumber : null },
-    /** The phone number is ADMIN only (Q12): other staff see that there is one, not the number. */
-    phoneWithheld: !showPhone && !!user.phoneNumber,
+    user: { ...user, phoneNumber: phone.phoneNumber },
+    /** The phone number is ADMIN only (Q12): other staff get its last 2 digits ("••• ••• ••45", (c)). */
+    phoneWithheld: phone.phoneWithheld,
+    phoneMasked: phone.phoneMasked,
     listings,
     /** Null unless the viewer may see who sent reports (ADMIN). */
     reportsMade,
@@ -285,23 +298,56 @@ const userBookingSelect = {
 
 export type UserBookingRow = Prisma.BookingGetPayload<{ select: typeof userBookingSelect }>;
 
+/** The most guest cancellations read to count them (the user page shows a number, not a list). */
+const GUEST_CANCELLATIONS_READ = 500;
+
+/**
+ * A booking row on the user page. A booking with a turned-away report would name who sent it (its
+ * guest): on the host's page its guest is left out (`guestWithheld`), on the guest's page the whole
+ * row is (`withheld`).
+ */
+export type UserBookingListRow =
+  | (UserBookingRow & { withheld: false; guestWithheld: boolean })
+  | { id: string; withheld: true };
+
 /**
  * The user's bookings as a guest and as a host (latest first), with the cancellation counts the
  * user page shows: cancelled by this host, cancelled by this guest, host cancellations flagged
  * (within 48 hours) and no-shows (the host said this guest did not come).
+ *
+ * Guest cancellations are counted with the guest-flag rule (countsAsGuestCancellation, founder's
+ * decision 7): "my flight was cancelled" and travel-disruption cancellations never count here either.
+ *
+ * A booking with a turned-away report was reported by its guest: for staff who may not see who sent
+ * a report (Q12) the host's rows leave that guest out and the guest's rows leave the booking out.
  */
-export async function getUserBookings(id: string) {
-  const [asGuest, asHost, guestTotal, hostTotal, hostCancelled, hostFlagged, guestCancelled, guestNoShows] = await Promise.all([
+export async function getUserBookings(id: string, viewer?: Pick<StaffViewer, "role">) {
+  const [asGuest, asHost, guestTotal, hostTotal, hostCancelled, hostFlagged, guestCancellations, guestNoShows] = await Promise.all([
     db.booking.findMany({ where: { guestUserId: id }, orderBy: { createdAt: "desc" }, take: USER_BOOKINGS_SHOWN, select: userBookingSelect }),
     db.booking.findMany({ where: { hostUserId: id }, orderBy: { createdAt: "desc" }, take: USER_BOOKINGS_SHOWN, select: userBookingSelect }),
     db.booking.count({ where: { guestUserId: id } }),
     db.booking.count({ where: { hostUserId: id } }),
     db.booking.count({ where: { hostUserId: id, status: "CANCELLED_BY_HOST" } }),
     db.booking.count({ where: { hostUserId: id, flaggedForReview: true } }),
-    db.booking.count({ where: { guestUserId: id, status: "CANCELLED_BY_GUEST" } }),
+    db.booking.findMany({
+      where: { guestUserId: id, status: "CANCELLED_BY_GUEST" },
+      orderBy: { cancelledAt: "desc" },
+      take: GUEST_CANCELLATIONS_READ,
+      select: { listingId: true, status: true, checkIn: true, checkOut: true, cancelledAt: true, cancelReasonCode: true },
+    }),
     db.booking.count({ where: { guestUserId: id, status: "NO_SHOW" } }),
   ]);
-  return { asGuest, asHost, guestTotal, hostTotal, hostCancelled, hostFlagged, guestCancelled, guestNoShows };
+  const guestCancelled = guestCancellations.filter((b) =>
+    countsAsGuestCancellation({ ...b, checkIn: dateToDay(b.checkIn), checkOut: dateToDay(b.checkOut) }),
+  ).length;
+  const reported = viewer && !guestWithheldFor(viewer, true) ? new Set<string>() : await turnedAwayBookingIds([...asGuest, ...asHost].map((b) => b.id));
+  const asHostRows: UserBookingListRow[] = asHost.map((row) =>
+    reported.has(row.id) ? { ...row, guestName: "", guestWithheld: true, withheld: false } : { ...row, guestWithheld: false, withheld: false },
+  );
+  const asGuestRows: UserBookingListRow[] = asGuest.map((row) =>
+    reported.has(row.id) ? { id: row.id, withheld: true } : { ...row, guestWithheld: false, withheld: false },
+  );
+  return { asGuest: asGuestRows, asHost: asHostRows, guestTotal, hostTotal, hostCancelled, hostFlagged, guestCancelled, guestNoShows };
 }
 
 export type UserBookings = Awaited<ReturnType<typeof getUserBookings>>;

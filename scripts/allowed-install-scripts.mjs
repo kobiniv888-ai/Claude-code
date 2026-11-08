@@ -32,7 +32,8 @@ export const ALLOWED_INSTALL_SCRIPTS = [
 
 /** Packages whose install script is skipped on purpose, with the reason. */
 export const SKIPPED_INSTALL_SCRIPTS = {
-  prisma: "preinstall only checks the Node.js version (package.json engines does the same)",
+  prisma:
+    "preinstall only checks the Node.js version: package.json engines asks for the same versions (^22.12 || >=24.0) and the start-up check refuses Node.js below 22 on staging and production",
   esbuild: "install.js only verifies/optimizes the binary; @esbuild/<platform> is installed as an optional dependency",
   "@swc/core": "postinstall falls back to a WASM download when @swc/core-<platform> is missing; it is installed",
   "@parcel/watcher": "install only builds from source when npm_config_build_from_source=true; prebuilt binary is installed",

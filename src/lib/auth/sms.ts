@@ -7,7 +7,7 @@ import { isEmailDeliveryConfigured } from "@/lib/email";
 import { isSmsConfigured, maskPhone, sendSms } from "@/lib/sms";
 import { codeDisplayForHeaders, type CodeDisplayMode } from "./code-display";
 import { checkLoginPhoneNumber } from "./phone";
-import { chargeSmsBudget, isSmsCountryPaused, recordSmsCodeSent } from "./sms-guard";
+import { recordSmsCodeSent, releaseSmsSend, reserveSmsSend, smsPausedFor, smsSourceForThisCall } from "./sms-guard";
 
 /**
  * How phone and email codes reach people.
@@ -91,9 +91,13 @@ export function emailCodeRoute(headers: Pick<Headers, "get"> | null | undefined)
 // ── Sending ──
 
 export class SmsUnavailableError extends Error {
-  /** "paused": the daily budget is used up or the country is paused (./sms-guard.ts). */
-  readonly reason: "unavailable" | "paused";
-  constructor(message: string, reason: "unavailable" | "paused" = "unavailable") {
+  /**
+   * "paused": the daily budget is used up (or only trusted sources may use what is left) or the
+   * country is paused; "limited": this account or IP block used its share or has too many codes
+   * nobody entered (./sms-guard.ts).
+   */
+  readonly reason: "unavailable" | "paused" | "limited";
+  constructor(message: string, reason: "unavailable" | "paused" | "limited" = "unavailable") {
     super(message);
     this.name = "SmsUnavailableError";
     this.reason = reason;
@@ -132,16 +136,25 @@ export async function sendLoginCode(input: {
   // Checked again right before the paid text (the hooks in ./server.ts checked them first).
   const destination = checkLoginPhoneNumber(input.phoneNumber);
   if (!destination.ok) throw new SmsUnavailableError(`SMS refused: ${destination.reason}`);
-  if (await isSmsCountryPaused(destination.country)) {
+  // Who asks (the account and IP block): brakes and shares are per source first (./sms-guard.ts).
+  const source = await smsSourceForThisCall();
+  if (await smsPausedFor(destination.country, source)) {
     throw new SmsUnavailableError(`SMS codes to ${destination.country} are paused`, "paused");
   }
-  if (!(await chargeSmsBudget())) throw new SmsUnavailableError("The daily SMS budget is used up", "paused");
+  const reservation = await reserveSmsSend(source);
+  if (!reservation.ok) {
+    const limited = reservation.reason === "share" || reservation.reason === "brake";
+    throw new SmsUnavailableError(`No code text: ${reservation.reason}`, limited ? "limited" : "paused");
+  }
 
   const result = await sendSms({
     to: destination.e164,
     body: await codeSmsText(input),
     logAs: `[login code for ${maskPhone(destination.e164)}]`,
   });
-  if (!result.ok) throw new SmsUnavailableError("Twilio Messaging could not send the code");
-  if (result.delivered) await recordSmsCodeSent(destination.country);
+  if (!result.ok) {
+    await releaseSmsSend(source);
+    throw new SmsUnavailableError("Twilio Messaging could not send the code");
+  }
+  if (result.delivered) await recordSmsCodeSent(destination.country, source);
 }

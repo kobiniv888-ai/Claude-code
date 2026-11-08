@@ -1,20 +1,18 @@
 "use server";
 
-import { headers } from "next/headers";
 import { z } from "zod";
 import { fail, ok, runAction, type ActionResult } from "@/lib/action";
 import { contactEmailSchema } from "@/lib/account/settings-schema";
 import { db } from "@/lib/db";
 import { isPlaceholderEmail } from "@/lib/email";
-import { rateLimit, rateLimitByIp } from "@/lib/rate-limit";
+import { rateLimit } from "@/lib/rate-limit";
+import { verifyTurnstile } from "@/lib/turnstile";
 import { endOtherSessions } from "./account-sessions";
-import { codeDisplayForHeaders } from "./code-display";
-import { checkSecurityCode, consumeFreshProof, issueSecurityCode, requireFreshProof } from "./fresh-proof";
-import { SECURITY_CODES_PER_DAY_ACCOUNT, SECURITY_CODES_PER_DAY_IP, SECURITY_CODE_PATTERN, maskEmail } from "./fresh-proof-rules";
-import type { CodeSent } from "./fresh-proof-actions";
-import { notifySecurityChange, sendSecurityCodeEmail } from "./security-notices";
+import { checkSecurityCode, consumeFreshProof, requireFreshProof } from "./fresh-proof";
+import { SECURITY_CODE_PATTERN, maskEmail } from "./fresh-proof-rules";
+import { sendSecurityCodeWithLimits, type CodeSent } from "./security-code-send";
+import { notifySecurityChange } from "./security-notices";
 import { requireUserForAction } from "./session";
-import { emailCodeRoute } from "./sms";
 
 /**
  * The contact email (Settings → email), which receives every notification instead of the login
@@ -43,6 +41,8 @@ function oldNoticeAddress(row: { email: string; contactEmail: string | null }): 
   return isPlaceholderEmail(row.email) ? null : row.email;
 }
 
+const captchaSchema = z.object({ captchaToken: z.string().max(2048).nullish() });
+
 export async function sendContactEmailCode(input: unknown): Promise<ActionResult<CodeSent>> {
   return runAction<CodeSent>(async () => {
     const user = await requireUserForAction();
@@ -52,19 +52,11 @@ export async function sendContactEmailCode(input: unknown): Promise<ActionResult
     const row = await currentAddresses(user.id);
     if (row.contactEmail?.toLowerCase() === address) return fail("contact_email_unchanged");
     await requireFreshProof(user);
-    const [perAccount, perIp] = await Promise.all([
-      rateLimit(`auth:security-code:day:${user.id}`, { limit: SECURITY_CODES_PER_DAY_ACCOUNT, windowSeconds: 86_400 }),
-      rateLimitByIp("auth:security-code:day", { limit: SECURITY_CODES_PER_DAY_IP, windowSeconds: 86_400 }),
-    ]);
-    if (!perAccount.ok || !perIp.ok) return fail("rate_limited");
-
-    const issued = await issueSecurityCode({ userId: user.id, purpose: "contact", bindTo: address });
-    if (!issued.ok) return ok({ sent: false, sentTo: maskEmail(address), retryAfterSeconds: issued.retryAfterSeconds });
-    const requestHeaders = await headers();
-    const showOnScreen = codeDisplayForHeaders(requestHeaders) !== null && (emailCodeRoute(requestHeaders) === "screen" || user.isDemo);
-    const sent = await sendSecurityCodeEmail({ userId: user.id, to: address, code: issued.code, purpose: "contact" });
-    if (!sent && !showOnScreen) return fail("email_unavailable");
-    return ok({ sent: true, sentTo: maskEmail(address), retryAfterSeconds: issued.nextWaitSeconds, ...(showOnScreen ? { screenCode: issued.code } : {}) });
+    // A code to an address someone typed: the CAPTCHA, like every code send (SECURITY_REPORT 3.2.b,
+    // 3.8.a), then the per-inbox waits and caps shared with login codes (./security-code-send.ts).
+    const captcha = captchaSchema.safeParse(input);
+    if (!(await verifyTurnstile(captcha.success ? captcha.data.captchaToken : null, { expectedAction: "contact_email" }))) return fail("captcha_failed");
+    return sendSecurityCodeWithLimits({ user, purpose: "contact", to: address, bindTo: address });
   });
 }
 

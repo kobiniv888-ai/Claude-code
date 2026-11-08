@@ -47,6 +47,8 @@ describe("admin home counts", () => {
     flagCancellations: 0,
     flagHosts: 0,
     flagNoShows: 0,
+    flagGuests: 0,
+    flagLongStays: 0,
     hostUnreachable: 0,
     failedEmails: 1,
     outboxWaiting: 3,

@@ -8,6 +8,7 @@ import { ExactLocationMapLoader } from "@/components/admin/exact-location-map-lo
 import { AdminPrice, ListingThumb, PublicId, WhenText } from "@/components/admin/listing-bits";
 import { ModerationActions } from "@/components/admin/moderation-actions";
 import { AdminPageHeader, AdminSection, FactList } from "@/components/admin/page-header";
+import { StaffPhoneValue } from "@/components/admin/staff-phone";
 import { Ltr } from "@/components/common/ltr";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -635,9 +636,10 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
               <p className="text-sm text-muted-foreground">{t("noContacts")}</p>
             ) : (
               <ul className="flex flex-col gap-1.5 text-sm">
-                {data.contacts.map((c) => (
-                  <li key={`${c.channel}-${c.value}`} className="flex items-center justify-between gap-2">
+                {data.contacts.map((c, i) => (
+                  <li key={`${c.channel}-${i}`} className="flex items-center justify-between gap-2">
                     <span className="text-muted-foreground">{tFields(`contactChannel.${c.channel}`)}</span>
+                    {/* Phone numbers: the last 2 digits only for staff other than an ADMIN (Q12, (c)). */}
                     <Ltr className="truncate font-mono text-xs">{c.value}</Ltr>
                   </li>
                 ))}
@@ -675,7 +677,7 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
                 className="sm:grid-cols-1"
                 items={[
                   { label: tAdmin("common.joined"), value: `${formatDate(owner.createdAt, locale)} · ${formatRelativeTime(owner.createdAt, locale)}` },
-                  { label: tAdmin("common.phone"), value: owner.phoneNumber ? <Ltr>{owner.phoneNumber}</Ltr> : "—" },
+                  { label: tAdmin("common.phone"), value: <StaffPhoneValue phone={data.ownerPhone} withheldNote={tAdmin("users.phoneLast2Only")} /> },
                   { label: tAdmin("common.email"), value: ownerEmail ? <Ltr className="break-all">{ownerEmail}</Ltr> : "—" },
                   { label: tAdmin("common.language"), value: ownerLanguage },
                   {

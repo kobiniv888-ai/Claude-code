@@ -1,5 +1,6 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { APIError } from "better-auth/api";
 import { headers } from "next/headers";
 import { z } from "zod";
@@ -9,18 +10,28 @@ import { db } from "@/lib/db";
 import { demoAllowed } from "@/lib/site-env";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { codeDisplayForHeaders } from "./code-display";
+import { LOGIN_CODE_TTL_SECONDS } from "./code-rules";
 import { authErrorKey, timedActionError } from "./error-codes";
-import { limitLoginCodeChecks, limitPhoneCheckRequests } from "./login-rate-limit";
+import { limitLoginCodeChecks, limitNewHostPhoneChecks, limitPhoneCheckRequests } from "./login-rate-limit";
 import { normalizePhone } from "@/lib/phone";
 import { checkLoginPhoneNumber } from "./phone";
-import { PHONE_CHECK_PLACES, isHostAccount, phoneCheckAllowedAt } from "./phone-check-policy";
+import {
+  PHONE_CHECK_PLACES,
+  decodePhoneCheckBinding,
+  encodePhoneCheckBinding,
+  isHostAccount,
+  phoneCheckAllowedAt,
+  phoneCheckBindingKey,
+} from "./phone-check-policy";
 import { isPhoneAlreadyVerified, phoneCheckStep } from "./phone-once";
+import { isPostPhoneStepToken } from "./phone-check-token";
 import { auth } from "./server";
 import { requireUserForAction } from "./session";
 import { requireFreshProof } from "./fresh-proof";
 import { isPhoneReplacement } from "./fresh-proof-rules";
 import { afterPhoneChanged } from "./phone-change";
 import { forgetScreenCode, phoneCodeKey, phoneCodeRoute, readScreenCode } from "./sms";
+import { requestSmsSource, withSmsSource } from "./sms-guard";
 
 /**
  * "Verify your phone" for a signed-in account (founder request, round 2): a guest making a booking
@@ -33,6 +44,13 @@ import { forgetScreenCode, phoneCodeKey, phoneCodeRoute, readScreenCode } from "
  * `place: "booking"` needs a listing that can be booked on the site (not the account's own),
  * `"account"` a host. The UI is <PhoneCheck> (src/components/auth/phone-check.tsx). Error codes are
  * keys in `auth.errors.*`; a wait comes as "code_wait:<seconds>" (./error-codes.ts).
+ *
+ * A code works only in the SESSION that asked for it (SECURITY_REPORT 3.6.a, 3.5.e): the plugin
+ * stores the code under the number alone, so after a send we write our own binding row
+ * ("phone-check:<sessionId>:<number>", Verification table, 10 minutes, no schema change) saying
+ * whether the send was a replacement of a verified number made with a fresh proof. Confirming
+ * without this session's binding is refused BEFORE the code is touched: another account's code
+ * cannot replace this account's verified phone, and nobody else can burn a pending code's tries.
  */
 
 const sendSchema = z.object({
@@ -40,6 +58,8 @@ const sendSchema = z.object({
   captchaToken: z.string().max(2048).nullish(),
   place: z.enum(PHONE_CHECK_PLACES),
   listingId: z.string().trim().min(1).max(64).nullish(),
+  /** `place: "post"` before the first draft: the token /verify-phone gave the post form's phone step. */
+  postStepToken: z.string().max(200).nullish(),
 });
 const confirmSchema = z.object({
   phoneNumber: z.string().trim().max(20),
@@ -63,14 +83,23 @@ function apiFailure(error: unknown) {
   return fail(key);
 }
 
+type PlaceDecision = { allowed: boolean; newHost?: boolean };
+
 /** Is a phone check allowed from this place, for this account? (server facts; ./phone-check-policy.ts) */
-async function placeAllows(userId: string, place: (typeof PHONE_CHECK_PLACES)[number], listingId: string | null | undefined) {
-  if (place === "post") return phoneCheckAllowedAt(place, { isHost: false, bookableListing: null });
-  if (place === "account") {
+async function placeAllows(
+  userId: string,
+  place: (typeof PHONE_CHECK_PLACES)[number],
+  listingId: string | null | undefined,
+  postStepToken: string | null | undefined,
+): Promise<PlaceDecision> {
+  if (place === "post" || place === "account") {
     const listings = await db.listing.count({ where: { ownerId: userId, deletedAt: null } });
-    return phoneCheckAllowedAt(place, { isHost: isHostAccount(listings), bookableListing: null });
+    const isHost = isHostAccount(listings);
+    if (place === "account") return { allowed: phoneCheckAllowedAt(place, { isHost, bookableListing: null }) };
+    const postStep = !isHost && isPostPhoneStepToken(userId, postStepToken);
+    return { allowed: phoneCheckAllowedAt(place, { isHost, bookableListing: null, postStep }), newHost: !isHost };
   }
-  if (!listingId) return false;
+  if (!listingId) return { allowed: false };
   const listing = await db.listing.findFirst({
     where: {
       id: listingId,
@@ -82,10 +111,40 @@ async function placeAllows(userId: string, place: (typeof PHONE_CHECK_PLACES)[nu
     },
     select: { ownerId: true },
   });
-  return phoneCheckAllowedAt(place, {
-    isHost: false,
-    bookableListing: listing ? { ownListing: listing.ownerId === userId } : null,
+  return {
+    allowed: phoneCheckAllowedAt(place, {
+      isHost: false,
+      bookableListing: listing ? { ownListing: listing.ownerId === userId } : null,
+    }),
+  };
+}
+
+/** Replaces this session's binding for the number (written after the code was sent). */
+async function bindCodeToSession(user: { id: string; sessionId: string }, phoneNumber: string, mode: "first" | "replace") {
+  const identifier = phoneCheckBindingKey(user.sessionId, phoneNumber);
+  await db.$transaction([
+    db.verification.deleteMany({ where: { identifier } }),
+    db.verification.create({
+      data: {
+        id: randomUUID(),
+        identifier,
+        value: encodePhoneCheckBinding({ userId: user.id, mode }),
+        expiresAt: new Date(Date.now() + LOGIN_CODE_TTL_SECONDS * 1000),
+      },
+    }),
+  ]);
+}
+
+/** This session's live binding for the number (null: none, expired, or another account's). */
+async function sessionBinding(user: { id: string; sessionId: string }, phoneNumber: string) {
+  const row = await db.verification.findFirst({
+    where: { identifier: phoneCheckBindingKey(user.sessionId, phoneNumber) },
+    orderBy: { createdAt: "desc" },
+    select: { value: true, expiresAt: true },
   });
+  if (!row || row.expiresAt.getTime() <= Date.now()) return null;
+  const binding = decodePhoneCheckBinding(row.value);
+  return binding && binding.userId === user.id ? binding : null;
 }
 
 export async function sendPhoneCheckCode(input: unknown): Promise<ActionResult<PhoneCodeSent>> {
@@ -102,7 +161,8 @@ export async function sendPhoneCheckCode(input: unknown): Promise<ActionResult<P
     // Reveals only this account's own state, so it may come before the limits.
     if (isPhoneAlreadyVerified(user, phoneNumber)) return ok({ status: "already_verified", phoneNumber });
     // SMS only where the founder allowed it: a guest's booking, a host's phone check.
-    if (!(await placeAllows(user.id, parsed.data.place, parsed.data.listingId))) return fail("phone_check_not_here");
+    const place = await placeAllows(user.id, parsed.data.place, parsed.data.listingId, parsed.data.postStepToken);
+    if (!place.allowed) return fail("phone_check_not_here");
     // Replacing a verified number is a sensitive change: a fresh code first (SECURITY_REPORT 3.6.a).
     if (isPhoneReplacement(user, phoneNumber)) await requireFreshProof(user);
 
@@ -110,6 +170,7 @@ export async function sendPhoneCheckCode(input: unknown): Promise<ActionResult<P
     // CAPTCHA before looking, so the action cannot be used to test numbers in bulk (hardening A1).
     // The answer comes before any SMS is sent (founder's answer Q5 A: no SMS wasted on it).
     if (!(await limitPhoneCheckRequests(user.id))) return fail("rate_limited");
+    if (place.newHost && !(await limitNewHostPhoneChecks(user.id))) return fail("rate_limited");
     if (!(await verifyTurnstile(parsed.data.captchaToken, { expectedAction: "login" }))) return fail("captcha_failed");
 
     const other = await db.user.findFirst({
@@ -125,10 +186,15 @@ export async function sendPhoneCheckCode(input: unknown): Promise<ActionResult<P
 
     try {
       // Runs the same hooks as the login form: number rules, resend waits, daily caps, SMS budget.
-      await auth.api.sendPhoneNumberOTP({ body: { phoneNumber }, headers: requestHeaders });
+      // The source (this account, its IP block, trusted or not) drives the SMS brakes (./sms-guard.ts).
+      const source = await requestSmsSource(user.id);
+      await withSmsSource(source, () => auth.api.sendPhoneNumberOTP({ body: { phoneNumber }, headers: requestHeaders }));
     } catch (error) {
       return apiFailure(error);
     }
+    // This session (and only this one) may confirm the code. "replace": the fresh proof was checked
+    // above for replacing a verified number.
+    await bindCodeToSession(user, phoneNumber, isPhoneReplacement(user, phoneNumber) ? "replace" : "first");
     const screenCode = readScreenCode(phoneCodeKey(phoneNumber), codeDisplayForHeaders(requestHeaders));
     return ok({ status: "sent", phoneNumber, screenCode });
   });
@@ -144,11 +210,19 @@ export async function confirmPhoneCheckCode(input: unknown): Promise<ActionResul
     if (!check.ok) return fail("invalid_phone");
     const phoneNumber = check.e164;
     if (isPhoneAlreadyVerified(user, phoneNumber)) return ok({ phoneNumber });
+    // Only a code THIS session asked for, checked before the code is touched (see the top).
+    const binding = await sessionBinding(user, phoneNumber);
+    if (!binding) return fail("code_expired");
+    // Replacing a verified number needs the fresh proof: given at send time ("replace"), or now (a
+    // number that became verified after the send).
+    if (isPhoneReplacement(user, phoneNumber) && binding.mode !== "replace") await requireFreshProof(user);
     if (!(await limitLoginCodeChecks())) return fail("rate_limited");
 
     try {
       // Checks and uses up the code without touching any account or session.
-      await auth.api.consumePhoneNumberOTP({ body: { phoneNumber, code: parsed.data.code }, headers: await headers() });
+      const requestHeaders = await headers();
+      const source = await requestSmsSource(user.id);
+      await withSmsSource(source, () => auth.api.consumePhoneNumberOTP({ body: { phoneNumber, code: parsed.data.code }, headers: requestHeaders }));
     } catch (error) {
       return apiFailure(error);
     }
@@ -160,6 +234,7 @@ export async function confirmPhoneCheckCode(input: unknown): Promise<ActionResul
       throw error;
     }
     forgetScreenCode(phoneCodeKey(phoneNumber));
+    await db.verification.deleteMany({ where: { identifier: phoneCheckBindingKey(user.sessionId, phoneNumber) } });
     // A replaced number: other sessions end, the old channel (email) is told (SECURITY_REPORT 3.5.e, 3.6.d).
     if (isPhoneReplacement(user, phoneNumber)) await afterPhoneChanged({ userId: user.id, sessionId: user.sessionId, newPhone: phoneNumber });
     return ok({ phoneNumber });

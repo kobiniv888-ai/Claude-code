@@ -303,11 +303,30 @@ export type CreatedBooking = {
   repeated?: boolean;
 };
 
-/** The booking an earlier attempt with this key made, as createBooking returns it (or null). */
+/**
+ * The booking an earlier attempt with this key made, as createBooking returns it (or null).
+ * It counts as made only once the host was told (hostNotifiedAt): while the first attempt is still
+ * alerting the host the booking may yet be undone, so a repeat answers "booking_in_progress" (the
+ * browser asks again in a moment) instead of a "booked" that could turn out false; a booking
+ * cancelled since is no repeat either ("request_reused"). idempotency-unalerted-1.
+ */
 async function bookingForAttempt(client: Client, guestUserId: string, idempotencyKey: string, params: StayParams): Promise<CreatedBooking | null> {
   const row = await client.booking.findUnique({
     where: { guestUserId_idempotencyKey: { guestUserId, idempotencyKey } },
-    select: { id: true, code: true, listingId: true, checkIn: true, checkOut: true, nights: true, total: true, currency: true, roomTypeId: true, rooms: true },
+    select: {
+      id: true,
+      code: true,
+      listingId: true,
+      checkIn: true,
+      checkOut: true,
+      nights: true,
+      total: true,
+      currency: true,
+      roomTypeId: true,
+      rooms: true,
+      status: true,
+      hostNotifiedAt: true,
+    },
   });
   if (!row) return null;
   // The same key for another stay is not a repeat: a broken or replayed request.
@@ -318,6 +337,8 @@ async function bookingForAttempt(client: Client, guestUserId: string, idempotenc
     (row.roomTypeId ?? null) === (params.roomTypeId ?? null) &&
     (!row.roomTypeId || row.rooms === Math.max(1, params.rooms ?? 1));
   if (!sameStay) throw new BookingError("request_reused");
+  if (row.status === "CONFIRMED" && !row.hostNotifiedAt) throw new BookingError("booking_in_progress");
+  if (row.status !== "CONFIRMED" && row.status !== "COMPLETED") throw new BookingError("request_reused");
   return {
     id: row.id,
     code: row.code,

@@ -22,7 +22,7 @@ import { CONTACT_CHANNELS } from "@/lib/listing/fields";
 import { recordContactClick } from "@/lib/listing/stats";
 import { listingPath } from "@/lib/listing/urls";
 import { RateLimitError } from "@/lib/errors";
-import { assertRateLimit, rateLimit, resetRateLimit } from "@/lib/rate-limit";
+import { assertRateLimit, rateLimit, STORE_ERROR_RETRY_SECONDS } from "@/lib/rate-limit";
 import { recordSecurityEvent } from "@/lib/security/events";
 import { assertNotShabbatMode } from "@/lib/settings";
 import { assertTurnstile } from "@/lib/turnstile";
@@ -31,6 +31,7 @@ import { normalizePhone } from "@/lib/phone";
 import { CONTACT_REVEALS_PER_DAY } from "./limits";
 import { parseContactMethods, revealedValue, type RevealedContact } from "./links";
 import { findContactableListing, isBlockedBetween, safetyTipSeen } from "./server";
+import { markSeen, wasSeen } from "./seen-store";
 
 const HOUR = 3600;
 /** Channels whose value is always a phone number (a Telegram value may be one too). */
@@ -83,25 +84,23 @@ export async function revealContact(listingId: string, turnstileToken?: string |
     // The per-listing cap and the daily cap count each visitor and listing once a day, so a
     // popular listing is not locked by refreshes and seeing the same place again is free.
     // Hashed: the key must not say which account looked at which listing's contact details.
+    // The "seen" marker is only READ here and WRITTEN after both caps passed (./seen-store.ts): a
+    // call still being checked, or refused, never counts as seen, so parallel calls cannot slip
+    // past the caps (contact-reveal-race-1). Parallel first views of one listing may each use a
+    // unit of the daily cap: that errs on the safe side.
     const seenKey = `contact-reveal:seen:${hmacHash(`contact-reveal|${user.id}|${listing.id}`)}`;
-    const firstToday = await rateLimit(seenKey, { limit: 1, windowSeconds: DAY });
+    const seen = await wasSeen(seenKey);
     // Fail closed: when the store cannot tell whether this is a new listing for today, refuse.
-    if (firstToday.failed) throw new RateLimitError(firstToday.resetAt);
-    if (firstToday.ok) {
-      try {
-        const daily = await rateLimit(`contact-reveal:daily:${user.id}`, { limit: CONTACT_REVEALS_PER_DAY, windowSeconds: DAY });
-        if (!daily.ok) {
-          // The daily cap itself (not a broken store): in the security log for the alerts.
-          if (!daily.failed) void recordSecurityEvent({ type: "show_contact_cap_hit", userId: user.id, meta: { limit: CONTACT_REVEALS_PER_DAY } });
-          throw new RateLimitError(daily.resetAt);
-        }
-        await assertRateLimit(`contact-reveal:listing:${listing.id}`, { limit: 200, windowSeconds: DAY });
-      } catch (error) {
-        // Refused: this listing was not shown, so it must not count as "already seen today"
-        // (otherwise the next tap would skip both caps).
-        await resetRateLimit(seenKey);
-        throw error;
+    if (seen === null) throw new RateLimitError(new Date(Date.now() + STORE_ERROR_RETRY_SECONDS * 1000));
+    if (!seen) {
+      const daily = await rateLimit(`contact-reveal:daily:${user.id}`, { limit: CONTACT_REVEALS_PER_DAY, windowSeconds: DAY });
+      if (!daily.ok) {
+        // The daily cap itself (not a broken store): in the security log for the alerts.
+        if (!daily.failed) void recordSecurityEvent({ type: "show_contact_cap_hit", userId: user.id, meta: { limit: CONTACT_REVEALS_PER_DAY } });
+        throw new RateLimitError(daily.resetAt);
       }
+      await assertRateLimit(`contact-reveal:listing:${listing.id}`, { limit: 200, windowSeconds: DAY });
+      await markSeen(seenKey, DAY);
     }
 
     // Phone numbers leave the server in E.164 without a national 0 (brief 2.5), so the browser's
@@ -115,6 +114,8 @@ export async function revealContact(listingId: string, turnstileToken?: string |
         const phone = value && isPhone ? normalizePhone(value, phoneCountry) : null;
         return { channel: m.channel, value: phone ?? value };
       });
+    // The security event log (SECURITY_REPORT 16.2): who revealed contact details, never which listing.
+    void recordSecurityEvent({ type: "contact_revealed", userId: user.id });
     return ok({
       methods,
       safetyTipSeen: await safetyTipSeen(user.id),

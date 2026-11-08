@@ -83,4 +83,11 @@ describe("phone codes in the database", () => {
     for (let i = attempts; i < 5; i++) await consume(wrong(code)).catch(() => null);
     await expect(consume(code)).rejects.toBeTruthy();
   });
+
+  it("an expired code answers OTP_EXPIRED (not a wrong code) with the real adapter (3.1.a)", async () => {
+    const code = await sendCode();
+    await db.verification.updateMany({ where: { identifier: phoneOtpIdentifier(PHONE) }, data: { expiresAt: new Date(Date.now() - 1000) } });
+    await expect(consume(code)).rejects.toMatchObject({ body: { code: "OTP_EXPIRED" } });
+    expect(await rows()).toEqual([]);
+  });
 });

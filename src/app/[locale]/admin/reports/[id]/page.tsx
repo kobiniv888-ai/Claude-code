@@ -6,6 +6,7 @@ import { AccountMarkers, ListingStatusBadge, ReportStatusBadge, RoleBadge, UserS
 import { AdminPrice, ListingThumb, PublicId, WhenText } from "@/components/admin/listing-bits";
 import { AdminPageHeader, AdminSection, FactList } from "@/components/admin/page-header";
 import { ReportActions } from "@/components/admin/report-actions";
+import { StaffPhoneValue } from "@/components/admin/staff-phone";
 import { Ltr } from "@/components/common/ltr";
 import { Link } from "@/i18n/navigation";
 import { auditActionKey } from "@/lib/admin/audit-labels";
@@ -44,7 +45,7 @@ export default async function ReportDetailPage({ params }: PageProps<"/[locale]/
   const staff = await requireStaff("reports.view");
   const data = await getReportDetail(id, locale, staff);
   if (!data) notFound();
-  const { report, account, accountStats, otherReports, timeline } = data;
+  const { report, account, accountPhone, accountStats, otherReports, timeline } = data;
   const [t, tAdmin, tFields, tBooking, flag] = await Promise.all([
     getTranslations("admin.reports"),
     getTranslations("admin"),
@@ -203,7 +204,7 @@ export default async function ReportDetailPage({ params }: PageProps<"/[locale]/
                 </span>
               }
               actions={
-                can(staff.role, "moderation") ? (
+                can(staff.role, "moderation") && booking.id ? (
                   <Link href={`/admin/bookings/${booking.id}`} className="text-sm font-medium text-primary hover:underline">
                     {t("booking.open")}
                   </Link>
@@ -212,7 +213,11 @@ export default async function ReportDetailPage({ params }: PageProps<"/[locale]/
             >
               <FactList
                 items={[
-                  { label: t("booking.code"), value: <Ltr className="font-medium">{booking.code}</Ltr> },
+                  {
+                    label: t("booking.code"),
+                    // A turned-away report's booking names who sent it: ADMIN only (Q12).
+                    value: booking.code ? <Ltr className="font-medium">{booking.code}</Ltr> : <span className="text-xs text-muted-foreground">{t("booking.withheld")}</span>,
+                  },
                   { label: t("booking.status"), value: BOOKING_STATUSES.has(booking.status) ? tBooking(`status.${booking.status}`) : booking.status },
                   {
                     label: t("booking.dates"),
@@ -268,6 +273,8 @@ export default async function ReportDetailPage({ params }: PageProps<"/[locale]/
                 <p className="text-sm text-muted-foreground">{t("screenshots.deleted", { date: formatDate(report.attachmentsDeletedAt, locale) })}</p>
               ) : report.attachments.length === 0 ? (
                 <p className="text-sm text-muted-foreground">{t("screenshots.none")}</p>
+              ) : report.screenshotsWithheld ? (
+                <p className="text-sm text-muted-foreground">{t("screenshots.withheld", { count: report.attachments.length })}</p>
               ) : canAct ? (
                 <div className="flex flex-col gap-2">
                   <ReportScreenshotsViewer reportId={report.id} count={report.attachments.length} />
@@ -409,7 +416,7 @@ export default async function ReportDetailPage({ params }: PageProps<"/[locale]/
                   className="sm:grid-cols-1"
                   items={[
                     { label: tAdmin("common.joined"), value: formatRelativeTime(account.createdAt, locale) },
-                    { label: tAdmin("common.phone"), value: account.phoneNumber ? <Ltr>{account.phoneNumber}</Ltr> : "—" },
+                    { label: tAdmin("common.phone"), value: <StaffPhoneValue phone={accountPhone} withheldNote={tAdmin("users.phoneLast2Only")} /> },
                     { label: t("liveListings"), value: n(accountStats.liveListings) },
                     { label: t("upcomingBookings"), value: n(accountStats.upcomingBookings) },
                     { label: t("accountReports"), value: n(account._count.reportsAgainst) },

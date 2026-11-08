@@ -4,6 +4,8 @@ import { AdminPageHeader } from "@/components/admin/page-header";
 import { backupGate, maintenanceHistory } from "@/lib/admin/maintenance/cleanups";
 import { CLEANUP_NAMES } from "@/lib/admin/maintenance/plan";
 import { requireStaff } from "@/lib/auth/session";
+import { smsControlState } from "@/lib/auth/sms-guard";
+import { SmsControls } from "@/components/auth/sms-controls";
 import { MaintenancePanel } from "./maintenance-panel";
 
 type Props = { params: Promise<{ locale: string }> };
@@ -22,10 +24,11 @@ export default async function MaintenancePage({ params }: Props) {
   const { locale } = await params;
   setRequestLocale(locale);
   await requireStaff("settings");
-  const [t, gate, history] = await Promise.all([
+  const [t, gate, history, sms] = await Promise.all([
     getTranslations("admin.maintenance"),
     backupGate(5).catch(() => ({ backups: [], fresh: false })),
     maintenanceHistory(),
+    smsControlState(),
   ]);
   return (
     <>
@@ -36,6 +39,15 @@ export default async function MaintenancePage({ params }: Props) {
         names={[...CLEANUP_NAMES]}
         lastRuns={history.runs}
       />
+      {/* The SMS budget and paused countries (SECURITY_REPORT 3.2.c/d; the founder alerts link to #sms). */}
+      <div className="mt-6">
+        <SmsControls
+          initial={{
+            budget: { ...sms.budget, resetAt: sms.budget.resetAt?.toISOString() ?? null },
+            paused: sms.paused.map((pause) => ({ country: pause.country, until: pause.until.toISOString() })),
+          }}
+        />
+      </div>
     </>
   );
 }

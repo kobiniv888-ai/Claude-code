@@ -25,7 +25,7 @@ import type { BookingStatus } from "@/generated/prisma/enums";
 import { auditRecordView } from "@/lib/admin/server/file-views";
 import { hostFlagSummary } from "@/lib/admin/server/flags";
 import { coverUrl, realEmail } from "@/lib/admin/server/shared";
-import { getUserBookings, getUserDetail, type UserBookingRow } from "@/lib/admin/server/users";
+import { getUserBookings, getUserDetail, type UserBookingListRow } from "@/lib/admin/server/users";
 import { personName } from "@/lib/auth/first-name";
 import { dateToDay } from "@/lib/booking/dates";
 import { can } from "@/lib/auth/permissions";
@@ -65,7 +65,7 @@ export default async function UserDetailPage({ params }: PageProps<"/[locale]/ad
     getTranslations("admin"),
     getTranslations("listingFields"),
     getTranslations("booking"),
-    getUserBookings(user.id),
+    getUserBookings(user.id, staff),
     hostFlagSummary(user.id),
     // Reviews written and received (round 3 phase-5 hardening, reviews-2): each opens /admin/reviews/<id>.
     getUserReviewsForStaff(user.id),
@@ -136,8 +136,11 @@ export default async function UserDetailPage({ params }: PageProps<"/[locale]/ad
                       </span>
                     </span>
                   ) : data.phoneWithheld ? (
-                    // ADMIN only (Q12): other staff get no number from the query at all.
-                    <span className="text-xs text-muted-foreground">{t("phoneWithheld")}</span>
+                    // ADMIN only (Q12): other staff get the last 2 digits from the query, never the number (c).
+                    <span className="inline-flex flex-wrap items-center gap-x-1.5">
+                      {data.phoneMasked ? <Ltr>{data.phoneMasked}</Ltr> : null}
+                      <span className="text-xs text-muted-foreground">{t("phoneLast2Only")}</span>
+                    </span>
                   ) : (
                     "—"
                   ),
@@ -268,11 +271,11 @@ export default async function UserDetailPage({ params }: PageProps<"/[locale]/ad
             <div className="grid gap-4 xl:grid-cols-2">
               <div>
                 <h3 className="mb-2 text-xs font-medium text-muted-foreground">{t("bookings.asHost", { count: bookings.hostTotal })}</h3>
-                <BookingList rows={bookings.asHost} side="host" canOpen={canModerate} empty={t("bookings.none")} locale={locale} tb={(key) => tb(key)} flagLabel={t("bookings.flagged")} />
+                <BookingList rows={bookings.asHost} side="host" canOpen={canModerate} empty={t("bookings.none")} locale={locale} tb={(key) => tb(key)} flagLabel={t("bookings.flagged")} withheldGuest={tAdmin("bookings.guestHidden")} withheldRow={t("bookings.withheldRow")} />
               </div>
               <div>
                 <h3 className="mb-2 text-xs font-medium text-muted-foreground">{t("bookings.asGuest", { count: bookings.guestTotal })}</h3>
-                <BookingList rows={bookings.asGuest} side="guest" canOpen={canModerate} empty={t("bookings.none")} locale={locale} tb={(key) => tb(key)} flagLabel={t("bookings.flagged")} />
+                <BookingList rows={bookings.asGuest} side="guest" canOpen={canModerate} empty={t("bookings.none")} locale={locale} tb={(key) => tb(key)} flagLabel={t("bookings.flagged")} withheldGuest={tAdmin("bookings.guestHidden")} withheldRow={t("bookings.withheldRow")} />
               </div>
             </div>
           </AdminSection>
@@ -430,19 +433,29 @@ function BookingList({
   locale,
   tb,
   flagLabel,
+  withheldGuest,
+  withheldRow,
 }: {
-  rows: UserBookingRow[];
+  rows: UserBookingListRow[];
   side: "host" | "guest";
   canOpen: boolean;
   empty: string;
   locale: string;
   tb: (key: string) => string;
   flagLabel: string;
+  withheldGuest: string;
+  withheldRow: string;
 }) {
   if (rows.length === 0) return <p className="text-sm text-muted-foreground">{empty}</p>;
   return (
     <ul className="divide-y rounded-lg border">
-      {rows.map((b) => (
+      {rows.map((b) =>
+        b.withheld ? (
+          // A booking with a turned-away report by this guest: who sent a report is ADMIN only (Q12).
+          <li key={b.id} className="px-3 py-2 text-xs text-muted-foreground">
+            {withheldRow}
+          </li>
+        ) : (
         <li key={b.id} className="flex flex-col gap-0.5 px-3 py-2 text-sm">
           <span className="flex flex-wrap items-center gap-1.5">
             {canOpen ? (
@@ -467,10 +480,15 @@ function BookingList({
           <span className="text-xs text-muted-foreground">
             {formatDateRange(dateToDay(b.checkIn), dateToDay(b.checkOut), locale)}
             {" · "}
-            <span dir="auto">{side === "host" ? b.guestName : (b.host.businessName || personName(b.host) || b.host.name)}</span>
+            {side === "host" && b.guestWithheld ? (
+              <span>{withheldGuest}</span>
+            ) : (
+              <span dir="auto">{side === "host" ? b.guestName : (b.host.businessName || personName(b.host) || b.host.name)}</span>
+            )}
           </span>
         </li>
-      ))}
+        ),
+      )}
     </ul>
   );
 }

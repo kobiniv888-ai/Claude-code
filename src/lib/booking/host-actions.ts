@@ -1,6 +1,7 @@
 "use server";
 
 import { flattenError, z } from "zod";
+import { canonicalCalendarImportUrl } from "@/config/external-hosts";
 import { fail, ok, runAction, type ActionResult } from "@/lib/action";
 import { requireUserForAction } from "@/lib/auth/session";
 import { db } from "@/lib/db";
@@ -146,7 +147,8 @@ const importsSchema = z.object({
   /** Hotels: the room type whose own links these are (round 3); none = the listing's. */
   roomTypeId: listingIdSchema.optional().nullable(),
   urls: z
-    .array(z.string().trim().max(LIMITS.urlMax, "too_long"))
+    // Airbnb's other country sites are stored as www.airbnb.com (canonicalCalendarImportUrl).
+    .array(z.string().trim().max(LIMITS.urlMax, "too_long").transform(canonicalCalendarImportUrl))
     .max(LIMITS.maxIcalImports, "too_many")
     .transform((list) => [...new Set(list.filter(Boolean))]),
 });

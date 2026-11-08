@@ -2,7 +2,7 @@ import "server-only";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { Prisma } from "@/generated/prisma/client";
-import { audit } from "@/lib/audit";
+import { audit, auditOrThrow } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { parseVerificationDocuments, type VerificationDocument } from "@/lib/admin/documents";
 import { deletePrivate, isValidStorageKey, storageDriver } from "@/lib/storage";
@@ -372,12 +372,24 @@ export async function assertFreshBackup(now: Date = new Date()): Promise<string>
   return latest.id;
 }
 
-/** Runs one clean-up (after the backup check) and writes it to the audit log. */
+/**
+ * Runs one clean-up (after the backup check) and writes it to the audit log. A clean-up deletes or
+ * rewrites many rows and files, so it cannot be one transaction: its "started" row is written FIRST
+ * with auditOrThrow (founder's decision Q13; SECURITY_REPORT 12.6.d), so the run does not happen
+ * when the audit log cannot be written. The result is a second row ("maintenance.cleanup").
+ */
 export async function runCleanup(name: CleanupName, actor: CleanupActor): Promise<CleanupReport> {
   const backupId = await assertFreshBackup();
   if (running.has(name)) throw new AdminActionError("cleanup_running", 409);
   running.add(name);
   try {
+    await auditOrThrow({
+      actorId: actor.userId,
+      action: "maintenance.cleanup_started",
+      targetType: "Cleanup",
+      targetId: name,
+      details: { via: actor.via, backupId },
+    });
     const report =
       name === "phones" ? await runPhones() : name === "title-emoji" ? await runTitles() : name === "contact-taps" ? await contactTaps("run") : await runFiles();
     const full: CleanupReport = { ...report, at: new Date().toISOString(), backupId };

@@ -13,10 +13,11 @@ import type { Prisma } from "@/generated/prisma/client";
 import { isAppLocale } from "@/i18n/locale";
 import { fail, ok, runAction, type ActionResult } from "@/lib/action";
 import { audit } from "@/lib/audit";
+import { recordSecurityEvent } from "@/lib/security/events";
 import { requireUserForAction } from "@/lib/auth/session";
 import { auth } from "@/lib/auth/server";
 import { removeContactEmail } from "@/lib/auth/contact-email-actions";
-import { requireFreshProof } from "@/lib/auth/fresh-proof";
+import { consumeFreshProof, requireFreshProof } from "@/lib/auth/fresh-proof";
 import { notifySecurityChange } from "@/lib/auth/security-notices";
 import { clearDisplayCurrency, setDisplayCurrency } from "@/lib/currency/actions";
 import { alertsPart } from "@/lib/booking/alert-rules";
@@ -356,6 +357,8 @@ export async function unlinkSocialAccount(provider: unknown): Promise<ActionResu
     // A login method is a sensitive change: a fresh code first, the account is told (SECURITY_REPORT 3.6).
     await requireFreshProof(user);
     await db.account.deleteMany({ where: { userId: user.id, providerId: parsed.data } });
+    // One code, one change (./fresh-proof.ts consumeFreshProof): a second login-method change needs a new code.
+    await consumeFreshProof(user.sessionId);
     await notifySecurityChange({ userId: user.id, kind: "login_method_removed", provider: parsed.data });
     return ok();
   });
@@ -401,6 +404,9 @@ export async function deleteMyAccount(input: unknown): Promise<ActionResult> {
     } catch (error) {
       console.warn("[account] sign-out before deletion failed:", error);
     }
+    // The security event log too (SECURITY_REPORT 16.2), before the account's rows go (its events
+    // keep no user id afterwards).
+    await recordSecurityEvent({ type: "account_deleted", userId: user.id });
     await deleteAccountData(user.id);
     await audit({ actorId: user.id, action: "account.delete", targetType: "User", targetId: user.id });
     return ok();

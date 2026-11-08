@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  AIRBNB_COUNTRY_DOMAINS,
   allowListedHttpsUrl,
   CALENDAR_IMPORT_DOMAINS,
+  canonicalCalendarImportUrl,
   hostOnAllowList,
   isCalendarImportHost,
   isTourUrl,
@@ -54,5 +56,30 @@ describe("allow-lists of outside sites (SECURITY_REPORT 8.1.a, 7.f; founder's an
     }
     expect(isTourUrl("https://roundme.com/tour/1")).toBe(true);
     expect(isTourUrl("https://evil.example/fake-tour")).toBe(false);
+  });
+
+  // SECURITY_REPORT 8.1.a: Airbnb shows the export link on the country site the host browses.
+  it("stores a link from another Airbnb country site as the same path on www.airbnb.com", () => {
+    expect(canonicalCalendarImportUrl(" https://www.airbnb.com.br/calendar/ical/123.ics?s=abc ")).toBe("https://www.airbnb.com/calendar/ical/123.ics?s=abc");
+    expect(canonicalCalendarImportUrl("https://airbnb.ch/calendar/ical/9.ics?s=x")).toBe("https://www.airbnb.com/calendar/ical/9.ics?s=x");
+    expect(isCalendarImportHost(new URL(canonicalCalendarImportUrl("https://www.airbnb.com.ua/calendar/ical/1.ics")).hostname)).toBe(true);
+    // Already allowed sites, other sites, look-alikes, http, credentials and ports are left alone.
+    for (const url of [
+      "https://www.airbnb.co.il/calendar/ical/1.ics?s=a",
+      "https://calendar.google.com/calendar/ical/x/basic.ics",
+      "https://airbnb.com.br.evil.example/calendar/ical/1.ics",
+      "https://evilairbnb.com.br/calendar/ical/1.ics",
+      "http://www.airbnb.com.br/calendar/ical/1.ics",
+      "https://user:pw@www.airbnb.com.br/calendar/ical/1.ics",
+      "https://www.airbnb.com.br:8443/calendar/ical/1.ics",
+      "not a url",
+    ]) {
+      expect(canonicalCalendarImportUrl(url), url).toBe(url);
+    }
+    // Exact domains only, and none of them is already on the import list.
+    for (const domain of AIRBNB_COUNTRY_DOMAINS) {
+      expect(domain).toMatch(/^airbnb\.[a-z.]+$/);
+      expect(CALENDAR_IMPORT_DOMAINS as readonly string[]).not.toContain(domain);
+    }
   });
 });

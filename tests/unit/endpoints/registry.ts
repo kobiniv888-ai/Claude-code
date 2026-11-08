@@ -223,6 +223,11 @@ export const SERVER_ACTIONS: Record<string, Record<string, Access>> = {
   "src/lib/auth/profile-actions.ts": {
     saveFirstName: USER,
   },
+  // The founder's SMS controls (SECURITY_REPORT 3.2.c/d): "settings" is ADMIN only; fresh code, audited.
+  "src/lib/auth/sms-control-actions.ts": {
+    resumeSmsCountryAction: staff("settings"),
+    resetSmsBudgetAction: staff("settings"),
+  },
   "src/lib/booking/actions.ts": {
     quoteBookingAction: publicAccess("the price of a stay for signed-out visitors too"),
     createBookingAction: USER,
@@ -392,13 +397,65 @@ export const ROUTE_HANDLERS: Record<string, Record<string, Access>> = {
   "src/app/api/places/search/route.ts": { GET: publicAccess("the gazetteer search") },
   "src/app/api/tickets/attachment/route.ts": { GET: USER },
   "src/app/api/unsubscribe/route.ts": {
-    GET: token("the signed one-click unsubscribe link"),
+    GET: publicAccess("redirects to the unsubscribe page with the token; checks and changes nothing", "reads nothing, only redirects"),
     POST: token("the signed one-click unsubscribe link (RFC 8058)"),
   },
   "src/app/api/uploads/listing-photo/route.ts": { POST: USER },
   "src/app/api/uploads/private/route.ts": { POST: USER },
   "src/app/api/webhooks/resend/route.ts": { POST: { kind: "webhook", why: "Resend email events, Svix signature" } },
   "src/app/api/webhooks/telegram/route.ts": { POST: { kind: "webhook", why: "Telegram updates, the secret-token header" } },
+  // Metadata routes (their default export answers GET; registry-incomplete-1).
+  "src/app/[locale]/opengraph-image.tsx": { default: publicAccess("the site's share image", "a static brand image, reads nothing") },
+  "src/app/[locale]/(site)/listing/[id]/opengraph-image.tsx": {
+    default: publicAccess("a listing's share image: public listings only (no viewer)", "public listing data, cached like the listing page"),
+  },
+  "src/app/[locale]/(site)/lists/[token]/opengraph-image.tsx": { default: token("the shared list's secret link token (rate-limited per IP)") },
+  "src/app/manifest.ts": { default: publicAccess("the web app manifest", "static, reads nothing") },
+  "src/app/robots.ts": { default: publicAccess("robots.txt", "reads only the request host") },
+  "src/app/sitemap.ts": { default: publicAccess("the sitemap: live non-demo listings, published articles, city pages", "public data only") },
+};
+
+/**
+ * Layouts under /account, /post and /admin that call no sign-in check themselves: each only wraps
+ * its children and reads nothing, and every page below it calls requireUser / requireStaff itself
+ * (a layout's check does not stop its pages from rendering: they run in parallel).
+ */
+export const UNGUARDED_LAYOUTS: Record<string, string> = {
+  "src/app/[locale]/(site)/post/layout.tsx": "passes the wizard messages to its client components; reads nothing",
+  "src/app/[locale]/(site)/post/[id]/layout.tsx": "hides the site footer; reads nothing",
+  "src/app/[locale]/(site)/account/listings/[id]/edit/layout.tsx": "hides the site footer; reads nothing",
+};
+
+/**
+ * SECURITY_REPORT 5.d / 5.h: server action results that carry a phone, email or address field
+ * (tests/unit/endpoints/action-result-keys.test.ts reads every action's result TYPE). Each one is
+ * listed with why it is not another user's contact detail, or why this caller may see it. Any
+ * other such field in a result fails the test.
+ */
+export const RESULT_CONTACT_KEYS: Record<string, { keys: string[]; why: string }> = {
+  "src/lib/account/actions.ts#updateContactEmail": { keys: ["data.contactEmail"], why: "the caller's own contact address, as saved" },
+  "src/lib/auth/contact-email-actions.ts#confirmContactEmailChange": { keys: ["data.contactEmail"], why: "the caller's own new contact address" },
+  "src/lib/auth/fresh-proof-actions.ts#getProofOptions": { keys: ["data.email"], why: "the caller's own login address, masked (da***@…)" },
+  "src/lib/auth/phone-check-actions.ts#sendPhoneCheckCode": { keys: ["data.phoneNumber"], why: "the number the caller typed, normalized" },
+  "src/lib/auth/phone-check-actions.ts#confirmPhoneCheckCode": { keys: ["data.phoneNumber"], why: "the caller's own number just verified" },
+  "src/lib/booking/alert-actions.ts#hostAlertStatusAction": { keys: ["data.address"], why: "the caller's own paused notification address (email_failing), for their own view" },
+  "src/lib/contact/actions.ts#revealContact": {
+    keys: ["data.sender.email"],
+    why: "the signed-in guest's own address, to fill in the email form (the host's channels are the purpose of the action, after its caps)",
+  },
+  "src/lib/wizard/actions.ts#loadWizardSnapshot": { keys: ["data.values.address"], why: "the owner's own listing (ownership checked), as the form edits it" },
+  "src/lib/admin/content/actions/roles.ts#findUsersForRole": {
+    keys: ["data[].email", "data[].phone"],
+    why: 'staff permission "roles" is ADMIN-only: phone numbers and search by phone are for ADMIN only (founder\'s answer c)',
+  },
+};
+
+/**
+ * Session helpers in src/lib that may count a 2-step-pending session as signed in, with why that
+ * reveals nothing (every other helper that reads the session must check twoFactorVerified).
+ */
+export const SESSION_HELPERS_WITHOUT_2FA: Record<string, string> = {
+  "src/lib/lists/redirect.ts#redirectSignedOutFromSaved": "only chooses between the login page and the device lists; returns no data",
 };
 
 /**
@@ -409,7 +466,6 @@ export const READ_ONLY_STAFF_ACTIONS: Record<string, string> = {
   "src/lib/admin/content/actions/banned-words.ts#testBannedWords": "tries phrases against the filter, saves nothing",
   "src/lib/admin/content/actions/home.ts#searchListingsToFeature": "a search for the feature picker",
   "src/lib/admin/content/actions/roles.ts#findUsersForRole": "a search for the role picker",
-  "src/lib/admin/maintenance/actions.ts#dryRunCleanupAction": "a dry run counts rows and deletes nothing (auditing dry runs too: open item for the maintenance owner)",
 };
 
 /**
@@ -450,4 +506,44 @@ export const DESTRUCTIVE_STAFF_ACTIONS: readonly string[] = [
   "src/lib/admin/content/actions/roles.ts#assignStaffRole",
   "src/lib/admin/content/actions/roles.ts#removeStaffRole",
   "src/lib/reviews/admin-actions.ts#hideReviewAction",
+  // Its "started" row is written with auditOrThrow before the run (src/lib/admin/maintenance/cleanups.ts).
+  "src/lib/admin/maintenance/actions.ts#runCleanupAction",
 ];
+
+/**
+ * Staff actions that delete or remove something, or change who may do what (SECURITY_REPORT 3.6.c,
+ * 12.6.c; checklist 3.6/12.6): they pass `freshProof` to runStaffAction / runContentAction and
+ * answer "fresh_proof_required" without a fresh AUTHENTICATOR code (an emailed code never counts:
+ * founder's decision 5; src/lib/admin/server/staff-proof.ts). "consume": one code, one action;
+ * "window": one code covers 5 minutes of queue work. endpoint-registry.test.ts checks the code
+ * carries it and calls each one without a proof.
+ */
+export const FRESH_PROOF_STAFF_ACTIONS: Record<string, "consume" | "window"> = {
+  "src/lib/auth/sms-control-actions.ts#resumeSmsCountryAction": "consume",
+  "src/lib/auth/sms-control-actions.ts#resetSmsBudgetAction": "consume",
+  "src/lib/admin/actions/users.ts#suspendUserAction": "consume",
+  "src/lib/admin/actions/users.ts#banUserAction": "consume",
+  "src/lib/admin/actions/users.ts#changeRole": "consume",
+  "src/lib/admin/actions/reports.ts#removeReportedHost": "consume",
+  "src/lib/admin/actions/reports.ts#revealReporter": "consume",
+  "src/lib/admin/actions/reports.ts#hideHostListings": "window",
+  "src/lib/admin/actions/reports.ts#hideReportedListing": "window",
+  "src/lib/admin/actions/moderation.ts#rejectListingAction": "window",
+  "src/lib/admin/badges/actions.ts#clearVisitedAction": "window",
+  "src/lib/reviews/admin-actions.ts#hideReviewAction": "window",
+  "src/lib/admin/content/actions/roles.ts#assignStaffRole": "consume",
+  "src/lib/admin/content/actions/roles.ts#removeStaffRole": "consume",
+  "src/lib/admin/content/actions/settings.ts#deleteAllDemoData": "consume",
+  "src/lib/admin/content/actions/banned-words.ts#deleteBannedWord": "window",
+  "src/lib/admin/content/actions/cities.ts#deleteCity": "window",
+  "src/lib/admin/content/actions/cities.ts#deleteNeighborhood": "window",
+  "src/lib/admin/content/actions/editorial.ts#deleteArticle": "window",
+  "src/lib/admin/content/actions/editorial.ts#deleteFaqItem": "window",
+  "src/lib/admin/content/actions/editorial.ts#deleteScamAlert": "window",
+  "src/lib/admin/content/actions/places.ts#deletePlace": "window",
+  "src/lib/admin/content/actions/saved-replies.ts#deleteSavedReply": "window",
+  "src/lib/admin/content/actions/home.ts#removeFeaturedListing": "window",
+  "src/lib/admin/content/actions/home.ts#removeEndedFeatured": "window",
+  "src/lib/admin/maintenance/actions.ts#createBackupAction": "window",
+  "src/lib/admin/maintenance/actions.ts#runCleanupAction": "consume",
+};

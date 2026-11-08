@@ -2,25 +2,29 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { CircleAlertIcon, ImagePlusIcon, LoaderCircleIcon, RotateCcwIcon, UploadIcon, XIcon } from "lucide-react";
+import { CircleAlertIcon, ImageOffIcon, ImagePlusIcon, LoaderCircleIcon, RotateCcwIcon, UploadIcon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/config/site";
 import { formatNumber } from "@/lib/format";
 import { isHeicFile, UPLOAD_IMAGE_ACCEPT } from "@/lib/media";
+import { toJpegIfHeic } from "@/lib/media-client";
 import { cn } from "@/lib/utils";
 import type { WizardPhoto } from "@/lib/wizard/types";
 import { useReportBusy } from "./busy-context";
 
 /**
- * Photo uploads for the wizard: compress in the browser (browser-image-compression, max 2400 px,
- * ≈1.5 MB, orientation kept), then POST /api/uploads/listing-photo with progress, three at a
- * time, retrying network/server failures twice before showing "Retry".
+ * Photo uploads for the wizard: a HEIC photo is first converted to JPEG where the browser can
+ * decode it (toJpegIfHeic, founder's answer (e)); then compress in the browser
+ * (browser-image-compression, max 2400 px, ≈1.5 MB, orientation kept) and POST
+ * /api/uploads/listing-photo with progress, three at a time, retrying network/server failures
+ * twice before showing "Retry". Raw HEIC is never uploaded.
  */
 
 export type UploadItem = {
   key: string;
   name: string;
-  preview: string;
+  /** Object URL of the picture; null until a HEIC photo is converted (the browser may not show HEIC). */
+  preview: string | null;
   status: "queued" | "compressing" | "uploading" | "done" | "error";
   progress: number;
   error?: string;
@@ -48,7 +52,8 @@ class UploadError extends Error {
 }
 
 async function compress(file: File): Promise<File> {
-  if (file.type === "image/gif" || file.type === "image/heic" || file.type === "image/heif") return file;
+  // HEIC never gets here (runUpload converts it first, or stops); GIF is refused by the server.
+  if (file.type === "image/gif" || isHeicFile(file)) return file;
   try {
     const { default: imageCompression } = await import("browser-image-compression");
     const output = await imageCompression(file, {
@@ -62,7 +67,7 @@ async function compress(file: File): Promise<File> {
     // Keep the smaller one (a tiny, already-optimized JPEG may grow).
     return output.size < file.size ? new File([output], file.name, { type: output.type, lastModified: file.lastModified }) : file;
   } catch {
-    // Formats the browser cannot decode (e.g. HEIC outside Safari) go up as they are.
+    // A file the compressor cannot read goes up as it is (the server checks its real bytes).
     return file;
   }
 }
@@ -154,15 +159,24 @@ export function usePhotoUploads({
   }, []);
 
   const runUpload = async (item: UploadItem) => {
-    const original = files.current.get(item.key);
+    let original = files.current.get(item.key);
     if (!original) return;
-    // An HEIC file (from Files, or a desktop): the server refuses it, so say how to send JPEG now.
-    if (isHeicFile(original)) {
-      update(item.key, { status: "error", error: "heic_not_supported" });
-      itemsRef.current = itemsRef.current.map((i) => (i.key === item.key ? { ...i, status: "error" } : i));
-      return;
-    }
     update(item.key, { status: "compressing", progress: 0, error: undefined });
+    // An HEIC file (dragged in on a Mac, shared from Files): converted to JPEG where the browser
+    // can decode it; otherwise say how to send JPEG (the server would refuse it anyway).
+    if (isHeicFile(original)) {
+      try {
+        original = await toJpegIfHeic(original);
+      } catch {
+        update(item.key, { status: "error", error: "heic_not_supported" });
+        itemsRef.current = itemsRef.current.map((i) => (i.key === item.key ? { ...i, status: "error" } : i));
+        return;
+      }
+      files.current.set(item.key, original);
+      const preview = URL.createObjectURL(original);
+      update(item.key, { preview });
+      itemsRef.current = itemsRef.current.map((i) => (i.key === item.key ? { ...i, preview } : i));
+    }
     const file = await compress(original);
     if (file.size > siteConfig.listings.maxPhotoBytes) {
       update(item.key, { status: "error", error: "file_too_large" });
@@ -197,7 +211,8 @@ export function usePhotoUploads({
         );
         // The preview is no longer needed once the real thumbnail shows.
         setTimeout(() => {
-          URL.revokeObjectURL(item.preview);
+          const preview = itemsRef.current.find((i) => i.key === item.key)?.preview ?? item.preview;
+          if (preview) URL.revokeObjectURL(preview);
           setItems((list) => list.filter((i) => i.key !== item.key));
         }, 600);
         return;
@@ -235,7 +250,8 @@ export function usePhotoUploads({
         return {
           key,
           name: file.name,
-          preview: URL.createObjectURL(file),
+          // No preview for HEIC until it is converted: most browsers cannot draw it (a broken image).
+          preview: isHeicFile(file) ? null : URL.createObjectURL(file),
           status: "queued" as const,
           progress: 0,
           attempts: 0,
@@ -260,7 +276,7 @@ export function usePhotoUploads({
 
   const dismiss = useCallback((key: string) => {
     const item = itemsRef.current.find((i) => i.key === key);
-    if (item) URL.revokeObjectURL(item.preview);
+    if (item?.preview) URL.revokeObjectURL(item.preview);
     files.current.delete(key);
     itemsRef.current = itemsRef.current.filter((i) => i.key !== key);
     setItems((list) => list.filter((i) => i.key !== key));
@@ -348,6 +364,22 @@ export function PhotoDropZone({
   );
 }
 
+/** The picked photo's thumbnail, or a quiet placeholder when there is none or the browser cannot draw it. */
+function QueuePreview({ src }: { src: string | null }) {
+  const [failed, setFailed] = useState<string | null>(null);
+  if (!src || failed === src) {
+    return (
+      <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground" aria-hidden>
+        <ImageOffIcon className="size-5" />
+      </span>
+    );
+  }
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- local object URL preview
+    <img src={src} alt="" onError={() => setFailed(src)} className="size-12 shrink-0 rounded-lg object-cover" />
+  );
+}
+
 /** Progress list of the uploads in flight (and failed ones with Retry). */
 export function UploadQueue({
   items,
@@ -372,8 +404,7 @@ export function UploadQueue({
             item.status === "error" ? "border-destructive/40" : "border-border",
           )}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element -- local object URL preview */}
-          <img src={item.preview} alt="" className="size-12 shrink-0 rounded-lg object-cover" />
+          <QueuePreview src={item.preview} />
           <div className="grid min-w-0 flex-1 gap-1.5">
             <div className="flex items-center justify-between gap-2 text-sm">
               <span className="truncate font-medium" dir="auto">

@@ -3,7 +3,9 @@
 # security updates" in the repository settings (Settings → Code security) for those to open.
 # The cooldown keeps routine version updates at least 14 days old (supply-chain rule 2.3.f);
 # security updates are not delayed by it. Every update still goes through `npm ci` and review:
-# install scripts stay off (.npmrc) and tests/unit/install-scripts.test.ts flags a new one.
+# install scripts stay off (.npmrc) and tests/unit/install-scripts.test.ts flags a new one — run on
+# every pull request by .github/workflows/checks.yml, with the version floor and `npm run
+# security:check` (a version younger than 14 days needs a reason in scripts/package-age-allow.json).
 version: 2
 updates:
   - package-ecosystem: "npm"

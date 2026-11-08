@@ -82,7 +82,7 @@ export async function deleteArticle(input: unknown): Promise<ActionResult> {
       await auditOrThrow({ actorId: staff.id, action: "article.delete", targetType: "Article", targetId: article.id, details: { slug: article.slug } }, tx);
     });
     return ok();
-  });
+  }, { freshProof: "window" });
 }
 
 // ─── FAQ ─────────────────────────────────────────────────────
@@ -128,7 +128,7 @@ export async function deleteFaqItem(input: unknown): Promise<ActionResult> {
       await auditOrThrow({ actorId: staff.id, action: "faq.delete", targetType: "FaqItem", targetId: item.id, details: { category: item.category, question: item.question } }, tx);
     });
     return ok();
-  });
+  }, { freshProof: "window" });
 }
 
 /** Saves the order of every item in one category (ids in the new order). */
@@ -202,5 +202,5 @@ export async function deleteScamAlert(input: unknown): Promise<ActionResult> {
       await auditOrThrow({ actorId: staff.id, action: "scam_alert.delete", targetType: "ScamAlert", targetId: alert.id, details: { title: alert.title } }, tx);
     });
     return ok();
-  });
+  }, { freshProof: "window" });
 }

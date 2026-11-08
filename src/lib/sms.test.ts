@@ -15,6 +15,7 @@ const guard = vi.hoisted(() => ({
   paused: false,
   budgetOk: true,
   sent: vi.fn(),
+  released: vi.fn(),
 }));
 
 function messages(locale: string) {
@@ -29,8 +30,10 @@ vi.mock("next-intl/server", () => ({
 vi.mock("@/lib/db", () => ({ db: { user: { findUnique: async () => null } } }));
 vi.mock("@/lib/email", () => ({ isEmailDeliveryConfigured: () => false }));
 vi.mock("./auth/sms-guard", () => ({
-  isSmsCountryPaused: async () => guard.paused,
-  chargeSmsBudget: async () => guard.budgetOk,
+  smsSourceForThisCall: async () => ({ userId: null, ipBlock: null, trusted: false }),
+  smsPausedFor: async () => guard.paused,
+  reserveSmsSend: async () => (guard.budgetOk ? { ok: true, budgetUsed: 1 } : { ok: false, reason: "budget" }),
+  releaseSmsSend: async () => guard.released(),
   recordSmsCodeSent: async (country: string) => guard.sent(country),
 }));
 
@@ -58,6 +61,7 @@ beforeEach(() => {
   guard.paused = false;
   guard.budgetOk = true;
   guard.sent.mockClear();
+  guard.released.mockClear();
   logged = [];
   const keep = (...args: unknown[]) => {
     logged.push(args.map(String).join(" "));
@@ -180,6 +184,9 @@ describe("login codes by SMS (our own text, Q9)", () => {
     vi.stubGlobal("fetch", vi.fn(async () => twilioError(21610, `Attempt to send to unsubscribed recipient ${IL_MOBILE}`)));
     const error = await sendLoginCode({ phoneNumber: IL_MOBILE, code: "482913", ttlSeconds: 600, route: "sms" }).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(SmsUnavailableError);
+    // The reserved budget unit goes back: nothing was sent.
+    expect(guard.released).toHaveBeenCalledTimes(1);
+    expect(guard.sent).not.toHaveBeenCalled();
     expect(logged.join("\n")).not.toContain(IL_MOBILE.slice(1));
     expect(logged.join("\n")).not.toContain("482913");
   });

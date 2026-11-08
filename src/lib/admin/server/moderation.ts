@@ -6,8 +6,8 @@ import type { ContactMethod } from "@/lib/listing/fields";
 import { CONTACT_CHANNELS } from "@/lib/listing/fields";
 import { contentChangedSinceCheck } from "@/lib/listing/lifecycle";
 import { DUPLICATE_PHOTO_MAX_DISTANCE, parseRiskReasons } from "@/lib/risk";
-import { canSeeReporter, type StaffViewer } from "../staff-visibility";
-import { coverPhotoSelect, ownerBadgeSelect, sharedDeviceAccounts, staffNames } from "./shared";
+import { canSeePhone, canSeeReporter, staffContactValue, type StaffViewer } from "../staff-visibility";
+import { accountPhoneFor, coverPhotoSelect, ownerBadgeSelect, sharedDeviceAccounts, staffNames } from "./shared";
 
 /** The moderation queue and the listing review page (server-only). */
 
@@ -289,16 +289,22 @@ const reviewSelect = {
 
 export type ReviewListing = Prisma.ListingGetPayload<{ select: typeof reviewSelect }>;
 
-/** The listing review page. Who sent each report about it is ADMIN only (Q12, ../staff-visibility.ts). */
+/**
+ * The listing review page. Who sent each report about it is ADMIN only (Q12, ../staff-visibility.ts),
+ * and so are phone numbers (founder's answer (c)): the owner's account phone (`ownerPhone`) and the
+ * phone numbers among the listing's contact channels (`contacts`) reach other staff as their last
+ * 2 digits only; the raw `contactMethods` value is left out of `listing` for them.
+ */
 export async function getListingForReview(id: string, viewer: StaffViewer) {
-  const listing = await db.listing.findUnique({ where: { id }, select: reviewSelect });
-  if (!listing) return null;
+  const row = await db.listing.findUnique({ where: { id }, select: reviewSelect });
+  if (!row) return null;
+  const listing = canSeePhone(viewer) ? row : { ...row, contactMethods: null };
 
   const ownerId = listing.ownerId;
-  const [checksStale, duplicates, otherListings, reports, ownerReportsAgainst, ownerListingReports, devices, notes, staff, idRequest] =
+  const [checksStale, duplicates, otherListings, reports, ownerReportsAgainst, ownerListingReports, devices, notes, staff, idRequest, ownerPhone] =
     await Promise.all([
       // The host saved a change after the automatic checks ran: the precheck box may be out of date.
-      listing.riskScore === null ? Promise.resolve(false) : contentChangedSinceCheck(listing).catch(() => true),
+      listing.riskScore === null ? Promise.resolve(false) : contentChangedSinceCheck(row).catch(() => true),
       findDuplicatePhotos(listing.id),
       db.listing.findMany({
         where: { ownerId, id: { not: listing.id } },
@@ -336,6 +342,7 @@ export async function getListingForReview(id: string, viewer: StaffViewer) {
         where: { userId: ownerId, OR: [{ listingId: listing.id }, { type: "ID" }], status: "PENDING" },
         select: { id: true, type: true },
       }),
+      accountPhoneFor(viewer, ownerId),
     ]);
 
   const senderIds = [...new Set(reports.map((r) => r.reporterId).filter((v): v is string => !!v))];
@@ -348,7 +355,9 @@ export async function getListingForReview(id: string, viewer: StaffViewer) {
     listing,
     checksStale,
     reasons: parseRiskReasons(listing.riskReasons),
-    contacts: parseContactMethods(listing.contactMethods),
+    /** Phone numbers among them: "••• ••• ••45" for staff other than an ADMIN (`withheld`). */
+    contacts: parseContactMethods(row.contactMethods).map((c) => ({ ...c, ...staffContactValue(viewer, c.channel, c.value) })),
+    ownerPhone,
     duplicates,
     otherListings,
     reports: reports.map(({ reporterId, ...r }) => ({ ...r, reporter: reporterId ? (senders.get(reporterId) ?? null) : null })),

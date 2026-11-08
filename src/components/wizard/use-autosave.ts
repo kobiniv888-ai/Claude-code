@@ -26,6 +26,12 @@ export type AutosaveOptions = {
   onSaved?: (updatedAt: string) => void;
   /** The set of unsaved changes changed (to keep a copy in sessionStorage). */
   onPendingChange?: (changed: ReadonlySet<FieldKey>) => void;
+  /**
+   * The server wants a fresh code first ("fresh_proof_required": the contact details of a
+   * published listing, SECURITY_REPORT 3.6.a). Opens the "confirm it's you" dialog; true once a
+   * code was accepted. The unsaved answers stay in the form and are sent again after it.
+   */
+  askProof?: () => Promise<boolean>;
 };
 
 /**
@@ -46,6 +52,10 @@ export function useAutosave(options: AutosaveOptions) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const chain = useRef<Promise<unknown>>(Promise.resolve());
   const inFlight = useRef(0);
+  /** A "confirm it's you" dialog is open (one at a time; other steps keep saving meanwhile). */
+  const asking = useRef(false);
+  /** The latest saveNow, for the re-save after a proof (set below). */
+  const resave = useRef<(step: SavableStepKey) => void>(() => undefined);
   const [serverIssues, setServerIssues] = useState<Partial<Record<SavableStepKey, StepIssues>>>({});
 
   const begin = () => {
@@ -108,6 +118,23 @@ export function useAutosave(options: AutosaveOptions) {
           end({ status: "saved", at: Date.now() });
           return true;
         }
+        if (result.error === "fresh_proof_required" && opts.current.askProof) {
+          end({ status: "error", code: result.error });
+          if (!asking.current) {
+            asking.current = true;
+            void opts.current
+              .askProof()
+              .then((proven) => {
+                asking.current = false;
+                // Sent again with the answers as they are now (they stayed "changed").
+                if (proven) resave.current(step);
+              })
+              .catch(() => {
+                asking.current = false;
+              });
+          }
+          return false;
+        }
         if (result.fieldErrors) {
           const issues: StepIssues = {};
           for (const [field, codes] of Object.entries(result.fieldErrors)) {
@@ -127,6 +154,9 @@ export function useAutosave(options: AutosaveOptions) {
     chain.current = next;
     return next;
   }, []);
+  useEffect(() => {
+    resave.current = (step) => void saveNow(step);
+  }, [saveNow]);
 
   /** Schedules a save of `step` (debounced). */
   const schedule = useCallback(

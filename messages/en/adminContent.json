@@ -65,7 +65,8 @@
     "file_type_not_allowed": "Use a JPEG, PNG or WebP photo.",
     "file_rejected": "This file was refused.",
     "file_scan_failed": "The file could not be checked right now. Try again later.",
-    "audit_failed": "The action was not carried out: we could not record it in the audit log. Nothing changed. Try again in a moment."
+    "audit_failed": "The action was not carried out: we could not record it in the audit log. Nothing changed. Try again in a moment.",
+    "fresh_proof_required": "Not done: this action needs a new code from your authenticator app."
   },
   "map": {
     "hint": "Click the map to place the pin, then drag it to adjust. You can also type the coordinates.",

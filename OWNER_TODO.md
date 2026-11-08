@@ -238,9 +238,9 @@ order. The detailed steps and prices are in "Login & messages" below.
       server refuses to start, on purpose. Never set `AUTH_TEST_MODE` on the real site: with
       `SITE_ENV=production` the server refuses to start if it is on.
 - [ ] **Twilio Messaging.** Codes now go out as our own text through a Twilio **Messaging
-      Service**: create one and set `TWILIO_MESSAGING_SERVICE_SID` (MG…). In Messaging → Geo
-      permissions allow only Israel and Georgia, and turn on Fraud Guard (SMS Pumping Protection).
-      `TWILIO_VERIFY_SERVICE_SID` is no longer used.
+      Service** (Twilio Verify and its "Fraud Guard" are not used). The steps, the geo permissions
+      and the SMS Pumping Protection choice are in one place: "An SMS service for booking and host
+      phone checks" below.
 - [ ] **Two Google OAuth clients.** One for the real site with only the real domain's redirect
       address, and one for development (localhost, the codespace, staging). Never add a test
       address to the production client.
@@ -255,6 +255,27 @@ order. The detailed steps and prices are in "Login & messages" below.
       1 year, contact clicks 90 days.
 - [ ] **At deploy:** the login cookie got a new name, so everyone is logged out once and staff are
       asked for their 2-step code again.
+- [ ] **Launch day — the real domain in the code.** Add the real domain(s) (e.g. `bayit.ge` and
+      `www.bayit.ge`) to `src/config/production-hosts.ts` (ask the developer). A development or
+      staging server on those names then refuses to start, and login codes never show on screen
+      there. Keep staging on its own hosting project and address.
+- [ ] **Launch day — `npm run security:check`.** Run it on the release (or look at the "security
+      check" job on GitHub): no high/critical advisory, Next.js/React patched, every package at
+      least 14 days old (security upgrades are listed with their reason in
+      `scripts/package-age-allow.json`). On 8 November it still fails for ~85 non-security packages
+      locked on 5 November; they are old enough from **19 November 2026**. Then read the Next.js
+      and React security advisories (the links are in the output).
+- [ ] **Launch day — the hosting.** Node.js 22.12 or newer; off Vercel (or behind Cloudflare) set
+      `CLIENT_IP_HEADER` (the server refuses to start without it off Vercel). Leave
+      `DB_PUSH_ON_BUILD` / `SEED_ON_BUILD` off for the real site (it refuses them); create the
+      tables by hand once. The real site then marks its database, and no staging/preview server
+      can run on it.
+- [ ] **SMS controls.** If texts to Israel or Georgia pause (too few codes entered) or today's SMS
+      budget runs out, the alert email links to **Admin → Maintenance → SMS codes**: "Resume texts"
+      and "Reset today's budget" (each asks for a fresh authenticator code and is logged). Known
+      accounts keep getting their codes during a pause.
+- [ ] **Make "supply-chain tests" a required check** on `main` once branch protection is on
+      (GitHub → Settings → Branches; the workflow is `.github/workflows/checks.yml`).
 
 ## Login & messages (the details)
 How people log in: **Google** (when set up), a **6-digit code by email** (always), and — only on
@@ -292,25 +313,26 @@ before you pay.
 - [ ] **An SMS service for booking and host phone checks (Twilio).** Without it, the real site says
       "Phone verification isn't available yet" — so **hosts cannot post** and **guests cannot book
       on the site** (a guest without a verified number sees "booking on the site isn't available
-      yet" on the "אישור הזמנה" page, with "שאלה למארח" — WhatsApp — instead). Costs:
-      - Twilio Verify: **$0.05 per successful check** plus the SMS itself.
+      yet" on the "אישור הזמנה" page, with "שאלה למארח" — WhatsApp — instead). The site makes the
+      code itself and sends it as its own text through a Twilio **Messaging Service** (Twilio
+      Verify is not used, so there is no per-check fee). Costs:
       - SMS to **Israel: $0.2575** per message; to **Georgia: $0.1684** per message (Twilio's price
         list; carrier fees may be added).
-      - So one Israeli phone check costs about **$0.31**, a Georgian one about **$0.22**. "Once per
-        number" keeps this low: a guest pays it once, not for every booking.
-      - Cheaper option: a Twilio **Messaging Service** only (`TWILIO_MESSAGING_SERVICE_SID`), where
-        the site makes the code itself — you pay just the SMS price. The same keys also send the
-        booking text messages.
+      - So one phone check costs about the price of one text. "Once per number" keeps this low: a
+        guest pays it once, not for every booking.
       Steps: [twilio.com/try-twilio](https://www.twilio.com/try-twilio) → upgrade the account (a
-      trial only texts your own phone) → **Verify → Services → Create** → set `TWILIO_ACCOUNT_SID`,
-      `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID`. In **Messaging → Settings → Geo
-      permissions** allow only Israel and Georgia, and turn on **Fraud Guard** (protects against
-      SMS-pumping fraud).
-- [ ] **Booking text messages (Twilio Messaging).** Booking texts need
-      `TWILIO_MESSAGING_SERVICE_SID` (or `TWILIO_FROM_NUMBER`) — Twilio Verify alone only sends codes,
-      so with Verify only the booking texts are just written to the server log (emails still go
-      out). The texts, each in the person's own language (wording in `messages/<lang>/emails.json`,
-      "sms"):
+      trial only texts your own phone) → **Messaging → Services → Create Messaging Service** (add
+      a sender number) → set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` and
+      `TWILIO_MESSAGING_SERVICE_SID` (MG…). In **Messaging → Settings → Geo permissions** allow
+      only Israel and Georgia. **SMS Pumping Protection for Programmable Messaging** (against
+      SMS-pumping fraud): the **Basic** tier is on by default; the **Advanced** tier is paid (about
+      **$0.025 per message segment** outside the US and Canada). **Your decision** whether to buy
+      Advanced; the site's own brakes (per-account and per-network shares and a daily SMS budget)
+      work either way.
+- [ ] **Booking text messages (Twilio Messaging).** The same Messaging Service
+      (`TWILIO_MESSAGING_SERVICE_SID`, or `TWILIO_FROM_NUMBER`) sends the booking texts; without
+      it they are just written to the server log (emails still go out). The texts, each in the
+      person's own language (wording in `messages/<lang>/emails.json`, "sms"):
       - to the guest: "booking confirmed" (with a link to the address and the host's contact), a
         reminder 3 days before arrival, and "the host cancelled";
       - to the host: "new booking" (guest, dates, number of guests), the reminder, and "the guest
