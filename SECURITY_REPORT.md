@@ -1,7 +1,21 @@
 # Bayit: security and launch report
 
 **Date:** 7 November 2026 · **Branch:** `round-3` · **Commit audited:** `ec27439` (HEAD)
-**Status of this file:** audit only. No code was changed. Nothing gets fixed until you give your OK (checklist 0.1 and 0.5).
+**Status of this file:** audit done. **You gave your OK on 8 November 2026** ("OK to all", with the changes below). Fixing follows the plan in section 7; rows move to OK with evidence as they are fixed.
+
+## Your decisions (8 November 2026)
+
+"OK to all" recommendations in section 5, with these changes. They override section 5 and 6 where they differ.
+
+1. **Environments: our own `SITE_ENV` setting** (`development` / `staging` / `production`), never `NODE_ENV`. The server refuses to start if `SITE_ENV` is missing. Test mode (codes on screen) is allowed only when `SITE_ENV` is `development` or `staging`; with `production` the server refuses to start if test mode is on. A password-protected staging site on Netlify (next brief) builds with `NODE_ENV=production` and uses test mode behind its password. Demo logins, demo accounts and demo listings are off when `SITE_ENV=production`.
+2. **Walking times rounded to 5 minutes; under 5 minutes shows "עד 5 דק׳"** (not "≈ 5 דק׳"), so it stays true. Distances in whole km.
+3. **Login codes stay valid for 10 minutes** (not 5): hashed, single use, dead after 5 wrong tries.
+4. **Repository:** you are making it private yourself now. **GitHub Pro ($4 a month) before launch**, for branch protection. Scan the whole Git history with gitleaks and **list every key that was ever committed** so you can change it.
+5. **Admin 2-step lockout:** after 20 wrong tries in a day, an email code **only resets the counter**. Logging in still needs the authenticator code or a recovery code.
+6. **Monitoring:** free Sentry with personal-data scrubbing on and the **EU data region** if offered; a free uptime monitor. **Second backup:** tell you the provider and the monthly price **before** signing up.
+7. **Guest flags:** admin review only, no automatic action. **Never count** cancellations with the reason "my flight was cancelled", or cancellations inside a travel-disruption window (both come in your next brief).
+8. **Booking cap:** at most **2 upcoming bookings per verified phone, across all accounts** (replaces "3 for a new account").
+9. **Guest contact details on finished bookings are deleted 3 months after checkout** (not 12), keeping anonymous stats.
 
 ## How to read this
 
