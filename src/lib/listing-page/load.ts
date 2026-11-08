@@ -16,6 +16,7 @@ import { listingPath } from "@/lib/listing/urls";
 import { photoUrl } from "@/lib/media";
 import { parseNearby } from "@/lib/nearby";
 import { publicNearby, publicWalkMinutes } from "@/lib/geo/public-walk";
+import { taintObject } from "@/lib/security/taint";
 import { displayAmenities } from "@/lib/geo/walk-towns";
 import { georgiaToday } from "./calendar";
 import { cheapestRoomType } from "./headline";
@@ -266,6 +267,10 @@ async function load(publicId: number, locale: AppLocale): Promise<LoadedListing 
   const until = new Date(today.getTime() + CALENDAR_DAYS * DAY_MS);
   const row = await db.listing.findUnique({ where: { publicId }, select: listingSelect(locale, today, until) });
   if (!row) return null;
+  // The raw row holds the host's contact values and the exact walking times: only the DTO below
+  // may reach the page (React taint, SECURITY_REPORT 5.k).
+  taintObject("raw listing row", row);
+  if (row.contactMethods && typeof row.contactMethods === "object") taintObject("host's contact values", row.contactMethods);
 
   const titles = localizedTitle(row, locale);
   const translation = row.translations[0];
@@ -487,7 +492,9 @@ export function listingPathsByLocale(row: {
 
 /** The viewer for listingAccess(): staff with moderation/reports/user rights may preview anything. */
 export function toListingViewer(user: CurrentUser | null): ListingViewer {
-  if (!user) return null;
+  // A session whose 2-step code is not entered yet is no viewer at all: the owner's preview of a
+  // listing that is not public needs the full sign-in too (SECURITY_REPORT 4.2.b).
+  if (!user || !user.twoFactorVerified) return null;
   // 2-step login done (only demo staff may skip it, in development); demo staff only on a test address.
   const staffReady = hasStaffRights(user);
   const canPreviewAny = staffReady && (can(user.role, "moderation") || can(user.role, "reports.view") || can(user.role, "users.view"));

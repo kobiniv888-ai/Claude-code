@@ -1,21 +1,14 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 import { imagesConfig } from "./src/config/images";
+import { SECURITY_HEADERS } from "./src/config/security-headers";
 import { extraAllowedHosts } from "./src/lib/auth/dev-origins";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
-const securityHeaders = [
-  { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
-  { key: "X-Content-Type-Options", value: "nosniff" },
-  { key: "X-Frame-Options", value: "DENY" },
-  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  {
-    key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=(self), payment=(), usb=(), interest-cohort=()",
-  },
-  { key: "Cross-Origin-Opener-Policy", value: "same-origin-allow-popups" },
-];
+// HSTS, nosniff, framing, referrer, permissions and COOP (same-origin): src/config/security-headers.ts.
+// The per-request Content-Security-Policy is set by src/proxy.ts (src/lib/security/csp.ts).
+const securityHeaders = [...SECURITY_HEADERS];
 
 /**
  * Extra hosts that may open the development server and call Server Actions: the forwarded
@@ -29,6 +22,10 @@ const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR || ".next",
   allowedDevOrigins: extraOrigins,
   experimental: {
+    // React's taint API (SECURITY_REPORT 5.k): secrets, sessions and raw rows with the exact
+    // address or contact values can never be passed to the browser (src/lib/security/taint.ts).
+    // It also switches the app directory to React's experimental build that carries the API.
+    taint: true,
     ...(extraOrigins.length > 0 && { serverActions: { allowedOrigins: extraOrigins } }),
     turbopackChunking: { maxMergeChunkSize: 3000000, minChunkSize: 3000000, requestCost: 3000000, maxChunkCountPerGroup: 1 },
   },

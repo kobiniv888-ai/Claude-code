@@ -108,3 +108,46 @@ export function guestFlagOpen(counts: GuestFlagCounts): boolean {
   if (guestFlagReasons(counts).length === 0 || !counts.latestAt) return false;
   return !counts.reviewedAt || counts.latestAt > counts.reviewedAt;
 }
+
+/** A guest's booking as the repeat rules read it. */
+export type GuestFlagBooking = CountableCancellation & { noShowReportedAt: Date | null };
+
+export type GuestFlagSummary = GuestFlagCounts & {
+  reasons: ("cancellations" | "no_shows")[];
+  open: boolean;
+};
+
+/**
+ * The repeat rules over one guest's bookings (pure; the admin list feeds it the candidate rows).
+ * A cancellation counts when countsAsGuestCancellation says so and it was made inside the
+ * 90-day window; a no-show when its "didn't arrive" report is inside the 365-day window (a report
+ * staff cleared is no NO_SHOW any more). `latestAt` is the newest event of a rule the guest meets,
+ * so an event of a rule they don't meet never reopens a reviewed flag.
+ */
+export function summarizeGuestFlag(bookings: readonly GuestFlagBooking[], reviewedAt: Date | null, now: Date): GuestFlagSummary {
+  const cancelSince = repeatCancelWindowStart(now);
+  const noShowSince = repeatNoShowWindowStart(now);
+  const cancelTimes: Date[] = [];
+  const noShowTimes: Date[] = [];
+  for (const booking of bookings) {
+    if (countsAsGuestCancellation(booking) && booking.cancelledAt && booking.cancelledAt >= cancelSince && booking.cancelledAt <= now) {
+      cancelTimes.push(booking.cancelledAt);
+    }
+    if (booking.status === "NO_SHOW" && booking.noShowReportedAt && booking.noShowReportedAt >= noShowSince && booking.noShowReportedAt <= now) {
+      noShowTimes.push(booking.noShowReportedAt);
+    }
+  }
+  const counts = { cancellations: cancelTimes.length, noShows: noShowTimes.length };
+  const reasons = guestFlagReasons(counts);
+  const latest = [...(reasons.includes("cancellations") ? cancelTimes : []), ...(reasons.includes("no_shows") ? noShowTimes : [])].reduce<Date | null>(
+    (max, at) => (!max || at > max ? at : max),
+    null,
+  );
+  const summary = { ...counts, latestAt: latest, reviewedAt };
+  return { ...summary, reasons, open: guestFlagOpen(summary) };
+}
+
+/** A long stay waits for review until an admin marks it reviewed (an audit-log entry, D11 a). */
+export function longStayOpen(booking: { nights: number; status: string }, reviewedAt: Date | null): boolean {
+  return booking.status === "CONFIRMED" && isLongStay(booking.nights) && !reviewedAt;
+}

@@ -22,6 +22,7 @@ import { siteConfig } from "@/config/site";
 import { Link } from "@/i18n/navigation";
 import { Pill, type PillTone } from "@/components/admin/content/pill";
 import type { BookingStatus } from "@/generated/prisma/enums";
+import { auditRecordView } from "@/lib/admin/server/file-views";
 import { hostFlagSummary } from "@/lib/admin/server/flags";
 import { coverUrl, realEmail } from "@/lib/admin/server/shared";
 import { getUserBookings, getUserDetail, type UserBookingRow } from "@/lib/admin/server/users";
@@ -55,6 +56,8 @@ export default async function UserDetailPage({ params }: PageProps<"/[locale]/ad
   const staff = await requireStaff("users.view");
   const data = await getUserDetail(id, staff);
   if (!data) notFound();
+  // Opening a person's record is in the audit log (SECURITY_REPORT 12.6.d; deduplicated).
+  await auditRecordView({ staffId: staff.id, action: "user.view", targetType: "User", targetId: data.user.id });
   const { user } = data;
   const canModerate = can(staff.role, "moderation");
   const [t, tAdmin, tFields, tb, bookings, flags, reviews, tReviews] = await Promise.all([
@@ -132,6 +135,9 @@ export default async function UserDetailPage({ params }: PageProps<"/[locale]/ad
                         {user.phoneNumberVerified ? t("phoneVerified") : t("phoneNotVerified")}
                       </span>
                     </span>
+                  ) : data.phoneWithheld ? (
+                    // ADMIN only (Q12): other staff get no number from the query at all.
+                    <span className="text-xs text-muted-foreground">{t("phoneWithheld")}</span>
                   ) : (
                     "—"
                   ),

@@ -23,7 +23,9 @@ export async function getHomeRecommendedAction(deal: unknown): Promise<ActionRes
     const parsed = dealSchema.safeParse(deal);
     if (!parsed.success) return fail("invalid_input");
     await assertRateLimitByIp("home-recommended", { limit: 40, windowSeconds: 60 });
-    const [user, locale, rates] = await Promise.all([getCurrentUser().catch(() => null), getLocale(), getRates()]);
+    const [session, locale, rates] = await Promise.all([getCurrentUser().catch(() => null), getLocale(), getRates()]);
+    // A session whose 2-step code is not entered yet counts as signed out (SECURITY_REPORT 4.2.a).
+    const user = session?.twoFactorVerified ? session : null;
     const currency = await getDisplayCurrency(user?.currency);
     const cards = await getHomeRecommendedCached(
       { locale: isAppLocale(locale) ? locale : siteConfig.i18n.primaryLocale, currency, rates, userId: user?.id ?? null },

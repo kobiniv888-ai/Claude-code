@@ -15,7 +15,6 @@ import {
   MAX_INFANTS,
   MAX_ROOMS_PER_BOOKING,
   MESSAGE_TO_HOST_MAX,
-  PAYMENT_METHODS,
   REASONS_NEEDING_TEXT,
 } from "./constants";
 import { isDay } from "./dates";
@@ -106,15 +105,3 @@ export const hostCancelSchema = bookingRef
 export type HostCancelInput = z.input<typeof hostCancelSchema>;
 
 export const noShowSchema = bookingRef;
-
-/**
- * The host's "Bookings and price" settings (post-form step, brief 5.6). Prices are in the
- * listing's currency; `bookingMode` INSTANT is only accepted for short stays and hotel rooms.
- */
-export const bookingSettingsSchema = z.object({
-  weekendPrice: z.coerce.number().positive().max(1_000_000).optional().nullable(),
-  cancellationPolicy: z.enum(CANCELLATION_POLICIES),
-  paymentMethodsAtCheckIn: z.array(z.enum(PAYMENT_METHODS)).min(1, "payment_method_required").max(PAYMENT_METHODS.length),
-  bookingMode: z.enum(["INSTANT", "CONTACT"]),
-});
-export type BookingSettingsInput = z.infer<typeof bookingSettingsSchema>;

@@ -4,7 +4,7 @@ import { siteConfig, type AppLocale } from "@/config/site";
 import { Prisma, type Currency, type ListingStatus } from "@/generated/prisma/client";
 import { isAppLocale } from "@/i18n/locale";
 import { getMessages } from "@/i18n/messages";
-import { audit } from "@/lib/audit";
+import { audit, auditOrThrow } from "@/lib/audit";
 import { hmacHash } from "@/lib/crypto";
 import { getRates, toUsd, type Rates } from "@/lib/currency";
 import { db } from "@/lib/db";
@@ -766,22 +766,27 @@ async function sendBack(
   }
 
   const now = new Date();
-  const applied = await transition(listing.id, listing.status, {
-    status: target,
-    moderationReason: input.reasonCode,
-    moderationNote: input.note,
-    reviewedAt: now,
-    reviewedById: staffId,
+  // Founder's decision Q13: the decision and its audit row commit together, or not at all (a
+  // rejection whose audit row cannot be written does not happen; the email goes only after it).
+  const applied = await db.$transaction(async (tx) => {
+    const { count } = await tx.listing.updateMany({
+      where: { id: listing.id, status: listing.status },
+      data: { status: target, moderationReason: input.reasonCode, moderationNote: input.note, reviewedAt: now, reviewedById: staffId },
+    });
+    if (count !== 1) return false;
+    await auditOrThrow(
+      {
+        actorId: staffId,
+        action: kind === "needs_changes" ? "listing.request_changes" : "listing.reject",
+        targetType: "Listing",
+        targetId: listing.id,
+        details: { from: listing.status, publicId: listing.publicId, reason: input.reasonCode, note: input.note },
+      },
+      tx,
+    );
+    return true;
   });
   if (!applied) return { status: (await loadListing(listing.id, { status: true })).status, changed: false };
-
-  await audit({
-    actorId: staffId,
-    action: kind === "needs_changes" ? "listing.request_changes" : "listing.reject",
-    targetType: "Listing",
-    targetId: listing.id,
-    details: { from: listing.status, publicId: listing.publicId, reason: input.reasonCode, note: input.note },
-  });
 
   const locale = ownerLocale(listing.owner);
   const [reason, translatedNote] = await Promise.all([

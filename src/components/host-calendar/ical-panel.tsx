@@ -7,19 +7,32 @@ import {
   CheckCircle2Icon,
   ChevronDownIcon,
   DownloadIcon,
+  KeyRoundIcon,
+  LoaderCircleIcon,
   PlusIcon,
   RefreshCwIcon,
   Trash2Icon,
   UploadIcon,
 } from "lucide-react";
 import { Button } from "@/components/ds/button";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Card } from "@/components/ds/card";
 import { CopyLinkField } from "@/components/common/copy-link-field";
 import { Ltr } from "@/components/common/ltr";
 import { Input } from "@/components/ui/input";
+import { allowListedHttpsUrl, CALENDAR_IMPORT_DOMAINS } from "@/config/external-hosts";
 import { Link } from "@/i18n/navigation";
 import { HOST_BOOKINGS_PATH } from "@/lib/booking/constants";
-import { saveIcalImportsAction, syncIcalNowAction, type CalendarSyncResult } from "@/lib/booking/host-actions";
+import { replaceCalendarLinkAction, saveIcalImportsAction, syncIcalNowAction, type CalendarSyncResult } from "@/lib/booking/host-actions";
 import { formatRelativeTime } from "@/lib/format";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
@@ -51,6 +64,61 @@ function HowTo({ site, steps }: { site: string; steps: string }) {
 }
 
 /**
+ * "Replace the link" (SECURITY_REPORT 4.7.b): after a confirmation the server makes a new private
+ * export link and the old one stops working at once (Airbnb / Booking.com need the new one).
+ */
+function ReplaceLink({ listingId, roomTypeId, onReplaced }: { listingId: string; roomTypeId?: string; onReplaced: (url: string) => void }) {
+  const t = useTranslations("hostBooking.ical");
+  const [open, setOpen] = useState(false);
+  const [pending, setPending] = useState(false);
+
+  const run = async () => {
+    setPending(true);
+    const result = await replaceCalendarLinkAction({ listingId, roomTypeId }).catch(() => null);
+    setPending(false);
+    if (result?.ok) {
+      onReplaced(result.data.exportUrl);
+      setOpen(false);
+      toast.success(t("replaced"));
+      return;
+    }
+    const code = result?.error ?? "failed";
+    toast.error(t.has(`errors.${code}`) ? t(`errors.${code}`) : t("errors.failed"));
+  };
+
+  return (
+    <AlertDialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!pending) setOpen(next);
+      }}
+    >
+      <AlertDialogTrigger asChild>
+        <Button type="button" variant="ghost" size="sm" className="min-h-11 justify-self-start">
+          <KeyRoundIcon aria-hidden />
+          {t("replace")}
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{t("replaceTitle")}</AlertDialogTitle>
+          <AlertDialogDescription>{t("replaceBody")}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel type="button" disabled={pending}>
+            {t("replaceCancel")}
+          </AlertDialogCancel>
+          <Button type="button" onClick={() => void run()} disabled={pending} aria-busy={pending || undefined}>
+            {pending ? <LoaderCircleIcon className="animate-spin" aria-hidden /> : <KeyRoundIcon aria-hidden />}
+            {pending ? t("replacing") : t("replaceConfirm")}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+/**
  * Calendar sync for one listing: the private Bayit export link (to paste into Airbnb / Booking.com)
  * and the calendars imported from them, with the last sync, each link's errors and "sync now".
  * Hotels (round 3): with `roomTypeId`, the links of that room type (each imported event takes one
@@ -78,6 +146,7 @@ export function IcalPanel({
   const t = useTranslations("hostBooking.ical");
   const locale = useLocale();
   const [urls, setUrls] = useState(importUrls);
+  const [currentExportUrl, setCurrentExportUrl] = useState(exportUrl);
   const [syncedAt, setSyncedAt] = useState(initialSyncedAt);
   const [report, setReport] = useState<Record<string, FeedReport> | null>(null);
   const [conflicts, setConflicts] = useState(0);
@@ -142,6 +211,11 @@ export function IcalPanel({
       setDraftError(t("errors.bad_url"));
       return;
     }
+    // The server checks the same list (and every redirect); this only answers sooner.
+    if (!allowListedHttpsUrl(url, CALENDAR_IMPORT_DOMAINS)) {
+      setDraftError(t("errors.calendar_host"));
+      return;
+    }
     if (urls.includes(url)) {
       setDraft("");
       return;
@@ -173,8 +247,9 @@ export function IcalPanel({
             <p className="text-small text-pretty text-muted-foreground">{t("exportBody")}</p>
           </div>
         </header>
-        <CopyLinkField value={exportUrl} label={t("exportTitle")} />
+        <CopyLinkField value={currentExportUrl} label={t("exportTitle")} />
         <p className="text-small text-pretty text-muted-foreground">{t("exportPrivacy")}</p>
+        <ReplaceLink listingId={listingId} roomTypeId={roomTypeId} onReplaced={setCurrentExportUrl} />
         <div className="grid gap-2">
           <p className="text-small font-medium">{t("howTo")}</p>
           <HowTo site="Airbnb" steps={t("howToAirbnb")} />

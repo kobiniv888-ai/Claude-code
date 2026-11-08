@@ -23,6 +23,7 @@ import { recordContactClick } from "@/lib/listing/stats";
 import { listingPath } from "@/lib/listing/urls";
 import { RateLimitError } from "@/lib/errors";
 import { assertRateLimit, rateLimit, resetRateLimit } from "@/lib/rate-limit";
+import { recordSecurityEvent } from "@/lib/security/events";
 import { assertNotShabbatMode } from "@/lib/settings";
 import { assertTurnstile } from "@/lib/turnstile";
 import { countryConfig } from "@/config/countries";
@@ -88,7 +89,12 @@ export async function revealContact(listingId: string, turnstileToken?: string |
     if (firstToday.failed) throw new RateLimitError(firstToday.resetAt);
     if (firstToday.ok) {
       try {
-        await assertRateLimit(`contact-reveal:daily:${user.id}`, { limit: CONTACT_REVEALS_PER_DAY, windowSeconds: DAY });
+        const daily = await rateLimit(`contact-reveal:daily:${user.id}`, { limit: CONTACT_REVEALS_PER_DAY, windowSeconds: DAY });
+        if (!daily.ok) {
+          // The daily cap itself (not a broken store): in the security log for the alerts.
+          if (!daily.failed) void recordSecurityEvent({ type: "show_contact_cap_hit", userId: user.id, meta: { limit: CONTACT_REVEALS_PER_DAY } });
+          throw new RateLimitError(daily.resetAt);
+        }
         await assertRateLimit(`contact-reveal:listing:${listing.id}`, { limit: 200, windowSeconds: DAY });
       } catch (error) {
         // Refused: this listing was not shown, so it must not count as "already seen today"

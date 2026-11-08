@@ -7,8 +7,14 @@
  * scheduled jobs (runCronJob). Without SENTRY_DSN — and in the browser — it does nothing.
  *
  * Privacy: only the error (type, message, stack), the path WITHOUT its query string, the method
- * and the route are sent. Never headers, cookies, request bodies or user data.
+ * and the route are sent. Never headers, cookies, request bodies or user data. The message, the
+ * stack, the path and the tags also go through scrubText (src/lib/log-scrub.ts): an error message
+ * that repeats an email, a phone number, a login code, an IP address, exact coordinates or a token
+ * (a Prisma error quoting its query, a fetch error quoting a URL) reaches Sentry masked
+ * (SECURITY_REPORT 16.1, 5.l). Turn on Sentry's own "data scrubbing" and the EU data region too
+ * (founder's decision 6).
  */
+import { scrubText } from "./log-scrub";
 
 export type ErrorContext = {
   /** Where it happened: "render", "route", "action", "proxy", "cron"… */
@@ -52,9 +58,14 @@ function describeError(error: unknown): { type: string; message: string; stack?:
   const digest =
     typeof error === "object" && error !== null && "digest" in error ? String((error as { digest: unknown }).digest) : undefined;
   if (error instanceof Error) {
-    return { type: error.name || "Error", message: error.message.slice(0, 2000), stack: error.stack?.slice(0, 8000), digest };
+    return {
+      type: scrubText(error.name || "Error").slice(0, 200),
+      message: scrubText(error.message).slice(0, 2000),
+      stack: error.stack ? scrubText(error.stack).slice(0, 8000) : undefined,
+      digest,
+    };
   }
-  return { type: "NonError", message: String(error).slice(0, 2000), digest };
+  return { type: "NonError", message: scrubText(String(error)).slice(0, 2000), digest };
 }
 
 function newEventId(): string {
@@ -70,7 +81,10 @@ export function buildEnvelope(
   const now = options.now ?? new Date();
   const eventId = options.eventId ?? newEventId();
   const info = describeError(error);
-  const path = stripQuery(context.path);
+  const rawPath = stripQuery(context.path);
+  // A path can hold a token too (/api/ical/<token>.ics, a shared list's link).
+  const path = rawPath ? scrubText(rawPath) : undefined;
+  const tags = Object.fromEntries(Object.entries(context.tags ?? {}).map(([key, value]) => [key, scrubText(String(value)).slice(0, 200)]));
   const event = {
     event_id: eventId,
     timestamp: now.getTime() / 1000,
@@ -80,7 +94,7 @@ export function buildEnvelope(
     environment: options.environment ?? "production",
     ...(options.release ? { release: options.release } : {}),
     transaction: context.route ?? path,
-    tags: { kind: context.kind, ...(info.digest ? { digest: info.digest } : {}), ...context.tags },
+    tags: { kind: context.kind, ...(info.digest ? { digest: info.digest } : {}), ...tags },
     ...(path ? { request: { method: context.method ?? "GET", url: path } } : {}),
     exception: { values: [{ type: info.type, value: info.message }] },
     ...(info.stack ? { extra: { stack: info.stack } } : {}),

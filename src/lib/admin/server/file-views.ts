@@ -46,3 +46,35 @@ export async function auditFileView(input: {
     console.error(`[audit] ${input.action} for ${input.targetId} could not be written:`, error);
   }
 }
+
+/**
+ * SECURITY_REPORT 12.6.d: opening a person's record in the admin panel (a user's page, a
+ * booking's page with the guest's details) is written to the audit log too, once per staff member
+ * and record every FILE_VIEW_DEDUPE_MINUTES. Never throws (best effort, like auditFileView): a
+ * failed write is logged and the page still opens; changing anything is audited by the actions.
+ */
+export async function auditRecordView(input: {
+  staffId: string;
+  action: "user.view" | "booking.view";
+  targetType: "User" | "Booking";
+  targetId: string;
+  now?: Date;
+}): Promise<void> {
+  const now = input.now ?? new Date();
+  try {
+    const recent = await db.auditLog.findFirst({
+      where: {
+        actorId: input.staffId,
+        action: input.action,
+        targetType: input.targetType,
+        targetId: input.targetId,
+        createdAt: { gt: new Date(now.getTime() - FILE_VIEW_DEDUPE_MINUTES * 60_000) },
+      },
+      select: { id: true },
+    });
+    if (recent) return;
+    await audit({ actorId: input.staffId, action: input.action, targetType: input.targetType, targetId: input.targetId });
+  } catch (error) {
+    console.error(`[audit] ${input.action} for ${input.targetId} could not be written:`, error);
+  }
+}

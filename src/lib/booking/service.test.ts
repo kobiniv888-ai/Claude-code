@@ -222,6 +222,9 @@ describe("createBooking", () => {
       ["booking_new_host", "ru"],
     ]);
     expect(sent.find((s) => s.template === "booking_confirmed_guest")?.text).toContain("1 Test Street, Tbilisi");
+    // SECURITY_REPORT 5.h: each email reaches only its own person (the address only the guest).
+    expect(sent.find((s) => s.template === "booking_confirmed_guest")?.to).toBe(`${ids.guestC}@example.com`);
+    expect(sent.find((s) => s.template === "booking_new_host")?.to).toBe(`${ids.host}@example.com`);
     expect(texts).toHaveLength(2);
     expect(texts.every((t) => t.body.includes(created.code))).toBe(true);
 

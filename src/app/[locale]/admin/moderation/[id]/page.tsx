@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowRight, Ban, CheckCircle2, CircleDashed, Copy, ExternalLink, Flag, Info, ListChecks, MapPin, MonitorSmartphone, StickyNote } from "lucide-react";
+import { AlertTriangle, ArrowRight, Ban, CheckCircle2, CircleDashed, Copy, ExternalLink, Flag, Info, ListChecks, MapPin, MonitorSmartphone, ScanSearch, StickyNote } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
@@ -24,7 +24,8 @@ import { cityName, coverUrl, realEmail } from "@/lib/admin/server/shared";
 import { requireStaff } from "@/lib/auth/session";
 import { formatArea, formatDate, formatMoney, formatNumber, formatRelativeTime, isolate, isolateLtr } from "@/lib/format";
 import { listingPath } from "@/lib/listing/urls";
-import { photoUrl } from "@/lib/media";
+import { safeTourUrl } from "@/lib/listing-page/media";
+import { photoUrl, reverseImageSearchLinks } from "@/lib/media";
 import { getSettings } from "@/lib/settings";
 import type { CurrencyCode } from "@/config/site";
 import { cn } from "@/lib/utils";
@@ -78,6 +79,8 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
   const level = riskLevel(listing.riskScore, settings.reviewRiskThreshold);
   const ownerEmail = realEmail(owner.email);
   const ownerLanguage = siteConfig.i18n.nativeNames[owner.locale as keyof typeof siteConfig.i18n.nativeNames] ?? owner.locale;
+  // A tour link only when it is on the tour allow-list (SECURITY_REPORT 7.f); anything else as text.
+  const tourHref = safeTourUrl(listing.tour360Url);
 
   const facts: { label: ReactNode; value: ReactNode }[] = [
     { label: tf("dealType"), value: tFields(`dealType.${listing.dealType}`) },
@@ -160,9 +163,13 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
     {
       label: tf("tour360"),
       value: listing.tour360Url ? (
-        <a href={listing.tour360Url} target="_blank" rel="noopener noreferrer nofollow" className="text-primary hover:underline">
+        tourHref ? (
+          <a href={tourHref} target="_blank" rel="noopener noreferrer nofollow" className="text-primary hover:underline">
+            <Ltr className="break-all">{listing.tour360Url}</Ltr>
+          </a>
+        ) : (
           <Ltr className="break-all">{listing.tour360Url}</Ltr>
-        </a>
+        )
       ) : null,
     },
     { label: tf("originalLocale"), value: siteConfig.i18n.nativeNames[listing.originalLocale as keyof typeof siteConfig.i18n.nativeNames] ?? listing.originalLocale },
@@ -399,32 +406,66 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
             )}
           </AdminSection>
 
-          <AdminSection id="photos" title={t("photosTitle", { count: listing.photos.length })}>
+          <AdminSection
+            id="photos"
+            title={t("photosTitle", { count: listing.photos.length })}
+            description={listing.photos.length ? t("photosReverseHint") : undefined}
+          >
             {listing.photos.length === 0 ? (
               <p className="text-sm text-muted-foreground">{t("noPhotos")}</p>
             ) : (
               <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {listing.photos.map((photo, i) => (
-                  <li key={photo.id} className="relative">
-                    <a
-                      href={photoUrl(photo, "lg")}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block overflow-hidden rounded-lg border bg-muted outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={photoUrl(photo, "md")}
-                        alt={photo.alt || t("photoAlt", { number: n(i + 1) })}
-                        loading={i < 2 ? "eager" : "lazy"}
-                        className="aspect-[4/3] w-full object-cover"
-                      />
-                    </a>
-                    {photo.isCover ? (
-                      <span className="absolute start-2 top-2 rounded-full bg-background/90 px-2 py-0.5 text-xs font-medium">{t("cover")}</span>
-                    ) : null}
-                  </li>
-                ))}
+                {listing.photos.map((photo, i) => {
+                  // "Search this photo online" (SECURITY_REPORT 9.m): Google Lens and TinEye by the
+                  // photo's public address, in a new tab without a referrer. Nothing is uploaded.
+                  const reverse = reverseImageSearchLinks(photoUrl(photo, "lg"));
+                  return (
+                    <li key={photo.id} className="relative">
+                      <a
+                        href={photoUrl(photo, "lg")}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block overflow-hidden rounded-lg border bg-muted outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={photoUrl(photo, "md")}
+                          alt={photo.alt || t("photoAlt", { number: n(i + 1) })}
+                          loading={i < 2 ? "eager" : "lazy"}
+                          className="aspect-[4/3] w-full object-cover"
+                        />
+                      </a>
+                      {photo.isCover ? (
+                        <span className="absolute start-2 top-2 rounded-full bg-background/90 px-2 py-0.5 text-xs font-medium">{t("cover")}</span>
+                      ) : null}
+                      {reverse ? (
+                        <div className="mt-1 flex flex-wrap items-center gap-x-1 text-xs" data-testid="reverse-image-search">
+                          <ScanSearch aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
+                          <span className="text-muted-foreground">{t("reverseSearch")}</span>
+                          {(
+                            [
+                              ["Google Lens", reverse.googleLens],
+                              ["TinEye", reverse.tinEye],
+                            ] as const
+                          ).map(([site, href]) => (
+                            <a
+                              key={site}
+                              href={href}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              referrerPolicy="no-referrer"
+                              aria-label={t("reverseSearchOn", { number: n(i + 1), site })}
+                              className="inline-flex min-h-9 items-center gap-1 rounded-md px-1.5 font-medium text-primary outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+                            >
+                              <Ltr>{site}</Ltr>
+                              <ExternalLink aria-hidden className="size-3 rtl:-scale-x-100" />
+                            </a>
+                          ))}
+                        </div>
+                      ) : null}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </AdminSection>

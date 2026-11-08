@@ -65,10 +65,31 @@ describe("validateImage", () => {
     await expect(validateImage(jpeg)).resolves.toEqual({ format: "jpeg", width: 900, height: 1200 });
   });
 
-  it("accepts the first frame of a GIF and AVIF", async () => {
+  it("accepts JPEG, PNG and WebP", async () => {
     const img = await blockImage(3, 640, 480);
-    await expect(validateImage(await img.clone().gif().toBuffer())).resolves.toMatchObject({ format: "gif" });
-    await expect(validateImage(await img.clone().avif().toBuffer())).resolves.toMatchObject({ format: "avif" });
+    await expect(validateImage(await img.clone().jpeg().toBuffer())).resolves.toMatchObject({ format: "jpeg" });
+    await expect(validateImage(await img.clone().png().toBuffer())).resolves.toMatchObject({ format: "png" });
+    await expect(validateImage(await img.clone().webp().toBuffer())).resolves.toMatchObject({ format: "webp" });
+  });
+
+  // SECURITY_REPORT 9.a: JPEG, PNG and WebP only (founder's answers L7 and Q2: AVIF off).
+  it("refuses AVIF and GIF from their bytes, before any decoder runs", async () => {
+    const img = await blockImage(3, 640, 480);
+    await expectCode(validateImage(await img.clone().avif().toBuffer()), "file_type_not_allowed");
+    await expectCode(validateImage(await img.clone().gif().toBuffer()), "file_type_not_allowed");
+  });
+
+  it("refuses HEIC with its own code (the message says how to send JPEG from an iPhone)", async () => {
+    for (const brand of ["heic", "heix", "mif1"]) {
+      const box = Buffer.alloc(24);
+      box.writeUInt32BE(24, 0);
+      box.write(`ftyp${brand}`, 4, "latin1");
+      box.write("mif1heic", 16, "latin1");
+      const heic = Buffer.concat([box, Buffer.alloc(2048, 1)]);
+      expect(sniffImageFormat(heic), brand).toBe("heic");
+      await expectCode(validateImage(heic), "heic_not_supported");
+    }
+    expect(new ImageValidationError("heic_not_supported").status).toBe(415);
   });
 
   it("refuses photos that are too small, too large, of another type or broken", async () => {

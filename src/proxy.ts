@@ -1,53 +1,21 @@
 import createIntlMiddleware from "next-intl/middleware";
 import { NextResponse, type NextRequest } from "next/server";
+import { mapTiles } from "@/config/map";
 import { locales, type AppLocale } from "@/config/site";
 import { routing } from "@/i18n/routing";
-import { robotsHeaderFor } from "@/lib/seo";
+import { cspHeaders, tileOriginsFrom } from "@/lib/security/csp";
+import { NOINDEX_HEADER_VALUE, robotsHeaderFor } from "@/lib/seo";
 
 const intlMiddleware = createIntlMiddleware(routing);
 
 const DEVICE_COOKIE = "bayit_did";
 const isDev = process.env.NODE_ENV !== "production";
 
-/** Content-Security-Policy with a per-request nonce (Next.js applies it to its own scripts). */
-function buildCsp(nonce: string) {
-  const directives: Record<string, string[]> = {
-    "default-src": ["'self'"],
-    "script-src": [
-      "'self'",
-      `'nonce-${nonce}'`,
-      "'strict-dynamic'",
-      "https://challenges.cloudflare.com",
-      ...(isDev ? ["'unsafe-eval'"] : []),
-    ],
-    "style-src": ["'self'", "'unsafe-inline'"],
-    "img-src": ["'self'", "data:", "blob:", "https:"],
-    "font-src": ["'self'", "data:"],
-    "connect-src": [
-      "'self'",
-      "https://*.ingest.sentry.io",
-      "https://*.ingest.de.sentry.io",
-      ...(isDev ? ["ws:", "wss:"] : []),
-    ],
-    "frame-src": [
-      "https://challenges.cloudflare.com",
-      "https://www.youtube-nocookie.com",
-      "https://www.youtube.com",
-      "https://player.vimeo.com",
-    ],
-    "media-src": ["'self'", "blob:", "https:"],
-    "worker-src": ["'self'", "blob:"],
-    "manifest-src": ["'self'"],
-    "object-src": ["'none'"],
-    "base-uri": ["'self'"],
-    "form-action": ["'self'", "https://accounts.google.com", "https://appleid.apple.com"],
-    "frame-ancestors": ["'none'"],
-  };
-  const csp = Object.entries(directives)
-    .map(([key, values]) => `${key} ${values.join(" ")}`)
-    .join("; ");
-  return isDev ? csp : `${csp}; upgrade-insecure-requests`;
-}
+/** The map tile hosts the strict CSP allows for images (the provider in src/config/map.ts). */
+const TILE_ORIGINS = mapTiles.available ? tileOriginsFrom(Object.values(mapTiles.provider.styles)) : [];
+
+/** The booking review page ("/he/listing/<id>/book"): never indexed, on any host (SECURITY_REPORT 10.4.d). */
+const BOOKING_PATH = new RegExp(`^/(?:${locales.join("|")})/listing/[^/]+/book(?:/|$)`);
 
 /** "/he/listing/113" — a listing link without the words after the number. */
 const BARE_LISTING_PATH = new RegExp(`^/(${locales.join("|")})/listing/(\\d{1,10})/?$`);
@@ -98,7 +66,9 @@ function isNonPagePath(pathname: string): boolean {
 export default async function proxy(request: NextRequest) {
   // Round 3, brief 10: every response of an address that isn't SITE_URL's (a codespace, localhost,
   // a preview) and the private areas everywhere say "noindex, nofollow". Headers only, no database.
-  const robotsTag = robotsHeaderFor({ headers: request.headers, pathname: request.nextUrl.pathname });
+  const robotsTag =
+    robotsHeaderFor({ headers: request.headers, pathname: request.nextUrl.pathname }) ??
+    (BOOKING_PATH.test(request.nextUrl.pathname) ? NOINDEX_HEADER_VALUE : null);
 
   // Not a page (seo-4): no language redirect, CSP or cookie, only the header. robots.txt lets
   // crawlers fetch everything on a non-production host, so each response must say noindex itself.
@@ -114,8 +84,11 @@ export default async function proxy(request: NextRequest) {
     return listingRedirect;
   }
 
+  // Content-Security-Policy with a per-request nonce (Next.js applies it to its own scripts), plus
+  // the stricter policy on trial as Report-Only (src/lib/security/csp.ts, SECURITY_REPORT 10.2).
   const nonce = btoa(crypto.randomUUID());
-  const csp = buildCsp(nonce);
+  const policies = cspHeaders({ nonce, dev: isDev, env: process.env, tileOrigins: TILE_ORIGINS });
+  const csp = policies.enforced;
 
   // Pass the nonce to the app (layout reads it for next-themes / JSON-LD scripts).
   request.headers.set("x-nonce", nonce);
@@ -127,6 +100,8 @@ export default async function proxy(request: NextRequest) {
   const response = intlMiddleware(request) ?? NextResponse.next({ request });
 
   response.headers.set("Content-Security-Policy", csp);
+  if (policies.reportOnly) response.headers.set("Content-Security-Policy-Report-Only", policies.reportOnly);
+  response.headers.set("Reporting-Endpoints", policies.reportingEndpoints);
   if (robotsTag) response.headers.set("X-Robots-Tag", robotsTag);
 
   // A random, first-party device id used only for anti-fraud ("several accounts on one device").

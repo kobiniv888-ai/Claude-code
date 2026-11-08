@@ -31,7 +31,7 @@ export default async function AdminReviewPage({ params }: Props) {
   const staff = await requireStaff("reports.view");
   const [review, reports, t, tAdmin, tFields] = await Promise.all([
     getAdminReview(id, locale as AppLocale),
-    getReviewReports(id),
+    getReviewReports(id, staff),
     getTranslations("reviews.admin"),
     getTranslations("admin.reports"),
     getTranslations("listingFields"),
@@ -60,7 +60,7 @@ export default async function AdminReviewPage({ params }: Props) {
                     </Link>
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {t(`part.${report.part}`)} · {tAdmin("reportedBy", { name: isolate(report.reporter?.name ?? "—") })} · <WhenText date={report.createdAt} />
+                    {t(`part.${report.part}`)} · {report.reporterWithheld ? tAdmin("reporterWithheld") : tAdmin("reportedBy", { name: isolate(report.reporter?.name ?? "—") })} · <WhenText date={report.createdAt} />
                   </span>
                 </li>
               ))}

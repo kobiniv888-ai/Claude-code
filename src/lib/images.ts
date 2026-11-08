@@ -25,6 +25,8 @@ import { deletePublic } from "@/lib/storage";
 export const IMAGE_ERROR_CODES = [
   "file_too_large",
   "file_type_not_allowed",
+  /** An iPhone photo in HEIC: refused with a message that says how to send it as JPEG. */
+  "heic_not_supported",
   "image_too_small",
   "image_corrupt",
   "file_rejected",
@@ -35,6 +37,7 @@ export type ImageErrorCode = (typeof IMAGE_ERROR_CODES)[number];
 const STATUS: Record<ImageErrorCode, number> = {
   file_too_large: 413,
   file_type_not_allowed: 415,
+  heic_not_supported: 415,
   image_too_small: 422,
   image_corrupt: 422,
   file_rejected: 422,
@@ -57,7 +60,21 @@ export const MIN_PHOTO_SHORT_SIDE = 400;
 /** Decompression-bomb guard: 100 megapixels is far above any phone camera. */
 const MAX_INPUT_PIXELS = 100_000_000;
 
+/** What sniffImageFormat recognises. Only ACCEPTED_IMAGE_FORMATS are ever decoded. */
 export type ImageFormat = "jpeg" | "png" | "webp" | "avif" | "heic" | "gif";
+
+/**
+ * The upload formats (SECURITY_REPORT 9.a, founder's answers L7 and Q2): JPEG, PNG and WebP.
+ * HEIC is refused with "heic_not_supported" (iPhones send JPEG on their own when a site does not
+ * offer HEIC: UPLOAD_IMAGE_ACCEPT in @/lib/media); AVIF and GIF with "file_type_not_allowed".
+ * Refused formats never reach a decoder: the check is on the first bytes, before sharp.
+ */
+export const ACCEPTED_IMAGE_FORMATS = ["jpeg", "png", "webp"] as const;
+export type AcceptedImageFormat = (typeof ACCEPTED_IMAGE_FORMATS)[number];
+
+export function isAcceptedImageFormat(format: ImageFormat | null): format is AcceptedImageFormat {
+  return format !== null && (ACCEPTED_IMAGE_FORMATS as readonly string[]).includes(format);
+}
 
 export const IMAGE_MIME_TYPES: Record<ImageFormat, string> = {
   jpeg: "image/jpeg",
@@ -71,7 +88,7 @@ export const IMAGE_MIME_TYPES: Record<ImageFormat, string> = {
 const INPUT_OPTIONS: SharpOptions = {
   failOn: "error",
   limitInputPixels: MAX_INPUT_PIXELS,
-  // GIF / animated WebP: only the first frame.
+  // Animated WebP: only the first frame.
   pages: 1,
 };
 
@@ -100,13 +117,13 @@ export function sniffImageFormat(buffer: Buffer): ImageFormat | null {
   return null;
 }
 
-export type ImageInfo = { format: ImageFormat; width: number; height: number };
+export type ImageInfo = { format: AcceptedImageFormat; width: number; height: number };
 
 /**
- * Checks an uploaded image: allowed type (JPEG, PNG, WebP, AVIF, GIF — first frame — and HEIC
- * when the installed libvips can decode it), size ≤ maxBytes, short side ≥ minShortSide, and that
- * it actually decodes. Width/height are as displayed (EXIF orientation applied).
- * Throws ImageValidationError.
+ * Checks an uploaded image: allowed type (JPEG, PNG or WebP, from its first bytes; HEIC →
+ * "heic_not_supported", AVIF, GIF, SVG and anything else → "file_type_not_allowed"), size ≤
+ * maxBytes, short side ≥ minShortSide, and that it actually decodes as the same type. Width/height
+ * are as displayed (EXIF orientation applied). Throws ImageValidationError.
  */
 export async function validateImage(
   buffer: Buffer,
@@ -119,25 +136,24 @@ export async function validateImage(
   if (buffer.length > maxBytes) throw new ImageValidationError("file_too_large");
 
   const format = sniffImageFormat(buffer);
-  if (!format) throw new ImageValidationError("file_type_not_allowed");
+  if (format === "heic") throw new ImageValidationError("heic_not_supported", "HEIC photos are not accepted");
+  if (!isAcceptedImageFormat(format)) throw new ImageValidationError("file_type_not_allowed", format ? `${format} is not accepted` : undefined);
 
   let width: number;
   let height: number;
   try {
     const meta = await sharp(buffer, INPUT_OPTIONS).metadata();
-    if (meta.format !== "jpeg" && meta.format !== "png" && meta.format !== "webp" && meta.format !== "gif" && meta.format !== "heif") {
-      throw new ImageValidationError("file_type_not_allowed");
-    }
+    // The decoder must agree with the first bytes (a JPEG header on a file libvips reads as
+    // something else is refused).
+    if (meta.format !== format) throw new ImageValidationError("file_type_not_allowed");
     width = meta.autoOrient?.width ?? meta.width;
     height = meta.autoOrient?.height ?? meta.height;
-    // Decode a tiny version: catches truncated files and HEIC without an HEVC decoder.
+    // Decode a tiny version: catches truncated files.
     await sharp(buffer, INPUT_OPTIONS).resize(8, 8, { fit: "inside" }).raw().toBuffer();
   } catch (error) {
     if (error instanceof ImageValidationError) throw error;
     const message = (error as Error)?.message ?? "";
     if (/pixel limit/i.test(message)) throw new ImageValidationError("file_too_large", message);
-    // HEIC (HEVC) needs a libvips build with libde265; the prebuilt sharp binaries cannot decode it.
-    if (format === "heic") throw new ImageValidationError("file_type_not_allowed", "HEIC is not supported here");
     throw new ImageValidationError("image_corrupt", message);
   }
 

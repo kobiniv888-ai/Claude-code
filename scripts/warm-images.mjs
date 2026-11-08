@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
  * Warms the production server's caches right after `next start` (bug 8.10: "photos took about
- * 4 seconds to sharpen"). The image optimizer converts each photo to AVIF/WebP at each width on
- * its first request; AVIF encoding takes 0.2–1 s per photo on a small machine, so the very first
- * visitor waits for every photo on the screen. This script opens the main pages once (which also
- * renders them) and requests the AVIF version of every photo width a phone or a laptop picks, two
- * at a time, so that later visitors get them from the cache (.next/cache/images).
+ * 4 seconds to sharpen"). The image optimizer converts each photo to WebP (the only format: AVIF
+ * is off, SECURITY_REPORT 2.2.b) at each width on its first request, so the very first visitor
+ * waits for every photo on the screen. This script opens the main pages once (which also renders
+ * them) and requests the WebP version of every photo width a phone or a laptop picks, two at a
+ * time, so that later visitors get them from the cache (.next/cache/images).
  *
  *   node scripts/warm-images.mjs [base-url]      (default http://localhost:3000)
  *

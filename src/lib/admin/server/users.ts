@@ -2,7 +2,7 @@ import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
 import type { UserRole, UserStatus } from "@/generated/prisma/enums";
 import { db } from "@/lib/db";
-import { canSeeReporter, type StaffViewer } from "../staff-visibility";
+import { canSeeGuestPhone, canSeeReporter, type StaffViewer } from "../staff-visibility";
 import { parseUserSearch, type UserSearchTerms } from "../search";
 import { ADMIN_PAGE_SIZE, coverPhotoSelect, sharedDeviceAccounts, staffNames } from "./shared";
 
@@ -27,7 +27,11 @@ export type UserFilters = {
 /** A host owns at least one listing past the draft stage (deleted ones count: they were hosts). */
 export const HOST_WHERE: Prisma.UserWhereInput = { listings: { some: { status: { not: "DRAFT" } } } };
 
-async function searchConditions(terms: UserSearchTerms): Promise<Prisma.UserWhereInput[]> {
+/**
+ * `phones`: may the viewer search by phone number (ADMIN only, founder's decision Q12: an
+ * account's verified phone is the guest phone of its bookings; a search result is an answer too).
+ */
+async function searchConditions(terms: UserSearchTerms, phones: boolean): Promise<Prisma.UserWhereInput[]> {
   const or: Prisma.UserWhereInput[] = [];
   if (terms.text) {
     or.push(
@@ -38,8 +42,8 @@ async function searchConditions(terms: UserSearchTerms): Promise<Prisma.UserWher
     );
   }
   if (terms.email) or.push({ email: { equals: terms.email, mode: "insensitive" } });
-  if (terms.phones.length) or.push({ phoneNumber: { in: terms.phones } });
-  if (terms.phoneDigits) or.push({ phoneNumber: { contains: terms.phoneDigits } });
+  if (phones && terms.phones.length) or.push({ phoneNumber: { in: terms.phones } });
+  if (phones && terms.phoneDigits) or.push({ phoneNumber: { contains: terms.phoneDigits } });
   if (terms.userId) or.push({ id: terms.userId });
   if (terms.listingPublicId) {
     const listing = await db.listing.findUnique({ where: { publicId: terms.listingPublicId }, select: { ownerId: true } });
@@ -48,12 +52,14 @@ async function searchConditions(terms: UserSearchTerms): Promise<Prisma.UserWher
   return or;
 }
 
-export async function searchUsers(filters: UserFilters, page: number) {
+/** The user list. Phone numbers (shown and searched) are ADMIN only (Q12, ../staff-visibility.ts). */
+export async function searchUsers(filters: UserFilters, page: number, viewer: Pick<StaffViewer, "role">) {
+  const showPhone = canSeeGuestPhone(viewer);
   const terms = parseUserSearch(filters.q);
   const where: Prisma.UserWhereInput = {};
   const and: Prisma.UserWhereInput[] = [];
   if (filters.q.trim()) {
-    const or = await searchConditions(terms);
+    const or = await searchConditions(terms, showPhone);
     // Something was typed but nothing can match it.
     and.push(or.length ? { OR: or } : { id: "__none__" });
   }
@@ -91,18 +97,22 @@ export async function searchUsers(filters: UserFilters, page: number) {
       _count: { select: { listings: true, reportsAgainst: true, bookingsAsHost: true, bookingsAsGuest: true } },
     },
   });
-  return { rows, total, page: current };
+  // Read with the row but never returned to other staff (the page has no phone to show).
+  return { rows: rows.map((row) => ({ ...row, phoneNumber: showPhone ? row.phoneNumber : null })), total, page: current, phoneWithheld: !showPhone };
 }
 
 export type UserListRow = Awaited<ReturnType<typeof searchUsers>>["rows"][number];
 
 /**
- * A user's page. Who sent a report is ADMIN only (founder's decision Q12, ../staff-visibility.ts):
+ * A user's page. The phone number and who sent a report are ADMIN only (founder's decision Q12,
+ * ../staff-visibility.ts):
  * for other staff the reports this user SENT are not read at all (`reportsMade` is null), and the
  * reports against them come without their senders' names.
  */
 export async function getUserDetail(id: string, viewer: StaffViewer) {
   const showReporter = canSeeReporter(viewer);
+  // The account's phone is the guest phone of its bookings: ADMIN only (Q12).
+  const showPhone = canSeeGuestPhone(viewer);
   const user = await db.user.findUnique({
     where: { id },
     select: {
@@ -233,7 +243,9 @@ export async function getUserDetail(id: string, viewer: StaffViewer) {
       : new Map<string, { id: string; name: string }>();
 
   return {
-    user,
+    user: { ...user, phoneNumber: showPhone ? user.phoneNumber : null },
+    /** The phone number is ADMIN only (Q12): other staff see that there is one, not the number. */
+    phoneWithheld: !showPhone && !!user.phoneNumber,
     listings,
     /** Null unless the viewer may see who sent reports (ADMIN). */
     reportsMade,

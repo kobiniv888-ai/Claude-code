@@ -130,7 +130,8 @@
   },
   "uploadErrors": {
     "file_too_large": "هذه الصورة كبيرة جدًا. اختر صورة أصغر (حتى 15 ميغابايت).",
-    "file_type_not_allowed": "نوع الملف غير مدعوم. استخدم صور JPG أو PNG أو WebP أو HEIC.",
+    "file_type_not_allowed": "نوع الملف غير مدعوم. استخدم صور JPG أو PNG أو WebP.",
+    "heic_not_supported": "هذه صورة آيفون بصيغة HEIC، وهي صيغة لا نقبلها. اخترها مرة أخرى من تطبيق الصور (وليس من الملفات) وسيرسلها الآيفون بصيغة JPEG. للتصوير بصيغة JPEG من الآن: الإعدادات ← الكاميرا ← التنسيقات ← الأكثر توافقًا.",
     "image_too_small": "هذه الصورة صغيرة جدًا. استخدم صورة لا يقل ضلعها القصير عن 400 بكسل.",
     "image_corrupt": "تعذّر فتح هذه الصورة. جرّب صورة أخرى.",
     "file_rejected": "رُفض هذا الملف. اختر صورة مختلفة.",
@@ -158,6 +159,8 @@
     "invalidCadastral": "يتكون الرمز العقاري من أرقام ونقاط، مثل 01.10.13.023.045.",
     "videoUrl": "الصق رابط YouTube أو Vimeo يبدأ بـ https://.",
     "httpsOnly": "استخدم رابطًا آمنًا يبدأ بـ https://.",
+    "calendarHost": "يمكن ربط التقويمات من Airbnb أو Booking.com أو Vrbo أو Google Calendar فقط.",
+    "tourHost": "يمكن إضافة جولة 360° من Matterport أو Kuula أو Momento360 أو Roundme فقط.",
     "tooMany": "هذا عدد كبير جدًا.",
     "duplicateChannel": "يمكن إضافة كل وسيلة تواصل مرة واحدة فقط.",
     "pickOne": "يُرجى اختيار أحد الخيارات.",
@@ -424,7 +427,7 @@
     "videoUrl": "رابط الفيديو",
     "videoUrlHelp": "رابط من YouTube أو Vimeo.",
     "tourUrl": "رابط جولة 360°",
-    "tourUrlHelp": "رابط جولة افتراضية (Matterport وKuula…) يبدأ بـ https://."
+    "tourUrlHelp": "رابط جولة افتراضية على Matterport أو Kuula أو Momento360 أو Roundme، يبدأ بـ https://."
   },
   "size": {
     "title": "المساحة والغرف",

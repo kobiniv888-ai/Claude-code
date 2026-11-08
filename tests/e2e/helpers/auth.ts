@@ -1,4 +1,5 @@
 import { expect, type APIRequestContext, type Locator, type Page } from "@playwright/test";
+import { sql } from "./db";
 import { BASE_URL } from "./env";
 
 /** Demo logins (docs/DEMO-DATA.md). */
@@ -40,15 +41,36 @@ async function pollDevCode(request: APIRequestContext, query: string): Promise<s
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
+ * The site's own HOURLY login-request windows (src/lib/auth/login-rate-limit.ts LOGIN_CODE_LIMITS:
+ * 20 code requests and 30 code checks an hour per IP, 5 per number or address). The whole suite
+ * runs from 127.0.0.1 and signs in far more often than one person could, so it would hit them
+ * mid-run. TEST-ONLY reset: the helper clears those windows in the local test database and asks
+ * again. The server has no bypass; the resend waits and daily caps do not apply to codes shown on
+ * screen in test mode (they cost nothing and reach nobody), and the real limits are unit-tested
+ * (login-rate-limit.test.ts, code-rules.test.ts).
+ */
+async function clearHourlyLoginWindows() {
+  await sql(
+    `DELETE FROM "RateLimit" WHERE key LIKE 'auth:otp-send:%' OR key LIKE 'auth:email-otp-send:%' OR key LIKE 'auth:otp-verify:%'`,
+  );
+}
+
+/**
  * A Better Auth call that waits out its rate limit. In production mode (`next start`) Better Auth
  * allows 10 phone-login requests a minute per IP, and every test runs from 127.0.0.1: on 429 the
  * test waits the X-Retry-After seconds the server names and tries again, like a patient person.
+ * Our own hourly windows ("RATE_LIMITED") are cleared instead (clearHourlyLoginWindows).
  */
 async function authPost(request: APIRequestContext, path: string, data: Record<string, unknown>) {
   const headers = { origin: BASE_URL, "content-type": "application/json" };
   for (let attempt = 0; ; attempt += 1) {
     const response = await request.post(path, { data, headers });
     if (response.status() !== 429 || attempt >= 3) return response;
+    const body = (await response.json().catch(() => null)) as { code?: string } | null;
+    if (body?.code === "RATE_LIMITED") {
+      await clearHourlyLoginWindows();
+      continue;
+    }
     const wait = Number(response.headers()["x-retry-after"] ?? "60");
     await sleep((Math.min(Number.isFinite(wait) ? wait : 60, 65) + 1) * 1000);
   }

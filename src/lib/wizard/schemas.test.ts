@@ -181,9 +181,69 @@ describe("step save schemas", () => {
     expect(parsed.price).toBe(100);
     expect(parsed.icalImportUrls).toEqual(["https://www.airbnb.com/calendar/ical/1.ics"]);
     expect(
-      priceStepSchema.safeParse({ ...pickStepData("price", base), icalImportUrls: ["https://a.b/1", "https://a.b/2", "https://a.b/3", "https://a.b/4"] })
-        .success,
+      priceStepSchema.safeParse({
+        ...pickStepData("price", base),
+        icalImportUrls: ["https://www.airbnb.com/1.ics", "https://www.airbnb.com/2.ics", "https://www.airbnb.com/3.ics", "https://www.airbnb.com/4.ics"],
+      }).success,
     ).toBe(false);
+  });
+
+  // SECURITY_REPORT 8.1.a / Q15: calendars only from Airbnb, Booking.com, Vrbo / HomeAway, Google Calendar.
+  it("accepts calendar links only from the allowed calendar sites", () => {
+    const ical = (url: string) => priceStepSchema.safeParse({ ...pickStepData("price", base), icalImportUrls: [url] });
+    for (const url of [
+      "https://www.airbnb.com/calendar/ical/123.ics?s=abc",
+      "https://www.airbnb.co.il/calendar/ical/123.ics?s=abc",
+      "https://admin.booking.com/hotel/hoteladmin/ical.html?t=abc",
+      "https://ical.booking.com/v1/export?t=abc",
+      "https://www.vrbo.com/icalendar/abc.ics",
+      "https://www.homeaway.com/icalendar/abc.ics",
+      "https://calendar.google.com/calendar/ical/abc%40group.calendar.google.com/private-x/basic.ics",
+    ]) {
+      expect(ical(url).success, url).toBe(true);
+    }
+    for (const [url, message] of [
+      ["https://evil.example/cal.ics", "calendarHost"],
+      ["https://10.0.0.1.sslip.io/cal.ics", "calendarHost"],
+      ["https://airbnb.com.evil.example/cal.ics", "calendarHost"],
+      ["https://evilairbnb.com/cal.ics", "calendarHost"],
+      ["https://www.google.com/calendar/ical/x/basic.ics", "calendarHost"],
+      ["https://www.airbnb.com:8443/cal.ics", "calendarHost"],
+      ["https://user:pass@www.airbnb.com/cal.ics", "calendarHost"],
+      ["http://www.airbnb.com/cal.ics", "httpsOnly"],
+      ["javascript:alert(1)", "httpsOnly"],
+    ] as const) {
+      const result = ical(url);
+      expect(result.success, url).toBe(false);
+      expect(result.error?.issues[0]?.message, url).toBe(message);
+    }
+  });
+
+  // SECURITY_REPORT 7.f / Q15: 360° tours only from Matterport, Kuula, Momento360, Roundme.
+  it("accepts 360° tour links only from the allowed tour sites", () => {
+    const tour = (url: string) => stepSaveSchemas.features.safeParse({ ...pickStepData("features", base), tour360Url: url });
+    for (const url of [
+      "",
+      "https://my.matterport.com/show/?m=abc123",
+      "https://kuula.co/share/collection/7abc",
+      "https://momento360.com/e/u/abc",
+      "https://roundme.com/tour/123/view/456",
+    ]) {
+      expect(tour(url).success, url).toBe(true);
+    }
+    for (const [url, message] of [
+      ["https://evil.example/fake-tour", "tourHost"],
+      ["https://matterport.com.evil.example/show", "tourHost"],
+      ["https://kuula.co.evil.example/share", "tourHost"],
+      ["https://notkuula.co/share", "tourHost"],
+      ["http://my.matterport.com/show/?m=1", "httpsOnly"],
+      ["javascript:alert(1)", "httpsOnly"],
+      ["data:text/html,<script>alert(1)</script>", "httpsOnly"],
+    ] as const) {
+      const result = tour(url);
+      expect(result.success, url).toBe(false);
+      expect(result.error?.issues[0]?.message, url).toBe(message);
+    }
   });
 
   it("dedupes vocabularies and keeps contact methods unique and ordered", () => {

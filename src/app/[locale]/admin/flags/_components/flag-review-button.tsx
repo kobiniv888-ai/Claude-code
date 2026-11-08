@@ -5,42 +5,58 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { ActionDialog } from "@/components/admin/action-dialog";
 import { useAdminAction } from "@/components/admin/use-admin-action";
-import { markBookingFlagReviewedAction, markHostFlagReviewedAction } from "@/lib/admin/actions/flags";
+import {
+  markBookingFlagReviewedAction,
+  markGuestFlagReviewedAction,
+  markHostFlagReviewedAction,
+  markLongStayReviewedAction,
+} from "@/lib/admin/actions/flags";
 import { FLAG_NOTE_MAX } from "@/lib/admin/flags";
 
+type Target =
+  | { bookingId: string }
+  | { userId: string; seenLatest: string | null }
+  /** A long stay (decision 7): the "reviewed" marker is an audit entry only. */
+  | { longStayId: string }
+  /** A guest with repeated cancellations or no-shows (decision 7): an audit entry only. */
+  | { guestId: string; seenLatest: string | null };
+
+function kindOf(target: Target): "booking" | "host" | "longStay" | "guest" {
+  if ("bookingId" in target) return "booking";
+  if ("longStayId" in target) return "longStay";
+  if ("guestId" in target) return "guest";
+  return "host";
+}
+
+function send(target: Target, note: string) {
+  if ("bookingId" in target) return markBookingFlagReviewedAction({ bookingId: target.bookingId, note });
+  if ("longStayId" in target) return markLongStayReviewedAction({ bookingId: target.longStayId, note });
+  if ("guestId" in target) return markGuestFlagReviewedAction({ userId: target.guestId, note, seenLatest: target.seenLatest });
+  return markHostFlagReviewedAction({ userId: target.userId, note, seenLatest: target.seenLatest });
+}
+
 /**
- * "Mark reviewed" with a required note, for a booking flag or a host's report flag. A host flag
- * sends the newest report the page showed (`seenLatest`, ISO): one that arrived meanwhile refuses
- * ("changed_since_view") and the page reloads, so nobody closes a report they never saw.
+ * "Mark reviewed" with a required note, for a booking flag, a host's report flag, a long stay or a
+ * guest's repeat flag. A host or guest flag sends the newest event the page showed (`seenLatest`,
+ * ISO): one that arrived meanwhile refuses ("changed_since_view") and the page reloads, so nobody
+ * closes something they never saw. The server checks everything again.
  */
-export function FlagReviewButton({
-  target,
-  label,
-}: {
-  target: { bookingId: string } | { userId: string; seenLatest: string | null };
-  label: string;
-}) {
+export function FlagReviewButton({ target, label }: { target: Target; label: string }) {
   const t = useTranslations("admin.flags.review");
   const { run } = useAdminAction();
   const router = useRouter();
-  const isBooking = "bookingId" in target;
+  const kind = kindOf(target);
   return (
     <ActionDialog
       triggerLabel={t("button")}
       triggerIcon={CheckCheck}
       triggerClassName="h-8"
-      title={t(isBooking ? "bookingTitle" : "hostTitle")}
-      description={t(isBooking ? "bookingDescription" : "hostDescription", { label })}
+      title={t(`${kind}Title`)}
+      description={t(`${kind}Description`, { label })}
       confirmLabel={t("confirm")}
       note={{ label: t("noteLabel"), required: true, max: FLAG_NOTE_MAX, hint: t("noteHint"), placeholder: t("notePlaceholder") }}
       onConfirm={({ note }) =>
-        run(
-          () =>
-            "bookingId" in target
-              ? markBookingFlagReviewedAction({ bookingId: target.bookingId, note })
-              : markHostFlagReviewedAction({ userId: target.userId, note, seenLatest: target.seenLatest }),
-          { success: t("done"), onError: (code) => (code === "changed_since_view" ? router.refresh() : undefined) },
-        )
+        run(() => send(target, note), { success: t("done"), onError: (code) => (code === "changed_since_view" ? router.refresh() : undefined) })
       }
     />
   );

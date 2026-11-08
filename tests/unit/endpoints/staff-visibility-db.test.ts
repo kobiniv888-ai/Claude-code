@@ -16,7 +16,7 @@ vi.mock("server-only", () => ({}));
 const { db } = await import("@/lib/db");
 const { Prisma } = await import("@/generated/prisma/client");
 const { getReportDetail, listReports } = await import("@/lib/admin/server/reports");
-const { getUserDetail } = await import("@/lib/admin/server/users");
+const { getUserDetail, searchUsers } = await import("@/lib/admin/server/users");
 const { getAdminBooking, searchBookings } = await import("@/lib/admin/server/bookings");
 const { getListingForReview } = await import("@/lib/admin/server/moderation");
 
@@ -178,5 +178,32 @@ describe("the guest's phone on a booking: ADMIN only (Q12)", () => {
     // Searching by the booking code still works for moderators.
     const byCode = await searchBookings({ q: (await db.booking.findUniqueOrThrow({ where: { id: ids.booking }, select: { code: true } })).code, from: null, to: null }, 1, "he", VIEWERS.MODERATOR);
     expect(byCode.rows.map((r) => r.id)).toEqual([ids.booking]);
+  });
+});
+
+describe("the account's phone on the user pages: ADMIN only (Q12, it is the guest phone of its bookings)", () => {
+  it("the user page leaves the number out for moderators and support", async () => {
+    for (const role of ["MODERATOR", "SUPPORT"] as const) {
+      const page = await getUserDetail(ids.guest, VIEWERS[role]);
+      expect(page!.user.phoneNumber, role).toBeNull();
+      expect(page!.phoneWithheld, role).toBe(true);
+      expect(json(page), role).not.toContain(GUEST_PHONE);
+    }
+    const admin = await getUserDetail(ids.guest, VIEWERS.ADMIN);
+    expect(admin!.user.phoneNumber).toBe(GUEST_PHONE);
+    expect(admin!.phoneWithheld).toBe(false);
+  });
+
+  it("the user list neither shows nor searches by phone for moderators and support", async () => {
+    const filters = { q: GUEST_PHONE };
+    for (const role of ["MODERATOR", "SUPPORT"] as const) {
+      const found = await searchUsers(filters, 1, VIEWERS[role]);
+      expect(found.rows.map((r) => r.id), role).not.toContain(ids.guest);
+      const byName = await searchUsers({ ...filters, q: `${prefix} Guest` }, 1, VIEWERS[role]);
+      expect(byName.rows.map((r) => r.id), role).toContain(ids.guest);
+      expect(json(byName), role).not.toContain(GUEST_PHONE);
+    }
+    const admin = await searchUsers(filters, 1, VIEWERS.ADMIN);
+    expect(admin.rows.find((r) => r.id === ids.guest)?.phoneNumber).toBe(GUEST_PHONE);
   });
 });

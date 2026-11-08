@@ -6,6 +6,8 @@
  *
  * Only YouTube (privacy-enhanced youtube-nocookie.com) and Vimeo (dnt=1) are embedded.
  */
+import { allowListedHttpsUrl, TOUR_DOMAINS } from "@/config/external-hosts";
+
 export type VideoEmbed = { provider: "youtube" | "vimeo"; id: string; embedUrl: string; watchUrl: string };
 
 const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/;
@@ -68,8 +70,18 @@ export function parseVideoUrl(value: string | null | undefined): VideoEmbed | nu
   return null;
 }
 
-/** An http(s) link the page may open in a new tab (360° tours), or null. */
+/** An http(s) link the page may open in a new tab, or null. */
 export function safeExternalUrl(value: string | null | undefined): string | null {
   const url = parseUrl(value);
   return url && url.protocol === "https:" ? url.toString() : null;
+}
+
+/**
+ * A 360° tour link the page may show (SECURITY_REPORT 7.f): https on Matterport, Kuula,
+ * Momento360 or Roundme only (TOUR_DOMAINS). Checked again on every render, so a link saved before
+ * the allow-list (or written straight into the database) never reaches a visitor. Null otherwise.
+ */
+export function safeTourUrl(value: string | null | undefined): string | null {
+  const url = allowListedHttpsUrl(value, TOUR_DOMAINS);
+  return url ? url.toString() : null;
 }

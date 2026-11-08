@@ -3,6 +3,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { type AppLocale } from "@/config/site";
 import { isAppLocale, pickLocalized } from "@/i18n/locale";
 import { addDays, dateToDay, dayToDate, tbilisiToday } from "@/lib/booking/dates";
+import { can } from "@/lib/auth/permissions";
 import { db } from "@/lib/db";
 import { listingPath } from "@/lib/listing/urls";
 import {
@@ -323,15 +324,25 @@ export async function getUserReviewsForStaff(userId: string, take = 10): Promise
   return { written, received };
 }
 
-/** Staff: the reports about one review (newest first), with which part each one is about. */
-export async function getReviewReports(reviewId: string) {
+/**
+ * Staff: the reports about one review (newest first), with which part each one is about. Who sent
+ * each one is ADMIN only (founder's decision Q12): for other staff `reporter` is null and the
+ * reporter's id never leaves this function (the part is worked out here).
+ */
+export async function getReviewReports(reviewId: string, viewer: { role: string }) {
   const review = await db.review.findUnique({ where: { id: reviewId }, select: { hostUserId: true } });
   if (!review) return [];
+  const showReporter = can(viewer.role, "reports.reporter");
   const rows = await db.report.findMany({
     where: { reviewId, targetType: "REVIEW" },
     orderBy: { createdAt: "desc" },
     take: 50,
-    select: { id: true, status: true, reason: true, createdAt: true, reporterId: true, reporter: { select: { name: true } } },
+    select: { id: true, status: true, reason: true, createdAt: true, reporterId: true, ...(showReporter ? { reporter: { select: { name: true } } } : {}) },
   });
-  return rows.map((row) => ({ ...row, part: reportedPart(review, row.reporterId) }));
+  return rows.map(({ reporterId, ...row }) => ({
+    ...row,
+    reporter: showReporter && "reporter" in row ? (row.reporter as { name: string } | null) : null,
+    reporterWithheld: !showReporter,
+    part: reportedPart(review, reporterId),
+  }));
 }

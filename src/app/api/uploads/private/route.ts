@@ -28,8 +28,10 @@ import {
  *   purpose  "verification" (ID, selfie, NAPR extract, business registration) | "ticket" (screenshots)
  *            | "report" (turned-away report screenshots, round 3). A form field; it may also be in
  *            the address, which caps the body for that purpose before it is read (both must agree)
- *   file     an image (≤ 15 MB), or for "verification" also a PDF (≤ 10 MB); for "report" only
- *            JPEG, PNG or WebP of at most 5 MB (REPORT_SCREENSHOTS in @/lib/reports/turned-away)
+ *   file     a JPEG, PNG or WebP image (≤ 15 MB; HEIC → 415 heic_not_supported, AVIF, GIF and
+ *            others → 415 file_type_not_allowed: validateImage in @/lib/images), or for
+ *            "verification" also a PDF (≤ 10 MB); for "report" at most 5 MB (REPORT_SCREENSHOTS in
+ *            @/lib/reports/turned-away)
  *
  * → 201 { key, mime, bytes, name }
  * → { error: code } — same codes as /api/uploads/listing-photo.

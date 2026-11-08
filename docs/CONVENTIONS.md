@@ -67,7 +67,13 @@ dynamic as usual. Bundled docs: `node_modules/next/dist/docs/`.
    `@/generated/prisma/enums` (safe for client code).
 9. **Every mutation is a server action or route handler that checks the session and ownership**
    (we do not rely on database row-level security, so the check must be in code). Validate input
-   with zod. Rate-limit anything public. Staff actions call `audit()`.
+   with zod. Rate-limit anything public. Staff actions call `audit()`; destructive ones (ban,
+   suspend, warn, reject, hide, delete, role changes, "mark reviewed") write their row with
+   `auditOrThrow(entry, tx)` inside the change's transaction, so they stop when the row cannot be
+   written. A session whose 2-step code is not entered yet counts as signed out everywhere
+   (`requireUserForAction`; code that reads `getCurrentUser()` checks `twoFactorVerified`). **Every
+   new server action or route handler gets a rule in `tests/unit/endpoints/registry.ts`**, or
+   `tests/unit/endpoints/endpoint-registry.test.ts` fails.
 10. **Every state is designed:** loading (skeletons, not spinners), empty, error and not-found get
     friendly text and a clear next step (`@/components/common/states`).
     Fast public pages (home, search, listing, Jewish Life, help and the other `(site)` pages without
@@ -150,6 +156,10 @@ docs/
 | `@/i18n/navigation` | `Link`, `redirect`, `useRouter`, `usePathname`, `getPathname` |
 | `@/lib/db` | `db` (Prisma client, server-only) |
 | `@/lib/geo` | `haversineMeters`, `walkingMinutes`, `approximateLocation`, bounds helpers (pure) |
+| `@/lib/geo/public-walk` | `publicWalkMinutes`, `publicNearby`, `publicKm`: every walking time leaves the server rounded UP to 5 minutes ("עד 5 דק׳", "≈ 10 דק׳"), without meters; distances in whole km. Filters keep using the exact stored value (security 6.d) |
+| `@/lib/log-scrub` | `scrubText`, `scrubValue`, `maskEmail`: installed on `console.*` at server start and applied to Sentry events. Still log ids only — never an email, phone, code, address or token (tests/unit/log-hygiene.test.ts checks every call) |
+| `@/lib/security/taint` | `taintObject(what, row)`, `taintValue(what, lifetime, secret)`: React taint for raw rows with exact address / contacts, sessions and secret settings (`experimental.taint`). A DTO built from the fields is fine |
+| `@/lib/admin/maintenance/retention` | the daily retention jobs (guest contacts 3 months after check-out, audit log 1 year, outbox 90 days…), run by `/api/cron/cleanup` |
 | `@/lib/listing/fields` | vocabularies: deal/property types, amenities, Shabbat & Jewish features, contact channels, moderation reasons |
 | `@/lib/format` | `formatNumber`, `formatMoney`, `formatDate`, `formatTime`, `formatDateRange`, `formatRelativeTime` (client-safe) |
 | `@/lib/toast` | `toast(…)`, `toast.success/error/info/warning/message(…)` — use it instead of importing `sonner` (sonner loads after the page has started) |
@@ -157,7 +167,7 @@ docs/
 | `@/components/providers/currency-provider` | `CurrencyProvider`, `useCurrency()` → `{ currency, rates, convert, format }` |
 | `@/lib/hebcal` | Shabbat times, holidays in a range, "is it Shabbat/holiday now", Hebrew date (server) |
 | `@/lib/settings` | `getSettings()`, `updateSettings()`, `isShabbatModeActive()`, `assertNotShabbatMode()` |
-| `@/lib/audit` | `audit({ actorId, action, targetType, targetId, details })` |
+| `@/lib/audit` | `audit({ actorId, action, targetType, targetId, details })` (never throws); `auditOrThrow(entry, tx)` for destructive staff actions (throws `audit_failed`) |
 | `@/lib/email` | `sendEmail({ to, template, locale, data })` — templates translated via `emails` namespace |
 | `@/lib/translate` | `translateText`, `translateListing(listingId)`, `scheduleListingTranslation(id, contentUpdatedAt)` (after an autosaved edit of a live listing); adapters in `@/lib/translate/{azure,google}` implement `TranslationProvider` (`./provider.ts`), picked in `./registry.ts` |
 | `@/lib/site-url` | `siteUrl()`, `absoluteUrl(path)`, `isPermanentSiteUrl(url)` (client-safe): EVERY link that leaves the site (calendar export, emails, SMS, share links, sitemap, canonical) is built from `SITE_URL`; `BETTER_AUTH_URL` stays the running origin. Show copyable links with `<CopyLinkField>` (`@/components/common/copy-link-field`), which disables Copy on a temporary address |
@@ -223,9 +233,21 @@ and verified in the current session to open `/admin`. Every admin action is writ
 | content (home, cities, places, FAQ, alerts, banned words, translations) | ✓ | | | ✓ |
 | settings, roles, audit log | ✓ | | | |
 | tell the host who reported (turned-away reports) | ✓ | | | |
+| who sent a report (`reports.reporter`) | ✓ | | | |
+| phone numbers of guests and accounts (`bookings.guest_phone`) | ✓ | | | |
 
+Who sent a report and phone numbers are ADMIN only (founder's decision Q12): the admin queries
+never read them for other staff (`@/lib/admin/staff-visibility`), so they never reach the page.
 Staff other than an ADMIN never decide about their own items (a report about them or sent by them,
-their own listing); nobody marks their own booking or host flag reviewed.
+their own listing); nobody marks their own booking, host or guest flag reviewed.
+
+**Booking limits and guest flags** (`@/lib/booking/guest-flags`): at most 2 upcoming bookings per
+verified phone number across accounts (checked in the booking transaction); a booking attempt
+carries an idempotency key, so a repeat returns the same booking. Admin → Flags lists long stays
+(14+ nights) and guests with 3 cancellations in 90 days or 2 no-shows in a year FOR REVIEW ONLY
+(nothing automatic; "reviewed" is an audit entry). A cancellation with `FLIGHT_CANCELLED_REASON`
+or inside a travel-disruption window (`isTravelDisruptionCancellation`, false until the windows
+exist) never counts. "Show contact" works for at most 40 different listings a day per account.
 
 ## Listing lifecycle
 

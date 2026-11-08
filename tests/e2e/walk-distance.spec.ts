@@ -3,7 +3,9 @@ import { expect, openAs, settle, test } from "./fixtures";
 /**
  * Round 3, brief 7.3: the walking time to the sea and to the ski lifts, computed from the static
  * OpenStreetMap data (src/data/osm) for the demo listings in Batumi, Kobuleti, Gudauri and
- * Bakuriani (the seed and scripts/backfill-walk-minutes.ts fill it). Public pages only.
+ * Bakuriani (the seed and scripts/backfill-walk-minutes.ts fill it). Public pages only. Shown
+ * rounded up to 5 minutes (security checklist 6.d): "Up to 5 min" for the shortest walks, else
+ * "≈ 10", "≈ 15"…
  */
 
 test("Batumi cards show ≈ N min to the sea, and the Near the sea chip keeps only those listings", async ({ browser }) => {
@@ -12,7 +14,7 @@ test("Batumi cards show ≈ N min to the sea, and the Near the sea chip keeps on
   await settle(page);
   const cards = page.locator("article");
   await expect(cards.first()).toBeVisible();
-  await expect(cards.getByText(/^≈ \d+ min walk to the sea$/).first()).toBeVisible();
+  await expect(cards.getByText(/^(≈ \d+|Up to 5) min walk to the sea$/).first()).toBeVisible();
 
   await page.getByRole("button", { name: "Near the sea", exact: true }).click();
   await expect(page).toHaveURL(/nearSea=1/);
@@ -22,8 +24,8 @@ test("Batumi cards show ≈ N min to the sea, and the Near the sea chip keeps on
   // Every result is 15 minutes or less from a beach, so every card carries the tag, and it comes
   // first of the card's (at most two) tags in a sea town (brief 7.3).
   for (let i = 0; i < total; i++) {
-    await expect(cards.nth(i).getByText(/^≈ \d+ min walk to the sea$/)).toBeVisible();
-    await expect(cards.nth(i).getByRole("listitem").first()).toHaveText(/^≈ \d+ min walk to the sea$/);
+    await expect(cards.nth(i).getByText(/^(≈ \d+|Up to 5) min walk to the sea$/)).toBeVisible();
+    await expect(cards.nth(i).getByRole("listitem").first()).toHaveText(/^(≈ \d+|Up to 5) min walk to the sea$/);
     expect(await cards.nth(i).getByRole("listitem").count()).toBeLessThanOrEqual(2);
   }
 
@@ -44,17 +46,17 @@ test("Gudauri offers Near the lifts; the listing page highlights the walk with i
   await page.goto("/en/search?city=gudauri");
   await settle(page);
   await expect(page.getByRole("button", { name: "Near the lifts", exact: true })).toBeVisible();
-  await expect(page.locator("article").getByText(/^≈ \d+ min walk to the lifts$/).first()).toBeVisible();
+  await expect(page.locator("article").getByText(/^(≈ \d+|Up to 5) min walk to the lifts$/).first()).toBeVisible();
 
   await page.goto("/en/listing/107");
   await settle(page);
   const highlight = page.locator("[data-walk-highlight=lift]");
-  await expect(highlight).toContainText(/≈ (1 minute's|\d+ minutes') walk to the ski lifts/);
+  await expect(highlight).toContainText(/(≈ \d+|Up to 5) minutes' walk to the ski lifts/);
   await expect(highlight).toContainText("Estimated from OpenStreetMap");
 
   await page.goto("/en/listing/104");
   await settle(page);
-  await expect(page.locator("[data-walk-highlight=sea]")).toContainText(/≈ (1 minute's|\d+ minutes') walk to the sea/);
+  await expect(page.locator("[data-walk-highlight=sea]")).toContainText(/(≈ \d+|Up to 5) minutes' walk to the sea/);
   expect(consoleErrors).toEqual([]);
   await context.close();
 });

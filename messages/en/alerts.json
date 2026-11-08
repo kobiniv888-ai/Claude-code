@@ -92,14 +92,14 @@
   },
   "message": {
     "newBooking": {
-      "text": "{brand}: new booking {code} from {guest}, {dates}, {guests}.\n{title}\nDetails: {url}",
+      "text": "{brand}: new booking {code}. Details: {url}",
       "title": "New booking {code}",
-      "body": "{guest} · {dates} · {guests}"
+      "body": "Open {brand} for the details."
     },
     "cancelled": {
-      "text": "{brand}: the guest cancelled booking {code} ({dates}). The dates are free again.\n{title}\n{url}",
+      "text": "{brand}: booking {code} was cancelled. Details: {url}",
       "title": "Booking {code} was cancelled",
-      "body": "{guest} · {dates}. The dates are free again."
+      "body": "Open {brand} for the details."
     },
     "test": {
       "text": "{brand}: this is a test alert. This is how we'll tell you about new bookings and cancellations. Settings: {url}",
@@ -108,7 +108,7 @@
     },
     "paused": {
       "title": "{brand}: an alert channel is paused",
-      "email": "{brand}: our emails to {address} bounce, so email alerts are paused.",
+      "email": "{brand}: our emails to you bounce, so email alerts are paused.",
       "telegram": "{brand}: Telegram doesn't accept our messages, so Telegram alerts are paused.",
       "stillInstant": "Instant bookings continue: we alert you on your other channels.",
       "contactOnly": "Until email or Telegram works again, guests ask you directly instead of booking instantly.",

@@ -1,11 +1,10 @@
 import { createHmac } from "node:crypto";
 import type { Locator, Page } from "@playwright/test";
-import { expect, openAs, openAsTestUser, settle, test } from "./fixtures";
-import { DEMO } from "./helpers/auth";
+import { expect, openAsTestUser, settle, test } from "./fixtures";
 import { createTestUser, sql } from "./helpers/db";
 
 /**
- * The trip page (round 3, brief 7.1) in Hebrew: the demo guest Noa books a Thursday→Saturday stay
+ * The trip page (round 3, brief 7.1) in Hebrew: a fresh test guest books a Thursday→Saturday stay
  * (so it includes a Friday night) at Yossi's demo short stay #89 in Tbilisi, whose host keeps
  * Shabbat → the trip page shows the itemized total, the exact address, "פתיחה ב-Google Maps" /
  * "פתיחה ב-Waze" with the coordinates, the candle-lighting and Havdalah times and "המארח לא עונה
@@ -66,7 +65,8 @@ test.describe("trip page", () => {
     expect(listing, `demo listing #${PUBLIC_ID} must be LIVE and INSTANT (npm run db:seed)`).toBeTruthy();
     const { checkIn, checkOut } = await freeFridayStay(listing.id);
 
-    const guest = await openAs(browser, DEMO.guest);
+    // A fresh test guest (at most 2 upcoming bookings per verified phone, founder's decision 8).
+    const guest = await openAsTestUser(browser, await createTestUser({ name: "E2E Guest Noa" }));
     const page = guest.page;
     try {
       // ── 1. Book the stay ("אישור הזמנה") ──

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { listingAccess, previewReason, type ListingAccessInput } from "./access";
 import { buildMonth, buildMonths, georgiaToday, isBlockedDay, weekStartFor } from "./calendar";
 import { clockDate, contactLayout, languageName, needsShowMore, placesNear, priceChangePercent, pricePerSqm, replyTimeBucket } from "./helpers";
-import { parseVideoUrl, safeExternalUrl } from "./media";
+import { parseVideoUrl, safeExternalUrl, safeTourUrl } from "./media";
 
 const now = new Date("2026-10-31T12:00:00Z");
 const live: ListingAccessInput = {
@@ -129,10 +129,34 @@ describe("video and tour links", () => {
     expect(parseVideoUrl(null)).toBeNull();
   });
 
-  it("only opens https tours", () => {
+  it("only opens https links", () => {
     expect(safeExternalUrl("https://kuula.co/share/abc")).toBe("https://kuula.co/share/abc");
     expect(safeExternalUrl("http://insecure.example")).toBeNull();
     expect(safeExternalUrl("javascript:alert(1)")).toBeNull();
+  });
+
+  // SECURITY_REPORT 7.f: checked on every render too, so an old or hand-written link never shows.
+  it("shows a 360° tour only from Matterport, Kuula, Momento360 or Roundme", () => {
+    expect(safeTourUrl("https://my.matterport.com/show/?m=abc123")).toBe("https://my.matterport.com/show/?m=abc123");
+    expect(safeTourUrl("https://kuula.co/share/abc")).toBe("https://kuula.co/share/abc");
+    expect(safeTourUrl("https://momento360.com/e/u/abc")).toBe("https://momento360.com/e/u/abc");
+    expect(safeTourUrl("https://roundme.com/tour/1/view/2")).toBe("https://roundme.com/tour/1/view/2");
+    for (const bad of [
+      "https://evil.example/fake-tour",
+      "https://kuula.co.evil.example/share/abc",
+      "https://evilkuula.co/share/abc",
+      "https://user:pass@kuula.co/share/abc",
+      "https://kuula.co:8443/share/abc",
+      "http://kuula.co/share/abc",
+      "kuula.co/share/abc",
+      "javascript:alert(1)",
+      "data:text/html,hi",
+      "",
+      null,
+      undefined,
+    ]) {
+      expect(safeTourUrl(bad), String(bad)).toBeNull();
+    }
   });
 });
 

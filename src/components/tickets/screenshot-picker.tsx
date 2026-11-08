@@ -6,6 +6,7 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { errorMessageKey } from "@/lib/errors";
 import { formatNumber } from "@/lib/format";
+import { isHeicFile, UPLOAD_IMAGE_ACCEPT } from "@/lib/media";
 import { TICKET_LIMITS } from "@/lib/tickets/constants";
 import type { TicketAttachment } from "@/lib/tickets/attachments";
 import { cn } from "@/lib/utils";
@@ -18,7 +19,8 @@ import { cn } from "@/lib/utils";
  * Pass stable callbacks (state setters or useCallback).
  */
 
-const ACCEPT = "image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,image/gif";
+/** JPEG, PNG and WebP (SECURITY_REPORT 9.a): an iPhone then sends JPEG on its own. */
+const ACCEPT = UPLOAD_IMAGE_ACCEPT;
 
 type Item = {
   id: string;
@@ -105,6 +107,10 @@ export function ScreenshotPicker({
     if (files.length > room) setNotice(t("tooMany", { max: String(TICKET_LIMITS.maxAttachments) }));
     const added: Item[] = [];
     for (const file of files.slice(0, Math.max(0, room))) {
+      if (isHeicFile(file)) {
+        setNotice(tErrors("heic_not_supported"));
+        continue;
+      }
       if (!file.type.startsWith("image/")) {
         setNotice(tErrors("file_type_not_allowed"));
         continue;

@@ -10,6 +10,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const state = vi.hoisted(() => ({
   counts: new Map<string, number>(),
   storeBroken: false,
+  events: [] as { type: string; userId?: string | null; meta?: Record<string, unknown> | null }[],
 }));
 
 vi.mock("server-only", () => ({}));
@@ -17,6 +18,12 @@ vi.mock("@/lib/auth/session", () => ({
   requireUserForAction: async () => ({ id: "guest-1", firstName: "Noa", name: "Noa", email: "guest-1@example.com", emailIsPlaceholder: false }),
 }));
 vi.mock("@/lib/turnstile", () => ({ assertTurnstile: async () => undefined }));
+vi.mock("@/lib/security/events", () => ({
+  recordSecurityEvent: async (event: { type: string; userId?: string | null; meta?: Record<string, unknown> | null }) => {
+    state.events.push(event);
+    return true;
+  },
+}));
 vi.mock("@/lib/crypto", () => ({ hmacHash: (v: string) => v }));
 vi.mock("@/lib/contact/server", () => ({
   findContactableListing: async (id: string) => ({
@@ -56,6 +63,7 @@ describe("show contact: at most 40 different listings a day (4.6.e)", () => {
   beforeEach(() => {
     state.counts.clear();
     state.storeBroken = false;
+    state.events = [];
   });
 
   it("shows 40 different listings, refuses the 41st, and showing one of the 40 again stays free", async () => {
@@ -67,6 +75,8 @@ describe("show contact: at most 40 different listings a day (4.6.e)", () => {
       expect(result.ok, `listing ${i}`).toBe(true);
     }
     expect(await revealContact("listing-41")).toEqual(expect.objectContaining({ ok: false, error: "rate_limited" }));
+    // In the security log (for the alerts), without the listing or any contact detail.
+    expect(state.events).toEqual([{ type: "show_contact_cap_hit", userId: "guest-1", meta: { limit: 40 } }]);
     // A listing already shown today: no new count.
     expect((await revealContact("listing-3")).ok).toBe(true);
     // The refused listing was not marked as shown: asking again is refused again, not let through.
@@ -77,5 +87,7 @@ describe("show contact: at most 40 different listings a day (4.6.e)", () => {
   it("fails closed when the limit store cannot be read", async () => {
     state.storeBroken = true;
     expect(await revealContact("listing-1")).toEqual(expect.objectContaining({ ok: false, error: "rate_limited" }));
+    // A broken store is not somebody hitting the cap.
+    expect(state.events).toEqual([]);
   });
 });

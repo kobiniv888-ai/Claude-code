@@ -1,7 +1,7 @@
-import { expect, openAs, settle, test } from "./fixtures";
+import { expect, openAs, openAsTestUser, settle, test } from "./fixtures";
 import { loginByPhone } from "./helpers/auth";
 import { createTestStaff, verifyTwoFactor } from "./helpers/staff";
-import { createTestUser } from "./helpers/db";
+import { createTestUser, sql } from "./helpers/db";
 
 /**
  * Sessions and 2-step login in the browser (SECURITY_REPORT 3.5, 3.6, 3.7). For the gate: run on a
@@ -67,13 +67,16 @@ test("the 2-step page offers a recovery code instead of the app", async ({ brows
   await page.getByRole("button", { name: /Use a recovery code/ }).click();
   await page.getByLabel("Recovery code").fill("AAAAA-BBBBB");
   await page.getByRole("button", { name: "Log in with a recovery code" }).click();
-  await expect(page.getByRole("alert")).toContainText("recovery code isn’t right");
+  // (Next's own route announcer is an empty role="alert" too: match the form's message.)
+  await expect(page.getByRole("alert").filter({ hasText: "recovery code isn’t right" })).toBeVisible();
   await context.close();
 });
 
 test("deleting the account first asks for a fresh code", async ({ browser }) => {
   const user = await createTestUser({ name: "E2E Fresh" });
-  const { context, page } = await openAs(browser, user.phone);
+  // A session with no code entered in it (a login code counts as a fresh proof for 5 minutes,
+  // src/lib/auth/hooks.ts), like a phone left signed in: deleting must ask for a code first.
+  const { context, page } = await openAsTestUser(browser, user);
   await page.goto("/en/account/settings#delete");
   await settle(page);
   await page.getByRole("button", { name: "Delete my account" }).click();
@@ -81,5 +84,7 @@ test("deleting the account first asks for a fresh code", async ({ browser }) => 
   await dialog.getByRole("textbox").fill("DELETE");
   await dialog.getByRole("button", { name: "Delete forever" }).click();
   await expect(page.getByRole("dialog", { name: "Confirm it’s you" })).toBeVisible();
+  // Refused on the server: the account is still there.
+  expect(await sql(`SELECT 1 FROM "User" WHERE id = $1`, [user.id])).toHaveLength(1);
   await context.close();
 });

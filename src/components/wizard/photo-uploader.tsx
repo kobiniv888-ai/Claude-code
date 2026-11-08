@@ -6,6 +6,7 @@ import { CircleAlertIcon, ImagePlusIcon, LoaderCircleIcon, RotateCcwIcon, Upload
 import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/config/site";
 import { formatNumber } from "@/lib/format";
+import { isHeicFile, UPLOAD_IMAGE_ACCEPT } from "@/lib/media";
 import { cn } from "@/lib/utils";
 import type { WizardPhoto } from "@/lib/wizard/types";
 import { useReportBusy } from "./busy-context";
@@ -32,7 +33,8 @@ const CONCURRENCY = 3;
 const AUTO_RETRIES = 2;
 /** Bigger originals are refused before compressing (phones rarely exceed 25 MB). */
 const MAX_ORIGINAL_BYTES = 40 * 1024 * 1024;
-const ACCEPT = "image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif,image/gif";
+/** JPEG, PNG and WebP only: without HEIC in the list an iPhone sends its photos as JPEG. */
+const ACCEPT = UPLOAD_IMAGE_ACCEPT;
 
 type UploadResponse = { id: string; url: string; thumbUrl: string; width: number; height: number; isCover: boolean };
 
@@ -154,6 +156,12 @@ export function usePhotoUploads({
   const runUpload = async (item: UploadItem) => {
     const original = files.current.get(item.key);
     if (!original) return;
+    // An HEIC file (from Files, or a desktop): the server refuses it, so say how to send JPEG now.
+    if (isHeicFile(original)) {
+      update(item.key, { status: "error", error: "heic_not_supported" });
+      itemsRef.current = itemsRef.current.map((i) => (i.key === item.key ? { ...i, status: "error" } : i));
+      return;
+    }
     update(item.key, { status: "compressing", progress: 0, error: undefined });
     const file = await compress(original);
     if (file.size > siteConfig.listings.maxPhotoBytes) {
@@ -405,9 +413,12 @@ export function UploadQueue({
           </div>
           {item.status === "error" ? (
             <div className="flex shrink-0 gap-1">
-              <Button type="button" size="icon" variant="outline" onClick={() => onRetry(item.key)} aria-label={t("retry", { name: item.name })}>
-                <RotateCcwIcon aria-hidden />
-              </Button>
+              {/* The same file would be refused again: only "remove" for a format we don't take. */}
+              {item.error !== "heic_not_supported" && item.error !== "file_type_not_allowed" ? (
+                <Button type="button" size="icon" variant="outline" onClick={() => onRetry(item.key)} aria-label={t("retry", { name: item.name })}>
+                  <RotateCcwIcon aria-hidden />
+                </Button>
+              ) : null}
               <Button type="button" size="icon" variant="ghost" onClick={() => onDismiss(item.key)} aria-label={t("dismiss", { name: item.name })}>
                 <XIcon aria-hidden />
               </Button>

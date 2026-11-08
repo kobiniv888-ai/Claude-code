@@ -231,6 +231,31 @@ order. The detailed steps and prices are in "Login & messages" below.
       host cancellations within 48 hours of a booking are flagged for review). Tell us if you want
       consequences (warnings, limits on booking) and how they should read in the Terms.
 
+## Security round S1 (8 November 2026): what only you can do
+
+- [ ] **`SITE_ENV` on every hosting.** Set `SITE_ENV=production` on the real site and
+      `SITE_ENV=staging` on the password-protected staging site. Without it (or with a typo) the
+      server refuses to start, on purpose. Never set `AUTH_TEST_MODE` on the real site: with
+      `SITE_ENV=production` the server refuses to start if it is on.
+- [ ] **Twilio Messaging.** Codes now go out as our own text through a Twilio **Messaging
+      Service**: create one and set `TWILIO_MESSAGING_SERVICE_SID` (MG…). In Messaging → Geo
+      permissions allow only Israel and Georgia, and turn on Fraud Guard (SMS Pumping Protection).
+      `TWILIO_VERIFY_SERVICE_SID` is no longer used.
+- [ ] **Two Google OAuth clients.** One for the real site with only the real domain's redirect
+      address, and one for development (localhost, the codespace, staging). Never add a test
+      address to the production client.
+- [ ] **Recovery codes for your own 2-step login.** "Backup codes" are now **recovery codes**:
+      Settings → Security → "New codes", then keep the 10 codes away from your phone. Accounts
+      that turned on 2-step login before this round have none yet.
+- [ ] **`ADMIN_ALERT_EMAIL`** must be set on the hosting, so the security alerts (staff logins on
+      a new device, a locked 2-step login, a recovery code used, the SMS budget) reach you.
+- [ ] **Confirm three choices:** walking times are rounded **up** to 5 minutes (a 6–7 minute walk
+      shows "≈ 10", never "עד 5"); SUPPORT and MODERATOR no longer see phone numbers on user and
+      ticket pages either (Q12 applied a bit wider); retention of the outbox 90 days, device links
+      1 year, contact clicks 90 days.
+- [ ] **At deploy:** the login cookie got a new name, so everyone is logged out once and staff are
+      asked for their 2-step code again.
+
 ## Login & messages (the details)
 How people log in: **Google** (when set up), a **6-digit code by email** (always), and — only on
 test servers — a code by phone for the demo accounts. SMS codes are used only to check a phone

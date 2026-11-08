@@ -32,7 +32,7 @@ export default async function TicketDetailPage({ params }: PageProps<"/[locale]/
     getTranslations("admin.tickets"),
     getTranslations("admin"),
     getTranslations("listingFields"),
-    ticketContext(ticket, locale),
+    ticketContext(ticket, locale, staff),
     savedRepliesFor(locale),
     ticketStaffMembers(),
   ]);
@@ -117,7 +117,17 @@ export default async function TicketDetailPage({ params }: PageProps<"/[locale]/
                 <FactList
                   className="sm:grid-cols-1"
                   items={[
-                    { label: tAdmin("common.phone"), value: requester.phoneNumber ? <Ltr>{requester.phoneNumber}</Ltr> : "—" },
+                    {
+                      label: tAdmin("common.phone"),
+                      // ADMIN only (Q12): other staff get no number from the query at all.
+                      value: requester.phoneNumber ? (
+                        <Ltr>{requester.phoneNumber}</Ltr>
+                      ) : requester.phoneWithheld ? (
+                        <span className="text-xs text-muted-foreground">{tAdmin("users.phoneWithheld")}</span>
+                      ) : (
+                        "—"
+                      ),
+                    },
                     { label: tAdmin("common.email"), value: requester.email ? <Ltr className="break-all">{requester.email}</Ltr> : "—" },
                     { label: tAdmin("common.language"), value: language },
                     { label: tAdmin("common.joined"), value: formatRelativeTime(requester.createdAt, locale) },

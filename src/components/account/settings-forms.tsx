@@ -53,6 +53,7 @@ import {
 import { authClient } from "@/lib/auth/client";
 import { enabledCurrencies } from "@/lib/currency/convert";
 import { currencySymbol } from "@/lib/format";
+import { UPLOAD_IMAGE_ACCEPT } from "@/lib/media";
 import { languageName } from "@/lib/listing-page/helpers";
 import { cn } from "@/lib/utils";
 import { avatarInitial } from "@/lib/account/greeting";
@@ -178,7 +179,7 @@ function AvatarField({ initial, image }: { initial: string | null; image: string
           ref={input}
           id={inputId}
           type="file"
-          accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif"
+          accept={UPLOAD_IMAGE_ACCEPT}
           className="sr-only"
           aria-label={t("photo")}
           onChange={(event) => {

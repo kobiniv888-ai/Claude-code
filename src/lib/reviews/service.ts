@@ -236,7 +236,15 @@ export async function reviewParties(reviewId: string): Promise<{ guestUserId: st
  * (Review.hiddenReason, staff-only), the listing's counters drop by this review, and the review's
  * open reports are closed as "review_hidden". Returns those reports (for their audit entries).
  */
-export async function hideReview(input: { staffId: string; reviewId: string; reason: ReviewHideReason; note: string; now?: Date }): Promise<{ listingId: string; closedReports: string[] }> {
+export async function hideReview(input: {
+  staffId: string;
+  reviewId: string;
+  reason: ReviewHideReason;
+  note: string;
+  now?: Date;
+  /** Runs in the same transaction after the change (the staff action's audit rows, Q13): when it throws, nothing is hidden. */
+  inTransaction?: (tx: Prisma.TransactionClient, result: { listingId: string; closedReports: string[] }) => Promise<void>;
+}): Promise<{ listingId: string; closedReports: string[] }> {
   const now = input.now ?? new Date();
   return db.$transaction(async (tx) => {
     const { count } = await tx.review.updateMany({
@@ -255,7 +263,9 @@ export async function hideReview(input: { staffId: string; reviewId: string; rea
         data: { status: "RESOLVED", actionTaken: "review_hidden", resolution: input.note, handledById: input.staffId, handledAt: now },
       });
     }
-    return { listingId: review.listingId, closedReports: ids };
+    const result = { listingId: review.listingId, closedReports: ids };
+    if (input.inTransaction) await input.inTransaction(tx, result);
+    return result;
   });
 }
 

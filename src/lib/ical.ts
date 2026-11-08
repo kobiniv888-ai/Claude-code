@@ -4,6 +4,7 @@ import dns from "node:dns";
 import https from "node:https";
 import net from "node:net";
 import ical, { type CalendarResponse, type DateWithTimeZone, type VEvent } from "node-ical";
+import { isCalendarImportHost } from "@/config/external-hosts";
 import { siteConfig } from "@/config/site";
 import { absoluteUrl, siteUrl } from "@/lib/site-url";
 import { db } from "@/lib/db";
@@ -32,9 +33,12 @@ import { fullRanges, hotelClosedRanges, overbookedRanges, type RoomBlock, type R
  * - the hotel's own feed exports only the nights the whole hotel is full or closed, and its own
  *   import links close the whole hotel (a block without a room type).
  *
- * Feed downloads are guarded against SSRF: https on port 443 only, no credentials in the URL,
- * every DNS answer must be a public address (checked again at connect time, so DNS rebinding
- * cannot reach internal hosts), at most 3 redirects (each re-checked), 10 s, 2 MB.
+ * Feed downloads are guarded against SSRF (SECURITY_REPORT 8.1): https on port 443 only, no
+ * credentials in the URL, only the calendar sites of CALENDAR_IMPORT_DOMAINS (Airbnb, Booking.com,
+ * Vrbo / HomeAway, Google Calendar: src/config/external-hosts.ts), every DNS answer must be a
+ * public address (checked again at connect time, so DNS rebinding cannot reach internal hosts), at
+ * most 3 redirects (each hop re-checked against all of the above), 10 s in all and 1 MB, counted
+ * while the file streams in (a wrong or missing Content-Length changes nothing).
  */
 
 const DAY_MS = 24 * 3600 * 1000;
@@ -42,8 +46,10 @@ const DAY_MS = 24 * 3600 * 1000;
 const GEORGIA_OFFSET_MS = 4 * 3600 * 1000;
 
 export const ICAL_MAX_FEEDS = 5;
-const FEED_TIMEOUT_MS = 10_000;
-const FEED_MAX_BYTES = 2 * 1024 * 1024;
+/** The whole download (every redirect hop included) must finish within this. */
+export const FEED_TIMEOUT_MS = 10_000;
+/** 1 MB (founder's answer Q16): a year of a busy calendar is far below 100 KB. */
+export const FEED_MAX_BYTES = 1024 * 1024;
 const FEED_MAX_REDIRECTS = 3;
 const MAX_EVENTS = 2000;
 /** Imported/exported range: from 30 days ago to 2 years ahead. */
@@ -360,6 +366,14 @@ export class UnsafeFeedUrlError extends Error {
   }
 }
 
+/** A well-formed https link, but not on a calendar site we import from (CALENDAR_IMPORT_DOMAINS). */
+export class CalendarHostNotAllowedError extends UnsafeFeedUrlError {
+  constructor() {
+    super("not a supported calendar site");
+    this.name = "CalendarHostNotAllowedError";
+  }
+}
+
 /** Static checks of an import URL (the DNS answer is checked when connecting). */
 export function assertSafeFeedUrl(value: string): URL {
   let url: URL;
@@ -376,6 +390,8 @@ export function assertSafeFeedUrl(value: string): URL {
     throw new UnsafeFeedUrlError("local host name");
   }
   if (net.isIP(host) && isPrivateAddress(host)) throw new UnsafeFeedUrlError("private address");
+  // Only the calendar sites we know (also for every redirect hop: fetchIcsFeed calls this again).
+  if (net.isIP(host) || !isCalendarImportHost(host)) throw new CalendarHostNotAllowedError();
   return url;
 }
 
@@ -424,7 +440,7 @@ function requestOnce(url: URL, signal: AbortSignal): Promise<FeedResponse> {
         const declared = Number(response.headers["content-length"]);
         if (Number.isFinite(declared) && declared > FEED_MAX_BYTES) {
           response.destroy();
-          reject(new Error("Calendar file is larger than 2 MB"));
+          reject(new Error("Calendar file is larger than 1 MB"));
           return;
         }
         const chunks: Buffer[] = [];
@@ -432,7 +448,7 @@ function requestOnce(url: URL, signal: AbortSignal): Promise<FeedResponse> {
         response.on("data", (chunk: Buffer) => {
           size += chunk.length;
           if (size > FEED_MAX_BYTES) {
-            response.destroy(new Error("Calendar file is larger than 2 MB"));
+            response.destroy(new Error("Calendar file is larger than 1 MB"));
             return;
           }
           chunks.push(chunk);
@@ -485,10 +501,11 @@ function feedLabel(url: string): string {
 export type IcalSyncResult = { listings: number; feeds: number; failedFeeds: number; blocks: number; conflicts: number };
 
 /** Why an import feed could not be read (shown to the host on the calendar page). */
-export const ICAL_FEED_ERRORS = ["unsafe_url", "feed_missing", "http_error", "not_calendar", "too_large", "unreachable"] as const;
+export const ICAL_FEED_ERRORS = ["calendar_host", "unsafe_url", "feed_missing", "http_error", "not_calendar", "too_large", "unreachable"] as const;
 export type IcalFeedError = (typeof ICAL_FEED_ERRORS)[number];
 
 export function classifyFeedError(error: unknown): IcalFeedError {
+  if (error instanceof CalendarHostNotAllowedError) return "calendar_host";
   if (error instanceof UnsafeFeedUrlError) return "unsafe_url";
   const message = error instanceof Error ? error.message : String(error);
   if (/^HTTP (404|410)\b/.test(message)) return "feed_missing";

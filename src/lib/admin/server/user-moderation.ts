@@ -52,13 +52,19 @@ export async function warnUser(
 
   const locale = localeOf(user.locale);
   const text = await userReasonText(reason, locale, note);
-  await db.user.update({ where: { id: user.id }, data: { status: "WARNED", statusReason: reason } });
-  await audit({
-    actorId: staff.id,
-    action: "user.warn",
-    targetType: "User",
-    targetId: user.id,
-    details: { from: user.status, reason, note, ...context },
+  // A warning is a sanction (Q13): the change and its audit row commit together, or not at all.
+  await db.$transaction(async (tx) => {
+    await tx.user.update({ where: { id: user.id }, data: { status: "WARNED", statusReason: reason } });
+    await auditOrThrow(
+      {
+        actorId: staff.id,
+        action: "user.warn",
+        targetType: "User",
+        targetId: user.id,
+        details: { from: user.status, reason, note, ...context },
+      },
+      tx,
+    );
   });
   const to = notificationEmailFor(user);
   if (to) {

@@ -82,8 +82,9 @@ openssl rand -hex 16      # HASH_SALT
 
 The login offers Google (when `GOOGLE_*` is set), a **code by email** (always) and — in test mode
 only — a **code by phone**. Test mode is `AUTH_TEST_MODE="true"` on a development or staging site
-(`SITE_ENV`; `.env.example` has both for development): without Resend/Twilio nothing is sent, the
-code is printed in the terminal and the login form shows it on screen. Without test mode no code
+(`SITE_ENV`; `.env.example` has both for development): without Resend/Twilio nothing is sent and
+the login form shows the code on screen (the server log masks codes, emails and phone numbers:
+`src/lib/log-scrub.ts`). Without test mode no code
 is ever shown, also under `npm run dev`; the real site (`SITE_ENV=production`) refuses to start
 with test mode on. New accounts give
 their first name in one short step. Demo users log in with the phone code ("Log in with a phone
@@ -156,7 +157,18 @@ reports, tickets, scam checks, favorites, Jewish Life, help and the contact form
 
    In production the login library allows 10 phone-login requests a minute per address, and every
    test runs from the same one: the tests wait the seconds the server names and try again, so a
-   full run takes a few minutes longer than against the development server.
+   full run takes a few minutes longer than against the development server. Our own HOURLY
+   login-request limits (20 code requests an hour per address) are too few for a whole run from
+   one address: when the server answers `RATE_LIMITED`, the test helper clears those hourly
+   windows in the local test database and asks again (`tests/e2e/helpers/auth.ts`, test-only; the
+   server has no bypass). Booking tests use a fresh test guest each (at most 2 upcoming bookings
+   per phone).
+4. **Refuse-to-start probes** against the same production build (the port must be free):
+   `npx tsx tests/startup/next-start-probes.ts --dist .next-4615 --port 4615`. It checks that
+   `next start` exits when `SITE_ENV` is missing, test mode is on with `SITE_ENV=production` or a
+   secret is missing, and that complete fake production settings start without demo listings,
+   codes on screen or demo logins. `npm test` runs the same start-up hook every time
+   (`tests/unit/startup-refuse.test.ts`).
 
 The tests create their own users (phones `+995 555 99x xxx`) and listings named "E2E …", and
 delete them, with the demo listings' view and contact counters, when the run ends.

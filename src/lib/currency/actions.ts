@@ -36,6 +36,7 @@ export async function clearDisplayCurrency(): Promise<ActionResult> {
 
   (await cookies()).delete(CURRENCY_COOKIE_NAME);
   const user = await getCurrentUser().catch(() => null);
-  if (user?.currency) await db.user.update({ where: { id: user.id }, data: { currency: null } });
+  // A session whose 2-step code is not entered yet counts as signed out (SECURITY_REPORT 4.2.a).
+  if (user?.twoFactorVerified && user.currency) await db.user.update({ where: { id: user.id }, data: { currency: null } });
   return ok();
 }

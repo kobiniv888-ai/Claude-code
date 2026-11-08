@@ -9,10 +9,13 @@ import { db } from "@/lib/db";
 import { bookingFlagKind, hoursFromBookingToCancel, type BookingFlagKind } from "@/lib/listing/host-flags";
 import { countHostFlags, hostFlagRows, OPEN_CANCELLATION, type FlagState } from "@/lib/listing/host-flags-server";
 import { pageInfo } from "../params";
+import { countLongStays, guestFlagRows, listLongStays, type GuestFlagRow, type LongStayRow } from "./guest-flags";
 
 /**
  * Admin → Flags lists (server-only; the rules are in src/lib/listing/host-flags.ts and the shared
- * queries in src/lib/listing/host-flags-server.ts, re-exported here for the admin pages).
+ * queries in src/lib/listing/host-flags-server.ts, re-exported here for the admin pages). The
+ * guest-side lists (long stays, guests with repeated cancellations or no-shows; founder's decision
+ * 7) are in ./guest-flags.ts: listed for review only.
  */
 
 export {
@@ -25,7 +28,7 @@ export {
   type HostFlagSummary,
 } from "@/lib/listing/host-flags-server";
 
-export const FLAG_VIEWS = ["cancellations", "noShows", "hosts"] as const;
+export const FLAG_VIEWS = ["cancellations", "noShows", "longStays", "guests", "hosts"] as const;
 export type FlagView = (typeof FLAG_VIEWS)[number];
 export const FLAGS_PAGE_SIZE = 25;
 
@@ -79,14 +82,34 @@ export async function listFlags(
   requestedPage: number,
   locale: AppLocale,
   now: Date = new Date(),
-): Promise<{ counts: Record<FlagView, number>; total: number; page: number; bookings: FlagBookingRow[]; hosts: FlagHostRow[] }> {
-  const [cancellations, noShows, hosts] = await Promise.all([
+): Promise<{
+  counts: Record<FlagView, number>;
+  total: number;
+  page: number;
+  bookings: FlagBookingRow[];
+  hosts: FlagHostRow[];
+  longStays: LongStayRow[];
+  guests: GuestFlagRow[];
+}> {
+  const [cancellations, noShows, hosts, longStays, guestRows] = await Promise.all([
     db.booking.count({ where: bookingWhere("cancellations", state) }),
     db.booking.count({ where: bookingWhere("noShows", state) }),
     countHostFlags(now, state),
+    countLongStays(state, now),
+    // The guest list is short and computed whole (the pure rule decides each guest), then paged.
+    guestFlagRows(now, { state }),
   ]);
-  const counts = { cancellations, noShows, hosts };
+  const counts = { cancellations, noShows, hosts, longStays, guests: guestRows.length };
   const info = pageInfo(counts[view], requestedPage, FLAGS_PAGE_SIZE);
+  const empty = { bookings: [] as FlagBookingRow[], hosts: [] as FlagHostRow[], longStays: [] as LongStayRow[], guests: [] as GuestFlagRow[] };
+
+  if (view === "longStays") {
+    const result = await listLongStays(state, { limit: FLAGS_PAGE_SIZE, offset: info.skip }, locale, now);
+    return { ...empty, counts, total: counts.longStays, page: info.page, longStays: result.rows };
+  }
+  if (view === "guests") {
+    return { ...empty, counts, total: counts.guests, page: info.page, guests: guestRows.slice(info.skip, info.skip + FLAGS_PAGE_SIZE) };
+  }
 
   if (view === "hosts") {
     const rows = await hostFlagRows(now, { state, limit: FLAGS_PAGE_SIZE, offset: info.skip });
@@ -106,7 +129,7 @@ export async function listFlags(
       counts,
       total: counts.hosts,
       page: info.page,
-      bookings: [],
+      ...empty,
       hosts: rows.flatMap((r) => {
         const user = byId.get(r.hostId);
         if (!user) return [];
@@ -164,7 +187,7 @@ export async function listFlags(
     counts,
     total: counts[view],
     page: info.page,
-    hosts: [],
+    ...empty,
     bookings: rows.map((row) => ({
       id: row.id,
       code: row.code,

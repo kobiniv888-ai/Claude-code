@@ -13,6 +13,7 @@ import type { BookingStatus } from "@/generated/prisma/enums";
 import { Link } from "@/i18n/navigation";
 import { auditActionKey } from "@/lib/admin/audit-labels";
 import { getAdminBooking } from "@/lib/admin/server/bookings";
+import { auditRecordView } from "@/lib/admin/server/file-views";
 import { requireStaff } from "@/lib/auth/session";
 import { formatDate, formatMoney, formatTime, isolate } from "@/lib/format";
 import { ClearNoShowButton } from "../../flags/_components/clear-no-show-button";
@@ -49,6 +50,8 @@ export default async function AdminBookingPage({ params }: Props) {
   const staff = await requireStaff("moderation");
   const data = await getAdminBooking(id, locale as AppLocale, staff);
   if (!data) notFound();
+  // Opening a booking (the guest's details) is in the audit log (SECURITY_REPORT 12.6.d; deduplicated).
+  await auditRecordView({ staffId: staff.id, action: "booking.view", targetType: "Booking", targetId: data.booking.id });
   const { booking, lines, history } = data;
   const [t, tb, tAdmin, tFields, tReviews] = await Promise.all([
     getTranslations("admin.bookings"),

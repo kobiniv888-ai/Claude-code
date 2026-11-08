@@ -137,10 +137,11 @@ describe("the computed walk replaces the manual \"Near the sea\" amenity once th
 describe("the listing page highlight", () => {
   const base = { dealType: "SHORT_STAY" as const, amenities: ["pool", "parking", "yard", "near_ski_lifts"], views: [], kitchenKosher: null };
 
-  it("shows the walk to the sea or the lifts, any stored value", () => {
-    expect(walkHighlight({ seaWalkMinutes: 4 })).toEqual({ kind: "sea", minutes: 4 });
-    expect(walkHighlight({ seaWalkMinutes: 22 })).toEqual({ kind: "sea", minutes: 22 });
-    expect(walkHighlight({ liftWalkMinutes: 7 })).toEqual({ kind: "lift", minutes: 7 });
+  it("shows the walk to the sea or the lifts, any stored value, rounded up to 5 minutes (6.d)", () => {
+    expect(walkHighlight({ seaWalkMinutes: 4 })).toEqual({ kind: "sea", minutes: 5 });
+    expect(walkHighlight({ seaWalkMinutes: 22 })).toEqual({ kind: "sea", minutes: 25 });
+    expect(walkHighlight({ liftWalkMinutes: 7 })).toEqual({ kind: "lift", minutes: 10 });
+    expect(walkHighlight({ liftWalkMinutes: 10 })).toEqual({ kind: "lift", minutes: 10 });
     expect(walkHighlight({ seaWalkMinutes: null, liftWalkMinutes: null })).toBeNull();
     expect(walkHighlight({})).toBeNull();
   });

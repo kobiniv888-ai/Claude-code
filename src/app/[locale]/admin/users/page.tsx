@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: PageProps<"/[locale]/admin/us
 export default async function UsersPage({ params, searchParams }: PageProps<"/[locale]/admin/users">) {
   const { locale } = await params;
   setRequestLocale(locale);
-  await requireStaff("users.view");
+  const staff = await requireStaff("users.view");
   const query = await searchParams;
   const filters = {
     q: param(query, "q").slice(0, 120),
@@ -37,7 +37,7 @@ export default async function UsersPage({ params, searchParams }: PageProps<"/[l
   const [t, tAdmin, result] = await Promise.all([
     getTranslations("admin.users"),
     getTranslations("admin"),
-    searchUsers(filters, pageParam(query)),
+    searchUsers(filters, pageParam(query), staff),
   ]);
   const n = (v: number) => formatNumber(v, locale);
 

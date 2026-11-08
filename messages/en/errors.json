@@ -8,7 +8,8 @@
   "captcha_failed": "We couldn't confirm you're not a robot. Please refresh the page and try again.",
   "server_error": "Something went wrong on our side. Please try again in a moment.",
   "file_too_large": "This file is too large. Please choose a smaller file and try again.",
-  "file_type_not_allowed": "This file type isn't supported. Please upload a JPG, PNG, WebP or HEIC photo, or a PDF.",
+  "file_type_not_allowed": "This file type isn't supported. Please upload a JPG, PNG or WebP photo, or a PDF.",
+  "heic_not_supported": "This is an iPhone photo in HEIC format, which we can't accept. Choose it again from your Photos library (not from Files) and your iPhone will send it as a JPEG. To take JPEG photos from now on: Settings › Camera › Formats › Most Compatible.",
   "too_many_photos": "You've reached the photo limit. Remove a photo before adding a new one.",
   "phone_not_verified": "Please verify your phone number first — it only takes a minute.",
   "network": "No connection. Please check your internet and try again."

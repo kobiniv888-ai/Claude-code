@@ -5,8 +5,10 @@ import { fail, ok, runAction, type ActionResult } from "@/lib/action";
 import { requireUserForAction } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { NotFoundError } from "@/lib/errors";
-import { assertSafeFeedUrl, icalExportUrl, syncListingCalendars, UnsafeFeedUrlError, type IcalFeedReport } from "@/lib/ical";
+import { assertSafeFeedUrl, CalendarHostNotAllowedError, icalExportUrl, syncListingCalendars, UnsafeFeedUrlError, type IcalFeedReport } from "@/lib/ical";
+import { newIcalToken } from "@/lib/listing/ical-token";
 import { assertRateLimit } from "@/lib/rate-limit";
+import { recordSecurityEvent } from "@/lib/security/events";
 import { normalizeRanges } from "@/lib/wizard/availability";
 import { LIMITS } from "@/lib/wizard/schemas";
 import type { DayRange } from "@/lib/wizard/types";
@@ -162,8 +164,9 @@ function isOwnExport(url: string, icalToken: string, roomTokens: readonly (strin
 }
 
 /**
- * Saves the Airbnb / Booking.com calendar links to import (https, public addresses only, at most
- * LIMITS.maxIcalImports) and syncs them right away, so a wrong link shows its error at once.
+ * Saves the Airbnb / Booking.com calendar links to import (https, the calendar sites of
+ * CALENDAR_IMPORT_DOMAINS only, public addresses only, at most LIMITS.maxIcalImports) and syncs
+ * them right away, so a wrong link shows its error at once.
  */
 export async function saveIcalImportsAction(input: unknown): Promise<ActionResult<CalendarSyncResult & { urls: string[] }>> {
   return runAction(async () => {
@@ -180,6 +183,8 @@ export async function saveIcalImportsAction(input: unknown): Promise<ActionResul
       try {
         assertSafeFeedUrl(url);
       } catch (error) {
+        // Only Airbnb, Booking.com, Vrbo / HomeAway and Google Calendar (SECURITY_REPORT 8.1.a).
+        if (error instanceof CalendarHostNotAllowedError) return fail("calendar_host", { [`urls.${index}`]: ["calendar_host"] });
         if (error instanceof UnsafeFeedUrlError) return fail("bad_url", { [`urls.${index}`]: ["bad_url"] });
         throw error;
       }
@@ -204,5 +209,34 @@ export async function syncIcalNowAction(input: unknown): Promise<ActionResult<Ca
     await assertRateLimit(`host-calendar:sync-listing:${room?.id ?? listing.id}`, { limit: 2, windowSeconds: 60 });
     const result = await syncListingCalendars(listing.id, room?.id);
     return ok({ syncedAt: result.syncedAt.toISOString(), feeds: result.feeds, conflicts: result.conflicts });
+  });
+}
+
+/**
+ * "Replace the link" (SECURITY_REPORT 4.7.b, D3): makes a new private export link for the listing
+ * (or, with `roomTypeId`, for one room type of a hotel) with a fresh 256-bit token (newIcalToken).
+ * The old link matches nothing from then on, so /api/ical/<old token> answers 404 like any unknown
+ * one. For a link that was shared by mistake; the host pastes the new one into Airbnb /
+ * Booking.com again. Owner only, at most 5 replacements an hour; recorded in the security log.
+ */
+export async function replaceCalendarLinkAction(input: unknown): Promise<ActionResult<{ exportUrl: string }>> {
+  return runAction(async () => {
+    const user = await requireUserForAction();
+    const parsed = z.object({ listingId: listingIdSchema, roomTypeId: listingIdSchema.optional().nullable() }).safeParse(input);
+    if (!parsed.success) return fail("invalid_input");
+    await assertRateLimit(`host-calendar:replace-link:${user.id}`, { limit: 5, windowSeconds: 3600 });
+    const listing = await ownListing(parsed.data.listingId, user.id);
+    const room = parsed.data.roomTypeId ? ownRoomType(listing, parsed.data.roomTypeId) : null;
+    const token = newIcalToken();
+    if (room) {
+      // The owner check again in the write itself (the room type of this owner's listing).
+      const { count } = await db.roomType.updateMany({ where: { id: room.id, listingId: listing.id }, data: { icalToken: token } });
+      if (count !== 1) throw new NotFoundError();
+    } else {
+      const { count } = await db.listing.updateMany({ where: { id: listing.id, ownerId: user.id }, data: { icalToken: token } });
+      if (count !== 1) throw new NotFoundError();
+    }
+    void recordSecurityEvent({ type: "calendar_link_replaced", userId: user.id, meta: { roomType: !!room } });
+    return ok({ exportUrl: icalExportUrl(token) });
   });
 }

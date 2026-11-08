@@ -296,7 +296,8 @@ export async function getAdminBooking(id: string, locale: AppLocale, viewer: Sta
 
   const [history, staff] = await Promise.all([
     db.auditLog.findMany({
-      where: { targetType: "Booking", targetId: booking.id },
+      // The booking's history: what happened to it, not who looked at it (booking.view).
+      where: { targetType: "Booking", targetId: booking.id, action: { not: "booking.view" } },
       orderBy: { createdAt: "asc" },
       take: 100,
       select: { id: true, action: true, createdAt: true, details: true, actor: { select: { id: true, name: true, role: true } } },

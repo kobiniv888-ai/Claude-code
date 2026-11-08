@@ -130,7 +130,7 @@ describe("iCal import of a hotel room type", () => {
     feeds.set("/room/1.ics?s=1", () => ({ status: 200, body: ics([{ uid: "same@airbnb", start: day(70), end: day(72) }]) }));
     feeds.set("/plain/a.ics", () => ({ status: 200, body: ics([{ start: day(80), end: day(81) }]) }));
     feeds.set("/plain/b.ics", () => ({ status: 200, body: ics([{ start: day(80), end: day(81) }]) }));
-    await setUrls(["https://www.airbnb.com/room/1.ics", "https://www.airbnb.com/room/1.ics?s=1", "https://other.example.com/plain/a.ics", "https://other.example.com/plain/b.ics"]);
+    await setUrls(["https://www.airbnb.com/room/1.ics", "https://www.airbnb.com/room/1.ics?s=1", "https://calendar.google.com/plain/a.ics", "https://calendar.google.com/plain/b.ics"]);
 
     await syncListingCalendars(ids.listing, ids.room);
     const rows = await importedRows();

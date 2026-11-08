@@ -9,6 +9,7 @@ import { db } from "@/lib/db";
 import { NotFoundError } from "@/lib/errors";
 import { previewReason } from "@/lib/listing-page/access";
 import { assertRateLimit } from "@/lib/rate-limit";
+import { recordSecurityEvent } from "@/lib/security/events";
 import { generateBookingCode } from "./code";
 import { cleanPaymentMethods, REMINDER_DAYS_BEFORE, type GuestCancelReason, type HostCancelReason } from "./constants";
 import { addDays, dateToDay, dayToDate, daysBetween, isDay, tbilisiToday } from "./dates";
@@ -334,12 +335,19 @@ async function bookingForAttempt(client: Client, guestUserId: string, idempotenc
  * The guest's upcoming bookings: confirmed and not checked out yet, made with this verified number
  * (by any account) or by this account (founder's decision 8).
  */
-export async function countUpcomingBookings(client: Client, guestUserId: string, verifiedPhone: string, now: Date = new Date()): Promise<number> {
+export async function countUpcomingBookings(
+  client: Client,
+  guestUserId: string,
+  verifiedPhone: string | readonly string[],
+  now: Date = new Date(),
+): Promise<number> {
+  // Every spelling the number was saved in (bookings made before round 3 may keep a national 0).
+  const phones = [...new Set((typeof verifiedPhone === "string" ? [verifiedPhone] : verifiedPhone).filter((p) => !!p))];
   return client.booking.count({
     where: {
       status: "CONFIRMED",
       checkOut: { gt: dayToDate(tbilisiToday(now)) },
-      OR: [{ guestPhone: verifiedPhone }, { guestUserId }],
+      OR: [...(phones.length ? [{ guestPhone: { in: phones } }] : []), { guestUserId }],
     },
   });
 }
@@ -531,9 +539,6 @@ export async function createBooking(params: CreateBookingParams): Promise<Create
           const earlier = await bookingForAttempt(tx, guest.id, attemptKey, params);
           if (earlier) return earlier;
         }
-        if ((await countUpcomingBookings(tx, guest.id, verifiedPhone, now)) >= MAX_UPCOMING_BOOKINGS_PER_PHONE) {
-          throw new BookingError("too_many_upcoming", { count: MAX_UPCOMING_BOOKINGS_PER_PHONE });
-        }
         // Serialises bookings of this listing: a concurrent booking waits here until we commit.
         await tx.$queryRaw`SELECT "id" FROM "Listing" WHERE "id" = ${listing.id} FOR UPDATE`;
         // Hotels: the room type's row too, before its rooms are counted (founder's answer 3).
@@ -560,6 +565,11 @@ export async function createBooking(params: CreateBookingParams): Promise<Create
           if (free < quote.rooms) throw new BookingError(free === 0 ? "dates_unavailable" : "rooms_unavailable", { count: free });
         } else if (await findBlockingRange(locked.id, quote.checkIn, quote.checkOut, tx)) {
           throw new BookingError("dates_unavailable");
+        }
+        // The cap (founder's decision 8) after the availability check, still under the phone lock
+        // taken above: nights someone else just took answer "dates taken", the more useful reason.
+        if ((await countUpcomingBookings(tx, guest.id, [verifiedPhone, accountPhone ?? verifiedPhone], now)) >= MAX_UPCOMING_BOOKINGS_PER_PHONE) {
+          throw new BookingError("too_many_upcoming", { count: MAX_UPCOMING_BOOKINGS_PER_PHONE });
         }
 
         const booking = await tx.booking.create({
@@ -629,7 +639,13 @@ export async function createBooking(params: CreateBookingParams): Promise<Create
       },
       { maxWait: 10_000, timeout: 15_000 },
     ),
-  );
+  ).catch(async (error: unknown) => {
+    // The upcoming-bookings cap (decision 8): in the security log for the alerts (no number in it).
+    if (error instanceof BookingError && error.code === "too_many_upcoming") {
+      await recordSecurityEvent({ type: "booking_cap_hit", userId: guest.id, meta: { limit: MAX_UPCOMING_BOOKINGS_PER_PHONE } });
+    }
+    throw error;
+  });
 
   // A repeat that met the first attempt's booking inside the lock: that attempt alerts the host.
   if (created.repeated) return created;
@@ -835,7 +851,16 @@ export async function markNoShow(params: { bookingId: string; hostUserId: string
  * the guest can review the stay within the usual window. The booking flag counts as reviewed by
  * this staff member. The caller checks the permission and logs it (booking.no_show_cleared).
  */
-export async function clearNoShow(params: { bookingId: string; staffId: string; now?: Date }): Promise<{ code: string; status: "CONFIRMED" | "COMPLETED"; reportedAt: Date | null }> {
+export async function clearNoShow(params: {
+  bookingId: string;
+  staffId: string;
+  now?: Date;
+  /**
+   * Runs inside the same transaction once the booking changed (the staff action's audit row,
+   * founder's decision Q13): when it throws, the change is rolled back.
+   */
+  inTransaction?: (tx: Prisma.TransactionClient, result: { code: string; status: "CONFIRMED" | "COMPLETED"; reportedAt: Date | null }) => Promise<void>;
+}): Promise<{ code: string; status: "CONFIRMED" | "COMPLETED"; reportedAt: Date | null }> {
   const now = params.now ?? new Date();
   return db.$transaction(async (tx) => {
     const rows = await tx.$queryRaw<{ id: string }[]>`SELECT "id" FROM "Booking" WHERE "id" = ${params.bookingId} FOR UPDATE`;
@@ -848,7 +873,9 @@ export async function clearNoShow(params: { bookingId: string; staffId: string; 
       where: { id: params.bookingId },
       data: { status, noShowReportedAt: null, flagReviewedAt: now, flagReviewedById: params.staffId },
     });
-    return { code: booking.code, status, reportedAt: booking.noShowReportedAt };
+    const result: { code: string; status: "CONFIRMED" | "COMPLETED"; reportedAt: Date | null } = { code: booking.code, status, reportedAt: booking.noShowReportedAt };
+    if (params.inTransaction) await params.inTransaction(tx, result);
+    return result;
   });
 }
 

@@ -1,8 +1,27 @@
-import { describe, expect, it, vi } from "vitest";
+import dns from "node:dns";
+import { EventEmitter } from "node:events";
+import https from "node:https";
+import { Readable } from "node:stream";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const { assertSafeFeedUrl, buildIcs, escapeIcsText, foldIcsLine, hotelExportBlocks, isPrivateAddress, parseIcsText, roomTypeExportBlocks, safeLookup } = await import("./ical");
+const {
+  assertSafeFeedUrl,
+  buildIcs,
+  CalendarHostNotAllowedError,
+  classifyFeedError,
+  escapeIcsText,
+  FEED_MAX_BYTES,
+  FEED_TIMEOUT_MS,
+  fetchIcsFeed,
+  foldIcsLine,
+  hotelExportBlocks,
+  isPrivateAddress,
+  parseIcsText,
+  roomTypeExportBlocks,
+  safeLookup,
+} = await import("./ical");
 
 const day = (value: string) => new Date(`${value}T00:00:00Z`);
 const NOW = new Date("2026-10-31T12:00:00Z");
@@ -171,8 +190,71 @@ describe("SSRF guards", () => {
     expect(() => assertSafeFeedUrl(url)).toThrow(/Calendar URL refused/);
   });
 
-  it("accepts public https URLs", () => {
+  it("accepts https links of the allowed calendar sites (SECURITY_REPORT 8.1.a)", () => {
     expect(assertSafeFeedUrl("https://www.airbnb.com/calendar/ical/123.ics?s=abc").hostname).toBe("www.airbnb.com");
+    expect(assertSafeFeedUrl("https://www.airbnb.co.il/calendar/ical/123.ics?s=abc").hostname).toBe("www.airbnb.co.il");
+    expect(assertSafeFeedUrl("https://admin.booking.com/hotel/hoteladmin/ical.html?t=abc").hostname).toBe("admin.booking.com");
+    expect(assertSafeFeedUrl("https://ical.booking.com/v1/export?t=abc").hostname).toBe("ical.booking.com");
+    expect(assertSafeFeedUrl("https://www.vrbo.com/icalendar/abc.ics").hostname).toBe("www.vrbo.com");
+    expect(assertSafeFeedUrl("https://www.homeaway.com/icalendar/abc.ics").hostname).toBe("www.homeaway.com");
+    expect(assertSafeFeedUrl("https://calendar.google.com/calendar/ical/x/private-y/basic.ics").hostname).toBe("calendar.google.com");
+    expect(assertSafeFeedUrl("https://www.airbnb.com:443/calendar/ical/1.ics").hostname).toBe("www.airbnb.com");
+  });
+
+  // The audit's probe saved these two (8.1.a); other public sites, look-alikes and bare IPs too.
+  it.each([
+    "https://10.0.0.1.sslip.io/cal.ics",
+    "https://localhost./cal.ics",
+    "https://evil.example/cal.ics",
+    "https://airbnb.com.evil.example/cal.ics",
+    "https://evilairbnb.com/cal.ics",
+    "https://booking.com-calendar.example/cal.ics",
+    "https://www.google.com/calendar/ical/x/basic.ics",
+    "https://8.8.8.8/cal.ics",
+    "https://[2606:4700:4700::1111]/cal.ics",
+    "https://0x7f000001/cal.ics",
+    "https://[::ffff:127.0.0.1]/cal.ics",
+    "https://2130706433/cal.ics",
+    "https://metadata.google.internal/computeMetadata/v1/",
+  ])("refuses %s (not a calendar site we import from)", (url) => {
+    expect(() => assertSafeFeedUrl(url)).toThrow(/Calendar URL refused/);
+    let error: unknown;
+    try {
+      assertSafeFeedUrl(url);
+    } catch (caught) {
+      error = caught;
+    }
+    expect(["calendar_host", "unsafe_url"]).toContain(classifyFeedError(error));
+  });
+
+  // DNS rebinding (8.1.b): an allowed name whose DNS answer holds any non-public address is
+  // refused when connecting, even if the first answer was public.
+  it("refuses at connect time when any DNS answer is private", async () => {
+    const answers: Record<string, { address: string; family: number }[]> = {
+      "www.airbnb.com": [
+        { address: "151.101.1.140", family: 4 },
+        { address: "169.254.169.254", family: 4 },
+      ],
+      "ical.booking.com": [{ address: "fd00::1", family: 6 }],
+      "calendar.google.com": [{ address: "142.250.74.46", family: 4 }],
+    };
+    const spy = vi.spyOn(dns, "lookup").mockImplementation(((host: string, _options: unknown, callback: (e: null, a: unknown) => void) =>
+      callback(null, answers[host] ?? [])) as unknown as typeof dns.lookup);
+    const lookup = (host: string) =>
+      new Promise<{ error: NodeJS.ErrnoException | null; address: unknown }>((resolve) =>
+        safeLookup(host, {} as never, ((error: NodeJS.ErrnoException | null, address: unknown) => resolve({ error, address })) as never),
+      );
+    expect((await lookup("www.airbnb.com")).error?.code).toBe("EADDRNOTAVAIL");
+    expect((await lookup("ical.booking.com")).error?.code).toBe("EADDRNOTAVAIL");
+    expect((await lookup("vrbo.com")).error?.code).toBe("EADDRNOTAVAIL");
+    expect(await lookup("calendar.google.com")).toEqual({ error: null, address: "142.250.74.46" });
+    spy.mockRestore();
+  });
+
+  it("tells a site that isn't on the list apart from an unsafe address", () => {
+    expect(() => assertSafeFeedUrl("https://evil.example/cal.ics")).toThrow(CalendarHostNotAllowedError);
+    expect(classifyFeedError(new CalendarHostNotAllowedError())).toBe("calendar_host");
+    expect(() => assertSafeFeedUrl("http://www.airbnb.com/cal.ics")).not.toThrow(CalendarHostNotAllowedError);
   });
 
   it("refuses host names that resolve to private addresses at connect time", async () => {
@@ -185,5 +267,114 @@ describe("SSRF guards", () => {
     expect(single.error?.code).toBe("EADDRNOTAVAIL");
     const all = await lookup({ all: true });
     expect(all.error?.code).toBe("EADDRNOTAVAIL");
+  });
+});
+
+/**
+ * The download itself (fetchIcsFeed) with https.get stubbed: no network. Every request the code
+ * makes is recorded, so a test can prove that a refused hop was never requested.
+ */
+describe("fetchIcsFeed: redirects, size and time limits (SECURITY_REPORT 8.1.c, 8.1.d)", () => {
+  const CALENDAR = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//test//EN\r\nEND:VCALENDAR\r\n";
+  type Answer = { status: number; headers?: Record<string, string>; chunks?: Buffer[] };
+  let requested: { url: string; signal: unknown }[] = [];
+  let pulled = 0;
+
+  function stub(answers: Record<string, Answer>) {
+    requested = [];
+    pulled = 0;
+    vi.spyOn(https, "get").mockImplementation(((url: URL, options: { signal?: AbortSignal }, callback: (response: unknown) => void) => {
+      requested.push({ url: url.toString(), signal: options.signal });
+      const answer = answers[url.toString()] ?? { status: 404 };
+      const chunks = answer.chunks ?? [];
+      const response = Readable.from(
+        (function* () {
+          for (const chunk of chunks) {
+            pulled++;
+            yield chunk;
+          }
+        })(),
+      ) as Readable & { statusCode: number; headers: Record<string, string> };
+      response.statusCode = answer.status;
+      response.headers = answer.headers ?? {};
+      queueMicrotask(() => callback(response));
+      return new EventEmitter();
+    }) as unknown as typeof https.get);
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("follows a redirect to another allowed calendar site, re-checking the hop", async () => {
+    stub({
+      "https://www.airbnb.co.il/calendar/ical/1.ics": { status: 301, headers: { location: "https://www.airbnb.com/calendar/ical/1.ics" } },
+      "https://www.airbnb.com/calendar/ical/1.ics": { status: 200, chunks: [Buffer.from(CALENDAR)] },
+    });
+    await expect(fetchIcsFeed("https://www.airbnb.co.il/calendar/ical/1.ics")).resolves.toContain("BEGIN:VCALENDAR");
+    expect(requested.map((r) => r.url)).toEqual(["https://www.airbnb.co.il/calendar/ical/1.ics", "https://www.airbnb.com/calendar/ical/1.ics"]);
+  });
+
+  it.each([
+    ["another public site", "https://evil.example/cal.ics", "calendar_host"],
+    ["cloud metadata", "http://169.254.169.254/latest/meta-data/", "unsafe_url"],
+    ["a private address", "https://10.0.0.1/cal.ics", "unsafe_url"],
+    ["an IPv6 private address", "https://[fd00::1]/cal.ics", "unsafe_url"],
+    ["a DNS trick name", "https://127.0.0.1.sslip.io/cal.ics", "calendar_host"],
+    ["a relative path on another host", "//evil.example/cal.ics", "calendar_host"],
+  ])("refuses a redirect to %s and never requests it", async (_label, location, code) => {
+    stub({ "https://www.airbnb.com/calendar/ical/1.ics": { status: 302, headers: { location } } });
+    const error = await fetchIcsFeed("https://www.airbnb.com/calendar/ical/1.ics").catch((caught: unknown) => caught);
+    expect(classifyFeedError(error)).toBe(code);
+    expect(requested).toHaveLength(1);
+  });
+
+  it("stops after 3 redirects", async () => {
+    const hop = (n: number) => `https://www.airbnb.com/hop/${n}.ics`;
+    stub(Object.fromEntries([0, 1, 2, 3, 4].map((n) => [hop(n), { status: 302, headers: { location: hop(n + 1) } }])));
+    const error = await fetchIcsFeed(hop(0)).catch((caught: unknown) => caught);
+    expect(classifyFeedError(error)).toBe("http_error");
+    expect(requested).toHaveLength(4);
+  });
+
+  it("caps the file at 1 MB while it streams in, even without a Content-Length", async () => {
+    expect(FEED_MAX_BYTES).toBe(1024 * 1024);
+    const chunk = Buffer.alloc(64 * 1024, 0x41);
+    stub({ "https://www.airbnb.com/big.ics": { status: 200, chunks: [Buffer.from(CALENDAR), ...Array.from({ length: 40 }, () => chunk)] } });
+    const error = await fetchIcsFeed("https://www.airbnb.com/big.ics").catch((caught: unknown) => caught);
+    expect(classifyFeedError(error)).toBe("too_large");
+    // The download stopped just past 1 MB: most of the 2.5 MB body was never read.
+    expect(pulled).toBeLessThan(20);
+  });
+
+  it("refuses a file that announces more than 1 MB before reading it", async () => {
+    stub({ "https://www.airbnb.com/big.ics": { status: 200, headers: { "content-length": String(FEED_MAX_BYTES + 1) }, chunks: [Buffer.from(CALENDAR)] } });
+    const error = await fetchIcsFeed("https://www.airbnb.com/big.ics").catch((caught: unknown) => caught);
+    expect(classifyFeedError(error)).toBe("too_large");
+    expect(pulled).toBe(0);
+  });
+
+  it("accepts a calendar just under 1 MB", async () => {
+    const padding = Buffer.alloc(FEED_MAX_BYTES - CALENDAR.length - 10, 0x20);
+    stub({ "https://calendar.google.com/calendar/ical/x/basic.ics": { status: 200, chunks: [Buffer.from(CALENDAR), padding] } });
+    await expect(fetchIcsFeed("https://calendar.google.com/calendar/ical/x/basic.ics")).resolves.toMatch(/^BEGIN:VCALENDAR/);
+  });
+
+  it("gives every hop the same 10-second deadline", async () => {
+    expect(FEED_TIMEOUT_MS).toBe(10_000);
+    stub({
+      "https://www.vrbo.com/a.ics": { status: 302, headers: { location: "https://www.vrbo.com/b.ics" } },
+      "https://www.vrbo.com/b.ics": { status: 200, chunks: [Buffer.from(CALENDAR)] },
+    });
+    await fetchIcsFeed("https://www.vrbo.com/a.ics");
+    expect(requested).toHaveLength(2);
+    expect(requested[0].signal).toBeInstanceOf(AbortSignal);
+    expect(requested[1].signal).toBe(requested[0].signal);
+  });
+
+  it("refuses an answer that is not a calendar", async () => {
+    stub({ "https://www.airbnb.com/page.ics": { status: 200, chunks: [Buffer.from("<html>login</html>")] } });
+    const error = await fetchIcsFeed("https://www.airbnb.com/page.ics").catch((caught: unknown) => caught);
+    expect(classifyFeedError(error)).toBe("not_calendar");
   });
 });

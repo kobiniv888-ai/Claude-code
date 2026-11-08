@@ -26,6 +26,7 @@ import {
   KITCHEN_KOSHER,
   SHABBAT_FEATURES,
 } from "@/lib/listing/fields";
+import { UPLOAD_IMAGE_ACCEPT } from "@/lib/media";
 import { cn } from "@/lib/utils";
 import { applies } from "@/lib/wizard/steps";
 import { CheckCards, ChoiceCards, Field, FieldError, Section } from "../fields";
@@ -149,7 +150,7 @@ function KosherCertificateUpload({
         <input
           ref={input}
           type="file"
-          accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"
+          accept={`${UPLOAD_IMAGE_ACCEPT},application/pdf`}
           className="sr-only"
           tabIndex={-1}
           aria-hidden

@@ -428,7 +428,9 @@ describe("reporting a reply, and staff hiding any review (reviews-2)", () => {
     await expectCode(service.reportReview({ reporterId: ids.guest, reviewId: review.id, reason: "OFFENSIVE", details: "" }), "already_reported");
     // The host's own report is about the review; both show on the staff page with their part.
     await service.reportReview({ reporterId: ids.host, reviewId: review.id, reason: "OFFENSIVE", details: "" });
-    expect((await getReviewReports(review.id)).map((r) => r.part).sort()).toEqual(["reply", "review"]);
+    expect((await getReviewReports(review.id, { role: "ADMIN" })).map((r) => r.part).sort()).toEqual(["reply", "review"]);
+    // Q12: who sent them is ADMIN only.
+    expect((await getReviewReports(review.id, { role: "MODERATOR" })).every((r) => r.reporter === null && r.reporterWithheld)).toBe(true);
     // The guest's page shows their open report of the reply.
     const mine = (await getGuestReviews(ids.guest, "en")).written.find((r) => r.id === review.id);
     expect(mine?.reportedAt).toBeInstanceOf(Date);

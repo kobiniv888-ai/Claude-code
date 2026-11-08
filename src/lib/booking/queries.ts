@@ -6,6 +6,7 @@ import { pickLocalized } from "@/i18n/locale";
 import { personName } from "@/lib/auth/first-name";
 import { verifiedPhoneOf } from "@/lib/auth/phone-once";
 import { db } from "@/lib/db";
+import { taintObject } from "@/lib/security/taint";
 import { listingSlugParam } from "@/lib/listing/urls";
 import { photoUrl } from "@/lib/media";
 import { normalizeBookingCode } from "./code";
@@ -274,6 +275,10 @@ export async function getGuestTrip(
     },
   });
   if (!row) return null;
+  // The raw row holds the exact address, pin and the host's phone: only the shaped trip below may
+  // reach the page (React taint, SECURITY_REPORT 5.k).
+  taintObject("raw booking row", row);
+  taintObject("raw listing row (exact address)", row.listing);
   const summary = toSummary(row, locale, now);
   const reveal = canRevealHostContact(row, guestUserId, now)
     ? {

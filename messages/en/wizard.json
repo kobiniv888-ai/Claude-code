@@ -130,7 +130,8 @@
   },
   "uploadErrors": {
     "file_too_large": "This photo is too large. Please choose a smaller one (up to 15 MB).",
-    "file_type_not_allowed": "This file type isn't supported. Please use JPG, PNG, WebP or HEIC photos.",
+    "file_type_not_allowed": "This file type isn't supported. Please use JPG, PNG or WebP photos.",
+    "heic_not_supported": "This is an iPhone photo in HEIC format, which we can't accept. Choose it again from your Photos library (not from Files) and your iPhone will send it as a JPEG. To take JPEG photos from now on: Settings › Camera › Formats › Most Compatible.",
     "image_too_small": "This photo is too small. Please use a photo at least 400 pixels on its short side.",
     "image_corrupt": "This photo couldn't be opened. Please try another one.",
     "file_rejected": "This file was refused. Please choose a different photo.",
@@ -158,6 +159,8 @@
     "invalidCadastral": "A cadastral code has digits and dots, for example 01.10.13.023.045.",
     "videoUrl": "Please paste a YouTube or Vimeo link that starts with https://.",
     "httpsOnly": "Please use a secure link that starts with https://.",
+    "calendarHost": "We can connect calendars from Airbnb, Booking.com, Vrbo or Google Calendar only.",
+    "tourHost": "360° tours can come from Matterport, Kuula, Momento360 or Roundme only.",
     "tooMany": "That's too many.",
     "duplicateChannel": "Each contact method can be added only once.",
     "pickOne": "Please choose one option.",
@@ -424,7 +427,7 @@
     "videoUrl": "Video link",
     "videoUrlHelp": "A YouTube or Vimeo link.",
     "tourUrl": "360° tour link",
-    "tourUrlHelp": "A virtual tour link (Matterport, Kuula…), starting with https://."
+    "tourUrlHelp": "A virtual tour link on Matterport, Kuula, Momento360 or Roundme, starting with https://."
   },
   "size": {
     "title": "Size and rooms",

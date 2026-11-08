@@ -555,6 +555,8 @@ test("every new admin page and file route answers 404 to a signed-in user who is
     "/en/admin/badges",
     "/en/admin/flags",
     "/en/admin/flags?view=hosts",
+    "/en/admin/flags?view=longStays",
+    "/en/admin/flags?view=guests",
     "/en/admin/bookings",
     "/en/admin/reference-prices",
     "/en/admin/reference-prices/new",

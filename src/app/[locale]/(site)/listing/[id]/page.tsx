@@ -51,7 +51,7 @@ import { hasKosherShabbat, listingHighlights, walkHighlight } from "@/lib/listin
 import { getListingPaths, isListingSaved } from "@/lib/listing-page/load";
 import { listingBreadcrumbs, listingMetaLead, listingMetaTitle, listingPlace } from "@/lib/listing-page/meta";
 import { sameTitleInCity } from "@/lib/listing-page/same-title";
-import { parseVideoUrl, safeExternalUrl } from "@/lib/listing-page/media";
+import { parseVideoUrl, safeTourUrl } from "@/lib/listing-page/media";
 import { verifiedNearestSynagogue } from "@/lib/listing-page/places";
 import { resolveListing } from "@/lib/listing-page/resolve";
 import { rangeIsFree } from "@/lib/listing-page/stay";
@@ -187,7 +187,7 @@ export default async function ListingPage({ params, searchParams }: Props) {
 
   const reason = previewReason(resolved.accessInput, { demoVisible: settings.demoDataVisible });
   const video = parseVideoUrl(data.videoUrl);
-  const tourUrl = safeExternalUrl(data.tour360Url);
+  const tourUrl = safeTourUrl(data.tour360Url);
   const path = listingPath(data.publicId, data.title.shown);
   const shareUrl = absoluteUrl(localizedPath(locale, path));
   const place = [data.neighborhoodName, data.city?.name].filter(Boolean).join(" · ");

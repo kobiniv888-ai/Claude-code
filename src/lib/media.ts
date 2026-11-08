@@ -95,6 +95,49 @@ export function absoluteMediaUrl(url: string): string {
   return siteAbsoluteUrl(url);
 }
 
+// ─── Reverse image search (admin review) ──────────────────────
+
+export type ReverseImageLinks = { googleLens: string; tinEye: string };
+
+/**
+ * "Search this photo online" links for the first-listing review (SECURITY_REPORT 9.m): Google Lens
+ * and TinEye, both free, by the photo's public address. Nothing is uploaded by us: the staff
+ * member opens the link in a new tab and the search site fetches the public photo itself. Null
+ * for anything that is not an absolute http(s) address (a stored URL we would not link to).
+ */
+export function reverseImageSearchLinks(imageUrl: string): ReverseImageLinks | null {
+  // An absolute http(s) address, or a path on our own site ("/api/media/…"); nothing else.
+  if (!/^https?:\/\//i.test(imageUrl) && !/^\/(?!\/)/.test(imageUrl)) return null;
+  let url: URL;
+  try {
+    url = new URL(absoluteMediaUrl(imageUrl));
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+  if (url.username || url.password) return null;
+  const encoded = encodeURIComponent(url.toString());
+  return {
+    googleLens: `https://lens.google.com/uploadbyurl?url=${encoded}`,
+    tinEye: `https://tineye.com/search?url=${encoded}`,
+  };
+}
+
+// ─── Accepted uploads ─────────────────────────────────────────
+
+/**
+ * The image types every upload field offers (the file input's `accept`). JPEG, PNG and WebP only
+ * (SECURITY_REPORT 9.a): leaving HEIC out makes an iPhone convert its photos to JPEG by itself
+ * before sending them. The server checks the real bytes again (sniffImageFormat in @/lib/images)
+ * and refuses HEIC (with "heic_not_supported"), AVIF, GIF, SVG and everything else.
+ */
+export const UPLOAD_IMAGE_ACCEPT = "image/jpeg,image/png,image/webp";
+
+/** A picked file that is HEIC/HEIF by its type or name (the upload fields answer at once). */
+export function isHeicFile(file: { type: string; name: string }): boolean {
+  return /^image\/hei[cf](-sequence)?$/i.test(file.type) || /\.(heic|heif)$/i.test(file.name);
+}
+
 // ─── Private uploads ──────────────────────────────────────────
 
 /** "report": turned-away report screenshots (round 3, brief 8.2; src/lib/reports/turned-away.ts). */

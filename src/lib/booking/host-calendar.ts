@@ -3,7 +3,7 @@ import type { AppLocale, CurrencyCode } from "@/config/site";
 import type { BookingMode, BookingStatus, DealType, ListingStatus } from "@/generated/prisma/enums";
 import { groupHolidayPeriods, isPeakHoliday, type CalendarHoliday, type HolidayPeriod } from "@/components/host-calendar/model";
 import { pickLocalized } from "@/i18n/locale";
-import { randomToken } from "@/lib/crypto";
+import { newIcalToken } from "@/lib/listing/ical-token";
 import { db } from "@/lib/db";
 import { getHolidaysInRange, holidayName } from "@/lib/hebcal";
 import { icalExportUrl } from "@/lib/ical";
@@ -161,7 +161,7 @@ export async function getHostCalendar(userId: string, listingId: string, locale:
     ? await Promise.all(
         listing.roomTypes.map(async (room) => {
           if (room.icalToken) return { ...room, icalToken: room.icalToken };
-          const token = randomToken(24);
+          const token = newIcalToken();
           const { count } = await db.roomType.updateMany({ where: { id: room.id, icalToken: null }, data: { icalToken: token } });
           if (count === 1) return { ...room, icalToken: token };
           const saved = await db.roomType.findUnique({ where: { id: room.id }, select: { icalToken: true } });

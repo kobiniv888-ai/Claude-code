@@ -268,7 +268,8 @@ export async function reportChannelFailure(input: ChannelFailureInput): Promise<
   const plan = afterChannelFailure(before, input.channel);
   const updated: AlertHost = { ...host, notificationPrefs: notificationPrefs as Prisma.JsonValue };
   if (await isBookingHost(host.id)) {
-    const notice = { kind: "paused" as const, failed: input.channel, stillInstant: plan.stillInstant, address: input.channel === "email" ? address : null };
+    // The bouncing address is not repeated in the notice (it shows on a lock screen, 5.i).
+    const notice = { kind: "paused" as const, failed: input.channel, stillInstant: plan.stillInstant };
     await alertHost(updated, notice, env, { channels: plan.tellVia, quiet: true }).catch(() => undefined);
     await textHostPaused(updated, notice).catch(() => undefined);
   }

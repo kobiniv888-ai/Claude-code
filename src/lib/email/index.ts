@@ -7,6 +7,7 @@ import { formatDate } from "@/lib/format";
 import { isAppLocale } from "@/i18n/locale";
 import { siteUrl } from "@/lib/site-url";
 import { readSiteEnv } from "@/lib/site-env";
+import { maskEmail } from "@/lib/log-scrub";
 import type { EmailStatus } from "@/generated/prisma/enums";
 import { renderEmailHtml, renderEmailText, type LayoutContext } from "./layout";
 import { buildEmailContent, type EmailData, type EmailTemplate, type TemplateContext } from "./templates";
@@ -264,11 +265,14 @@ export async function sendEmail<K extends EmailTemplate>({
 
   const client = outboxOnly ? null : resend();
   if (!client) {
-    // The full text (codes unmasked) only on a development server of a development site.
-    const logged = process.env.NODE_ENV !== "production" && readSiteEnv() === "development" ? rendered : stored;
+    // The text only on a development server of a development site (and even there the log
+    // scrubber masks emails, phones and codes: src/lib/log-scrub.ts). Elsewhere the log keeps the
+    // template and a masked address; the message itself is in the admin email outbox (5.l).
+    const devLog = process.env.NODE_ENV !== "production" && readSiteEnv() === "development";
     console.info(
       `[email] RESEND_API_KEY is not set — not sent (see the admin email outbox).\n` +
-        `  to: ${recipient}\n  template: ${template} (${locale})\n  subject: ${logged.subject}\n\n${logged.text}\n`,
+        `  to: ${maskEmail(recipient)}\n  template: ${template} (${locale})` +
+        (devLog ? `\n  subject: ${rendered.subject}\n\n${rendered.text}\n` : "\n"),
     );
     await recordOutbox({ to: recipient, template, locale, rendered: stored, status: "LOGGED", provider: outboxOnly ? "outbox" : "console" });
     return { ok: true, delivery: "logged" };
@@ -287,7 +291,7 @@ export async function sendEmail<K extends EmailTemplate>({
       headers: safeEmailHeaders(headers),
     });
     if (error) {
-      console.error(`[email] Resend rejected "${template}" to ${recipient}:`, error.message);
+      console.error(`[email] Resend rejected "${template}" to ${maskEmail(recipient)}:`, error.message);
       await recordOutbox({ to: recipient, template, locale, rendered: stored, status: "FAILED", provider: "resend", error: error.message });
       return { ok: false, delivery: "failed" };
     }

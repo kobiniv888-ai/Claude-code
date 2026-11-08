@@ -85,7 +85,8 @@ export async function updateFavoriteNote(
 /** Listing ids the current user has saved, newest first ([] when signed out). */
 export async function getFavoriteIds(): Promise<string[]> {
   const user = await getCurrentUser();
-  if (!user) return [];
+  // A session whose 2-step code is not entered yet counts as signed out (SECURITY_REPORT 4.2.a).
+  if (!user || !user.twoFactorVerified) return [];
   const rows = await db.favorite.findMany({
     where: { userId: user.id },
     orderBy: { createdAt: "desc" },

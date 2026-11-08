@@ -197,7 +197,9 @@ export async function getDeviceCardsAction(listingIds: string[]): Promise<Action
     if (!input.success) return fail("invalid_input");
     if (input.data.length === 0) return ok([]);
     await assertRateLimitByIp("lists-device-cards", { limit: 60, windowSeconds: 60 });
-    const [user, locale, rates] = await Promise.all([getCurrentUser(), currentLocale(), getRates()]);
+    const [session, locale, rates] = await Promise.all([getCurrentUser(), currentLocale(), getRates()]);
+    // A session whose 2-step code is not entered yet counts as signed out (SECURITY_REPORT 4.2.a).
+    const user = session?.twoFactorVerified ? session : null;
     const currency = await getDisplayCurrency(user?.currency);
     return ok(await getListingCards(input.data, { locale, currency, rates, userId: user?.id ?? null }));
   });

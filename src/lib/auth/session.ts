@@ -14,6 +14,7 @@ import { needsFirstName } from "./first-name";
 import { requestHostsOf } from "./code-display";
 import { can, isStaffRole, type Permission } from "./permissions";
 import { isPlaceholderEmail } from "./phone";
+import { taintObject, taintValue } from "@/lib/security/taint";
 import { auth } from "./server";
 import { checkStaffSessionIdle, hasStaffCookie } from "./staff-session";
 import { canSkipStaffTwoFactor, demoStaffAllowed, staffAccess, type StaffAccess, type StaffAccessEnv } from "./staff-access";
@@ -62,7 +63,15 @@ export type CurrentUser = {
 
 /** Better Auth session (cookie checked, expiry refreshed). Null when signed out. */
 export const getSession = cache(async () => {
-  return auth.api.getSession({ headers: await headers() });
+  const session = await auth.api.getSession({ headers: await headers() });
+  // Never to the browser: the session token, and the raw session and user objects (5.k).
+  if (session) {
+    taintValue("session token", session.session, session.session.token);
+    taintObject("Better Auth session", session);
+    taintObject("Better Auth session row", session.session);
+    taintObject("Better Auth user row", session.user);
+  }
+  return session;
 });
 
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
@@ -115,7 +124,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     else staffCookieOk = await hasStaffCookie(session.session.id);
   }
 
-  return {
+  const current: CurrentUser = {
     id: user.id,
     name: user.name,
     firstName: user.firstName,
@@ -141,6 +150,10 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     twoFactorVerified,
     staffCookieOk,
   };
+  // The account row with its email and phone: components get the fields they need, never all of it.
+  taintObject("current user (email, phone)", current);
+  taintObject("account row", user);
+  return current;
 });
 
 /**

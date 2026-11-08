@@ -1,11 +1,11 @@
 import type { Locator, Page } from "@playwright/test";
 import { expect, openAs, openAsTestUser, settle, test } from "./fixtures";
 import { DEMO } from "./helpers/auth";
-import { sql } from "./helpers/db";
+import { createTestUser, sql } from "./helpers/db";
 
 /**
  * Booking end to end (brief 5.5 and 5.6, docs/redesign-2/booking.md), in Hebrew (the main
- * language): the demo guest Noa books two free nights at Yossi's demo short stay #91 ($70 a night,
+ * language): a fresh test guest books two free nights at Yossi's demo short stay #91 ($70 a night,
  * $20 cleaning, at least 2 nights, no weekend price, flexible policy) → the confirmation shows the
  * code, the exact address and the host's contact → "הנסיעות שלי" lists it → Yossi sees it in
  * "הזמנות לנכסים שלי" and on the calendar → the same nights can't be booked again (a friendly
@@ -87,7 +87,10 @@ test.describe("booking", () => {
     const { checkIn, checkOut } = await freeNights(listing.id);
     const icsDay = checkIn.replace(/-/g, "");
 
-    const guest = await openAs(browser, DEMO.guest);
+    // A fresh test guest per test (a test phone, removed by the clean-up): at most 2 upcoming
+    // bookings per verified phone (founder's decision 8), so a shared account would make the
+    // booking tests depend on each other and on the seeded demo trips.
+    const guest = await openAsTestUser(browser, await createTestUser({ name: "E2E Guest Noa" }));
     const page = guest.page;
 
     // ── 1. Dates and guests: pick the two nights in the sheet, the total shows at once ──
@@ -271,7 +274,10 @@ test.describe("booking", () => {
       [datePriceId, listing.id, addDays(checkIn, 1), addDays(checkIn, 3)],
     );
     await sql(`UPDATE "Listing" SET "weeklyDiscountPct" = 10, "monthlyDiscountPct" = NULL WHERE id = $1`, [listing.id]);
-    const guest = await openAs(browser, DEMO.guest);
+    // A fresh test guest per test (a test phone, removed by the clean-up): at most 2 upcoming
+    // bookings per verified phone (founder's decision 8), so a shared account would make the
+    // booking tests depend on each other and on the seeded demo trips.
+    const guest = await openAsTestUser(browser, await createTestUser({ name: "E2E Guest Noa" }));
     const page = guest.page;
     try {
       // ── The holiday price's own minimum stay: 2 nights touching it are refused, with its dates and note ──

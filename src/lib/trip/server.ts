@@ -8,6 +8,7 @@ import { addDays } from "@/lib/booking/dates";
 import { canRevealHostContact } from "@/lib/booking/policy";
 import { parseContactMethods } from "@/lib/contact/links";
 import { db } from "@/lib/db";
+import { taintObject } from "@/lib/security/taint";
 import { haversineMeters, walkingMinutes } from "@/lib/geo";
 import { publicWalkMinutes } from "@/lib/geo/public-walk";
 import { getHolidaysInRange, holidayName, type HolidayKey } from "@/lib/hebcal";
@@ -201,6 +202,9 @@ export async function getTripExtras(
     },
   });
   if (!row) return null;
+  // Exact pin and contact values: only the shaped extras below reach the page (5.k).
+  taintObject("raw booking row", row);
+  taintObject("raw listing row (exact pin, contacts)", row.listing);
   const { listing } = row;
   const country = countryConfig(listing.countryCode);
   // The exact pin, the host's contacts and the walks from the pin: only while the booking itself

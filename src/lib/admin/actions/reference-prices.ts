@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { fail, ok, type ActionResult } from "@/lib/action";
-import { audit } from "@/lib/audit";
+import { audit, auditOrThrow } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { monthToDate, referenceFieldErrors, referencePriceSchema, sourceMonthProblem } from "../reference-prices";
 import { AdminActionError, runStaffAction } from "../server/common";
@@ -81,12 +81,18 @@ export async function setReferencePriceActiveAction(input: unknown): Promise<Act
       const row = await db.referencePrice.findUnique({ where: { id: parsed.data.id }, select: { id: true, active: true } });
       if (!row) throw new AdminActionError("reference_price_not_found", 404);
       if (row.active === parsed.data.active) return ok({ active: row.active });
-      await db.referencePrice.update({ where: { id: row.id }, data: { active: parsed.data.active } });
-      await audit({
-        actorId: staff.id,
-        action: parsed.data.active ? "reference_price.reactivate" : "reference_price.deactivate",
-        targetType: "ReferencePrice",
-        targetId: row.id,
+      // Q13: the change and its audit row commit together, or not at all.
+      await db.$transaction(async (tx) => {
+        await tx.referencePrice.update({ where: { id: row.id }, data: { active: parsed.data.active } });
+        await auditOrThrow(
+          {
+            actorId: staff.id,
+            action: parsed.data.active ? "reference_price.reactivate" : "reference_price.deactivate",
+            targetType: "ReferencePrice",
+            targetId: row.id,
+          },
+          tx,
+        );
       });
       return ok({ active: parsed.data.active });
     },

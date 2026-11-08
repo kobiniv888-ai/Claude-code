@@ -7,6 +7,7 @@ import { can } from "@/lib/auth/permissions";
 import { db } from "@/lib/db";
 import { ACTIVE_TICKET_STATUSES, TICKET_CATEGORIES, TICKET_STATUSES } from "@/lib/tickets/constants";
 import { ADMIN_PAGE_SIZE, coverPhotoSelect, realEmail } from "./shared";
+import { canSeeGuestPhone, type StaffViewer } from "../staff-visibility";
 
 /** The support queue and the ticket page (server-only). */
 
@@ -117,8 +118,12 @@ export async function ticketStaffMembers() {
   return rows.filter((r) => can(r.role, "tickets"));
 }
 
-/** Extra context for the ticket page: the requester's account and the linked listing. */
-export async function ticketContext(ticket: { userId: string | null; listing: { id: string } | null }, locale: string) {
+/**
+ * Extra context for the ticket page: the requester's account and the linked listing. The
+ * requester's phone is ADMIN only (founder's decision Q12: an account's verified phone is the
+ * guest phone of its bookings); support answers in the ticket thread.
+ */
+export async function ticketContext(ticket: { userId: string | null; listing: { id: string } | null }, locale: string, viewer: Pick<StaffViewer, "role">) {
   const [requester, listing] = await Promise.all([
     ticket.userId
       ? db.user.findUnique({
@@ -162,5 +167,9 @@ export async function ticketContext(ticket: { userId: string | null; listing: { 
         })
       : Promise.resolve(null),
   ]);
-  return { requester: requester ? { ...requester, email: realEmail(requester.email) } : null, listing };
+  const showPhone = canSeeGuestPhone(viewer);
+  return {
+    requester: requester ? { ...requester, email: realEmail(requester.email), phoneNumber: showPhone ? requester.phoneNumber : null, phoneWithheld: !showPhone && !!requester.phoneNumber } : null,
+    listing,
+  };
 }

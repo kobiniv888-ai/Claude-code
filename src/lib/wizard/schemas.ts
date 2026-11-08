@@ -11,6 +11,7 @@
  */
 import { z } from "zod";
 import { COUNTRIES, isInCountry } from "@/config/countries";
+import { allowListedHttpsUrl, CALENDAR_IMPORT_DOMAINS, isTourUrl } from "@/config/external-hosts";
 import { isValidPhone as isValidPhoneNumber, normalizePhone } from "@/lib/phone";
 import { locales, siteConfig, type AppLocale, type CurrencyCode } from "@/config/site";
 import type {
@@ -222,6 +223,22 @@ export function isHttpsUrl(value: string): boolean {
   return !!url && url.protocol === "https:" && url.hostname.includes(".");
 }
 
+/**
+ * A calendar link to import: https on Airbnb, Booking.com, Vrbo / HomeAway or Google Calendar
+ * (CALENDAR_IMPORT_DOMAINS, SECURITY_REPORT 8.1.a). The sync checks it again on every download.
+ */
+export function isCalendarImportUrl(value: string): boolean {
+  return allowListedHttpsUrl(value, CALENDAR_IMPORT_DOMAINS) !== null;
+}
+
+/** "httpsOnly" for a link that isn't https at all, else `hostKey` when its site isn't on the list. */
+function allowListRefine(isAllowed: (value: string) => boolean, hostKey: string) {
+  return (value: string, ctx: z.RefinementCtx<string>) => {
+    if (value === "" || isAllowed(value)) return;
+    ctx.addIssue({ code: "custom", message: isHttpsUrl(value) ? hostKey : "httpsOnly" });
+  };
+}
+
 export function isValidPhone(value: string): boolean {
   return E164.test(value) && isValidPhoneNumber(value);
 }
@@ -346,7 +363,8 @@ export const detailsStepSchema = z.object({
   title: optionalText(LIMITS.titleMax),
   description: optionalText(LIMITS.descriptionMax),
   videoUrl: urlField.refine((v) => v === "" || isVideoUrl(v), "videoUrl"),
-  tour360Url: urlField.refine((v) => v === "" || isHttpsUrl(v), "httpsOnly"),
+  // Matterport, Kuula, Momento360 or Roundme only (SECURITY_REPORT 7.f); the page checks it again.
+  tour360Url: urlField.superRefine(allowListRefine(isTourUrl, "tourHost")),
 });
 
 /** The four steps that replaced round 1's "details" step each validate their part of it. */
@@ -418,7 +436,7 @@ export const priceStepSchema = z.object({
   weeklyDiscountPct: int(0, LIMITS.discountMax),
   monthlyDiscountPct: int(0, LIMITS.discountMax),
   icalImportUrls: z
-    .array(z.string().trim().max(LIMITS.urlMax, "tooLong").refine((v) => v === "" || isHttpsUrl(v), "httpsOnly"))
+    .array(z.string().trim().max(LIMITS.urlMax, "tooLong").superRefine(allowListRefine(isCalendarImportUrl, "calendarHost")))
     .max(LIMITS.maxIcalImports, "tooMany")
     .transform((list) => [...new Set(list.filter(Boolean))]),
 });

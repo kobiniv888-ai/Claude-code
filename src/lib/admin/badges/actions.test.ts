@@ -55,9 +55,13 @@ vi.mock("@/lib/audit", () => ({
   audit: async (entry: (typeof state.audits)[number]) => {
     state.audits.push(entry);
   },
+  // Clearing the badge writes its row in the change's transaction (Q13).
+  auditOrThrow: async (entry: (typeof state.audits)[number]) => {
+    state.audits.push(entry);
+  },
 }));
-vi.mock("@/lib/db", () => ({
-  db: {
+vi.mock("@/lib/db", () => {
+  const db = {
     auditLog: { findMany: async () => state.setEntries },
     listing: {
       findUnique: async () => (state.listing ? structuredClone(state.listing) : null),
@@ -66,8 +70,10 @@ vi.mock("@/lib/db", () => ({
         return {};
       },
     },
-  },
-}));
+    $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(db),
+  };
+  return { db };
+});
 
 const { setVisitedAction, clearVisitedAction } = await import("./actions");
 

@@ -2,7 +2,7 @@
 
 import { flattenError } from "zod";
 import { fail, ok, type ActionResult } from "@/lib/action";
-import { audit } from "@/lib/audit";
+import { audit, auditOrThrow } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { ForbiddenError } from "@/lib/errors";
 import { runStaffAction } from "../server/common";
@@ -105,17 +105,24 @@ export async function clearVisitedAction(input: unknown): Promise<ActionResult<{
       if (!listing) return fail("listing_not_found");
       if (!listing.visitedAt) return ok({ cleared: false });
 
-      await db.listing.update({ where: { id: listing.id }, data: { visitedAt: null, visitedNote: null, visitedById: null } });
-      await audit({
-        actorId: staff.id,
-        action: VISIT_CLEAR_ACTION,
-        targetType: "Listing",
-        targetId: listing.id,
-        details: {
-          publicId: listing.publicId,
-          note: note || null,
-          previous: { visitedOn: dayString(listing.visitedAt), note: listing.visitedNote, enteredById: listing.visitedById },
-        },
+      // Removing the badge (Q13): the change and its audit row (with the previous values) commit
+      // together, or not at all.
+      await db.$transaction(async (tx) => {
+        await tx.listing.update({ where: { id: listing.id }, data: { visitedAt: null, visitedNote: null, visitedById: null } });
+        await auditOrThrow(
+          {
+            actorId: staff.id,
+            action: VISIT_CLEAR_ACTION,
+            targetType: "Listing",
+            targetId: listing.id,
+            details: {
+              publicId: listing.publicId,
+              note: note || null,
+              previous: { visitedOn: dayString(listing.visitedAt), note: listing.visitedNote, enteredById: listing.visitedById },
+            },
+          },
+          tx,
+        );
       });
       return ok({ cleared: true });
     },

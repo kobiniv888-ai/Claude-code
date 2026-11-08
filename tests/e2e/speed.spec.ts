@@ -35,8 +35,12 @@ async function photoRequests(page: Page, path: string): Promise<{ before: string
 test("the home page's first paint waits for the first card, which preloads its photo", async ({ page }) => {
   await page.setViewportSize(PHONE);
   await page.goto("/he");
-  const expectLink = page.locator('head link[rel="expect"]');
-  await expect(expectLink).toHaveCount(1);
+  // Ours points at the first card. React's experimental build (Next uses it for the taint API,
+  // SECURITY_REPORT 5.k) adds its own for the end of the page shell ("#_R_"); no other may exist.
+  const expectLinks = page.locator('head link[rel="expect"]');
+  const hrefs = await expectLinks.evaluateAll((links) => links.map((link) => link.getAttribute("href")));
+  expect(hrefs.filter((href) => href !== "#_R_")).toHaveLength(1);
+  const expectLink = page.locator('head link[rel="expect"]:not([href="#_R_"])');
   await expect(expectLink).toHaveAttribute("blocking", "render");
   const target = (await expectLink.getAttribute("href"))!;
   expect(target).toMatch(/^#/);

@@ -32,6 +32,8 @@ export const SECURITY_EVENT_TYPES = [
   "booking_cap_hit",
   /** A visitor hit the daily "show contact" cap. */
   "show_contact_cap_hit",
+  /** A host replaced a calendar export link (the old one stops working; SECURITY_REPORT 4.7.b). */
+  "calendar_link_replaced",
   /** The browser reported a Content-Security-Policy violation. */
   "csp_report",
 ] as const;

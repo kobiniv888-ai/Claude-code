@@ -470,7 +470,13 @@
       "auth_recovery": "Logged in with a recovery code",
       "auth_two_factor_on": "Turned on 2-step login",
       "auth_authenticator_changed": "Moved 2-step login to a new phone",
-      "auth_recovery_codes_new": "Made new recovery codes"
+      "auth_recovery_codes_new": "Made new recovery codes",
+      "flag_long_stay_reviewed": "Long stay reviewed",
+      "flag_guest_reviewed": "Guest reviewed",
+      "user_view": "User page viewed",
+      "booking_view": "Booking viewed",
+      "verification_documents_left": "Documents not deleted after a decision",
+      "demo_remove_start": "Demo data removal started"
     }
   },
   "moderation": {
@@ -527,6 +533,9 @@
     "riskNone": "No warning signs were found.",
     "points": "{points} points",
     "photosTitle": "{count, plural, one {{count} photo} other {{count} photos}}",
+    "photosReverseHint": "Check each photo online: a photo copied from another site is a common sign of a fake listing. The link opens in a new tab and sends only the photo's address.",
+    "reverseSearch": "Search this photo online:",
+    "reverseSearchOn": "Search photo {number} on {site} (opens in a new tab)",
     "noPhotos": "This listing has no photos.",
     "photoAlt": "Photo {number}",
     "cover": "Cover",
@@ -1016,7 +1025,8 @@
       "hosts": "Hosts only",
       "guests": "No listings"
     },
-    "rowBookings": "Bookings: {host} as host · {guest} as guest"
+    "rowBookings": "Bookings: {host} as host · {guest} as guest",
+    "phoneWithheld": "The phone number is visible to administrators only"
   },
   "verifications": {
     "title": "Verifications",
@@ -1284,12 +1294,14 @@
   },
   "flags": {
     "title": "Flags",
-    "description": "Hosts who cancelled within 48 hours, guests who didn't come, and hosts with {min} or more reports.",
+    "description": "Hosts who cancelled within 48 hours, guests who didn't come, long stays, guests who cancel again and again, and hosts with {min} or more reports.",
     "at": "{date}, {time}",
     "viewsLabel": "Kinds of flags",
     "views": {
       "cancellations": "Cancellations",
       "noShows": "No-shows",
+      "longStays": "Long stays",
+      "guests": "Guests",
       "hosts": "Hosts"
     },
     "stateLabel": "State",
@@ -1299,18 +1311,24 @@
     },
     "viewHints": {
       "cancellations": "The host cancelled within 48 hours of the booking, or the guest wrote that the host asked them to cancel. While the flag is open, the host's new listings wait for review.",
-      "noShows": "For information only: the host says the guest didn't come. This flags neither the guest nor the host.",
+      "noShows": "For information: the host says the guest didn't come. A guest with 2 of these in a year also shows on the \"Guests\" tab for review. Nothing happens automatically.",
+      "longStays": "Bookings of {nights} nights or more that haven't ended yet: one booking can block a host's calendar for weeks. For review only; the booking stays.",
+      "guests": "Guests with {cancel} or more cancellations in the last 90 days, or {noShow} or more no-show reports in the last 12 months. For review only: nobody is blocked or told. A cancellation because the flight was cancelled doesn't count. A new cancellation or no-show opens the flag again.",
       "hosts": "Hosts with {min} or more reports in the last 12 months, dismissed ones left out. A new report opens the flag again."
     },
     "empty": {
       "open": {
         "cancellations": "No cancellations waiting for review",
         "noShows": "No no-shows reported",
+        "longStays": "No long stays waiting for review",
+        "guests": "No guests who cancel again and again",
         "hosts": "No hosts with several reports"
       },
       "reviewed": {
         "cancellations": "No cancellations reviewed yet",
         "noShows": "No no-shows reviewed yet",
+        "longStays": "No long stays reviewed yet",
+        "guests": "No guests reviewed yet",
         "hosts": "No hosts reviewed yet"
       }
     },
@@ -1345,7 +1363,11 @@
       "noteLabel": "What did you check?",
       "noteHint": "Required. Only staff see this note.",
       "notePlaceholder": "For example: I spoke with the host, there was a real problem with the flat.",
-      "done": "Marked reviewed."
+      "done": "Marked reviewed.",
+      "longStayTitle": "Mark the long stay reviewed?",
+      "longStayDescription": "Booking {label} moves to the reviewed list. Nothing changes in the booking itself. Your note is kept in the audit log.",
+      "guestTitle": "Mark the guest reviewed?",
+      "guestDescription": "The flag on {label} closes, and a new cancellation or no-show opens it again. The guest is not told. Your note is kept in the audit log."
     },
     "noShowClear": {
       "button": "Clear the report",
@@ -1356,7 +1378,12 @@
       "noteHint": "Required. Only staff see the note.",
       "notePlaceholder": "For example: the guest sent a photo of the host's receipt.",
       "done": "The report was cleared."
-    }
+    },
+    "guestCancellations": "{count, plural, one {1 cancellation in the last 90 days} other {{count} cancellations in the last 90 days}}",
+    "guestNoShows": "{count, plural, one {1 no-show in the last 12 months} other {{count} no-shows in the last 12 months}}",
+    "latestEvent": "Latest: {when}",
+    "accountSince": "Account opened {when}",
+    "guestBookings": "The guest's bookings"
   },
   "bookings": {
     "title": "Bookings",

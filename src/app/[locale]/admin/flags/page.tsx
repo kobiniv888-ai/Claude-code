@@ -1,4 +1,4 @@
-import { CalendarX2, CheckCheck, UserRoundX, UserX } from "lucide-react";
+import { CalendarRange, CalendarX2, CheckCheck, UserRoundX, UsersRound, UserX } from "lucide-react";
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { UserStatusBadge } from "@/components/admin/badges";
@@ -12,6 +12,7 @@ import type { AppLocale } from "@/config/site";
 import type { BookingStatus, UserStatus } from "@/generated/prisma/enums";
 import { Link } from "@/i18n/navigation";
 import { HOST_REPORT_FLAG_MIN } from "@/lib/admin/flags";
+import { LONG_STAY_FLAG_NIGHTS, REPEAT_CANCEL_FLAG_MIN, REPEAT_NO_SHOW_FLAG_MIN } from "@/lib/booking/guest-flags";
 import { enumParam, pageParam } from "@/lib/admin/params";
 import { FLAG_STATES, FLAG_VIEWS, FLAGS_PAGE_SIZE, listFlags, type FlagState, type FlagView } from "@/lib/admin/server/flags";
 import { requireStaff } from "@/lib/auth/session";
@@ -25,7 +26,9 @@ const STATUS_TONE: Record<BookingStatus, PillTone> = {
   CANCELLED_BY_HOST: "warning",
   NO_SHOW: "warning",
 };
-const EMPTY_ICON = { cancellations: CalendarX2, noShows: UserX, hosts: UserRoundX } as const;
+const EMPTY_ICON = { cancellations: CalendarX2, noShows: UserX, longStays: CalendarRange, guests: UsersRound, hosts: UserRoundX } as const;
+/** Waiting on staff (the others are for review when there is time; decision 7). */
+const URGENT_VIEWS: readonly FlagView[] = ["cancellations", "hosts"];
 
 type Props = {
   params: Promise<{ locale: string }>;
@@ -48,8 +51,10 @@ function hrefFor(view: FlagView, state: FlagState): string {
 
 /**
  * /admin/flags ("moderation"): host cancellations within 48 hours of the booking, no-shows (listed
- * only) and hosts with several reports (src/lib/admin/flags.ts), each with "mark reviewed" and
- * links to the booking, the listing and the actions on the host's page.
+ * only), long stays and guests with repeated cancellations or no-shows (listed for review only,
+ * founder's decision 7; src/lib/admin/server/guest-flags.ts) and hosts with several reports
+ * (src/lib/admin/flags.ts), each with "mark reviewed" and links to the booking, the listing and
+ * the actions on the host's page.
  */
 export default async function FlagsPage({ params, searchParams }: Props) {
   const { locale } = await params;
@@ -82,7 +87,7 @@ export default async function FlagsPage({ params, searchParams }: Props) {
           href: hrefFor(key, state),
           label: t(`views.${key}`),
           count: result.counts[key],
-          urgent: state === "open" && key !== "noShows",
+          urgent: state === "open" && URGENT_VIEWS.includes(key),
         }))}
       />
       <nav aria-label={t("stateLabel")} className="mb-4 flex flex-wrap gap-2 text-sm">
@@ -101,10 +106,103 @@ export default async function FlagsPage({ params, searchParams }: Props) {
           </Link>
         ))}
       </nav>
-      <p className="mb-4 text-sm text-muted-foreground">{t(`viewHints.${view}`, { min: n(HOST_REPORT_FLAG_MIN) })}</p>
+      <p className="mb-4 text-sm text-muted-foreground">
+        {t(`viewHints.${view}`, {
+          min: n(HOST_REPORT_FLAG_MIN),
+          nights: n(LONG_STAY_FLAG_NIGHTS),
+          cancel: n(REPEAT_CANCEL_FLAG_MIN),
+          noShow: n(REPEAT_NO_SHOW_FLAG_MIN),
+        })}
+      </p>
 
-      {(view === "hosts" ? result.hosts.length : result.bookings.length) === 0 ? (
+      {(view === "hosts"
+        ? result.hosts.length
+        : view === "longStays"
+          ? result.longStays.length
+          : view === "guests"
+            ? result.guests.length
+            : result.bookings.length) === 0 ? (
         <EmptyState bordered icon={state === "reviewed" ? CheckCheck : EMPTY_ICON[view]} title={t(`empty.${state}.${view}`)} description={t("emptyHint")} />
+      ) : view === "longStays" ? (
+        <ul className="divide-y rounded-xl border bg-card shadow-xs">
+          {result.longStays.map((row) => (
+            <li key={row.id} className="grid gap-2 p-3 sm:px-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <Link href={`/admin/bookings/${row.id}`} className="font-mono text-sm font-semibold underline-offset-4 hover:underline">
+                  <Ltr>{row.code}</Ltr>
+                </Link>
+                <Pill tone={STATUS_TONE[row.status]}>{tb(`status.${row.status}`)}</Pill>
+                <Pill tone="warning">{tb("nights", { count: row.nights })}</Pill>
+                <span className="ms-auto text-xs text-muted-foreground">{t("bookedAt", { when: when(row.createdAt) })}</span>
+              </div>
+              <p className="text-sm">
+                <Link href={`/admin/moderation/${row.listing.id}`} className="font-medium underline-offset-4 hover:underline">
+                  <span dir="auto">{row.listing.title}</span>
+                </Link>{" "}
+                <span className="whitespace-nowrap text-muted-foreground">
+                  · {t("listingId")} <Ltr>{row.listing.publicId}</Ltr>
+                </span>
+              </p>
+              <p className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                <span>
+                  {t("host")}{" "}
+                  <Link href={`/admin/users/${row.host.id}`} className="font-medium underline-offset-4 hover:underline">
+                    <span dir="auto">{row.host.name || t("noName")}</span>
+                  </Link>
+                </span>
+                <span>
+                  {t("guest")}{" "}
+                  <Link href={`/admin/users/${row.guest.id}`} className="font-medium underline-offset-4 hover:underline">
+                    <span dir="auto">{row.guest.name || t("noName")}</span>
+                  </Link>
+                </span>
+                {row.guestCreatedAt ? <span className="text-muted-foreground">{t("accountSince", { when: formatDate(row.guestCreatedAt, locale) })}</span> : null}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {formatDateRange(row.checkIn, row.checkOut, locale)} · <Ltr>{formatMoney(row.total, row.currency, locale)}</Ltr>
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                {row.reviewedAt ? (
+                  <span className="text-xs text-muted-foreground">{t("reviewedBy", { name: isolate(row.reviewedBy ?? "—"), when: when(row.reviewedAt) })}</span>
+                ) : row.host.id === staff.id || row.guest.id === staff.id ? null : (
+                  <FlagReviewButton target={{ longStayId: row.id }} label={row.code} />
+                )}
+                <Link href={`/admin/bookings/${row.id}`} className="inline-flex h-8 min-h-11 items-center rounded-md px-2 text-sm font-medium text-primary hover:underline sm:min-h-0">
+                  {t("openBooking")}
+                </Link>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : view === "guests" ? (
+        <ul className="divide-y rounded-xl border bg-card shadow-xs">
+          {result.guests.map((guest) => (
+            <li key={guest.id} className="grid gap-2 p-3 sm:px-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <Link href={`/admin/users/${guest.id}`} className="font-medium underline-offset-4 hover:underline">
+                  <span dir="auto">{guest.name || t("noName")}</span>
+                </Link>
+                <UserStatusBadge status={guest.status as UserStatus} className="h-5" />
+                {guest.reasons.includes("cancellations") ? <Pill tone="warning">{t("guestCancellations", { count: guest.cancellations })}</Pill> : null}
+                {guest.reasons.includes("no_shows") ? <Pill tone="warning">{t("guestNoShows", { count: guest.noShows })}</Pill> : null}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {guest.latestAt ? t("latestEvent", { when: when(guest.latestAt) }) : null}
+                {guest.reviewedAt ? <> · {t("lastReviewed", { when: when(guest.reviewedAt) })}</> : null}
+                {" · "}
+                {t("accountSince", { when: formatDate(guest.createdAt, locale) })}
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                {state === "open" && guest.id !== staff.id ? (
+                  <FlagReviewButton target={{ guestId: guest.id, seenLatest: guest.latestAt?.toISOString() ?? null }} label={guest.name || t("noName")} />
+                ) : null}
+                <Link href={`/admin/users/${guest.id}`} className="inline-flex h-8 min-h-11 items-center rounded-md px-2 text-sm font-medium text-primary hover:underline sm:min-h-0">
+                  {t("guestBookings")}
+                </Link>
+              </div>
+            </li>
+          ))}
+        </ul>
       ) : view === "hosts" ? (
         <ul className="divide-y rounded-xl border bg-card shadow-xs">
           {result.hosts.map((host) => (

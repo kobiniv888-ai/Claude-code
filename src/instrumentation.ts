@@ -6,6 +6,10 @@ import type { Instrumentation } from "next";
  * then the start-up warnings and the warm-up. `next build` does not run it.
  */
 export async function register(): Promise<void> {
+  // First of all: every console.* line of this server is scrubbed of emails, phone numbers, login
+  // codes, IPs, coordinates and tokens (SECURITY_REPORT 5.l; src/lib/log-scrub.ts).
+  const { installLogScrubber } = await import("@/lib/log-scrub");
+  installLogScrubber();
   if (process.env.NEXT_RUNTIME === "nodejs") {
     const { registerNode } = await import("./instrumentation-node");
     await registerNode();

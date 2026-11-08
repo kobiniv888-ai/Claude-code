@@ -11,10 +11,11 @@ import { useRouter } from "@/i18n/navigation";
 import { submitBusinessVerification, submitIdVerification, submitOwnershipVerification } from "@/lib/account/actions";
 import { acceptsPdf, isValidCadastralCode, type DocumentSlot, type UploadedFile } from "@/lib/account/verification";
 import { formatNumber } from "@/lib/format";
+import { UPLOAD_IMAGE_ACCEPT } from "@/lib/media";
 import { cn } from "@/lib/utils";
 import { useActionError } from "./use-action-error";
 
-const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif";
+const IMAGE_ACCEPT = UPLOAD_IMAGE_ACCEPT;
 
 function sizeLabel(bytes: number, locale: string): string {
   if (bytes >= 1024 * 1024) return `${formatNumber(bytes / (1024 * 1024), locale, { maximumFractionDigits: 1 })} MB`;

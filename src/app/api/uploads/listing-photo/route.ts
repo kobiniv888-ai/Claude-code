@@ -25,12 +25,13 @@ import {
 /**
  * POST /api/uploads/listing-photo   (multipart/form-data)
  *   listingId    the owner's listing (not deleted)
- *   file         JPEG, PNG, WebP, AVIF, GIF (first frame) or HEIC where supported; ≤ 15 MB
+ *   file         JPEG, PNG or WebP, checked from its first bytes (SECURITY_REPORT 9.a); ≤ 15 MB
  *   roomTypeId   optional — a hotel room type of that listing
  *
  * → 201 { id, url, thumbUrl, width, height, isCover, blurDataUrl }
  * → { error: code } with 400 invalid_input · 401 auth_required · 403 forbidden (cross-site) · 404 not_found ·
- *   409 too_many_photos · 413 file_too_large · 415 file_type_not_allowed ·
+ *   409 too_many_photos · 413 file_too_large · 415 file_type_not_allowed (AVIF, GIF, SVG…) |
+ *   heic_not_supported (an iPhone HEIC photo: the message says how to send JPEG) ·
  *   422 image_too_small | image_corrupt | file_rejected · 423 shabbat_mode · 429 rate_limited
  *
  * The photo is re-encoded (EXIF/GPS removed, watermark added) by processListingPhoto and stored

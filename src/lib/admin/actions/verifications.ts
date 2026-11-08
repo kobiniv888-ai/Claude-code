@@ -4,7 +4,7 @@ import { z } from "zod";
 import { documentChecksOn } from "@/config/verification";
 import type { Prisma } from "@/generated/prisma/client";
 import { fail, ok, type ActionResult } from "@/lib/action";
-import { audit } from "@/lib/audit";
+import { audit, auditOrThrow } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { notificationEmailFor, sendEmail } from "@/lib/email";
 import { deletePrivate } from "@/lib/storage";
@@ -89,21 +89,23 @@ export async function approveVerification(input: unknown): Promise<ActionResult<
           data: request.type === "OWNERSHIP" ? { ownerVerifiedAt: now } : { propertyVerifiedAt: now },
         });
       }
+      // Q13: the decision (after which the documents are deleted) and its audit row commit
+      // together, or not at all.
+      await auditOrThrow(
+        {
+          actorId: staff.id,
+          action: "verification.approve",
+          targetType: "VerificationRequest",
+          targetId: request.id,
+          details: { type: request.type, userId: request.user.id, listingPublicId: request.listing?.publicId ?? null },
+        },
+        tx,
+      );
     });
     const failedDeletes = await clearDocuments(request.id, request.documents);
-
-    await audit({
-      actorId: staff.id,
-      action: "verification.approve",
-      targetType: "VerificationRequest",
-      targetId: request.id,
-      details: {
-        type: request.type,
-        userId: request.user.id,
-        listingPublicId: request.listing?.publicId ?? null,
-        documentsDeleted: failedDeletes === 0,
-      },
-    });
+    if (failedDeletes > 0) {
+      await audit({ actorId: staff.id, action: "verification.documents_left", targetType: "VerificationRequest", targetId: request.id, details: { failedDeletes } });
+    }
     const to = notificationEmailFor(request.user);
     if (to) {
       await sendEmail({
@@ -142,26 +144,35 @@ export async function rejectVerification(input: unknown): Promise<ActionResult<{
     const locale = localeOf(request.user.locale);
     const text = await verificationReasonText(reason, locale, note);
     const now = new Date();
-    const { count } = await db.verificationRequest.updateMany({
-      where: { id: request.id, status: "PENDING" },
-      data: {
-        status: outcome,
-        reviewedById: staff.id,
-        reviewedAt: now,
-        // Shown to the user in the verification center, in their own language.
-        decisionReason: text.note ? `${text.reasonText}\n\n${text.note}` : text.reasonText,
-      },
+    // Q13: the decision (after which the documents are deleted) and its audit row commit
+    // together, or not at all.
+    await db.$transaction(async (tx) => {
+      const { count } = await tx.verificationRequest.updateMany({
+        where: { id: request.id, status: "PENDING" },
+        data: {
+          status: outcome,
+          reviewedById: staff.id,
+          reviewedAt: now,
+          // Shown to the user in the verification center, in their own language.
+          decisionReason: text.note ? `${text.reasonText}\n\n${text.note}` : text.reasonText,
+        },
+      });
+      if (count !== 1) throw new AdminActionError("already_decided");
+      await auditOrThrow(
+        {
+          actorId: staff.id,
+          action: outcome === "REJECTED" ? "verification.reject" : "verification.need_more_info",
+          targetType: "VerificationRequest",
+          targetId: request.id,
+          details: { type: request.type, userId: request.user.id, reason, note },
+        },
+        tx,
+      );
     });
-    if (count !== 1) throw new AdminActionError("already_decided");
     const failedDeletes = await clearDocuments(request.id, request.documents);
-
-    await audit({
-      actorId: staff.id,
-      action: outcome === "REJECTED" ? "verification.reject" : "verification.need_more_info",
-      targetType: "VerificationRequest",
-      targetId: request.id,
-      details: { type: request.type, userId: request.user.id, reason, note, documentsDeleted: failedDeletes === 0 },
-    });
+    if (failedDeletes > 0) {
+      await audit({ actorId: staff.id, action: "verification.documents_left", targetType: "VerificationRequest", targetId: request.id, details: { failedDeletes } });
+    }
     const to = notificationEmailFor(request.user);
     if (to) {
       await sendEmail({

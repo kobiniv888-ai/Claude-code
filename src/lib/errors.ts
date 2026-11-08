@@ -25,6 +25,7 @@ export const ERROR_MESSAGE_KEYS = [
   ...ACTION_ERROR_CODES,
   "file_too_large",
   "file_type_not_allowed",
+  "heic_not_supported",
   "too_many_photos",
   "phone_not_verified",
   "network",
