@@ -1,10 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
+import Script from "next/script";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { getMessages, getTranslations, setRequestLocale } from "next-intl/server";
 import { LoginDialogProvider } from "@/components/auth/login-dialog-provider";
 import { InlineScript } from "@/components/common/inline-script";
+import { IconSprite } from "@/components/ds/icon-sprite";
 import { DISMISSED_ALERTS_SCRIPT } from "@/components/layout/dismissed-alerts";
 import { fontStyle, scriptFontUrl } from "@/components/layout/fonts";
 import { SkipLink } from "@/components/layout/skip-link";
@@ -54,6 +56,10 @@ export async function generateMetadata({ params }: LayoutProps<"/[locale]">): Pr
     appleWebApp: { capable: true, title: siteConfig.name, statusBarStyle: "default" },
     // Phone numbers are shown on purpose (contact buttons); don't let iOS turn every number into a link.
     formatDetection: { telephone: false, address: false, email: false },
+    // No <link rel="manifest"> in the HTML (src/app/manifest.ts would add one): browsers fetch it at
+    // once, a request competing with the first screen. RegisterServiceWorker adds the link after
+    // the page has loaded, which is all installing the app needs.
+    manifest: null,
   };
 }
 
@@ -96,9 +102,16 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
       <head>
         {scriptFont ? <link rel="preload" href={scriptFont} as="font" type="font/woff2" crossOrigin="anonymous" /> : null}
         <InlineScript nonce={nonce} html={DISMISSED_ALERTS_SCRIPT} />
-        <InlineScript nonce={nonce} html={ZOD_JITLESS_SCRIPT} />
+        {/* Run by Next.js before any app module loads (src/lib/zod-jitless.ts). As a
+            "beforeInteractive" script it also makes Next.js start hydrating in a task of its own
+            instead of inside the evaluation of its main script, which splits one long task in two
+            (less blocking time on phones). */}
+        <Script id="zod-jitless" strategy="beforeInteractive" nonce={nonce}>
+          {ZOD_JITLESS_SCRIPT}
+        </Script>
       </head>
       <body>
+        <IconSprite />
         <ThemeProvider nonce={nonce}>
           <DirectionProvider dir={dir}>
             {/* Only the shell's interface text; routes add theirs (src/i18n/client-messages.ts). */}

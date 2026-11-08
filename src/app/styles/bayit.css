@@ -490,6 +490,12 @@ body:has([data-hide-bottom-nav]) {
 body:has([data-hide-bottom-nav]) [data-bottom-nav] {
   display: none;
 }
+/* The cookie banner (src/components/layout/cookie-consent.tsx) is the last thing in the page's
+   HTML: while the browser has read only part of it, none of it is shown (half-read, it grew when
+   the rest arrived and moved up: a layout shift). Without :has() it simply shows as before. */
+[data-cookie-banner]:not(:has(> [data-cookie-banner-end])) {
+  display: none;
+}
 /* <HideFooter /> (src/components/layout/hide-footer.tsx): no site footer in the post form and the
    booking flow (round 3). */
 body:has([data-hide-footer]) [data-site-footer] {

@@ -1,12 +1,13 @@
 import type { SVGProps } from "react";
-import { SPRITE_URL, type SpriteIconName } from "./sprite-icons.generated";
+import type { SpriteIconName } from "./sprite-icons.generated";
 
 /**
- * Lucide icons for server components, drawn from one cached sprite (public/icons/sprite-….svg,
- * built by scripts/generate-icon-sprite.mjs) instead of lucide-react, whose icons are client
+ * Lucide icons for server components, drawn from one sprite (built by
+ * scripts/generate-icon-sprite.mjs) instead of lucide-react, whose icons are client
  * components: each one in a server component is sent as a full <svg> in the HTML plus a
  * component reference in the RSC data, and hydrates. A sprite icon is
- * <svg class="bi …"><use href="…#name"/></svg>: about a quarter of the HTML, no JavaScript.
+ * <svg class="bi …"><use href="#bi-name"/></svg>: about a quarter of the HTML, no JavaScript. The
+ * symbols are in each page, hidden at the start of <body> (<IconSprite>, src/components/ds/icon-sprite.tsx).
  *
  * Same look and props as Lucide (24px, stroke 2, currentColor; size and colour classes,
  * strokeWidth, aria-*). The `bi` class (src/app/styles/bayit.css) carries Lucide's stroke style.
@@ -25,7 +26,7 @@ export function SpriteIcon({ name, className, strokeWidth, style, ...props }: Sp
       className={className ? `bi ${className}` : "bi"}
       style={strokeWidth === undefined ? style : { ...style, strokeWidth }}
     >
-      <use href={`${SPRITE_URL}#${name}`} />
+      <use href={`#bi-${name}`} />
     </svg>
   );
 }

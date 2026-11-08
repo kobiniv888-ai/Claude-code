@@ -1,9 +1,17 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
+import { hasLoggedOutFlag } from "@/lib/auth/device-data";
+import { afterLoadIdle } from "@/lib/idle";
+import { whenToastWanted } from "@/lib/toast";
 
-/** sonner (~13 KB gzip) loads after the page has started instead of with it; see @/lib/toast. */
+/**
+ * sonner (~13 KB gzip) loads once the page has settled (the first touch or a quiet start, then
+ * an idle moment) instead of right after it starts, or at once for a toast that comes earlier
+ * (and for the "logged out" message after a logout); see @/lib/toast.
+ */
 const SonnerToaster = dynamic(() => import("./sonner-toaster"), { ssr: false });
 
 /**
@@ -13,6 +21,21 @@ const SonnerToaster = dynamic(() => import("./sonner-toaster"), { ssr: false });
 export function AppToaster({ dir }: { dir: "ltr" | "rtl" }) {
   const t = useTranslations("common");
   const tMenu = useTranslations("auth.menu");
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    const mount = () => setMounted(true);
+    if (hasLoggedOutFlag()) {
+      mount();
+      return;
+    }
+    const stopWaiting = whenToastWanted(mount);
+    const cancelIdle = afterLoadIdle(mount);
+    return () => {
+      stopWaiting();
+      cancelIdle();
+    };
+  }, []);
+  if (!mounted) return null;
   return (
     <SonnerToaster
       dir={dir}

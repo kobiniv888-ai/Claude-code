@@ -2,11 +2,30 @@
 
 import { useEffect } from "react";
 
+/** The web app manifest (src/app/manifest.ts). */
+const MANIFEST_URL = "/manifest.webmanifest";
+
+/** Adds <link rel="manifest"> once (the root layout leaves it out of the HTML, see its metadata). */
+function addManifestLink() {
+  if (document.querySelector('link[rel="manifest"]')) return;
+  const link = document.createElement("link");
+  link.rel = "manifest";
+  link.href = MANIFEST_URL;
+  document.head.appendChild(link);
+}
+
 /**
- * Registers the service worker (public/sw.js) in production builds only. In development any
- * earlier registration is removed so stale caches never hide code changes.
+ * After the page has loaded: links the web app manifest (what "Add to Home Screen" and the install
+ * prompt read) and registers the service worker (public/sw.js), the latter in production builds
+ * only. In development any earlier registration is removed so stale caches never hide code changes.
  */
 export function RegisterServiceWorker() {
+  useEffect(() => {
+    if (document.readyState === "complete") addManifestLink();
+    else window.addEventListener("load", addManifestLink, { once: true });
+    return () => window.removeEventListener("load", addManifestLink);
+  }, []);
+
   useEffect(() => {
     if (!("serviceWorker" in navigator)) return;
 

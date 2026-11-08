@@ -17,6 +17,7 @@ import { resultListClass } from "./result-cards";
 import { MapPill, SortButton, ViewSwitcher } from "./results-toolbar";
 import { SaveSearchButton } from "./save-search-button";
 import { useSearch } from "./search-context";
+import { useSearchTopHeightStyle } from "./search-top-height";
 import { useMediaQuery } from "./use-media-query";
 
 const MOVE_DELAY_MS = 600;
@@ -124,10 +125,7 @@ export function SearchResults({ items, mapPoints, fitKey, header, cards, chips, 
         ) : (
           // Before hydration `wide` is false: hold the map column's place on large screens (CSS
           // only), so the footer does not jump down when the map mounts.
-          <div
-            aria-hidden="true"
-            className="sticky top-[calc(var(--header-height)+var(--search-top-height,3.75rem))] hidden h-[calc(100dvh-var(--header-height)-var(--search-top-height,3.75rem))] bg-muted skeleton-shimmer lg:block"
-          />
+          <MapColumnPlaceholder />
         )}
       </div>
       {!phoneMap ? (
@@ -140,6 +138,18 @@ export function SearchResults({ items, mapPoints, fitKey, header, cards, chips, 
         </div>
       ) : null}
     </>
+  );
+}
+
+/** The map column's place on large screens until the map mounts (its own component: the top bar's height re-renders only it). */
+function MapColumnPlaceholder() {
+  const topHeightStyle = useSearchTopHeightStyle();
+  return (
+    <div
+      aria-hidden="true"
+      style={topHeightStyle}
+      className="sticky top-[calc(var(--header-height)+var(--search-top-height,3.75rem))] hidden h-[calc(100dvh-var(--header-height)-var(--search-top-height,3.75rem))] bg-muted skeleton-shimmer lg:block"
+    />
   );
 }
 
@@ -232,6 +242,7 @@ function DesktopMap({
 }) {
   const t = useTranslations("search.map");
   const { filters } = useSearch();
+  const topHeightStyle = useSearchTopHeightStyle();
   const query = serializeSearchQuery({ ...filters, page: 1, sort: DEFAULT_SORT, view: DEFAULT_VIEW });
   const [points, setPoints] = useState<{ query: string; value: ListingMapPoint[] } | null>(null);
 
@@ -250,7 +261,10 @@ function DesktopMap({
 
   if (!points) {
     return (
-      <div className="sticky top-[calc(var(--header-height)+var(--search-top-height,3.75rem))] h-[calc(100dvh-var(--header-height)-var(--search-top-height,3.75rem))]">
+      <div
+        style={topHeightStyle}
+        className="sticky top-[calc(var(--header-height)+var(--search-top-height,3.75rem))] h-[calc(100dvh-var(--header-height)-var(--search-top-height,3.75rem))]"
+      >
         <div role="status" className="flex size-full items-center justify-center bg-muted text-muted-foreground skeleton-shimmer">
           <MapIcon className="size-8" aria-hidden="true" />
           <span className="sr-only">{t("loading")}</span>
@@ -275,6 +289,7 @@ function MapPanel({
   onHighlight: (id: number | null) => void;
 }) {
   const { filters, navigate, isPending } = useSearch();
+  const topHeightStyle = useSearchTopHeightStyle();
   const [moveSearch, setMoveSearch] = useState(filters.bounds !== null);
   const latest = useRef(filters);
   const timer = useRef<number | undefined>(undefined);
@@ -333,6 +348,7 @@ function MapPanel({
   return (
     <div
       ref={panel}
+      style={topHeightStyle}
       className={cn(
         "relative isolate h-[calc(100dvh-var(--header-height)-var(--bottom-nav-height)-var(--search-top-height,6.75rem))] scroll-mt-[calc(var(--header-height)+var(--search-top-height,6.75rem))]",
         "lg:sticky lg:top-[calc(var(--header-height)+var(--search-top-height,3.75rem))] lg:h-[calc(100dvh-var(--header-height)-var(--search-top-height,3.75rem))]",

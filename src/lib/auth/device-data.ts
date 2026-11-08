@@ -91,6 +91,15 @@ export function markLoggedOut(): void {
   }
 }
 
+/** Whether a logout just happened on this tab (without removing the flag; see takeLoggedOutFlag). */
+export function hasLoggedOutFlag(): boolean {
+  try {
+    return window.sessionStorage.getItem(LOGGED_OUT_FLAG) === "1";
+  } catch {
+    return false;
+  }
+}
+
 /** True once after a logout (the flag is removed as it is read). */
 export function takeLoggedOutFlag(): boolean {
   try {

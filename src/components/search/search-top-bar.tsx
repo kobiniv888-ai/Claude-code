@@ -14,6 +14,7 @@ import { usesDatesAndGuests } from "@/lib/search/search-bar";
 import { cn } from "@/lib/utils";
 import { useSearch } from "./search-context";
 import { useSearchSheets } from "./search-sheets";
+import { setSearchTopHeight } from "./search-top-height";
 
 /**
  * The sticky bar at the top of /search (round 2, brief 5.3):
@@ -24,7 +25,7 @@ import { useSearchSheets } from "./search-sheets";
  *   in the sea and ski towns also "קרוב לים" / "קרוב למעליות" (round 3, brief 7.3: ≤ 15 min walk).
  *   Active chips are the purple tint with purple text. From 768px "Filters" leads the chip row
  *   (the full search bar sits above it).
- * Its height is published as --search-top-height for the map view below it.
+ * Its height is published as --search-top-height for the map view below it (./search-top-height.ts).
  */
 export function SearchTopBar({
   placeNames,
@@ -46,12 +47,11 @@ export function SearchTopBar({
   useEffect(() => {
     const node = bar.current;
     if (!node || typeof ResizeObserver === "undefined") return;
-    const root = document.documentElement;
-    const observer = new ResizeObserver(() => root.style.setProperty("--search-top-height", `${node.offsetHeight}px`));
+    const observer = new ResizeObserver(() => setSearchTopHeight(node.offsetHeight));
     observer.observe(node);
     return () => {
       observer.disconnect();
-      root.style.removeProperty("--search-top-height");
+      setSearchTopHeight(null);
     };
   }, []);
 

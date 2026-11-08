@@ -1,11 +1,11 @@
 "use client";
 
 import { lazy, Suspense, useEffect, useSyncExternalStore } from "react";
-import ar from "../../messages/ar/states.json";
-import en from "../../messages/en/states.json";
-import he from "../../messages/he/states.json";
-import ka from "../../messages/ka/states.json";
-import ru from "../../messages/ru/states.json";
+import ar from "../../messages/ar/global.json";
+import en from "../../messages/en/global.json";
+import he from "../../messages/he/global.json";
+import ka from "../../messages/ka/global.json";
+import ru from "../../messages/ru/global.json";
 import { fontStyle } from "@/components/layout/fonts";
 // The language list from its own small module, not @/config/site: this page's code is part of
 // every page's first load, in a chunk of its own, so the whole site configuration came twice.
@@ -40,7 +40,7 @@ function useAddressLocale(): AppLocale {
 
 export default function GlobalError({ error, retry }: { error: unknown; retry: () => void }) {
   const locale = useAddressLocale();
-  const m = messages[locale].global;
+  const m = messages[locale];
 
   useEffect(() => {
     console.error(error);
@@ -79,8 +79,8 @@ export default function GlobalError({ error, retry }: { error: unknown; retry: (
                 .filter((l) => l !== locale)
                 .map((l) => (
                   <li key={l} lang={l} dir={dirFor(l)}>
-                    <p className="font-semibold">{messages[l].global.errorTitle}</p>
-                    <p className="text-muted-foreground">{messages[l].global.errorDescription}</p>
+                    <p className="font-semibold">{messages[l].errorTitle}</p>
+                    <p className="text-muted-foreground">{messages[l].errorDescription}</p>
                   </li>
                 ))}
             </ul>

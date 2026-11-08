@@ -48,6 +48,7 @@ export function CookieConsent({ initialOpen }: { initialOpen: boolean }) {
     <section
       aria-labelledby={titleId}
       aria-describedby={descriptionId}
+      data-cookie-banner
       className={cn(
         // Phones: a compact sheet floating just above the bottom bar (clear of its raised Post
         // button), short enough that the home search card stays visible above it at 390×844.
@@ -154,6 +155,10 @@ export function CookieConsent({ initialOpen }: { initialOpen: boolean }) {
           )}
         </div>
       </div>
+      {/* The banner is the last thing in the page's HTML. Until the browser has read this marker,
+          the banner stays hidden (src/app/styles/bayit.css): painted half-read, it grew when the
+          rest arrived, which moved it up (a layout shift). */}
+      <span data-cookie-banner-end hidden />
     </section>
   );
 }
