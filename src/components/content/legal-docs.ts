@@ -20,7 +20,8 @@ export const siteCookies = [
   { id: "currency", name: "bayit_currency", category: "preferences" },
   { id: "consent", name: "bayit_consent", category: "necessary" },
   { id: "device", name: "bayit_did", category: "necessary" },
-  { id: "session", name: "better-auth.*", category: "necessary" },
+  // The login cookies, "__Host-bayit.*" on https (src/lib/auth/session-cookies.ts): session, staff 2-step, sign-in state.
+  { id: "session", name: "__Host-bayit.*", category: "necessary" },
 ] as const;
 
 export function sectionAnchor(key: string): string {

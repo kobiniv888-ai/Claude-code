@@ -292,10 +292,13 @@ export const siteConfig = {
     defaultCountryByLocale: { he: "IL", en: "IL", ru: "IL", ar: "IL", ka: "GE" } satisfies Localized,
     /** The contact phone in "post a listing": most hosts have Georgian numbers. */
     listingContactDefaultCountry: COUNTRIES[DEFAULT_COUNTRY].defaultPhoneCountry,
-    smsAllowedCountries: [
-      "GE", "IL", "US", "CA", "GB", "FR", "DE", "NL", "BE", "IT", "ES", "UA",
-      "RU", "BY", "KZ", "AZ", "AM", "TR", "AE", "AU",
-    ],
+    /**
+     * The ONLY countries that get text messages (SECURITY_REPORT 3.2.a, founder's answer Q4):
+     * Israel (+972) and Georgia (+995). Checked on the server before every SMS
+     * (src/lib/auth/phone.ts, src/lib/sms.ts) and offered alone in the SMS phone picker. Keep the
+     * Twilio geo permissions (OWNER_TODO) to the same list.
+     */
+    smsAllowedCountries: ["IL", "GE"],
   },
 
   /** Shabbat and holiday times (Hebcal). */

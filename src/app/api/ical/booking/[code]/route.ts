@@ -1,6 +1,6 @@
 import { siteConfig, type AppLocale } from "@/config/site";
 import { isAppLocale } from "@/i18n/locale";
-import { getCurrentUser } from "@/lib/auth/session";
+import { requireUserForAction, type CurrentUser } from "@/lib/auth/session";
 import { getGuestTrip } from "@/lib/booking/queries";
 import { rateLimitByIp, rateLimitHeaders } from "@/lib/rate-limit";
 import { tripIcsFile } from "@/lib/trip/calendar-server";
@@ -11,6 +11,10 @@ import { tripIcsFile } from "@/lib/trip/calendar-server";
  * host's phone. One event for the stay: from the check-in time to the check-out time, Georgia
  * time (or all-day when "גמיש"), with the address, the booking number and the trip page
  * (src/lib/trip/ics.ts). Texts in `lang` (else the account's language). Never cached.
+ *
+ * The same session rules as the trip page (SECURITY_REPORT 4.2.a, 4.3.b): signed in AND the
+ * 2-step code entered in this session when the account has 2-step login (requireUserForAction);
+ * otherwise 401, before any booking is read.
  */
 
 export const runtime = "nodejs";
@@ -29,8 +33,12 @@ export async function GET(request: Request, context: Context) {
   const rate = await rateLimitByIp("ical:booking", LIMIT);
   if (!rate.ok) return new Response("Too many requests\n", { status: 429, headers: rateLimitHeaders(rate, LIMIT.limit) });
 
-  const user = await getCurrentUser();
-  if (!user) return plain(401, "Sign in to download this booking");
+  let user: CurrentUser;
+  try {
+    user = await requireUserForAction();
+  } catch {
+    return plain(401, "Sign in to download this booking");
+  }
 
   const { code: raw } = await context.params;
   let decoded = raw ?? "";

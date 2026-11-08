@@ -266,6 +266,11 @@ const samples: { [K in keyof Data]: Data[K] } = {
     tripUrl: "/account/trips/BT-7K3Q9",
     contactUrl: "/contact",
   },
+  // Account security (SECURITY_REPORT 3.6, 3.7): src/lib/auth/security-email-templates.ts
+  security_code: { code: "482913", minutes: 10, purpose: "confirm", name: "Dana" },
+  security_change: { kind: "recovery_code_used", left: 3, at: "2026-11-08T12:05:00Z", name: "Dana" },
+  security_new_device: { device: "Chrome · Android", at: "2026-11-08T12:05:00Z", name: "Dana" },
+  security_staff_alert: { kind: "new_device", staffName: "Dana", role: "MODERATOR", device: "Safari · iPhone", at: "2026-11-08T12:05:00Z" },
 };
 
 afterEach(() => {

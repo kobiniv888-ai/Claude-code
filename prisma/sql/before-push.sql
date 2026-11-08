@@ -140,3 +140,15 @@ BEGIN
     END IF;
   END IF;
 END $$;
+
+-- Security round (SECURITY_REPORT D2, 8 November 2026): Booking gains "idempotencyKey" with a
+-- unique index per guest (the double-tap guard). On an existing Booking table "prisma db push"
+-- would ask before adding a unique index; the new column is empty (NULLs never collide), so adding
+-- both here first loses nothing and lets the push run without a prompt. Idempotent.
+DO $$
+BEGIN
+  IF to_regclass('public."Booking"') IS NOT NULL THEN
+    ALTER TABLE "Booking" ADD COLUMN IF NOT EXISTS "idempotencyKey" TEXT;
+    CREATE UNIQUE INDEX IF NOT EXISTS "Booking_guestUserId_idempotencyKey_key" ON "Booking"("guestUserId", "idempotencyKey");
+  END IF;
+END $$;

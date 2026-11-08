@@ -4,27 +4,32 @@ import { accountPhoneRow, isHostAccount, mayOfferPhoneCheck } from "./phone-chec
 
 describe("loginMethodsStatus / loginMethodsWarning", () => {
   it("production without Google keys and without Resend: nobody can log in", () => {
-    const env = { NODE_ENV: "production" };
+    const env = { SITE_ENV: "production" };
     expect(loginMethodsStatus(env)).toEqual({ google: false, emailCodes: false, noneInProduction: true });
     expect(loginMethodsWarning(env)).toContain("NO LOGIN METHOD");
   });
 
   it("either Resend or both Google keys is enough", () => {
-    expect(loginMethodsStatus({ NODE_ENV: "production", RESEND_API_KEY: "re_123" }).noneInProduction).toBe(false);
+    expect(loginMethodsStatus({ SITE_ENV: "production", RESEND_API_KEY: "re_123" }).noneInProduction).toBe(false);
     expect(
-      loginMethodsStatus({ NODE_ENV: "production", GOOGLE_CLIENT_ID: "id", GOOGLE_CLIENT_SECRET: "secret" }).noneInProduction,
+      loginMethodsStatus({ SITE_ENV: "production", GOOGLE_CLIENT_ID: "id", GOOGLE_CLIENT_SECRET: "secret" }).noneInProduction,
     ).toBe(false);
-    expect(loginMethodsWarning({ NODE_ENV: "production", RESEND_API_KEY: "re_123" })).toBeNull();
+    expect(loginMethodsWarning({ SITE_ENV: "production", RESEND_API_KEY: "re_123" })).toBeNull();
   });
 
   it("half a Google setup or blank values do not count", () => {
-    expect(loginMethodsStatus({ NODE_ENV: "production", GOOGLE_CLIENT_ID: "id" }).noneInProduction).toBe(true);
-    expect(loginMethodsStatus({ NODE_ENV: "production", RESEND_API_KEY: "   " }).noneInProduction).toBe(true);
+    expect(loginMethodsStatus({ SITE_ENV: "production", GOOGLE_CLIENT_ID: "id" }).noneInProduction).toBe(true);
+    expect(loginMethodsStatus({ SITE_ENV: "production", RESEND_API_KEY: "   " }).noneInProduction).toBe(true);
   });
 
-  it("development never warns (codes show on screen there)", () => {
-    expect(loginMethodsStatus({ NODE_ENV: "development" }).noneInProduction).toBe(false);
-    expect(loginMethodsWarning({ NODE_ENV: "test" })).toBeNull();
+  it("development and staging sites never warn (test mode shows codes on screen there)", () => {
+    expect(loginMethodsStatus({ SITE_ENV: "development" }).noneInProduction).toBe(false);
+    expect(loginMethodsWarning({ SITE_ENV: "staging" })).toBeNull();
+  });
+
+  it("decides by SITE_ENV, never NODE_ENV; a missing SITE_ENV counts as the real site (fail closed)", () => {
+    expect(loginMethodsStatus({ SITE_ENV: "development", NODE_ENV: "production" } as Record<string, string>).noneInProduction).toBe(false);
+    expect(loginMethodsStatus({}).noneInProduction).toBe(true);
   });
 });
 

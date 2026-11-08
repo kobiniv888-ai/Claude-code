@@ -42,7 +42,7 @@ export default async function ReportDetailPage({ params }: PageProps<"/[locale]/
   const { locale, id } = await params;
   setRequestLocale(locale);
   const staff = await requireStaff("reports.view");
-  const data = await getReportDetail(id, locale);
+  const data = await getReportDetail(id, locale, staff);
   if (!data) notFound();
   const { report, account, accountStats, otherReports, timeline } = data;
   const [t, tAdmin, tFields, tBooking, flag] = await Promise.all([
@@ -66,9 +66,11 @@ export default async function ReportDetailPage({ params }: PageProps<"/[locale]/
   const manageable = !!account && account.id !== staff.id && (account.role === "USER" || staff.role === "ADMIN");
   const hostName = account ? account.businessName || account.name : "";
   // About the staff member or sent by them: someone else decides (an ADMIN excepted).
-  const own = isOwnItem(staff, [account?.id, report.reporter?.id]);
-  // Null for a reporter who deleted their account (no name left to tell).
-  const revealableName = turnedAway && !report.reporterRevealedAt && report.status !== "DISMISSED" && report.reporter
+  // The reporter is known to the server only (Q12): reporterIsViewer stands in for their id.
+  const own = isOwnItem(staff, [account?.id, report.reporterIsViewer ? staff.id : null]);
+  // Null for a reporter who deleted their account (no name left to tell); the name itself
+  // reaches an ADMIN only (getReportDetail leaves the reporter out for other staff).
+  const revealableName = report.reporterRevealable && report.reporter
     ? reporterNameForHost({ reporterRevealedAt: new Date(), reporter: report.reporter })
     : null;
   // Telling the host who reported is the founder's decision (PLAN.md answer 10): ADMIN only.
@@ -123,7 +125,7 @@ export default async function ReportDetailPage({ params }: PageProps<"/[locale]/
             reveal={revealName ? { reporterName: revealName } : null}
             revealed={!!report.reporterRevealedAt}
             own={own}
-            revealAdminOnly={!!revealableName && !revealName}
+            revealAdminOnly={report.reporterRevealable && !revealName}
           />
           {listing?.status === "HIDDEN" && report.kind === "GENERAL" ? <p className="mt-2 text-xs text-muted-foreground">{t("restoreHint")}</p> : null}
         </section>
@@ -151,6 +153,8 @@ export default async function ReportDetailPage({ params }: PageProps<"/[locale]/
                         {t("reporterStats", { count: report.reporter._count.reportsMade, age: formatRelativeTime(report.reporter.createdAt, locale) })}
                       </span>
                     </span>
+                  ) : report.reporterWithheld ? (
+                    t("reporterWithheld")
                   ) : (
                     tAdmin("common.guest")
                   ),
@@ -322,7 +326,7 @@ export default async function ReportDetailPage({ params }: PageProps<"/[locale]/
             </AdminSection>
           ) : report.targetType === "REVIEW" ? (
             // Round 3, brief 8.1: the reported review, and hide / show again (never edit).
-            <AdminReviewPanel reviewId={report.reviewId} reportId={report.id} reporterId={report.reporter?.id ?? null} staff={staff} locale={locale as AppLocale} />
+            <AdminReviewPanel reviewId={report.reviewId} reportId={report.id} part={report.reviewPart} staff={staff} locale={locale as AppLocale} />
           ) : null}
 
           <AdminSection title={t("otherReports", { count: otherReports.length })}>
@@ -337,7 +341,7 @@ export default async function ReportDetailPage({ params }: PageProps<"/[locale]/
                     </Link>
                     <ReportStatusBadge status={r.status} className="h-5" />
                     <span className="text-xs text-muted-foreground">
-                      {t(`kind.${r.kind}`)} · {r.reporter?.name ?? tAdmin("common.guest")} · <WhenText date={r.createdAt} />
+                      {t(`kind.${r.kind}`)} · {r.reporterWithheld ? t("reporterWithheld") : (r.reporter?.name ?? tAdmin("common.guest"))} · <WhenText date={r.createdAt} />
                     </span>
                   </li>
                 ))}
@@ -357,7 +361,7 @@ export default async function ReportDetailPage({ params }: PageProps<"/[locale]/
               <li className="flex flex-wrap gap-x-2">
                 <span className="font-medium">{t("timeline.sent")}</span>
                 <span className="text-xs text-muted-foreground">
-                  {report.reporter?.name ?? tAdmin("common.guest")} · {formatDate(report.createdAt, locale)}
+                  {report.reporterWithheld ? t("reporterWithheld") : (report.reporter?.name ?? tAdmin("common.guest"))} · {formatDate(report.createdAt, locale)}
                 </span>
               </li>
               {timeline.map((entry) => (

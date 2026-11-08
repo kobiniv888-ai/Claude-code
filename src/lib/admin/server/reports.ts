@@ -8,7 +8,9 @@ import { db } from "@/lib/db";
 import { REPORT_REASONS } from "@/lib/listing/fields";
 import { hostCancelHours } from "@/lib/listing/host-flags";
 import { countOpenReports } from "@/lib/reports/queries";
-import { parseReportAttachments, screenshotsDeleteAt, TURNED_AWAY_REASONS } from "@/lib/reports/turned-away";
+import { parseReportAttachments, reporterNameForHost, screenshotsDeleteAt, TURNED_AWAY_REASONS } from "@/lib/reports/turned-away";
+import { reportedPart } from "@/lib/reviews/rules";
+import { canSeeReporter, type StaffViewer } from "../staff-visibility";
 import { ADMIN_PAGE_SIZE, coverPhotoSelect, ownerBadgeSelect } from "./shared";
 
 /**
@@ -17,6 +19,12 @@ import { ADMIN_PAGE_SIZE, coverPhotoSelect, ownerBadgeSelect } from "./shared";
  * The queue has tabs: everything, turned-away reports (about a host; urgent), listing and
  * profile reports, and review reports (a host reports a guest's review, phase 5). Open reports
  * are a queue: urgent first, then oldest first. Handled ones: newest first.
+ *
+ * Who sent a report is ADMIN only (founder's decision Q12, ../staff-visibility.ts): for anyone
+ * else the reporter's name and account are never read (`reporter` is null and `reporterWithheld`
+ * true). What the page needs from the reporter id is worked out here instead: which part of a
+ * review was reported (`reviewPart`), whether the viewer sent it (`reporterIsViewer`, the own-item
+ * rule) and whether the host could be told (`reporterRevealable`, for the ADMIN's reveal step).
  */
 
 export const REPORT_STATUSES = ["OPEN", "RESOLVED", "DISMISSED"] as const satisfies readonly ReportStatus[];
@@ -84,7 +92,15 @@ export function reportOrder(status: ReportStatusFilter): Prisma.ReportOrderByWit
   return status === "OPEN" ? [{ priority: "desc" }, { createdAt: "asc" }] : [{ createdAt: "desc" }];
 }
 
-export async function listReports(filters: ReportFilters, page: number, locale: string) {
+/** Reporter names for the viewer: only an ADMIN gets any (a missing id is a deleted reporter). */
+async function reporterNames(viewer: StaffViewer, ids: readonly (string | null)[]): Promise<Map<string, { id: string; name: string }>> {
+  const wanted = [...new Set(ids.filter((id): id is string => !!id))];
+  if (!canSeeReporter(viewer) || wanted.length === 0) return new Map();
+  const rows = await db.user.findMany({ where: { id: { in: wanted } }, select: { id: true, name: true } });
+  return new Map(rows.map((r) => [r.id, r]));
+}
+
+export async function listReports(filters: ReportFilters, page: number, locale: string, viewer: StaffViewer) {
   const where = reportWhere(filters);
   const [total, counts] = await Promise.all([db.report.count({ where }), countOpenReports()]);
   const pageCount = Math.max(1, Math.ceil(total / ADMIN_PAGE_SIZE));
@@ -110,15 +126,25 @@ export async function listReports(filters: ReportFilters, page: number, locale: 
       reviewId: true,
       // Review reports (round 3, brief 8.1): the stars, whether staff hid it, and which place.
       review: { select: { rating: true, hidden: true, hostUserId: true, listing: { select: { publicId: true } } } },
-      reporter: { select: { id: true, name: true } },
+      // Only the id (never the name), to work out the reviewed part; see reporterNames.
+      reporterId: true,
       handledBy: { select: { name: true } },
       listing: { select: listingPreviewSelect(locale) },
       targetUser: { select: { id: true, name: true, businessName: true, status: true } },
       booking: { select: { code: true, status: true } },
     },
   });
+  const names = await reporterNames(viewer, rows.map((r) => r.reporterId));
+  const shown = canSeeReporter(viewer);
   return {
-    rows: rows.map(({ attachments, ...row }) => ({ ...row, screenshots: parseReportAttachments(attachments).length })),
+    rows: rows.map(({ attachments, reporterId, ...row }) => ({
+      ...row,
+      screenshots: parseReportAttachments(attachments).length,
+      reporter: reporterId ? (names.get(reporterId) ?? null) : null,
+      reporterWithheld: !shown,
+      /** Review reports: the review itself (sent by the host) or the host's reply (by the guest). */
+      reviewPart: row.review ? reportedPart(row.review, reporterId) : null,
+    })),
     total,
     page: current,
     counts,
@@ -127,7 +153,8 @@ export async function listReports(filters: ReportFilters, page: number, locale: 
 
 export type ReportListRow = Awaited<ReturnType<typeof listReports>>["rows"][number];
 
-export async function getReportDetail(id: string, locale: string) {
+export async function getReportDetail(id: string, locale: string, viewer: StaffViewer) {
+  const showReporter = canSeeReporter(viewer);
   const report = await db.report.findUnique({
     where: { id },
     select: {
@@ -149,16 +176,9 @@ export async function getReportDetail(id: string, locale: string) {
       handledAt: true,
       messageId: true,
       reviewId: true,
-      reporter: {
-        select: {
-          id: true,
-          name: true,
-          firstName: true,
-          status: true,
-          createdAt: true,
-          _count: { select: { reportsMade: true } },
-        },
-      },
+      // The reporter's account is read below, and only for a viewer who may see it.
+      reporterId: true,
+      review: { select: { hostUserId: true } },
       handledBy: { select: { id: true, name: true } },
       booking: {
         select: {
@@ -237,7 +257,7 @@ export async function getReportDetail(id: string, locale: string) {
         reason: true,
         status: true,
         createdAt: true,
-        reporter: { select: { name: true } },
+        reporterId: true,
       },
     }),
     db.auditLog.findMany({
@@ -252,6 +272,28 @@ export async function getReportDetail(id: string, locale: string) {
       : Promise.resolve(0),
   ]);
 
+  // The reporter: the whole account for an ADMIN; for other staff only what the page's rules need
+  // (never the name, the account or how many reports they sent).
+  const [reporter, reporterAccount] = report.reporterId
+    ? await Promise.all([
+        showReporter
+          ? db.user.findUnique({
+              where: { id: report.reporterId },
+              select: { id: true, name: true, firstName: true, status: true, createdAt: true, _count: { select: { reportsMade: true } } },
+            })
+          : Promise.resolve(null),
+        // Only to tell whether the host could be told a first name (never returned).
+        db.user.findUnique({ where: { id: report.reporterId }, select: { name: true, firstName: true, status: true } }),
+      ])
+    : [null, null];
+  const reporterRevealable =
+    report.kind === "TURNED_AWAY" &&
+    !report.reporterRevealedAt &&
+    report.status !== "DISMISSED" &&
+    !!reporterAccount &&
+    reporterNameForHost({ reporterRevealedAt: new Date(), reporter: reporterAccount }) !== null;
+  const otherNames = await reporterNames(viewer, otherReports.map((r) => r.reporterId));
+
   const booking = report.booking
     ? {
         ...report.booking,
@@ -262,17 +304,30 @@ export async function getReportDetail(id: string, locale: string) {
       }
     : null;
 
+  const { reporterId, review, ...rest } = report;
   return {
     report: {
-      ...report,
+      ...rest,
       booking,
       happenedOn: report.happenedOn ? dateToDay(report.happenedOn) : null,
       attachments: parseReportAttachments(report.attachments),
       screenshotsDeleteAt: screenshotsDeleteAt(report),
+      /** ADMIN only (Q12); null for other staff and for a reporter who deleted their account. */
+      reporter,
+      reporterWithheld: !showReporter,
+      /** The viewer sent this report (the own-item rule: someone else decides). */
+      reporterIsViewer: !!reporterId && reporterId === viewer.id,
+      /** A turned-away report whose reporter's first name could be told to the host (ADMIN's step). */
+      reporterRevealable,
+      reviewPart: review ? reportedPart(review, reporterId) : null,
     },
     account,
     accountStats: { liveListings, upcomingBookings },
-    otherReports,
+    otherReports: otherReports.map(({ reporterId: other, ...r }) => ({
+      ...r,
+      reporter: other ? (otherNames.get(other) ?? null) : null,
+      reporterWithheld: !showReporter,
+    })),
     timeline,
   };
 }

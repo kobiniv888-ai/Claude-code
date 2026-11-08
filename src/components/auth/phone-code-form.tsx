@@ -10,18 +10,24 @@ import { PhoneInput } from "@/components/forms/phone-input";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth/client";
 import type { LoginConfig } from "@/lib/auth/config";
-import { authErrorKey, type AuthErrorKey } from "@/lib/auth/error-codes";
+import { authErrorKey, authFailure, parseActionFailure, type AuthErrorKey, type AuthFailure } from "@/lib/auth/error-codes";
 import { confirmPhoneCheckCode, sendPhoneCheckCode } from "@/lib/auth/phone-check-actions";
+import type { PhoneCheckPlace } from "@/lib/auth/phone-check-policy";
 import { CodeStep, useResendTimer } from "./code-step";
-import { useAuthDevHint, useAuthErrorMessage } from "./use-auth-messages";
+import { useAuthDevHint, useAuthErrorMessage, useAuthFailureMessage } from "./use-auth-messages";
 
 /**
  * Phone number → 6-digit code.
- * - `purpose="sign-in"`: the phone LOGIN (development / test mode only; creates the account on
- *   first use) through the Better Auth API.
+ * - `purpose="sign-in"`: the phone LOGIN (test mode only; creates the account on first use)
+ *   through the Better Auth API.
  * - `purpose="check"`: a signed-in account verifies a number (booking, posting) through the server
  *   actions in @/lib/auth/phone-check-actions — once per number: a number the account already has
- *   verified is accepted without a code. Use <PhoneCheck> rather than this directly.
+ *   verified is accepted without a code. `place` (+ `listingId` for a booking) tells the server
+ *   where the check happens; it decides whether a text may be sent. Use <PhoneCheck>.
+ *
+ * Only Israeli and Georgian mobile numbers get codes (the country list offers only those; the
+ * server checks again). The waits between codes and the daily caps are the SERVER's
+ * (src/lib/auth/code-rules.ts); the form shows them.
  */
 
 type Step = "phone" | "code";
@@ -33,9 +39,15 @@ export function PhoneCodeForm({
   autoFocus,
   initialPhone,
   onStepChange,
+  place = "account",
+  listingId,
 }: {
   purpose: "sign-in" | "check";
   config: LoginConfig["phone"];
+  /** `purpose="check"`: where the check happens (the server allows texts only there). */
+  place?: PhoneCheckPlace;
+  /** `place="booking"`: the listing being booked. */
+  listingId?: string | null;
   onVerified: (phoneNumber: string) => void | Promise<void>;
   autoFocus?: boolean;
   initialPhone?: string;
@@ -46,6 +58,7 @@ export function PhoneCodeForm({
   const tCodes = useTranslations("auth.codes");
   // Phone checks happen while signed in: never suggest other ways to log in there.
   const errorMessage = useAuthErrorMessage({ phoneOnly: purpose === "check" });
+  const failureMessage = useAuthFailureMessage({ phoneOnly: purpose === "check" });
   const devHint = useAuthDevHint();
 
   const [step, setStepState] = useState<Step>("phone");
@@ -59,7 +72,7 @@ export function PhoneCodeForm({
   /** The error key behind phoneError, for the development-only hint. */
   const [phoneErrorKey, setPhoneErrorKey] = useState<AuthErrorKey | string | null>(null);
   const [code, setCode] = useState("");
-  const [codeError, setCodeError] = useState<AuthErrorKey | string | null>(null);
+  const [codeError, setCodeError] = useState<AuthFailure | null>(null);
   const [pending, setPending] = useState<"send" | "verify" | "resend" | null>(null);
   const timer = useResendTimer();
   const [notice, setNotice] = useState<string | null>(null);
@@ -91,7 +104,7 @@ export function PhoneCodeForm({
     }
   }
 
-  type Sent = { error: AuthErrorKey | string } | { alreadyVerified: true } | { screenCode: string | null };
+  type Sent = { error: AuthFailure } | { alreadyVerified: true } | { screenCode: string | null };
 
   /** Sends a code (or, for a number this account already verified, nothing). */
   async function sendCode(phoneNumber: string): Promise<Sent> {
@@ -100,9 +113,9 @@ export function PhoneCodeForm({
     setCaptchaToken(null);
     captcha.current?.reset();
     if (purpose === "check") {
-      const result = await sendPhoneCheckCode({ phoneNumber, captchaToken: token }).catch(() => null);
-      if (!result) return { error: "network" };
-      if (!result.ok) return { error: result.error };
+      const result = await sendPhoneCheckCode({ phoneNumber, captchaToken: token, place, listingId }).catch(() => null);
+      if (!result) return { error: { key: "network", retryAfter: null } };
+      if (!result.ok) return { error: parseActionFailure(result.error) };
       if (result.data.status === "already_verified") return { alreadyVerified: true };
       return { screenCode: result.data.screenCode };
     }
@@ -110,18 +123,27 @@ export function PhoneCodeForm({
       phoneNumber,
       fetchOptions: token ? { headers: { "x-captcha-response": token } } : undefined,
     });
-    if (error) return { error: authErrorKey(error) };
+    if (error) return { error: authFailure(error) };
     return { screenCode: await fetchScreenCode(phoneNumber) };
   }
 
-  async function checkCode(phoneNumber: string, value: string): Promise<AuthErrorKey | string | null> {
+  async function checkCode(phoneNumber: string, value: string): Promise<AuthFailure | null> {
     if (purpose === "check") {
       const result = await confirmPhoneCheckCode({ phoneNumber, code: value }).catch(() => null);
-      if (!result) return "network";
-      return result.ok ? null : result.error;
+      if (!result) return { key: "network", retryAfter: null };
+      return result.ok ? null : parseActionFailure(result.error);
     }
     const { error } = await authClient.phoneNumber.verify({ phoneNumber, code: value });
-    return error ? authErrorKey(error) : null;
+    return error ? { key: authErrorKey(error), retryAfter: null } : null;
+  }
+
+  /** The code step, after a code was sent now or a moment ago. */
+  function showCodeStep(screen: string | null, notice: string | null) {
+    setStep("code");
+    setCode("");
+    setCodeError(null);
+    setNotice(notice);
+    setScreenCode(screen);
   }
 
   async function onSubmitPhone(event: FormEvent) {
@@ -136,8 +158,14 @@ export function PhoneCodeForm({
     const sent = await sendCode(phone);
     if ("error" in sent) {
       setPending(null);
-      setPhoneError(errorMessage(sent.error));
-      setPhoneErrorKey(sent.error);
+      // A code went to this number a moment ago (the server's wait): it still works, so ask for it.
+      if (sent.error.key === "code_wait" && sent.error.retryAfter) {
+        showCodeStep(null, tCodes("alreadySent"));
+        timer.waitFor(sent.error.retryAfter);
+        return;
+      }
+      setPhoneError(failureMessage(sent.error));
+      setPhoneErrorKey(sent.error.key);
       return;
     }
     if ("alreadyVerified" in sent) {
@@ -149,11 +177,7 @@ export function PhoneCodeForm({
       return;
     }
     setPending(null);
-    setStep("code");
-    setCode("");
-    setCodeError(null);
-    setNotice(null);
-    setScreenCode(sent.screenCode);
+    showCodeStep(sent.screenCode, null);
     timer.restart();
   }
 
@@ -167,7 +191,7 @@ export function PhoneCodeForm({
       setPending(null);
       setCodeError(error);
       setCode("");
-      if (error === "too_many_attempts" || error === "code_expired") timer.allowNow();
+      if (error.key === "too_many_attempts" || error.key === "code_expired") timer.allowNow();
       return;
     }
     try {
@@ -185,6 +209,11 @@ export function PhoneCodeForm({
     const sent = await sendCode(phone);
     setPending(null);
     if ("error" in sent) {
+      // The server's wait: the countdown shows it (no error text needed).
+      if (sent.error.key === "code_wait" && sent.error.retryAfter) {
+        timer.waitFor(sent.error.retryAfter);
+        return;
+      }
       setCodeError(sent.error);
       return;
     }
@@ -213,7 +242,7 @@ export function PhoneCodeForm({
         <form onSubmit={onSubmitPhone} noValidate className="grid gap-4">
           <PhoneInput
             label={t("label")}
-            description={config.channel === "whatsapp" ? t("hintWhatsapp") : t("hintSms")}
+            description={t("hintSms")}
             value={phone}
             onChange={(value) => {
               setPhone(value);
@@ -222,6 +251,7 @@ export function PhoneCodeForm({
             }}
             onCountryChange={setCountry}
             defaultCountry={config.defaultCountry as Country}
+            countries={config.allowedCountries as Country[]}
             rememberAs="login"
             error={phoneError}
             autoFocus={autoFocus}
@@ -246,11 +276,7 @@ export function PhoneCodeForm({
         </form>
       ) : (
         <CodeStep
-          sentText={
-            config.channel === "whatsapp"
-              ? t.rich("codeSentWhatsapp", { phone: displayPhone, ltr })
-              : t.rich("codeSentSms", { phone: displayPhone, ltr })
-          }
+          sentText={t.rich("codeSentSms", { phone: displayPhone, ltr })}
           code={code}
           onCodeChange={(value) => {
             setCode(value);
@@ -259,8 +285,8 @@ export function PhoneCodeForm({
           onVerify={(value) => void verify(value)}
           verifying={pending === "verify"}
           resending={pending === "resend"}
-          error={errorMessage(codeError)}
-          extra={<DevHint text={devHint(codeError)} />}
+          error={failureMessage(codeError)}
+          extra={<DevHint text={devHint(codeError?.key)} />}
           notice={notice}
           screenCode={screenCode}
           backLabel={t("changeNumber")}

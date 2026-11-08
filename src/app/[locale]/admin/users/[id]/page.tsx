@@ -53,7 +53,7 @@ export default async function UserDetailPage({ params }: PageProps<"/[locale]/ad
   const { locale, id } = await params;
   setRequestLocale(locale);
   const staff = await requireStaff("users.view");
-  const data = await getUserDetail(id);
+  const data = await getUserDetail(id, staff);
   if (!data) notFound();
   const { user } = data;
   const canModerate = can(staff.role, "moderation");
@@ -273,10 +273,15 @@ export default async function UserDetailPage({ params }: PageProps<"/[locale]/ad
 
           <div id="reports" className="grid scroll-mt-20 gap-4 xl:grid-cols-2">
             <AdminSection title={t("reportsAgainst", { count: data.reportsAgainst.length })}>
-              <ReportList rows={data.reportsAgainst.map((r) => ({ ...r, who: r.reporter?.name ?? null }))} empty={t("noReports")} />
+              <ReportList rows={data.reportsAgainst.map((r) => ({ ...r, who: r.reporter?.name ?? (data.reporterWithheld ? tAdmin("reports.reporterWithheld") : null) }))} empty={t("noReports")} />
             </AdminSection>
-            <AdminSection title={t("reportsMade", { count: data.reportsMade.length })}>
-              <ReportList rows={data.reportsMade.map((r) => ({ ...r, who: r.targetUser?.name ?? null }))} empty={t("noReports")} />
+            {/* Who sent reports is ADMIN only (Q12): other staff never get this list. */}
+            <AdminSection title={data.reportsMade ? t("reportsMade", { count: data.reportsMade.length }) : t("reportsMade", { count: 0 })}>
+              {data.reportsMade ? (
+                <ReportList rows={data.reportsMade.map((r) => ({ ...r, who: r.targetUser?.name ?? null }))} empty={t("noReports")} />
+              ) : (
+                <p className="text-sm text-muted-foreground">{tAdmin("reports.reporterWithheld")}</p>
+              )}
             </AdminSection>
           </div>
 

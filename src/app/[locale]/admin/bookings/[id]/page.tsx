@@ -47,7 +47,7 @@ export default async function AdminBookingPage({ params }: Props) {
   const { locale, id } = await params;
   setRequestLocale(locale);
   const staff = await requireStaff("moderation");
-  const data = await getAdminBooking(id, locale as AppLocale);
+  const data = await getAdminBooking(id, locale as AppLocale, staff);
   if (!data) notFound();
   const { booking, lines, history } = data;
   const [t, tb, tAdmin, tFields, tReviews] = await Promise.all([
@@ -260,7 +260,8 @@ export default async function AdminBookingPage({ params }: Props) {
                   </Link>
                   <UserStatusBadge status={booking.guest.status} className="h-5" />
                 </span>
-                {booking.guestPhone ? <Ltr className="text-xs">{booking.guestPhone}</Ltr> : null}
+                {/* ADMIN only (Q12): other staff get no phone from the query at all. */}
+                {booking.guestPhone ? <Ltr className="text-xs">{booking.guestPhone}</Ltr> : booking.guestPhoneWithheld ? <span className="text-xs text-muted-foreground">{t("guestPhoneWithheld")}</span> : null}
                 <span className="text-xs text-muted-foreground">{t("guestLanguage", { language: siteConfig.i18n.nativeNames[booking.locale] ?? booking.locale })}</span>
               </div>
               <div className="flex flex-col gap-1">

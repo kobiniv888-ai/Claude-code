@@ -2,7 +2,7 @@ import "server-only";
 import type { AppLocale } from "@/config/site";
 import { pickLocalized } from "@/i18n/locale";
 import { db } from "@/lib/db";
-import type { NearbyInfo } from "@/lib/nearby";
+import type { PublicNearbyInfo } from "@/lib/geo/public-walk";
 
 export type VerifiedPlace = { kind: "synagogue" | "chabad"; name: string; minutes: number };
 
@@ -13,12 +13,12 @@ export type VerifiedPlace = { kind: "synagogue" | "chabad"; name: string; minute
  * un-verified after the listing was computed, so the entry is checked against the table.
  * Never throws: the section just leaves the line out.
  */
-export async function verifiedNearestSynagogue(nearby: NearbyInfo, locale: AppLocale): Promise<VerifiedPlace | null> {
+export async function verifiedNearestSynagogue(nearby: PublicNearbyInfo, locale: AppLocale): Promise<VerifiedPlace | null> {
   const candidates = (
     [
       nearby.synagogue && { kind: "synagogue" as const, place: nearby.synagogue },
       nearby.chabad && { kind: "chabad" as const, place: nearby.chabad },
-    ].filter(Boolean) as { kind: VerifiedPlace["kind"]; place: NonNullable<NearbyInfo["synagogue"]> }[]
+    ].filter(Boolean) as { kind: VerifiedPlace["kind"]; place: NonNullable<PublicNearbyInfo["synagogue"]> }[]
   ).sort((a, b) => a.place.minutes - b.place.minutes);
   if (candidates.length === 0) return null;
   try {

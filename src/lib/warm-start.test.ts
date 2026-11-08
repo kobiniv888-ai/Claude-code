@@ -89,7 +89,7 @@ describe("warmOnStart", () => {
     await vi.advanceTimersByTimeAsync(1000);
     expect(urls()).toEqual(["http://127.0.0.1:3000/he", photo]);
     const imageInit = (fetchMock.mock.calls[1] as unknown[])[1] as { headers: Record<string, string> };
-    expect(imageInit.headers.accept).toMatch(/^image\/avif/);
+    expect(imageInit.headers.accept).toMatch(/^image\/webp/);
     await vi.advanceTimersByTimeAsync(WARM_REST_AFTER_MS + 1000);
     await vi.waitFor(() => expect(info).toHaveBeenCalledTimes(1));
     // The other pages; their photo was already prepared, so it is not requested again.

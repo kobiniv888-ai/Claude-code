@@ -21,7 +21,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return authPageMetadata(locale, "twoFactorSetup");
 }
 
-/** Turn on 2-step login (required for staff before /admin; optional for everyone else). */
+/**
+ * Turn on 2-step login (required for staff before /admin; optional for everyone else), or with
+ * ?replace=1 move it to a new phone (a lost or new phone: the old app stops working). Both need a
+ * fresh code first (SECURITY_REPORT 3.6), asked by the form.
+ */
 export default async function TwoFactorSetupPage({ params, searchParams }: Props) {
   const { locale } = await params;
   setRequestLocale(locale);
@@ -45,6 +49,20 @@ export default async function TwoFactorSetupPage({ params, searchParams }: Props
       {icon}
     </span>
   );
+
+  const replace = query.replace === "1";
+  if (user.twoFactorEnabled && replace) {
+    return (
+      <AuthShell
+        locale={locale as AppLocale}
+        title={t("replaceTitle")}
+        description={t("replaceSubtitle")}
+        icon={iconCircle(<KeyRoundIcon className="size-6" aria-hidden />, "primary")}
+      >
+        <TwoFactorSetup next={next} replace />
+      </AuthShell>
+    );
+  }
 
   if (user.twoFactorEnabled) {
     return (

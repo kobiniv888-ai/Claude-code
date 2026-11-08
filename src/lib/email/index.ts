@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { isAppLocale } from "@/i18n/locale";
 import { siteUrl } from "@/lib/site-url";
+import { readSiteEnv } from "@/lib/site-env";
 import type { EmailStatus } from "@/generated/prisma/enums";
 import { renderEmailHtml, renderEmailText, type LayoutContext } from "./layout";
 import { buildEmailContent, type EmailData, type EmailTemplate, type TemplateContext } from "./templates";
@@ -263,7 +264,8 @@ export async function sendEmail<K extends EmailTemplate>({
 
   const client = outboxOnly ? null : resend();
   if (!client) {
-    const logged = process.env.NODE_ENV === "production" ? stored : rendered;
+    // The full text (codes unmasked) only on a development server of a development site.
+    const logged = process.env.NODE_ENV !== "production" && readSiteEnv() === "development" ? rendered : stored;
     console.info(
       `[email] RESEND_API_KEY is not set — not sent (see the admin email outbox).\n` +
         `  to: ${recipient}\n  template: ${template} (${locale})\n  subject: ${logged.subject}\n\n${logged.text}\n`,

@@ -192,8 +192,8 @@
     "floor": "Этаж {floor}",
     "floorOf": "Этаж {floor} из {total}",
     "studio": "Студия",
-    "synagogueWalk": "{count} мин пешком до синагоги",
-    "chabadWalk": "{count} мин пешком до Бейт Хабада",
+    "synagogueWalk": "{count, plural, =5 {Не больше 5 мин пешком до синагоги} other {≈ {count} мин пешком до синагоги}}",
+    "chabadWalk": "{count, plural, =5 {Не больше 5 мин пешком до Бейт Хабада} other {≈ {count} мин пешком до Бейт Хабада}}",
     "minStay": "{count, plural, one {Минимум {count} ночь} few {Минимум {count} ночи} many {Минимум {count} ночей} other {Минимум {count} ночи}}"
   }
 }

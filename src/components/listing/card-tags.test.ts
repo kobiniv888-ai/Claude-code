@@ -34,7 +34,7 @@ describe("cardTags", () => {
 
   it("puts the visitor's filters first", () => {
     expect(cardTags(all, ["hebrew"])).toEqual([{ kind: "hebrew" }, { kind: "kosherKitchen" }]);
-    expect(cardTags(all, ["synagogue", "hebrew"])).toEqual([{ kind: "synagogue", minutes: 6 }, { kind: "hebrew" }]);
+    expect(cardTags(all, ["synagogue", "hebrew"])).toEqual([{ kind: "synagogue", minutes: 10 }, { kind: "hebrew" }]);
   });
 
   it("never shows an unverified synagogue walk", () => {
@@ -70,7 +70,7 @@ describe("the visited tag (round 3, brief 8.3)", () => {
 
   it("stays first even before the visitor's filters", () => {
     expect(cardTags({ ...all, visited: true }, ["hebrew"])).toEqual([{ kind: "visited" }, { kind: "hebrew" }]);
-    expect(cardTags({ ...all, visited: true }, ["synagogue", "hebrew"])).toEqual([{ kind: "visited" }, { kind: "synagogue", minutes: 6 }]);
+    expect(cardTags({ ...all, visited: true }, ["synagogue", "hebrew"])).toEqual([{ kind: "visited" }, { kind: "synagogue", minutes: 10 }]);
   });
 
   it("is absent without the badge", () => {
@@ -89,7 +89,7 @@ describe("cardTags: the walk to the sea / lifts (round 3, brief 7.3)", () => {
   it("shows ≈ N min to the sea or the lifts at 15 minutes or less", () => {
     expect(cardTags({ seaWalkMinutes: 5 })).toEqual([{ kind: "sea", minutes: 5 }]);
     expect(cardTags({ seaWalkMinutes: 15 })).toEqual([{ kind: "sea", minutes: 15 }]);
-    expect(cardTags({ liftWalkMinutes: 7 })).toEqual([{ kind: "lift", minutes: 7 }]);
+    expect(cardTags({ liftWalkMinutes: 7 })).toEqual([{ kind: "lift", minutes: 10 }]);
     expect(cardTags({ seaWalkMinutes: 16 })).toEqual([]);
     expect(cardTags({ liftWalkMinutes: 30 })).toEqual([]);
     expect(cardTags({ seaWalkMinutes: null, liftWalkMinutes: null })).toEqual([]);
@@ -97,8 +97,8 @@ describe("cardTags: the walk to the sea / lifts (round 3, brief 7.3)", () => {
   });
 
   it("comes first in those towns, before ביקרנו במקום and the visitor's filters", () => {
-    expect(cardTags({ ...jewish, visited: true, seaWalkMinutes: 4 })).toEqual([{ kind: "sea", minutes: 4 }, { kind: "visited" }]);
-    expect(cardTags({ ...jewish, liftWalkMinutes: 9 }, ["hebrew"])).toEqual([{ kind: "lift", minutes: 9 }, { kind: "hebrew" }]);
+    expect(cardTags({ ...jewish, visited: true, seaWalkMinutes: 4 })).toEqual([{ kind: "sea", minutes: 5 }, { kind: "visited" }]);
+    expect(cardTags({ ...jewish, liftWalkMinutes: 9 }, ["hebrew"])).toEqual([{ kind: "lift", minutes: 10 }, { kind: "hebrew" }]);
   });
 
   it("counts toward the two-tag limit", () => {

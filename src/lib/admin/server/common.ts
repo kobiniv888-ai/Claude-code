@@ -37,6 +37,7 @@ export const ADMIN_ERROR_CODES = [
   "account_blocked",
   "missing_listing",
   "role_unchanged",
+  "demo_staff_refused",
   "documents_paused",
   "backup_required",
   "cleanup_running",
@@ -54,6 +55,8 @@ export const ADMIN_ERROR_CODES = [
   "no_channel",
   "content_changed",
   "changed_since_view",
+  // Q13: a destructive action whose audit row could not be written was stopped (src/lib/audit.ts).
+  "audit_failed",
 ] as const;
 export type AdminErrorCode = (typeof ADMIN_ERROR_CODES)[number];
 

@@ -8,6 +8,7 @@ import { isEnabledCurrency } from "@/lib/currency/convert";
 import { db } from "@/lib/db";
 import { ShabbatModeError, ValidationError } from "@/lib/errors";
 import { isShabbatOrHolidayNow } from "@/lib/hebcal";
+import { demoAllowed } from "@/lib/site-env";
 
 /**
  * Runtime site settings that admins change in /admin/settings (table SiteSetting,
@@ -45,7 +46,10 @@ export type SiteSettings = {
   reportsToAutoHide: number;
   /** Show the current scam-alert banner on the site. */
   scamBannerEnabled: boolean;
-  /** Show demo listings on public pages (turn off before launch). */
+  /**
+   * Show demo listings on public pages. Always false on the real site (SITE_ENV=production),
+   * whatever is stored (SECURITY_REPORT 19.i, C18): see `effectiveSettings`.
+   */
   demoDataVisible: boolean;
   /** Home page sections, in display order. */
   homeSections: { key: HomeSectionKey; enabled: boolean }[];
@@ -175,22 +179,32 @@ export function mergeSettings(rows: { key: string; value: unknown }[]): SiteSett
 const CACHE_MS = process.env.NODE_ENV === "production" ? 30_000 : 0;
 let cache: { settings: SiteSettings; at: number } | null = null;
 
+/**
+ * What the site actually uses: the stored settings, except that demo listings never show on the
+ * real site (SITE_ENV=production, or SITE_ENV missing: fail closed), even when the admin switch
+ * is on. On development and staging sites the switch works as stored.
+ */
+export function effectiveSettings(settings: SiteSettings): SiteSettings {
+  return settings.demoDataVisible && !demoAllowed() ? { ...settings, demoDataVisible: false } : settings;
+}
+
 async function loadSettings(): Promise<SiteSettings> {
-  if (cache && Date.now() - cache.at < CACHE_MS) return cache.settings;
+  if (cache && Date.now() - cache.at < CACHE_MS) return effectiveSettings(cache.settings);
   try {
     const rows = await db.siteSetting.findMany({ select: { key: true, value: true } });
     const settings = mergeSettings(rows);
     cache = { settings, at: Date.now() };
-    return settings;
+    return effectiveSettings(settings);
   } catch (error) {
     console.error("[settings] could not read settings, using defaults:", error);
-    return cache?.settings ?? structuredClone(DEFAULT_SETTINGS);
+    return effectiveSettings(cache?.settings ?? structuredClone(DEFAULT_SETTINGS));
   }
 }
 
 /**
  * Current settings — cached 30 s in production (none in development) and read once per request.
- * Never throws: falls back to the defaults when the database is unavailable.
+ * Never throws: falls back to the defaults when the database is unavailable. Demo listings are
+ * always off on the real site (`effectiveSettings`).
  */
 export const getSettings: () => Promise<SiteSettings> = requestCache(loadSettings);
 

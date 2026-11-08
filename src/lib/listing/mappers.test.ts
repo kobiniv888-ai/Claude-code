@@ -126,7 +126,8 @@ describe("toListingCard", () => {
       business: false,
       shabbatFriendly: true,
       kosherKitchen: true,
-      synagogueWalkMin: 6,
+      // Security checklist 6.d: rounded up to 5 minutes on the server (6 → 10).
+      synagogueWalkMin: 10,
       synagogueVerified: true,
       // Brief 7.3: walking minutes to the sea / lifts (none outside those towns).
       seaWalkMinutes: null,

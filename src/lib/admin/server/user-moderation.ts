@@ -1,6 +1,7 @@
 import "server-only";
+import type { Prisma } from "@/generated/prisma/client";
 import type { CurrentUser } from "@/lib/auth/session";
-import { audit } from "@/lib/audit";
+import { audit, auditOrThrow } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { notificationEmailFor, sendEmail } from "@/lib/email";
 import type { UserActionReason } from "../reasons";
@@ -9,7 +10,9 @@ import { AdminActionError, assertCanManage, localeOf, userReasonText } from "./c
 /**
  * Account enforcement shared by the user page and the reports page (server-only). Callers have
  * already checked the staff permission (runStaffAction). Every change is audited and the user is
- * emailed in THEIR language.
+ * emailed in THEIR language. Suspend and ban are destructive (founder's decision Q13): the change,
+ * the signing out and the audit row commit in ONE transaction (auditOrThrow), so a ban whose audit
+ * row cannot be written does not happen; the email goes out only after it committed.
  */
 
 const targetSelect = {
@@ -31,8 +34,8 @@ async function loadTarget(userId: string) {
 
 type Context = { reportId?: string };
 
-export async function revokeSessions(userId: string): Promise<number> {
-  const { count } = await db.session.deleteMany({ where: { userId } });
+export async function revokeSessions(userId: string, client: Pick<Prisma.TransactionClient, "session"> = db): Promise<number> {
+  const { count } = await client.session.deleteMany({ where: { userId } });
   return count;
 }
 
@@ -81,17 +84,23 @@ export async function suspendUser(
 
   const locale = localeOf(user.locale);
   const text = await userReasonText(reason, locale, note);
-  await db.user.update({
-    where: { id: user.id },
-    data: { status: "SUSPENDED", statusReason: reason, suspendedUntil: until },
-  });
-  const sessionsRevoked = await revokeSessions(user.id);
-  await audit({
-    actorId: staff.id,
-    action: "user.suspend",
-    targetType: "User",
-    targetId: user.id,
-    details: { from: user.status, reason, note, until, sessionsRevoked },
+  const sessionsRevoked = await db.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: user.id },
+      data: { status: "SUSPENDED", statusReason: reason, suspendedUntil: until },
+    });
+    const revoked = await revokeSessions(user.id, tx);
+    await auditOrThrow(
+      {
+        actorId: staff.id,
+        action: "user.suspend",
+        targetType: "User",
+        targetId: user.id,
+        details: { from: user.status, reason, note, until, sessionsRevoked: revoked },
+      },
+      tx,
+    );
+    return revoked;
   });
   const to = notificationEmailFor(user);
   if (to) {
@@ -130,20 +139,24 @@ export async function banUser(
     where: { ownerId: user.id, status: "LIVE" },
     select: { id: true, publicId: true },
   });
-  await db.$transaction([
-    db.user.update({ where: { id: user.id }, data: { status: "BANNED", statusReason: reason, suspendedUntil: null } }),
-    db.listing.updateMany({
+  const sessionsRevoked = await db.$transaction(async (tx) => {
+    await tx.user.update({ where: { id: user.id }, data: { status: "BANNED", statusReason: reason, suspendedUntil: null } });
+    await tx.listing.updateMany({
       where: { id: { in: live.map((l) => l.id) }, status: "LIVE" },
       data: { status: "PAUSED" },
-    }),
-  ]);
-  const sessionsRevoked = await revokeSessions(user.id);
-  await audit({
-    actorId: staff.id,
-    action: "user.ban",
-    targetType: "User",
-    targetId: user.id,
-    details: { from: user.status, reason, note, sessionsRevoked, pausedListings: live.map((l) => l.publicId) },
+    });
+    const revoked = await revokeSessions(user.id, tx);
+    await auditOrThrow(
+      {
+        actorId: staff.id,
+        action: "user.ban",
+        targetType: "User",
+        targetId: user.id,
+        details: { from: user.status, reason, note, sessionsRevoked: revoked, pausedListings: live.map((l) => l.publicId) },
+      },
+      tx,
+    );
+    return revoked;
   });
   const to = notificationEmailFor(user);
   if (to) {

@@ -16,6 +16,8 @@ const { db } = await import("@/lib/db");
 const { Prisma } = await import("@/generated/prisma/client");
 const { getOpenFlagCounts, hostFlagSummary, isHostFlagged, listFlags } = await import("@/lib/admin/server/flags");
 const { bookingSearchWhere, getAdminBooking, searchBookings } = await import("@/lib/admin/server/bookings");
+/** The founder's view (every field); the Q12 limits for other staff are in tests/unit/endpoints/staff-visibility-db.test.ts. */
+const ADMIN_VIEWER = { id: "admin-viewer", role: "ADMIN" };
 const { loadAttentionCounts } = await import("@/lib/admin/server/attention");
 
 const prefix = `p3f${randomUUID().replace(/-/g, "").slice(0, 10)}`;
@@ -146,26 +148,26 @@ describe("booking flags (cancelled within 48 hours, no-shows)", () => {
 describe("bookings search and the staff booking page", () => {
   it("finds a booking by its code, the guest's name or the listing number, and by stay dates", async () => {
     const row = await booking({ status: "CONFIRMED" });
-    const byCode = await searchBookings({ q: row.code.toLowerCase(), from: null, to: null }, 1, "he");
+    const byCode = await searchBookings({ q: row.code.toLowerCase(), from: null, to: null }, 1, "he", ADMIN_VIEWER);
     expect(byCode.rows.map((r) => r.id)).toEqual([row.id]);
     const listing = await db.listing.findUniqueOrThrow({ where: { id: ids.listing }, select: { publicId: true } });
-    const byListing = await searchBookings({ q: `#${listing.publicId}`, from: null, to: null }, 1, "he");
+    const byListing = await searchBookings({ q: `#${listing.publicId}`, from: null, to: null }, 1, "he", ADMIN_VIEWER);
     expect(byListing.rows.map((r) => r.id)).toContain(row.id);
-    const byGuest = await searchBookings({ q: `${prefix} Guest`, from: null, to: null }, 1, "he");
+    const byGuest = await searchBookings({ q: `${prefix} Guest`, from: null, to: null }, 1, "he", ADMIN_VIEWER);
     expect(byGuest.rows.map((r) => r.id)).toContain(row.id);
     // Stays whose nights touch 2026-12-06 include this one (Dec 4 to 7); Dec 7 itself does not.
-    const touching = await db.booking.count({ where: { AND: [await bookingSearchWhere({ q: "", from: new Date("2026-12-06T00:00:00Z"), to: new Date("2026-12-06T00:00:00Z") }), { id: row.id }] } });
+    const touching = await db.booking.count({ where: { AND: [await bookingSearchWhere({ q: "", from: new Date("2026-12-06T00:00:00Z"), to: new Date("2026-12-06T00:00:00Z") }, ADMIN_VIEWER), { id: row.id }] } });
     expect(touching).toBe(1);
-    const after = await db.booking.count({ where: { AND: [await bookingSearchWhere({ q: "", from: new Date("2026-12-07T00:00:00Z"), to: null }), { id: row.id }] } });
+    const after = await db.booking.count({ where: { AND: [await bookingSearchWhere({ q: "", from: new Date("2026-12-07T00:00:00Z"), to: null }, ADMIN_VIEWER), { id: row.id }] } });
     expect(after).toBe(0);
     // Text that cannot match anything finds nothing.
-    expect((await searchBookings({ q: "zz", status: "NO_SHOW", from: null, to: null }, 1, "he")).rows.every((r) => r.status === "NO_SHOW")).toBe(true);
+    expect((await searchBookings({ q: "zz", status: "NO_SHOW", from: null, to: null }, 1, "he", ADMIN_VIEWER)).rows.every((r) => r.status === "NO_SHOW")).toBe(true);
   });
 
   it("shows the price lines copied at booking time and the reports about it", async () => {
     const row = await booking({ status: "CONFIRMED", hostNotifiedAt: new Date(), hostNotifiedVia: "email,push" });
     await report({ kind: "TURNED_AWAY", bookingId: row.id, reason: "ASKED_RELIGION_OR_ORIGIN" });
-    const detail = await getAdminBooking(row.id, "he");
+    const detail = await getAdminBooking(row.id, "he", ADMIN_VIEWER);
     expect(detail?.booking.notifiedVia).toEqual(["email", "push"]);
     expect(detail?.booking.reports).toHaveLength(1);
     // Dec 4, 5 and 6, 2026: Friday and Saturday nights are weekend nights.
@@ -177,7 +179,7 @@ describe("bookings search and the staff booking page", () => {
     // When the rebuilt nights do not add up to the stored subtotal (a pricing rule the page no longer
     // knows), the nights become one line with the stored subtotal and no per-night price.
     await db.booking.update({ where: { id: row.id }, data: { subtotal: new Prisma.Decimal(250) } });
-    expect((await getAdminBooking(row.id, "he"))!.lines).toEqual([
+    expect((await getAdminBooking(row.id, "he", ADMIN_VIEWER))!.lines).toEqual([
       { kind: "weekday", nights: 3, amount: 250 },
       { kind: "cleaning", amount: 20 },
     ]);

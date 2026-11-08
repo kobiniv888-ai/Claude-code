@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { fail, ok, type ActionResult } from "@/lib/action";
-import { audit } from "@/lib/audit";
+import { audit, auditOrThrow } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { cleanLocalized } from "../localized";
 import { savedReplySchema } from "../schemas";
@@ -39,8 +39,11 @@ export async function deleteSavedReply(input: unknown): Promise<ActionResult> {
     if (!parsed.success) return fail("invalid_input");
     const reply = await db.savedReply.findUnique({ where: { id: parsed.data.id }, select: { id: true, title: true } });
     if (!reply) throw new ContentActionError("item_not_found", 404);
-    await db.savedReply.delete({ where: { id: reply.id } });
-    await audit({ actorId: staff.id, action: "saved_reply.delete", targetType: "SavedReply", targetId: reply.id, details: { title: reply.title } });
+    // Q13: the delete and its audit row commit together, or not at all.
+    await db.$transaction(async (tx) => {
+      await tx.savedReply.delete({ where: { id: reply.id } });
+      await auditOrThrow({ actorId: staff.id, action: "saved_reply.delete", targetType: "SavedReply", targetId: reply.id, details: { title: reply.title } }, tx);
+    });
     return ok();
   });
 }

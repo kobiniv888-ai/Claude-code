@@ -70,6 +70,14 @@ export const createBookingSchema = quoteInputSchema.extend({
   expectedTotal: z.number().nonnegative().max(100_000_000).optional(),
   expectedCurrency: z.enum(currencyCodes).optional(),
   expectedPolicy: z.enum(CANCELLATION_POLICIES).optional(),
+  /**
+   * One booking attempt (SECURITY_REPORT 4.5.c): the review page makes a random key per stay and
+   * sends it with every tap, so a double tap or a retry returns the booking already made.
+   */
+  idempotencyKey: z
+    .string()
+    .regex(/^[A-Za-z0-9_-]{16,64}$/, "invalid_input")
+    .optional(),
 });
 export type CreateBookingInput = z.input<typeof createBookingSchema>;
 

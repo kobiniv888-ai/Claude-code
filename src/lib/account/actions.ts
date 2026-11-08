@@ -15,6 +15,9 @@ import { fail, ok, runAction, type ActionResult } from "@/lib/action";
 import { audit } from "@/lib/audit";
 import { requireUserForAction } from "@/lib/auth/session";
 import { auth } from "@/lib/auth/server";
+import { removeContactEmail } from "@/lib/auth/contact-email-actions";
+import { requireFreshProof } from "@/lib/auth/fresh-proof";
+import { notifySecurityChange } from "@/lib/auth/security-notices";
 import { clearDisplayCurrency, setDisplayCurrency } from "@/lib/currency/actions";
 import { alertsPart } from "@/lib/booking/alert-rules";
 import { db } from "@/lib/db";
@@ -271,14 +274,20 @@ export async function removeAvatar(): Promise<ActionResult> {
   });
 }
 
+/**
+ * The contact email is a sensitive change (SECURITY_REPORT 3.6.a): a NEW address is saved only by
+ * src/lib/auth/contact-email-actions.ts (a fresh code, then a code to the new address). Here only
+ * removing it, which also needs the fresh code (and tells the old address).
+ */
 export async function updateContactEmail(input: unknown): Promise<ActionResult<{ contactEmail: string | null }>> {
   return runAction<{ contactEmail: string | null }>(async () => {
     const user = await requireUserForAction();
     const parsed = contactEmailSchema.safeParse(input);
     if (!parsed.success) return fail("invalid_input", { contactEmail: ["invalid_email"] });
     await assertRateLimit(`account:contact-email:${user.id}`, { limit: 10, windowSeconds: 3600 });
-    await db.user.update({ where: { id: user.id }, data: { contactEmail: parsed.data.contactEmail } });
-    return ok({ contactEmail: parsed.data.contactEmail });
+    if (parsed.data.contactEmail !== null) return fail("contact_email_needs_code");
+    const removed = await removeContactEmail();
+    return removed.ok ? ok({ contactEmail: null }) : removed;
   });
 }
 
@@ -344,7 +353,10 @@ export async function unlinkSocialAccount(provider: unknown): Promise<ActionResu
     const settings = await getAccountSettings(user.id);
     if (!settings.linked.includes(parsed.data)) return fail("not_found");
     if (remainingSignInMethods(settings, parsed.data) < 1) return fail("last_sign_in_method");
+    // A login method is a sensitive change: a fresh code first, the account is told (SECURITY_REPORT 3.6).
+    await requireFreshProof(user);
     await db.account.deleteMany({ where: { userId: user.id, providerId: parsed.data } });
+    await notifySecurityChange({ userId: user.id, kind: "login_method_removed", provider: parsed.data });
     return ok();
   });
 }
@@ -374,6 +386,8 @@ export async function deleteMyAccount(input: unknown): Promise<ActionResult> {
     await assertRateLimit(`account:delete:${user.id}`, { limit: 5, windowSeconds: 3600 });
     if (!confirmationMatches(parsed.data.confirmation, await confirmationWords())) return fail("confirmation_mismatch");
     if (user.isStaff) return fail("staff_account");
+    // A fresh code before deleting the account (SECURITY_REPORT 3.6.b).
+    await requireFreshProof(user);
 
     const row = await db.user.findUniqueOrThrow({
       where: { id: user.id },

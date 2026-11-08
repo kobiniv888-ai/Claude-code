@@ -31,6 +31,10 @@ export const BOOKING_ERROR_CODES = [
   "terms_changed",
   /** None of the host's alert channels accepted the "new booking" alert: ask the host instead. */
   "host_unreachable",
+  /** This phone number (or account) already has the most upcoming bookings (details.count = the limit). */
+  "too_many_upcoming",
+  /** A booking attempt's key came back for another stay (a broken or replayed request). */
+  "request_reused",
 ] as const;
 export type BookingErrorCode = (typeof BOOKING_ERROR_CODES)[number];
 

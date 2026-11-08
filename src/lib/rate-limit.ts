@@ -9,15 +9,43 @@ import { getIpHash } from "@/lib/request";
  *
  *   await assertRateLimit(`listing:create:${user.id}`, { limit: 10, windowSeconds: 3600 });
  *   const r = await rateLimitByIp("places", { limit: 60, windowSeconds: 60 });
+ *   if (!r.ok) …                       // over the limit, OR the store could not be checked
+ *   const q = await rateLimit(key, { limit: 1, windowSeconds: 3600, failOpen: true });
  *
  * One atomic INSERT … ON CONFLICT per call: the first hit opens a window, later hits
  * increment it, and a hit after `resetAt` starts a new window.
- * If the database is unreachable the check fails open (logged) — every other database
- * write would fail in that case anyway.
+ *
+ * FAIL CLOSED (SECURITY_REPORT 12.5.b, L6, C13; checklist rule 0.4): when the store errors (the
+ * database is down, a timeout), the action is REFUSED: `rateLimit` answers `{ ok: false,
+ * failed: true }` and `assertRateLimit` / `assertRateLimitByIp` throw RateLimitError (shown as
+ * "too many tries, try again in a moment"), with a short retry time (STORE_ERROR_RETRY_SECONDS).
+ * Login codes, SMS, 2-step login, bookings, reports, uploads… all stay limited when the store is
+ * broken. The error is logged; it never lets a request through.
+ *
+ * `failOpen: true` is an explicit opt-in for HARMLESS counters only, where refusing would do harm
+ * and allowing costs nothing. Today only the alert quotas that decide whether to send a FOUNDER /
+ * host alert use it (src/lib/alerts/founder-admin.ts, src/lib/alerts/host.ts,
+ * src/lib/booking/alerts.ts, src/lib/reports/notify.ts): with a broken store, an alert is sent
+ * rather than silently dropped. Never use it for anything a visitor can trigger to cost us money
+ * or to guess something.
  */
 
-export type RateLimitOptions = { limit: number; windowSeconds: number };
-export type RateLimitResult = { ok: boolean; remaining: number; resetAt: Date };
+export type RateLimitOptions = {
+  limit: number;
+  windowSeconds: number;
+  /** Allow the request when the store cannot be checked (harmless counters only; default false). */
+  failOpen?: boolean;
+};
+export type RateLimitResult = {
+  ok: boolean;
+  remaining: number;
+  resetAt: Date;
+  /** True when the store could not be checked (the answer is then the fail-closed/fail-open default). */
+  failed?: boolean;
+};
+
+/** How long a refused-because-the-store-failed request is asked to wait. */
+export const STORE_ERROR_RETRY_SECONDS = 30;
 
 const MAX_KEY_LENGTH = 200;
 
@@ -27,7 +55,7 @@ function normalizeKey(key: string): string {
   return trimmed.length > MAX_KEY_LENGTH ? trimmed.slice(0, MAX_KEY_LENGTH) : trimmed;
 }
 
-export async function rateLimit(key: string, { limit, windowSeconds }: RateLimitOptions): Promise<RateLimitResult> {
+export async function rateLimit(key: string, { limit, windowSeconds, failOpen = false }: RateLimitOptions): Promise<RateLimitResult> {
   if (!Number.isFinite(limit) || limit < 1) throw new Error("rateLimit: limit must be ≥ 1");
   if (!Number.isFinite(windowSeconds) || windowSeconds < 1) throw new Error("rateLimit: windowSeconds must be ≥ 1");
 
@@ -50,12 +78,16 @@ export async function rateLimit(key: string, { limit, windowSeconds }: RateLimit
     maybePrune();
     return { ok: count <= limit, remaining: Math.max(0, limit - count), resetAt };
   } catch (error) {
-    console.error(`[rate-limit] check failed for "${id}" — allowing the request:`, error);
-    return { ok: true, remaining: limit, resetAt: windowEnd };
+    if (failOpen) {
+      console.error(`[rate-limit] check failed for "${id}" — allowing it (failOpen: a harmless counter):`, error);
+      return { ok: true, remaining: limit, resetAt: windowEnd, failed: true };
+    }
+    console.error(`[rate-limit] check failed for "${id}" — REFUSING the request (fail closed):`, error);
+    return { ok: false, remaining: 0, resetAt: new Date(now.getTime() + STORE_ERROR_RETRY_SECONDS * 1000), failed: true };
   }
 }
 
-/** Throws RateLimitError when the limit is exceeded. */
+/** Throws RateLimitError when the limit is exceeded, or when the store fails (fail closed). */
 export async function assertRateLimit(key: string, options: RateLimitOptions): Promise<RateLimitResult> {
   const result = await rateLimit(key, options);
   if (!result.ok) throw new RateLimitError(result.resetAt);

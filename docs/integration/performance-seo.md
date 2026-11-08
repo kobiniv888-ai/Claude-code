@@ -189,7 +189,8 @@ What would move it further (not done; each needs a decision or touches another a
    of `loading.tsx`, if the founder prefers the faster first visit.
 
 How to measure: `npm run preview` (or the commands above), then
-`npx lighthouse http://localhost:3000/he --only-categories=performance --chrome-flags="--headless=new"`.
+`npx lighthouse@13.6.0 http://localhost:3000/he --only-categories=performance --chrome-flags="--headless=new"`
+(Lighthouse is not a project dependency: always run that exact version with npx).
 The scratch scripts used (median of N runs, network timeline, Lantern graph dump, CLS recorder,
 class coverage check) are described here and were not committed.
 

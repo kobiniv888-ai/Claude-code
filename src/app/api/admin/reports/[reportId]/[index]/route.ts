@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
+import { isOwnItem } from "@/lib/admin/server/common";
 import { auditFileView } from "@/lib/admin/server/file-views";
-import { requireStaffForAction } from "@/lib/auth/session";
+import { requireStaffForAction, type CurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { isAppError } from "@/lib/errors";
 import { rateLimit, rateLimitHeaders } from "@/lib/rate-limit";
@@ -14,7 +15,9 @@ import { getPrivate } from "@/lib/storage";
  * image in a sandboxed, script-free document. Every opening is written to the audit log
  * ("report.attachment_view", through auditFileView like a verification document: at most once per
  * staff member and screenshot every FILE_VIEW_DEDUPE_MINUTES (10) minutes; a failed audit write
- * is logged and never hides the file).
+ * is logged and never hides the file). Staff other than an ADMIN never open the screenshots of a
+ * report about themselves or sent by them (the own-item rule of the report page and its actions,
+ * SECURITY_REPORT 4.3.d): 404.
  */
 
 export const dynamic = "force-dynamic";
@@ -37,14 +40,15 @@ function plain(status: number, text: string, extra: Record<string, string> = {})
 }
 
 export async function GET(_request: Request, ctx: { params: Promise<{ reportId: string; index: string }> }) {
-  let staffId: string;
+  let staff: Pick<CurrentUser, "id" | "role">;
   try {
-    staffId = (await requireStaffForAction("reports")).id;
+    staff = await requireStaffForAction("reports");
   } catch (error) {
     if (isAppError(error) && error.status === 401) return plain(401, "Sign-in required");
     return plain(404, "Not found");
   }
 
+  const staffId = staff.id;
   const limit = await rateLimit(`admin:report-files:${staffId}`, LIMIT);
   if (!limit.ok) return plain(429, "Too many requests", rateLimitHeaders(limit, LIMIT.limit));
 
@@ -54,9 +58,10 @@ export async function GET(_request: Request, ctx: { params: Promise<{ reportId: 
 
   const report = await db.report.findUnique({
     where: { id: reportId },
-    select: { reporterId: true, attachments: true, attachmentsDeletedAt: true },
+    select: { reporterId: true, targetUserId: true, attachments: true, attachmentsDeletedAt: true, listing: { select: { ownerId: true } } },
   });
   if (!report || report.attachmentsDeletedAt || !report.reporterId) return plain(404, "Not found");
+  if (isOwnItem(staff, [report.reporterId, report.targetUserId, report.listing?.ownerId])) return plain(404, "Not found");
   const file = parseReportAttachments(report.attachments)[index];
   if (!file || !isOwnReportUpload(file.key, report.reporterId)) return plain(404, "Not found");
 

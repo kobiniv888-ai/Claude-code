@@ -10,6 +10,7 @@
  */
 import { locales } from "@/config/site";
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
+import { newIcalToken } from "@/lib/listing/ical-token";
 import { prepareListingDerivedFields } from "@/lib/listing/lifecycle";
 import { computeListingProximity } from "@/lib/nearby";
 import { PLEDGE_CURRENT_VERSION } from "@/lib/pledge";
@@ -124,7 +125,8 @@ async function seedListing(db: PrismaClient, seed: ListingSeed, places: PlaceIds
     deletedAt: null,
   } satisfies Prisma.ListingUncheckedUpdateInput;
 
-  await db.listing.upsert({ where: { id }, create: { id, ...data }, update: data });
+  // The calendar token is made once (256-bit, src/lib/listing/ical-token.ts) and kept on re-seeds.
+  await db.listing.upsert({ where: { id }, create: { id, ...data, icalToken: newIcalToken() }, update: data });
 
   for (const locale of locales) {
     const text = seed.text[locale];

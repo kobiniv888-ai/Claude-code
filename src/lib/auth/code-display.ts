@@ -1,14 +1,22 @@
+import { readSiteEnv, testModeOn, testModeRequested } from "../site-env";
+
 /**
- * May a login code appear on the screen? (founder rule, redesign round 2)
+ * May a login code appear on the screen? (founder's decision 1, 8 November 2026)
  *
- * - Development (NODE_ENV !== "production"): yes, so anyone can sign in without an SMS or email
- *   service, including as the demo accounts.
- * - Production with AUTH_TEST_MODE=true: only when EVERY host involved is a test host — the
- *   request's Host and X-Forwarded-Host, and the configured site address (NEXT_PUBLIC_SITE_URL,
- *   BETTER_AUTH_URL): localhost, 127.0.0.1, ::1 or a GitHub Codespaces preview (*.app.github.dev).
- *   Checking the configured address too means a forged "Host: localhost" can never turn it on for
- *   the real domain.
- * - Otherwise: never. The real site never shows codes.
+ * Only in TEST MODE: AUTH_TEST_MODE=true on a site whose SITE_ENV is development or staging
+ * (src/lib/site-env.ts). The real site (SITE_ENV=production) refuses to start with test mode on
+ * (src/lib/startup-check.ts), so it never shows codes. NODE_ENV plays no part: `npm run dev`
+ * without AUTH_TEST_MODE=true shows no codes either.
+ *
+ * On top of that, every host involved must belong to the site (a site address must be configured):
+ * - development: the request's Host and X-Forwarded-Host AND the configured addresses
+ *   (NEXT_PUBLIC_SITE_URL, BETTER_AUTH_URL) are all test hosts: localhost, 127.0.0.1, ::1 or a
+ *   GitHub Codespaces preview (*.app.github.dev). A forged "Host: localhost" never turns it on for
+ *   a real domain.
+ * - staging (the password-protected test site): every request host is one of the configured
+ *   addresses.
+ * - A request without any host: never. `requestHosts = null` means "no request at all" (a job):
+ *   then only the configured addresses count.
  *
  * Pure (no server imports) so it is unit-tested; the server reads it with `codeDisplayForHeaders`.
  */
@@ -17,6 +25,7 @@ export type CodeDisplayMode = "development" | "test";
 
 export type CodeDisplayEnv = {
   NODE_ENV?: string;
+  SITE_ENV?: string;
   AUTH_TEST_MODE?: string;
   NEXT_PUBLIC_SITE_URL?: string;
   BETTER_AUTH_URL?: string;
@@ -56,26 +65,34 @@ function hostOfUrl(url: string | undefined): string | null {
   }
 }
 
+/** Test mode is on for this site: AUTH_TEST_MODE=true and SITE_ENV development or staging. */
 export function isTestModeOn(env: CodeDisplayEnv): boolean {
-  return env.AUTH_TEST_MODE?.trim().toLowerCase() === "true";
+  return testModeOn(env);
 }
 
 /**
- * The rule itself. `requestHosts`: the Host header and every X-Forwarded-Host entry.
- * Returns why codes may be shown, or null when they must not be.
+ * The rule itself. `requestHosts`: the Host header and every X-Forwarded-Host entry, or null
+ * when there is no request (a scheduled job). Returns why codes may be shown ("development" on a
+ * development server, "test" on a production build), or null when they must not be.
  */
 export function codeDisplayMode(
   env: CodeDisplayEnv,
-  requestHosts: readonly (string | null | undefined)[],
+  requestHosts: readonly (string | null | undefined)[] | null,
 ): CodeDisplayMode | null {
-  if (env.NODE_ENV !== "production") return "development";
-  if (!isTestModeOn(env)) return null;
-  const fromRequest = requestHosts.filter((host): host is string => !!host?.trim());
-  if (fromRequest.length === 0) return null;
+  if (!testModeOn(env)) return null;
   const configured = [hostOfUrl(env.NEXT_PUBLIC_SITE_URL), hostOfUrl(env.BETTER_AUTH_URL)].filter(
     (host): host is string => !!host,
   );
-  return [...fromRequest, ...configured].every(isTestHost) ? "test" : null;
+  if (configured.length === 0) return null;
+  const fromRequest = requestHosts === null ? [] : requestHosts.filter((host): host is string => !!host?.trim());
+  if (requestHosts !== null && fromRequest.length === 0) return null;
+  const label: CodeDisplayMode = env.NODE_ENV === "production" ? "test" : "development";
+  if (readSiteEnv(env) === "development") {
+    return [...fromRequest, ...configured].every(isTestHost) ? label : null;
+  }
+  // Staging: only the site's own configured address(es).
+  const own = new Set(configured.map((host) => normalizeHost(host)));
+  return fromRequest.every((host) => own.has(normalizeHost(host))) ? label : null;
 }
 
 /** Host + X-Forwarded-Host entries of a request. */
@@ -93,13 +110,13 @@ export function codeDisplayForHeaders(headers: Pick<Headers, "get"> | null | und
   const env = process.env as CodeDisplayEnv;
   const hosts = requestHostsOf(headers);
   const mode = codeDisplayMode(env, hosts);
-  if (env.NODE_ENV === "production" && isTestModeOn(env)) {
+  if (testModeRequested(env)) {
     if (mode === "test" && !warnedTestMode) {
       warnedTestMode = true;
       console.warn(
         "\n[auth] ************************************************************\n" +
-          "[auth] AUTH_TEST_MODE=true: login codes are SHOWN ON SCREEN for test hosts\n" +
-          `[auth] (localhost / *.app.github.dev). Request host: ${hosts.join(", ")}\n` +
+          `[auth] AUTH_TEST_MODE=true (SITE_ENV=${env.SITE_ENV ?? "?"}): login codes are SHOWN ON SCREEN\n` +
+          `[auth] for this site's own test address. Request host: ${hosts.join(", ")}\n` +
           "[auth] Never set AUTH_TEST_MODE on the real site.\n" +
           "[auth] ************************************************************\n",
       );
@@ -108,7 +125,7 @@ export function codeDisplayForHeaders(headers: Pick<Headers, "get"> | null | und
       warnedIgnored = true;
       console.error(
         `[auth] AUTH_TEST_MODE=true is IGNORED for host "${hosts.join(", ") || "(none)"}" ` +
-          "(not localhost or a Codespaces preview). Remove AUTH_TEST_MODE from this server's environment.",
+          "(not this site's test address, or SITE_ENV does not allow test mode). Remove AUTH_TEST_MODE from this server's environment.",
       );
     }
   }

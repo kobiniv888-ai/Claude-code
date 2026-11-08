@@ -22,40 +22,73 @@ describe("isTestHost", () => {
   });
 });
 
-describe("codeDisplayMode — may login codes be shown on screen?", () => {
-  it("development: always (any host, test mode or not)", () => {
-    expect(codeDisplayMode({ NODE_ENV: "development" }, ["bayit.ge"])).toBe("development");
-    expect(codeDisplayMode({ NODE_ENV: "test", AUTH_TEST_MODE: "false" }, [])).toBe("development");
+describe("codeDisplayMode — may login codes be shown on screen? (SITE_ENV, founder's decision 1)", () => {
+  const LOCAL = { NEXT_PUBLIC_SITE_URL: "http://localhost:3000", BETTER_AUTH_URL: "http://localhost:3000" };
+
+  it("only in test mode: AUTH_TEST_MODE=true on SITE_ENV development or staging — never because of NODE_ENV", () => {
+    expect(codeDisplayMode({ NODE_ENV: "development", SITE_ENV: "development", ...LOCAL }, ["localhost:3000"])).toBeNull();
+    expect(codeDisplayMode({ NODE_ENV: "development", ...LOCAL, AUTH_TEST_MODE: "true" }, ["localhost:3000"])).toBeNull();
+    expect(codeDisplayMode({ NODE_ENV: "test", SITE_ENV: "development", AUTH_TEST_MODE: "false", ...LOCAL }, ["localhost:3000"])).toBeNull();
+    expect(codeDisplayMode({ NODE_ENV: "development", SITE_ENV: "development", AUTH_TEST_MODE: "true", ...LOCAL }, ["localhost:3000"])).toBe("development");
   });
 
-  it("test mode on localhost or a Codespaces preview: yes", () => {
-    const env = { NODE_ENV: "production", AUTH_TEST_MODE: "true", NEXT_PUBLIC_SITE_URL: "http://localhost:3000" };
+  it("the real site never, whatever else is set", () => {
+    const env = { NODE_ENV: "production", SITE_ENV: "production", AUTH_TEST_MODE: "true", ...LOCAL };
+    expect(codeDisplayMode(env, ["localhost:3000"])).toBeNull();
+    expect(codeDisplayMode({ ...env, NODE_ENV: "development" }, ["localhost:3000"])).toBeNull();
+    expect(codeDisplayMode({ ...env, SITE_ENV: "prod" }, ["localhost:3000"])).toBeNull();
+  });
+
+  it("development: localhost or a Codespaces preview, request and configured address alike", () => {
+    const env = { NODE_ENV: "production", SITE_ENV: "development", AUTH_TEST_MODE: "true", NEXT_PUBLIC_SITE_URL: "http://localhost:3000" };
     expect(codeDisplayMode(env, ["localhost:3000"])).toBe("test");
     expect(codeDisplayMode({ ...env, AUTH_TEST_MODE: " TRUE " }, ["127.0.0.1:3000"])).toBe("test");
     expect(
       codeDisplayMode(
-        { NODE_ENV: "production", AUTH_TEST_MODE: "true", NEXT_PUBLIC_SITE_URL: `https://${codespace}`, BETTER_AUTH_URL: `https://${codespace}` },
+        { NODE_ENV: "production", SITE_ENV: "development", AUTH_TEST_MODE: "true", NEXT_PUBLIC_SITE_URL: `https://${codespace}`, BETTER_AUTH_URL: `https://${codespace}` },
         // The Codespaces forwarder: Host localhost, X-Forwarded-Host the preview address.
         ["localhost:3000", codespace],
       ),
     ).toBe("test");
   });
 
-  it("test mode on a real domain: never", () => {
-    const env = { NODE_ENV: "production", AUTH_TEST_MODE: "true", NEXT_PUBLIC_SITE_URL: "https://bayit.ge" };
+  it("development on a real domain: never (a forged Host does not help)", () => {
+    const env = { NODE_ENV: "production", SITE_ENV: "development", AUTH_TEST_MODE: "true", NEXT_PUBLIC_SITE_URL: "https://bayit.ge" };
     expect(codeDisplayMode(env, ["bayit.ge"])).toBeNull();
-    // A forged "Host: localhost" does not help while the site address is the real domain.
     expect(codeDisplayMode(env, ["localhost"])).toBeNull();
-    // A real domain anywhere in the forwarded chain turns it off.
-    expect(codeDisplayMode({ NODE_ENV: "production", AUTH_TEST_MODE: "true" }, ["localhost:3000", "bayit.ge"])).toBeNull();
-    // No host at all: off.
-    expect(codeDisplayMode({ NODE_ENV: "production", AUTH_TEST_MODE: "true" }, [])).toBeNull();
+    expect(codeDisplayMode({ ...env, ...LOCAL }, ["localhost:3000", "bayit.ge"])).toBeNull();
   });
 
-  it("production without test mode: never, even on localhost", () => {
-    expect(codeDisplayMode({ NODE_ENV: "production" }, ["localhost:3000"])).toBeNull();
-    expect(codeDisplayMode({ NODE_ENV: "production", AUTH_TEST_MODE: "1" }, ["localhost:3000"])).toBeNull();
-    expect(codeDisplayMode({ NODE_ENV: "production", AUTH_TEST_MODE: "false" }, [codespace])).toBeNull();
+  it("staging: only the site's own configured address (behind its password)", () => {
+    const env = {
+      NODE_ENV: "production",
+      SITE_ENV: "staging",
+      AUTH_TEST_MODE: "true",
+      NEXT_PUBLIC_SITE_URL: "https://bayit-staging.example.com",
+      BETTER_AUTH_URL: "https://bayit-staging.example.com",
+    };
+    expect(codeDisplayMode(env, ["bayit-staging.example.com"])).toBe("test");
+    expect(codeDisplayMode(env, ["bayit-staging.example.com:443", "bayit-staging.example.com"])).toBe("test");
+    expect(codeDisplayMode(env, ["bayit.ge"])).toBeNull();
+    expect(codeDisplayMode(env, ["bayit-staging.example.com", "evil.example"])).toBeNull();
+    expect(codeDisplayMode({ ...env, AUTH_TEST_MODE: "false" }, ["bayit-staging.example.com"])).toBeNull();
+  });
+
+  it("no site address configured, or a request without a host: never", () => {
+    expect(codeDisplayMode({ SITE_ENV: "development", AUTH_TEST_MODE: "true" }, ["localhost:3000"])).toBeNull();
+    expect(codeDisplayMode({ SITE_ENV: "development", AUTH_TEST_MODE: "true", ...LOCAL }, [])).toBeNull();
+  });
+
+  it("a job without a request (null): the configured address decides", () => {
+    expect(codeDisplayMode({ NODE_ENV: "development", SITE_ENV: "development", AUTH_TEST_MODE: "true", ...LOCAL }, null)).toBe("development");
+    expect(codeDisplayMode({ SITE_ENV: "development", AUTH_TEST_MODE: "true", NEXT_PUBLIC_SITE_URL: "https://bayit.ge" }, null)).toBeNull();
+    expect(codeDisplayMode({ SITE_ENV: "production", AUTH_TEST_MODE: "true", ...LOCAL }, null)).toBeNull();
+  });
+
+  it("unclear AUTH_TEST_MODE values are off", () => {
+    for (const value of ["1", "yes", "false", ""]) {
+      expect(codeDisplayMode({ SITE_ENV: "development", AUTH_TEST_MODE: value, ...LOCAL }, ["localhost:3000"]), value).toBeNull();
+    }
   });
 });
 

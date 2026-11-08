@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
+import { imagesConfig } from "./src/config/images";
 import { extraAllowedHosts } from "./src/lib/auth/dev-origins";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
@@ -15,16 +16,6 @@ const securityHeaders = [
   },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin-allow-popups" },
 ];
-
-/** Host of the public photo bucket (NEXT_PUBLIC_MEDIA_BASE_URL), when it is an https URL. */
-const mediaHost = (() => {
-  try {
-    const url = new URL(process.env.NEXT_PUBLIC_MEDIA_BASE_URL ?? "");
-    return url.protocol === "https:" ? url.hostname : null;
-  } catch {
-    return null;
-  }
-})();
 
 /**
  * Extra hosts that may open the development server and call Server Actions: the forwarded
@@ -50,27 +41,12 @@ const nextConfig: NextConfig = {
       },
     },
   },
-  images: {
-    // AVIF first (smallest), WebP for older browsers. In development only WebP: the dev server
-    // converts one photo at a time and AVIF takes ~5× longer to encode, which made photos take
-    // seconds to sharpen there (bug 8.10). Production caches every size (.next/cache/images;
-    // start.sh --prod warms it with scripts/warm-images.mjs).
-    formats: process.env.NODE_ENV === "development" ? ["image/webp"] : ["image/avif", "image/webp"],
-    // Converted photos are kept 30 days (Next's default is 4 hours, after which each size is
-    // encoded again). Photo files never change in place: uploads get new keys, demo photos new names.
-    minimumCacheTTL: 2592000,
-    // Stock and demo photos live in public/photos (no hotlinking), so only our own bucket is remote.
-    remotePatterns: [
-      // Only our own bucket when its address is known, so the image optimizer cannot be used to
-      // fetch and resize images from anyone else's r2.dev / supabase.co bucket at our cost.
-      ...(mediaHost
-        ? [{ protocol: "https" as const, hostname: mediaHost }]
-        : [
-            { protocol: "https" as const, hostname: "*.r2.dev" },
-            { protocol: "https" as const, hostname: "*.supabase.co" },
-          ]),
-    ],
-  },
+  // Never ship browser source maps (SECURITY_REPORT 2.2.e; Next's default, set explicitly).
+  productionBrowserSourceMaps: false,
+  // The optimizer's security settings live in src/config/images.ts (WebP only, our own bucket
+  // only, no SVG, no local network): see that file. start.sh --prod warms the converted photos
+  // with scripts/warm-images.mjs (.next/cache/images).
+  images: imagesConfig(process.env),
   // Interface text is read from messages/ at runtime; make sure it ships with the server build.
   outputFileTracingIncludes: { "/**": ["./messages/**/*"] },
   serverExternalPackages: ["sharp"],

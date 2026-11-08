@@ -192,8 +192,8 @@
     "floor": "קומה {floor}",
     "floorOf": "קומה {floor} מתוך {total}",
     "studio": "סטודיו",
-    "synagogueWalk": "{count} דק׳ הליכה לבית כנסת",
-    "chabadWalk": "{count} דק׳ הליכה לבית חב״ד",
+    "synagogueWalk": "{count, plural, =5 {עד 5 דק׳ הליכה לבית כנסת} other {≈ {count} דק׳ הליכה לבית כנסת}}",
+    "chabadWalk": "{count, plural, =5 {עד 5 דק׳ הליכה לבית חב״ד} other {≈ {count} דק׳ הליכה לבית חב״ד}}",
     "minStay": "{count, plural, one {מינימום לילה אחד} other {מינימום {count} לילות}}"
   }
 }

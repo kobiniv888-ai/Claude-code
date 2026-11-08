@@ -1,6 +1,7 @@
 import type { Metadata, MetadataRoute } from "next";
 import { locales, siteConfig, type AppLocale } from "@/config/site";
 import { isAppLocale } from "@/i18n/locale";
+import { readSiteEnv } from "@/lib/site-env";
 import { isPermanentSiteUrl, absoluteUrl as siteAbsoluteUrl, siteUrl } from "@/lib/site-url";
 
 /**
@@ -175,7 +176,7 @@ export function pageMetadata({
 /** The header every non-production response carries, and the private pages everywhere. */
 export const NOINDEX_HEADER_VALUE = "noindex, nofollow";
 
-type HostEnv = { SITE_URL?: string };
+type HostEnv = { SITE_URL?: string; SITE_ENV?: string };
 
 /**
  * "Bayit.GE." / "bayit.ge:443" → "bayit.ge"; "localhost:4691" keeps its port. null for anything
@@ -208,10 +209,13 @@ export function productionHost(env: HostEnv = process.env as HostEnv): string | 
 }
 
 /**
- * True only when `host` is SITE_URL's host (contract 2). Every other address (a codespace,
- * localhost, a Vercel preview, an IP, a forged header) and any host while SITE_URL is unset: false.
+ * True only when `host` is SITE_URL's host (contract 2) AND this is the real site
+ * (SITE_ENV=production exactly: development and staging sites, and a missing SITE_ENV, are never
+ * indexed). Every other address (a codespace, localhost, a Vercel preview, an IP, a forged header)
+ * and any host while SITE_URL is unset: false.
  */
 export function isProductionHost(host: string | null, env: HostEnv = process.env as HostEnv): boolean {
+  if (readSiteEnv(env) !== "production") return false;
   const site = productionHost(env);
   const current = normalizeRequestHost(host);
   return site !== null && current !== null && current === site;

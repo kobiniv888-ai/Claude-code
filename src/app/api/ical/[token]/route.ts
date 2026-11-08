@@ -1,5 +1,6 @@
 import { buildIcs, hotelExportBlocks, roomTypeExportBlocks, type IcsBlock } from "@/lib/ical";
 import { db } from "@/lib/db";
+import { getRoomBlocks } from "@/lib/booking/availability";
 import { usesRoomInventory } from "@/lib/booking/constants";
 import { isBookableRoomType } from "@/lib/booking/terms";
 import { rateLimitByIp, rateLimitHeaders } from "@/lib/rate-limit";
@@ -14,7 +15,13 @@ import { rateLimitByIp, rateLimitHeaders } from "@/lib/rate-limit";
  *
  * Hotels (round 3, founder's answer 3): a hotel room type's token (RoomType.icalToken) gives that
  * room type's feed — a night is busy only when the type has no free room left; the hotel's own
- * token gives the nights the whole hotel is full or closed. iCal carries no room counts.
+ * token gives the nights the whole hotel is full or closed. iCal carries no room counts. The room
+ * counts are added up in the database (getRoomBlocks), so a busy hotel's feed is right however
+ * many bookings it has, and a listing's own feed reads every block of the window (no row cap:
+ * SECURITY_REPORT 4.5.b — a block left out would let another site sell those nights).
+ *
+ * A host can replace the link (SECURITY_REPORT 4.7.b, replaceCalendarLinkAction): the old token
+ * then matches nothing and answers 404 like any unknown one.
  */
 
 export const runtime = "nodejs";
@@ -48,23 +55,17 @@ export async function GET(_request: Request, context: Context) {
   try {
     const since = new Date(Date.now() - PAST_DAYS * 24 * 3600 * 1000);
     const until = new Date(Date.now() + FUTURE_DAYS * 24 * 3600 * 1000);
-    const availability = {
-      where: { endDate: { gte: since } },
-      select: { id: true, startDate: true, endDate: true, source: true, roomTypeId: true, rooms: true },
-      orderBy: { startDate: "asc" as const },
-      take: 5000,
-    };
     const roomTypes = { select: { id: true, quantity: true, active: true, price: true, pricePeriod: true } };
     let listing = await db.listing.findUnique({
       where: { icalToken: token },
-      select: { id: true, publicId: true, status: true, dealType: true, availability, roomTypes },
+      select: { id: true, publicId: true, status: true, dealType: true, roomTypes },
     });
     let room: { id: string; quantity: number } | null = null;
     if (!listing) {
       // A hotel room type's own feed.
       const found = await db.roomType.findUnique({
         where: { icalToken: token },
-        select: { id: true, quantity: true, listing: { select: { id: true, publicId: true, status: true, dealType: true, availability, roomTypes } } },
+        select: { id: true, quantity: true, listing: { select: { id: true, publicId: true, status: true, dealType: true, roomTypes } } },
       });
       if (found) {
         listing = found.listing;
@@ -73,12 +74,16 @@ export async function GET(_request: Request, context: Context) {
     }
     if (!listing || listing.status === "DELETED") return notFound();
 
-    const rows = listing.availability.map((b) => ({ start: dayOf(b.startDate), end: dayOf(b.endDate), roomTypeId: b.roomTypeId, rooms: b.rooms }));
-    let blocks: IcsBlock[] = listing.availability;
-    if (room) {
-      blocks = roomTypeExportBlocks(room, rows, since, until);
-    } else if (usesRoomInventory(listing.dealType)) {
-      blocks = hotelExportBlocks(listing.id, listing.roomTypes.filter(isBookableRoomType), rows, since, until);
+    let blocks: IcsBlock[];
+    if (room || usesRoomInventory(listing.dealType)) {
+      const rows = await getRoomBlocks(listing.id, { from: dayOf(since), to: dayOf(until) }, db, room?.id);
+      blocks = room ? roomTypeExportBlocks(room, rows, since, until) : hotelExportBlocks(listing.id, listing.roomTypes.filter(isBookableRoomType), rows, since, until);
+    } else {
+      blocks = await db.availabilityBlock.findMany({
+        where: { listingId: listing.id, endDate: { gte: since }, startDate: { lt: until } },
+        select: { id: true, startDate: true, endDate: true, source: true },
+        orderBy: { startDate: "asc" },
+      });
     }
 
     return new Response(buildIcs(listing, blocks), {

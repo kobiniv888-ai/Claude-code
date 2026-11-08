@@ -48,12 +48,27 @@ You need **Node.js 20.9+** (22 recommended) and **PostgreSQL 14+**. Docker is no
 
 ```bash
 git clone <this repo> bayit && cd bayit
-npm install                      # also generates the database client
-cp .env.example .env             # then fill the 5 required values (see below)
+npm ci && npm run deps:scripts   # exact locked packages, then the allowed install scripts (+ database client)
+cp .env.example .env             # then fill the required values (see below); SITE_ENV="development"
 npm run db:push                  # creates the tables
 npm run db:seed                  # cities, FAQ, banned words + demo listings and demo users
-npm run dev                      # http://localhost:3000
+npm run dev                      # http://localhost:3000 (listens on 127.0.0.1 only)
 ```
+
+The server checks its settings when it starts and **refuses to start** (exit code 1, with the
+list of what to fix) when `SITE_ENV` is missing or a required setting is missing or unsafe
+(`src/lib/startup-check.ts`; run the same check by hand: `npx tsx scripts/check-startup-env.ts`).
+
+### Installing packages
+
+`.npmrc` sets `ignore-scripts=true`: no package runs its own install script (the npm worms of
+2025 spread that way), not even our `postinstall`. After every `npm ci` or `npm install`, run
+`npm run deps:scripts`: it runs only the reviewed install scripts in
+`scripts/allowed-install-scripts.mjs` (Prisma's engine download) and then `prisma generate`.
+`tests/unit/install-scripts.test.ts` fails when a package with a new install script appears.
+Builds always use `npm ci` (the codespace scripts, Vercel's `installCommand`), never
+`npm install` or a blind `npm update`. Ask the founder before adding a dependency. Lighthouse is
+not a dependency: measure with `npx lighthouse@13.6.0 …`.
 
 Generate the secrets in `.env` like this:
 
@@ -65,9 +80,12 @@ openssl rand -hex 16      # HASH_SALT
 
 ### Logging in during development
 
-The login offers Google (when `GOOGLE_*` is set), a **code by email** (always) and — in development
-or test mode only — a **code by phone**. Without Resend/Twilio nothing is sent: the code is printed
-in the terminal where `npm run dev` runs and the login form shows it on screen. New accounts give
+The login offers Google (when `GOOGLE_*` is set), a **code by email** (always) and — in test mode
+only — a **code by phone**. Test mode is `AUTH_TEST_MODE="true"` on a development or staging site
+(`SITE_ENV`; `.env.example` has both for development): without Resend/Twilio nothing is sent, the
+code is printed in the terminal and the login form shows it on screen. Without test mode no code
+is ever shown, also under `npm run dev`; the real site (`SITE_ENV=production`) refuses to start
+with test mode on. New accounts give
 their first name in one short step. Demo users log in with the phone code ("Log in with a phone
 code (test mode)" under the email form; see `docs/DEMO-DATA.md`):
 
@@ -81,8 +99,9 @@ code (test mode)" under the email form; see `docs/DEMO-DATA.md`):
 | +995 555 000 021 | Demo guest |
 
 Staff must use 2-step login (an authenticator app such as Google Authenticator) to open `/admin`.
-`DEV_SKIP_STAFF_2FA="true"` in `.env` skips it **for the demo staff accounts only, in development
-only**; a real staff account always needs its code, and the setting is ignored in production.
+`DEV_SKIP_STAFF_2FA="true"` in `.env` skips it **for the demo staff accounts only, on a
+development server (`npm run dev`) of a development site**; a real staff account always needs its
+code, a production build ignores it, and staging/production refuse to start with it.
 Demo staff accounts can open the admin panel only on localhost or a Codespaces address, never on the
 site's permanent address (`src/lib/auth/staff-access.ts`).
 
@@ -96,6 +115,9 @@ Emails are not sent until Resend is configured. You can read them under **Admin 
 | `npm run build` / `npm start` | Production build / run it |
 | `npm run preview` | Production build, then serve it on port 3000 (the real speed) |
 | `npm run check` | Typecheck + lint + translation check + unit tests |
+| `npm ci && npm run deps:scripts` | Install exactly the locked packages, then the allowed install scripts (see "Installing packages") |
+| `npx tsx scripts/check-startup-env.ts` | The server's start-up settings check, by hand (exit 1 + the list of problems) |
+| `npm run ical:backfill-tokens -- --dry-run` / without the flag | Replace old, guessable calendar export tokens with 256-bit ones (idempotent) |
 | `npm run i18n:check` | Checks that all 5 languages have the same text keys |
 | `npm test` | Unit tests (Vitest) |
 | `npm run test:e2e` | End-to-end tests (Playwright) |
@@ -125,7 +147,7 @@ reports, tickets, scam checks, favorites, Jewish Life, help and the contact form
 
    ```
    NEXT_DIST_DIR=.next-4615 NEXT_PUBLIC_SITE_URL=http://localhost:4615 BETTER_AUTH_URL=http://localhost:4615 npx next build
-   NEXT_DIST_DIR=.next-4615 NEXT_PUBLIC_SITE_URL=http://localhost:4615 BETTER_AUTH_URL=http://localhost:4615 AUTH_TEST_MODE=true CRON_SECRET=e2e-only-cron-secret npx next start -p 4615
+   NEXT_DIST_DIR=.next-4615 NEXT_PUBLIC_SITE_URL=http://localhost:4615 BETTER_AUTH_URL=http://localhost:4615 SITE_ENV=development AUTH_TEST_MODE=true CRON_SECRET=e2e-only-cron-secret npx next start -p 4615
    E2E_PORT=4615 npx playwright test
    ```
 
@@ -141,7 +163,9 @@ delete them, with the demo listings' view and contact counters, when the run end
 
 ### Demo data: one switch
 
-All demo listings, users and places are marked **Demo**. Before launch, either:
+All demo listings, users and places are marked **Demo**. On the real site (`SITE_ENV=production`)
+they are always hidden and demo accounts cannot sign in, whatever the admin switch says; on
+development and staging sites the switch decides. Before launch, either:
 
 * hide them: **Admin → Settings → Show demo data** (off), or
 * delete them for good: **Admin → Settings → Delete all demo data**, or `npm run demo:remove -- --yes`.
@@ -163,45 +187,22 @@ In a codespace:
   compiles every page on its first visit ("Compiling…", "Rendering…"), so only this mode shows how
   fast the site really is. Back to development: `bash .devcontainer/start.sh --dev`. On your own
   computer: `npm run preview`.
-* Map key: add a Codespaces secret named `NEXT_PUBLIC_MAP_TILE_KEY` (or set it in `.env`); see
+* Map key: add a Codespaces secret named `NEXT_PUBLIC_MAP_TILE_KEY` (the codespace reads it from
+  its environment; real keys never go into `.env`); see
   [docs/CODESPACES.md](docs/CODESPACES.md#map-key-so-the-maps-show-streets).
+* The codespace is a **development site** (`SITE_ENV=development`, set in `.env` by
+  `.devcontainer/env-sync.sh`): test mode and demo data are allowed there, never on the real site.
 * Your admin account: see "Going live", step 11 (three private Codespaces secrets).
 
-**A public preview on Vercel (about 20 minutes, free accounts):**
+**A password-protected test site (staging)** comes with the next brief (on Netlify): it builds
+with `NODE_ENV=production`, runs with `SITE_ENV=staging` and may use test mode behind its password.
+A staging site must pass the same start-up check as the real site (https address, TLS database,
+`CRON_SECRET`, Turnstile keys — Cloudflare's test keys are fine there — S3 storage, its own VAPID
+pair), except that with `AUTH_TEST_MODE=true` it needs no email or SMS provider.
 
-
-You can do all of this from a phone browser.
-
-1. **Database:** sign up at [neon.tech](https://neon.tech) (free) → create a project → copy the
-   connection string (it starts with `postgresql://`).
-2. **Hosting:** sign up at [vercel.com](https://vercel.com) with your GitHub account → **Add New →
-   Project** → import this repository.
-3. Before you press Deploy, open **Environment Variables** and add:
-
-   | Name | Value |
-   |---|---|
-   | `DATABASE_URL` | the Neon connection string |
-   | `BETTER_AUTH_SECRET`, `APP_ENCRYPTION_KEY` | two different random strings of 32+ characters (any password generator) |
-   | `HASH_SALT` | another random string |
-   | `CRON_SECRET` | another random string |
-   | `DB_PUSH_ON_BUILD` | `true` (creates the tables) |
-   | `SEED_ON_BUILD` | `true` (loads the demo listings) |
-
-4. Deploy. Vercel gives you an address like `https://bayit-xyz.vercel.app`. Add two more
-   variables with that address, `NEXT_PUBLIC_SITE_URL` and `BETTER_AUTH_URL`, then redeploy
-   (**Deployments → ⋯ → Redeploy**).
-5. Open the address on your phone. In the browser menu choose **Add to Home Screen** to install it
-   like an app.
-6. Vercel deploys the repository's default branch. To preview this work branch, either merge it, or
-   set **Settings → Git → Production Branch** to `claude/website-build-jm62em`.
-
-In a preview, **browsing works right away**. Two things need one more service:
-* **Logging in:** email codes need Resend (`RESEND_API_KEY`, free tier); Google needs `GOOGLE_*`.
-  Login codes are never shown on screen on a real domain (`AUTH_TEST_MODE` only works on
-  localhost and Codespaces previews).
-* **Uploading photos** in the post wizard needs Cloudflare R2 storage (see step 2 of "Going live").
-
-Turn `DB_PUSH_ON_BUILD` and `SEED_ON_BUILD` off once the preview is set up.
+**Vercel:** a deployment on Vercel's production environment (`VERCEL_ENV=production`) is the real
+site: it only starts with `SITE_ENV=production` and every production setting (section 4). There is
+no "quick preview" on a public address any more: test mode and demo accounts never run on one.
 
 ## 3. Going live (simple steps)
 
@@ -212,30 +213,39 @@ Turn `DB_PUSH_ON_BUILD` and `SEED_ON_BUILD` off once the preview is set up.
    [Cloudflare R2](https://developers.cloudflare.com/r2/): one **public** (listing photos) and one
    **private** (ID documents, ticket screenshots). Fill in the `S3_*` variables and set
    `STORAGE_DRIVER="s3"`. Private files are encrypted before they are uploaded.
-3. **Hosting.** Import the repository into [Vercel](https://vercel.com). Add every environment
-   variable from your `.env`, with your real domain in `SITE_URL`, `NEXT_PUBLIC_SITE_URL` and
-   `BETTER_AUTH_URL` (the exact address visitors open, with or without `www`). **Without
-   `SITE_URL` Google indexes nothing:** only requests to its host count as the real site; every
-   other address says "noindex" (the server prints a warning at start). On your own server behind
-   a reverse proxy, pass the original `Host` (or `X-Forwarded-Host`) header through. The build
-   command is `npm run build`. The scheduled jobs in `vercel.json`
-   (exchange rates, expiring listings, iCal sync, cleanup) start automatically; set `CRON_SECRET`.
+3. **Hosting.** Import the repository into [Vercel](https://vercel.com) (`vercel.json` installs
+   with `npm ci && npm run deps:scripts`; the build, `npm run vercel-build`, first runs the
+   start-up settings check and stops when something is missing). In **Settings → Environment
+   Variables** add the production variables of section 4 one by one. **Never copy your `.env`
+   or anything from the codespace:** generate every secret fresh on the hosting
+   (`BETTER_AUTH_SECRET`, `APP_ENCRYPTION_KEY`, `HASH_SALT`, `CRON_SECRET`, a new VAPID pair —
+   development and production never share a key), and never set the development-only flags
+   (`AUTH_TEST_MODE`, `DEV_SKIP_STAFF_2FA`, `NEXT_PUBLIC_SHOW_DEV_UI`, `EXTRA_ALLOWED_ORIGINS`):
+   the real site refuses to start with them. Set `SITE_ENV="production"` and your real domain in
+   `SITE_URL`, `NEXT_PUBLIC_SITE_URL` and `BETTER_AUTH_URL` (the same https address visitors
+   open, with or without `www`). **Without `SITE_URL` the real site does not start**; only
+   requests to its host are indexed, every other address says "noindex". On your own server
+   behind a reverse proxy, pass the original `Host` (or `X-Forwarded-Host`) header through. The
+   scheduled jobs in `vercel.json` (exchange rates, expiring listings, iCal sync, cleanup) start
+   automatically with `CRON_SECRET`.
 4. **Create the tables** in the production database once: `DATABASE_URL=<prod url> npx prisma db push`
    (or `npx prisma migrate deploy` if you use migrations). Then
    `DATABASE_URL=<prod url> npm run db:seed` to load cities, FAQ and banned words. Remove the demo
    data afterwards, as described above.
 5. **Phone codes** (only for bookings and a host's phone check, once per number — not a login on
-   the real site). Create a [Twilio Verify](https://www.twilio.com/docs/verify) service and fill
-   in `TWILIO_*` (or only a Messaging Service: `TWILIO_MESSAGING_SERVICE_SID`). In the Twilio
-   console, turn on **Fraud Guard** and allow only the countries you need (this protects against
-   SMS-pumping fraud). The list of countries we send codes to is also in
+   the real site). Create a Twilio **Messaging Service** and fill in `TWILIO_ACCOUNT_SID`,
+   `TWILIO_AUTH_TOKEN` and `TWILIO_MESSAGING_SERVICE_SID` (the site makes the code and sends its own
+   text; Twilio Verify is not used). In the Twilio console, turn on **Fraud Guard / SMS Pumping
+   Protection** and allow only Israel and Georgia in the Messaging geo permissions (this protects
+   against SMS-pumping fraud). The list of countries we send codes to is also in
    `src/config/site.ts` → `phone.smsAllowedCountries`. Without it, the phone check says "not
    available yet".
 6. **Google and Apple login.** Create OAuth credentials and fill in `GOOGLE_*` / `APPLE_*`. The
    redirect URL is `https://<your domain>/api/auth/callback/google` (or `/apple`); after Google
    the visitor lands on `/login`, which asks a new account for its first name and then continues.
 7. **Email** (also the email login codes). Create a [Resend](https://resend.com) account, verify
-   your domain, and fill in `RESEND_API_KEY` and `EMAIL_FROM`. Never set `AUTH_TEST_MODE` here.
+   your domain, and fill in `RESEND_API_KEY` and `EMAIL_FROM`. Never set `AUTH_TEST_MODE` here
+   (the real site refuses to start with it).
 8. **Auto-translation.** Enable the Cloud Translation API in Google Cloud, create an API key
    restricted to it, and set `GOOGLE_TRANSLATE_API_KEY`.
 9. **Cloudflare.** Put the domain behind Cloudflare (CDN and attack protection). Create a
@@ -257,9 +267,9 @@ Turn `DB_PUSH_ON_BUILD` and `SEED_ON_BUILD` off once the preview is set up.
          international format, `+972…`; the email is used first when both are set)
        - `ADMIN_ALERT_EMAIL`: where admin alerts and the daily summary go (a different address)
 
-       Then restart the codespace (or run `bash .devcontainer/start.sh`): `.devcontainer/env-sync.sh`
-       copies the secrets into `.env` and `npm run admin:grant -- --from-env` makes the account
-       admin. It prints only a masked address (`s•••@g•••.com`), refuses demo accounts, writes the
+       Then restart the codespace (or run `bash .devcontainer/start.sh`): the codespace puts the
+       secrets in its environment (they are never copied into `.env`) and
+       `npm run admin:grant -- --from-env` makes the account admin. It prints only a masked address (`s•••@g•••.com`), refuses demo accounts, writes the
        change to the audit log, and says nothing while the secrets are empty or the account does
        not exist yet (sign in, then run `npm run admin:grant -- --from-env` again).
     3. **On the real host**, put the same names in its environment settings and run
@@ -277,28 +287,48 @@ Turn `DB_PUSH_ON_BUILD` and `SEED_ON_BUILD` off once the preview is set up.
 
 ## 4. Environment variables
 
+The server checks these when it starts and **refuses to start** when one is missing or unsafe
+(`src/lib/startup-check.ts`, called from `src/instrumentation.ts`; `npx tsx
+scripts/check-startup-env.ts` runs the same check). `next build` itself does not need `SITE_ENV`
+(only `SITE_ENV=production` additionally needs `NEXT_PUBLIC_MEDIA_BASE_URL` at build time, for the
+image settings); the server it builds does, and `npm run vercel-build` checks before building.
+
 **Required** in every environment:
 
 | Variable | Meaning |
 |---|---|
+| `SITE_ENV` | Which kind of site this is: `development` (your computer, the codespace), `staging` (the password-protected test site) or `production` (the real site). It decides test mode, demo data, indexing and the rules below — never `NODE_ENV` |
 | `DATABASE_URL` | Postgres connection string |
 | `NEXT_PUBLIC_SITE_URL` | Public address, e.g. `https://bayit.example` (no trailing slash) |
-| `SITE_URL` | **On the real site:** its permanent address, e.g. `https://bayit.ge`. Outgoing links are built from it, and only its host is indexed by Google (empty = every page "noindex") |
-| `BETTER_AUTH_SECRET` | Signs login sessions (`openssl rand -base64 32`) |
-| `APP_ENCRYPTION_KEY` | Encrypts ID documents and 2-step secrets (`openssl rand -base64 32`) |
-| `HASH_SALT` | Salt for hashing IPs and device ids in logs (`openssl rand -hex 16`) |
+| `BETTER_AUTH_URL` | The address the site runs on (the same as `NEXT_PUBLIC_SITE_URL` on staging and production) |
+| `BETTER_AUTH_SECRET` | Signs login sessions, 32+ random characters (`openssl rand -base64 32`) |
+| `APP_ENCRYPTION_KEY` | Encrypts ID documents and 2-step secrets: 32 bytes in base64 (`openssl rand -base64 32`) |
+| `HASH_SALT` | Salt for hashing IPs and device ids in logs, 16+ characters (`openssl rand -hex 16`); the three secrets must differ |
+
+**Also required on staging and production** (`SITE_ENV=staging` / `production`), generated fresh
+on the hosting, never copied from a codespace: https addresses on one origin (no localhost or
+Codespaces address); `DATABASE_URL` with `sslmode=require`; `CRON_SECRET` (32+ characters);
+`NEXT_PUBLIC_TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY`; `RESEND_API_KEY` + `EMAIL_FROM`;
+`TWILIO_ACCOUNT_SID` + `TWILIO_AUTH_TOKEN` + `TWILIO_MESSAGING_SERVICE_SID` (or
+`TWILIO_FROM_NUMBER`); `STORAGE_DRIVER="s3"` with the `S3_*` keys, two different buckets and
+`NEXT_PUBLIC_MEDIA_BASE_URL` = `S3_PUBLIC_URL` (https); `VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` (a
+new pair per site). Staging with `AUTH_TEST_MODE=true` may leave out the email and SMS keys.
+**Production only:** `SITE_URL` (the same https origin; only its host is indexed by Google), no
+`AUTH_TEST_MODE`, no `EXTRA_ALLOWED_ORIGINS`, no Cloudflare test keys. **Never on staging or
+production:** `DEV_SKIP_STAFF_2FA`, `NEXT_PUBLIC_SHOW_DEV_UI`.
+
+| Variable | Meaning |
+|---|---|
+| `SITE_URL` | **On the real site:** its permanent address, e.g. `https://bayit.ge`. Outgoing links are built from it, and only its host is indexed by Google (any other host, and every development or staging site, says "noindex") |
 
 **Optional.** Each has a safe fallback in development:
 
 | Variable | Meaning | Without it |
 |---|---|---|
-| `BETTER_AUTH_URL` | Auth base URL | Uses `NEXT_PUBLIC_SITE_URL` |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google login | Button hidden |
 | `APPLE_CLIENT_ID`, `APPLE_CLIENT_SECRET`, `APPLE_APP_BUNDLE_IDENTIFIER` | Apple login | Button hidden |
-| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID` | Phone codes via Twilio Verify (bookings, host phone check) | Code on screen in dev/test mode; "not available yet" on the real site |
-| `TWILIO_MESSAGING_SERVICE_SID` or `TWILIO_FROM_NUMBER` | Text messages (`sendSms`), phone codes without Verify | Only logged |
-| `AUTH_TEST_MODE` | Show login codes on screen in a production build — only on localhost / `*.app.github.dev` | Off |
-| `TWILIO_VERIFY_CHANNEL` | `sms` or `whatsapp` | `sms` |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` + `TWILIO_MESSAGING_SERVICE_SID` (or `TWILIO_FROM_NUMBER`) | Text messages (`sendSms`): phone codes (our own text; bookings, host phone check) and booking texts, Israel and Georgia mobile numbers only | Codes on screen in test mode; "not available yet" on the real site; other texts only logged |
+| `AUTH_TEST_MODE` | Test mode: login codes on screen, only with `SITE_ENV` development (localhost / this codespace) or staging (its own address). The real site refuses to start with it | Off: no codes on screen, also under `npm run dev` |
 | `TWILIO_LOOKUP_ENABLED` | VoIP-number check during the scam checks | Off |
 | `RESEND_API_KEY`, `EMAIL_FROM` | Sending email | Saved to the dev outbox only |
 | `SUPPORT_EMAIL` | Address shown on Contact and Help | `support@bayit.example` |
@@ -310,13 +340,13 @@ Turn `DB_PUSH_ON_BUILD` and `SEED_ON_BUILD` off once the preview is set up.
 | `GOOGLE_TRANSLATE_API_KEY` | Auto-translating listings | Listings show in the original language |
 | `NEXT_PUBLIC_MAP_TILE_KEY` | CARTO map tiles key (see "Going live", step 10) | Maps show pins on a plain background and "Map key missing" (dev) / "map unavailable" (production) |
 | `NEXT_PUBLIC_MAP_TILE_PROVIDER` | Tile provider in `src/config/map.ts` | `carto` |
-| `EXTRA_ALLOWED_ORIGINS` | Extra hosts/origins allowed to open the site and log in (e.g. a tunnel) | Codespaces and localhost are allowed automatically in development |
+| `EXTRA_ALLOWED_ORIGINS` | Extra hosts/origins allowed to open the site and log in (e.g. a tunnel); refused on the real site | This codespace's own address and localhost are allowed automatically on development sites |
 | `OVERPASS_ENABLED`, `OVERPASS_URL` | Nearby supermarkets and transport from OpenStreetMap | On, public Overpass server |
-| `CRON_SECRET` | Protects the scheduled jobs (`/api/cron/*`) | Jobs refuse to run in production |
+| `CRON_SECRET` | Protects the scheduled jobs (`/api/cron/*`); required (32+ characters) on staging and production | Jobs refuse to run |
 | `CLIENT_IP_HEADER` | Trusted header with the visitor IP (e.g. `cf-connecting-ip`) | Standard proxy headers |
 | `MALWARE_SCAN_URL`, `MALWARE_SCAN_TOKEN` | External malware scanner for uploads | Built-in checks only |
 | `SENTRY_DSN` (+ optional `SENTRY_ENVIRONMENT`, `SENTRY_RELEASE`) | Error monitoring: server crashes, failed actions and failed scheduled jobs go to Sentry (no SDK; path without query, no user data) | Errors only in the server log |
-| `DEV_SKIP_STAFF_2FA` | Skip 2-step login for the demo staff accounts (development only; never for a real account) | Off; ignored in production |
+| `DEV_SKIP_STAFF_2FA` | Skip 2-step login for the demo staff accounts (a development server of a development site only; never for a real account) | Off; ignored by production builds; staging/production refuse to start with it |
 | `BAYIT_ADMIN_EMAIL`, `BAYIT_ADMIN_PHONE` | PRIVATE: the account `npm run admin:grant -- --from-env` makes admin (also at every codespace start); Codespaces secrets of the same names | Nobody is made admin |
 | `ADMIN_ALERT_EMAIL` | PRIVATE: where admin alerts and the daily summary go (a Codespaces secret of the same name) | The real admins' email addresses, else the outbox |
 | `BACKUP_DIR` | Folder for full backups (Admin → Maintenance, `npm run db:backup`) | `./backups` (git-ignored) |

@@ -1,25 +1,29 @@
 "use client";
 
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { ArrowLeftIcon, FlaskConicalIcon, LoaderCircleIcon, RotateCcwIcon } from "lucide-react";
 import { Ltr } from "@/components/common/ltr";
 import { Button } from "@/components/ui/button";
+import { resendWaitSeconds } from "@/lib/auth/code-rules";
 import { cn } from "@/lib/utils";
 import { CodeInput } from "./code-input";
 import { formatCountdown } from "./use-auth-messages";
 
 /**
- * The "enter the 6-digit code" step shared by the email code, the phone login (development /
- * test mode) and the phone check (<PhoneCheck>). Texts: `auth.codes.*`.
+ * The "enter the 6-digit code" step shared by the email code, the phone login (test mode) and the
+ * phone check (<PhoneCheck>). Texts: `auth.codes.*`.
  */
 
-export const RESEND_AFTER_SECONDS = 60;
-
-/** Seconds until "send a new code" may be used again; `restart()` after each sent code. */
+/**
+ * Seconds until "send a new code" may be used again. The SERVER enforces the waits (60, 120, 300,
+ * then 900 s: src/lib/auth/code-rules.ts); this timer only shows them. `restart()` after each code
+ * sent from this form (the next wait grows); `waitFor(seconds)` when the server named the wait.
+ */
 export function useResendTimer() {
   const [resendAt, setResendAt] = useState(0);
   const [now, setNow] = useState(() => Date.now());
+  const sent = useRef(0);
   useEffect(() => {
     if (resendAt <= Date.now()) return;
     const timer = window.setInterval(() => {
@@ -33,8 +37,15 @@ export function useResendTimer() {
     secondsLeft: Math.max(0, Math.ceil((resendAt - now) / 1000)),
     restart: () => {
       const current = Date.now();
+      sent.current += 1;
       setNow(current);
-      setResendAt(current + RESEND_AFTER_SECONDS * 1000);
+      setResendAt(current + resendWaitSeconds(sent.current) * 1000);
+    },
+    /** The server said how long to wait (a code was sent recently, maybe from another tab). */
+    waitFor: (seconds: number) => {
+      const current = Date.now();
+      setNow(current);
+      setResendAt(current + Math.max(0, seconds) * 1000);
     },
     /** The code is gone (too many attempts, expired): allow a new one now. */
     allowNow: () => setResendAt(0),

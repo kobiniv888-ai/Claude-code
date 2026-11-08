@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { siteConfig } from "@/config/site";
 import { isAppLocale } from "@/i18n/locale";
-import { getCurrentUser } from "@/lib/auth/session";
+import { requireUserForAction, type CurrentUser } from "@/lib/auth/session";
 import { normalizeGeocodeQuery } from "@/lib/geocode/core";
 import { GeocodeUnavailableError, OSM_ATTRIBUTION, QueueFullError, geocodeAddress } from "@/lib/geocode";
 import { rateLimit, rateLimitByIp, rateLimitHeaders } from "@/lib/rate-limit";
@@ -11,6 +11,8 @@ import { rateLimit, rateLimitByIp, rateLimitHeaders } from "@/lib/rate-limit";
  * Address search for the post form, through our server only (bug 8.9). Signed-in people only,
  * called once per "Search"/Enter. → { results: GeocodeResult[], attribution }
  * Errors: 400 too_short · 401 unauthorized · 429 rate_limited · 503 busy · 502 unavailable.
+ * The session rules of every signed-in action (SECURITY_REPORT 4.2.a): a session whose 2-step code
+ * was not entered yet is refused like a signed-out one (requireUserForAction).
  */
 
 // One search per click is plenty. Each requester stays well under the site-wide upstream budget
@@ -30,8 +32,12 @@ export async function GET(request: NextRequest) {
   const locale = isAppLocale(localeParam) ? localeParam : siteConfig.i18n.fallbackLocale;
   if (!query) return Response.json({ error: "too_short" }, { status: 400, headers: NO_STORE });
 
-  const user = await getCurrentUser();
-  if (!user) return Response.json({ error: "unauthorized" }, { status: 401, headers: NO_STORE });
+  let user: CurrentUser;
+  try {
+    user = await requireUserForAction();
+  } catch {
+    return Response.json({ error: "unauthorized" }, { status: 401, headers: NO_STORE });
+  }
 
   const byIp = await rateLimitByIp("geocode", PER_IP);
   if (!byIp.ok) {

@@ -74,7 +74,7 @@ async function main() {
   async function worker() {
     for (let url = queue.shift(); url; url = queue.shift()) {
       try {
-        const image = await get(url, { accept: "image/avif,image/webp,image/*,*/*;q=0.8" });
+        const image = await get(url, { accept: "image/webp,image/*,*/*;q=0.8" });
         if (image.ms > 300) slow++;
       } catch {
         // The server may be restarting; the next visitor makes this one.

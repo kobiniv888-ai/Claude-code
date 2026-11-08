@@ -7,7 +7,7 @@ import { locales } from "@/config/locales";
  * - the first render of the home page in each language (server code is loaded and compiled on
  *   first use, the database pool opens, the interface text is read): ~0.9 s on the first request
  *   on a small machine, ~0.1 s after;
- * - the photos at the top of those pages: the image optimizer converts each photo to AVIF on its
+ * - the photos at the top of those pages: the image optimizer converts each photo to WebP on its
  *   first request (0.3–1 s per photo and width). The first card photo is the largest paint of the
  *   home page on phones, so on a fresh server it alone cost ~0.6 s of "largest contentful paint"
  *   (Lighthouse 86 instead of 91).
@@ -95,7 +95,7 @@ export function warmOnStart(env: WarmEnv = process.env as WarmEnv): void {
       for (const url of preloadedImageUrls(html)) if (!done.has(url) && !images.includes(url)) images.push(url);
     }
     for (const url of images) {
-      await get(base + url, "image/avif,image/webp,image/*");
+      await get(base + url, "image/webp,image/*");
       done.add(url);
     }
   };

@@ -56,7 +56,7 @@ export async function notifyFounderOfReport(reportId: string): Promise<void> {
     const report = await db.report.findUnique({ where: { id: reportId }, select: reportSelect });
     if (!report) return;
     const budget = founderReportBudget(report.kind);
-    const burst = await rateLimit(budget.key, { limit: budget.limit, windowSeconds: 3600 }).catch(() => ({ ok: true }));
+    const burst = await rateLimit(budget.key, { limit: budget.limit, windowSeconds: 3600, failOpen: true }).catch(() => ({ ok: true }));
     if (!burst.ok) return;
     const host = report.targetUser ?? report.listing?.owner ?? null;
     const data = {

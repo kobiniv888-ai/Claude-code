@@ -8,7 +8,7 @@
     "kosherKitchen": "מטבח כשר",
     "kosherMeals": "ארוחות כשרות",
     "shabbatFriendly": "מתאים לשבת",
-    "synagogueWalk": "{minutes} דק׳ הליכה לבית כנסת",
+    "synagogueWalk": "{minutes, plural, =5 {עד 5 דק׳ הליכה לבית כנסת} other {≈ {minutes} דק׳ הליכה לבית כנסת}}",
     "keepsShabbat": "שומר שבת",
     "business": "עסק",
     "demo": "דמו",

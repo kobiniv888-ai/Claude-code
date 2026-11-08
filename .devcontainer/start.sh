@@ -74,7 +74,7 @@ if [ ! -f node_modules/.bayit-lock-hash ]; then
 elif [ "$(cat node_modules/.bayit-lock-hash)" != "$lock_hash" ]; then
   log "The package list changed — installing packages (a few minutes)…"
   stop_site any
-  npm ci --no-audit --no-fund >> "$LOG" 2>&1 || { log "Installing packages failed — see $LOG"; exit 1; }
+  { npm ci --no-audit --no-fund && npm run deps:scripts; } >> "$LOG" 2>&1 || { log "Installing packages failed — see $LOG"; exit 1; }
   echo "$lock_hash" > node_modules/.bayit-lock-hash
 fi
 
@@ -125,6 +125,8 @@ build_stamp() {
     git diff HEAD -- src messages prisma public next.config.ts package-lock.json 2>/dev/null
     git ls-files --others --exclude-standard -z -- src messages public 2>/dev/null | xargs -0 -r sha256sum 2>/dev/null
     grep -E '^NEXT_PUBLIC_' .env 2>/dev/null
+    # NEXT_PUBLIC_* Codespaces secrets come from the environment (env-sync.sh), not .env.
+    env | grep -E '^NEXT_PUBLIC_' | sort
   } | sha256sum | cut -d' ' -f1
 }
 STAMP_FILE=.next/bayit-build-stamp
@@ -170,11 +172,13 @@ if [ "$MODE" = "prod" ]; then
     echo "$stamp" > "$STAMP_FILE"
   fi
   echo "Starting the production server…"
-  # Test mode: login codes on screen (src/lib/auth/code-display.ts). Honored only on localhost and
-  # the Codespaces preview address, never on a real domain. AUTH_TEST_MODE=false turns it off.
+  # Test mode: login codes on screen (src/lib/auth/code-display.ts). Allowed only because the
+  # codespace is a development site (SITE_ENV=development in .env, src/lib/site-env.ts), and
+  # honored only on localhost and the Codespaces preview address. The real site
+  # (SITE_ENV=production) refuses to start with it. AUTH_TEST_MODE=false turns it off.
   echo "Login test mode: ${TEST_MODE} (codes shown on screen; set AUTH_TEST_MODE=false to turn off)"
   echo "$TEST_MODE" > "$MODE_FILE"
-  AUTH_TEST_MODE="$TEST_MODE" setsid nohup npm start > /tmp/bayit-dev.log 2>&1 < /dev/null 9>&- &
+  SITE_ENV=development AUTH_TEST_MODE="$TEST_MODE" setsid nohup npm start > /tmp/bayit-dev.log 2>&1 < /dev/null 9>&- &
 else
   # --dev: the development version (hot reload, slow on a phone). The fast version never picks up
   # new code, so it is stopped first. A running development server is kept: it reloads by itself.
@@ -188,7 +192,8 @@ else
     exit 0
   fi
   echo "Starting the development version…"
-  setsid nohup npm run dev > /tmp/bayit-dev.log 2>&1 < /dev/null 9>&- &
+  # The development server shows login codes only in test mode too (src/lib/auth/code-display.ts).
+  SITE_ENV=development AUTH_TEST_MODE="$TEST_MODE" setsid nohup npm run dev > /tmp/bayit-dev.log 2>&1 < /dev/null 9>&- &
 fi
 
 for _ in $(seq 1 60); do
@@ -201,7 +206,7 @@ for _ in $(seq 1 60); do
     fi
     echo "  ${url}/he"
     if [ "$MODE" = "prod" ]; then
-      # Photos are converted (AVIF/WebP, each width) on their first request; do that now for the
+      # Photos are converted (WebP, each width) on their first request; do that now for the
       # main pages, so the first visit on the phone does not wait for it (bug 8.10).
       setsid nohup node scripts/warm-images.mjs http://localhost:3000 > /tmp/bayit-warm.log 2>&1 < /dev/null 9>&- &
       echo "Preparing the photos in the background (2–3 minutes; log: /tmp/bayit-warm.log)."

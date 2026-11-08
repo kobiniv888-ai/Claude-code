@@ -21,6 +21,8 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 const ORIGIN = "http://localhost:4691";
 vi.stubEnv("SITE_URL", ORIGIN);
+// The real site: only SITE_ENV=production is ever indexed (src/lib/seo.ts).
+vi.stubEnv("SITE_ENV", "production");
 
 const state = vi.hoisted(() => ({ host: "localhost:4691", city: null as null | Record<string, unknown> }));
 

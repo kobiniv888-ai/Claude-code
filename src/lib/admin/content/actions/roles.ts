@@ -5,7 +5,7 @@ import type { UserRole } from "@/generated/prisma/enums";
 import { fail, ok, type ActionResult } from "@/lib/action";
 import { revokeSessions } from "@/lib/admin/server/user-moderation";
 import { isStaffRole } from "@/lib/auth/permissions";
-import { audit } from "@/lib/audit";
+import { auditOrThrow } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { roleAssignSchema } from "../schemas";
 import { ContentActionError, runContentAction } from "../server/common";
@@ -33,14 +33,21 @@ async function applyRole(staffId: string, user: Awaited<ReturnType<typeof loadTa
     const admins = await db.user.count({ where: { role: "ADMIN", deletedAt: null } });
     if (admins <= 1) throw new ContentActionError("last_admin");
   }
-  await db.user.update({ where: { id: user.id }, data: { role } });
-  const sessionsRevoked = isStaffRole(user.role) ? await revokeSessions(user.id) : 0;
-  await audit({
-    actorId: staffId,
-    action: "user.role_change",
-    targetType: "User",
-    targetId: user.id,
-    details: { from: user.role, to: role, sessionsRevoked },
+  // Promotions too (SECURITY_REPORT 3.5.b, 3.7.a): an old session never gains staff rights.
+  // The change and its audit row commit together, or not at all (Q13).
+  await db.$transaction(async (tx) => {
+    await tx.user.update({ where: { id: user.id }, data: { role } });
+    const sessionsRevoked = await revokeSessions(user.id, tx);
+    await auditOrThrow(
+      {
+        actorId: staffId,
+        action: "user.role_change",
+        targetType: "User",
+        targetId: user.id,
+        details: { from: user.role, to: role, sessionsRevoked },
+      },
+      tx,
+    );
   });
 }
 

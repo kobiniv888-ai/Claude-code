@@ -155,6 +155,7 @@
     "account_blocked": "This account is suspended or banned. Reactivate it first.",
     "missing_listing": "There is no listing linked to this item.",
     "role_unchanged": "The account already has this role.",
+    "demo_staff_refused": "A demo account can't get a staff role on the real site.",
     "documents_paused": "There are no document checks for now: earlier decisions are read-only.",
     "backup_required": "Make a full backup first (one from the last hour is needed). Tap “Back up now” and try again.",
     "cleanup_running": "This clean-up is already running. Wait for it to finish and refresh the page.",
@@ -173,7 +174,8 @@
     "no_channel": "The host has no email address we can write to, so they can't be told. Nothing was saved.",
     "content_changed": "The listing changed since this page was opened, or the automatic checks found something new. The page was refreshed — check again before deciding.",
     "changed_since_view": "A new report arrived since this page was opened. The page was refreshed — look at it, then mark reviewed.",
-    "listing_has_mistakes": "The listing has errors that block publishing (in the host's mistake check). The page was refreshed — ask the host for changes."
+    "listing_has_mistakes": "The listing has errors that block publishing (in the host's mistake check). The page was refreshed — ask the host for changes.",
+    "audit_failed": "The action was not carried out: we could not record it in the audit log. Nothing changed. Try again in a moment."
   },
   "errorPage": {
     "title": "This admin page couldn't load",
@@ -464,7 +466,11 @@
       "translation_reset": "Translation reset to automatic",
       "review_hide": "Review hidden",
       "review_show": "Review shown again",
-      "report_review_hidden": "Review hidden (report closed)"
+      "report_review_hidden": "Review hidden (report closed)",
+      "auth_recovery": "Logged in with a recovery code",
+      "auth_two_factor_on": "Turned on 2-step login",
+      "auth_authenticator_changed": "Moved 2-step login to a new phone",
+      "auth_recovery_codes_new": "Made new recovery codes"
     }
   },
   "moderation": {
@@ -811,6 +817,7 @@
     "reporterRevealed": "The host was told the reporter's first name on {date}.",
     "reporterHidden": "The host doesn't know who reported. Only you can decide to tell them.",
     "reporterHiddenStaff": "The host doesn't know who reported. Only an administrator can decide to tell them.",
+    "reporterWithheld": "Sender hidden: only an administrator sees who reported",
     "booking": {
       "title": "The booking",
       "open": "Open the booking",
@@ -1446,6 +1453,7 @@
     "cancelReason": "Reason",
     "peopleTitle": "People",
     "guestLanguage": "Language: {language}",
+    "guestPhoneWithheld": "The guest's phone is visible to administrators only",
     "alertTitle": "Host alert",
     "alertSent": "The host was alerted by: {channels}",
     "alertUnknown": "No host alert was recorded (a booking from before we started recording, or a demo booking).",

@@ -1,10 +1,13 @@
 "use client";
 
-import { useId, useRef, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, useTransition, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { CameraIcon, CheckIcon, DownloadIcon, LinkIcon, LoaderIcon, Trash2Icon, UnlinkIcon, UserRoundIcon } from "lucide-react";
+import { CameraIcon, CheckIcon, DownloadIcon, LinkIcon, LoaderIcon, MailCheckIcon, Trash2Icon, UnlinkIcon, UserRoundIcon } from "lucide-react";
 import { clearPrivateCaches, clearPrivateDeviceData } from "@/lib/auth/device-data";
 import { toast } from "@/lib/toast";
+import { CodeInput } from "@/components/auth/code-input";
+import { formatCountdown } from "@/components/auth/use-auth-messages";
+import { useFreshProof } from "@/components/auth/use-fresh-proof";
 import { AppleIcon, GoogleIcon } from "@/components/common/brand-icons";
 import { Ltr } from "@/components/common/ltr";
 import { useCurrency } from "@/components/providers/currency-provider";
@@ -32,11 +35,11 @@ import {
   deleteMyAccount,
   removeAvatar,
   unlinkSocialAccount,
-  updateContactEmail,
   updateNotifications,
   updatePreferences,
   updateProfile,
 } from "@/lib/account/actions";
+import { confirmContactEmailChange, removeContactEmail, sendContactEmailCode } from "@/lib/auth/contact-email-actions";
 import type { AccountSettingsData, ConnectedProvider } from "@/lib/account/queries";
 import {
   BIO_MAX,
@@ -392,51 +395,194 @@ export function ProfileForm({ data, languageNames }: { data: AccountSettingsData
 
 // ─── Contact email ────────────────────────────────────────────
 
+/**
+ * The contact email (it receives every notification). A sensitive change (SECURITY_REPORT 3.6.a):
+ * a fresh code first, then a code to the NEW address; the old address is told, and the other
+ * devices are signed out (src/lib/auth/contact-email-actions.ts).
+ */
 export function ContactEmailForm({ loginEmail, contactEmail }: { loginEmail: string | null; contactEmail: string | null }) {
   const t = useTranslations("account.settings.email");
+  const tc = useTranslations("security.contactEmail");
+  const router = useRouter();
+  const errorText = useActionError();
   const id = useId();
-  const { pending, save, fieldErrors } = useSave();
+  const proof = useFreshProof();
+  const [pending, startTransition] = useTransition();
   const [value, setValue] = useState(contactEmail ?? "");
+  const [fieldError, setFieldError] = useState<string[] | undefined>(undefined);
+  const [sentTo, setSentTo] = useState<string | null>(null);
+  const [screenCode, setScreenCode] = useState<string | null>(null);
+  const [code, setCode] = useState("");
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const [waitUntil, setWaitUntil] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
+  const secondsLeft = Math.max(0, Math.ceil((waitUntil - now) / 1000));
+
+  useEffect(() => {
+    if (waitUntil <= Date.now()) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [waitUntil]);
+
+  const changed = value.trim().toLowerCase() !== (contactEmail ?? "").toLowerCase();
+
+  function sendCode() {
+    startTransition(async () => {
+      setFieldError(undefined);
+      setCodeError(null);
+      if (!value.trim()) {
+        const removed = await proof.run(() => removeContactEmail());
+        if (!removed) return;
+        if (!removed.ok) return void toast.error(errorText(removed.error));
+        toast.success(tc("removed"));
+        router.refresh();
+        return;
+      }
+      const result = await proof.run(() => sendContactEmailCode({ contactEmail: value }));
+      if (!result) return;
+      if (!result.ok) {
+        setFieldError(result.fieldErrors?.contactEmail);
+        if (!result.fieldErrors) toast.error(errorText(result.error));
+        return;
+      }
+      setSentTo(result.data.sentTo);
+      setScreenCode(result.data.screenCode ?? null);
+      setCode("");
+      setNow(Date.now());
+      setWaitUntil(Date.now() + result.data.retryAfterSeconds * 1000);
+      if (!result.data.sent) setCodeError("code_wait");
+    });
+  }
+
+  function confirm(entered: string) {
+    if (entered.length !== 6) return;
+    startTransition(async () => {
+      setCodeError(null);
+      const result = await confirmContactEmailChange({ contactEmail: value, code: entered });
+      if (!result.ok) {
+        setCode("");
+        setCodeError(result.error);
+        return;
+      }
+      setSentTo(null);
+      setScreenCode(null);
+      toast.success(result.data.sessionsEnded > 0 ? tc("savedSignedOut") : tc("saved"));
+      router.refresh();
+    });
+  }
+
   return (
-    <form
-      className="grid gap-4"
-      onSubmit={(event) => {
-        event.preventDefault();
-        save(() => updateContactEmail({ contactEmail: value }));
-      }}
-    >
-      {loginEmail ? (
-        <p className="text-sm">
-          {t("loginEmail")} <Ltr className="font-medium">{loginEmail}</Ltr>
-        </p>
+    <div className="grid gap-4">
+      <form
+        className="grid gap-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (changed && !sentTo) sendCode();
+        }}
+      >
+        {loginEmail ? (
+          <p className="text-sm">
+            {t("loginEmail")} <Ltr className="font-medium">{loginEmail}</Ltr>
+          </p>
+        ) : null}
+        <div className="grid gap-1.5">
+          <label htmlFor={id} className="text-sm font-medium">
+            {t("label")}
+          </label>
+          <Input
+            id={id}
+            type="email"
+            dir="ltr"
+            inputMode="email"
+            autoComplete="email"
+            placeholder="name@example.com"
+            value={value}
+            maxLength={254}
+            disabled={!!sentTo}
+            aria-invalid={!!fieldError}
+            aria-describedby={fieldError ? `${id}-error` : `${id}-hint`}
+            onChange={(e) => setValue(e.target.value)}
+            className="h-11 rounded-xl bg-background text-start"
+          />
+          <p id={`${id}-hint`} className="text-xs text-muted-foreground">
+            {loginEmail ? t("hintWithLogin") : t("hintPhone")} {tc("hint")}
+          </p>
+          <FieldError id={`${id}-error`} errors={fieldError} />
+        </div>
+        {!sentTo ? (
+          <div>
+            <Button type="submit" disabled={pending || !changed} className="h-11 rounded-xl px-5">
+              {pending ? <LoaderIcon className="animate-spin" aria-hidden="true" /> : <MailCheckIcon aria-hidden="true" />}
+              {value.trim() ? tc("sendCode") : tc("remove")}
+            </Button>
+          </div>
+        ) : null}
+      </form>
+
+      {sentTo ? (
+        <form
+          className="grid gap-3 rounded-xl border bg-background p-3"
+          noValidate
+          onSubmit={(event) => {
+            event.preventDefault();
+            confirm(code);
+          }}
+        >
+          <p id={`${id}-sent`} className="text-sm text-muted-foreground">
+            {tc.rich("sent", { email: sentTo, ltr: (chunks) => <Ltr className="font-medium text-foreground">{chunks}</Ltr> })}
+          </p>
+          {screenCode ? (
+            <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+              {tc.rich("screenCode", { code: screenCode, ltr: (chunks) => <Ltr className="font-mono font-semibold tracking-widest">{chunks}</Ltr> })}
+            </p>
+          ) : null}
+          <CodeInput
+            id={`${id}-code`}
+            label={tc("codeLabel")}
+            value={code}
+            onChange={(next) => {
+              setCode(next);
+              if (codeError) setCodeError(null);
+            }}
+            onComplete={confirm}
+            disabled={pending}
+            invalid={!!codeError && codeError !== "code_wait"}
+            autoFocus
+            autoComplete="one-time-code"
+            describedBy={[`${id}-sent`, codeError ? `${id}-code-error` : null].filter(Boolean).join(" ")}
+          />
+          {codeError ? (
+            <p id={`${id}-code-error`} role="alert" className="text-sm font-medium text-destructive">
+              {codeError === "code_wait" ? tc("wait", { time: formatCountdown(secondsLeft) }) : errorText(codeError)}
+            </p>
+          ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="submit" disabled={pending || code.length !== 6} className="h-11 rounded-xl px-5">
+              {pending ? <LoaderIcon className="animate-spin" aria-hidden="true" /> : <CheckIcon aria-hidden="true" />}
+              {tc("confirm")}
+            </Button>
+            <Button type="button" variant="ghost" className="h-11 rounded-xl" disabled={pending || secondsLeft > 0} onClick={sendCode}>
+              {secondsLeft > 0 ? tc("resendIn", { time: formatCountdown(secondsLeft) }) : tc("resend")}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-11 rounded-xl"
+              disabled={pending}
+              onClick={() => {
+                setSentTo(null);
+                setScreenCode(null);
+                setCodeError(null);
+                setValue(contactEmail ?? "");
+              }}
+            >
+              {tc("cancel")}
+            </Button>
+          </div>
+        </form>
       ) : null}
-      <div className="grid gap-1.5">
-        <label htmlFor={id} className="text-sm font-medium">
-          {t("label")}
-        </label>
-        <Input
-          id={id}
-          type="email"
-          dir="ltr"
-          inputMode="email"
-          autoComplete="email"
-          placeholder="name@example.com"
-          value={value}
-          maxLength={254}
-          aria-invalid={!!fieldErrors.contactEmail}
-          aria-describedby={fieldErrors.contactEmail ? `${id}-error` : `${id}-hint`}
-          onChange={(e) => setValue(e.target.value)}
-          className="h-11 rounded-xl bg-background text-start"
-        />
-        <p id={`${id}-hint`} className="text-xs text-muted-foreground">
-          {loginEmail ? t("hintWithLogin") : t("hintPhone")}
-        </p>
-        <FieldError id={`${id}-error`} errors={fieldErrors.contactEmail} />
-      </div>
-      <div>
-        <SaveButton pending={pending} />
-      </div>
-    </form>
+      {proof.dialog}
+    </div>
   );
 }
 
@@ -606,13 +752,16 @@ export function ConnectedAccounts({ data }: { data: AccountSettingsData }) {
   const errorText = useActionError();
   const [pending, startTransition] = useTransition();
   const [busy, setBusy] = useState<ConnectedProvider | null>(null);
+  const proof = useFreshProof();
 
+  // Connecting Google/Apple needs a fresh code first (SECURITY_REPORT 3.3.c; the server refuses without).
   const link = async (provider: ConnectedProvider) => {
+    if (!(await proof.ask())) return;
     setBusy(provider);
     const result = await authClient.linkSocial({ provider, callbackURL: `/${locale}/account/settings#connected` });
     if (result?.error) {
       setBusy(null);
-      toast.error(errorText("server_error"));
+      toast.error(errorText(result.error.code === "FRESH_PROOF_REQUIRED" ? "fresh_proof_required" : "server_error"));
     }
   };
 
@@ -636,7 +785,8 @@ export function ConnectedAccounts({ data }: { data: AccountSettingsData }) {
                 disabled={pending || last}
                 onClick={() =>
                   startTransition(async () => {
-                    const result = await unlinkSocialAccount(provider);
+                    const result = await proof.run(() => unlinkSocialAccount(provider));
+                    if (!result) return;
                     if (!result.ok) {
                       toast.error(errorText(result.error));
                       return;
@@ -658,6 +808,7 @@ export function ConnectedAccounts({ data }: { data: AccountSettingsData }) {
           </li>
         );
       })}
+      {proof.dialog}
     </ul>
   );
 }
@@ -695,6 +846,7 @@ export function DeleteAccount({ isStaff }: { isStaff: boolean }) {
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState("");
   const [pending, startTransition] = useTransition();
+  const proof = useFreshProof();
   const word = t("confirmWord");
   const matches = typed.trim().toLocaleLowerCase() === word.toLocaleLowerCase();
 
@@ -728,7 +880,9 @@ export function DeleteAccount({ isStaff }: { isStaff: boolean }) {
               event.preventDefault();
               if (!matches) return;
               startTransition(async () => {
-                const result = await deleteMyAccount({ confirmation: typed });
+                // Deleting the account needs a fresh code first (SECURITY_REPORT 3.6.b).
+                const result = await proof.run(() => deleteMyAccount({ confirmation: typed }));
+                if (!result) return;
                 if (!result.ok) {
                   toast.error(errorText(result.error));
                   return;
@@ -773,6 +927,7 @@ export function DeleteAccount({ isStaff }: { isStaff: boolean }) {
           </form>
         </AlertDialogContent>
       </AlertDialog>
+      {proof.dialog}
     </div>
   );
 }

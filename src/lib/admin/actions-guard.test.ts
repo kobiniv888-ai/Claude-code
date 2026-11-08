@@ -6,6 +6,7 @@
  * - signed out → auth_required
  * - a regular account (USER) → forbidden
  * - a demo ADMIN on the permanent address (even with 2-step login) → forbidden
+ * - a demo ADMIN on the real site (SITE_ENV=production) → not signed in at all (auth_required)
  * - a real ADMIN without 2-step login, in development with DEV_SKIP_STAFF_2FA=true → forbidden
  *
  * The real session code runs (src/lib/auth/session.ts); only the Better Auth cookie check, the
@@ -43,6 +44,9 @@ const state = vi.hoisted(() => ({
   twoFactorVerifiedAt: null as Date | null,
   host: "localhost:3000",
   dbTouched: [] as string[],
+  // The SameSite=Strict staff cookie and the 12-hour idle marker (src/lib/auth/staff-session.ts).
+  staffCookie: true,
+  staffIdle: false,
 }));
 
 vi.mock("server-only", () => ({}));
@@ -51,6 +55,10 @@ vi.mock("next/headers", () => ({
   cookies: async () => ({ get: () => undefined, getAll: () => [], set: () => {}, delete: () => {}, has: () => false }),
 }));
 vi.mock("@/lib/monitoring", () => ({ reportError: async () => {} }));
+vi.mock("@/lib/auth/staff-session", () => ({
+  checkStaffSessionIdle: async () => (state.staffIdle ? "idle" : "active"),
+  hasStaffCookie: async () => state.staffCookie,
+}));
 vi.mock("next/cache", () => ({ revalidatePath: () => {}, revalidateTag: () => {}, unstable_cache: (fn: unknown) => fn }));
 vi.mock("next-intl/server", () => ({
   getLocale: async () => "he",
@@ -152,8 +160,10 @@ type Scenario = {
   expected: string;
 };
 
-const LOCAL_DEV = { NODE_ENV: "development", DEV_SKIP_STAFF_2FA: "true", NEXT_PUBLIC_SITE_URL: "http://localhost:3000", BETTER_AUTH_URL: "http://localhost:3000" };
-const REAL_PROD = { NODE_ENV: "production", DEV_SKIP_STAFF_2FA: "false", NEXT_PUBLIC_SITE_URL: "https://bayit.example", BETTER_AUTH_URL: "https://bayit.example" };
+const LOCAL_DEV = { NODE_ENV: "development", SITE_ENV: "development", DEV_SKIP_STAFF_2FA: "true", NEXT_PUBLIC_SITE_URL: "http://localhost:3000", BETTER_AUTH_URL: "http://localhost:3000" };
+const REAL_PROD = { NODE_ENV: "production", SITE_ENV: "production", DEV_SKIP_STAFF_2FA: "false", NEXT_PUBLIC_SITE_URL: "https://bayit.example", BETTER_AUTH_URL: "https://bayit.example" };
+/** A development site (a codespace) configured with the permanent address. */
+const PERMANENT_DEV = { ...REAL_PROD, SITE_ENV: "development" };
 
 const SCENARIOS: Scenario[] = [
   { name: "signed out", env: REAL_PROD, host: "bayit.example", user: null, twoFactorVerifiedAt: null, expected: "auth_required" },
@@ -175,7 +185,7 @@ const SCENARIOS: Scenario[] = [
   },
   {
     name: "a demo ADMIN with 2-step login on the permanent address",
-    env: REAL_PROD,
+    env: PERMANENT_DEV,
     host: "bayit.example",
     user: account({ role: "ADMIN", isDemo: true, twoFactorEnabled: true }),
     twoFactorVerifiedAt: new Date(),
@@ -183,11 +193,20 @@ const SCENARIOS: Scenario[] = [
   },
   {
     name: "a demo MODERATOR with 2-step login on the permanent address",
-    env: REAL_PROD,
+    env: PERMANENT_DEV,
     host: "bayit.example",
     user: account({ role: "MODERATOR", isDemo: true, twoFactorEnabled: true }),
     twoFactorVerifiedAt: new Date(),
     expected: "forbidden",
+  },
+  {
+    // SITE_ENV=production: a demo account is not even signed in there (src/lib/auth/session.ts).
+    name: "a demo ADMIN with 2-step login on the real site",
+    env: REAL_PROD,
+    host: "bayit.example",
+    user: account({ role: "ADMIN", isDemo: true, twoFactorEnabled: true }),
+    twoFactorVerifiedAt: new Date(),
+    expected: "auth_required",
   },
   {
     name: "a real ADMIN without 2-step login, even with the development shortcut on",
@@ -254,7 +273,7 @@ describe("admin server actions refuse accounts without panel access", () => {
       state.twoFactorVerifiedAt = scenario.twoFactorVerifiedAt;
       state.host = scenario.host;
       const res = await GET(new Request("http://localhost/api/admin/documents/x/0"), { params: Promise.resolve({ requestId: "x", index: "0" }) });
-      expect(res.status, scenario.name).toBe(scenario.user ? 404 : 401);
+      expect(res.status, scenario.name).toBe(scenario.expected === "auth_required" ? 401 : 404);
     }
     expect(state.dbTouched).toEqual([]);
   });
@@ -283,5 +302,23 @@ describe("admin server actions refuse accounts without panel access", () => {
     // Without the code in this session: refused.
     state.twoFactorVerifiedAt = null;
     await expect(requireStaffForAction("settings")).rejects.toMatchObject({ code: "auth_required" });
+  });
+
+  it("refuses a verified real ADMIN without the SameSite=Strict staff cookie, or after 12 idle hours (SECURITY_REPORT 3.5.a/c)", async () => {
+    for (const [key, value] of Object.entries(REAL_PROD)) vi.stubEnv(key, value);
+    state.user = account({ role: "ADMIN", twoFactorEnabled: true });
+    state.twoFactorVerifiedAt = new Date();
+    state.host = "bayit.example";
+    const { requireStaffForAction } = await import("@/lib/auth/session");
+    try {
+      state.staffCookie = false;
+      await expect(requireStaffForAction("settings")).rejects.toMatchObject({ code: "auth_required" });
+      state.staffCookie = true;
+      state.staffIdle = true;
+      await expect(requireStaffForAction("settings")).rejects.toMatchObject({ code: "auth_required" });
+    } finally {
+      state.staffCookie = true;
+      state.staffIdle = false;
+    }
   });
 });

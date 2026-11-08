@@ -11,7 +11,7 @@
     "business": "شركة",
     "shabbatFriendly": "مناسب للسبت",
     "kosherKitchen": "مطبخ كوشير",
-    "synagogueWalk": "{count} دقيقة سيرًا إلى الكنيس"
+    "synagogueWalk": "{count, plural, =5 {حتى 5 دقائق سيرًا إلى الكنيس} few {≈ {count} دقائق سيرًا إلى الكنيس} other {≈ {count} دقيقة سيرًا إلى الكنيس}}"
   },
   "price": {
     "per": {
@@ -78,9 +78,9 @@
     "visited": "زرنا المكان",
     "kosherKitchen": "مطبخ كوشير",
     "shabbatFriendly": "مناسب للسبت",
-    "sea": "≈ {count} د مشيًا إلى البحر",
-    "lift": "≈ {count} د مشيًا إلى مصاعد التزلج",
-    "synagogue": "{count} د إلى الكنيس",
+    "sea": "{count, plural, =5 {حتى 5 د مشيًا إلى البحر} other {≈ {count} د مشيًا إلى البحر}}",
+    "lift": "{count, plural, =5 {حتى 5 د مشيًا إلى مصاعد التزلج} other {≈ {count} د مشيًا إلى مصاعد التزلج}}",
+    "synagogue": "{count, plural, =5 {حتى 5 د إلى الكنيس} other {≈ {count} د إلى الكنيس}}",
     "hebrew": "يتحدث العبرية"
   },
   "rating": "التقييم {average} من 5، {count, plural, zero {{count} تقييم} one {تقييم واحد} two {تقييمان} few {{count} تقييمات} many {{count} تقييمًا} other {{count} تقييم}}"

@@ -11,7 +11,7 @@ vi.mock("@/lib/db", () => ({
 const audit = vi.fn(async () => {});
 vi.mock("@/lib/audit", () => ({ audit }));
 
-const { DEFAULT_SETTINGS, HOME_SECTION_KEYS, getSettings, isShabbatModeActive, mergeSettings, updateSettings } =
+const { DEFAULT_SETTINGS, HOME_SECTION_KEYS, effectiveSettings, getSettings, isShabbatModeActive, mergeSettings, updateSettings } =
   await import("./settings");
 const { ShabbatModeError, ValidationError } = await import("./errors");
 
@@ -109,6 +109,35 @@ describe("getSettings", () => {
     findMany.mockRejectedValueOnce(new Error("connection refused"));
     await expect(getSettings()).resolves.toEqual(DEFAULT_SETTINGS);
     spy.mockRestore();
+  });
+});
+
+describe("demo listings on the real site (SECURITY_REPORT 19.i, C18)", () => {
+  it("are always off with SITE_ENV=production, even when the admin switch is on", async () => {
+    vi.stubEnv("SITE_ENV", "production");
+    try {
+      findMany.mockResolvedValue([{ key: "demoDataVisible", value: true }]);
+      expect((await getSettings()).demoDataVisible).toBe(false);
+      findMany.mockResolvedValue([]);
+      expect((await getSettings()).demoDataVisible).toBe(false);
+      expect(effectiveSettings(DEFAULT_SETTINGS).demoDataVisible).toBe(false);
+      // A missing SITE_ENV counts as production (fail closed).
+      vi.stubEnv("SITE_ENV", "");
+      expect(effectiveSettings(DEFAULT_SETTINGS).demoDataVisible).toBe(false);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("follow the admin switch on development and staging sites", async () => {
+    for (const site of ["development", "staging"]) {
+      vi.stubEnv("SITE_ENV", site);
+      findMany.mockResolvedValue([{ key: "demoDataVisible", value: true }]);
+      expect((await getSettings()).demoDataVisible, site).toBe(true);
+      findMany.mockResolvedValue([{ key: "demoDataVisible", value: false }]);
+      expect((await getSettings()).demoDataVisible, site).toBe(false);
+    }
+    vi.unstubAllEnvs();
   });
 });
 

@@ -8,7 +8,7 @@
     "kosherKitchen": "مطبخ كوشر",
     "kosherMeals": "وجبات كوشر",
     "shabbatFriendly": "مناسب للسبت",
-    "synagogueWalk": "{minutes} د سيرًا إلى الكنيس",
+    "synagogueWalk": "{minutes, plural, =5 {حتى 5 د سيرًا إلى الكنيس} other {≈ {minutes} د سيرًا إلى الكنيس}}",
     "keepsShabbat": "يحافظ على السبت",
     "business": "نشاط تجاري",
     "demo": "تجريبي",

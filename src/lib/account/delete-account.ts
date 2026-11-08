@@ -34,8 +34,9 @@ async function removeFiles(keys: string[], remove: (key: string) => Promise<void
  *    code, kosher certificate photo and calendar imports cleared;
  *  - favorites (save counters adjusted), saved lists (with their share links) and saved searches,
  *    recently viewed places, sessions, social/password accounts, device links, push-notification
- *    subscriptions (endpoint, keys, device hint) and blocks are deleted (the user row is only
- *    anonymized, so its onDelete: Cascade never fires: every table goes here by hand);
+ *    subscriptions (endpoint, keys, device hint), 2-step recovery codes, Terms acceptances and
+ *    blocks are deleted (the user row is only anonymized, so its onDelete: Cascade never fires:
+ *    every table goes here by hand); security events lose their link to the account (userId null);
  *  - verification documents and the user's ticket attachments are deleted from private storage
  *    (decided requests keep only their status; undecided ones are removed);
  *  - the user row becomes "Deleted user" with a placeholder email, no phone, bio or photo,
@@ -107,6 +108,11 @@ export async function deleteAccountData(userId: string): Promise<void> {
     db.account.deleteMany({ where: { userId } }),
     db.deviceLink.deleteMany({ where: { userId } }),
     db.pushSubscription.deleteMany({ where: { userId } }),
+    // Security round (D1, D4, D6): 2-step recovery codes and the Terms acceptance log go; security
+    // events stay for their 90 days, without the link to the account.
+    db.twoFactorRecoveryCode.deleteMany({ where: { userId } }),
+    db.termsAcceptance.deleteMany({ where: { userId } }),
+    db.securityEvent.updateMany({ where: { userId }, data: { userId: null } }),
     db.userBlock.deleteMany({ where: { OR: [{ blockerId: userId }, { blockedId: userId }] } }),
     db.verificationRequest.deleteMany({ where: { id: { in: undecided } } }),
     db.verificationRequest.updateMany({

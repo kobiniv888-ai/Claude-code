@@ -125,6 +125,13 @@ export function LoginPanel({
           variant="link"
           className="mx-auto h-auto"
           onClick={async () => {
+            // The session must really end on the server (SECURITY_REPORT 3.5.d), then the library resets.
+            const { logOutHere } = await import("@/lib/auth/logout-actions");
+            const ended = await logOutHere().catch(() => null);
+            if (!ended?.ok) {
+              setError("server_unavailable");
+              return;
+            }
             await signOut();
             setStep("start");
             router.refresh();
@@ -132,6 +139,11 @@ export function LoginPanel({
         >
           {t("useAnotherAccount")}
         </Button>
+        {error ? (
+          <p role="alert" className="text-center text-sm font-medium text-destructive">
+            {errorMessage(error)}
+          </p>
+        ) : null}
       </div>
     );
   }

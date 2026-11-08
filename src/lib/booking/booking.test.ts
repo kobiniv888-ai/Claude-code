@@ -11,6 +11,8 @@ import {
   freeCancellationDeadline,
   isHostCancellationFlagged,
   isLateCancellation,
+  REVEAL_DAYS_AFTER_CHECKOUT,
+  revealLastDay,
   shouldComplete,
 } from "./policy";
 import { quoteStay, type PricingTerms } from "./pricing";
@@ -191,13 +193,28 @@ describe("cancellation policy and permissions", () => {
   });
 
   it("reveals the host's contact only to the guest of a confirmed or completed booking", () => {
-    const booking = { status: "CONFIRMED" as const, guestUserId: "guest" };
-    expect(canRevealHostContact(booking, "guest")).toBe(true);
-    expect(canRevealHostContact({ ...booking, status: "COMPLETED" }, "guest")).toBe(true);
-    expect(canRevealHostContact(booking, "someone-else")).toBe(false);
-    expect(canRevealHostContact(booking, null)).toBe(false);
-    expect(canRevealHostContact({ ...booking, status: "CANCELLED_BY_HOST" }, "guest")).toBe(false);
-    expect(canRevealHostContact({ ...booking, status: "NO_SHOW" }, "guest")).toBe(false);
+    const now = new Date("2026-11-08T10:00:00Z");
+    const booking = { status: "CONFIRMED" as const, guestUserId: "guest", checkOut: "2026-11-20" };
+    expect(canRevealHostContact(booking, "guest", now)).toBe(true);
+    expect(canRevealHostContact({ ...booking, status: "COMPLETED" }, "guest", now)).toBe(true);
+    expect(canRevealHostContact(booking, "someone-else", now)).toBe(false);
+    expect(canRevealHostContact(booking, null, now)).toBe(false);
+    expect(canRevealHostContact({ ...booking, status: "CANCELLED_BY_HOST" }, "guest", now)).toBe(false);
+    expect(canRevealHostContact({ ...booking, status: "NO_SHOW" }, "guest", now)).toBe(false);
+  });
+
+  it("hides the address again 7 days after check-out (security checklist 6.f), Georgia time", () => {
+    const done = { status: "COMPLETED" as const, guestUserId: "guest", checkOut: "2026-11-01" };
+    expect(REVEAL_DAYS_AFTER_CHECKOUT).toBe(7);
+    expect(revealLastDay("2026-11-01")).toBe("2026-11-08");
+    // 8 Nov 23:59 in Tbilisi (UTC+4) is the last moment; 9 Nov 00:00 there it is gone.
+    expect(canRevealHostContact(done, "guest", new Date("2026-11-08T19:59:00Z"))).toBe(true);
+    expect(canRevealHostContact(done, "guest", new Date("2026-11-08T20:00:00Z"))).toBe(false);
+    expect(canRevealHostContact(done, "guest", new Date("2027-01-01T12:00:00Z"))).toBe(false);
+    // A @db.Date value works the same; a broken date reveals nothing (fail closed).
+    expect(canRevealHostContact({ ...done, checkOut: new Date("2026-11-01T00:00:00Z") }, "guest", new Date("2026-11-05T12:00:00Z"))).toBe(true);
+    expect(canRevealHostContact({ ...done, checkOut: new Date("x") }, "guest", new Date("2026-11-05T12:00:00Z"))).toBe(false);
+    expect(canRevealHostContact({ ...done, checkOut: "soon" }, "guest", new Date("2026-11-05T12:00:00Z"))).toBe(false);
   });
 });
 

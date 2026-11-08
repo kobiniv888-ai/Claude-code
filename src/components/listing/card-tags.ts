@@ -17,6 +17,10 @@
  * those values (src/lib/geo/walk-towns.ts), and there the tag comes first, before "ביקרנו במקום";
  * elsewhere nothing changes. It counts toward the two tags.
  *
+ * Security checklist 6.d (founder's decision 2): every walking time on a card is rounded up to
+ * 5 minutes ("עד 5 דק׳", "≈ 10 דק׳"). The card data already arrives rounded from the server
+ * (src/lib/listing/mappers.ts); the tags round again so a raw value can never be printed.
+ *
  * Round 3 (brief section 3): every card that isn't a short stay names its type on the price line —
  * "למכירה", "חודשי" or "מלון" (guesthouses share HOTEL_ROOM) — so a sale price never reads like a
  * nightly one. It is not one of the two tags.
@@ -25,6 +29,7 @@ import type { DealType } from "@/generated/prisma/enums";
 import type { ListingCardBadges } from "@/lib/listing/types";
 import type { SearchFilters } from "@/lib/listing/search-params";
 import { isNearWalk } from "@/lib/geo/walk-towns";
+import { publicWalkMinutes } from "@/lib/geo/public-walk";
 
 export type CardPhotoTag = "demo" | "promoted" | "new";
 export type CardTagKind = "sea" | "lift" | "visited" | "kosherKitchen" | "shabbatFriendly" | "synagogue" | "hebrew";
@@ -78,11 +83,11 @@ export function cardTags(badges: TagSource, preferred: readonly CardTagKind[] = 
     if (!has[kind] || picked.some((tag) => tag.kind === kind)) continue;
     picked.push(
       kind === "synagogue"
-        ? { kind, minutes: badges.synagogueWalkMin ?? 0 }
+        ? { kind, minutes: publicWalkMinutes(badges.synagogueWalkMin) ?? 0 }
         : kind === "sea"
-          ? { kind, minutes: badges.seaWalkMinutes ?? 0 }
+          ? { kind, minutes: publicWalkMinutes(badges.seaWalkMinutes) ?? 0 }
           : kind === "lift"
-            ? { kind, minutes: badges.liftWalkMinutes ?? 0 }
+            ? { kind, minutes: publicWalkMinutes(badges.liftWalkMinutes) ?? 0 }
             : { kind },
     );
     if (picked.length === MAX_CARD_TAGS) break;

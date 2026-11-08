@@ -11,12 +11,17 @@ import { db } from "@/lib/db";
 import { parseBookingSearch, stayOverlap, type AdminBookingStatus } from "../booking-search";
 import { bookingFlagKind, hoursFromBookingToCancel } from "../flags";
 import { pageInfo } from "../params";
+import { canSeeGuestPhone, type StaffViewer } from "../staff-visibility";
 import { HOST_UNREACHABLE_ACTION } from "./attention";
 
 /**
  * Admin → Bookings (server-only, "moderation"): search by booking code, guest, host, listing
  * number, stay dates and status; the staff booking page; and the booking attempts refused because
  * the host could not be told (phase 1 "host unreachable", from the audit log).
+ *
+ * The guest's phone is ADMIN only (founder's decision Q12, ../staff-visibility.ts): the booking
+ * page reads Booking.guestPhone only for a viewer who may see it, and only they may search bookings
+ * by a phone number (a search is an answer too: "this number booked that place").
  */
 
 export const ADMIN_BOOKINGS_PAGE_SIZE = 25;
@@ -35,7 +40,7 @@ export type BookingSearchFilters = {
  * Used as a relation filter on the booking's guest and host, so every matching user counts (no
  * capped pre-fetch of user ids).
  */
-export function userSearchWhere(q: string): Prisma.UserWhereInput | null {
+export function userSearchWhere(q: string, phones = true): Prisma.UserWhereInput | null {
   const terms = parseBookingSearch(q).people;
   const or: Prisma.UserWhereInput[] = [];
   if (terms.text && terms.text.length >= 2) {
@@ -48,24 +53,27 @@ export function userSearchWhere(q: string): Prisma.UserWhereInput | null {
     );
   }
   if (terms.email) or.push({ email: { equals: terms.email, mode: "insensitive" } });
-  if (terms.phones.length) or.push({ phoneNumber: { in: terms.phones } });
-  if (terms.phoneDigits) or.push({ phoneNumber: { contains: terms.phoneDigits } });
+  // Without the guest-phone right (Q12) a phone number finds no booking, not even through the
+  // guest's account (the booking's phone is the account's verified number).
+  if (phones && terms.phones.length) or.push({ phoneNumber: { in: terms.phones } });
+  if (phones && terms.phoneDigits) or.push({ phoneNumber: { contains: terms.phoneDigits } });
   if (terms.userId) or.push({ id: terms.userId });
   return or.length ? { OR: or } : null;
 }
 
-export async function bookingSearchWhere(filters: BookingSearchFilters): Promise<Prisma.BookingWhereInput> {
+export async function bookingSearchWhere(filters: BookingSearchFilters, viewer: Pick<StaffViewer, "role">): Promise<Prisma.BookingWhereInput> {
   const and: Prisma.BookingWhereInput[] = [];
   const q = filters.q.trim();
   if (q) {
     const { code, people } = parseBookingSearch(q);
     const or: Prisma.BookingWhereInput[] = [];
+    const phones = canSeeGuestPhone(viewer);
     if (code) or.push({ code });
     if (people.listingPublicId) or.push({ listing: { publicId: people.listingPublicId } });
     if (people.text && people.text.length >= 2) or.push({ guestName: { contains: people.text, mode: "insensitive" } });
-    if (people.phones.length) or.push({ guestPhone: { in: people.phones } });
-    if (people.phoneDigits) or.push({ guestPhone: { contains: people.phoneDigits } });
-    const users = userSearchWhere(q);
+    if (phones && people.phones.length) or.push({ guestPhone: { in: people.phones } });
+    if (phones && people.phoneDigits) or.push({ guestPhone: { contains: people.phoneDigits } });
+    const users = userSearchWhere(q, phones);
     if (users) or.push({ guest: users }, { host: users });
     // Something was typed but nothing can match it.
     and.push(or.length ? { OR: or } : { id: "__none__" });
@@ -99,8 +107,8 @@ export type AdminBookingListRow = {
   listing: { id: string; publicId: number; title: string };
 };
 
-export async function searchBookings(filters: BookingSearchFilters, requestedPage: number, locale: AppLocale) {
-  const where = await bookingSearchWhere(filters);
+export async function searchBookings(filters: BookingSearchFilters, requestedPage: number, locale: AppLocale, viewer: StaffViewer) {
+  const where = await bookingSearchWhere(filters, viewer);
   const total = await db.booking.count({ where });
   const info = pageInfo(total, requestedPage, ADMIN_BOOKINGS_PAGE_SIZE);
   const rows = await db.booking.findMany({
@@ -223,7 +231,8 @@ export async function listHostUnreachable(requestedPage: number) {
 
 // ─── Booking page ─────────────────────────────────────────────
 
-export async function getAdminBooking(id: string, locale: AppLocale) {
+export async function getAdminBooking(id: string, locale: AppLocale, viewer: StaffViewer) {
+  const showPhone = canSeeGuestPhone(viewer);
   const booking = await db.booking.findUnique({
     where: { id },
     select: {
@@ -259,7 +268,6 @@ export async function getAdminBooking(id: string, locale: AppLocale) {
       noShowReportedAt: true,
       messageToHost: true,
       guestName: true,
-      guestPhone: true,
       locale: true,
       rulesAcceptedAt: true,
       reminderSentAt: true,
@@ -283,6 +291,8 @@ export async function getAdminBooking(id: string, locale: AppLocale) {
     },
   });
   if (!booking) return null;
+  // ADMIN only (Q12): read in its own query, never for other staff.
+  const guestPhone = showPhone ? ((await db.booking.findUnique({ where: { id: booking.id }, select: { guestPhone: true } }))?.guestPhone ?? null) : null;
 
   const [history, staff] = await Promise.all([
     db.auditLog.findMany({
@@ -319,6 +329,9 @@ export async function getAdminBooking(id: string, locale: AppLocale) {
   return {
     booking: {
       ...booking,
+      /** ADMIN only (Q12); null for other staff (guestPhoneWithheld). */
+      guestPhone,
+      guestPhoneWithheld: !showPhone,
       checkIn,
       checkOut,
       nightlyPrice,

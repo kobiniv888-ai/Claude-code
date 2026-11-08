@@ -88,7 +88,9 @@ export async function createBookingAction(input: unknown): Promise<ActionResult<
       alerts,
       notify: false,
     });
-    after(() => afterBookingConfirmed(booking.id, new Date(), alerts));
+    // A repeated attempt (the same idempotency key) found the booking already made: its first
+    // attempt sends the confirmation.
+    if (!booking.repeated) after(() => afterBookingConfirmed(booking.id, new Date(), alerts));
     return ok({ id: booking.id, code: booking.code, path: tripPath(booking.code) });
   });
 }

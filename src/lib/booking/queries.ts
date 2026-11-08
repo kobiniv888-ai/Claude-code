@@ -275,7 +275,7 @@ export async function getGuestTrip(
   });
   if (!row) return null;
   const summary = toSummary(row, locale, now);
-  const reveal = canRevealHostContact(row, guestUserId)
+  const reveal = canRevealHostContact(row, guestUserId, now)
     ? {
         address: row.listing.address,
         lat: row.listing.lat,

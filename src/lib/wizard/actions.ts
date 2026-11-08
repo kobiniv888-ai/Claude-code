@@ -36,6 +36,7 @@ import { assertTurnstile } from "@/lib/turnstile";
 import { normalizeRanges } from "./availability";
 import { getPledgeStatus, hasCurrentPledge } from "@/lib/pledge/server";
 import { getHostCalendar, HOST_CALENDAR_MONTHS, type HostCalendarData } from "@/lib/booking/host-calendar";
+import { newIcalToken } from "@/lib/listing/ical-token";
 import { missingRequirements } from "./requirements";
 import { liveEditFieldErrors } from "./live-edit";
 import { deactivationLeavesTooFewPhotos, deletePhotoLocked, deleteRoomTypeLocked, lockListing } from "./photo-guard-server";
@@ -115,6 +116,7 @@ export async function createDraft(): Promise<ActionResult<{ id: string }>> {
         ownerId: user.id,
         status: "DRAFT",
         wizardStep: 1,
+        icalToken: newIcalToken(),
         originalLocale: isAppLocale(locale) ? locale : siteConfig.i18n.primaryLocale,
         currency: user.currency && user.currency !== "GBP" && user.currency !== "AED" ? user.currency : "USD",
         noReplyOnShabbat: user.keepsShabbat,

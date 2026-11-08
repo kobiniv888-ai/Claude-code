@@ -11,7 +11,7 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock("server-only", () => ({}));
-vi.mock("@/lib/auth/session", () => ({ getCurrentUser: async () => ({ id: "owner-1" }) }));
+vi.mock("@/lib/auth/session", () => ({ requireUserForAction: async () => ({ id: "owner-1" }) }));
 vi.mock("@/lib/rate-limit", () => ({
   rateLimit: async (key: string, options: { limit: number; windowSeconds: number }) => {
     state.limits.push({ key, ...options });

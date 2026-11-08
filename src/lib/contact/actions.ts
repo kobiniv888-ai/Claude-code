@@ -21,11 +21,13 @@ import { formatDateRange } from "@/lib/format";
 import { CONTACT_CHANNELS } from "@/lib/listing/fields";
 import { recordContactClick } from "@/lib/listing/stats";
 import { listingPath } from "@/lib/listing/urls";
-import { assertRateLimit, rateLimit } from "@/lib/rate-limit";
+import { RateLimitError } from "@/lib/errors";
+import { assertRateLimit, rateLimit, resetRateLimit } from "@/lib/rate-limit";
 import { assertNotShabbatMode } from "@/lib/settings";
 import { assertTurnstile } from "@/lib/turnstile";
 import { countryConfig } from "@/config/countries";
 import { normalizePhone } from "@/lib/phone";
+import { CONTACT_REVEALS_PER_DAY } from "./limits";
 import { parseContactMethods, revealedValue, type RevealedContact } from "./links";
 import { findContactableListing, isBlockedBetween, safetyTipSeen } from "./server";
 
@@ -77,10 +79,24 @@ export async function revealContact(listingId: string, turnstileToken?: string |
     if (!listing) return fail("not_found");
     if (await isBlockedBetween(user.id, listing.ownerId)) return fail("blocked");
 
-    // The per-listing cap counts each visitor once a day, so a popular listing is not locked by refreshes.
+    // The per-listing cap and the daily cap count each visitor and listing once a day, so a
+    // popular listing is not locked by refreshes and seeing the same place again is free.
     // Hashed: the key must not say which account looked at which listing's contact details.
-    const firstToday = await rateLimit(`contact-reveal:seen:${hmacHash(`contact-reveal|${user.id}|${listing.id}`)}`, { limit: 1, windowSeconds: DAY });
-    if (firstToday.ok) await assertRateLimit(`contact-reveal:listing:${listing.id}`, { limit: 200, windowSeconds: DAY });
+    const seenKey = `contact-reveal:seen:${hmacHash(`contact-reveal|${user.id}|${listing.id}`)}`;
+    const firstToday = await rateLimit(seenKey, { limit: 1, windowSeconds: DAY });
+    // Fail closed: when the store cannot tell whether this is a new listing for today, refuse.
+    if (firstToday.failed) throw new RateLimitError(firstToday.resetAt);
+    if (firstToday.ok) {
+      try {
+        await assertRateLimit(`contact-reveal:daily:${user.id}`, { limit: CONTACT_REVEALS_PER_DAY, windowSeconds: DAY });
+        await assertRateLimit(`contact-reveal:listing:${listing.id}`, { limit: 200, windowSeconds: DAY });
+      } catch (error) {
+        // Refused: this listing was not shown, so it must not count as "already seen today"
+        // (otherwise the next tap would skip both caps).
+        await resetRateLimit(seenKey);
+        throw error;
+      }
+    }
 
     // Phone numbers leave the server in E.164 without a national 0 (brief 2.5), so the browser's
     // wa.me / tel: links work also for values saved before round 3 ("+9720…").

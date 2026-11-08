@@ -394,40 +394,90 @@ model User {
   /// report or flagged cancellation arrives after this. The note and who did it are in AuditLog.
   hostFlagReviewedAt      DateTime?
 
-  sessions              Session[]
-  accounts              Account[]
-  listings              Listing[]             @relation("ListingOwner")
-  favorites             Favorite[]
-  contactClicks         ContactClick[]        @relation("ContactClickGuest")
-  reportsMade           Report[]              @relation("ReportReporter")
-  reportsAgainst        Report[]              @relation("ReportTargetUser")
-  reportsHandled        Report[]              @relation("ReportHandler")
-  blocksMade            UserBlock[]           @relation("Blocker")
-  blocksReceived        UserBlock[]           @relation("Blocked")
-  verificationRequests  VerificationRequest[] @relation("VerificationUser")
-  verificationsReviewed VerificationRequest[] @relation("VerificationReviewer")
-  tickets               Ticket[]              @relation("TicketUser")
-  ticketsAssigned       Ticket[]              @relation("TicketAssignee")
-  ticketMessages        TicketMessage[]
-  auditLogs             AuditLog[]
-  notesAbout            AdminNote[]           @relation("NoteSubject")
-  notesWritten          AdminNote[]           @relation("NoteAuthor")
-  devices               DeviceLink[]
-  listingsReviewed      Listing[]             @relation("ListingReviewer")
-  payments              Payment[]
-  bookingsAsGuest       Booking[]             @relation("BookingGuest")
-  bookingsAsHost        Booking[]             @relation("BookingHost")
-  bookingsCancelled     Booking[]             @relation("BookingCanceller")
-  pushSubscriptions     PushSubscription[]
-  recentlyViewed        RecentlyViewed[]
-  reviewsAsGuest        Review[]              @relation("ReviewGuest")
-  reviewsAsHost         Review[]              @relation("ReviewHost")
-  savedLists            SavedList[]
-  savedSearches         SavedSearch[]
+  sessions               Session[]
+  accounts               Account[]
+  listings               Listing[]               @relation("ListingOwner")
+  favorites              Favorite[]
+  contactClicks          ContactClick[]          @relation("ContactClickGuest")
+  reportsMade            Report[]                @relation("ReportReporter")
+  reportsAgainst         Report[]                @relation("ReportTargetUser")
+  reportsHandled         Report[]                @relation("ReportHandler")
+  blocksMade             UserBlock[]             @relation("Blocker")
+  blocksReceived         UserBlock[]             @relation("Blocked")
+  verificationRequests   VerificationRequest[]   @relation("VerificationUser")
+  verificationsReviewed  VerificationRequest[]   @relation("VerificationReviewer")
+  tickets                Ticket[]                @relation("TicketUser")
+  ticketsAssigned        Ticket[]                @relation("TicketAssignee")
+  ticketMessages         TicketMessage[]
+  auditLogs              AuditLog[]
+  notesAbout             AdminNote[]             @relation("NoteSubject")
+  notesWritten           AdminNote[]             @relation("NoteAuthor")
+  devices                DeviceLink[]
+  listingsReviewed       Listing[]               @relation("ListingReviewer")
+  payments               Payment[]
+  bookingsAsGuest        Booking[]               @relation("BookingGuest")
+  bookingsAsHost         Booking[]               @relation("BookingHost")
+  bookingsCancelled      Booking[]               @relation("BookingCanceller")
+  pushSubscriptions      PushSubscription[]
+  recentlyViewed         RecentlyViewed[]
+  reviewsAsGuest         Review[]                @relation("ReviewGuest")
+  reviewsAsHost          Review[]                @relation("ReviewHost")
+  savedLists             SavedList[]
+  savedSearches          SavedSearch[]
+  /// Security round (SECURITY_REPORT D1, D4, D6).
+  twoFactorRecoveryCodes TwoFactorRecoveryCode[]
+  termsAcceptances       TermsAcceptance[]
+  securityEvents         SecurityEvent[]
 
   @@index([role])
   @@index([status])
   @@index([createdAt])
+}
+
+/// 2-step login recovery codes (SECURITY_REPORT 3.7.c, D1): one row per one-time code. Only a hash
+/// is stored; a used code keeps its row with usedAt set. Deleted with the account.
+model TwoFactorRecoveryCode {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+/// Which version of the Terms an account accepted, and the 18+ confirmation (SECURITY_REPORT
+/// 15.11.b/c, D4). Deleted with the account.
+model TermsAcceptance {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  version      String
+  ageConfirmed Boolean
+  acceptedAt   DateTime @default(now())
+
+  @@index([userId])
+}
+
+/// The security event log (SECURITY_REPORT 16.2, D6), separate from the app logs and AuditLog:
+/// lockouts, SMS budget, new-device logins, sensitive changes… (types: src/lib/security/event-types.ts).
+/// Never raw IPs, emails, phones or codes (src/lib/security/events.ts). Kept 90 days. When the
+/// account is deleted, its events stay without the link to it (userId → null).
+model SecurityEvent {
+  id        String   @id @default(cuid())
+  type      String
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  /// HMAC of the IP with HASH_SALT (never the IP itself).
+  ipHash    String?
+  /// Small and free of personal data (counts, codes of reasons, country codes).
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([type, createdAt])
+  @@index([userId, createdAt])
 }
 
 /// Browser / app notifications for booking alerts (round 3, src/lib/alerts/push.ts): one row per
@@ -684,11 +734,16 @@ model Listing {
   contactMethods   Json?
   contactHoursFrom String?
   contactHoursTo   String?
+  /// When the host last changed the contact details (SECURITY_REPORT 14.3.c, D5): guests see a
+  /// "contact changed" notice for a while.
+  contactChangedAt DateTime?
   /// "I don't answer on Shabbat and holidays"
-  noReplyOnShabbat Boolean @default(false)
+  noReplyOnShabbat Boolean   @default(false)
 
   // Availability (iCal sync with Airbnb / Booking.com)
-  icalToken      String    @unique @default(cuid())
+  /// The secret of the calendar export link: 256-bit, made with newIcalToken()
+  /// (src/lib/listing/ical-token.ts) on every create path; nanoid(43) is only a safety net.
+  icalToken      String    @unique @default(nanoid(43))
   icalImportUrls String[]  @default([])
   icalSyncedAt   DateTime?
 
@@ -943,24 +998,27 @@ model DatePrice {
 /// at check-in: Bayit takes no money. Prices, policy and payment methods are copied when booked.
 /// Rules and statuses: docs/redesign-2/booking.md; code: src/lib/booking.
 model Booking {
-  id           String    @id @default(cuid())
+  id             String    @id @default(cuid())
   /// Short, unambiguous booking number: "BT-7K3Q9" (no 0/O/1/I).
-  code         String    @unique
-  listingId    String
-  listing      Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  guestUserId  String
-  guest        User      @relation("BookingGuest", fields: [guestUserId], references: [id], onDelete: Cascade)
-  hostUserId   String
-  host         User      @relation("BookingHost", fields: [hostUserId], references: [id], onDelete: Cascade)
+  code           String    @unique
+  /// The guest's double-tap guard (SECURITY_REPORT 4.5.c, D2): the same key from the same guest
+  /// returns the booking already made instead of a second one (unique per guest).
+  idempotencyKey String?
+  listingId      String
+  listing        Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  guestUserId    String
+  guest          User      @relation("BookingGuest", fields: [guestUserId], references: [id], onDelete: Cascade)
+  hostUserId     String
+  host           User      @relation("BookingHost", fields: [hostUserId], references: [id], onDelete: Cascade)
   /// Hotels: the room type the guest chose. Round 3, phase 4: hotels are booked per room type, so
   /// the booking holds `rooms` rooms of this type (not the whole hotel).
-  roomTypeId   String?
-  roomType     RoomType? @relation(fields: [roomTypeId], references: [id], onDelete: SetNull)
+  roomTypeId     String?
+  roomType       RoomType? @relation(fields: [roomTypeId], references: [id], onDelete: SetNull)
   /// { he, en, ru, ar, ka } — the room type's name when booked (kept if the room type changes).
-  roomTypeName Json?
+  roomTypeName   Json?
   /// Hotels: how many rooms of `roomTypeId` this booking holds (a family can book 2 in one booking).
   /// 1 for every other booking. Its AvailabilityBlock carries the same number in `rooms`.
-  rooms        Int       @default(1)
+  rooms          Int       @default(1)
 
   // Stay: calendar days in Asia/Tbilisi; checkOut is exclusive. nights = checkOut − checkIn.
   checkIn  DateTime @db.Date
@@ -1038,6 +1096,7 @@ model Booking {
   /// The guest's review of this stay (round 3, brief 8.1): at most one per booking.
   review          Review?
 
+  @@unique([guestUserId, idempotencyKey])
   @@index([listingId, checkIn])
   @@index([guestUserId, checkIn])
   @@index([hostUserId, checkIn])

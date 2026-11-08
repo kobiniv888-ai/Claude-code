@@ -97,7 +97,8 @@ export const ROUTE_MESSAGES = {
     "report",
   ],
   // The booking review page (/listing/<id>/book), on top of "listing": a nested segment.
-  "listing/[id]/book": ["auth.verifyPhone", "booking"],
+  // "security.freshProof/errors": a fresh code before replacing a verified phone (SECURITY_REPORT 3.6.a).
+  "listing/[id]/book": ["auth.verifyPhone", "booking", "security.freshProof", "security.errors"],
   // Shared lists (round 3, brief 7.2): the view-only page and its "Copy to my lists".
   lists: ["lists.shared"],
   owner: ["report"],
@@ -121,8 +122,9 @@ export const ROUTE_MESSAGES = {
     "search.toolbar",
     "search.top",
   ],
-  "two-factor": ["auth.setup"],
-  "verify-phone": ["auth.verifyPhone"],
+  // Recovery codes, the daily lock, the fresh code before (re)setting 2-step login (SECURITY_REPORT 3.7).
+  "two-factor": ["auth.setup", "security"],
+  "verify-phone": ["auth.verifyPhone", "security.freshProof", "security.errors"],
 } as const satisfies Record<string, readonly string[]>;
 
 export type MessageRoute = keyof typeof ROUTE_MESSAGES;

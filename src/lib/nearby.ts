@@ -20,8 +20,11 @@ import { haversineMeters, walkingMinutes, type LatLng } from "@/lib/geo";
  *   listing, 8 s timeout. Fail-safe: when Overpass is slow or down, the previous values are kept.
  *   OVERPASS_ENABLED="false" switches it off; OVERPASS_URL points to another instance.
  * - Airport: straight-line distance to the city's airport (City.airportCode/Lat/Lng).
- * Walking minutes are estimates (straight line × detour factor, see @/lib/geo). Distances are
- * rounded to 50 m so several of them cannot pinpoint the private address.
+ * Walking minutes are estimates (straight line × detour factor, see @/lib/geo), computed from the
+ * EXACT pin and stored exactly (the search filters use them). They never leave the server as
+ * stored: pages, RSC data and APIs get them through @/lib/geo/public-walk (publicWalkMinutes,
+ * publicNearby: rounded up to 5 minutes, no meters, whole km), because a few exact walking times
+ * pinpoint the home (security checklist 6.d).
  */
 
 export type NearbyPlace = { id: string; name: Localized; minutes: number; meters: number };

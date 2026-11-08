@@ -192,8 +192,8 @@
     "floor": "الطابق {floor}",
     "floorOf": "الطابق {floor} من {total}",
     "studio": "استوديو",
-    "synagogueWalk": "{count} دقيقة سيرًا إلى الكنيس",
-    "chabadWalk": "{count} دقيقة سيرًا إلى بيت حاباد",
+    "synagogueWalk": "{count, plural, =5 {حتى 5 دقائق سيرًا إلى الكنيس} few {≈ {count} دقائق سيرًا إلى الكنيس} other {≈ {count} دقيقة سيرًا إلى الكنيس}}",
+    "chabadWalk": "{count, plural, =5 {حتى 5 دقائق سيرًا إلى بيت حاباد} few {≈ {count} دقائق سيرًا إلى بيت حاباد} other {≈ {count} دقيقة سيرًا إلى بيت حاباد}}",
     "minStay": "{count, plural, one {ليلة واحدة على الأقل} two {ليلتان على الأقل} few {{count} ليالٍ على الأقل} many {{count} ليلة على الأقل} other {{count} ليلة على الأقل}}"
   }
 }

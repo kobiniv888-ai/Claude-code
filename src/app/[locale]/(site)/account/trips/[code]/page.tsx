@@ -30,6 +30,7 @@ import { Link } from "@/i18n/navigation";
 import { requireUser } from "@/lib/auth/session";
 import { cleanPaymentMethods, TRIPS_PATH, tripPath, type PaymentMethod } from "@/lib/booking/constants";
 import { DEFAULT_CHECK_IN_TIME, tbilisiToday } from "@/lib/booking/dates";
+import { isActiveOrDone, revealLastDay } from "@/lib/booking/policy";
 import { clockText } from "@/lib/booking/guest";
 import { formatBookingMoney } from "@/lib/booking/price-lines";
 import { getGuestTrip } from "@/lib/booking/queries";
@@ -289,7 +290,10 @@ export default async function TripPage({ params, searchParams }: Props) {
           <TripHost locale={locale} hostName={reveal.hostName} buttons={extras.contactButtons} contactHours={extras.contactHours} />
         </>
       ) : !cancelled ? (
-        <p className="rounded-card border border-border bg-surface-muted p-4 text-small text-muted-foreground">{t("trip.hidden")}</p>
+        // Security checklist 6.f: a week after check-out the address and contacts are hidden again.
+        <p className="rounded-card border border-border bg-surface-muted p-4 text-small text-muted-foreground">
+          {isActiveOrDone(trip.status) && today > revealLastDay(trip.checkOut) ? tt("where.hiddenAfterStay") : t("trip.hidden")}
+        </p>
       ) : null}
 
       {!cancelled ? (

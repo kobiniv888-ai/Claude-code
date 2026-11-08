@@ -283,7 +283,7 @@
     "clear": "ניקוי הכל",
     "removeFrom": "הסרת {title} מההשוואה",
     "view": "לצפייה במודעה",
-    "walkMinutes": "{count, plural, one {דקת הליכה} other {{countText} דקות הליכה}}",
+    "walkMinutes": "{count, plural, =5 {עד {countText} דקות הליכה} other {≈ {countText} דקות הליכה}}",
     "sections": {
       "basics": "עיקרי הדברים",
       "facts": "נתונים",

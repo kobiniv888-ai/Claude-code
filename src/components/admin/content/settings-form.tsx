@@ -101,6 +101,7 @@ export function SettingsForm({
   paidFeatureKeys,
   shabbat,
   demoCounts,
+  demoLocked = false,
   emergency,
 }: {
   settings: SettingsData;
@@ -108,6 +109,8 @@ export function SettingsForm({
   paidFeatureKeys: string[];
   shabbat: ShabbatNow;
   demoCounts: { listings: number; users: number; places: number; alerts: number };
+  /** The real site (SITE_ENV=production): demo data is always hidden, the switch does nothing. */
+  demoLocked?: boolean;
   emergency: EmergencyContactForm[];
 }) {
   const t = useTranslations("adminContent.settings");
@@ -426,9 +429,9 @@ export function SettingsForm({
       >
         <SwitchRow
           label={t("demo.visible")}
-          description={t("demo.visibleHint")}
-          checked={settings.demoDataVisible}
-          disabled={pending}
+          description={demoLocked ? t("demo.lockedOnRealSite") : t("demo.visibleHint")}
+          checked={settings.demoDataVisible && !demoLocked}
+          disabled={pending || demoLocked}
           onCheckedChange={(v) => save({ demoDataVisible: v }, safetyErrors)}
         />
         <p className="mt-3 text-sm text-muted-foreground">

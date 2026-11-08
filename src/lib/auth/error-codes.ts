@@ -16,8 +16,18 @@ export const AUTH_HOOK_ERRORS = {
   ACCOUNT_SUSPENDED: "ACCOUNT_SUSPENDED",
   ACCOUNT_BANNED: "ACCOUNT_BANNED",
   ACCOUNT_DELETED: "ACCOUNT_DELETED",
+  /** A demo account on the real site (SITE_ENV=production): demo accounts never sign in there. */
+  DEMO_ACCOUNT_DISABLED: "DEMO_ACCOUNT_DISABLED",
   /** A sensitive account function before the 2-step code was entered (./two-factor-gate.ts). */
   TWO_FACTOR_REQUIRED: "TWO_FACTOR_REQUIRED",
+  /** Too soon after the last code to this number / address (60/120/300/900 s; body `retryAfter`). */
+  CODE_RESEND_WAIT: "CODE_RESEND_WAIT",
+  /** Today's codes for this number / address / IP / device are used up (body `retryAfter`). */
+  CODE_DAILY_CAP: "CODE_DAILY_CAP",
+  /** SMS codes go to mobile numbers only (no landlines, premium-rate or VoIP numbers). */
+  NOT_MOBILE_NUMBER: "NOT_MOBILE_NUMBER",
+  /** The daily SMS budget is used up, or texts to this country are paused (./sms-guard.ts). */
+  SMS_PAUSED: "SMS_PAUSED",
 } as const;
 
 export type AuthErrorKey =
@@ -41,6 +51,16 @@ export type AuthErrorKey =
   | "server_unavailable"
   | "proxy_blocked"
   | "network"
+  | "code_wait"
+  | "code_daily_cap"
+  | "not_mobile"
+  | "sms_paused"
+  | "phone_check_not_here"
+  // Google/Apple (SECURITY_REPORT 3.3): an existing email account is joined only from the settings;
+  // unverified provider emails are refused; a sensitive change needs a fresh code (3.6).
+  | "google_link_needed"
+  | "oauth_email_unverified"
+  | "fresh_proof_required"
   | "unknown";
 
 /**
@@ -55,6 +75,9 @@ export function phoneOnlyErrorKey<K extends string>(key: K, phoneOnly: boolean):
 }
 
 const BY_CODE: Record<string, AuthErrorKey> = {
+  ACCOUNT_NOT_LINKED: "google_link_needed",
+  OAUTH_EMAIL_UNVERIFIED: "oauth_email_unverified",
+  FRESH_PROOF_REQUIRED: "fresh_proof_required",
   INVALID_OTP: "invalid_code",
   OTP_EXPIRED: "code_expired",
   OTP_NOT_FOUND: "code_expired",
@@ -72,6 +95,11 @@ const BY_CODE: Record<string, AuthErrorKey> = {
   [AUTH_HOOK_ERRORS.ACCOUNT_SUSPENDED]: "account_suspended",
   [AUTH_HOOK_ERRORS.ACCOUNT_BANNED]: "account_banned",
   [AUTH_HOOK_ERRORS.ACCOUNT_DELETED]: "account_banned",
+  [AUTH_HOOK_ERRORS.DEMO_ACCOUNT_DISABLED]: "account_banned",
+  [AUTH_HOOK_ERRORS.CODE_RESEND_WAIT]: "code_wait",
+  [AUTH_HOOK_ERRORS.CODE_DAILY_CAP]: "code_daily_cap",
+  [AUTH_HOOK_ERRORS.NOT_MOBILE_NUMBER]: "not_mobile",
+  [AUTH_HOOK_ERRORS.SMS_PAUSED]: "sms_paused",
   [AUTH_HOOK_ERRORS.TWO_FACTOR_REQUIRED]: "two_factor_required",
   // Better Auth's CSRF/origin checks. In Codespaces the port forwarder can rewrite Origin, so these
   // were the hidden cause of "something went wrong" on "send code" (see ./dev-origins.ts).
@@ -88,7 +116,38 @@ export type AuthClientError = {
   message?: string | null;
   status?: number | null;
   statusText?: string | null;
+  /** Seconds to wait (our code limits: CODE_RESEND_WAIT, CODE_DAILY_CAP). */
+  retryAfter?: number | null;
 } | null | undefined;
+
+/** Error keys that come with a wait in seconds. */
+const TIMED_KEYS = new Set<string>(["code_wait", "code_daily_cap"]);
+
+/** A refused code send as the login forms use it: the message key and, for a limit, the seconds to wait. */
+export type AuthFailure = { key: AuthErrorKey | string; retryAfter: number | null };
+
+function seconds(value: unknown): number | null {
+  const n = typeof value === "number" ? value : typeof value === "string" ? Number(value) : Number.NaN;
+  return Number.isFinite(n) && n > 0 ? Math.min(Math.ceil(n), 7 * 24 * 3600) : null;
+}
+
+/** A Better Auth client error → key + wait. */
+export function authFailure(error: AuthClientError): AuthFailure {
+  const key = authErrorKey(error);
+  return { key, retryAfter: TIMED_KEYS.has(key) ? seconds(error?.retryAfter) : null };
+}
+
+/** Server actions return a wait inside the error code: "code_wait:120" (see `parseActionFailure`). */
+export function timedActionError(key: "code_wait" | "code_daily_cap" | "rate_limited", retryAfter: number): string {
+  return `${key}:${Math.max(1, Math.ceil(retryAfter))}`;
+}
+
+/** "code_wait:120" → { key: "code_wait", retryAfter: 120 }; any other code passes through. */
+export function parseActionFailure(error: string): AuthFailure {
+  const match = /^([a-z_]+):(\d+)$/.exec(error);
+  if (!match) return { key: error, retryAfter: null };
+  return { key: match[1]!, retryAfter: TIMED_KEYS.has(match[1]!) ? seconds(match[2]) : null };
+}
 
 /**
  * Maps a Better Auth client error to a message key. A response without a JSON `code` is not from

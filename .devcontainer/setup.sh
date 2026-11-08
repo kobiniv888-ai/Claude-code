@@ -12,7 +12,10 @@ secret() { node -e "console.log(require('crypto').randomBytes(32).toString('$1')
 source .devcontainer/env-sync.sh
 
 if [ ! -f .env ]; then
+  # Throwaway development keys only: real service keys stay Codespaces secrets (env-sync.sh).
   cp .env.example .env
+  chmod 600 .env
+  sed -i "s|^SITE_ENV=.*|SITE_ENV=\"development\"|" .env
   sed -i "s|^BETTER_AUTH_SECRET=.*|BETTER_AUTH_SECRET=\"$(secret base64)\"|" .env
   sed -i "s|^APP_ENCRYPTION_KEY=.*|APP_ENCRYPTION_KEY=\"$(secret base64)\"|" .env
   sed -i "s|^HASH_SALT=.*|HASH_SALT=\"$(secret hex)\"|" .env
@@ -22,7 +25,10 @@ fi
 sync_env
 node scripts/ensure-vapid.mjs || true  # browser-notification keys for booking alerts (kept once made)
 
+# Exactly the locked packages, with no install scripts (.npmrc), then the allowed ones
+# (scripts/allowed-install-scripts.mjs: Prisma's engine + prisma generate).
 npm ci --no-audit --no-fund
+npm run deps:scripts
 sha256sum package-lock.json | cut -d' ' -f1 > node_modules/.bayit-lock-hash
 
 echo "Waiting for the database…"

@@ -13,7 +13,7 @@ import { can } from "@/lib/auth/permissions";
 import type { CurrentUser } from "@/lib/auth/session";
 import { formatDate, isolate } from "@/lib/format";
 import { getAdminReview } from "@/lib/reviews/queries";
-import { reportedPart, reviewMonthDate, QUICK_RATING_KEYS } from "@/lib/reviews/rules";
+import { reviewMonthDate, QUICK_RATING_KEYS } from "@/lib/reviews/rules";
 import { ReviewModerationForm } from "./review-moderation-form";
 
 /**
@@ -24,19 +24,21 @@ import { ReviewModerationForm } from "./review-moderation-form";
  * excepted, as everywhere in the panel).
  *
  * Also shown without a report (/admin/reviews/<id>, reviews-2): staff can hide any review, reported
- * or not. With a report, `reporterId` tells which part was reported: the review (by the host) or
- * the host's reply (by the guest) — hiding always hides the whole review with its reply.
+ * or not. With a report, `part` tells which part was reported: the review (by the host) or the
+ * host's reply (by the guest), worked out by the report query (the reporter's id never reaches the
+ * page: Q12) — hiding always hides the whole review with its reply.
  */
 export async function AdminReviewPanel({
   reviewId,
   reportId,
-  reporterId,
+  part: reportedPartOf,
   staff,
   locale,
 }: {
   reviewId: string | null;
   reportId?: string;
-  reporterId?: string | null;
+  /** With a report: which part was reported (getReportDetail's `reviewPart`). */
+  part?: "review" | "reply" | null;
   staff: CurrentUser;
   locale: AppLocale;
 }) {
@@ -56,7 +58,7 @@ export async function AdminReviewPanel({
   const own = isOwnItem(staff, [data.guest.id, data.host.id]);
   const month = (m: string) => formatDate(reviewMonthDate(m), locale, { month: "long", year: "numeric", timeZone: "UTC" });
   const quick = QUICK_RATING_KEYS.filter((key) => data.view.quick.some((q) => q.key === key));
-  const part = reportId ? reportedPart({ hostUserId: data.host.id }, reporterId) : null;
+  const part = reportId ? (reportedPartOf ?? "review") : null;
 
   return (
     <>

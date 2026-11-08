@@ -6,6 +6,7 @@ import type { ContactMethod } from "@/lib/listing/fields";
 import { CONTACT_CHANNELS } from "@/lib/listing/fields";
 import { contentChangedSinceCheck } from "@/lib/listing/lifecycle";
 import { DUPLICATE_PHOTO_MAX_DISTANCE, parseRiskReasons } from "@/lib/risk";
+import { canSeeReporter, type StaffViewer } from "../staff-visibility";
 import { coverPhotoSelect, ownerBadgeSelect, sharedDeviceAccounts, staffNames } from "./shared";
 
 /** The moderation queue and the listing review page (server-only). */
@@ -288,7 +289,8 @@ const reviewSelect = {
 
 export type ReviewListing = Prisma.ListingGetPayload<{ select: typeof reviewSelect }>;
 
-export async function getListingForReview(id: string) {
+/** The listing review page. Who sent each report about it is ADMIN only (Q12, ../staff-visibility.ts). */
+export async function getListingForReview(id: string, viewer: StaffViewer) {
   const listing = await db.listing.findUnique({ where: { id }, select: reviewSelect });
   if (!listing) return null;
 
@@ -316,7 +318,7 @@ export async function getListingForReview(id: string) {
           resolution: true,
           createdAt: true,
           handledAt: true,
-          reporter: { select: { id: true, name: true } },
+          reporterId: true,
           handledBy: { select: { name: true } },
         },
       }),
@@ -336,6 +338,12 @@ export async function getListingForReview(id: string) {
       }),
     ]);
 
+  const senderIds = [...new Set(reports.map((r) => r.reporterId).filter((v): v is string => !!v))];
+  const senders =
+    canSeeReporter(viewer) && senderIds.length
+      ? new Map((await db.user.findMany({ where: { id: { in: senderIds } }, select: { id: true, name: true } })).map((u) => [u.id, u]))
+      : new Map<string, { id: string; name: string }>();
+
   return {
     listing,
     checksStale,
@@ -343,7 +351,8 @@ export async function getListingForReview(id: string) {
     contacts: parseContactMethods(listing.contactMethods),
     duplicates,
     otherListings,
-    reports,
+    reports: reports.map(({ reporterId, ...r }) => ({ ...r, reporter: reporterId ? (senders.get(reporterId) ?? null) : null })),
+    reporterWithheld: !canSeeReporter(viewer),
     ownerReportsAgainst,
     ownerListingReports,
     devices,

@@ -21,7 +21,7 @@
       "body1": "Enter this code to log in to {brand}:",
       "codeLabel": "Login code",
       "body2": "The code works for {minutes, plural, one {{minutes} minute} other {{minutes} minutes}}. If you didn’t ask for it, you can simply ignore this email.",
-      "body3": "Never share this code. The {brand} team will never ask you for it by phone or chat."
+      "body3": "Never share this code. {brand} will never ask you for it."
     },
     "welcome": {
       "subject": "Welcome to {brand}",
@@ -306,6 +306,24 @@
         "body": "One of the host's booking alert channels stopped working ({reason}) and was paused.",
         "next": "If the host has no other channel that confirms delivery, their listings show \"Ask the host\" until it works again. Consider contacting them."
       },
+      "sms_budget_warning": {
+        "subject": "SMS: 80% of today's code budget is used",
+        "heading": "Most of today's SMS budget is used",
+        "body": "80% of the code texts that today's budget allows have already been sent.",
+        "next": "If that doesn't match the traffic on the site, someone may be abusing the SMS codes. Check the security log. When the budget runs out, SMS codes stop until the 24-hour window ends."
+      },
+      "sms_budget_reached": {
+        "subject": "SMS: today's code budget is used up",
+        "heading": "SMS codes have stopped",
+        "body": "Every code text that today's budget allows has been sent. No more SMS codes go out until the 24-hour window ends.",
+        "next": "Guests and hosts who need to verify a phone now see that sending is paused. If the traffic looks suspicious, check the security log and the Twilio console."
+      },
+      "sms_country_paused": {
+        "subject": "SMS: codes to a country are paused",
+        "heading": "SMS codes to a country are paused",
+        "body": "In the last hour only a few of the codes texted to this country were confirmed. That is a common sign of SMS abuse, so code texts to this country are paused for an hour.",
+        "next": "If this is normal traffic, there is nothing to do: sending resumes by itself. If not, check the security log and the Twilio console."
+      },
       "reason": {
         "email_not_configured": "the email service (Resend) is not connected yet",
         "no_email": "the host has no email address",
@@ -315,7 +333,9 @@
         "bounced": "the recipient's mail server rejected the email",
         "complained": "the recipient marked the email as spam",
         "telegram_failing": "Telegram doesn't accept messages to the host",
-        "blocked": "the host blocked the Telegram bot"
+        "blocked": "the host blocked the Telegram bot",
+        "sms_budget": "Today's SMS code budget",
+        "sms_ratio": "Too few codes confirmed for the number sent"
       },
       "addressLabel": "Email address",
       "templateLabel": "Email type",
@@ -328,7 +348,9 @@
       },
       "instantLabel": "Instant booking",
       "instantOn": "continues through another channel",
-      "instantOff": "off until a channel works again"
+      "instantOff": "off until a channel works again",
+      "countryLabel": "Country",
+      "detailLabel": "Numbers"
     },
     "report_received": {
       "subject": "We received your report",
@@ -572,6 +594,100 @@
       "wrong": "Did you arrive and stay there? Write to us through the {brand} contact page and we'll look into it. If the report is wrong, we'll remove it and you'll be able to write a review.",
       "tripLink": "Booking details",
       "cta": "Contact {brand}"
+    },
+    "security_code": {
+      "subject": {
+        "confirm": "Your code to confirm a change on {brand}",
+        "unlock": "Your code to reset the lock on {brand}",
+        "contact": "Confirm your email address on {brand}"
+      },
+      "preheader": "The code works for {minutes, plural, one {{minutes} minute} other {{minutes} minutes}}.",
+      "heading": {
+        "confirm": "Confirm it’s you",
+        "unlock": "Reset the wrong-code count",
+        "contact": "Confirm your email address"
+      },
+      "body": {
+        "confirm": "You asked to change something sensitive on your {brand} account. Enter this code to confirm:",
+        "unlock": "Too many wrong 2-step login codes were entered on your account today. This code only resets the count – to log in you still need the code from your app or a recovery code.",
+        "contact": "You asked to get {brand} notifications at this address. Enter this code to confirm it:"
+      },
+      "codeLabel": "Confirmation code",
+      "valid": "The code works for {minutes, plural, one {{minutes} minute} other {{minutes} minutes}}, once.",
+      "neverShare": "Never share this code. {brand} will never ask you for it.",
+      "notYou": "Didn’t ask for this code? Don’t enter it anywhere, and check your account settings."
+    },
+    "security_change": {
+      "subject": {
+        "contact_email": "Your {brand} notification email was changed",
+        "contact_email_removed": "Your {brand} notification email was removed",
+        "phone": "Your {brand} phone number was changed",
+        "login_method_added": "A login method was added to your {brand} account",
+        "login_method_removed": "A login method was removed from your {brand} account",
+        "two_factor_on": "2-step login was turned on for your {brand} account",
+        "two_factor_off": "2-step login was turned off for your {brand} account",
+        "authenticator_changed": "Your {brand} authenticator app was replaced",
+        "recovery_codes_new": "New recovery codes were made for your {brand} account",
+        "recovery_code_used": "A recovery code was used to log in to {brand}",
+        "totp_locked": "Logging in to your {brand} account is locked until tomorrow"
+      },
+      "preheader": "If this wasn’t you, secure your account now.",
+      "heading": "A change on your account",
+      "kinds": {
+        "contact_email": "The email address that gets your {brand} notifications was changed. This email goes to the previous address.",
+        "contact_email_removed": "Your notification email was removed. From now on notifications go to your login address.",
+        "phone": "The verified phone number on your account was changed. We logged you out on all other devices.",
+        "login_method_added": "A {provider} account was connected to your {brand} account as a way to log in.",
+        "login_method_removed": "A {provider} account was disconnected from your {brand} account.",
+        "two_factor_on": "2-step login was turned on. From now on we ask for a code from your authenticator app at each login.",
+        "two_factor_off": "2-step login was turned off. Logging in no longer needs a code from an app.",
+        "authenticator_changed": "2-step login was moved to an app on a new phone. The previous app no longer works.",
+        "recovery_codes_new": "New recovery codes were made. The previous codes no longer work.",
+        "recovery_code_used": "Someone logged in with a recovery code instead of the code from the app. {left, plural, one {{left} recovery code is left} other {{left} recovery codes are left}}.",
+        "totp_locked": "20 wrong 2-step login codes were entered today, so logging in is locked until tomorrow."
+      },
+      "providers": {
+        "google": "Google",
+        "apple": "Apple",
+        "other": "external"
+      },
+      "whenLabel": "When",
+      "newValueLabel": "New value",
+      "ifYou": "If this was you, there’s nothing to do.",
+      "notYou": "Not you? Log in, choose “Log out of all devices” and write to us right away. {brand} will never ask you for a code by phone or chat.",
+      "contactLink": "Write to us",
+      "cta": "Secure my account"
+    },
+    "security_new_device": {
+      "subject": "New login to your {brand} account",
+      "preheader": "Your account was used on a new device.",
+      "heading": "Login from a new device",
+      "body": "Someone logged in to your {brand} account from a device or browser you haven’t used before.",
+      "deviceLabel": "Device",
+      "unknownDevice": "Unknown device",
+      "whenLabel": "When",
+      "ifYou": "If this was you, there’s nothing to do.",
+      "notYou": "Not you? Log in, choose “Log out of all devices” and write to us right away.",
+      "contactLink": "Write to us",
+      "cta": "Secure my account"
+    },
+    "security_staff_alert": {
+      "subject": {
+        "new_device": "Security: a staff account logged in from a new device",
+        "totp_locked": "Security: a staff account was locked after 20 wrong codes",
+        "recovery_code_used": "Security: a staff account logged in with a recovery code"
+      },
+      "heading": "Security alert – staff account",
+      "body": {
+        "new_device": "A staff account logged in from a device it hasn’t used before.",
+        "totp_locked": "20 wrong 2-step login codes were entered on a staff account today. Logging in is locked until tomorrow.",
+        "recovery_code_used": "A staff account logged in with a recovery code instead of the authenticator app."
+      },
+      "staffLabel": "Account",
+      "deviceLabel": "Device",
+      "whenLabel": "When",
+      "final": "Don’t recognise it? Check with the staff member and, if needed, remove the role in the admin panel.",
+      "cta": "Open staff roles"
     }
   },
   "ticketStatus": {

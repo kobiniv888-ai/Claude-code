@@ -11,6 +11,8 @@
   "portsAttributes": {
     "3000": { "label": "Bayit website", "onAutoForward": "notify" }
   },
+  // Other ports (test servers, Postgres) are never forwarded by themselves (SECURITY_REPORT 2.4.i).
+  "otherPortsAttributes": { "onAutoForward": "ignore" },
   "postCreateCommand": "bash .devcontainer/setup.sh",
   // Every start: the FAST version (production build; builds only when the code changed). The
   // founder tests on a phone, where the development server is slow (round 3).

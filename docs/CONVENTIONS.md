@@ -15,7 +15,7 @@ Read this before changing code. It is the contract every part of the site follow
 | Jewish calendar | `@hebcal/core` (the library behind hebcal.com) — runs on our server, no API limits |
 | Images | sharp (re-encode to WebP, strip EXIF, watermark, perceptual hash) |
 | Email | Resend (falls back to the dev outbox) |
-| SMS / VoIP check | Twilio Verify + Lookup (falls back to a dev code in the server log) |
+| SMS / VoIP check | Twilio Programmable Messaging with our own code text (a Messaging Service; Israel and Georgia mobile numbers only; codes on screen in test mode) + Lookup. Login-code rules: `src/lib/auth/code-rules.ts` |
 | Translation | Microsoft Azure AI Translator v3 (default) or Google Cloud Translation v2, behind one interface in `src/lib/translate/` (`TRANSLATE_PROVIDER`); without a key the owner's text shows with "Original in …" and a Google Translate link |
 | CAPTCHA | Cloudflare Turnstile (skipped when not configured) |
 
@@ -145,7 +145,7 @@ docs/
 | `@/config/countries` | `countryConfig(code)` (time zone, map area, pin box, local currency, phone default, emergency number), `isInCountry`, `DEFAULT_COUNTRY`: THE place for per-country values (pure) |
 | `@/lib/phone` | `normalizePhone(raw, defaultCountry)` → E.164 without the national 0, `whatsappHref`, `telHref`, `smsHref`, `isValidPhone`, `planPhoneFix` (clean-up dry run). Every phone save path and wa.me/tel: link uses it (client-safe) |
 | `@/lib/text/emoji` | `stripTitleEmoji(title)`, `hasTitleEmoji` (titles only; descriptions keep emoji) |
-| `@/lib/auth/logout` | `logOut({ homeHref, everywhere })` (client): sign out, clear private device data (`@/lib/auth/device-data`), home with "התנתקתם" |
+| `@/lib/auth/logout` | `logOut({ homeHref, everywhere })` (client): the session ends ON THE SERVER first (`logOutHere`/`logOutEverywhere` in `@/lib/auth/logout-actions`, an error when it could not), then private device data goes (`@/lib/auth/device-data`), home with "התנתקתם". Every logout button uses it |
 | `@/i18n/locale` | `isRtl`, `dirFor`, `intlLocale`, `pickLocalized`, `isAppLocale` |
 | `@/i18n/navigation` | `Link`, `redirect`, `useRouter`, `usePathname`, `getPathname` |
 | `@/lib/db` | `db` (Prisma client, server-only) |
@@ -165,14 +165,20 @@ docs/
 | `@/lib/crypto` | `encrypt`, `decrypt`, `hmacHash`, `randomToken` |
 | `@/lib/images` | `processListingPhoto`, `processPrivateImage`, `perceptualHash`, `hammingDistance` |
 | `@/lib/risk` | `assessListing(listingId)`, `scanText(text)` — automatic scam checks |
-| `@/lib/rate-limit` | `rateLimit(key, { limit, windowSeconds })`, `assertRateLimit(...)` |
+| `@/lib/rate-limit` | `rateLimit(key, { limit, windowSeconds, failOpen? })`, `assertRateLimit(...)`, `rateLimitByIp`, `assertRateLimitByIp`: **fail closed** (a broken store refuses: `{ ok: false, failed: true }` / RateLimitError); `failOpen: true` only for harmless counters (alert quotas) |
+| `@/lib/site-env` | `readSiteEnv`, `siteEnv`, `isProductionSite`, `testModeAllowed`, `testModeOn`, `demoAllowed` (pure): THE place for "which kind of site is this" (`SITE_ENV`) |
+| `@/lib/startup-check` | `startupProblems(env)`, `startupWarnings(env)`, `formatStartupProblems` (pure): the start-up settings rules; `src/instrumentation-node.ts` exits when a problem is listed |
+| `@/lib/security/events` | `recordSecurityEvent({ type, userId?, ip?, meta? })` (never throws, no personal data), `purgeOldSecurityEvents(now)` (90 days); types in `@/lib/security/event-types` (`SECURITY_EVENT_TYPES`) |
+| `@/lib/listing/ical-token` | `newIcalToken()` (256-bit base64url), `isStrongIcalToken()`: every listing create path and "replace calendar link" |
 | `@/lib/geocode` | `geocodeAddress(query, locale)` (server): address search through OpenStreetMap Nominatim, cached, 1 request per second site-wide. The browser calls `GET /api/geocode?q=&locale=` (signed in, once per Search/Enter), never Nominatim |
 | `@/lib/turnstile` | `verifyTurnstile(token)` |
 | `@/lib/request` | `getClientIp()`, `getCountryCode()`, `getDeviceId()` |
 | `@/lib/action` | `ActionResult<T>`, `ok()`, `fail()` helpers for server actions |
 | `@/lib/auth/server` | Better Auth instance `auth` |
 | `@/lib/auth/client` | `authClient`, `useSession`, `signOut` (client) |
-| `@/lib/auth/session` | `getSession()`, `getCurrentUser()`, `requireUser()`, `requireStaff(permission)` |
+| `@/lib/auth/session` | `getSession()`, `getCurrentUser()`, `requireUser()`, `requireStaff(permission)`: staff also need the SameSite=Strict staff cookie and lose their 2-step check after 12 idle hours (`@/lib/auth/staff-session`) |
+| `@/lib/auth/fresh-proof` | `requireFreshProof(user)` before every sensitive change (contact email, phone, login methods, 2-step settings, recovery codes, deleting the account): throws `fresh_proof_required` unless a code was entered in this session in the last 5 minutes. In the browser `useFreshProof()` (`@/components/auth/use-fresh-proof`): `proof.run(action)` asks for the code and retries. After the change: `notifySecurityChange()` (`@/lib/auth/security-notices`, the OLD address is told) and `endOtherSessions()` (`@/lib/auth/account-sessions`) |
+| `@/lib/auth/session-cookies` | The login cookies' names: `__Host-bayit.*` wherever they are Secure (`bayit.*` on plain-http `next dev`) |
 | `@/lib/auth/permissions` | staff roles and `can(role, permission)` |
 | `@/components/auth/*` | `LoginDialog`, `useRequireLogin()`, `UserMenu`, `PhoneInput` |
 | `@/lib/listing/search-params` | parse/serialize search filters (shared by home search bar, search page, filters) |
@@ -235,12 +241,28 @@ Public data never includes: `address`, `lat`, `lng`, `cadastralCode`, `contactMe
 ## Local development
 
 ```
-npm install
-cp .env.example .env            # then fill DATABASE_URL etc.
+npm ci && npm run deps:scripts  # exact locked packages; then the only install scripts we allow
+cp .env.example .env            # then fill DATABASE_URL etc. (SITE_ENV="development")
 npm run db:push && npm run db:seed
-npm run dev                     # http://localhost:3000
+npm run dev                     # http://localhost:3000 (listens on 127.0.0.1 only)
 ```
-Several dev servers can run side by side: `NEXT_DIST_DIR=.next-b npx next dev -p 3101`.
+
+**Which site is this?** Our own `SITE_ENV` (`development` / `staging` / `production`,
+`@/lib/site-env`: `readSiteEnv`, `siteEnv`, `isProductionSite`, `testModeAllowed`, `testModeOn`,
+`demoAllowed`) decides every security rule: test mode, demo logins/accounts/listings, indexing,
+dev-only shortcuts. Never decide those with `NODE_ENV` (it only says `next dev` or a production
+build; keep it for build and dev-tool behaviour). The server refuses to start when `SITE_ENV` is
+missing or a required setting is unsafe (`src/lib/startup-check.ts`, called from
+`src/instrumentation.ts`).
+
+**Packages (supply chain):** builds and setups use `npm ci`, never `npm install` or a blind
+`npm update`. `.npmrc` turns every install script off; the reviewed ones run with
+`npm run deps:scripts` (`scripts/allowed-install-scripts.mjs`, checked by
+`tests/unit/install-scripts.test.ts`). A new dependency needs the founder's OK first, and avoid
+versions younger than about two weeks unless they are a security fix. Dependabot
+(`.github/dependabot.yml`) proposes updates weekly. Lighthouse is not a dependency: run
+`npx lighthouse@13.6.0 …` when measuring.
+Several dev servers can run side by side: `NEXT_DIST_DIR=.next-b npx next dev -H 127.0.0.1 -p 3101` (a development server only ever listens on this machine: `npm run dev` binds 127.0.0.1).
 Scripts that import server modules run with `tsx --require ./scripts/server-script.cjs` (it makes `server-only` a no-op; avoid `--conditions=react-server`, which breaks tsx on some Node 22 versions).
 
 Checks before you finish: `npm run typecheck`, `npm run lint`, `npm run i18n:check`, `npm test`.

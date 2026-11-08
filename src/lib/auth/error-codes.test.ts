@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { authErrorKey, oauthErrorKey, phoneOnlyErrorKey } from "./error-codes";
+import { authErrorKey, authFailure, oauthErrorKey, parseActionFailure, phoneOnlyErrorKey, timedActionError } from "./error-codes";
 
 describe("authErrorKey", () => {
   it("maps Better Auth phone-number codes", () => {
@@ -56,5 +56,23 @@ describe("oauthErrorKey", () => {
     expect(oauthErrorKey("state_mismatch")).toBe("oauth_failed");
     expect(oauthErrorKey(null)).toBeNull();
     expect(oauthErrorKey("")).toBeNull();
+  });
+});
+
+describe("code limits with a wait (SECURITY_REPORT 3.1.c)", () => {
+  it("maps our hook codes and keeps the server's wait", () => {
+    expect(authFailure({ code: "CODE_RESEND_WAIT", status: 429, retryAfter: 42 })).toEqual({ key: "code_wait", retryAfter: 42 });
+    expect(authFailure({ code: "CODE_DAILY_CAP", status: 429, retryAfter: 7200 })).toEqual({ key: "code_daily_cap", retryAfter: 7200 });
+    expect(authFailure({ code: "NOT_MOBILE_NUMBER", status: 400 })).toEqual({ key: "not_mobile", retryAfter: null });
+    expect(authFailure({ code: "SMS_PAUSED", status: 503 })).toEqual({ key: "sms_paused", retryAfter: null });
+    // A wait on any other error is ignored.
+    expect(authFailure({ code: "INVALID_OTP", status: 400, retryAfter: 5 })).toEqual({ key: "invalid_code", retryAfter: null });
+  });
+
+  it("server actions carry the wait inside the error code", () => {
+    expect(timedActionError("code_wait", 119.2)).toBe("code_wait:120");
+    expect(parseActionFailure("code_wait:120")).toEqual({ key: "code_wait", retryAfter: 120 });
+    expect(parseActionFailure("code_daily_cap:3600")).toEqual({ key: "code_daily_cap", retryAfter: 3600 });
+    expect(parseActionFailure("phone_taken")).toEqual({ key: "phone_taken", retryAfter: null });
   });
 });

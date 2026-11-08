@@ -10,6 +10,7 @@ import type { Locale } from "@/generated/prisma/enums";
 import { pickLocalized } from "@/i18n/locale";
 import { hasVisitedBadge } from "@/lib/listing/visited";
 import { photoUrl } from "@/lib/media";
+import { publicWalkMinutes } from "@/lib/geo/public-walk";
 import type { ListingCardBadges, ListingCardData, ListingMapPoint } from "@/lib/listing/types";
 import { listingPath } from "@/lib/listing/urls";
 import { HEADLINE_ROOM_ORDER, HEADLINE_ROOM_WHERE } from "@/lib/lists/alert-price";
@@ -240,13 +241,15 @@ export function toListingCard(row: ListingCardRow, ctx: CardMapContext): Listing
       business: row.owner.accountType === "BUSINESS",
       shabbatFriendly: row.isShabbatFriendly,
       kosherKitchen: row.kitchenKosher === "KOSHER",
-      synagogueWalkMin: row.synagogueWalkMin,
+      // Security checklist 6.d: walking times leave the server rounded up to 5 minutes (the exact
+      // values, computed from the real pin, stay in the database for the filters).
+      synagogueWalkMin: publicWalkMinutes(row.synagogueWalkMin),
       // Proximity of a real listing is computed from verified, non-demo community places only
       // (proximityPlaceWhere in src/lib/nearby.ts); a demo listing may use demo places, so it
       // never gets the tag.
       synagogueVerified: !row.isDemo && row.synagogueWalkMin != null,
-      seaWalkMinutes: row.seaWalkMinutes,
-      liftWalkMinutes: row.liftWalkMinutes,
+      seaWalkMinutes: publicWalkMinutes(row.seaWalkMinutes),
+      liftWalkMinutes: publicWalkMinutes(row.liftWalkMinutes),
       isNew: within(row.publishedAt, newLabelDays, now),
       priceDropped: within(row.priceDroppedAt, priceDropLabelDays, now),
       promoted: isPromoted(row, ctx.featuredIds, now),

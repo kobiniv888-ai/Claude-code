@@ -59,9 +59,9 @@ export async function notifyFounderListingInReview(listingId: string, why: reado
     });
     if (!listing || listing.isDemo || listing.owner.isDemo || listing.status !== "IN_REVIEW") return;
     const listingKey = `founder:review:${listing.id}`;
-    const perListing = await rateLimit(listingKey, { limit: 1, windowSeconds: REVIEW_EMAIL_HOURS * 3600 }).catch(() => ({ ok: true }));
+    const perListing = await rateLimit(listingKey, { limit: 1, windowSeconds: REVIEW_EMAIL_HOURS * 3600, failOpen: true }).catch(() => ({ ok: true }));
     if (!perListing.ok) return;
-    const overall = await rateLimit("founder:review:all", { limit: REVIEW_EMAILS_PER_HOUR, windowSeconds: 3600 }).catch(() => ({ ok: true }));
+    const overall = await rateLimit("founder:review:all", { limit: REVIEW_EMAILS_PER_HOUR, windowSeconds: 3600, failOpen: true }).catch(() => ({ ok: true }));
     if (!overall.ok) {
       // No email went out for this listing: its slot stays free, so its next time in review emails.
       await resetRateLimit(listingKey);

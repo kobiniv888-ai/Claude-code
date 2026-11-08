@@ -4,29 +4,42 @@ import { APIError } from "better-auth/api";
 import { headers } from "next/headers";
 import { z } from "zod";
 import { fail, ok, runAction, type ActionResult } from "@/lib/action";
+import { INSTANT_DEAL_TYPES } from "@/lib/booking/constants";
 import { db } from "@/lib/db";
+import { demoAllowed } from "@/lib/site-env";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { codeDisplayForHeaders } from "./code-display";
-import { authErrorKey } from "./error-codes";
+import { authErrorKey, timedActionError } from "./error-codes";
 import { limitLoginCodeChecks, limitPhoneCheckRequests } from "./login-rate-limit";
 import { normalizePhone } from "@/lib/phone";
 import { checkLoginPhoneNumber } from "./phone";
+import { PHONE_CHECK_PLACES, isHostAccount, phoneCheckAllowedAt } from "./phone-check-policy";
 import { isPhoneAlreadyVerified, phoneCheckStep } from "./phone-once";
 import { auth } from "./server";
 import { requireUserForAction } from "./session";
+import { requireFreshProof } from "./fresh-proof";
+import { isPhoneReplacement } from "./fresh-proof-rules";
+import { afterPhoneChanged } from "./phone-change";
 import { forgetScreenCode, phoneCodeKey, phoneCodeRoute, readScreenCode } from "./sms";
 
 /**
  * "Verify your phone" for a signed-in account (founder request, round 2): a guest making a booking
  * and a host before posting. Once per number: when the account already has the number verified,
- * nothing is sent. Codes go through the Better Auth phone-number plugin (Twilio Verify, Twilio
- * Messaging, or on screen in development / test mode — ./sms.ts). The UI is <PhoneCheck>
- * (src/components/auth/phone-check.tsx). Error codes are keys in `auth.errors.*`.
+ * nothing is sent. Codes go through the Better Auth phone-number plugin (our own text through
+ * Twilio Messaging, or on screen in test mode — ./sms.ts), so the same rules apply as everywhere:
+ * mobile numbers in Israel / Georgia only, resend waits and daily caps, the SMS budget.
+ *
+ * The SERVER checks where the request comes from (SECURITY_REPORT 3.2.f, ./phone-check-policy.ts):
+ * `place: "booking"` needs a listing that can be booked on the site (not the account's own),
+ * `"account"` a host. The UI is <PhoneCheck> (src/components/auth/phone-check.tsx). Error codes are
+ * keys in `auth.errors.*`; a wait comes as "code_wait:<seconds>" (./error-codes.ts).
  */
 
 const sendSchema = z.object({
   phoneNumber: z.string().trim().max(20),
   captchaToken: z.string().max(2048).nullish(),
+  place: z.enum(PHONE_CHECK_PLACES),
+  listingId: z.string().trim().min(1).max(64).nullish(),
 });
 const confirmSchema = z.object({
   phoneNumber: z.string().trim().max(20),
@@ -36,14 +49,43 @@ const confirmSchema = z.object({
 export type PhoneCodeSent =
   /** This account already has the number verified: no code was sent. */
   | { status: "already_verified"; phoneNumber: string }
-  /** `screenCode`: the code itself, only in development / test mode (shown in the form). */
+  /** `screenCode`: the code itself, only in test mode (shown in the form). */
   | { status: "sent"; phoneNumber: string; screenCode: string | null };
 
-/** Better Auth APIError → an `auth.errors.*` key; anything else is re-thrown. */
+/** Better Auth APIError → an `auth.errors.*` key (with the wait for our code limits); anything else is re-thrown. */
 function apiFailure(error: unknown) {
   if (!(error instanceof APIError)) throw error;
-  const body = error.body as { code?: string; message?: string } | undefined;
-  return fail(authErrorKey({ code: body?.code, message: body?.message, status: error.statusCode }));
+  const body = error.body as { code?: string; message?: string; retryAfter?: number } | undefined;
+  const key = authErrorKey({ code: body?.code, message: body?.message, status: error.statusCode });
+  if ((key === "code_wait" || key === "code_daily_cap") && typeof body?.retryAfter === "number") {
+    return fail(timedActionError(key, body.retryAfter));
+  }
+  return fail(key);
+}
+
+/** Is a phone check allowed from this place, for this account? (server facts; ./phone-check-policy.ts) */
+async function placeAllows(userId: string, place: (typeof PHONE_CHECK_PLACES)[number], listingId: string | null | undefined) {
+  if (place === "post") return phoneCheckAllowedAt(place, { isHost: false, bookableListing: null });
+  if (place === "account") {
+    const listings = await db.listing.count({ where: { ownerId: userId, deletedAt: null } });
+    return phoneCheckAllowedAt(place, { isHost: isHostAccount(listings), bookableListing: null });
+  }
+  if (!listingId) return false;
+  const listing = await db.listing.findFirst({
+    where: {
+      id: listingId,
+      deletedAt: null,
+      status: "LIVE",
+      bookingMode: "INSTANT",
+      dealType: { in: [...INSTANT_DEAL_TYPES] },
+      ...(demoAllowed() ? {} : { isDemo: false }),
+    },
+    select: { ownerId: true },
+  });
+  return phoneCheckAllowedAt(place, {
+    isHost: false,
+    bookableListing: listing ? { ownListing: listing.ownerId === userId } : null,
+  });
 }
 
 export async function sendPhoneCheckCode(input: unknown): Promise<ActionResult<PhoneCodeSent>> {
@@ -53,13 +95,20 @@ export async function sendPhoneCheckCode(input: unknown): Promise<ActionResult<P
     if (!parsed.success) return fail("invalid_phone");
     // "+972 053…" or "+9720…" → "+97253…" before the strict check (brief 2.5).
     const check = checkLoginPhoneNumber(normalizePhone(parsed.data.phoneNumber) ?? parsed.data.phoneNumber);
-    if (!check.ok) return fail(check.reason === "country_not_supported" ? "country_not_supported" : "invalid_phone");
+    if (!check.ok) {
+      return fail(check.reason === "country_not_supported" ? "country_not_supported" : check.reason === "not_mobile" ? "not_mobile" : "invalid_phone");
+    }
     const phoneNumber = check.e164;
     // Reveals only this account's own state, so it may come before the limits.
     if (isPhoneAlreadyVerified(user, phoneNumber)) return ok({ status: "already_verified", phoneNumber });
+    // SMS only where the founder allowed it: a guest's booking, a host's phone check.
+    if (!(await placeAllows(user.id, parsed.data.place, parsed.data.listingId))) return fail("phone_check_not_here");
+    // Replacing a verified number is a sensitive change: a fresh code first (SECURITY_REPORT 3.6.a).
+    if (isPhoneReplacement(user, phoneNumber)) await requireFreshProof(user);
 
     // "phone_taken" tells whether some account has this number: charge the limits and check the
     // CAPTCHA before looking, so the action cannot be used to test numbers in bulk (hardening A1).
+    // The answer comes before any SMS is sent (founder's answer Q5 A: no SMS wasted on it).
     if (!(await limitPhoneCheckRequests(user.id))) return fail("rate_limited");
     if (!(await verifyTurnstile(parsed.data.captchaToken, { expectedAction: "login" }))) return fail("captcha_failed");
 
@@ -75,7 +124,7 @@ export async function sendPhoneCheckCode(input: unknown): Promise<ActionResult<P
     if ((await phoneCodeRoute(phoneNumber, requestHeaders)) === "unavailable") return fail("phone_check_unavailable");
 
     try {
-      // Runs the same hooks as the login form: number rules and the per-number / per-IP limits.
+      // Runs the same hooks as the login form: number rules, resend waits, daily caps, SMS budget.
       await auth.api.sendPhoneNumberOTP({ body: { phoneNumber }, headers: requestHeaders });
     } catch (error) {
       return apiFailure(error);
@@ -111,6 +160,8 @@ export async function confirmPhoneCheckCode(input: unknown): Promise<ActionResul
       throw error;
     }
     forgetScreenCode(phoneCodeKey(phoneNumber));
+    // A replaced number: other sessions end, the old channel (email) is told (SECURITY_REPORT 3.5.e, 3.6.d).
+    if (isPhoneReplacement(user, phoneNumber)) await afterPhoneChanged({ userId: user.id, sessionId: user.sessionId, newPhone: phoneNumber });
     return ok({ phoneNumber });
   });
 }

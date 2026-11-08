@@ -137,7 +137,7 @@ export async function reportHostUnreachable(ctx: UnreachableContext): Promise<vo
       attempts: (ctx.attempts ?? []).map((a) => ({ channel: a.channel, accepted: a.accepted, error: a.error ?? null })),
     },
   });
-  const quota = await rateLimit(`alert:host-unreachable:${ctx.hostUserId}`, { limit: 1, windowSeconds: UNREACHABLE_ALERT_HOURS * 3600 }).catch(() => ({ ok: true }));
+  const quota = await rateLimit(`alert:host-unreachable:${ctx.hostUserId}`, { limit: 1, windowSeconds: UNREACHABLE_ALERT_HOURS * 3600, failOpen: true }).catch(() => ({ ok: true }));
   if (!quota.ok) return;
   const host = await db.user.findUnique({ where: { id: ctx.hostUserId }, select: { name: true, firstName: true } }).catch(() => null);
   await sendFounderAlert({
@@ -345,7 +345,7 @@ export async function handleEmailBounce(event: EmailEvent): Promise<{ duplicate:
     !!affected ||
     newlyPaused ||
     (users.length === 0 &&
-      (await rateLimit(`alert:email-bounced:${hmacHash(firstAddress)}`, { limit: 1, windowSeconds: 7 * 24 * 3600 }).catch(() => ({ ok: true }))).ok);
+      (await rateLimit(`alert:email-bounced:${hmacHash(firstAddress)}`, { limit: 1, windowSeconds: 7 * 24 * 3600, failOpen: true }).catch(() => ({ ok: true }))).ok);
   if (!tellFounder) return { duplicate: false, paused, bookingCode: booking?.code ?? null };
 
   await sendFounderAlert(

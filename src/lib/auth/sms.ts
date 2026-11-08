@@ -1,22 +1,28 @@
-
 import "server-only";
 import { getTranslations } from "next-intl/server";
 import { siteConfig } from "@/config/site";
 import { isAppLocale } from "@/i18n/locale";
 import { db } from "@/lib/db";
 import { isEmailDeliveryConfigured } from "@/lib/email";
-import { isSmsConfigured, maskPhone, sendSms, twilioErrorSummary } from "@/lib/sms";
+import { isSmsConfigured, maskPhone, sendSms } from "@/lib/sms";
 import { codeDisplayForHeaders, type CodeDisplayMode } from "./code-display";
+import { checkLoginPhoneNumber } from "./phone";
+import { chargeSmsBudget, isSmsCountryPaused, recordSmsCodeSent } from "./sms-guard";
 
 /**
  * How phone and email codes reach people.
  *
- * Phone codes: Twilio Verify (it makes and checks its own codes), else Twilio Messaging through
- * `sendSms` (Better Auth makes and checks the code), else nothing. Email codes: Resend through
- * `sendEmail`. When no service is set up, and only where codes may be shown on screen
- * (./code-display.ts: development, or AUTH_TEST_MODE on localhost / a Codespaces preview), the code
- * is kept in memory and shown in the form (GET /api/dev/last-otp). The demo accounts' phone numbers
- * are fake, so in that mode their codes are always shown, even when Twilio is set up.
+ * Phone codes (founder's answer Q9): Better Auth makes the code (secure random), we store only its
+ * keyed hash (./phone-code.ts) and send OUR OWN text ("auth.sms.code": the code, how long it
+ * lives, and "Never share this code. Bayit will never ask you for it.") through Twilio Programmable
+ * Messaging (`sendSms`, a Messaging Service). Twilio Verify is not used. Before a text goes out:
+ * a mobile number in Israel or Georgia (./phone.ts), its country not paused and the daily SMS
+ * budget not used up (./sms-guard.ts). Email codes: Resend through `sendEmail`.
+ *
+ * TEST MODE only (./code-display.ts: AUTH_TEST_MODE=true on a development or staging site, on the
+ * site's own address): with no SMS / email service set up, the code is kept in memory and shown
+ * in the form (GET /api/dev/last-otp). The demo accounts' phone numbers are fake, so in test mode
+ * their codes are always shown, even when Twilio is set up. Codes are never written to the log.
  */
 
 // ── Codes shown on screen (memory; survives hot reloads) ──
@@ -52,7 +58,7 @@ export function forgetScreenCode(key: string) {
 
 /** Some SMS service is set up: phone codes reach real phones. */
 export function isSmsServiceConfigured(): boolean {
-  return isTwilioConfigured() || isSmsConfigured();
+  return isSmsConfigured();
 }
 
 async function isDemoPhone(phoneNumber: string): Promise<boolean> {
@@ -62,7 +68,7 @@ async function isDemoPhone(phoneNumber: string): Promise<boolean> {
   return !!user?.isDemo;
 }
 
-export type PhoneCodeRoute = "screen" | "verify" | "sms" | "unavailable";
+export type PhoneCodeRoute = "screen" | "sms" | "unavailable";
 
 export async function phoneCodeRoute(
   phoneNumber: string,
@@ -71,7 +77,6 @@ export async function phoneCodeRoute(
   if (codeDisplayForHeaders(headers) && (!isSmsServiceConfigured() || (await isDemoPhone(phoneNumber)))) {
     return "screen";
   }
-  if (isTwilioConfigured()) return "verify";
   if (isSmsConfigured()) return "sms";
   return "unavailable";
 }
@@ -83,59 +88,32 @@ export function emailCodeRoute(headers: Pick<Headers, "get"> | null | undefined)
   return codeDisplayForHeaders(headers) ? "screen" : "unavailable";
 }
 
-// ── Twilio Verify ──
-
-const VERIFY_API = "https://verify.twilio.com/v2";
-const REQUEST_TIMEOUT_MS = 10_000;
-
-type TwilioConfig = {
-  accountSid: string;
-  authToken: string;
-  serviceSid: string;
-  channel: "sms" | "whatsapp";
-};
-
-function twilioConfig(): TwilioConfig | null {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const serviceSid = process.env.TWILIO_VERIFY_SERVICE_SID;
-  if (!accountSid || !authToken || !serviceSid) return null;
-  const channel = process.env.TWILIO_VERIFY_CHANNEL === "whatsapp" ? "whatsapp" : "sms";
-  return { accountSid, authToken, serviceSid, channel };
-}
-
-/** Twilio Verify is set up (it makes and checks the phone codes). */
-export function isTwilioConfigured(): boolean {
-  return twilioConfig() !== null;
-}
-
-/** Twilio Verify message languages we can use (Georgian is not offered by Twilio). */
-const TWILIO_LOCALES = new Set(["he", "en", "ru", "ar"]);
-
-async function twilioRequest(config: TwilioConfig, path: string, body: Record<string, string>) {
-  const credentials = Buffer.from(`${config.accountSid}:${config.authToken}`).toString("base64");
-  return fetch(`${VERIFY_API}/Services/${config.serviceSid}/${path}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${credentials}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams(body),
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    cache: "no-store",
-  });
-}
+// ── Sending ──
 
 export class SmsUnavailableError extends Error {
-  constructor(message: string) {
+  /** "paused": the daily budget is used up or the country is paused (./sms-guard.ts). */
+  readonly reason: "unavailable" | "paused";
+  constructor(message: string, reason: "unavailable" | "paused" = "unavailable") {
     super(message);
     this.name = "SmsUnavailableError";
+    this.reason = reason;
   }
+}
+
+/** The text of a code SMS in the person's language (kept short: one or two SMS parts). */
+export async function codeSmsText(input: { code: string; ttlSeconds: number; locale?: string | null }): Promise<string> {
+  const locale = isAppLocale(input.locale) ? input.locale : "en";
+  const t = await getTranslations({ locale, namespace: "auth.sms" });
+  return t("code", {
+    code: input.code,
+    minutes: Math.round(input.ttlSeconds / 60),
+    brand: siteConfig.localizedName[locale] ?? siteConfig.name,
+  });
 }
 
 /**
  * Sends a phone code along `route` (see `phoneCodeRoute`). `code` is the one Better Auth made:
- * shown on screen or sent by `sendSms`; Twilio Verify makes its own.
+ * shown on screen (test mode) or sent as our own text. Throws SmsUnavailableError when it cannot go.
  */
 export async function sendLoginCode(input: {
   phoneNumber: string;
@@ -146,57 +124,24 @@ export async function sendLoginCode(input: {
 }): Promise<void> {
   if (input.route === "screen") {
     rememberScreenCode(phoneCodeKey(input.phoneNumber), input.code, input.ttlSeconds);
-    console.info(`[auth] Login code for ${input.phoneNumber} (shown on screen): ${input.code}`);
+    console.info(`[auth] test mode: the login code for ${maskPhone(input.phoneNumber)} is shown on screen`);
     return;
   }
-  if (input.route === "sms") {
-    const locale = isAppLocale(input.locale) ? input.locale : "en";
-    const t = await getTranslations({ locale, namespace: "auth.sms" });
-    const minutes = Math.round(input.ttlSeconds / 60);
-    const result = await sendSms({
-      to: input.phoneNumber,
-      body: t("code", { code: input.code, minutes, brand: siteConfig.localizedName[locale] ?? siteConfig.name }),
-      logAs: `[login code for ${maskPhone(input.phoneNumber)}]`,
-    });
-    if (!result.ok) throw new SmsUnavailableError("Twilio Messaging could not send the code");
-    return;
-  }
-  const config = input.route === "verify" ? twilioConfig() : null;
-  if (!config) throw new SmsUnavailableError("No SMS service is set up");
+  if (input.route !== "sms") throw new SmsUnavailableError("No SMS service is set up");
 
-  const body: Record<string, string> = { To: input.phoneNumber, Channel: config.channel };
-  if (input.locale && TWILIO_LOCALES.has(input.locale)) body.Locale = input.locale;
+  // Checked again right before the paid text (the hooks in ./server.ts checked them first).
+  const destination = checkLoginPhoneNumber(input.phoneNumber);
+  if (!destination.ok) throw new SmsUnavailableError(`SMS refused: ${destination.reason}`);
+  if (await isSmsCountryPaused(destination.country)) {
+    throw new SmsUnavailableError(`SMS codes to ${destination.country} are paused`, "paused");
+  }
+  if (!(await chargeSmsBudget())) throw new SmsUnavailableError("The daily SMS budget is used up", "paused");
 
-  let response: Response;
-  try {
-    response = await twilioRequest(config, "Verifications", body);
-  } catch (error) {
-    throw new SmsUnavailableError(`Twilio Verify request failed: ${(error as Error).message}`);
-  }
-  if (!response.ok) {
-    throw new SmsUnavailableError(`Twilio Verify returned ${await twilioErrorSummary(response)}`);
-  }
-}
-
-export type CodeCheck = "approved" | "wrong" | "expired" | "too_many_attempts";
-
-/** Checks a code with Twilio Verify. */
-export async function checkLoginCode(phoneNumber: string, code: string): Promise<CodeCheck> {
-  const config = twilioConfig();
-  if (!config) throw new SmsUnavailableError("Twilio Verify is not configured");
-  let response: Response;
-  try {
-    response = await twilioRequest(config, "VerificationCheck", { To: phoneNumber, Code: code });
-  } catch (error) {
-    throw new SmsUnavailableError(`Twilio Verify check failed: ${(error as Error).message}`);
-  }
-  // 404: no pending verification (expired, already approved or cancelled).
-  if (response.status === 404) return "expired";
-  // 429 (Twilio error 60202): too many wrong codes for this verification.
-  if (response.status === 429) return "too_many_attempts";
-  if (!response.ok) {
-    throw new SmsUnavailableError(`Twilio Verify check returned ${await twilioErrorSummary(response)}`);
-  }
-  const data = (await response.json().catch(() => null)) as { status?: string } | null;
-  return data?.status === "approved" ? "approved" : "wrong";
+  const result = await sendSms({
+    to: destination.e164,
+    body: await codeSmsText(input),
+    logAs: `[login code for ${maskPhone(destination.e164)}]`,
+  });
+  if (!result.ok) throw new SmsUnavailableError("Twilio Messaging could not send the code");
+  if (result.delivered) await recordSmsCodeSent(destination.country);
 }

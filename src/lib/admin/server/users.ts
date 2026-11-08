@@ -2,6 +2,7 @@ import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
 import type { UserRole, UserStatus } from "@/generated/prisma/enums";
 import { db } from "@/lib/db";
+import { canSeeReporter, type StaffViewer } from "../staff-visibility";
 import { parseUserSearch, type UserSearchTerms } from "../search";
 import { ADMIN_PAGE_SIZE, coverPhotoSelect, sharedDeviceAccounts, staffNames } from "./shared";
 
@@ -95,7 +96,13 @@ export async function searchUsers(filters: UserFilters, page: number) {
 
 export type UserListRow = Awaited<ReturnType<typeof searchUsers>>["rows"][number];
 
-export async function getUserDetail(id: string) {
+/**
+ * A user's page. Who sent a report is ADMIN only (founder's decision Q12, ../staff-visibility.ts):
+ * for other staff the reports this user SENT are not read at all (`reportsMade` is null), and the
+ * reports against them come without their senders' names.
+ */
+export async function getUserDetail(id: string, viewer: StaffViewer) {
+  const showReporter = canSeeReporter(viewer);
   const user = await db.user.findUnique({
     where: { id },
     select: {
@@ -151,7 +158,9 @@ export async function getUserDetail(id: string) {
           photos: coverPhotoSelect,
         },
       }),
-      db.report.findMany({
+      !showReporter
+        ? Promise.resolve(null)
+        : db.report.findMany({
         where: { reporterId: id },
         orderBy: { createdAt: "desc" },
         take: 20,
@@ -177,7 +186,7 @@ export async function getUserDetail(id: string) {
           createdAt: true,
           kind: true,
           listing: { select: { publicId: true, title: true } },
-          reporter: { select: { name: true } },
+          reporterId: true,
         },
       }),
       db.ticket.findMany({
@@ -217,11 +226,19 @@ export async function getUserDetail(id: string) {
     ? verifications.find((v) => v.type === "BUSINESS" && v.status === "APPROVED")
     : undefined;
 
+  const senderIds = [...new Set(reportsAgainst.map((r) => r.reporterId).filter((v): v is string => !!v))];
+  const senders =
+    showReporter && senderIds.length
+      ? new Map((await db.user.findMany({ where: { id: { in: senderIds } }, select: { id: true, name: true } })).map((u) => [u.id, u]))
+      : new Map<string, { id: string; name: string }>();
+
   return {
     user,
     listings,
+    /** Null unless the viewer may see who sent reports (ADMIN). */
     reportsMade,
-    reportsAgainst,
+    reportsAgainst: reportsAgainst.map(({ reporterId, ...r }) => ({ ...r, reporter: reporterId ? (senders.get(reporterId) ?? null) : null })),
+    reporterWithheld: !showReporter,
     tickets,
     devices,
     deviceCount,

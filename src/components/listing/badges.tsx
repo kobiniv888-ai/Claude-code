@@ -2,6 +2,7 @@ import { useTranslations } from "next-intl";
 import { BadgeCheckIcon, BriefcaseBusinessIcon, FlaskConicalIcon, MegaphoneIcon, SparklesIcon, TrendingDownIcon, type SpriteIconComponent as LucideIcon } from "@/components/ds/sprite-icons";
 import { KosherStampIcon, ShabbatCandlesIcon, SynagogueIcon, type IconComponent } from "@/components/ds/jewish-icons";
 import type { ListingCardBadges } from "@/lib/listing/types";
+import { publicWalkMinutes } from "@/lib/geo/public-walk";
 import { cn } from "@/lib/utils";
 
 /**
@@ -97,7 +98,7 @@ export function ListingBadges({
     } else if (kind === "synagogue" && badges.synagogueWalkMin !== null) {
       items.push(
         <Chip key={kind} icon={SynagogueIcon} tone="jewish" size={size}>
-          {t("synagogueWalk", { count: badges.synagogueWalkMin })}
+          {t("synagogueWalk", { count: publicWalkMinutes(badges.synagogueWalkMin) ?? 0 })}
         </Chip>,
       );
     } else if (kind === "kosher" && badges.kosherKitchen) {

@@ -192,8 +192,8 @@
     "floor": "Floor {floor}",
     "floorOf": "Floor {floor} of {total}",
     "studio": "Studio",
-    "synagogueWalk": "{count} min walk to synagogue",
-    "chabadWalk": "{count} min walk to Chabad house",
+    "synagogueWalk": "{count, plural, =5 {Up to 5 min walk to synagogue} other {≈ {count} min walk to synagogue}}",
+    "chabadWalk": "{count, plural, =5 {Up to 5 min walk to Chabad house} other {≈ {count} min walk to Chabad house}}",
     "minStay": "{count, plural, one {Minimum {count} night} other {Minimum {count} nights}}"
   }
 }

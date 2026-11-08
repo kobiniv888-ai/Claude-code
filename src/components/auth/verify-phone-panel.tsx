@@ -8,7 +8,15 @@ import { useRouter } from "@/i18n/navigation";
 import type { LoginConfig } from "@/lib/auth/config";
 import { PhoneCheck } from "./phone-check";
 
-/** /verify-phone: a host verifies a phone number before posting (once per number). */
+/** Sent here by the post form ("/post", "/post/<id>…", or a listing's edit page)? */
+function fromPostForm(next: string): boolean {
+  return /^\/(post|account\/listings\/[^/?#]+\/edit)(?:[/?#]|$)/.test(next);
+}
+
+/**
+ * /verify-phone: a host verifies a phone number before posting (once per number). The server
+ * sends a text only from the post form, or for a host's account (src/lib/auth/phone-check-policy.ts).
+ */
 export function VerifyPhonePanel({
   config,
   next,
@@ -49,6 +57,7 @@ export function VerifyPhonePanel({
       )}
       <PhoneCheck
         config={config}
+        place={fromPostForm(next) ? "post" : "account"}
         verifiedPhone={verifiedPhone}
         onVerified={(phoneNumber) => {
           setVerified(phoneNumber);

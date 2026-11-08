@@ -17,7 +17,6 @@ import { requireStaff } from "@/lib/auth/session";
 import { dateToDay } from "@/lib/booking/dates";
 import { formatDate, isolate } from "@/lib/format";
 import { getRecentReviews } from "@/lib/reviews/queries";
-import { reportedPart } from "@/lib/reviews/rules";
 import { cn } from "@/lib/utils";
 import type { AppLocale } from "@/config/site";
 import { StaffReviewList } from "./_components/staff-review-list";
@@ -37,7 +36,7 @@ export async function generateMetadata({ params }: PageProps<"/[locale]/admin/re
 export default async function ReportsPage({ params, searchParams }: PageProps<"/[locale]/admin/reports">) {
   const { locale } = await params;
   setRequestLocale(locale);
-  await requireStaff("reports.view");
+  const staff = await requireStaff("reports.view");
   const query = await searchParams;
   // "?kind=TURNED_AWAY" (links from the admin home) is the turned-away tab.
   const tab: ReportTab = param(query, "kind") === "TURNED_AWAY" ? "turnedAway" : enumParam(query, "tab", REPORT_TABS, "all");
@@ -51,7 +50,7 @@ export default async function ReportsPage({ params, searchParams }: PageProps<"/
     getTranslations("admin"),
     getTranslations("listingFields"),
     getTranslations("reviews"),
-    listReports(filters, pageParam(query), locale),
+    listReports(filters, pageParam(query), locale, staff),
   ]);
   const recentReviews = tab === "reviews" ? await getRecentReviews(20) : [];
   const reasonLabel = (reason: string) => (tFields.has(`reportReason.${reason}`) ? tFields(`reportReason.${reason}`) : reason);
@@ -152,7 +151,7 @@ export default async function ReportsPage({ params, searchParams }: PageProps<"/
                       </>
                     ) : row.targetType === "REVIEW" ? (
                       <>
-                        <span>{row.review && reportedPart(row.review, row.reporter?.id) === "reply" ? tReviews("admin.replyTarget") : t("reviewTarget")}</span>
+                        <span>{row.reviewPart === "reply" ? tReviews("admin.replyTarget") : t("reviewTarget")}</span>
                         {row.review ? (
                           <>
                             <span className="text-xs text-muted-foreground">{tReviews("stars.label", { count: row.review.rating })}</span>
@@ -200,7 +199,7 @@ export default async function ReportsPage({ params, searchParams }: PageProps<"/
                     </p>
                   ) : null}
                   <p className="text-xs text-muted-foreground">
-                    {t("reportedBy", { name: isolate(row.reporter?.name ?? tAdmin("common.guest")) })} · <WhenText date={row.createdAt} />
+                    {row.reporterWithheld ? t("reporterWithheld") : t("reportedBy", { name: isolate(row.reporter?.name ?? tAdmin("common.guest")) })} · <WhenText date={row.createdAt} />
                     {row.actionTaken ? <> · {t(`actionTaken.${row.actionTaken as "resolved"}`)}</> : null}
                     {row.handledBy ? <> · {t("handledBy", { name: isolate(row.handledBy.name) })}</> : null}
                   </p>

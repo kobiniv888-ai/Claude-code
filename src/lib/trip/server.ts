@@ -5,9 +5,11 @@ import type { JewishPlaceType } from "@/generated/prisma/enums";
 import { pickLocalized } from "@/i18n/locale";
 import { verifiedPhoneOf } from "@/lib/auth/phone-once";
 import { addDays } from "@/lib/booking/dates";
+import { canRevealHostContact } from "@/lib/booking/policy";
 import { parseContactMethods } from "@/lib/contact/links";
 import { db } from "@/lib/db";
 import { haversineMeters, walkingMinutes } from "@/lib/geo";
+import { publicWalkMinutes } from "@/lib/geo/public-walk";
 import { getHolidaysInRange, holidayName, type HolidayKey } from "@/lib/hebcal";
 import { timedObservances, type GeoPoint } from "@/lib/hebcal/core";
 import { houseRules, type HouseRule } from "@/lib/listing-page/highlights";
@@ -124,7 +126,8 @@ async function verifiedPlacesNear(point: MapPoint, locale: AppLocale): Promise<T
       kind,
       name,
       address: best.row.address ? pickLocalized(best.row.address, locale) || null : null,
-      minutes: walkingMinutes(rounded),
+      // Shown like every other walking time: rounded up to 5 minutes (security checklist 6.d).
+      minutes: publicWalkMinutes(walkingMinutes(rounded)) ?? 5,
       directions: walkingDirectionsUrl(point, best.row),
     });
   }
@@ -169,11 +172,13 @@ export async function getTripExtras(
   guestUserId: string,
   trip: { id: string; status: string; checkIn: string; checkOut: string; revealed: boolean },
   locale: AppLocale,
-  options: { message: string },
+  options: { message: string; now?: Date },
 ): Promise<TripExtras | null> {
   const row = await db.booking.findFirst({
     where: { id: trip.id, guestUserId },
     select: {
+      status: true,
+      checkOut: true,
       listing: {
         select: {
           countryCode: true,
@@ -198,7 +203,11 @@ export async function getTripExtras(
   if (!row) return null;
   const { listing } = row;
   const country = countryConfig(listing.countryCode);
-  const point = trip.revealed && isMapPoint(listing) ? { lat: listing.lat as number, lng: listing.lng as number } : null;
+  // The exact pin, the host's contacts and the walks from the pin: only while the booking itself
+  // still reveals them (confirmed or completed, until a week after check-out: security checklist
+  // 6.f), checked again here on the database row, whatever the caller passed.
+  const revealed = trip.revealed && canRevealHostContact({ status: row.status, guestUserId, checkOut: row.checkOut }, guestUserId, options.now);
+  const point = revealed && isMapPoint(listing) ? { lat: listing.lat as number, lng: listing.lng as number } : null;
 
   let shabbat: TripShabbat | null = null;
   // Only for a stay still ahead or under way: a cancelled or past trip does not need candle times.
@@ -227,7 +236,7 @@ export async function getTripExtras(
     }
   }
 
-  const contactButtons = trip.revealed
+  const contactButtons = revealed
     ? tripContactButtons(parseContactMethods(listing.contactMethods), {
         verifiedOwnerPhone: verifiedPhoneOf(listing.owner),
         country: listing.countryCode,
@@ -238,7 +247,7 @@ export async function getTripExtras(
   return {
     rules: houseRules(listing),
     contactButtons,
-    contactHours: trip.revealed && listing.contactHoursFrom && listing.contactHoursTo ? { from: listing.contactHoursFrom, to: listing.contactHoursTo } : null,
+    contactHours: revealed && listing.contactHoursFrom && listing.contactHoursTo ? { from: listing.contactHoursFrom, to: listing.contactHoursTo } : null,
     shabbat,
     emergencyNumber: country.emergencyNumber,
     point,

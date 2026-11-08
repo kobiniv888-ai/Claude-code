@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "npm ci && npm run deps:scripts",
   "crons": [
     { "path": "/api/cron/exchange-rates", "schedule": "13 3 * * *" },
     { "path": "/api/cron/expire-listings", "schedule": "7 * * * *" },

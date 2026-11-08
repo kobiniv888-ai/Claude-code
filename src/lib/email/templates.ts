@@ -14,6 +14,7 @@ import { REPORT_EMAIL_TEMPLATES, reportEmailBuilders, type ReportEmailData } fro
 import { WEEKLY_EMAIL_TEMPLATES, weeklyEmailBuilders, type WeeklyEmailData } from "@/lib/alerts/weekly-host-email-template";
 import { SAVED_ALERT_EMAIL_TEMPLATES, savedAlertEmailBuilders, type SavedAlertEmailData } from "@/lib/saved-searches/email-templates";
 import { REVIEW_EMAIL_TEMPLATES, reviewEmailBuilders, type ReviewEmailData } from "@/lib/reviews/email-templates";
+import { SECURITY_EMAIL_TEMPLATES, securityEmailBuilders, type SecurityEmailData } from "@/lib/auth/security-email-templates";
 
 export const EMAIL_TEMPLATES = [
   "login_code",
@@ -56,6 +57,8 @@ export const EMAIL_TEMPLATES = [
   ...SAVED_ALERT_EMAIL_TEMPLATES,
   // Reviews (round 3, brief 8.1): src/lib/reviews/email-templates.ts
   ...REVIEW_EMAIL_TEMPLATES,
+  // Account security (SECURITY_REPORT 3.6, 3.7): src/lib/auth/security-email-templates.ts
+  ...SECURITY_EMAIL_TEMPLATES,
 ] as const;
 export type EmailTemplate = (typeof EMAIL_TEMPLATES)[number];
 
@@ -228,20 +231,36 @@ export type EmailData = {
     channel?: string | null;
     /** host_channel_paused: the host still takes instant bookings through another channel. */
     stillInstant?: boolean | null;
+    /** sms_country_paused: the ISO country code. */
+    country?: string | null;
+    /** SMS alerts: the numbers behind it ("240 / 300", "4 / 25 (16%)"). */
+    detail?: string | null;
   };
 } & ReportEmailData &
   AdminEmailData &
   WeeklyEmailData &
   SavedAlertEmailData &
-  ReviewEmailData;
+  ReviewEmailData &
+  SecurityEmailData;
 
 /**
  * - host_unreachable: a booking was refused because no alert channel of the host accepted the alert
  * - host_alert_bounced: the "new booking" alert to the host bounced later (the booking stands)
  * - email_bounced: another email from the site bounced (or was marked as spam)
  * - host_channel_paused: one of a host's alert channels was paused (a blocked Telegram bot)
+ * - sms_budget_warning / sms_budget_reached: 80% / all of the daily SMS code budget is used
+ * - sms_country_paused: too few SMS codes were confirmed in a country; its code texts are paused
+ *   (src/lib/auth/sms-guard.ts)
  */
-export const ADMIN_ALERT_KINDS = ["host_unreachable", "host_alert_bounced", "email_bounced", "host_channel_paused"] as const;
+export const ADMIN_ALERT_KINDS = [
+  "host_unreachable",
+  "host_alert_bounced",
+  "email_bounced",
+  "host_channel_paused",
+  "sms_budget_warning",
+  "sms_budget_reached",
+  "sms_country_paused",
+] as const;
 export type AdminAlertKind = (typeof ADMIN_ALERT_KINDS)[number];
 
 const ADMIN_ALERT_REASONS = [
@@ -254,6 +273,8 @@ const ADMIN_ALERT_REASONS = [
   "bounced",
   "complained",
   "blocked",
+  "sms_budget",
+  "sms_ratio",
 ];
 
 export type EmailBlock =
@@ -1005,6 +1026,9 @@ const builders: { [K in EmailTemplate]: Builder<K> } = {
     if (clean(data.template)) rows.push({ label: t("templates.admin_alert.templateLabel"), value: clean(data.template), ltr: true });
     const channel = data.channel === "email" || data.channel === "telegram" ? data.channel : null;
     if (channel) rows.push({ label: t("templates.admin_alert.channelLabel"), value: t(`templates.admin_alert.channel.${channel}`) });
+    const country = /^[A-Z]{2}$/.test(data.country ?? "") ? data.country! : null;
+    if (country) rows.push({ label: t("templates.admin_alert.countryLabel"), value: country, ltr: true });
+    if (clean(data.detail)) rows.push({ label: t("templates.admin_alert.detailLabel"), value: clean(data.detail), ltr: true });
     rows.push({ label: t("templates.admin_alert.reasonLabel"), value: reason });
     if (kind === "host_channel_paused" && typeof data.stillInstant === "boolean") {
       rows.push({
@@ -1031,6 +1055,7 @@ const builders: { [K in EmailTemplate]: Builder<K> } = {
   ...weeklyEmailBuilders,
   ...savedAlertEmailBuilders,
   ...reviewEmailBuilders,
+  ...securityEmailBuilders,
 };
 
 export function buildEmailContent<K extends EmailTemplate>(

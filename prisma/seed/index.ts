@@ -14,6 +14,7 @@ import "dotenv/config";
 import { db } from "@/lib/db";
 import { clearPlacesCache } from "@/lib/places";
 import { clearSettingsCache } from "@/lib/settings";
+import { demoAllowed } from "@/lib/site-env";
 import { seedActivity } from "./activity";
 import { seedBookings } from "./bookings";
 import { seedBannedWords, seedDemoScamAlert, seedSavedReplies, seedSettings } from "./content";
@@ -50,16 +51,23 @@ async function main() {
   await step("banned words", () => seedBannedWords(db));
   await step("FAQ", () => seedFaq(db));
   await step("saved replies", () => seedSavedReplies(db));
-  await step("demo scam alert", () => seedDemoScamAlert(db));
-  await step("demo users", () => seedUsers(db, now));
-  await step("demo Jewish places", () => seedJewishPlaces(db, places.cities));
-  await step("demo listings", () => seedListings(db, places, now));
-  await step("demo activity", () => seedActivity(db, now));
-  await step("demo bookings", () => seedBookings(db, now));
+  // Demo accounts, places, listings and bookings never go into the real site's database
+  // (SITE_ENV=production, or SITE_ENV missing: src/lib/site-env.ts). Development and staging get them.
+  const withDemo = demoAllowed();
+  if (withDemo) {
+    await step("demo scam alert", () => seedDemoScamAlert(db));
+    await step("demo users", () => seedUsers(db, now));
+    await step("demo Jewish places", () => seedJewishPlaces(db, places.cities));
+    await step("demo listings", () => seedListings(db, places, now));
+    await step("demo activity", () => seedActivity(db, now));
+    await step("demo bookings", () => seedBookings(db, now));
+  } else {
+    console.log("  – demo data skipped: SITE_ENV is production (or not set). Set SITE_ENV=development or staging for demo data.");
+  }
 
   clearPlacesCache();
   clearSettingsCache();
-  console.log("Done. Demo logins: see docs/DEMO-DATA.md");
+  console.log(withDemo ? "Done. Demo logins: see docs/DEMO-DATA.md" : "Done (no demo data).");
 }
 
 main()

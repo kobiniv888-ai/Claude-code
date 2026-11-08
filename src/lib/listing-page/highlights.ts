@@ -6,6 +6,7 @@
  */
 import type { DealType, KitchenKosher, ViewType } from "@/generated/prisma/enums";
 import { AMENITIES, type Amenity } from "@/lib/listing/fields";
+import { publicWalkMinutes } from "@/lib/geo/public-walk";
 
 export const HIGHLIGHTS = [
   "self_check_in",
@@ -57,8 +58,9 @@ export type WalkHighlight = { kind: "sea" | "lift"; minutes: number };
 /** The walk highlight of a listing in a sea or ski town (any stored value, i.e. up to 30 minutes). */
 export function walkHighlight(data: WalkInput): WalkHighlight | null {
   const valid = (m: number | null | undefined): m is number => typeof m === "number" && Number.isFinite(m) && m > 0;
-  if (valid(data.seaWalkMinutes)) return { kind: "sea", minutes: data.seaWalkMinutes };
-  if (valid(data.liftWalkMinutes)) return { kind: "lift", minutes: data.liftWalkMinutes };
+  // Security checklist 6.d: shown rounded up to 5 minutes (the loader already rounds; idempotent).
+  if (valid(data.seaWalkMinutes)) return { kind: "sea", minutes: publicWalkMinutes(data.seaWalkMinutes) ?? data.seaWalkMinutes };
+  if (valid(data.liftWalkMinutes)) return { kind: "lift", minutes: publicWalkMinutes(data.liftWalkMinutes) ?? data.liftWalkMinutes };
   return null;
 }
 

@@ -130,7 +130,7 @@ describe("metaDescription", () => {
 
 // ─── Production host (round 3, brief 10) ────────────────────────────────
 
-const PROD = { SITE_URL: "https://bayit.ge" };
+const PROD = { SITE_URL: "https://bayit.ge", SITE_ENV: "production" };
 
 function headersOf(values: Record<string, string>) {
   const h = new Headers(values);
@@ -154,6 +154,16 @@ describe("normalizeRequestHost", () => {
   });
 });
 
+describe("isProductionHost: only the real site is ever indexed (SITE_ENV, founder's decision 1)", () => {
+  it("is false on development and staging sites, and while SITE_ENV is missing, even on SITE_URL's host", () => {
+    for (const site of ["development", "staging", "", "prod"]) {
+      expect(isProductionHost("bayit.ge", { ...PROD, SITE_ENV: site }), site).toBe(false);
+      expect(robotsHeaderFor({ headers: headersOf({ host: "bayit.ge" }), pathname: "/he" }, { ...PROD, SITE_ENV: site }), site).toBe("noindex, nofollow");
+    }
+    expect(isProductionHost("bayit.ge", { SITE_URL: "https://bayit.ge" })).toBe(false);
+  });
+});
+
 describe("isProductionHost (contract 2)", () => {
   it("is true only for SITE_URL's host", () => {
     expect(productionHost(PROD)).toBe("bayit.ge");
@@ -174,7 +184,7 @@ describe("isProductionHost (contract 2)", () => {
     expect(isProductionHost("bayit.ge", { NEXT_PUBLIC_SITE_URL: "https://bayit.ge" } as never)).toBe(false);
   });
   it("compares the port when SITE_URL has one (a production check on localhost)", () => {
-    const env = { SITE_URL: "http://localhost:4691" };
+    const env = { SITE_URL: "http://localhost:4691", SITE_ENV: "production" };
     expect(isProductionHost("localhost:4691", env)).toBe(true);
     expect(isProductionHost("localhost:3000", env)).toBe(false);
     expect(isProductionHost("127.0.0.1:4691", env)).toBe(false);

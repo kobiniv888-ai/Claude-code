@@ -110,7 +110,7 @@ export async function reportError(error: unknown, context: ErrorContext): Promis
   if (++sentInWindow > MAX_PER_MINUTE) return;
   try {
     const body = buildEnvelope(error, context, {
-      environment: process.env.SENTRY_ENVIRONMENT || process.env.VERCEL_ENV || process.env.NODE_ENV,
+      environment: process.env.SENTRY_ENVIRONMENT || process.env.SITE_ENV || process.env.VERCEL_ENV || process.env.NODE_ENV,
       release: process.env.SENTRY_RELEASE || process.env.VERCEL_GIT_COMMIT_SHA || undefined,
     });
     await fetch(dsn.envelopeUrl, {

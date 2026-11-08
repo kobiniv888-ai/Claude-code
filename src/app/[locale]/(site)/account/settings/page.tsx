@@ -20,6 +20,7 @@ import { getAccountSettings } from "@/lib/account/queries";
 import { getBookingAlertSettings } from "@/lib/alerts/settings";
 import { hasHostListings } from "@/lib/listing/stats";
 import { SPOKEN_LANGUAGE_OPTIONS } from "@/lib/account/settings-schema";
+import { recoveryCodesLeft } from "@/lib/auth/recovery-codes";
 import { requireUser } from "@/lib/auth/session";
 import { languageName } from "@/lib/listing-page/helpers";
 import { pageMetadata } from "@/lib/seo";
@@ -38,7 +39,7 @@ export default async function SettingsPage({ params }: Props) {
   setRequestLocale(locale);
   const user = await requireUser({ next: "/account/settings" });
   const t = await getTranslations("account.settings");
-  const [data, alerts, tAlerts, format, isHost] = await Promise.all([
+  const [data, alerts, tAlerts, format, isHost, codesLeft] = await Promise.all([
     getAccountSettings(user.id),
     // Booking alerts (round 3): shown to hosts of short stays and hotels.
     headers().then((h) => getBookingAlertSettings(user.id, h)),
@@ -46,6 +47,8 @@ export default async function SettingsPage({ params }: Props) {
     getFormatter(),
     // The weekly stats email switch (round 3, brief 6.2) is for accounts with listings.
     hasHostListings(user.id),
+    // 2-step recovery codes still unused (SECURITY_REPORT 3.7.c).
+    user.twoFactorEnabled ? recoveryCodesLeft(user.id) : Promise.resolve(0),
   ]);
   // "email and Telegram", formatted here so the browser's language data can't change it.
   const alertChannelsText =
@@ -94,7 +97,14 @@ export default async function SettingsPage({ params }: Props) {
       ) : null}
 
       <div id="security" className="grid scroll-mt-24 gap-4 sm:gap-6">
-        <TwoFactorSettings enabled={data.twoFactorEnabled} isStaff={user.isStaff} returnTo="/account/settings#security" />
+        <TwoFactorSettings
+          enabled={data.twoFactorEnabled}
+          isStaff={user.isStaff}
+          recoveryCodesLeft={codesLeft}
+          // Hotels, guesthouses and agencies: recommended strongly (SECURITY_REPORT 3.7.b).
+          recommend={user.accountType === "BUSINESS"}
+          returnTo="/account/settings#security"
+        />
         <SettingsSection id="logout-all" title={t("logoutAll.title")} lead={t("logoutAll.lead")}>
           <LogoutEverywhere />
         </SettingsSection>

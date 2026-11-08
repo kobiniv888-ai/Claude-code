@@ -110,7 +110,9 @@
     "payment_method_required": "Please choose at least one payment method.",
     "terms_changed": "The host changed the price or the cancellation terms while you were filling in your details. The new terms are shown now: please check them and confirm again.",
     "host_unreachable": "We couldn't tell the host about this booking, so it wasn't saved. You can ask the host directly.",
-    "rooms_unavailable": "There aren't enough free rooms of this type on these dates. Choose fewer rooms or another room type."
+    "rooms_unavailable": "There aren't enough free rooms of this type on these dates. Choose fewer rooms or another room type.",
+    "too_many_upcoming": "{count, plural, one {This phone number already has {count} upcoming booking, the most allowed.} other {This phone number already has {count} upcoming bookings, the most allowed.}} You can book again once one of them ends or is cancelled.",
+    "request_reused": "Something went wrong sending the booking. Please reload the page and try again."
   },
   "ics": {
     "summary": "{title} · {code}",

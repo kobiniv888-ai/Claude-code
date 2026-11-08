@@ -31,7 +31,7 @@ fail() { printf '\n\033[31m✗ %s\033[0m\n' "$*"; exit 1; }
 
 command -v node >/dev/null || fail "Node.js is not installed. Open the project in its Codespace and try again."
 command -v curl >/dev/null || fail "curl is not installed."
-[ -d node_modules/sharp ] || { say "Installing packages first (npm install)…"; npm install --no-audit --no-fund || fail "npm install failed."; }
+[ -d node_modules/sharp ] || { say "Installing packages first (npm ci)…"; { npm ci --no-audit --no-fund && npm run deps:scripts; } || fail "npm ci failed."; }
 
 say "1/3  Downloading synagogue photos from Wikimedia Commons…"
 node scripts/photos/fetch-wikimedia.mjs "${NODE_ARGS[@]}"

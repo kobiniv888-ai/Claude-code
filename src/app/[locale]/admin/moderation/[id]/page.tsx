@@ -39,7 +39,7 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
   const { locale, id } = await params;
   setRequestLocale(locale);
   const staff = await requireStaff("moderation");
-  const data = await getListingForReview(id);
+  const data = await getListingForReview(id, staff);
   if (!data) notFound();
   const { listing } = data;
 
@@ -537,7 +537,7 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
                       </Link>
                       <ReportStatusBadge status={r.status} className="h-5" />
                       <span className="text-xs text-muted-foreground">
-                        {r.reporter ? <span dir="auto">{r.reporter.name}</span> : tAdmin("common.guest")} · <WhenText date={r.createdAt} />
+                        {r.reporter ? <span dir="auto">{r.reporter.name}</span> : data.reporterWithheld ? tAdmin("reports.reporterWithheld") : tAdmin("common.guest")} · <WhenText date={r.createdAt} />
                       </span>
                     </div>
                     {r.details ? (

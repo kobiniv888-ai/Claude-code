@@ -13,6 +13,7 @@ import { generateBookingCode } from "./code";
 import { cleanPaymentMethods, REMINDER_DAYS_BEFORE, type GuestCancelReason, type HostCancelReason } from "./constants";
 import { addDays, dateToDay, dayToDate, daysBetween, isDay, tbilisiToday } from "./dates";
 import { BookingError } from "./errors";
+import { MAX_UPCOMING_BOOKINGS_PER_PHONE } from "./guest-flags";
 import { findBlockingRange, freeRoomsOfType, getRoomBlocks, isRangeFree } from "./availability";
 import { notifyBookingCompleted, notifyBookingReminder } from "./notify";
 import { notifyGuestOfNoShow, sendReviewRequest } from "@/lib/reviews/notify";
@@ -49,6 +50,16 @@ import { normalizePhone } from "@/lib/phone";
  * without a room type closes the whole hotel, ./room-availability). Its BOOKING block carries the
  * room type and the number of rooms, so other room types (and the other rooms of this one) stay
  * free. Otherwise "rooms_unavailable" (count = the rooms still free) or "dates_unavailable" (none).
+ *
+ * Double taps (SECURITY_REPORT 4.5.c, D2): the review page sends an idempotency key per booking
+ * attempt. The same key from the same guest gives back the booking already made (Booking has a
+ * unique (guestUserId, idempotencyKey)), never a second one, also when both taps arrive at the
+ * same moment: the transaction first takes the guest's own lock and looks for the key again.
+ *
+ * At most MAX_UPCOMING_BOOKINGS_PER_PHONE (2) upcoming bookings per verified phone number, across
+ * every account that used it, and per account (founder's decision 8, ./guest-flags.ts): counted in
+ * the same transaction, under locks on the guest and the number, so two bookings at once from the
+ * same number cannot both pass. Otherwise "too_many_upcoming" (count = the limit).
  */
 
 const listingSelect = {
@@ -262,6 +273,11 @@ export type CreateBookingParams = StayParams & {
   alerts?: AlertEnvironment;
   now?: Date;
   /**
+   * One booking attempt from the review page (a random key it makes per stay, 16-64 URL-safe
+   * characters). The same key again from the same guest returns the booking already made.
+   */
+  idempotencyKey?: string | null;
+  /**
    * What the review page showed the guest. When given and the listing's terms have changed since,
    * the booking is refused with "terms_changed" so the guest sees the new terms first.
    */
@@ -279,7 +295,54 @@ export type CreatedBooking = {
   nights: number;
   total: number;
   currency: CurrencyCode;
+  /**
+   * True when this was a repeat of an attempt that had already made the booking (the same
+   * idempotency key): nothing new was created, and no alert or confirmation is sent again.
+   */
+  repeated?: boolean;
 };
+
+/** The booking an earlier attempt with this key made, as createBooking returns it (or null). */
+async function bookingForAttempt(client: Client, guestUserId: string, idempotencyKey: string, params: StayParams): Promise<CreatedBooking | null> {
+  const row = await client.booking.findUnique({
+    where: { guestUserId_idempotencyKey: { guestUserId, idempotencyKey } },
+    select: { id: true, code: true, listingId: true, checkIn: true, checkOut: true, nights: true, total: true, currency: true, roomTypeId: true, rooms: true },
+  });
+  if (!row) return null;
+  // The same key for another stay is not a repeat: a broken or replayed request.
+  const sameStay =
+    row.listingId === params.listingId &&
+    dateToDay(row.checkIn) === params.checkIn &&
+    dateToDay(row.checkOut) === params.checkOut &&
+    (row.roomTypeId ?? null) === (params.roomTypeId ?? null) &&
+    (!row.roomTypeId || row.rooms === Math.max(1, params.rooms ?? 1));
+  if (!sameStay) throw new BookingError("request_reused");
+  return {
+    id: row.id,
+    code: row.code,
+    listingId: row.listingId,
+    checkIn: dateToDay(row.checkIn),
+    checkOut: dateToDay(row.checkOut),
+    nights: row.nights,
+    total: toNumber(row.total) ?? 0,
+    currency: row.currency,
+    repeated: true,
+  };
+}
+
+/**
+ * The guest's upcoming bookings: confirmed and not checked out yet, made with this verified number
+ * (by any account) or by this account (founder's decision 8).
+ */
+export async function countUpcomingBookings(client: Client, guestUserId: string, verifiedPhone: string, now: Date = new Date()): Promise<number> {
+  return client.booking.count({
+    where: {
+      status: "CONFIRMED",
+      checkOut: { gt: dayToDate(tbilisiToday(now)) },
+      OR: [{ guestPhone: verifiedPhone }, { guestUserId }],
+    },
+  });
+}
 
 const CREATE_LIMIT = { limit: 8, windowSeconds: 3600 };
 const CODE_ATTEMPTS = 5;
@@ -392,6 +455,14 @@ export async function createBooking(params: CreateBookingParams): Promise<Create
     throw new BookingError("phone_not_verified");
   }
 
+  // A repeat of an attempt that already made its booking (a double tap, a retry after a lost
+  // answer): the same booking, before any limit or alert counts it again.
+  const attemptKey = params.idempotencyKey?.trim() || null;
+  if (attemptKey) {
+    const earlier = await bookingForAttempt(db, guest.id, attemptKey, params);
+    if (earlier) return earlier;
+  }
+
   const listing = await loadListing(params.listingId, params);
   if (!listing || listing.deletedAt) throw new BookingError("not_bookable");
   if (listing.ownerId === guest.id) throw new BookingError("own_listing");
@@ -450,7 +521,19 @@ export async function createBooking(params: CreateBookingParams): Promise<Create
 
   const created = await retryOnCodeCollision(() =>
     db.$transaction(
-      async (tx) => {
+      async (tx): Promise<CreatedBooking> => {
+        // Serialises this guest's bookings and every booking with this number (any listing), in
+        // this order, before the listing: the repeat check and the upcoming-bookings cap below see
+        // every booking committed before them (founder's decision 8; SECURITY_REPORT 4.5.c).
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`booking:guest:${guest.id}`}))`;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`booking:phone:${verifiedPhone}`}))`;
+        if (attemptKey) {
+          const earlier = await bookingForAttempt(tx, guest.id, attemptKey, params);
+          if (earlier) return earlier;
+        }
+        if ((await countUpcomingBookings(tx, guest.id, verifiedPhone, now)) >= MAX_UPCOMING_BOOKINGS_PER_PHONE) {
+          throw new BookingError("too_many_upcoming", { count: MAX_UPCOMING_BOOKINGS_PER_PHONE });
+        }
         // Serialises bookings of this listing: a concurrent booking waits here until we commit.
         await tx.$queryRaw`SELECT "id" FROM "Listing" WHERE "id" = ${listing.id} FOR UPDATE`;
         // Hotels: the room type's row too, before its rooms are counted (founder's answer 3).
@@ -482,6 +565,7 @@ export async function createBooking(params: CreateBookingParams): Promise<Create
         const booking = await tx.booking.create({
           data: {
             code: await freshCode(tx),
+            idempotencyKey: attemptKey,
             listingId: locked.id,
             guestUserId: guest.id,
             hostUserId: locked.ownerId,
@@ -546,6 +630,9 @@ export async function createBooking(params: CreateBookingParams): Promise<Create
       { maxWait: 10_000, timeout: 15_000 },
     ),
   );
+
+  // A repeat that met the first attempt's booking inside the lock: that attempt alerts the host.
+  if (created.repeated) return created;
 
   // The host first: the booking stands only once one of their alert channels accepted the alert.
   await confirmWithHostAlert(created, {

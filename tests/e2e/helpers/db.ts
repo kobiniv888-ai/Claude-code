@@ -158,7 +158,8 @@ export async function createTestListing(opts: TestListingOptions): Promise<{ id:
   await sql(
     `INSERT INTO "Listing" (${names.map((n) => `"${n}"`).join(", ")})
      SELECT ${select.join(", ")} FROM "Listing" WHERE id = $10`,
-    [id, ownerId, status, title, description, city.id, city.lat, city.lng, newId(), source.id],
+    // icalToken: 256-bit and URL-safe like newIcalToken() (src/lib/listing/ical-token.ts).
+    [id, ownerId, status, title, description, city.id, city.lat, city.lng, randomBytes(32).toString("base64url"), source.id],
   );
   for (let i = 0; i < photos; i += 1) {
     await sql(
@@ -313,7 +314,12 @@ export async function cleanupTestData(opts: { since?: Date } = {}) {
   await sql(`DELETE FROM "PrivateUpload" WHERE "userId" = ANY($1)`, [userIds]);
   await sql(`DELETE FROM "ContactClick" WHERE "userId" = ANY($1)`, [userIds]);
   await sql(`DELETE FROM "EmailOutbox" WHERE "to" = ANY($1) OR "to" LIKE $2`, [users.map((u) => u.email), `%@${TEST_EMAIL_DOMAIN}`]);
-  await sql(`DELETE FROM "Verification" WHERE identifier LIKE $1 OR identifier LIKE $2`, [`${TEST_PHONE_PREFIX}%`, `%@${TEST_EMAIL_DOMAIN}`]);
+  // Phone codes are stored as "phone-number-otp-<phone>" since better-auth 1.7.16 (plain "<phone>" before).
+  await sql(`DELETE FROM "Verification" WHERE identifier LIKE $1 OR identifier LIKE $2 OR identifier LIKE $3`, [
+    `${TEST_PHONE_PREFIX}%`,
+    `phone-number-otp-${TEST_PHONE_PREFIX}%`,
+    `%@${TEST_EMAIL_DOMAIN}`,
+  ]);
   // 2-step login rows of test accounts (the test admin's last accepted code, a pending set-up).
   await sql(`DELETE FROM "Verification" WHERE identifier = ANY($1)`, [userIds.flatMap((id) => [`totp-last:${id}`, `totp-enroll:${id}`])]);
   await sql(`DELETE FROM "Listing" WHERE id = ANY($1)`, [listingIds]);

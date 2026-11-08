@@ -25,13 +25,17 @@
 import { locales } from "@/config/site";
 import { BOOKING_CODE_ALPHABET, BOOKING_CODE_LENGTH, BOOKING_CODE_PREFIX } from "@/lib/booking/constants";
 import { addDays } from "@/lib/booking/dates";
+import { REVEAL_DAYS_AFTER_CHECKOUT } from "@/lib/booking/policy";
 
 /** Cache Storage name (not versioned: public/sw.js keeps it when it updates its own cache). */
 export const OFFLINE_TRIPS_CACHE = "bayit-trips";
 /** The index of saved trips inside that cache (never requested from the server). */
 export const OFFLINE_TRIPS_INDEX = "/offline-trips.json";
-/** Days after check-out a saved copy is kept. */
-export const OFFLINE_KEEP_DAYS_AFTER_CHECKOUT = 7;
+/**
+ * Days after check-out a saved copy is kept: the same window as the exact address on the page
+ * (security checklist 6.f, REVEAL_DAYS_AFTER_CHECKOUT in src/lib/booking/policy.ts).
+ */
+export const OFFLINE_KEEP_DAYS_AFTER_CHECKOUT = REVEAL_DAYS_AFTER_CHECKOUT;
 /** At most this many static files are saved with a page. */
 export const OFFLINE_MAX_ASSETS = 150;
 

@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 export type CarouselPhoto = { url: string; alt: string; blurDataUrl?: string };
 
 /**
- * Photos that go through next/image's optimizer (AVIF/WebP at the right width): our own files
+ * Photos that go through next/image's optimizer (WebP at the right width): our own files
  * in public/ and the stock-photo CDN. Uploaded listing media is already resized WebP.
  */
 export function isOptimizableImage(url: string): boolean {

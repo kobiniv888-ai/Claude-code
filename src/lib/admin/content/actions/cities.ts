@@ -4,7 +4,7 @@ import { randomBytes } from "node:crypto";
 import sharp from "sharp";
 import { z } from "zod";
 import { fail, ok, type ActionResult } from "@/lib/action";
-import { audit } from "@/lib/audit";
+import { audit, auditOrThrow } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { validateImage } from "@/lib/images";
 import { buildSearchText } from "@/lib/search-text";
@@ -94,9 +94,12 @@ export async function deleteCity(input: unknown): Promise<ActionResult> {
     });
     if (!city) throw new ContentActionError("item_not_found", 404);
     if (city._count.listings > 0) throw new ContentActionError("city_in_use");
-    await db.city.delete({ where: { id: city.id } });
+    // Q13: the delete and its audit row commit together; the photo goes only after that.
+    await db.$transaction(async (tx) => {
+      await tx.city.delete({ where: { id: city.id } });
+      await auditOrThrow({ actorId: staff.id, action: "city.delete", targetType: "City", targetId: city.id, details: { slug: city.slug } }, tx);
+    });
     await removeUploadedPhoto(city.photoUrl);
-    await audit({ actorId: staff.id, action: "city.delete", targetType: "City", targetId: city.id, details: { slug: city.slug } });
     return ok();
   });
 }
@@ -148,8 +151,10 @@ export async function deleteNeighborhood(input: unknown): Promise<ActionResult> 
     });
     if (!hood) throw new ContentActionError("item_not_found", 404);
     if (hood._count.listings > 0) throw new ContentActionError("neighborhood_in_use");
-    await db.neighborhood.delete({ where: { id: hood.id } });
-    await audit({ actorId: staff.id, action: "neighborhood.delete", targetType: "Neighborhood", targetId: hood.id, details: { cityId: hood.cityId, slug: hood.slug } });
+    await db.$transaction(async (tx) => {
+      await tx.neighborhood.delete({ where: { id: hood.id } });
+      await auditOrThrow({ actorId: staff.id, action: "neighborhood.delete", targetType: "Neighborhood", targetId: hood.id, details: { cityId: hood.cityId, slug: hood.slug } }, tx);
+    });
     return ok();
   });
 }

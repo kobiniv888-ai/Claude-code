@@ -211,7 +211,8 @@ export function grantMessage(outcome: GrantOutcome, { quiet = false }: { quiet?:
     "",
     "Next: sign in on the site with this account and open /admin.",
     "2-step login is REQUIRED for the admin: the site asks you to scan a QR code with Google",
-    "Authenticator (/two-factor/setup) before the admin panel opens. Keep the backup codes safe.",
+    "Authenticator (/two-factor/setup) before the admin panel opens. It then shows 10 recovery",
+    "codes once: save them away from the phone (a password manager or paper). Each works once.",
   ];
   const noEmail = [
     "",

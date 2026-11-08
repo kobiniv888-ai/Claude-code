@@ -7,11 +7,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
   audits: [] as Record<string, unknown>[],
-  report: null as null | { reporterId: string | null; attachments: unknown; attachmentsDeletedAt: Date | null },
+  staff: { id: "staff-1", role: "ADMIN" } as { id: string; role: "ADMIN" | "MODERATOR" },
+  report: null as null | {
+    reporterId: string | null;
+    targetUserId?: string | null;
+    listing?: { ownerId: string } | null;
+    attachments: unknown;
+    attachmentsDeletedAt: Date | null;
+  },
 }));
 
 vi.mock("server-only", () => ({}));
-vi.mock("@/lib/auth/session", () => ({ requireStaffForAction: async () => ({ id: "staff-1", role: "ADMIN" }) }));
+vi.mock("@/lib/auth/session", () => ({ requireStaffForAction: async () => state.staff }));
 vi.mock("@/lib/rate-limit", () => ({
   rateLimit: async () => ({ ok: true, remaining: 1, resetAt: new Date() }),
   rateLimitHeaders: () => ({}),
@@ -33,6 +40,7 @@ function open(reportId: string, index: string) {
 describe("GET /api/admin/reports/[reportId]/[index]", () => {
   beforeEach(() => {
     state.audits.length = 0;
+    state.staff = { id: "staff-1", role: "ADMIN" };
     state.report = { reporterId: "guest-1", attachments: [{ key: KEY, mime: "image/jpeg", bytes: 10, name: "a.jpg" }], attachmentsDeletedAt: null };
   });
 
@@ -48,5 +56,20 @@ describe("GET /api/admin/reports/[reportId]/[index]", () => {
     state.report = null;
     expect((await open("report-1", "0")).status).toBe(404);
     expect(state.audits).toEqual([]);
+  });
+
+  it("staff other than an ADMIN never open the screenshots of a report about them or sent by them (SECURITY_REPORT 4.3.d)", async () => {
+    state.staff = { id: "mod-1", role: "MODERATOR" };
+    for (const own of [{ targetUserId: "mod-1" }, { listing: { ownerId: "mod-1" } }, { reporterId: "mod-1" }]) {
+      state.report = { reporterId: "guest-1", attachments: [{ key: KEY, mime: "image/jpeg", bytes: 10, name: "a.jpg" }], attachmentsDeletedAt: null, ...own };
+      expect((await open("report-1", "0")).status, JSON.stringify(own)).toBe(404);
+    }
+    expect(state.audits).toEqual([]);
+    // Someone else's report: served as usual.
+    state.report = { reporterId: "guest-1", targetUserId: "host-1", attachments: [{ key: KEY, mime: "image/jpeg", bytes: 10, name: "a.jpg" }], attachmentsDeletedAt: null };
+    expect((await open("report-1", "0")).status).toBe(200);
+    // An ADMIN may (audited): the founder is the only admin and may be a host too.
+    state.staff = { id: "host-1", role: "ADMIN" };
+    expect((await open("report-1", "0")).status).toBe(200);
   });
 });

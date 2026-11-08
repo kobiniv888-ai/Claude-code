@@ -119,9 +119,11 @@ order. The detailed steps and prices are in "Login & messages" below.
       `https://api.telegram.org/botTOKEN/setWebhook?url=https://DOMAIN/api/webhooks/telegram&secret_token=SECRET`.
       It should answer `"ok":true`. Until the token is set, Telegram shows "בקרוב" in the hosts'
       alert settings and alerts go by email.
-      **Browser notifications** need no account: the codespace made a free key pair
-      (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` in `.env`). Copy the same two values to the
-      hosting's settings and never change them (phones that turned notifications on would stop
+      **Browser notifications** need no account: make a NEW free key pair for the real site
+      (`npx web-push generate-vapid-keys`) and put `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` in the
+      hosting's settings. Never copy the codespace's pair (development and production keep
+      separate keys, SECURITY_REPORT 12.2.b); nobody has subscribed yet, so nothing breaks. After
+      launch, keep the real site's pair for good (phones that turned notifications on would stop
       getting them).
 - [ ] **CARTO map key.** Confirm it is registered for commercial use (free up to 1 million tiles a
       month; check the current terms), then add it as the Codespaces secret

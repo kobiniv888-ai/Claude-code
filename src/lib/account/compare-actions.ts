@@ -20,6 +20,7 @@ import { photoUrl } from "@/lib/media";
 import { assertRateLimit } from "@/lib/rate-limit";
 import { getSettings } from "@/lib/settings";
 import { displayAmenities } from "@/lib/geo/walk-towns";
+import { publicWalkMinutes } from "@/lib/geo/public-walk";
 
 export type CompareItem = {
   publicId: number;
@@ -169,8 +170,9 @@ export async function getCompareItems(publicIds: unknown): Promise<ActionResult<
             shabbatFriendly: row.isShabbatFriendly,
             kitchenKosher: row.kitchenKosher,
             kosherCertName: row.kosherCertName?.trim() || null,
-            synagogueWalkMin: row.synagogueWalkMin,
-            chabadWalkMin: row.chabadWalkMin,
+            // Security checklist 6.d: rounded up to 5 minutes (src/lib/geo/public-walk.ts).
+            synagogueWalkMin: publicWalkMinutes(row.synagogueWalkMin),
+            chabadWalkMin: publicWalkMinutes(row.chabadWalkMin),
             features: [...row.shabbatFeatures.map((f) => `shabbat:${f}`), ...row.jewishFeatures.map((f) => `jewish:${f}`), ...row.hotelJewishFeatures.map((f) => `hotel:${f}`)],
           },
           // Brief 7.3: with a pin, the computed walk replaces the host's "Near the sea" tick.

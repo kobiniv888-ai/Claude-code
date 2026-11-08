@@ -20,7 +20,7 @@ import type {
   ViewType,
 } from "@/generated/prisma/enums";
 import type { ContactChannelKey } from "@/lib/listing/fields";
-import type { NearbyInfo } from "@/lib/nearby";
+import type { PublicNearbyInfo } from "@/lib/geo/public-walk";
 
 export type PagePhoto = {
   id: string;
@@ -160,7 +160,8 @@ export type ListingPageData = {
    */
   seaWalkMinutes?: number | null;
   liftWalkMinutes?: number | null;
-  nearby: NearbyInfo;
+  /** Listing.nearby reduced by publicNearby (walks rounded up to 5 minutes, no meters). */
+  nearby: PublicNearbyInfo;
 
   deposit: number | null;
   cleaningFee: number | null;

@@ -151,10 +151,13 @@ export async function openAsTestUser(browser: Browser, user: { id: string }) {
   const value = encodeURIComponent(`${token}.${createHmac("sha256", secret).update(token).digest("base64")}`);
   const opened = await openAs(browser, null);
   const url = new URL(use.baseURL ?? "http://localhost");
-  // Production (`next start`) uses secure cookies, named "__Secure-…" (localhost counts as secure).
+  // The login cookie's name (src/lib/auth/session-cookies.ts): "__Host-bayit.session_token" wherever
+  // cookies are Secure (production builds, https; localhost counts as secure), else
+  // "bayit.session_token" (`next dev` on http). Chromium's CDP refuses a "__Host-" cookie given by
+  // URL on http://localhost, and takes it with domain + path (stored host-only, as the server sets it).
   await opened.context.addCookies([
-    { name: "better-auth.session_token", value, domain: url.hostname, path: "/", httpOnly: true, sameSite: "Lax" },
-    { name: "__Secure-better-auth.session_token", value, domain: url.hostname, path: "/", httpOnly: true, secure: true, sameSite: "Lax" },
+    { name: "bayit.session_token", value, domain: url.hostname, path: "/", httpOnly: true, sameSite: "Lax" },
+    { name: "__Host-bayit.session_token", value, domain: url.hostname, path: "/", httpOnly: true, secure: true, sameSite: "Lax" },
   ]);
   return opened;
 }

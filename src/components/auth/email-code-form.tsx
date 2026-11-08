@@ -8,15 +8,16 @@ import { Turnstile, type TurnstileHandle } from "@/components/common/turnstile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/auth/client";
-import { authErrorKey, type AuthErrorKey } from "@/lib/auth/error-codes";
+import { authErrorKey, authFailure, type AuthErrorKey, type AuthFailure } from "@/lib/auth/error-codes";
 import { cn } from "@/lib/utils";
 import { CodeStep, useResendTimer } from "./code-step";
 import { DevHint } from "./phone-code-form";
-import { useAuthDevHint, useAuthErrorMessage } from "./use-auth-messages";
+import { useAuthDevHint, useAuthErrorMessage, useAuthFailureMessage } from "./use-auth-messages";
 
 /**
  * Email → 6-digit code (Better Auth email OTP). Signs in, or creates the account on first use.
- * The code is emailed (Resend); in development / test mode it is also shown in the form.
+ * The code is emailed (Resend); in test mode it is also shown in the form. The waits between codes
+ * and the daily caps are the SERVER's (src/lib/auth/code-rules.ts); the form shows them.
  */
 
 const EMAIL_PATTERN = /^[^\s@<>()[\]\\,;:"]+@[^\s@<>()[\]\\,;:"]+\.[^\s@<>()[\]\\,;:"]+$/;
@@ -38,6 +39,7 @@ export function EmailCodeForm({
   const t = useTranslations("auth.email");
   const tCodes = useTranslations("auth.codes");
   const errorMessage = useAuthErrorMessage();
+  const failureMessage = useAuthFailureMessage();
   const devHint = useAuthDevHint();
   const id = useId();
 
@@ -50,7 +52,7 @@ export function EmailCodeForm({
   const [emailError, setEmailError] = useState<string | null>(null);
   const [emailErrorKey, setEmailErrorKey] = useState<AuthErrorKey | null>(null);
   const [code, setCode] = useState("");
-  const [codeError, setCodeError] = useState<AuthErrorKey | null>(null);
+  const [codeError, setCodeError] = useState<AuthFailure | null>(null);
   const [pending, setPending] = useState<"send" | "verify" | "resend" | null>(null);
   const timer = useResendTimer();
   const [notice, setNotice] = useState<string | null>(null);
@@ -73,7 +75,7 @@ export function EmailCodeForm({
     }
   }
 
-  async function sendCode(value: string): Promise<AuthErrorKey | null> {
+  async function sendCode(value: string): Promise<AuthFailure | null> {
     const token = captchaToken;
     setCaptchaToken(null);
     captcha.current?.reset();
@@ -82,7 +84,16 @@ export function EmailCodeForm({
       type: "sign-in",
       fetchOptions: token ? { headers: { "x-captcha-response": token } } : undefined,
     });
-    return error ? authErrorKey(error) : null;
+    return error ? authFailure(error) : null;
+  }
+
+  /** The code step, after a code was sent now or a moment ago. */
+  async function showCodeStep(notice: string | null) {
+    setStep("code");
+    setCode("");
+    setCodeError(null);
+    setNotice(notice);
+    setScreenCode(await fetchScreenCode(address));
   }
 
   async function onSubmitEmail(event: FormEvent) {
@@ -97,16 +108,18 @@ export function EmailCodeForm({
     const error = await sendCode(address);
     setPending(null);
     if (error) {
-      setEmailError(errorMessage(error));
-      setEmailErrorKey(error);
+      // A code went to this address a moment ago (the server's wait): it still works, so ask for it.
+      if (error.key === "code_wait" && error.retryAfter) {
+        timer.waitFor(error.retryAfter);
+        await showCodeStep(tCodes("alreadySent"));
+        return;
+      }
+      setEmailError(failureMessage(error));
+      setEmailErrorKey(error.key as AuthErrorKey);
       return;
     }
-    setStep("code");
-    setCode("");
-    setCodeError(null);
-    setNotice(null);
-    setScreenCode(await fetchScreenCode(address));
     timer.restart();
+    await showCodeStep(null);
   }
 
   async function verify(value: string) {
@@ -118,7 +131,7 @@ export function EmailCodeForm({
     if (error) {
       setPending(null);
       const key = authErrorKey(error);
-      setCodeError(key);
+      setCodeError({ key, retryAfter: null });
       setCode("");
       if (key === "too_many_attempts" || key === "code_expired") timer.allowNow();
       return;
@@ -138,6 +151,11 @@ export function EmailCodeForm({
     const error = await sendCode(address);
     setPending(null);
     if (error) {
+      // The server's wait: the countdown shows it (no error text needed).
+      if (error.key === "code_wait" && error.retryAfter) {
+        timer.waitFor(error.retryAfter);
+        return;
+      }
       setCodeError(error);
       return;
     }
@@ -223,8 +241,8 @@ export function EmailCodeForm({
           onVerify={(value) => void verify(value)}
           verifying={pending === "verify"}
           resending={pending === "resend"}
-          error={errorMessage(codeError)}
-          extra={<DevHint text={devHint(codeError)} />}
+          error={failureMessage(codeError)}
+          extra={<DevHint text={devHint(codeError?.key)} />}
           notice={notice}
           screenCode={screenCode}
           backLabel={t("change")}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { useLocale, useTranslations } from "next-intl";
 import {
@@ -28,6 +28,8 @@ import { usesRoomInventory } from "@/lib/booking/constants";
 import type { FreeSegment } from "@/lib/booking/room-availability";
 import { useRouter } from "@/i18n/navigation";
 import { createBookingAction, quoteBookingAction } from "@/lib/booking/actions";
+import { newAttemptKey } from "@/lib/booking/attempt-key";
+import { MAX_UPCOMING_BOOKINGS_PER_PHONE } from "@/lib/booking/guest-flags";
 import { GUEST_NAME_MAX, MAX_STAY_NIGHTS, MESSAGE_TO_HOST_MAX, type PaymentMethod } from "@/lib/booking/constants";
 import { isBookingErrorCode } from "@/lib/booking/errors";
 import { clampGuests, clockText, countedGuests, guestLimit, quoteGuestStay, type BookRequest } from "@/lib/booking/guest";
@@ -247,6 +249,9 @@ function ReviewForm({
   // None of the host's alert channels accepted the booking alert: the booking was undone (round 3).
   const [unreachable, setUnreachable] = useState(false);
   const [pending, startTransition] = useTransition();
+  // One attempt key per stay (SECURITY_REPORT 4.5.c): every tap for the same stay sends the same
+  // key, so a double tap or a retry gets the booking already made instead of a second one.
+  const attemptKeys = useRef(new Map<string, string>());
   const phoneBlocked = !!user && !phone && !phoneConfig.available;
 
   const errorText = (code: string) => {
@@ -260,7 +265,9 @@ function ReviewForm({
         ? Math.max(1, terms.minStayNights ?? 1)
         : code === "too_many_guests"
           ? guestLimit(roomPicker?.room ? roomPicker.guestLimit : maxGuests)
-          : MAX_STAY_NIGHTS;
+          : code === "too_many_upcoming"
+            ? MAX_UPCOMING_BOOKINGS_PER_PHONE
+            : MAX_STAY_NIGHTS;
     return t(`errors.${code}`, { count });
   };
   const stayError = !local.ok && local.error !== "no_dates" ? local.error : (confirmed?.error ?? null);
@@ -293,6 +300,11 @@ function ReviewForm({
     }
     setTakenFor(null);
     setUnreachable(false);
+    let idempotencyKey = attemptKeys.current.get(stayKey);
+    if (!idempotencyKey) {
+      idempotencyKey = newAttemptKey();
+      attemptKeys.current.set(stayKey, idempotencyKey);
+    }
     startTransition(async () => {
       const result = await createBookingAction({
         listingId: terms.id,
@@ -309,6 +321,7 @@ function ReviewForm({
         expectedTotal: quote?.total,
         expectedCurrency: quote?.currency,
         expectedPolicy: terms.cancellationPolicy,
+        idempotencyKey,
       }).catch(() => ({ ok: false as const, error: "server_error" }));
       if (result.ok) {
         router.push(`${result.data.path}?booked=1`);
@@ -650,6 +663,8 @@ function ReviewForm({
                       <p className="text-caption text-muted-foreground">{t("review.phoneHint")}</p>
                       <PhoneCheck
                         config={phoneConfig}
+                        place="booking"
+                        listingId={terms.id}
                         verifiedPhone={user.verifiedPhone}
                         onVerified={(value) => {
                           setPhone(value);

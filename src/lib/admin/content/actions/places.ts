@@ -4,7 +4,7 @@ import { z } from "zod";
 import { DEFAULT_COUNTRY } from "@/config/countries";
 import { Prisma } from "@/generated/prisma/client";
 import { fail, ok, type ActionResult } from "@/lib/action";
-import { audit } from "@/lib/audit";
+import { audit, auditOrThrow } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { recomputeProximityNear } from "@/lib/nearby";
 import { cleanLocalized, cleanLocalizedOrNull } from "../localized";
@@ -133,15 +133,22 @@ export async function deletePlace(input: unknown): Promise<ActionResult<{ listin
       select: { id: true, lat: true, lng: true, type: true, names: true, isDemo: true },
     });
     if (!place) throw new ContentActionError("item_not_found", 404);
-    await db.jewishPlace.delete({ where: { id: place.id } });
-    const listingsUpdated = await recompute([place]);
-    await audit({
-      actorId: staff.id,
-      action: "place.delete",
-      targetType: "JewishPlace",
-      targetId: place.id,
-      details: { type: place.type, names: place.names, isDemo: place.isDemo, listingsUpdated },
+    // Q13: the delete and its audit row commit together, or not at all; the walking distances of
+    // nearby listings are worked out again after that.
+    await db.$transaction(async (tx) => {
+      await tx.jewishPlace.delete({ where: { id: place.id } });
+      await auditOrThrow(
+        {
+          actorId: staff.id,
+          action: "place.delete",
+          targetType: "JewishPlace",
+          targetId: place.id,
+          details: { type: place.type, names: place.names, isDemo: place.isDemo },
+        },
+        tx,
+      );
     });
+    const listingsUpdated = await recompute([place]);
     return ok({ listingsUpdated });
   });
 }

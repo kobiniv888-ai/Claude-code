@@ -12,10 +12,10 @@ process.env.CRON_SECRET ||= "e2e-only-cron-secret";
  *
  * The tests run against a development server on port 3601 with its own build folder, so they can
  * run next to `npm run dev`. An already running server on that port is reused, so the same tests
- * run in PRODUCTION mode against a `next start` with `AUTH_TEST_MODE=true` on that port (or on
- * `E2E_PORT`, see README → "End-to-end tests"). The server needs the local database (with
- * `npm run db:seed`) and the login codes on screen (development or test mode, no Twilio,
- * `GET /api/dev/last-otp`). Staff tests use real 2-step login: the global setup creates a test
+ * run in PRODUCTION mode against a `next start` with `SITE_ENV=development AUTH_TEST_MODE=true` on
+ * that port (or on `E2E_PORT`, see README → "End-to-end tests"). The server needs the local
+ * database (with `npm run db:seed`) and the login codes on screen (test mode: AUTH_TEST_MODE=true
+ * on a development site, no Twilio, `GET /api/dev/last-otp`). Staff tests use real 2-step login: the global setup creates a test
  * admin with an authenticator secret and the tests compute its codes (tests/e2e/helpers/staff.ts).
  */
 const PORT = E2E_PORT;
@@ -71,6 +71,9 @@ export default defineConfig({
     stderr: "pipe",
     env: {
       NEXT_DIST_DIR: `.next-${PORT}`,
+      // A development site in test mode (src/lib/site-env.ts): login codes on screen for the tests.
+      SITE_ENV: "development",
+      AUTH_TEST_MODE: "true",
       // Better Auth only trusts its own origin: point it at this port.
       BETTER_AUTH_URL: baseURL,
       NEXT_PUBLIC_SITE_URL: baseURL,

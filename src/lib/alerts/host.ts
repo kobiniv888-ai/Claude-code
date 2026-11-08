@@ -46,9 +46,9 @@ import { isTelegramConfigured, sendTelegramMessage } from "./telegram";
  * told on every channel left, and the founder too. A later successful send clears it.
  */
 
-/** Where the code runs. Without headers: development counts for email, production not. */
+/** Where the code runs. Without headers (a job): test mode on a development/staging site counts the outbox, the real site never. */
 export function alertEnvironment(requestHeaders?: Pick<Headers, "get"> | null): AlertEnvironment {
-  const mode = requestHeaders ? codeDisplayForHeaders(requestHeaders) : codeDisplayMode(process.env as CodeDisplayEnv, []);
+  const mode = requestHeaders ? codeDisplayForHeaders(requestHeaders) : codeDisplayMode(process.env as CodeDisplayEnv, null);
   return { resend: isEmailDeliveryConfigured(), outboxCounts: mode !== null, telegram: isTelegramConfigured(), push: isPushConfigured() };
 }
 
@@ -273,7 +273,7 @@ export async function reportChannelFailure(input: ChannelFailureInput): Promise<
     await textHostPaused(updated, notice).catch(() => undefined);
   }
   if (input.tellFounder !== false) {
-    const quota = await rateLimit(`alert:channel-paused:${host.id}:${input.channel}`, { limit: FOUNDER_ALERTS_PER_DAY, windowSeconds: 24 * 3600 }).catch(() => ({ ok: true }));
+    const quota = await rateLimit(`alert:channel-paused:${host.id}:${input.channel}`, { limit: FOUNDER_ALERTS_PER_DAY, windowSeconds: 24 * 3600, failOpen: true }).catch(() => ({ ok: true }));
     if (quota.ok) {
       await sendFounderAlert({
         kind: "host_channel_paused",

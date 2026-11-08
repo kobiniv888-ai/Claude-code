@@ -7,7 +7,9 @@ import { formatPhoneNumberIntl } from "react-phone-number-input/input";
 import { Ltr } from "@/components/common/ltr";
 import { Button } from "@/components/ui/button";
 import type { LoginConfig } from "@/lib/auth/config";
+import type { PhoneCheckPlace } from "@/lib/auth/phone-check-policy";
 import { PhoneCodeForm } from "./phone-code-form";
+import { useFreshProof } from "./use-fresh-proof";
 
 /**
  * "Verify your phone" — reusable (founder request, round 2): a guest making a booking, and a host
@@ -18,6 +20,7 @@ import { PhoneCodeForm } from "./phone-code-form";
  *   const config = await getLoginConfig(locale);          // server component
  *   <PhoneCheck
  *     config={config.phone}
+ *     place="booking" listingId={listing.id}               // where the check happens (the server checks it)
  *     verifiedPhone={user.phoneNumberVerified ? user.phoneNumber : null}
  *     onVerified={(phone) => setGuestPhone(phone)}         // E.164, also called for a re-chosen verified number
  *   />
@@ -33,8 +36,13 @@ export function PhoneCheck({
   onVerified,
   onChangeStart,
   autoFocus,
+  place,
+  listingId,
 }: {
   config: LoginConfig["phone"];
+  /** Where the check happens: a guest's booking (with `listingId`), the post form, or a host's account. */
+  place: PhoneCheckPlace;
+  listingId?: string | null;
   /** The account's verified number (E.164), if it has one. */
   verifiedPhone: string | null;
   onVerified?: (phoneNumber: string) => void | Promise<void>;
@@ -45,6 +53,8 @@ export function PhoneCheck({
   const t = useTranslations("auth.verifyPhone");
   const [verified, setVerified] = useState<string | null>(verifiedPhone);
   const [changing, setChanging] = useState(false);
+  // Replacing a verified number needs a fresh code first (SECURITY_REPORT 3.6.a; the server checks).
+  const proof = useFreshProof();
 
   if (verified && !changing) {
     return (
@@ -62,13 +72,15 @@ export function PhoneCheck({
           type="button"
           variant="link"
           className="min-h-tap h-auto max-w-full px-0 whitespace-normal text-start"
-          onClick={() => {
+          onClick={async () => {
+            if (!(await proof.ask())) return;
             setChanging(true);
             onChangeStart?.();
           }}
         >
           {t("useAnother")}
         </Button>
+        {proof.dialog}
       </div>
     );
   }
@@ -90,6 +102,8 @@ export function PhoneCheck({
       <PhoneCodeForm
         purpose="check"
         config={config}
+        place={place}
+        listingId={listingId}
         autoFocus={autoFocus}
         onVerified={async (phoneNumber) => {
           setVerified(phoneNumber);

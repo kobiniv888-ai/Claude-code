@@ -109,16 +109,15 @@ a plain background) and show **"Map key missing"**.
 3. In the CARTO dashboard, limit the key to your addresses: your production domain (for example
    `bayit.example`) and `*.app.github.dev` (codespaces). Then nobody else can use your key.
 
-**Give it to the codespace — either way works:**
-* **Codespaces secret (recommended, survives new codespaces):** github.com → your avatar →
-  **Settings → Codespaces → Secrets → New secret**. Name: `NEXT_PUBLIC_MAP_TILE_KEY`, value: the
-  key, repository: this one. Restart the codespace (or run `bash .devcontainer/start.sh`): the key
-  is copied into `.env` automatically.
-* **Directly in `.env`:** open `.env` in the codespace editor, set
-  `NEXT_PUBLIC_MAP_TILE_KEY="…"`, save, then restart the website:
-  `bash .devcontainer/start-prod.sh` (or `bash .devcontainer/start.sh --dev`).
+**Give it to the codespace as a Codespaces secret** (survives new codespaces): github.com → your
+avatar → **Settings → Codespaces → Secrets → New secret**. Name: `NEXT_PUBLIC_MAP_TILE_KEY`, value:
+the key, repository: this one. Restart the codespace (or run `bash .devcontainer/start-prod.sh`):
+the website reads it from the codespace's environment, and the fast version rebuilds by itself.
+Real keys are never written into `.env` (SECURITY_REPORT 2.3.h): `.env` keeps only throwaway
+development keys, and `.devcontainer/env-sync.sh` removes old copies of secrets from it.
 
-On Vercel, add the same variable under **Settings → Environment Variables** and redeploy.
+On the hosting, add the variable under its environment settings (Vercel: **Settings →
+Environment Variables**) and redeploy.
 
 ## Other keys (translation, email, Google login, SMS)
 

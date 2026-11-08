@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { deleteExpiredReportScreenshots } from "@/lib/reports/retention";
 import { reconcileReviewCounters } from "@/lib/reviews/reconcile";
 import { translateMissingReviews } from "@/lib/reviews/translate";
+import { purgeOldSecurityEvents } from "@/lib/security/events";
 import { deletePrivate, isValidStorageKey } from "@/lib/storage";
 import { deletePhotosOfDeletedListings, deleteUnattachedPrivateUploads } from "@/lib/storage/cleanup";
 import { isAuthorizedCron, runCronJob, runCronSteps, unauthorized } from "../auth";
@@ -20,7 +21,8 @@ import { isAuthorizedCron, runCronJob, runCronSteps, unauthorized } from "../aut
  * - deletes the screenshots of reports decided more than 180 days ago and sets
  *   attachmentsDeletedAt (round 3, brief 8.2; see @/lib/reports/retention);
  * - repairs listings' review counters that drifted from their visible reviews (a hard-deleted
- *   account cascades its reviews; @/lib/reviews/reconcile).
+ *   account cascades its reviews; @/lib/reviews/reconcile);
+ * - deletes security events older than 90 days (@/lib/security/events).
  * Each step runs on its own: one that fails is logged, reported and answered as
  * `{ error: "failed" }` (the job answers 500), and the steps after it still run.
  */
@@ -84,6 +86,8 @@ export async function GET(request: Request) {
       reviewCounters: () => reconcileReviewCounters(),
       // Reviews and replies whose translation was missed (no key yet, a failed call): retried daily, capped.
       reviewTranslations: () => translateMissingReviews(),
+      // The security event log keeps 90 days (SECURITY_REPORT 16.2, D6; founder's answer Q20).
+      securityEvents: () => purgeOldSecurityEvents(now),
     });
   });
 }

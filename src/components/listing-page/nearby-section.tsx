@@ -4,12 +4,12 @@ import { SpriteIcon } from "@/components/ds/sprite-icons";
 import type { SpriteIconName } from "@/components/ds/sprite-icons.generated";
 import { pickLocalized } from "@/i18n/locale";
 import { formatNumber } from "@/lib/format";
-import type { NearbyInfo } from "@/lib/nearby";
+import type { PublicNearbyInfo } from "@/lib/geo/public-walk";
 import { namedAirport } from "@/lib/nearby-airports";
 
 type Row = { key: string; icon: SpriteIconName; label: string; name: string | null; value: string };
 
-const TRANSPORT_ICON: Record<NonNullable<NearbyInfo["transport"]>["kind"], SpriteIconName> = {
+const TRANSPORT_ICON: Record<NonNullable<PublicNearbyInfo["transport"]>["kind"], SpriteIconName> = {
   metro: "train-front",
   train: "train-front",
   tram: "tram-front",
@@ -22,7 +22,7 @@ const TRANSPORT_ICON: Record<NonNullable<NearbyInfo["transport"]>["kind"], Sprit
  * Synagogues and kosher places are not repeated here: the nearest verified synagogue is in the
  * folded "Kosher and Shabbat" section (each place once).
  */
-export function NearbyList({ nearby }: { nearby: NearbyInfo }) {
+export function NearbyList({ nearby }: { nearby: PublicNearbyInfo }) {
   const t = useTranslations("listing.nearby");
   const locale = useLocale();
   const rows: Row[] = [];

@@ -34,6 +34,8 @@ export const CONTENT_ERROR_CODES = [
   "no_phrases",
   "phrase_exists",
   "reorder_mismatch",
+  // Q13: a destructive action whose audit row could not be written was stopped (src/lib/audit.ts).
+  "audit_failed",
 ] as const;
 export type ContentErrorCode = (typeof CONTENT_ERROR_CODES)[number];
 

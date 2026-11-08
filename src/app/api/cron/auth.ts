@@ -1,6 +1,7 @@
 import "server-only";
 import { safeEqual } from "@/lib/crypto";
 import { reportError } from "@/lib/monitoring";
+import { readSiteEnv } from "@/lib/site-env";
 
 /**
  * Shared by the cron route handlers (not a route itself).
@@ -18,7 +19,8 @@ export function isAuthorizedCron(request: Request): boolean {
   }
   const header = request.headers.get("authorization") ?? "";
   if (header.startsWith("Bearer ") && safeEqual(header.slice(7).trim(), secret)) return true;
-  if (process.env.NODE_ENV === "development") {
+  // `?secret=` only on a development server of a development site (never staging or production).
+  if (process.env.NODE_ENV === "development" && readSiteEnv() === "development") {
     const query = new URL(request.url).searchParams.get("secret");
     if (query && safeEqual(query, secret)) return true;
   }

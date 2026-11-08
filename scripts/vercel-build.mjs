@@ -8,6 +8,11 @@ import { execSync } from "node:child_process";
 
 const run = (cmd) => execSync(cmd, { stdio: "inherit" });
 
+// Fail closed before building anything: the same settings check the server runs at every start
+// (src/lib/startup-check.ts; SECURITY_REPORT 2.2.j / 3.4.b). SITE_ENV and every required secret
+// must be set in the hosting's environment settings for this deployment.
+run("npx tsx scripts/check-startup-env.ts");
+
 if (process.env.DB_PUSH_ON_BUILD === "true") {
   // Lets the push add the booking index without a consent prompt (see the file; idempotent).
   run("npx prisma db execute --file prisma/sql/before-push.sql");

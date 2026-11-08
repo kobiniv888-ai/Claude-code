@@ -254,7 +254,7 @@
       "BUS": "مطار باتومي",
       "KUT": "مطار كوتايسي"
     },
-    "walk": "{count, plural, one {دقيقة سيرًا} two {دقيقتان سيرًا} few {{count} دقائق سيرًا} other {{count} دقيقة سيرًا}}",
+    "walk": "{count, plural, =5 {حتى 5 دقائق سيرًا} few {≈ {count} دقائق سيرًا} other {≈ {count} دقيقة سيرًا}}",
     "km": "{km} كم",
     "transport": {
       "metro": "محطة مترو",
@@ -295,8 +295,8 @@
     "pool": "مسبح",
     "near_sea": "قريب من البحر",
     "near_ski_lifts": "قرب مصاعد التزلج",
-    "seaWalk": "{count, plural, zero {≈ {count} دقيقة مشيًا إلى البحر} one {≈ دقيقة مشيًا إلى البحر} two {≈ دقيقتان مشيًا إلى البحر} few {≈ {count} دقائق مشيًا إلى البحر} many {≈ {count} دقيقة مشيًا إلى البحر} other {≈ {count} دقيقة مشيًا إلى البحر}}",
-    "liftWalk": "{count, plural, zero {≈ {count} دقيقة مشيًا إلى مصاعد التزلج} one {≈ دقيقة مشيًا إلى مصاعد التزلج} two {≈ دقيقتان مشيًا إلى مصاعد التزلج} few {≈ {count} دقائق مشيًا إلى مصاعد التزلج} many {≈ {count} دقيقة مشيًا إلى مصاعد التزلج} other {≈ {count} دقيقة مشيًا إلى مصاعد التزلج}}",
+    "seaWalk": "{count, plural, =5 {حتى 5 دقائق مشيًا إلى البحر} few {≈ {count} دقائق مشيًا إلى البحر} other {≈ {count} دقيقة مشيًا إلى البحر}}",
+    "liftWalk": "{count, plural, =5 {حتى 5 دقائق مشيًا إلى مصاعد التزلج} few {≈ {count} دقائق مشيًا إلى مصاعد التزلج} other {≈ {count} دقيقة مشيًا إلى مصاعد التزلج}}",
     "walkSource": "تقدير حسب خريطة OpenStreetMap",
     "yard": "فناء",
     "balcony_terrace": "شرفة أو تراس",
@@ -345,7 +345,7 @@
     },
     "nearestSynagogue": "أقرب كنيس",
     "nearestChabad": "أقرب بيت حاباد",
-    "walk": "{count, plural, zero {{count} دقيقة سيرًا} one {دقيقة واحدة سيرًا} two {دقيقتان سيرًا} few {{count} دقائق سيرًا} many {{count} دقيقة سيرًا} other {{count} دقيقة سيرًا}}",
+    "walk": "{count, plural, =5 {حتى 5 دقائق سيرًا} few {≈ {count} دقائق سيرًا} other {≈ {count} دقيقة سيرًا}}",
     "times": "مواعيد السبت في {city}"
   },
   "booking": {

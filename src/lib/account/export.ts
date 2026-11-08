@@ -117,6 +117,7 @@ export const LISTING_EXPORT_COLUMNS = {
   contactMethods: true,
   contactHoursFrom: true,
   contactHoursTo: true,
+  contactChangedAt: true,
   noReplyOnShabbat: true,
   icalToken: false, // a secret
   icalImportUrls: true,
@@ -250,6 +251,8 @@ export async function buildAccountExport(userId: string) {
     repliesWritten,
     savedLists,
     savedSearches,
+    termsAcceptances,
+    recoveryCodesLeft,
   ] = await Promise.all([
     db.user.findUniqueOrThrow({
       where: { id: userId },
@@ -453,6 +456,15 @@ export async function buildAccountExport(userId: string) {
       take: MAX_ROWS,
       select: { name: true, filters: true, active: true, lastSentAt: true, createdAt: true },
     }),
+    // Which Terms the account accepted, and the 18+ confirmation (SECURITY_REPORT D4).
+    db.termsAcceptance.findMany({
+      where: { userId },
+      orderBy: { acceptedAt: "asc" },
+      take: MAX_ROWS,
+      select: { version: true, ageConfirmed: true, acceptedAt: true },
+    }),
+    // 2-step recovery codes (D1): only how many are left, never the codes or their hashes.
+    db.twoFactorRecoveryCode.count({ where: { userId, usedAt: null } }),
   ]);
 
   const { accounts, ...profile } = user;
@@ -467,6 +479,8 @@ export async function buildAccountExport(userId: string) {
       image: profile.image ? absoluteMediaUrl(profile.image) : null,
     },
     connectedAccounts: accounts.map((a) => ({ provider: a.providerId, connectedAt: a.createdAt })),
+    termsAcceptances,
+    twoFactorRecoveryCodesLeft: recoveryCodesLeft,
     listings: listings.map(({ photos, city, neighborhood, ...listing }) => ({
       ...listing,
       city: city?.slug ?? null,

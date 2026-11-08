@@ -12,6 +12,7 @@ import { countDemoData } from "@/lib/demo";
 import { isShabbatOrHolidayNow } from "@/lib/hebcal";
 import { EMERGENCY_CONTACTS_SETTING_KEY } from "@/lib/jewish-life/emergency";
 import { getSettings } from "@/lib/settings";
+import { demoAllowed } from "@/lib/site-env";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/admin/settings">) {
   return adminContentMetadata(params, "settings");
@@ -72,6 +73,7 @@ export default async function SettingsPage({ params }: PageProps<"/[locale]/admi
             endsAt: shabbatNow?.endsAt?.toISOString() ?? null,
           }}
           demoCounts={demoCounts}
+          demoLocked={!demoAllowed()}
           emergency={emergencyRows(emergency?.value)}
         />
       </div>

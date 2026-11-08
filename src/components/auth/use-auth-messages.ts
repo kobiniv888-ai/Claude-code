@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { useTranslations } from "next-intl";
-import { DEV_HINT_KEYS, phoneOnlyErrorKey, type AuthErrorKey } from "@/lib/auth/error-codes";
+import { DEV_HINT_KEYS, phoneOnlyErrorKey, type AuthErrorKey, type AuthFailure } from "@/lib/auth/error-codes";
 
 /**
  * Translates an auth error key (or a server action error code) from `auth.errors.*`.
@@ -18,6 +18,26 @@ export function useAuthErrorMessage({ phoneOnly = false }: { phoneOnly?: boolean
       return t.has(key) ? t(key) : t("unknown");
     },
     [t, phoneOnly],
+  );
+}
+
+/**
+ * Like useAuthErrorMessage, for a refused code send that names a wait (our server-side limits):
+ * "you can ask for a new code in 2:00", "today's codes are used up, try again in 5 hours".
+ */
+export function useAuthFailureMessage({ phoneOnly = false }: { phoneOnly?: boolean } = {}) {
+  const t = useTranslations("auth.errors");
+  const plain = useAuthErrorMessage({ phoneOnly });
+  return useCallback(
+    (failure: AuthFailure | null | undefined): string | null => {
+      if (!failure) return null;
+      if (failure.key === "code_wait" && failure.retryAfter) return t("code_wait", { time: formatCountdown(failure.retryAfter) });
+      if (failure.key === "code_daily_cap" && failure.retryAfter) {
+        return t("code_daily_cap", { hours: Math.max(1, Math.ceil(failure.retryAfter / 3600)) });
+      }
+      return plain(failure.key);
+    },
+    [t, plain],
   );
 }
 

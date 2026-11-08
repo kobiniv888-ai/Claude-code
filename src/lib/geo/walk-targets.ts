@@ -17,8 +17,9 @@ export { NEAR_WALK_MINUTES, SEA_TOWNS, SKI_TOWNS, WALK_CAP_MINUTES, isNearWalk, 
  *   walkMinutesFor("batumi", lat, lng)      // → { seaWalkMinutes, liftWalkMinutes } for Listing
  *
  * The same method as the synagogue walking time (src/lib/nearby.ts): straight-line distance
- * rounded to 50 m, × the detour factor, at the walking pace (@/lib/geo walkingMinutes); shown with
- * "≈". Sea: the nearest beach (natural=beach, sea beaches only); where the map has no beach within
+ * rounded to 50 m, × the detour factor, at the walking pace (@/lib/geo walkingMinutes). Stored
+ * exactly for the "קרוב לים" filter; shown only rounded up to 5 minutes ("עד 5 דק׳", "≈ 10 דק׳",
+ * @/lib/geo/public-walk, security checklist 6.d). Sea: the nearest beach (natural=beach, sea beaches only); where the map has no beach within
  * the cap, the coastline is the fallback. Lifts: the bottom station of every lift (and middle
  * stations). The listing columns are recomputed whenever the pin moves (wizard location step,
  * prepareListingDerivedFields) and by scripts/backfill-walk-minutes.ts.

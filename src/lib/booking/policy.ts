@@ -13,7 +13,7 @@ import {
   type GuestCancelReason,
   type HostCancelReason,
 } from "./constants";
-import { addDays, checkInMoment, tbilisiToday } from "./dates";
+import { addDays, checkInMoment, dateToDay, isDay, tbilisiToday } from "./dates";
 
 /**
  * Free cancellation ends at this instant: the policy's hours (24 hours, 5 or 14 days) before the
@@ -80,14 +80,32 @@ export function shouldComplete(booking: BookingState, now: Date = new Date()): b
 }
 
 /**
- * The exact address and the host's phone / WhatsApp are shown only to the guest of a confirmed
- * (or completed) booking.
+ * Security checklist 6.f: the exact address, the exact pin and the host's contacts are hidden again
+ * this many days after check-out (the last day they show is check-out + 7, Georgia time). The
+ * offline trip copy keeps the same window (src/lib/trip/offline.ts).
+ */
+export const REVEAL_DAYS_AFTER_CHECKOUT = 7;
+
+/** The last day ("YYYY-MM-DD", Georgia) a stay's exact address and host contacts are shown. */
+export function revealLastDay(checkOut: string): string {
+  return addDays(checkOut, REVEAL_DAYS_AFTER_CHECKOUT);
+}
+
+/**
+ * The exact address, pin and the host's phone / WhatsApp are shown only to the guest of a
+ * confirmed (or completed) booking, and only until a week after check-out (6.f). Fails closed: a
+ * missing or broken check-out date reveals nothing.
  */
 export function canRevealHostContact(
-  booking: { status: BookingStatus; guestUserId: string },
+  booking: { status: BookingStatus; guestUserId: string; checkOut: string | Date },
   viewerId: string | null | undefined,
+  now: Date = new Date(),
 ): boolean {
-  return !!viewerId && viewerId === booking.guestUserId && isActiveOrDone(booking.status);
+  if (!viewerId || viewerId !== booking.guestUserId || !isActiveOrDone(booking.status)) return false;
+  const checkOut =
+    booking.checkOut instanceof Date ? (Number.isFinite(booking.checkOut.getTime()) ? dateToDay(booking.checkOut) : "") : booking.checkOut;
+  if (!isDay(checkOut)) return false;
+  return tbilisiToday(now) <= revealLastDay(checkOut);
 }
 
 /** Host cancellations within 48 hours of the booking are flagged for review (brief 5.6). */

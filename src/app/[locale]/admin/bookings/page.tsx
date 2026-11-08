@@ -40,7 +40,7 @@ export async function generateMetadata({ params }: PageProps<"/[locale]/admin/bo
 export default async function AdminBookingsPage({ params, searchParams }: PageProps<"/[locale]/admin/bookings">) {
   const { locale } = await params;
   setRequestLocale(locale);
-  await requireStaff("moderation");
+  const staff = await requireStaff("moderation");
   const query = await searchParams;
   const view = enumParam(query, "view", ADMIN_BOOKING_VIEWS, "all");
   const filters = {
@@ -53,7 +53,7 @@ export default async function AdminBookingsPage({ params, searchParams }: PagePr
   const [t, tb, result, unreachable] = await Promise.all([
     getTranslations("admin.bookings"),
     getTranslations("booking"),
-    view === "all" ? searchBookings(filters, page, locale as AppLocale) : Promise.resolve(null),
+    view === "all" ? searchBookings(filters, page, locale as AppLocale, staff) : Promise.resolve(null),
     listHostUnreachable(view === "unreachable" ? page : 1),
   ]);
   const when = (d: Date) => t("at", { date: formatDate(d, locale), time: formatTime(d, locale) });

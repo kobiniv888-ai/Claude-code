@@ -9,8 +9,9 @@
 # nothing to build when the code is the same as last time), serves the site on port 3000 and
 # prints the address to open on the phone: https://<codespace>-3000.app.github.dev/he
 #
-# Login test mode is ON here (AUTH_TEST_MODE=true: login codes on screen, only for localhost and
-# the Codespaces address). To see the real behavior: AUTH_TEST_MODE=false bash .devcontainer/start-prod.sh
+# Login test mode is ON here (AUTH_TEST_MODE=true on a development site, SITE_ENV=development:
+# login codes on screen, only for localhost and the Codespaces address). To see the real
+# behavior: AUTH_TEST_MODE=false bash .devcontainer/start-prod.sh
 #
 # The slow development version (hot reload, for programmers): bash .devcontainer/start.sh --dev
 # Build and server log: /tmp/bayit-dev.log.

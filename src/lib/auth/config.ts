@@ -11,7 +11,7 @@ import { emailCodeRoute, isSmsServiceConfigured } from "./sms";
  * / <PhoneCheck>.
  *
  * Order in the login UI (founder request, round 2): Google (when configured), email code (always),
- * phone code (development / test mode only — see ./code-display.ts).
+ * phone code (test mode only — see ./code-display.ts).
  */
 
 export const authProviders = {
@@ -22,8 +22,9 @@ export const authProviders = {
 export type LoginConfig = {
   providers: { google: boolean; apple: boolean };
   /**
-   * Codes may be shown on screen: "development" (NODE_ENV) or "test" (AUTH_TEST_MODE on localhost
-   * or a Codespaces preview). The login UI then shows a small "test mode" strip. Null on the real site.
+   * Codes may be shown on screen (TEST MODE only: AUTH_TEST_MODE=true on a development or staging
+   * site, ./code-display.ts): "development" on a dev server, "test" on a production build. The login
+   * UI then shows a small "test mode" strip. Always null on the real site.
    */
   codeDisplay: CodeDisplayMode | null;
   email: {
@@ -31,19 +32,17 @@ export type LoginConfig = {
     available: boolean;
   };
   phone: {
-    /** Phone codes as a way to LOG IN: only in development / test mode (for the demo accounts). */
+    /** Phone codes as a way to LOG IN: only in test mode (for the demo accounts). */
     login: boolean;
-    /** Phone codes can be sent at all (an SMS service, or development / test mode). */
+    /** Phone codes can be sent at all (Twilio Messaging, or test mode). */
     available: boolean;
-    /** How codes are delivered (TWILIO_VERIFY_CHANNEL). */
-    channel: "sms" | "whatsapp";
     /** Codes may be shown on screen (GET /api/dev/last-otp, or returned by the phone check). */
     devHints: boolean;
     /** By interface language (+972 for he/en/ru/ar, +995 for ka); the visitor's last pick wins. */
     defaultCountry: string;
     /** Google or Apple is offered: error texts may suggest them; otherwise phone-only wording. */
     socialLogin: boolean;
-    /** Countries that can receive codes (siteConfig.phone.smsAllowedCountries). */
+    /** Countries that can receive codes: Israel and Georgia (siteConfig.phone.smsAllowedCountries). */
     allowedCountries: string[];
   };
 };
@@ -58,7 +57,6 @@ export async function getLoginConfig(locale: string): Promise<LoginConfig> {
     phone: {
       login: codeDisplay !== null,
       available: codeDisplay !== null || isSmsServiceConfigured(),
-      channel: process.env.TWILIO_VERIFY_CHANNEL === "whatsapp" ? "whatsapp" : "sms",
       devHints: codeDisplay !== null,
       defaultCountry: defaultPhoneCountryForLocale(locale),
       socialLogin: authProviders.google || authProviders.apple,

@@ -46,7 +46,14 @@ beforeAll(async () => {
   listingId = listing.id;
 });
 
+const securityUserId = `${prefix}-sec`;
+let securityEventId = "";
+
 afterAll(async () => {
+  if (securityEventId) await db.securityEvent.deleteMany({ where: { id: securityEventId } });
+  await db.twoFactorRecoveryCode.deleteMany({ where: { userId: securityUserId } });
+  await db.termsAcceptance.deleteMany({ where: { userId: securityUserId } });
+  await db.user.deleteMany({ where: { id: securityUserId } });
   await db.favorite.deleteMany({ where: { userId } });
   await db.savedSearch.deleteMany({ where: { userId } });
   await db.savedList.deleteMany({ where: { userId } });
@@ -81,5 +88,18 @@ describe("deleting an account", () => {
     const row = await db.user.findUniqueOrThrow({ where: { id: userId }, select: { status: true, deletedAt: true } });
     expect(row.status).toBe("DELETED");
     expect(row.deletedAt).not.toBeNull();
+  });
+
+  it("removes the 2-step recovery codes and Terms acceptances; security events stay without the account link", async () => {
+    await db.user.create({ data: { id: securityUserId, name: "Sec Test", email: `${securityUserId}@example.com` } });
+    await db.twoFactorRecoveryCode.create({ data: { userId: securityUserId, codeHash: "hash-only" } });
+    await db.termsAcceptance.create({ data: { userId: securityUserId, version: "2026-11", ageConfirmed: true } });
+    securityEventId = (await db.securityEvent.create({ data: { type: "sensitive_change", userId: securityUserId } })).id;
+
+    await deleteAccountData(securityUserId);
+
+    expect(await db.twoFactorRecoveryCode.count({ where: { userId: securityUserId } })).toBe(0);
+    expect(await db.termsAcceptance.count({ where: { userId: securityUserId } })).toBe(0);
+    expect(await db.securityEvent.findUniqueOrThrow({ where: { id: securityEventId } })).toMatchObject({ type: "sensitive_change", userId: null });
   });
 });

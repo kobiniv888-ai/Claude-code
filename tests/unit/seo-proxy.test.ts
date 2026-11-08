@@ -39,6 +39,7 @@ describe("the proxy's X-Robots-Tag", () => {
 
   it("says noindex on a preview or Codespaces address even when SITE_URL is the real domain", async () => {
     vi.stubEnv("SITE_URL", "https://bayit.ge");
+    vi.stubEnv("SITE_ENV", "production");
     const variants: Record<string, string>[] = [
       { host: "bayit-git-main.vercel.app" },
       { host: "localhost:3000", "x-forwarded-host": "name-3000.app.github.dev" },
@@ -53,6 +54,7 @@ describe("the proxy's X-Robots-Tag", () => {
 
   it("sends no X-Robots-Tag on the real site's public pages, but keeps it on private ones", async () => {
     vi.stubEnv("SITE_URL", "https://bayit.ge");
+    vi.stubEnv("SITE_ENV", "production");
     const home = await proxy(request("/he", { host: "bayit.ge", "x-forwarded-host": "bayit.ge" }));
     expect(home.headers.get("x-robots-tag")).toBeNull();
     const search = await proxy(request("/en/search?deal=hotels", { host: "bayit.ge" }));
@@ -65,6 +67,7 @@ describe("the proxy's X-Robots-Tag", () => {
 
   it("marks every non-page response of a non-production host too: API, images, public files, robots.txt, sitemap.xml (seo-4)", async () => {
     vi.stubEnv("SITE_URL", "https://bayit.ge");
+    vi.stubEnv("SITE_ENV", "production");
     const paths = [
       "/robots.txt",
       "/sitemap.xml",

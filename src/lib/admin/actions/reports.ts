@@ -3,7 +3,7 @@
 import { z } from "zod";
 import type { Prisma } from "@/generated/prisma/client";
 import { fail, ok, type ActionResult } from "@/lib/action";
-import { audit } from "@/lib/audit";
+import { audit, auditOrThrow } from "@/lib/audit";
 import { can } from "@/lib/auth/permissions";
 import type { CurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
@@ -248,19 +248,26 @@ export async function hideHostListings(input: unknown): Promise<ActionResult<{ h
     // Nothing live (any more): someone else may have decided meanwhile.
     if (live.length === 0) throw new AdminActionError((await isStillOpen(report.id)) ? "invalid_status" : "already_decided");
     const decision: Decision = { status: "RESOLVED", actionTaken: "listings_hidden", resolution: parsed.data.note };
-    const count = await decide(staff, report, decision, async () => {
-      const { count: hidden } = await db.listing.updateMany({ where: { id: { in: live.map((l) => l.id) }, status: "LIVE" }, data: { status: "HIDDEN" } });
-      // The listings changed meanwhile (paused, already hidden): nothing to tell the host.
-      if (hidden === 0) throw new AdminActionError("invalid_status");
-      return hidden;
-    });
-    await audit({
-      actorId: staff.id,
-      action: "listing.hide_all",
-      targetType: "User",
-      targetId: hostId,
-      details: { reportId: report.id, reason: parsed.data.reason, note: parsed.data.note, listings: live.map((l) => l.publicId), hidden: count },
-    });
+    // Q13: the listings and their audit row change together, or not at all (the claim is then
+    // released by decide()).
+    const count = await decide(staff, report, decision, () =>
+      db.$transaction(async (tx) => {
+        const { count: hidden } = await tx.listing.updateMany({ where: { id: { in: live.map((l) => l.id) }, status: "LIVE" }, data: { status: "HIDDEN" } });
+        // The listings changed meanwhile (paused, already hidden): nothing to tell the host.
+        if (hidden === 0) throw new AdminActionError("invalid_status");
+        await auditOrThrow(
+          {
+            actorId: staff.id,
+            action: "listing.hide_all",
+            targetType: "User",
+            targetId: hostId,
+            details: { reportId: report.id, reason: parsed.data.reason, note: parsed.data.note, listings: live.map((l) => l.publicId), hidden },
+          },
+          tx,
+        );
+        return hidden;
+      }),
+    );
     await auditDecision(staff, report, "report.hide_host_listings", parsed.data.note, { reason: parsed.data.reason, hostId, hidden: count });
     await emailListingsHidden(host, parsed.data.reason, parsed.data.note, count);
     return ok({ hidden: count });
@@ -333,17 +340,25 @@ export async function revealReporter(input: unknown): Promise<ActionResult> {
     const to = notificationEmailFor(host);
     if (!to) throw new AdminActionError("no_channel");
     // The write itself enforces "never after a dismissal": a dismissal that lands meanwhile wins.
-    const { count } = await db.report.updateMany({
-      where: { id: report.id, kind: "TURNED_AWAY", reporterRevealedAt: null, status: { not: "DISMISSED" } },
-      data: { reporterRevealedAt: revealedAt },
-    });
-    if (count !== 1) throw new AdminActionError("invalid_status");
-    await audit({
-      actorId: staff.id,
-      action: "report.reveal_reporter",
-      targetType: "Report",
-      targetId: report.id,
-      details: { hostId, reporterId: report.reporter.id, resolution: parsed.data.resolution },
+    // Telling the host cannot be undone (Q13): the marker and its audit row commit together, and
+    // the email goes only after that.
+    const reporterId = report.reporter.id;
+    await db.$transaction(async (tx) => {
+      const { count } = await tx.report.updateMany({
+        where: { id: report.id, kind: "TURNED_AWAY", reporterRevealedAt: null, status: { not: "DISMISSED" } },
+        data: { reporterRevealedAt: revealedAt },
+      });
+      if (count !== 1) throw new AdminActionError("invalid_status");
+      await auditOrThrow(
+        {
+          actorId: staff.id,
+          action: "report.reveal_reporter",
+          targetType: "Report",
+          targetId: report.id,
+          details: { hostId, reporterId, resolution: parsed.data.resolution },
+        },
+        tx,
+      );
     });
     await sendEmail({
       to,
@@ -386,14 +401,20 @@ export async function hideReportedListing(input: unknown): Promise<ActionResult<
     if (!listing) throw new AdminActionError("missing_listing", 400);
     if (listing.status === "HIDDEN") return ok({ status: "HIDDEN" });
     if (listing.status !== "LIVE") throw new AdminActionError("invalid_status");
-    const { count } = await db.listing.updateMany({ where: { id: listing.id, status: "LIVE" }, data: { status: "HIDDEN" } });
-    if (count !== 1) throw new AdminActionError("invalid_status");
-    await audit({
-      actorId: staff.id,
-      action: "listing.hide",
-      targetType: "Listing",
-      targetId: listing.id,
-      details: { publicId: listing.publicId, reportId: report.id },
+    // Q13: the listing and its audit row change together, or not at all.
+    await db.$transaction(async (tx) => {
+      const { count } = await tx.listing.updateMany({ where: { id: listing.id, status: "LIVE" }, data: { status: "HIDDEN" } });
+      if (count !== 1) throw new AdminActionError("invalid_status");
+      await auditOrThrow(
+        {
+          actorId: staff.id,
+          action: "listing.hide",
+          targetType: "Listing",
+          targetId: listing.id,
+          details: { publicId: listing.publicId, reportId: report.id },
+        },
+        tx,
+      );
     });
     const to = notificationEmailFor(listing.owner);
     if (to) {

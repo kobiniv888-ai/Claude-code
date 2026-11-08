@@ -9,7 +9,8 @@
     "mapLabel": "Map with the place's location",
     "showMap": "Show the map",
     "mapSaver": "The map loads when you tap, to save data.",
-    "mapOffline": "The map isn't available offline. The address and the directions buttons are above."
+    "mapOffline": "The map isn't available offline. The address and the directions buttons are above.",
+    "hiddenAfterStay": "The exact address and the host's contact details are shown until a week after the stay, so they are no longer here."
   },
   "host": {
     "title": "Contact your host",
@@ -78,7 +79,7 @@
       "chabad": "Chabad house",
       "kosher": "Kosher food"
     },
-    "walk": "{count, plural, one {≈ 1 min walk} other {≈ {count} min walk}}",
+    "walk": "{count, plural, =5 {up to 5 min walk} other {≈ {count} min walk}}",
     "route": "Walking route",
     "noPlaces": "We haven't checked a synagogue, Chabad house or kosher place near this place yet.",
     "placesLink": "Community places",

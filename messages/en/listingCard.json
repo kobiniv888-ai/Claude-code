@@ -11,7 +11,7 @@
     "business": "Business",
     "shabbatFriendly": "Shabbat-friendly",
     "kosherKitchen": "Kosher kitchen",
-    "synagogueWalk": "{count} min walk to synagogue"
+    "synagogueWalk": "{count, plural, =5 {Up to 5 min walk to synagogue} other {≈ {count} min walk to synagogue}}"
   },
   "price": {
     "per": {
@@ -78,9 +78,9 @@
     "visited": "We visited",
     "kosherKitchen": "Kosher kitchen",
     "shabbatFriendly": "Shabbat-friendly",
-    "sea": "{count, plural, one {≈ 1 min walk to the sea} other {≈ {count} min walk to the sea}}",
-    "lift": "{count, plural, one {≈ 1 min walk to the lifts} other {≈ {count} min walk to the lifts}}",
-    "synagogue": "{count} min to synagogue",
+    "sea": "{count, plural, =5 {Up to 5 min walk to the sea} other {≈ {count} min walk to the sea}}",
+    "lift": "{count, plural, =5 {Up to 5 min walk to the lifts} other {≈ {count} min walk to the lifts}}",
+    "synagogue": "{count, plural, =5 {Up to 5 min to synagogue} other {≈ {count} min to synagogue}}",
     "hebrew": "Speaks Hebrew"
   },
   "rating": "Rated {average} out of 5, {count, plural, one {1 review} other {{count} reviews}}"

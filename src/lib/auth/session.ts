@@ -7,6 +7,7 @@ import type { AccountType, Currency, Locale, UserRole, UserStatus } from "@/gene
 import { redirect } from "@/i18n/navigation";
 import { db } from "@/lib/db";
 import { AppError, AuthRequiredError, ForbiddenError } from "@/lib/errors";
+import { demoAllowed } from "@/lib/site-env";
 import { isAccountBlocked } from "./account-status";
 import { safeNextPath, withNext } from "./next-path";
 import { needsFirstName } from "./first-name";
@@ -14,6 +15,7 @@ import { requestHostsOf } from "./code-display";
 import { can, isStaffRole, type Permission } from "./permissions";
 import { isPlaceholderEmail } from "./phone";
 import { auth } from "./server";
+import { checkStaffSessionIdle, hasStaffCookie } from "./staff-session";
 import { canSkipStaffTwoFactor, demoStaffAllowed, staffAccess, type StaffAccess, type StaffAccessEnv } from "./staff-access";
 
 /**
@@ -48,8 +50,14 @@ export type CurrentUser = {
   idVerifiedAt: Date | null;
   isStaff: boolean;
   sessionId: string;
-  /** True when 2-step login is off, or the code was entered in this session. */
+  /**
+   * True when 2-step login is off, or the code was entered in this session. For staff also: the
+   * session was used within the last 12 hours (./staff-session-rules.ts); after 12 idle hours the
+   * code is asked again.
+   */
   twoFactorVerified: boolean;
+  /** Staff with 2-step login: this request carries the session's SameSite=Strict staff cookie. */
+  staffCookieOk: boolean;
 };
 
 /** Better Auth session (cookie checked, expiry refreshed). Null when signed out. */
@@ -93,8 +101,19 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   });
   if (!row) return null;
   const { user } = row;
-  // Banned, deleted or currently suspended accounts are treated as signed out.
+  // Banned, deleted or currently suspended accounts are treated as signed out; so is a demo
+  // account on the real site (SITE_ENV=production; its sign-in is refused too: ./server.ts).
   if (isAccountBlocked(user)) return null;
+  if (user.isDemo && !demoAllowed()) return null;
+
+  const isStaff = isStaffRole(user.role);
+  let twoFactorVerified = !user.twoFactorEnabled || row.twoFactorVerifiedAt !== null;
+  let staffCookieOk = false;
+  // Staff: 12 idle hours end the 2-step check; the staff cookie proves the request is same-site.
+  if (isStaff && user.twoFactorEnabled && twoFactorVerified) {
+    if ((await checkStaffSessionIdle({ userId: user.id, sessionId: session.session.id })) === "idle") twoFactorVerified = false;
+    else staffCookieOk = await hasStaffCookie(session.session.id);
+  }
 
   return {
     id: user.id,
@@ -117,9 +136,10 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     showHebrewDates: user.showHebrewDates,
     twoFactorEnabled: user.twoFactorEnabled,
     idVerifiedAt: user.idVerifiedAt,
-    isStaff: isStaffRole(user.role),
+    isStaff,
     sessionId: session.session.id,
-    twoFactorVerified: !user.twoFactorEnabled || row.twoFactorVerifiedAt !== null,
+    twoFactorVerified,
+    staffCookieOk,
   };
 });
 
@@ -134,7 +154,7 @@ export function isStaffTwoFactorSkipped(user: Pick<CurrentUser, "isDemo">): bool
 
 /** The admin-panel rule for this request (configured address + Host / X-Forwarded-Host). */
 async function staffAccessForRequest(user: CurrentUser): Promise<StaffAccess> {
-  return staffAccess(process.env as StaffAccessEnv, requestHostsOf(await headers()), user);
+  return staffAccess(process.env as StaffAccessEnv, requestHostsOf(await headers()), { ...user, strictCookie: user.staffCookieOk });
 }
 
 /**
@@ -144,7 +164,7 @@ async function staffAccessForRequest(user: CurrentUser): Promise<StaffAccess> {
 export function hasStaffRights(user: CurrentUser): boolean {
   if (!user.isStaff) return false;
   if (user.isDemo && !demoStaffAllowed(process.env as StaffAccessEnv, null)) return false;
-  if (user.twoFactorEnabled) return user.twoFactorVerified;
+  if (user.twoFactorEnabled) return user.twoFactorVerified && user.staffCookieOk;
   return isStaffTwoFactorSkipped(user);
 }
 
@@ -189,7 +209,8 @@ export async function requireUser(
 /**
  * For admin pages. Non-staff get a 404 (the admin panel does not reveal itself), and so do demo
  * staff accounts on the permanent address; staff must have 2-step login enabled and verified in
- * this session (only demo accounts may skip it, in development); a missing permission is a 404 too.
+ * this session within the last 12 idle hours, and the request must carry the SameSite=Strict staff
+ * cookie (only demo accounts may skip 2-step login, in development); a missing permission is a 404 too.
  */
 export async function requireStaff(
   permission?: Permission,
@@ -200,7 +221,9 @@ export async function requireStaff(
   const access = await staffAccessForRequest(user);
   if (access === "not_staff" || access === "demo_blocked") notFound();
   if (access === "needs_setup") return redirectWithNext("/two-factor/setup", await resolveNext(opts.next, "/admin"));
-  if (access === "needs_code") return redirectWithNext("/two-factor", await resolveNext(opts.next, "/admin"));
+  if (access === "needs_code" || access === "needs_strict_cookie") {
+    return redirectWithNext("/two-factor", await resolveNext(opts.next, "/admin"));
+  }
   if (permission && !can(user.role, permission)) notFound();
   return user;
 }
@@ -234,7 +257,7 @@ export async function requireStaffForAction(permission: Permission): Promise<Cur
   const access = await staffAccessForRequest(user);
   if (access === "not_staff" || access === "demo_blocked") throw new ForbiddenError();
   if (access === "needs_setup") throw new ForbiddenError("2-step login must be enabled for staff");
-  if (access === "needs_code") throw new AuthRequiredError("2-step login required");
+  if (access === "needs_code" || access === "needs_strict_cookie") throw new AuthRequiredError("2-step login required");
   if (!can(user.role, permission)) throw new ForbiddenError();
   return user;
 }
