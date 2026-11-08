@@ -46,7 +46,9 @@ const nextConfig: NextConfig = {
   images: imagesConfig(process.env),
   // Interface text is read from messages/ at runtime; make sure it ships with the server build.
   outputFileTracingIncludes: { "/**": ["./messages/**/*"] },
-  serverExternalPackages: ["sharp"],
+  // heic-decode / libheif-js: the HEIC decoder (WebAssembly, several MB), loaded with require() at
+  // run time only on the HEIC upload path instead of being bundled (src/lib/images.ts).
+  serverExternalPackages: ["sharp", "heic-decode", "libheif-js"],
   async headers() {
     // Files in public/ have stable names but no content hash: cache them for a week and
     // revalidate in the background (sw.js and offline.html keep the default no-cache).

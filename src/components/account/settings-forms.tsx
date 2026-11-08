@@ -55,6 +55,7 @@ import { authClient } from "@/lib/auth/client";
 import { enabledCurrencies } from "@/lib/currency/convert";
 import { currencySymbol } from "@/lib/format";
 import { UPLOAD_IMAGE_ACCEPT } from "@/lib/media";
+import { readyForUpload } from "@/lib/media-client";
 import { languageName } from "@/lib/listing-page/helpers";
 import { cn } from "@/lib/utils";
 import { avatarInitial } from "@/lib/account/greeting";
@@ -148,9 +149,11 @@ function AvatarField({ initial, image }: { initial: string | null; image: string
   const [busy, setBusy] = useState(false);
   const [pending, startTransition] = useTransition();
 
-  const upload = async (file: File) => {
+  const upload = async (picked: File) => {
     setBusy(true);
     try {
+      // HEIC: converted to JPEG where this browser can (else the server converts it).
+      const { file } = await readyForUpload(picked);
       const form = new FormData();
       form.set("file", file);
       const response = await fetch("/api/account/avatar", { method: "POST", body: form });

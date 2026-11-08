@@ -17,6 +17,7 @@ import {
 /**
  * POST /api/account/avatar   (multipart/form-data: file)
  * → 201 { url } — the new profile photo (400 px WebP, metadata removed), saved as User.image.
+ *   JPEG, PNG and WebP; HEIC is converted on the server (prepareUploadImage in @/lib/images).
  * → { error: code } with the same codes as the other upload endpoints.
  */
 
@@ -33,7 +34,7 @@ export async function POST(request: Request) {
     const file = formFile(form);
     if (file.size > AVATAR_MAX_BYTES) throw new AppError("file_too_large", "File too large", { status: 413 });
 
-    const body = await processAvatar(Buffer.from(await file.arrayBuffer()));
+    const body = await processAvatar(Buffer.from(await file.arrayBuffer()), user.id);
     const { url } = await putPublic(newAvatarKey(user.id), body, "image/webp");
     const previous = await db.user.findUnique({ where: { id: user.id }, select: { image: true } });
     await db.user.update({ where: { id: user.id }, data: { image: url } });

@@ -2,7 +2,7 @@
   "errors": {
     "file_too_large": "This file is too large. Please choose a smaller file, or compress the photo, and try again.",
     "file_type_not_allowed": "This file type isn't supported. Please upload a JPG, PNG or WebP photo — or a PDF for verification documents.",
-    "heic_not_supported": "This is an iPhone photo in HEIC format, which we can't accept. Choose it again from your Photos library (not from Files) and your iPhone will send it as a JPEG. To take JPEG photos from now on: Settings › Camera › Formats › Most Compatible.",
+    "heic_not_supported": "We couldn't open this HEIC photo (the file may be damaged). Please send it as a JPEG: choose it again from your Photos library (not from Files) and your iPhone will send a JPEG. To take JPEG photos from now on: Settings › Camera › Formats › Most Compatible.",
     "image_too_small": "This photo is too small. Please choose a larger, sharper photo.",
     "image_corrupt": "We couldn't read this file. It may be damaged — please try another one.",
     "file_rejected": "This file can't be accepted for safety reasons. Please upload a plain photo or a scanned PDF.",

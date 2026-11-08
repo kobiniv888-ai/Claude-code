@@ -81,9 +81,12 @@ describe("the proxy's X-Robots-Tag", () => {
     for (const path of paths) {
       const response = await proxy(request(path, { host: "bayit-git-main.vercel.app" }));
       expect(response.headers.get("x-robots-tag"), path).toBe("noindex, nofollow");
-      // Only the header: no language redirect, CSP or device cookie on files and the API.
+      // No language redirect or device cookie on files and the API. Files with a dot get the CSP
+      // (a dotted path can still render an app page: csp-dotted-paths-1; static files ignore it);
+      // the API and Next.js internals do not.
       expect(response.status, path).toBe(200);
-      expect(response.headers.get("content-security-policy"), path).toBeNull();
+      const neverAPage = path.startsWith("/api/") || path.startsWith("/_next/");
+      expect(response.headers.get("content-security-policy") === null, path).toBe(neverAPage);
       expect(response.headers.get("set-cookie"), path).toBeNull();
     }
     // The real site's files and API carry none (robots.txt keeps crawlers out of /api/ there).

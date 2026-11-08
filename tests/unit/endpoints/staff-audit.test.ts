@@ -4,8 +4,10 @@
  *
  * 1. Static: every staff server action in tests/unit/endpoints/registry.ts that changes something
  *    (not in READ_ONLY_STAFF_ACTIONS) reaches audit() / auditOrThrow() in its call graph (its own
- *    module and the modules it calls, a few levels deep); every one in DESTRUCTIVE_STAFF_ACTIONS
- *    reaches auditOrThrow(). A new staff action without an audit write fails here.
+ *    module and the modules it calls, a few levels deep). DESTRUCTIVE BY DEFAULT: every one of
+ *    them must reach auditOrThrow(), unless NON_DESTRUCTIVE_STAFF_ACTIONS lists it with a reason
+ *    (audit-export-cleanup-1). A new staff action without an audit write, or a new destructive one
+ *    with only audit(), fails here.
  * 2. src/lib/audit.ts: audit() never throws; auditOrThrow() throws AuditWriteError ("audit_failed").
  * 3. Against the local database: with the audit write broken, a ban, a role change, a delete and
  *    a review hide answer "audit_failed" and change nothing (the transaction rolled back).
@@ -17,7 +19,7 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 import ts from "typescript";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { DESTRUCTIVE_STAFF_ACTIONS, READ_ONLY_STAFF_ACTIONS, SERVER_ACTIONS } from "./registry";
+import { DESTRUCTIVE_STAFF_ACTIONS, NON_DESTRUCTIVE_STAFF_ACTIONS, READ_ONLY_STAFF_ACTIONS, SERVER_ACTIONS } from "./registry";
 
 const REPO = path.resolve(__dirname, "../../..");
 const SRC = path.join(REPO, "src");
@@ -105,10 +107,21 @@ const staffActions = Object.entries(SERVER_ACTIONS).flatMap(([file, names]) =>
 );
 
 describe("every staff action writes the audit log (12.6.d)", () => {
-  it("the lists name real staff actions", () => {
+  it("the lists name real staff actions, each in one list only", () => {
     const keys = new Set(staffActions.map((a) => a.key));
-    expect([...Object.keys(READ_ONLY_STAFF_ACTIONS), ...DESTRUCTIVE_STAFF_ACTIONS].filter((k) => !keys.has(k))).toEqual([]);
+    const listed = [...Object.keys(READ_ONLY_STAFF_ACTIONS), ...DESTRUCTIVE_STAFF_ACTIONS, ...Object.keys(NON_DESTRUCTIVE_STAFF_ACTIONS)];
+    expect(listed.filter((k) => !keys.has(k))).toEqual([]);
+    expect(listed.filter((k, i) => listed.indexOf(k) !== i)).toEqual([]);
+    for (const reason of Object.values(NON_DESTRUCTIVE_STAFF_ACTIONS)) expect(reason.length).toBeGreaterThan(10);
     expect(staffActions.length).toBeGreaterThan(70);
+  });
+
+  it("every staff action that changes something is destructive by default: it reaches auditOrThrow unless listed as non-destructive", () => {
+    const missing = staffActions
+      .filter((a) => !(a.key in READ_ONLY_STAFF_ACTIONS) && !(a.key in NON_DESTRUCTIVE_STAFF_ACTIONS))
+      .filter((a) => !deepCalls(path.join(REPO, a.file), a.name).has("auditOrThrow"))
+      .map((a) => a.key);
+    expect(missing, "write these with auditOrThrow (or list them in NON_DESTRUCTIVE_STAFF_ACTIONS with a reason)").toEqual([]);
   });
 
   it("every staff action that changes something reaches audit() or auditOrThrow()", () => {
@@ -152,6 +165,12 @@ vi.mock("@/lib/translate", async (importOriginal) => {
   return { ...real, translateForLocale: async (text: string) => ({ text }) };
 });
 vi.mock("@/lib/auth/session", () => ({ requireStaffForAction: async () => state.staff }));
+// The clean-up run needs a backup of this database from the last hour; here one "exists".
+vi.mock("@/lib/admin/maintenance/backup", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/admin/maintenance/backup")>();
+  const fresh = { id: "test-fresh-backup", createdAt: new Date().toISOString() };
+  return { ...real, latestBackup: async () => ({ ...fresh, createdAt: new Date().toISOString() }) };
+});
 vi.mock("@/lib/audit", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/lib/audit")>();
   return {
@@ -232,6 +251,65 @@ describe("a destructive action whose audit row cannot be written does not happen
     expect(await deleteBannedWord({ id: ids.word })).toMatchObject({ ok: true });
     expect(await db.bannedWord.count({ where: { id: ids.word } })).toBe(0);
     expect(await db.auditLog.count({ where: { action: "banned_word.delete", targetId: ids.word, actorId: ids.admin } })).toBe(1);
+  });
+
+  // audit-export-cleanup-1: a clean-up and a full backup write their "started" row with
+  // auditOrThrow FIRST; without it nothing is changed and no dump is written.
+  it("a clean-up run: refused with audit_failed before anything is changed", async () => {
+    const { runCleanupAction } = await import("@/lib/admin/maintenance/actions");
+    const { auditOrThrow } = await import("@/lib/audit");
+    const listing = await db.listing.findFirst({ select: { id: true } });
+    expect(listing, "needs one listing in the local database (demo data)").not.toBeNull();
+    const tap = await db.contactClick.create({ data: { listingId: listing!.id, userId: ids.target, channel: "PHONE" } });
+    try {
+      state.breakAudit = true;
+      // The audit table really is "down" for auditOrThrow before the run is tried.
+      await expect(auditOrThrow({ actorId: ids.admin, action: "test.probe" })).rejects.toMatchObject({ code: "audit_failed" });
+      const result = await runCleanupAction({ name: "contact-taps", confirm: true });
+      expect(result).toMatchObject({ ok: false, error: "audit_failed" });
+      // The run never happened: the tap keeps its account, and no clean-up row was written.
+      expect((await db.contactClick.findUniqueOrThrow({ where: { id: tap.id } })).userId).toBe(ids.target);
+      expect(await db.auditLog.count({ where: { actorId: ids.admin, action: { startsWith: "maintenance." } } })).toBe(0);
+    } finally {
+      state.breakAudit = false;
+      await db.contactClick.deleteMany({ where: { id: tap.id } });
+    }
+  });
+
+  it("a full backup: refused with audit_failed, and no backup folder is written", async () => {
+    const { mkdtempSync, readdirSync, rmSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const dir = mkdtempSync(path.join(tmpdir(), "bayit-audit-backup-"));
+    vi.stubEnv("BACKUP_DIR", dir);
+    try {
+      const { createBackupAction } = await import("@/lib/admin/maintenance/actions");
+      state.breakAudit = true;
+      expect(await createBackupAction()).toMatchObject({ ok: false, error: "audit_failed" });
+      expect(readdirSync(dir)).toEqual([]);
+      expect(await db.auditLog.count({ where: { actorId: ids.admin, action: { startsWith: "maintenance." } } })).toBe(0);
+    } finally {
+      state.breakAudit = false;
+      vi.unstubAllEnvs();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("closing a report: refused with audit_failed, the report stays open", async () => {
+    const { resolveReport } = await import("@/lib/admin/actions/reports");
+    const report = await db.report.create({ data: { targetType: "USER", reason: "OTHER", details: "test", targetUserId: ids.target } });
+    try {
+      state.breakAudit = true;
+      expect(await resolveReport({ reportId: report.id, resolution: "handled" })).toMatchObject({ ok: false, error: "audit_failed" });
+      expect(await db.report.findUniqueOrThrow({ where: { id: report.id } })).toMatchObject({ status: "OPEN", handledById: null });
+      state.breakAudit = false;
+      expect(await resolveReport({ reportId: report.id, resolution: "handled" })).toMatchObject({ ok: true });
+      expect((await db.report.findUniqueOrThrow({ where: { id: report.id } })).status).toBe("RESOLVED");
+      expect(await db.auditLog.count({ where: { action: "report.resolve", targetId: report.id, actorId: ids.admin } })).toBe(1);
+    } finally {
+      state.breakAudit = false;
+      await db.auditLog.deleteMany({ where: { targetId: report.id } });
+      await db.report.deleteMany({ where: { id: report.id } });
+    }
   });
 
   it("with the audit log working, the ban goes through and is logged in the same commit", async () => {

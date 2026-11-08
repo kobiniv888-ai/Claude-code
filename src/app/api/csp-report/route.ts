@@ -1,5 +1,6 @@
-import { rateLimit, rateLimitByIp } from "@/lib/rate-limit";
-import { CSP_REPORT_CONTENT_TYPES, CSP_REPORT_MAX_BYTES, parseCspReports } from "@/lib/security/csp-report";
+import { createHash } from "node:crypto";
+import { rateLimit, rateLimitByIp, resetRateLimit } from "@/lib/rate-limit";
+import { CSP_REPORT_CONTENT_TYPES, CSP_REPORT_MAX_BYTES, parseCspReports, type CspViolation } from "@/lib/security/csp-report";
 import { recordSecurityEvent } from "@/lib/security/events";
 
 /**
@@ -8,21 +9,42 @@ import { recordSecurityEvent } from "@/lib/security/events";
  * Each violation becomes a "csp_report" security event with only short, non-personal values
  * (src/lib/security/csp-report.ts); the IP is stored hashed, as for every security event.
  *
- * Open to everyone (browsers send no cookie we rely on), so it is limited: 20 requests a minute
- * per IP and 600 an hour for the whole site; over a limit, or when the limit store cannot be
- * checked, nothing is written (429). Bodies over 16 KB are refused without reading further (413),
- * other content types too (415).
+ * Open to everyone (browsers send no cookie we rely on), so it is limited:
+ * - 5 requests a minute per IP, before the body is read;
+ * - a violation is written once an hour per kind: its signature (policy, directive, blocked origin,
+ *   page path) is remembered for the hour, and repeats are dropped without using the cap below, so
+ *   one recurring violation (or one client sending the same report) cannot hide new ones;
+ * - 600 NEW kinds an hour for the whole site; when that is reached, one "csp_report_capped" event
+ *   is written for the hour (so the founder sees the trial is blinded) and the rest get 429.
+ * When the limit store cannot be checked, nothing is written (429, fail closed). Bodies over
+ * 16 KB are refused without reading further (413), other content types too (415).
  * → 204 (nothing to say back to a browser).
  */
 
 export const dynamic = "force-dynamic";
 
-const PER_IP = { limit: 20, windowSeconds: 60 };
-const SITE_WIDE = { limit: 600, windowSeconds: 3600 };
+const PER_IP = { limit: 5, windowSeconds: 60 };
+const CSP_REPORT_SITE_WIDE = { limit: 600, windowSeconds: 3600 };
+const HOUR = 3600;
 const NO_STORE = { "Cache-Control": "no-store" } as const;
 
 function empty(status: number): Response {
   return new Response(null, { status, headers: NO_STORE });
+}
+
+/** The kind of a violation: the same policy, directive, blocked origin and page path. */
+function cspSignature(v: Pick<CspViolation, "disposition" | "directive" | "blocked" | "page">): string {
+  return createHash("sha256").update(`${v.disposition}|${v.directive}|${v.blocked}|${v.page}`).digest("hex").slice(0, 32);
+}
+
+/**
+ * True the first time a key is seen in its hour. These are "first time?" markers, not limits: a
+ * repeat is expected, so it must not write a "rate_limited" event (failOpen turns that off); a
+ * store failure is handled by the caller as a refusal (`failed`), so nothing fails open.
+ */
+async function firstThisHour(key: string): Promise<{ first: boolean; failed: boolean }> {
+  const result = await rateLimit(key, { limit: 1, windowSeconds: HOUR, failOpen: true });
+  return { first: result.ok && !result.failed, failed: Boolean(result.failed) };
 }
 
 /** The body as text, never more than CSP_REPORT_MAX_BYTES (null when it is larger). */
@@ -50,11 +72,9 @@ export async function POST(request: Request) {
   const type = (request.headers.get("content-type") ?? "").split(";")[0]!.trim().toLowerCase();
   if (!(CSP_REPORT_CONTENT_TYPES as readonly string[]).includes(type)) return empty(415);
 
-  // Per IP first, then the site-wide cap; both fail closed (a broken store writes nothing).
+  // Per IP, before the body is read; fails closed (a broken store writes nothing).
   const perIp = await rateLimitByIp("csp-report", PER_IP);
   if (!perIp.ok) return empty(429);
-  const siteWide = await rateLimit("csp-report:all", SITE_WIDE);
-  if (!siteWide.ok) return empty(429);
 
   const body = await readCapped(request);
   if (body === null) return empty(413);
@@ -65,14 +85,25 @@ export async function POST(request: Request) {
     return empty(400);
   }
 
-  const violations = parseCspReports(payload);
-  await Promise.all(
-    violations.map((v) =>
-      recordSecurityEvent({
-        type: "csp_report",
-        meta: { directive: v.directive, blocked: v.blocked, page: v.page, disposition: v.disposition, ...(v.source ? { source: v.source } : {}) },
-      }),
-    ),
-  );
+  for (const v of parseCspReports(payload)) {
+    const signatureKey = `csp-report:sig:${cspSignature(v)}`;
+    const seen = await firstThisHour(signatureKey);
+    if (seen.failed) return empty(429);
+    // Already written this hour: dropped, and it does not use the site-wide cap.
+    if (!seen.first) continue;
+    const siteWide = await rateLimit("csp-report:all", CSP_REPORT_SITE_WIDE);
+    if (!siteWide.ok) {
+      // Not written, so not "seen": the same kind is written once the cap has room again.
+      await resetRateLimit(signatureKey);
+      if (!siteWide.failed && (await firstThisHour("csp-report:capped")).first) {
+        await recordSecurityEvent({ type: "csp_report_capped", meta: { limit: CSP_REPORT_SITE_WIDE.limit } });
+      }
+      return empty(429);
+    }
+    await recordSecurityEvent({
+      type: "csp_report",
+      meta: { directive: v.directive, blocked: v.blocked, page: v.page, disposition: v.disposition, ...(v.source ? { source: v.source } : {}) },
+    });
+  }
   return empty(204);
 }

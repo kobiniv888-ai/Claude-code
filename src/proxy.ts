@@ -57,10 +57,30 @@ const PAGE_PATH = /^\/(?!api|_next|_vercel|.*\..*)/;
 
 /**
  * Not a page: the API, optimized images (/_next/image) and files with an extension (public/
- * photos and icons, the manifest, robots.txt, sitemap.xml). The proxy only adds their X-Robots-Tag.
+ * photos and icons, the manifest, robots.txt, sitemap.xml). The proxy adds their X-Robots-Tag and,
+ * outside the API and Next.js internals, the CSP too (see below).
  */
 function isNonPagePath(pathname: string): boolean {
   return !PAGE_PATH.test(pathname);
+}
+
+/** API routes and Next.js internals: they never render a page, so they need no CSP or nonce. */
+const NEVER_A_PAGE = /^\/(?:api|_next|_vercel)(?:\/|$)/;
+
+/**
+ * Request headers that only the proxy may set (the layout trusts them). A visitor's own values are
+ * always removed, on every path the proxy sees (SECURITY_REPORT 10.2.a/c).
+ */
+const PROXY_REQUEST_HEADERS = ["x-nonce", "x-pathname", "content-security-policy"] as const;
+
+function cspFor(nonce: string) {
+  return cspHeaders({ nonce, dev: isDev, env: process.env, tileOrigins: TILE_ORIGINS });
+}
+
+function setCspHeaders(response: NextResponse, policies: ReturnType<typeof cspFor>): void {
+  response.headers.set("Content-Security-Policy", policies.enforced);
+  if (policies.reportOnly) response.headers.set("Content-Security-Policy-Report-Only", policies.reportOnly);
+  response.headers.set("Reporting-Endpoints", policies.reportingEndpoints);
 }
 
 export default async function proxy(request: NextRequest) {
@@ -70,10 +90,24 @@ export default async function proxy(request: NextRequest) {
     robotsHeaderFor({ headers: request.headers, pathname: request.nextUrl.pathname }) ??
     (BOOKING_PATH.test(request.nextUrl.pathname) ? NOINDEX_HEADER_VALUE : null);
 
-  // Not a page (seo-4): no language redirect, CSP or cookie, only the header. robots.txt lets
-  // crawlers fetch everything on a non-production host, so each response must say noindex itself.
+  // Not a page (seo-4): no language redirect or cookie. robots.txt lets crawlers fetch everything on
+  // a non-production host, so each response must say noindex itself. A path with a dot can still
+  // render an app page (a listing id with a dot, the not-found page of "/x.txt"), so outside the API
+  // and Next.js internals it gets the same CSP and nonce as a page (static files ignore CSP); and
+  // the visitor's own x-nonce / x-pathname / content-security-policy headers never reach the app.
   if (isNonPagePath(request.nextUrl.pathname)) {
-    const response = NextResponse.next();
+    const headers = new Headers(request.headers);
+    for (const name of PROXY_REQUEST_HEADERS) headers.delete(name);
+    let policies: ReturnType<typeof cspFor> | null = null;
+    if (!NEVER_A_PAGE.test(request.nextUrl.pathname)) {
+      const nonce = btoa(crypto.randomUUID());
+      policies = cspFor(nonce);
+      headers.set("x-nonce", nonce);
+      headers.set("content-security-policy", policies.enforced);
+      headers.set("x-pathname", request.nextUrl.pathname + request.nextUrl.search);
+    }
+    const response = NextResponse.next({ request: { headers } });
+    if (policies) setCspHeaders(response, policies);
     if (robotsTag) response.headers.set("X-Robots-Tag", robotsTag);
     return response;
   }
@@ -87,7 +121,7 @@ export default async function proxy(request: NextRequest) {
   // Content-Security-Policy with a per-request nonce (Next.js applies it to its own scripts), plus
   // the stricter policy on trial as Report-Only (src/lib/security/csp.ts, SECURITY_REPORT 10.2).
   const nonce = btoa(crypto.randomUUID());
-  const policies = cspHeaders({ nonce, dev: isDev, env: process.env, tileOrigins: TILE_ORIGINS });
+  const policies = cspFor(nonce);
   const csp = policies.enforced;
 
   // Pass the nonce to the app (layout reads it for next-themes / JSON-LD scripts).
@@ -99,9 +133,7 @@ export default async function proxy(request: NextRequest) {
 
   const response = intlMiddleware(request) ?? NextResponse.next({ request });
 
-  response.headers.set("Content-Security-Policy", csp);
-  if (policies.reportOnly) response.headers.set("Content-Security-Policy-Report-Only", policies.reportOnly);
-  response.headers.set("Reporting-Endpoints", policies.reportingEndpoints);
+  setCspHeaders(response, policies);
   if (robotsTag) response.headers.set("X-Robots-Tag", robotsTag);
 
   // A random, first-party device id used only for anti-fraud ("several accounts on one device").

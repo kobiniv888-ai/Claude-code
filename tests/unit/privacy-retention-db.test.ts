@@ -22,6 +22,7 @@ const { getTripExtras } = await import("@/lib/trip/server");
 const retention = await import("@/lib/admin/maintenance/retention");
 const { BOOKING_CODE_ALPHABET, BOOKING_CODE_LENGTH, BOOKING_CODE_PREFIX } = await import("@/lib/booking/constants");
 const { VISIT_SET_ACTION } = await import("@/lib/admin/badges/server");
+const { LONG_STAY_REVIEWED_ACTION } = await import("@/lib/admin/server/guest-flags");
 
 const prefix = `pr${randomUUID().replace(/-/g, "").slice(0, 10)}`;
 const now = new Date();
@@ -42,7 +43,11 @@ async function makeUser(name: string, digits: string) {
 /** A random, valid booking number ("BT-7K3Q9"): 32^5 codes, so a clash within this test is negligible. */
 const newCode = () => BOOKING_CODE_PREFIX + Array.from({ length: BOOKING_CODE_LENGTH }, () => BOOKING_CODE_ALPHABET[randomInt(BOOKING_CODE_ALPHABET.length)]).join("");
 
-async function makeBooking(checkIn: string, checkOut: string, extra: { status?: "CONFIRMED" | "COMPLETED" | "CANCELLED_BY_GUEST"; cancelReason?: string } = {}) {
+async function makeBooking(
+  checkIn: string,
+  checkOut: string,
+  extra: { status?: "CONFIRMED" | "COMPLETED" | "CANCELLED_BY_GUEST" | "CANCELLED_BY_HOST"; cancelReason?: string; cancelledAt?: Date } = {},
+) {
   const nights = Math.round((dayToDate(checkOut).getTime() - dayToDate(checkIn).getTime()) / DAY_MS);
   const booking = await db.booking.create({
     data: {
@@ -60,7 +65,7 @@ async function makeBooking(checkIn: string, checkOut: string, extra: { status?: 
       currency: "USD",
       cancellationPolicy: "MODERATE",
       status: extra.status ?? "COMPLETED",
-      ...(extra.cancelReason ? { cancelReason: extra.cancelReason, cancelReasonCode: "OTHER", cancelledAt: dayToDate(checkIn) } : {}),
+      ...(extra.cancelReason ? { cancelReason: extra.cancelReason, cancelReasonCode: "OTHER", cancelledAt: extra.cancelledAt ?? dayToDate(checkIn) } : {}),
       messageToHost: "We arrive late, please leave the key with the neighbour.",
       guestName: "Noa Test",
       guestPhone: "+995590000077",
@@ -175,6 +180,30 @@ describe("decision 9: guest contact details are blanked 3 months after check-out
     expect(await retention.eraseOldGuestContacts(now, scope)).toBe(0);
   });
 
+  // retention-cancelled-1: a cancelled booking was finished when it was cancelled.
+  it("blanks a booking cancelled more than 3 months ago even when its planned check-out is ahead", async () => {
+    const cutoff = retention.guestContactCutoffDay(now);
+    const monthsAgo = (months: number) => dayToDate(retention.monthsBefore(today, months));
+    const cancelledLongAgo = await makeBooking(day(240), day(245), { status: "CANCELLED_BY_GUEST", cancelReason: "Plans changed", cancelledAt: monthsAgo(4) });
+    const cancelledByHost = await makeBooking(day(200), day(203), { status: "CANCELLED_BY_HOST", cancelReason: "Repairs", cancelledAt: monthsAgo(5) });
+    const cancelledRecently = await makeBooking(day(240), day(245), { status: "CANCELLED_BY_GUEST", cancelReason: "Plans changed", cancelledAt: monthsAgo(2) });
+    // A confirmed future stay is never blanked, whatever its dates.
+    const upcoming = await makeBooking(day(30), day(33), { status: "CONFIRMED" });
+    expect(dayToDate(cutoff).getTime()).toBeGreaterThan(monthsAgo(4).getTime());
+    const scope = { id: { in: [cancelledLongAgo.id, cancelledByHost.id, cancelledRecently.id, upcoming.id] } };
+
+    expect(await retention.eraseOldGuestContacts(now, scope)).toBe(2);
+    for (const id of [cancelledLongAgo.id, cancelledByHost.id]) {
+      const row = await db.booking.findUniqueOrThrow({ where: { id } });
+      expect(row).toMatchObject({ guestName: retention.ERASED_GUEST_NAME, guestPhone: "", messageToHost: null, cancelReason: null });
+      expect(row.cancelReasonCode).toBe("OTHER");
+    }
+    for (const id of [cancelledRecently.id, upcoming.id]) {
+      expect(await db.booking.findUniqueOrThrow({ where: { id } })).toMatchObject({ guestName: "Noa Test", guestPhone: "+995590000077" });
+    }
+    expect(await retention.eraseOldGuestContacts(now, scope)).toBe(0);
+  });
+
   it("computes the cutoff in calendar months, clamped to the month's end", () => {
     expect(retention.monthsBefore("2026-11-08", 3)).toBe("2026-08-08");
     expect(retention.monthsBefore("2026-05-31", 3)).toBe("2026-02-28");
@@ -199,6 +228,32 @@ describe("15.9: the other retention jobs", () => {
     expect(await retention.purgeOldAuditLogs(now, scope)).toBe(1);
     expect((await db.auditLog.findMany({ where: scope, select: { targetId: true } })).map((r) => r.targetId).sort()).toEqual([`${prefix}-a2`, `${prefix}-a3`]);
     expect(await retention.purgeOldAuditLogs(now, scope)).toBe(0);
+  });
+
+  // longstay-marker-retention-1: bookings can be made up to two years ahead.
+  it("keeps a year-old 'long stay reviewed' mark while its stay has not ended, and deletes it once it has", async () => {
+    const future = await makeBooking(day(20), day(45), { status: "CONFIRMED" });
+    const ended = await makeBooking(day(-40), day(-10), { status: "COMPLETED" });
+    const old = new Date(now.getTime() - (retention.AUDIT_LOG_RETENTION_DAYS + 30) * DAY_MS);
+    await db.auditLog.createMany({
+      data: [
+        { action: LONG_STAY_REVIEWED_ACTION, targetType: "Booking", targetId: future.id, createdAt: old, details: { marker: prefix } },
+        { action: LONG_STAY_REVIEWED_ACTION, targetType: "Booking", targetId: ended.id, createdAt: old, details: { marker: prefix } },
+        { action: "user.ban", targetType: "User", targetId: `${prefix}-ls1`, createdAt: old },
+      ],
+    });
+    const scope = { targetId: { in: [future.id, ended.id, `${prefix}-ls1`] } };
+    try {
+      expect(await retention.purgeOldAuditLogs(now, scope)).toBe(2);
+      const left = await db.auditLog.findMany({ where: scope, select: { action: true, targetId: true } });
+      expect(left).toEqual([{ action: LONG_STAY_REVIEWED_ACTION, targetId: future.id }]);
+      expect(await retention.purgeOldAuditLogs(now, scope)).toBe(0);
+      // Once that stay has ended too, its mark goes like the rest.
+      const later = new Date(dayToDate(day(46)).getTime() + 12 * 3600 * 1000);
+      expect(await retention.purgeOldAuditLogs(later, scope)).toBe(1);
+    } finally {
+      await db.auditLog.deleteMany({ where: scope });
+    }
   });
 
   it("deletes outbox rows after 90 days", async () => {

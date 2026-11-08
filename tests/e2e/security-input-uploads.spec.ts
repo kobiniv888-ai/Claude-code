@@ -77,6 +77,9 @@ test("pages send COOP same-origin and the CSP pair; the report endpoint answers 
     expect(trial, path).not.toMatch(/img-src[^;]* https:(;| )/);
     expect(headers["reporting-endpoints"], path).toBe('csp-endpoint="/api/csp-report"');
   }
+  // The browsers of earlier tests may have used this machine's per-IP allowance (5 a minute) or
+  // already sent this kind of report this hour (written once an hour): start clean.
+  await sql(`DELETE FROM "RateLimit" WHERE key LIKE 'csp-report%'`);
   const report = await request.post("/api/csp-report", {
     headers: { "content-type": "application/csp-report" },
     data: JSON.stringify({ "csp-report": { "document-uri": "http://localhost/he", "effective-directive": "img-src", "blocked-uri": "https://e2e-csp.example/x.png", disposition: "report" } }),

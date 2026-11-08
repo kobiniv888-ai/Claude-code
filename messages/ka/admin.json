@@ -454,6 +454,7 @@
       "listing_unfeature": "განცხადება რჩეულებიდან მოიხსნა",
       "listing_unfeature_ended": "განცხადების რჩეულობის ვადა ამოიწურა",
       "maintenance_backup": "სარეზერვო ასლი შეიქმნა",
+      "maintenance_backup_started": "სარეზერვო ასლის შექმნა დაიწყო",
       "maintenance_cleanup": "გასუფთავება შესრულდა",
       "neighborhood_create": "უბანი დაემატა",
       "neighborhood_update": "უბანი განახლდა",

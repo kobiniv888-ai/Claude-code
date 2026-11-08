@@ -454,6 +454,7 @@
       "listing_unfeature": "מודעה הוסרה מהמומלצות",
       "listing_unfeature_ended": "תקופת ההמלצה של מודעה הסתיימה",
       "maintenance_backup": "בוצע גיבוי",
+      "maintenance_backup_started": "התחיל גיבוי",
       "maintenance_cleanup": "בוצע ניקוי",
       "neighborhood_create": "שכונה נוספה",
       "neighborhood_update": "שכונה עודכנה",

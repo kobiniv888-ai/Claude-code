@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { fail, ok, type ActionResult } from "@/lib/action";
-import { audit } from "@/lib/audit";
+import { audit, auditOrThrow } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { photoUrl } from "@/lib/media";
 import { getSettings, HOME_SECTION_KEYS, updateSettings } from "@/lib/settings";
@@ -139,17 +139,18 @@ export async function removeFeaturedListing(input: unknown): Promise<ActionResul
     const listing = await db.listing.findUnique({ where: { id: listingId }, select: { id: true, publicId: true } });
     if (!listing && !settings.featuredListingIds.includes(listingId)) throw new ContentActionError("listing_not_found", 404);
 
-    if (listing) await db.listing.update({ where: { id: listing.id }, data: { featuredUntil: null } });
-    if (settings.featuredListingIds.includes(listingId)) {
-      await updateSettings({ featuredListingIds: settings.featuredListingIds.filter((id) => id !== listingId) }, staff.id);
-    }
-    await audit({
+    // A removal: its audit row first, and nothing changes when it cannot be written (Q13, 12.6.d).
+    await auditOrThrow({
       actorId: staff.id,
       action: "listing.unfeature",
       targetType: "Listing",
       targetId: listingId,
       details: { publicId: listing?.publicId ?? null },
     });
+    if (listing) await db.listing.update({ where: { id: listing.id }, data: { featuredUntil: null } });
+    if (settings.featuredListingIds.includes(listingId)) {
+      await updateSettings({ featuredListingIds: settings.featuredListingIds.filter((id) => id !== listingId) }, staff.id);
+    }
     return ok();
   }, { freshProof: "window" });
 }
@@ -174,15 +175,16 @@ export async function removeEndedFeatured(): Promise<ActionResult<{ removed: num
     }
     if (ended.size === 0) return ok({ removed: 0 });
 
-    await db.listing.updateMany({ where: { id: { in: [...ended] } }, data: { featuredUntil: null } });
-    await updateSettings({ featuredListingIds: settings.featuredListingIds.filter((id) => !ended.has(id)) }, staff.id);
-    await audit({
+    // A removal: its audit row first, and nothing changes when it cannot be written (Q13, 12.6.d).
+    await auditOrThrow({
       actorId: staff.id,
       action: "listing.unfeature_ended",
       targetType: "Listing",
       targetId: [...ended].slice(0, 20).join(","),
       details: { count: ended.size },
     });
+    await db.listing.updateMany({ where: { id: { in: [...ended] } }, data: { featuredUntil: null } });
+    await updateSettings({ featuredListingIds: settings.featuredListingIds.filter((id) => !ended.has(id)) }, staff.id);
     return ok({ removed: ended.size });
   }, { freshProof: "window" });
 }

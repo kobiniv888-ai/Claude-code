@@ -14,10 +14,12 @@ import { useReportBusy } from "./busy-context";
 
 /**
  * Photo uploads for the wizard: a HEIC photo is first converted to JPEG where the browser can
- * decode it (toJpegIfHeic, founder's answer (e)); then compress in the browser
+ * decode it (toJpegIfHeic, founder's answer (e); saves server CPU); then compress in the browser
  * (browser-image-compression, max 2400 px, ≈1.5 MB, orientation kept) and POST
  * /api/uploads/listing-photo with progress, three at a time, retrying network/server failures
- * twice before showing "Retry". Raw HEIC is never uploaded.
+ * twice before showing "Retry". A HEIC the browser cannot decode (Chrome on Windows) goes up as it
+ * is: the server decodes it (prepareUploadImage in @/lib/images) and answers "heic_not_supported"
+ * only for a file it cannot read either.
  */
 
 export type UploadItem = {
@@ -52,7 +54,8 @@ class UploadError extends Error {
 }
 
 async function compress(file: File): Promise<File> {
-  // HEIC never gets here (runUpload converts it first, or stops); GIF is refused by the server.
+  // A HEIC that is still HEIC here could not be decoded by this browser: the server converts it.
+  // GIF is refused by the server.
   if (file.type === "image/gif" || isHeicFile(file)) return file;
   try {
     const { default: imageCompression } = await import("browser-image-compression");
@@ -162,20 +165,18 @@ export function usePhotoUploads({
     let original = files.current.get(item.key);
     if (!original) return;
     update(item.key, { status: "compressing", progress: 0, error: undefined });
-    // An HEIC file (dragged in on a Mac, shared from Files): converted to JPEG where the browser
-    // can decode it; otherwise say how to send JPEG (the server would refuse it anyway).
+    // A HEIC file (dragged in on a Mac, shared from Files): converted to JPEG where the browser
+    // can decode it, with a preview; otherwise it goes up as HEIC (no preview) and the server
+    // converts it.
     if (isHeicFile(original)) {
-      try {
-        original = await toJpegIfHeic(original);
-      } catch {
-        update(item.key, { status: "error", error: "heic_not_supported" });
-        itemsRef.current = itemsRef.current.map((i) => (i.key === item.key ? { ...i, status: "error" } : i));
-        return;
+      const converted = await toJpegIfHeic(original).catch(() => null);
+      if (converted) {
+        original = converted;
+        files.current.set(item.key, original);
+        const preview = URL.createObjectURL(original);
+        update(item.key, { preview });
+        itemsRef.current = itemsRef.current.map((i) => (i.key === item.key ? { ...i, preview } : i));
       }
-      files.current.set(item.key, original);
-      const preview = URL.createObjectURL(original);
-      update(item.key, { preview });
-      itemsRef.current = itemsRef.current.map((i) => (i.key === item.key ? { ...i, preview } : i));
     }
     const file = await compress(original);
     if (file.size > siteConfig.listings.maxPhotoBytes) {

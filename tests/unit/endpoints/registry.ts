@@ -508,7 +508,57 @@ export const DESTRUCTIVE_STAFF_ACTIONS: readonly string[] = [
   "src/lib/reviews/admin-actions.ts#hideReviewAction",
   // Its "started" row is written with auditOrThrow before the run (src/lib/admin/maintenance/cleanups.ts).
   "src/lib/admin/maintenance/actions.ts#runCleanupAction",
+  // The full dump: its "started" row is written with auditOrThrow before the backup runs.
+  "src/lib/admin/maintenance/actions.ts#createBackupAction",
+  // Closing a report: the claim and its audit row in one transaction.
+  "src/lib/admin/actions/reports.ts#resolveReport",
+  "src/lib/admin/actions/reports.ts#dismissReport",
+  // Removals: the audit row first (featured), or in the same transaction (translation override).
+  "src/lib/admin/content/actions/home.ts#removeFeaturedListing",
+  "src/lib/admin/content/actions/home.ts#removeEndedFeatured",
+  "src/lib/admin/content/actions/translations.ts#resetTranslationOverride",
 ];
+
+/**
+ * Staff actions that change something but are NOT destructive (they add, edit, restore or send,
+ * and can be undone by another staff action): they write the audit log with audit(), which never
+ * stops the action. Every other staff action that changes something must reach auditOrThrow
+ * (founder's decision Q13; tests/unit/endpoints/staff-audit.test.ts): a NEW staff action fails that
+ * test until it uses auditOrThrow or is listed here with a reason.
+ */
+export const NON_DESTRUCTIVE_STAFF_ACTIONS: Record<string, string> = {
+  "src/lib/admin/actions/moderation.ts#approveListingAction": "publishes a listing (undone by hide/reject); the lifecycle audits it",
+  "src/lib/admin/actions/moderation.ts#restoreListingAction": "puts a hidden listing back online (undone by hide)",
+  "src/lib/admin/actions/outbox.ts#resendOutboxEmailAction": "sends an existing email again; deletes nothing",
+  "src/lib/admin/actions/reference-prices.ts#saveReferencePriceAction": "adds or edits a reference price (switching it off is the destructive one)",
+  "src/lib/admin/actions/reports.ts#saveReportNote": "an internal note on a report",
+  "src/lib/admin/actions/reports.ts#restoreReportedListing": "puts a hidden listing back online (undone by hide)",
+  "src/lib/admin/actions/tickets.ts#staffReplyAction": "adds a reply to a ticket",
+  "src/lib/admin/actions/tickets.ts#setTicketStatusAction": "changes a ticket's status (reversible)",
+  "src/lib/admin/actions/tickets.ts#assignTicketAction": "assigns a ticket to a staff member (reversible)",
+  "src/lib/admin/actions/users.ts#reactivateUserAction": "lifts a suspension or ban (the opposite of a destructive action)",
+  "src/lib/admin/actions/users.ts#addAdminNote": "an internal note on an account",
+  "src/lib/admin/badges/actions.ts#setVisitedAction": "gives the 'we visited' badge (clearing it is the destructive one)",
+  "src/lib/admin/content/actions/banned-words.ts#saveBannedWord": "adds or edits a filter phrase (deleting is the destructive one)",
+  "src/lib/admin/content/actions/banned-words.ts#addBannedWordsBulk": "adds filter phrases",
+  "src/lib/admin/content/actions/banned-words.ts#setScamBannerEnabled": "switches the scam-alert banner on or off (reversible)",
+  "src/lib/admin/content/actions/cities.ts#saveCity": "adds or edits a city (deleting is the destructive one)",
+  "src/lib/admin/content/actions/cities.ts#saveNeighborhood": "adds or edits a neighborhood (deleting is the destructive one)",
+  "src/lib/admin/content/actions/cities.ts#uploadCityPhoto": "stores a new photo file; the editor saves it with the city",
+  "src/lib/admin/content/actions/editorial.ts#saveArticle": "adds or edits an article (deleting is the destructive one)",
+  "src/lib/admin/content/actions/editorial.ts#saveFaqItem": "adds or edits a question (deleting is the destructive one)",
+  "src/lib/admin/content/actions/editorial.ts#reorderFaqItems": "changes the order of the questions",
+  "src/lib/admin/content/actions/editorial.ts#saveScamAlert": "adds or edits a scam alert (deleting is the destructive one)",
+  "src/lib/admin/content/actions/home.ts#saveHomeSections": "turns home page sections on or off (reversible)",
+  "src/lib/admin/content/actions/home.ts#addFeaturedListing": "features a listing (removing is the destructive one)",
+  "src/lib/admin/content/actions/places.ts#savePlace": "adds or edits a community place (deleting is the destructive one)",
+  "src/lib/admin/content/actions/saved-replies.ts#saveSavedReply": "adds or edits a saved reply (deleting is the destructive one)",
+  "src/lib/admin/content/actions/settings.ts#saveSettings": "edits site settings (reversible; every change is logged)",
+  "src/lib/admin/content/actions/settings.ts#saveEmergencyContacts": "edits the emergency numbers (reversible)",
+  "src/lib/admin/content/actions/translations.ts#saveTranslationOverride": "adds or edits a text override (resetting it is the destructive one)",
+  "src/lib/admin/maintenance/actions.ts#dryRunCleanupAction": "changes nothing; who looked is audited with audit()",
+  "src/lib/reviews/admin-actions.ts#showReviewAction": "shows a hidden review again (hiding is the destructive one)",
+};
 
 /**
  * Staff actions that delete or remove something, or change who may do what (SECURITY_REPORT 3.6.c,

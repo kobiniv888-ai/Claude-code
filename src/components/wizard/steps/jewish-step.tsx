@@ -27,6 +27,7 @@ import {
   SHABBAT_FEATURES,
 } from "@/lib/listing/fields";
 import { UPLOAD_IMAGE_ACCEPT } from "@/lib/media";
+import { readyForUpload } from "@/lib/media-client";
 import { cn } from "@/lib/utils";
 import { applies } from "@/lib/wizard/steps";
 import { CheckCards, ChoiceCards, Field, FieldError, Section } from "../fields";
@@ -93,10 +94,12 @@ function KosherCertificateUpload({
   const [fileName, setFileName] = useState<string | null>(null);
   useReportBusy(state === "uploading");
 
-  const upload = async (file: File) => {
+  const upload = async (picked: File) => {
     setState("uploading");
     setError(null);
     try {
+      // HEIC: converted to JPEG where this browser can (else the server converts it).
+      const { file } = await readyForUpload(picked);
       const form = new FormData();
       form.set("purpose", "verification");
       form.set("file", file);

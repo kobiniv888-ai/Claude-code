@@ -88,3 +88,59 @@ describe("the booking page's X-Robots-Tag (10.4.d)", () => {
     expect(listing.headers.get("x-robots-tag")).toBeNull();
   });
 });
+
+// SECURITY_REPORT 10.2.a / 10.2.c (csp-dotted-paths-1): a path with a dot can still render an app
+// page (a listing id with a dot, the not-found page of "/x.txt"); it gets the same CSP, and a
+// visitor's own x-nonce / x-pathname / content-security-policy request headers never reach the app.
+describe("paths with a dot, the API, and request headers only the proxy may set", () => {
+  /** What the app receives: NextResponse.next({ request: { headers } }) lists the overridden headers. */
+  function forwarded(res: Response, name: string): string | null {
+    const overridden = (res.headers.get("x-middleware-override-headers") ?? "").split(",").map((h) => h.trim());
+    if (!overridden.includes(name)) return null;
+    return res.headers.get(`x-middleware-request-${name}`);
+  }
+
+  it.each(["/x.txt", "/he/listing/89-x.y", "/he/foo.php"])("%s gets both CSP headers and its own nonce", async (path) => {
+    const proxy = await loadProxy(PRODUCTION);
+    const res = await proxy(
+      new NextRequest(`https://bayit.ge${path}`, {
+        headers: { host: "bayit.ge", "x-nonce": "evil", "x-pathname": "/evil", "content-security-policy": "default-src *" },
+      }),
+    );
+    const enforced = res.headers.get("content-security-policy");
+    expect(directive(enforced, "base-uri")).toEqual(["'none'"]);
+    expect(res.headers.get("content-security-policy-report-only")).not.toBeNull();
+    expect(res.headers.get("reporting-endpoints")).toBe('csp-endpoint="/api/csp-report"');
+    const nonce = /'nonce-([^']+)'/.exec(enforced ?? "")?.[1];
+    expect(nonce).toBeTruthy();
+    expect(forwarded(res, "x-nonce")).toBe(nonce);
+    expect(forwarded(res, "x-pathname")).toBe(path);
+    expect(forwarded(res, "content-security-policy")).toBe(enforced);
+  });
+
+  it("the API gets no CSP, and the visitor's x-nonce / x-pathname are removed there too", async () => {
+    const proxy = await loadProxy(PRODUCTION);
+    const res = await proxy(
+      new NextRequest("https://bayit.ge/api/places?q=x", {
+        headers: { host: "bayit.ge", "x-nonce": "evil", "x-pathname": "/evil", "content-security-policy": "default-src *" },
+      }),
+    );
+    expect(res.headers.get("content-security-policy")).toBeNull();
+    const overridden = (res.headers.get("x-middleware-override-headers") ?? "").split(",").map((h) => h.trim());
+    expect(overridden).not.toContain("x-nonce");
+    expect(overridden).not.toContain("x-pathname");
+    expect(overridden).not.toContain("content-security-policy");
+    expect(res.headers.get("x-middleware-request-x-nonce")).toBeNull();
+    expect(res.headers.get("x-middleware-request-x-pathname")).toBeNull();
+  });
+
+  it("a page request carrying x-nonce: evil reaches the app with the proxy's nonce instead", async () => {
+    const proxy = await loadProxy(PRODUCTION);
+    const request = new NextRequest("https://bayit.ge/he", { headers: { host: "bayit.ge", "x-nonce": "evil", "x-pathname": "/evil" } });
+    const res = await proxy(request);
+    const nonce = /'nonce-([^']+)'/.exec(res.headers.get("content-security-policy") ?? "")?.[1];
+    expect(request.headers.get("x-nonce")).toBe(nonce);
+    expect(request.headers.get("x-nonce")).not.toBe("evil");
+    expect(request.headers.get("x-pathname")).toBe("/he");
+  });
+});

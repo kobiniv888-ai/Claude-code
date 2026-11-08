@@ -36,6 +36,8 @@ export const SECURITY_EVENT_TYPES = [
   "calendar_link_replaced",
   /** The browser reported a Content-Security-Policy violation. */
   "csp_report",
+  /** New kinds of CSP violation hit the hourly cap of /api/csp-report (one event per hour). */
+  "csp_report_capped",
   /** A new session from a login (meta: method email_code / phone_code / social, staff). Not our own rotation. */
   "login_success",
   /** A login code was refused (meta: channel email / sms, reason: the error code). */

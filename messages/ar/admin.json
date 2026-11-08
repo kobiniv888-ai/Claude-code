@@ -454,6 +454,7 @@
       "listing_unfeature": "أُزيل إعلان من المميزة",
       "listing_unfeature_ended": "انتهت مدة تمييز إعلان",
       "maintenance_backup": "أُنشئت نسخة احتياطية",
+      "maintenance_backup_started": "بدأ النسخ الاحتياطي",
       "maintenance_cleanup": "نُفّذ تنظيف",
       "neighborhood_create": "أُضيف حي",
       "neighborhood_update": "حُدّث حي",

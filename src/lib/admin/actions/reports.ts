@@ -121,8 +121,14 @@ type Decision = {
  * and the other gets "already_decided". `guard` adds conditions (a dismissal: not revealed);
  * when only the guard failed the report is still open and the answer is "invalid_status".
  */
-async function claimReport(staff: CurrentUser, report: LoadedReport, decision: Decision, guard: Prisma.ReportWhereInput = {}): Promise<void> {
-  const { count } = await db.report.updateMany({
+async function claimReport(
+  staff: CurrentUser,
+  report: LoadedReport,
+  decision: Decision,
+  guard: Prisma.ReportWhereInput = {},
+  client: Pick<Prisma.TransactionClient, "report"> = db,
+): Promise<void> {
+  const { count } = await client.report.updateMany({
     where: { ...guard, id: report.id, status: "OPEN" },
     data: {
       status: decision.status,
@@ -157,9 +163,9 @@ async function decide<T>(staff: CurrentUser, report: LoadedReport, decision: Dec
   }
 }
 
-/** The report's own audit entry for a decision that went through. */
-async function auditDecision(staff: CurrentUser, report: LoadedReport, action: string, resolution: string | null, details: Record<string, unknown> = {}) {
-  await audit({
+/** The report's own audit entry for a decision. */
+function decisionEntry(staff: CurrentUser, report: LoadedReport, action: string, resolution: string | null, details: Record<string, unknown> = {}) {
+  return {
     actorId: staff.id,
     action,
     targetType: "Report",
@@ -172,6 +178,22 @@ async function auditDecision(staff: CurrentUser, report: LoadedReport, action: s
       closed: true,
       ...details,
     },
+  };
+}
+
+/** The report's own audit entry for a decision that went through (its account action was audited already). */
+async function auditDecision(staff: CurrentUser, report: LoadedReport, action: string, resolution: string | null, details: Record<string, unknown> = {}) {
+  await audit(decisionEntry(staff, report, action, resolution, details));
+}
+
+/**
+ * Closes the report and writes its audit row in ONE transaction (founder's decision Q13; SECURITY_REPORT
+ * 12.6.d): when the row cannot be written the report stays open ("audit_failed").
+ */
+async function closeWithAudit(staff: CurrentUser, report: LoadedReport, decision: Decision, action: string, guard: Prisma.ReportWhereInput = {}) {
+  await db.$transaction(async (tx) => {
+    await claimReport(staff, report, decision, guard, tx);
+    await auditOrThrow(decisionEntry(staff, report, action, decision.resolution), tx);
   });
 }
 
@@ -182,8 +204,7 @@ export async function resolveReport(input: unknown): Promise<ActionResult<{ stat
     const report = await loadReport(parsed.data.reportId);
     assertOpen(report);
     assertNotOwnReport(staff, report);
-    await claimReport(staff, report, { status: "RESOLVED", actionTaken: "resolved", resolution: parsed.data.resolution });
-    await auditDecision(staff, report, "report.resolve", parsed.data.resolution);
+    await closeWithAudit(staff, report, { status: "RESOLVED", actionTaken: "resolved", resolution: parsed.data.resolution }, "report.resolve");
     return ok({ status: "RESOLVED" });
   });
 }
@@ -201,8 +222,7 @@ export async function dismissReport(input: unknown): Promise<ActionResult<{ stat
     assertOpen(report);
     assertNotOwnReport(staff, report);
     if (report.reporterRevealedAt) throw new AdminActionError("invalid_status");
-    await claimReport(staff, report, { status: "DISMISSED", actionTaken: "dismissed", resolution: parsed.data.resolution }, { reporterRevealedAt: null });
-    await auditDecision(staff, report, "report.dismiss", parsed.data.resolution);
+    await closeWithAudit(staff, report, { status: "DISMISSED", actionTaken: "dismissed", resolution: parsed.data.resolution }, "report.dismiss", { reporterRevealedAt: null });
     return ok({ status: "DISMISSED" });
   });
 }

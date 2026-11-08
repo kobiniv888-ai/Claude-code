@@ -1,11 +1,13 @@
 "use client";
 
-import { ImagePlusIcon, RotateCcwIcon, TriangleAlertIcon, XIcon } from "lucide-react";
+import { ImageOffIcon, ImagePlusIcon, RotateCcwIcon, TriangleAlertIcon, XIcon } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ds/button";
 import { errorMessageKey } from "@/lib/errors";
 import { formatNumber } from "@/lib/format";
+import { isHeicFile } from "@/lib/media";
+import { readyForUpload } from "@/lib/media-client";
 import { REPORT_SCREENSHOTS, screenshotProblem, type ReportAttachment } from "@/lib/reports/turned-away";
 import { cn } from "@/lib/utils";
 
@@ -23,7 +25,8 @@ const MAX_MB = REPORT_SCREENSHOTS.maxBytes / (1024 * 1024);
 type Item = {
   id: string;
   file: File;
-  preview: string;
+  /** Object URL of a picture the browser can show; null for a HEIC this browser cannot read. */
+  preview: string | null;
   state: "uploading" | "done" | "error";
   attachment?: ReportAttachment;
   error?: string;
@@ -66,7 +69,7 @@ export function ReportScreenshots({
   }, [items]);
 
   // Free the object URLs when the form goes away.
-  useEffect(() => () => itemsRef.current.forEach((i) => URL.revokeObjectURL(i.preview)), []);
+  useEffect(() => () => itemsRef.current.forEach((i) => i.preview && URL.revokeObjectURL(i.preview)), []);
 
   const upload = useCallback(
     async (item: Item) => {
@@ -93,15 +96,17 @@ export function ReportScreenshots({
     [t, tErrors, locale],
   );
 
-  function addFiles(list: FileList | null) {
+  async function addFiles(list: FileList | null) {
     if (!list?.length) return;
     setNotice(null);
     const room = REPORT_SCREENSHOTS.maxFiles - items.length;
     const files = Array.from(list);
     if (files.length > room) setNotice(t("tooMany", { max: formatNumber(REPORT_SCREENSHOTS.maxFiles, locale) }));
     const added: Item[] = [];
-    for (const file of files.slice(0, Math.max(0, room))) {
-      const problem = screenshotProblem(file);
+    for (const picked of files.slice(0, Math.max(0, room))) {
+      // HEIC: converted to JPEG where this browser can, else sent as it is (the server converts it).
+      const { file, canPreview } = await readyForUpload(picked);
+      const problem = isHeicFile(file) ? (file.size > REPORT_SCREENSHOTS.maxBytes ? "file_too_large" : null) : screenshotProblem(file);
       if (problem === "file_type_not_allowed") {
         setNotice(t("wrongType"));
         continue;
@@ -110,7 +115,7 @@ export function ReportScreenshots({
         setNotice(t("tooLarge", { size: formatNumber(MAX_MB, locale) }));
         continue;
       }
-      added.push({ id: crypto.randomUUID(), file, preview: URL.createObjectURL(file), state: "uploading" });
+      added.push({ id: crypto.randomUUID(), file, preview: canPreview ? URL.createObjectURL(file) : null, state: "uploading" });
     }
     if (!added.length) return;
     setItems((current) => [...current, ...added]);
@@ -120,7 +125,7 @@ export function ReportScreenshots({
   function remove(id: string) {
     setItems((current) => {
       const item = current.find((i) => i.id === id);
-      if (item) URL.revokeObjectURL(item.preview);
+      if (item?.preview) URL.revokeObjectURL(item.preview);
       return current.filter((i) => i.id !== id);
     });
     focusAfterRemove.current = true;
@@ -147,7 +152,7 @@ export function ReportScreenshots({
           aria-label={t("add")}
           className="peer sr-only"
           onChange={(e) => {
-            addFiles(e.target.files);
+            void addFiles(e.target.files);
             e.target.value = "";
           }}
         />
@@ -179,13 +184,19 @@ export function ReportScreenshots({
           {items.map((item, index) => (
             <li key={item.id} className="relative">
               <div className={cn("relative aspect-square overflow-hidden rounded-xl border border-border bg-surface-muted", item.state === "error" && "border-destructive")}>
-                {/* A local preview of the chosen file (blob: URL). */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={item.preview}
-                  alt={t("thumbAlt", { number: formatNumber(index + 1, locale) })}
-                  className={cn("size-full object-cover", item.state !== "done" && "opacity-60")}
-                />
+                {/* A local preview of the chosen file (blob: URL); a quiet placeholder when there is none. */}
+                {item.preview ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={item.preview}
+                    alt={t("thumbAlt", { number: formatNumber(index + 1, locale) })}
+                    className={cn("size-full object-cover", item.state !== "done" && "opacity-60")}
+                  />
+                ) : (
+                  <span role="img" aria-label={t("thumbAlt", { number: formatNumber(index + 1, locale) })} className="flex size-full items-center justify-center text-muted-foreground">
+                    <ImageOffIcon className="size-6" aria-hidden />
+                  </span>
+                )}
                 {item.state === "uploading" ? (
                   <div className="absolute inset-0 flex items-end">
                     <span className="sr-only">{t("uploading")}</span>

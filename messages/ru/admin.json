@@ -454,6 +454,7 @@
       "listing_unfeature": "Объявление убрано из избранных",
       "listing_unfeature_ended": "Срок в избранных у объявления истёк",
       "maintenance_backup": "Создана резервная копия",
+      "maintenance_backup_started": "Резервное копирование начато",
       "maintenance_cleanup": "Выполнена очистка",
       "neighborhood_create": "Район добавлен",
       "neighborhood_update": "Район изменён",

@@ -8,8 +8,9 @@ import { isHeicFile } from "@/lib/media";
  * decoded (createImageBitmap, else an <img>), drawn on a canvas and exported as JPEG. Re-encoding
  * keeps only the pixels, so EXIF, GPS and every other metadata block are gone before the upload
  * (the server strips metadata from every stored image too). Where the browser cannot decode HEIC
- * (Chrome on Windows) this throws HeicConversionError and the field shows "heic_not_supported";
- * the server keeps refusing raw HEIC bytes as the last resort.
+ * (Chrome on Windows) this throws HeicConversionError and the field uploads the HEIC itself
+ * (readyForUpload): the server decodes it (prepareUploadImage in @/lib/images, heic-decode) and
+ * answers "heic_not_supported" only for a file it cannot read either.
  */
 
 /** Longest side of the converted JPEG (the same limit the photo compressor uses). */
@@ -101,5 +102,19 @@ export async function toJpegIfHeic(file: File, maxSide: number = HEIC_MAX_SIDE):
     throw error instanceof HeicConversionError ? error : new HeicConversionError();
   } finally {
     drawable.close();
+  }
+}
+
+/**
+ * For the upload fields: the file to send and whether this browser can show it as a preview. A
+ * HEIC photo is converted to JPEG where the browser can (preview shown); otherwise the HEIC itself
+ * is sent (no preview: a broken-image icon would show) and the server converts it.
+ */
+export async function readyForUpload(file: File): Promise<{ file: File; canPreview: boolean }> {
+  if (!isHeicFile(file)) return { file, canPreview: true };
+  try {
+    return { file: await toJpegIfHeic(file), canPreview: true };
+  } catch {
+    return { file, canPreview: false };
   }
 }

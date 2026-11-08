@@ -128,12 +128,15 @@ export function reverseImageSearchLinks(imageUrl: string): ReverseImageLinks | n
 /**
  * The image types every upload field offers (the file input's `accept`). JPEG, PNG and WebP only
  * (SECURITY_REPORT 9.a): leaving HEIC out makes an iPhone convert its photos to JPEG by itself
- * before sending them. The server checks the real bytes again (sniffImageFormat in @/lib/images)
- * and refuses HEIC (with "heic_not_supported"), AVIF, GIF, SVG and everything else.
+ * before sending them. A HEIC file that still arrives (dragged in, shared from Files) is converted
+ * in the browser where it can be (readyForUpload in @/lib/media-client), else on the server
+ * (prepareUploadImage in @/lib/images). The server checks the real bytes again (sniffImageFormat)
+ * and refuses AVIF, GIF, SVG and everything else; "heic_not_supported" means a HEIC it could not
+ * decode.
  */
 export const UPLOAD_IMAGE_ACCEPT = "image/jpeg,image/png,image/webp";
 
-/** A picked file that is HEIC/HEIF by its type or name (the upload fields answer at once). */
+/** A picked file that is HEIC/HEIF by its type or name (converted before or after upload). */
 export function isHeicFile(file: { type: string; name: string }): boolean {
   return /^image\/hei[cf](-sequence)?$/i.test(file.type) || /\.(heic|heif)$/i.test(file.name);
 }

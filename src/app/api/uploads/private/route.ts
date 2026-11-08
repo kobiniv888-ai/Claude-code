@@ -5,7 +5,7 @@ import { requireUserForAction } from "@/lib/auth/session";
 import { randomToken } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { AppError, ValidationError } from "@/lib/errors";
-import { checkPdf, IMAGE_MIME_TYPES, processPrivateImage, scanFile, validateImage } from "@/lib/images";
+import { checkPdf, IMAGE_MIME_TYPES, prepareUploadImage, processPrivateImage, scanFile } from "@/lib/images";
 import { PRIVATE_UPLOAD_PURPOSES, privateUploadPrefix, type PrivateUploadPurpose } from "@/lib/media";
 import { assertRateLimit } from "@/lib/rate-limit";
 import { assertNotShabbatMode } from "@/lib/settings";
@@ -28,8 +28,9 @@ import {
  *   purpose  "verification" (ID, selfie, NAPR extract, business registration) | "ticket" (screenshots)
  *            | "report" (turned-away report screenshots, round 3). A form field; it may also be in
  *            the address, which caps the body for that purpose before it is read (both must agree)
- *   file     a JPEG, PNG or WebP image (≤ 15 MB; HEIC → 415 heic_not_supported, AVIF, GIF and
- *            others → 415 file_type_not_allowed: validateImage in @/lib/images), or for
+ *   file     a JPEG, PNG or WebP image, or an iPhone HEIC photo decoded on the server (≤ 15 MB; a
+ *            HEIC we cannot decode → 415 heic_not_supported, AVIF, GIF and others → 415
+ *            file_type_not_allowed: prepareUploadImage in @/lib/images), or for
  *            "verification" also a PDF (≤ 10 MB); for "report" at most 5 MB (REPORT_SCREENSHOTS in
  *            @/lib/reports/turned-away)
  *
@@ -101,13 +102,14 @@ export async function POST(request: Request) {
       mime = "application/pdf";
       extension = "pdf";
     } else {
-      const info = await validateImage(buffer, { minShortSide: MIN_SHORT_SIDE[purpose], maxBytes });
-      // Report screenshots: JPEG, PNG and WebP only (checked from the bytes, not the name).
-      if (purpose === "report" && !isAllowedScreenshotFormat(info.format)) {
+      const upload = await prepareUploadImage(buffer, { minShortSide: MIN_SHORT_SIDE[purpose], maxBytes, userId: user.id });
+      // Report screenshots: JPEG, PNG and WebP (checked from the bytes, not the name); a HEIC
+      // photo is already converted to a clean PNG here.
+      if (purpose === "report" && !isAllowedScreenshotFormat(upload.info.format)) {
         throw new AppError("file_type_not_allowed", "Report screenshots are JPEG, PNG or WebP", { status: 415 });
       }
-      await scanFile(buffer, IMAGE_MIME_TYPES[info.format]);
-      const processed = await processPrivateImage(buffer);
+      await scanFile(buffer, IMAGE_MIME_TYPES[upload.source]);
+      const processed = await processPrivateImage(upload.buffer);
       body = processed.body;
       mime = processed.contentType;
       extension = "jpg";

@@ -29,7 +29,8 @@ describe("the Content-Security-Policy (SECURITY_REPORT 10.2)", () => {
       expect(policy["object-src"]).toEqual(["'none'"]);
       expect(policy["base-uri"]).toEqual(["'none'"]);
       expect(policy["frame-ancestors"]).toEqual(["'none'"]);
-      expect(policy["form-action"]).toEqual(["'self'", "https://accounts.google.com", "https://appleid.apple.com"]);
+      // Forms post to us only (10.2.a): Google / Apple sign-in navigate with window.location, not a form.
+      expect(policy["form-action"]).toEqual(["'self'"]);
       expect(policy).toHaveProperty("upgrade-insecure-requests");
       expect(policy["report-uri"]).toEqual([CSP_REPORT_PATH]);
     }

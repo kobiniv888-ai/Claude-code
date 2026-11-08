@@ -5,9 +5,10 @@
  * Two policies (checklist 10.2: "start in report-only mode, fix the reports, then enforce"):
  *
  * - ENFORCED (Content-Security-Policy), today's policy: nonce + 'strict-dynamic' scripts,
- *   object-src 'none', base-uri 'none', frame-ancestors 'none', form-action limited to us and the
- *   Google / Apple sign-in pages, frames for Turnstile, YouTube and Vimeo only, and images/media
- *   from any https address (the loose part the trial below replaces).
+ *   object-src 'none', base-uri 'none', frame-ancestors 'none', form-action 'self' only (Google and
+ *   Apple sign-in are a fetch + window.location navigation, never a form post: SECURITY_REPORT
+ *   10.2.a), frames for Turnstile, YouTube and Vimeo only, and images/media from any https address
+ *   (the loose part the trial below replaces).
  * - STRICT (Content-Security-Policy-Report-Only while CSP_STRICT is not "enforce"): the same, but
  *   images only from us, data: (blur placeholders), blob: (upload previews), our photo bucket
  *   (NEXT_PUBLIC_MEDIA_BASE_URL), the map tiles (src/config/map.ts) and Google account photos;
@@ -25,8 +26,6 @@ export const CSP_REPORT_PATH = "/api/csp-report";
 /** The Reporting API group name (Reporting-Endpoints header + report-to directive). */
 export const CSP_REPORT_GROUP = "csp-endpoint";
 
-/** The sign-in pages a login form may be posted to (Google, Apple). */
-const SIGN_IN_FORM_TARGETS = ["https://accounts.google.com", "https://appleid.apple.com"];
 const FRAME_SOURCES = ["https://challenges.cloudflare.com", "https://www.youtube-nocookie.com", "https://www.youtube.com", "https://player.vimeo.com"];
 /** Profile photos of Google accounts (Better Auth keeps the Google picture as the user's image). */
 const ACCOUNT_PHOTO_ORIGINS = ["https://lh3.googleusercontent.com"];
@@ -103,7 +102,9 @@ export function buildCsp(options: CspOptions): string {
     // No <base> element anywhere: a base-uri of 'none' means an injected one can't move our
     // relative links and scripts elsewhere (SECURITY_REPORT 10.2.a).
     ["base-uri", ["'none'"]],
-    ["form-action", ["'self'", ...SIGN_IN_FORM_TARGETS]],
+    // Forms post to us only. If a flow ever needs an outside origin, add that exact origin with a
+    // test that names the flow (csp.test.ts).
+    ["form-action", ["'self'"]],
     ["frame-ancestors", ["'none'"]],
     ["report-uri", [CSP_REPORT_PATH]],
     ["report-to", [CSP_REPORT_GROUP]],

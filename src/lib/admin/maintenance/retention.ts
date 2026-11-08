@@ -1,6 +1,7 @@
 import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
 import { VISIT_SET_ACTION } from "@/lib/admin/badges/server";
+import { LONG_STAY_REVIEWED_ACTION } from "@/lib/admin/server/guest-flags";
 import { dayToDate, isDay, tbilisiToday } from "@/lib/booking/dates";
 import { db } from "@/lib/db";
 
@@ -16,8 +17,11 @@ import { db } from "@/lib/db";
  *
  * | Data                                          | Kept for                       | Job                         |
  * |-----------------------------------------------|--------------------------------|-----------------------------|
- * | Guest contact details on finished bookings    | 3 months after check-out (D9)  | eraseOldGuestContacts       |
- * | Staff audit log                               | 1 year (Q20)                   | purgeOldAuditLogs           |
+ * | Guest contact details on finished bookings    | 3 months after check-out (D9), | eraseOldGuestContacts       |
+ * |                                               | or after the cancellation      |                             |
+ * | Staff audit log                               | 1 year (Q20); a "long stay     | purgeOldAuditLogs           |
+ * |                                               | reviewed" mark until its stay  |                             |
+ * |                                               | has ended                      |                             |
  * | Email outbox (recipient + full message)       | 90 days                        | purgeOldEmailOutbox         |
  * | Who tapped "show contact" (ContactClick.user) | 90 days, then anonymous        | anonymizeOldContactClicks   |
  * | Device ↔ account links (DeviceLink)           | 1 year after last seen         | purgeStaleDeviceLinks       |
@@ -66,21 +70,30 @@ export function guestContactCutoffDay(now: Date = new Date()): string {
   return monthsBefore(tbilisiToday(now), GUEST_CONTACT_RETENTION_MONTHS);
 }
 
+/** A booking the guest or the host cancelled: it was finished on the day of the cancellation. */
+const CANCELLED_STATUSES = ["CANCELLED_BY_GUEST", "CANCELLED_BY_HOST"] as const;
+
 /**
  * Founder's decision 9: on every booking whose check-out is at least 3 months ago (any status:
  * completed, no-show, cancelled), the guest's contact details are blanked — the name ("—", as
  * account deletion does), the phone (""), the message to the host and the free-text cancellation
- * reason. What stays is anonymous: dates, nights, guests, price lines, listing, status, reason code,
- * and the link to the guest's own account (their own data, deleted with the account).
+ * reason. A cancelled booking was finished when it was cancelled, so it is blanked 3 months after
+ * the cancellation even when its planned check-out is still ahead (a stay booked 11 months ahead
+ * and cancelled the next day does not keep the guest's phone for 14 months; retention-cancelled-1).
+ * Guest flags count cancellations by account, never by these fields, so they are not weakened.
+ * What stays is anonymous: dates, nights, guests, price lines, listing, status, reason code, and
+ * the link to the guest's own account (their own data, deleted with the account).
  * Idempotent: only rows that still hold something are touched.
  */
 export async function eraseOldGuestContacts(now: Date = new Date(), scope: Prisma.BookingWhereInput = {}): Promise<number> {
   const cutoff = dayToDate(guestContactCutoffDay(now));
   const { count } = await db.booking.updateMany({
     where: {
-      ...scope,
-      checkOut: { lte: cutoff },
-      OR: [{ guestName: { not: ERASED_GUEST_NAME } }, { guestPhone: { not: "" } }, { messageToHost: { not: null } }, { cancelReason: { not: null } }],
+      AND: [
+        scope,
+        { OR: [{ checkOut: { lte: cutoff } }, { status: { in: [...CANCELLED_STATUSES] }, cancelledAt: { lt: cutoff } }] },
+        { OR: [{ guestName: { not: ERASED_GUEST_NAME } }, { guestPhone: { not: "" } }, { messageToHost: { not: null } }, { cancelReason: { not: null } }] },
+      ],
     },
     data: { guestName: ERASED_GUEST_NAME, guestPhone: "", messageToHost: null, cancelReason: null },
   });
@@ -90,11 +103,28 @@ export async function eraseOldGuestContacts(now: Date = new Date(), scope: Prism
 /**
  * Staff audit entries older than a year. The "we visited" snapshots (listing.visited_set) stay:
  * they hold a listing's state at the visit, no personal data, and the badge page compares with the
- * latest one however old it is.
+ * latest one however old it is. A "long stay reviewed" mark (flag.long_stay_reviewed) stays while
+ * its stay has not ended: bookings can be made up to two years ahead, and without the mark staff
+ * would see a reviewed stay as open again (longstay-marker-retention-1). Once the stay has ended,
+ * the mark goes at a year like the rest (founder's answer (d)).
  */
 export async function purgeOldAuditLogs(now: Date = new Date(), scope: Prisma.AuditLogWhereInput = {}): Promise<number> {
   const cutoff = new Date(now.getTime() - AUDIT_LOG_RETENTION_DAYS * DAY_MS);
-  const { count } = await db.auditLog.deleteMany({ where: { ...scope, createdAt: { lt: cutoff }, action: { not: VISIT_SET_ACTION } } });
+  const due: Prisma.AuditLogWhereInput = { ...scope, createdAt: { lt: cutoff } };
+  const marks = await db.auditLog.findMany({ where: { ...due, action: LONG_STAY_REVIEWED_ACTION, targetType: "Booking" }, select: { targetId: true } });
+  const bookingIds = [...new Set(marks.map((m) => m.targetId).filter((id): id is string => Boolean(id)))];
+  const notEnded = bookingIds.length
+    ? (await db.booking.findMany({ where: { id: { in: bookingIds }, checkOut: { gte: dayToDate(tbilisiToday(now)) } }, select: { id: true } })).map((b) => b.id)
+    : [];
+  const { count } = await db.auditLog.deleteMany({
+    where: {
+      AND: [
+        due,
+        { action: { not: VISIT_SET_ACTION } },
+        ...(notEnded.length ? [{ NOT: { action: LONG_STAY_REVIEWED_ACTION, targetType: "Booking", targetId: { in: notEnded } } }] : []),
+      ],
+    },
+  });
   return count;
 }
 

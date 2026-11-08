@@ -380,8 +380,23 @@ production:** `DEV_SKIP_STAFF_2FA`, `NEXT_PUBLIC_SHOW_DEV_UI`.
 Next.js 16 (App Router), TypeScript, Tailwind CSS v4 and shadcn/ui (RTL), next-intl (`/he /en /ru
 /ar /ka` URLs with hreflang), PostgreSQL with Prisma 7, Better Auth (phone code, Google, Apple) plus
 our own 2-step login, Leaflet with OpenStreetMap, `@hebcal/core` for Shabbat and holiday times,
-sharp for photos (re-encoded, location data removed, watermarked, fingerprinted), Resend, Twilio,
-Google Cloud Translation and Cloudflare Turnstile. It installs as an app on phones (PWA).
+sharp for photos (re-encoded, location data removed, watermarked, fingerprinted), heic-decode
+(libheif in WebAssembly) for iPhone HEIC photos that the browser could not convert itself (see
+"Image uploads" below), Resend, Twilio, Google Cloud Translation and Cloudflare Turnstile. It
+installs as an app on phones (PWA).
+
+### Image uploads
+
+Every upload field offers JPEG, PNG and WebP, so an iPhone sends JPEG on its own. A HEIC file that
+still arrives is converted to JPEG in the browser where it can be decoded (Safari;
+`src/lib/media-client.ts`), otherwise on the server: `prepareUploadImage` in `src/lib/images.ts`
+decodes it with **heic-decode 2.1.0** (ISC; it uses **libheif-js 1.23.5**, LGPL-3.0, WebAssembly,
+no install scripts, loaded only on that path and kept out of the bundle by `serverExternalPackages`)
+and hands the raw pixels to sharp, so no EXIF, GPS, XMP or maker notes survive. Limits: the file
+size, at most 50 megapixels (checked before decoding), 40 HEIC decodes per user per hour, one
+decode at a time per server. AVIF and GIF are refused. `tests/fixtures/heic/gps-photo.heic` (made
+by `make-gps-heic.mjs` next to it) is a fake iPhone photo with GPS that the tests use to prove
+every stored image is clean.
 
 ```
 src/app/[locale]/(site)   public site, account dashboard, post wizard

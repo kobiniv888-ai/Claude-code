@@ -13,7 +13,7 @@ Read this before changing code. It is the contract every part of the site follow
 | Auth | Better Auth (Prisma adapter, phone-number plugin, Google/Apple), own TOTP 2-step login |
 | Maps | Leaflet + react-leaflet + OpenStreetMap tiles (tile URL in `src/config/site.ts`) |
 | Jewish calendar | `@hebcal/core` (the library behind hebcal.com) — runs on our server, no API limits |
-| Images | sharp (re-encode to WebP, strip EXIF, watermark, perceptual hash) |
+| Images | sharp (re-encode to WebP, strip EXIF, watermark, perceptual hash); HEIC/HEIF via heic-decode 2.1.0 (libheif-js 1.23.5, WebAssembly) on the server when the browser could not convert it. Every upload goes through `prepareUploadImage` (`src/lib/images.ts`); never pass upload bytes to sharp directly |
 | Email | Resend (falls back to the dev outbox) |
 | SMS / VoIP check | Twilio Programmable Messaging with our own code text (a Messaging Service; Israel and Georgia mobile numbers only; codes on screen in test mode) + Lookup. Login-code rules: `src/lib/auth/code-rules.ts` |
 | Translation | Microsoft Azure AI Translator v3 (default) or Google Cloud Translation v2, behind one interface in `src/lib/translate/` (`TRANSLATE_PROVIDER`); without a key the owner's text shows with "Original in …" and a Google Translate link |

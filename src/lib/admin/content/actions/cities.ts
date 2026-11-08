@@ -1,12 +1,11 @@
 "use server";
 
 import { randomBytes } from "node:crypto";
-import sharp from "sharp";
 import { z } from "zod";
 import { fail, ok, type ActionResult } from "@/lib/action";
 import { audit, auditOrThrow } from "@/lib/audit";
 import { db } from "@/lib/db";
-import { validateImage } from "@/lib/images";
+import { prepareUploadImage, processCityPhoto } from "@/lib/images";
 import { buildSearchText } from "@/lib/search-text";
 import { deletePublic, isValidStorageKey, publicUrl, putPublic } from "@/lib/storage";
 import { cleanLocalized, parseAliases } from "../localized";
@@ -160,7 +159,6 @@ export async function deleteNeighborhood(input: unknown): Promise<ActionResult> 
 }
 
 const CITY_PHOTO_MAX_BYTES = 8 * 1024 * 1024;
-const CITY_PHOTO_WIDTH = 1600;
 
 /**
  * City cover photo: re-encoded to WebP (max 1600 px wide, metadata removed) and stored as a
@@ -176,13 +174,9 @@ export async function uploadCityPhoto(formData: FormData): Promise<ActionResult<
       const slug = slugSchema.safeParse(formData.get("slug") ?? "");
       if (!(file instanceof File) || !slug.success) return fail("invalid_input");
       const buffer = Buffer.from(await file.arrayBuffer());
-      await validateImage(buffer, { maxBytes: CITY_PHOTO_MAX_BYTES, minShortSide: 400 });
-      const webp = await sharp(buffer, { limitInputPixels: 100_000_000 })
-        .rotate()
-        .resize({ width: CITY_PHOTO_WIDTH, height: CITY_PHOTO_WIDTH, fit: "inside", withoutEnlargement: true })
-        .toColourspace("srgb")
-        .webp({ quality: 80 })
-        .toBuffer();
+      // JPEG, PNG, WebP, or HEIC converted on the server (SECURITY_REPORT 9.a; metadata removed: 9.g).
+      const upload = await prepareUploadImage(buffer, { maxBytes: CITY_PHOTO_MAX_BYTES, minShortSide: 400, userId: staff.id });
+      const webp = await processCityPhoto(upload.buffer);
       const key = `cities/${slug.data}-${randomBytes(4).toString("hex")}.webp`;
       const { url } = await putPublic(key, webp, "image/webp");
       await audit({ actorId: staff.id, action: "city.photo_upload", targetType: "City", targetId: slug.data, details: { key, bytes: webp.length } });

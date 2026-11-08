@@ -12,6 +12,7 @@ import { submitBusinessVerification, submitIdVerification, submitOwnershipVerifi
 import { acceptsPdf, isValidCadastralCode, type DocumentSlot, type UploadedFile } from "@/lib/account/verification";
 import { formatNumber } from "@/lib/format";
 import { UPLOAD_IMAGE_ACCEPT } from "@/lib/media";
+import { readyForUpload } from "@/lib/media-client";
 import { cn } from "@/lib/utils";
 import { useActionError } from "./use-action-error";
 
@@ -43,10 +44,12 @@ function DocumentUpload({
   const [error, setError] = useState<string | null>(null);
   const pdf = acceptsPdf(slot);
 
-  const upload = async (file: File) => {
+  const upload = async (picked: File) => {
     setBusy(true);
     setError(null);
     try {
+      // HEIC: converted to JPEG where this browser can (else the server converts it).
+      const { file } = await readyForUpload(picked);
       const form = new FormData();
       form.set("purpose", "verification");
       form.set("file", file);

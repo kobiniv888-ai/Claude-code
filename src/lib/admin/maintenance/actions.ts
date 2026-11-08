@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { fail, ok, type ActionResult } from "@/lib/action";
-import { audit } from "@/lib/audit";
+import { audit, auditOrThrow } from "@/lib/audit";
 import { AdminActionError, runStaffAction } from "../server/common";
 import { createBackup } from "./backup";
 import { summarize, type BackupSummary } from "./backup-format";
@@ -18,12 +18,17 @@ import { CLEANUP_NAMES } from "./plan";
 const nameInput = z.object({ name: z.enum(CLEANUP_NAMES) });
 const runInput = nameInput.extend({ confirm: z.literal(true) });
 
-/** "גיבוי מלא": a full backup to backups/<time>/. */
+/**
+ * "גיבוי מלא": a full backup to backups/<time>/. The dump holds every row, so who started it is
+ * written first with auditOrThrow (founder's decision Q13, SECURITY_REPORT 12.6.d): no audit row,
+ * no backup. The result (tables, rows, bytes) is a second row.
+ */
 export async function createBackupAction(): Promise<ActionResult<{ backup: BackupSummary; backups: BackupSummary[] }>> {
   return runStaffAction(
     "settings",
     "maintenance.backup",
     async (staff) => {
+      await auditOrThrow({ actorId: staff.id, action: "maintenance.backup_started", targetType: "Backup", details: { via: "admin" } });
       let backup: BackupSummary;
       try {
         backup = summarize(await createBackup({ userId: staff.id, via: "admin" }));

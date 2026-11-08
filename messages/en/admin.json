@@ -454,6 +454,7 @@
       "listing_unfeature": "Listing no longer featured",
       "listing_unfeature_ended": "Listing's featured period ended",
       "maintenance_backup": "Backup made",
+      "maintenance_backup_started": "Backup started",
       "maintenance_cleanup": "Clean-up run",
       "neighborhood_create": "Neighborhood added",
       "neighborhood_update": "Neighborhood updated",
