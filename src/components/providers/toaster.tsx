@@ -21,11 +21,15 @@ const SonnerToaster = dynamic(() => import("./sonner-toaster"), { ssr: false });
 export function AppToaster({ dir }: { dir: "ltr" | "rtl" }) {
   const t = useTranslations("common");
   const tMenu = useTranslations("auth.menu");
-  const [mounted, setMounted] = useState(false);
+  // "afterLogout": this page was opened by a logout (src/lib/auth/logout.ts) and says so once. Read
+  // at the start only: a logout made on this page sets the flag for the page it goes to, and sonner
+  // mounting here in the meantime (the logout tap counts as the first touch) must not take it.
+  const [state, setState] = useState<"waiting" | "mounted" | "afterLogout">("waiting");
   useEffect(() => {
-    const mount = () => setMounted(true);
+    const mount = () => setState((current) => (current === "waiting" ? "mounted" : current));
+    const mountAfterLogout = () => setState("afterLogout");
     if (hasLoggedOutFlag()) {
-      mount();
+      mountAfterLogout();
       return;
     }
     const stopWaiting = whenToastWanted(mount);
@@ -35,7 +39,7 @@ export function AppToaster({ dir }: { dir: "ltr" | "rtl" }) {
       cancelIdle();
     };
   }, []);
-  if (!mounted) return null;
+  if (state === "waiting") return null;
   return (
     <SonnerToaster
       dir={dir}
@@ -48,7 +52,7 @@ export function AppToaster({ dir }: { dir: "ltr" | "rtl" }) {
         // The action ("לתיקון", "לשמורים") is a real button on a phone: 44 px tall, not sonner's 24.
         classNames: { toast: "cn-toast rounded-xl! shadow-float!", actionButton: "h-auto! min-h-11! rounded-lg! px-3! text-sm! font-semibold!" },
       }}
-      loggedOutMessage={tMenu("loggedOut")}
+      loggedOutMessage={state === "afterLogout" ? tMenu("loggedOut") : undefined}
     />
   );
 }

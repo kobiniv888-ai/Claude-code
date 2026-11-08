@@ -89,3 +89,6 @@ export const SPRITE_ICON_NAMES = [
 ] as const;
 
 export type SpriteIconName = (typeof SPRITE_ICON_NAMES)[number];
+
+/** Not in the page's hidden sprite: drawn from SPRITE_URL (see scripts/generate-icon-sprite.mjs). */
+export const FILE_ONLY_ICON_NAMES: readonly SpriteIconName[] = ["bath","building-complex","bus","cigarette","circle-x","door-closed","eye-off","flag","info","party-popper","paw-print","search-x","shopping-cart","train-front","tram-front","utensils-crossed","volume-1"];

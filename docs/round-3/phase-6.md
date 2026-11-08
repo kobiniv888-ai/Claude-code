@@ -167,11 +167,13 @@ The fast version starts the same way as before: in the codespace terminal run
   listings never count). They open for Google by themselves as real listings arrive.
 - **Google indexes nothing until `SITE_URL` is the real domain** (`OWNER_TODO.md`, "Keys the real
   site needs"), and Search Console comes after that (item 10).
-- **Lighthouse is not 90 on every run.** On this machine the home page scored 89 in 3 of 18 runs:
-  twice right after a fresh start while the machine was still busy with the build or the test run
-  (the same fresh start scored 91–92 once the machine was quiet), and once on a quiet machine. In
-  that run the page arrived very fast and Lighthouse's phone simulation counted all the page's
-  scripts (about 240 KB) into the moment the first photo appears (3.7 s instead of about 3.2 s).
+- **Lighthouse is not 90 on every run.** (Fixed on 8 November for the home page: see "Final speed
+  pass" at the end. Search can still score 87–89 in some runs.) On this machine the home page
+  scored 89 in 3 of 18 runs: twice right after a fresh start while the machine was still busy
+  with the build or the test run (the same fresh start scored 91–92 once the machine was quiet),
+  and once on a quiet machine. In that run the page arrived very fast and Lighthouse's phone
+  simulation counted all the page's scripts (about 240 KB) into the moment the first photo
+  appears (3.7 s instead of about 3.2 s).
   Search scored 81–88 and a listing 88–92 for the same reason. The fix is to send less script
   before the first screen appears, which is a bigger change than this check should make; it is the
   first speed task for the next round. Please also measure the real site with PageSpeed Insights
@@ -267,3 +269,39 @@ see and index), the city pages, the texts and the speed changes. Everything it c
   loads when the phone is idle or at the first touch, and the page jumps to the top only when the
   grey page is really shown (before, a tap that came too early could jump to the top of the old
   page).
+
+## Final speed pass (8 November)
+
+The one item of the "Done when" list that was still open was the speed score on a phone: the home
+page had to score 90 or more in Lighthouse on every run, and it scored 89 in 3 runs of 18. A last
+speed pass closed it, without changing anything you can see.
+
+**What changed.** The page now sends its code in fewer, larger files; the pieces that are not
+needed to show the first screen (the search filters, the small pop-up messages, the error page,
+the app's install information) load a moment later; most icons are written into the page itself
+instead of coming from a separate file; and the search page, like the home page, shows its first
+screen together with the first result's photo. Pages, features, the five languages, right-to-left
+and dark mode are the same: screenshots of the home page, search (list and map), a listing, the
+Batumi short-stays page and the "page not found" page, at 390×844 in Hebrew (light and dark) and
+at 1440×900 in English, were compared pixel by pixel with the version before; only the clock and
+the demo data's dates differ.
+
+**The numbers** (production build on this machine, Lighthouse's phone setting, quiet machine):
+
+- home page `/he`: 96 and 96 right after two fresh starts, then 96, 96, 96, 90, 96, 90, 96, 90:
+  **10 of 10 at 90 or more** (it was 89–93 before)
+- a listing: 94, 96, 96, 95, 95 (was 88–92)
+- `/he/batumi/short-stays`: 92, 90, 90, 96, 95 (was 92–93)
+- search: 94, 87, 94, 94, 94 (was 81–88)
+
+A page scores 96 or 90 depending on a race inside the test (whether the page's main script starts
+before the first photo is on screen); the home page stays at 90 or more either way. Search can
+still drop to 87–89 when it loses that race, and the home page's 90 has little to spare, so a slow
+or busy machine could show 89. The real test is PageSpeed Insights on the real site
+(`OWNER_TODO.md`, "Speed").
+
+**Checked again on the new code:** all automatic checks green, the demo data reloaded, all 131
+end-to-end tests passed in one clean run (6.3 minutes). The first test run found one mistake in the
+speed work: after logging out, the "התנתקתם" message could disappear. It was fixed before the clean
+run. The error page was also tried with a real failure (the database stopped while a page was open):
+the full error page appears, in light and dark.

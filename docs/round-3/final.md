@@ -10,11 +10,12 @@ This final check was made on 7 November 2026 on a production build (the fast ver
 visitors will get it), at 390×844 in Hebrew (light and dark), at 1440×900 in English and at 360 px
 in Georgian.
 
-**In short:** every "Done when" item is met except one. All 131 end-to-end tests (every test of
-section 13 among them) passed in one clean run in production mode, and every automatic check is
-green. Lighthouse on a phone is close but not 90 on every run: the home page scored between 89 and
-93 in 18 runs (90 or more in 15), the city page 92–93, a listing 88–92 and search 81–88. The
-numbers, the reason and the next step are below.
+**In short:** every "Done when" item is met. All 131 end-to-end tests (every test of section 13
+among them) passed in one clean run in production mode, and every automatic check is green. The
+last open item, Lighthouse on a phone, was closed by a final speed pass on 8 November 2026 (below):
+the home page `/he` now scores 90 or more on every run (10 of 10: 96 in seven runs, 90 in three),
+a listing 94–96, the city page 90–96. Search is usually 94 but still scored 87 in one run of five.
+The numbers and the reason are below.
 
 ## "Done when" (brief section 13), item by item
 
@@ -29,8 +30,8 @@ numbers, the reason and the next step are below.
 | ✓ | **Guests:** a guest can book, see the trip page, cancel, report a host, and leave a review after the stay | `booking.spec.ts` (2 tests), `trip-page.spec.ts` (2 tests), `hotel-booking.spec.ts`, `reports.spec.ts`, `phase3.spec.ts` (turned-away report from a cancelled booking), `reviews.spec.ts`. |
 | ✓ | **Admin:** the panel handles listing reviews, reports, flags, badges, community places and reference prices | `phase3.spec.ts` (listing review, the "דורש טיפול" counts, the "ביקרנו במקום" badge, who decides, every admin page answers "not found" to non-staff), `admin.spec.ts` (3 tests), `owner-admin.spec.ts` (3 tests), `reviews.spec.ts` (hiding a review), `staff-login.spec.ts` (the real 2-step login); flags, community places and reference prices also in the unit tests (`src/lib/admin/*.test.ts`, `src/lib/admin/content/content.test.ts`) and the phase-3 screenshots. |
 | ✓ | **Google:** the city pages exist, and demo listings and non-production addresses are never indexed | `city-pages.spec.ts` (5 tests) and `seo.spec.ts` (10 tests); the real site's rules in the unit tests `tests/unit/seo-proxy.test.ts`, `seo-production-db.test.ts` and `seo-metadata.test.ts`. |
-| ✓ | **Finish:** all the tests above pass | All 131 end-to-end tests passed in production mode in one clean run (6.5 minutes), nothing re-run, none skipped, staff on the real 2-step login; every test of section 13 is in the table below. Plus 2,434 unit tests. |
-| ✗ | **Finish:** Lighthouse mobile scores 90 or more in production | Almost. Home `/he`: 89–93 in 18 runs, 90 or more in 15 (two of the three 89s came right after a build or the test run, while the machine was still busy). City page 92, 93, 93. A listing 92, 91, 88. Search 81, 88, 87. See "Lighthouse" below. |
+| ✓ | **Finish:** all the tests above pass | All 131 end-to-end tests passed in production mode in one clean run (6.5 minutes), nothing re-run, none skipped, staff on the real 2-step login; every test of section 13 is in the table below. Plus 2,434 unit tests. Again after the final speed pass (8 November): 131 of 131 in one clean run (6.3 minutes). |
+| ✓ | **Finish:** Lighthouse mobile scores 90 or more in production | After the final speed pass (8 November): home `/he` 96 and 96 right after two fresh starts, then 96, 96, 96, 90, 96, 90, 96, 90 (10 of 10 at 90 or more). A listing 94–96, `/he/batumi/short-stays` 90–96, search 94 in four runs of five and 87 in one. See "Lighthouse" below. |
 | ✓ | **Finish:** `OWNER_TODO.md` is up to date | Rewritten in this check: the ten items of brief section 11 in the same order, then the keys the real site needs. |
 
 ## The tests of section 13, one by one
@@ -55,7 +56,8 @@ All in `tests/e2e/`, run in production mode in the one clean run described below
 All green, in production mode where it applies:
 
 - database schema check (`prisma validate`), type check (`tsc`), code check (`eslint .`, no
-  problems), translation check (49 groups × 5 languages, all keys match), and 2,434 unit tests in
+  problems), translation check (49 groups × 5 languages, all keys match; 50 after the final speed
+  pass, which gave the global error page's texts a file of their own), and 2,434 unit tests in
   230 files
 - the demo data reloaded (`npm run db:seed`) before the run
 - production build (`next build`, 1 min 19 s)
@@ -63,44 +65,77 @@ All green, in production mode where it applies:
   retries off, against `next start` with the test login codes on screen, staff logging in with a
   phone code and a real authenticator code
 - afterwards: no test accounts, listings, bookings, reports or sessions left in the database
+- after the final speed pass (8 November), all of the above again on the new code: every check
+  green, the demo data reloaded, a new production build, and **131 passed, 0 failed, 0 flaky,
+  0 skipped** in one run of 6.3 minutes. The first run that day stopped at 130: it caught a
+  mistake in the speed work (below, "What the final speed pass changed"), which was fixed before
+  the clean run.
 
 ## Lighthouse (phone setting, production)
 
 Lighthouse 12.8.2 (the copy in the project), phone preset (simulated slow 4G and a 4× slower
-processor), on `next start` on this machine, port 4694. Each run is one page load; "fresh start"
-means the server was just started, with no warm-up by us and no prepared photos.
+processor), on `next start` on this machine. Each run is one page load; "fresh start" means the
+server was just started, with no warm-up by us. Before each set the machine was quiet (load below 1).
 
-**Home page `/he`** (the brief's measure). The set asked for (one run right after a fresh start,
-then four after a warm-up) was made on a quiet machine: **92**, then **93, 90, 89, 92**. All runs:
+### After the final speed pass (8 November 2026, port 4713)
 
-| When | Scores | Notes |
+**Home page `/he`** (the brief's measure), 10 runs: **96** right after a fresh start, **96** right
+after a second fresh start, then eight in a row after a warm-up: **96, 96, 96, 90, 96, 90, 96, 90**.
+10 of 10 at 90 or more (median 96, lowest 90). The layout never moved (layout shift 0 in every
+run); first paint 1.37–1.47 s; the first card photo (the largest paint) 2.58–2.69 s in the runs at
+96 and 3.45–3.46 s in the runs at 90; blocking time 76–129 ms.
+
+**Other pages** (5 runs each, after a warm-up):
+
+| Page | Scores | Notes |
 |---|---|---|
-| Fresh start, machine quiet | 91, 91, 92 | The server prepares the home page and its first photos by itself right after it starts. |
-| Fresh start, machine still busy (right after the build / right after the test run) | 89, 89 | The page work was the same; the browser's own work took longer (blocking time ~200 ms instead of ~120 ms). |
-| After a warm-up, three sets | 91, 92, 93, 92 · 93, 90, 89, 92 · 92, 92, 91, 92, 91 | |
+| A listing, on its own address (`/he/listing/89-…`) | 94, 96, 96, 95, 95 | |
+| `/he/batumi/short-stays` | 92, 90, 90, 96, 95 | |
+| `/he/search` | 94, 87, 94, 94, 94 | The 87: largest paint 3.83 s, the case explained below. |
 
-18 runs: 89 three times, 90 once, 91 five times, 92 seven times, 93 twice. The layout never moved
-(layout shift 0 in every run). First paint 1.4 s; the first card photo (the largest paint) 3.0–3.7 s.
+**Why a page scores 96 one time and 90 the next.** Lighthouse doesn't measure a real slow phone: it
+loads the page on this machine and then simulates a slow phone from what it saw. If the page's main
+script happened to start running before the first photo appeared on screen, the simulation counts
+all the page's scripts into the time that photo needs (about 0.8 s more). Which one comes first
+changes from run to run. Seven of these runs (five of the home page, two of search) were scored
+both ways afterwards: the home page scores 90–91 when the scripts are counted and 95–96 when they
+aren't, so it stays at 90 or more either way. Search scores 87–89 when they are counted (it has
+more script and a bigger page) and 94 when they aren't.
 
-**Other pages** (3 runs each, after a warm-up):
+**What the final speed pass changed** (nothing a visitor sees: the screenshots at 390×844 in Hebrew
+light and dark and at 1440×900 in English were compared pixel by pixel with the version before it,
+and only the clock and the dates of the demo data differ):
 
-| Page | Scores |
-|---|---|
-| `/he/batumi/short-stays` | 92, 93, 93 |
-| A listing, on its own address (`/he/listing/89-…`) | 92, 91, 88 |
-| The same listing through the short address `/he/listing/89` (it forwards to the one above) | 79, 84, 84 |
-| `/he/search` | 81, 88, 87 |
+- fewer, larger script files on every page, so the main script loses that race less often
+- the search page's filter and sort panels load their code after the first tap or a quiet moment
+- the install information of the app (the manifest) is linked after the page has loaded
+- the error page loads its code only when it is needed; checked with a real crash (the database
+  stopped while a page was open, and a page loaded with the database stopped): the full error page
+  appears, in light and dark
+- the page's start-up work runs in two shorter pieces instead of one long one
+- the "page not found / something went wrong" texts for the whole site are in a small file of
+  their own (`messages/<language>/global.json`)
+- the library behind the small pop-up messages loads at the first message or once the page has
+  settled; the cookie notice stays hidden until it has fully arrived, so it never jumps
+- on search, the height of the top bar is given only to the map parts that need it, and the first
+  paint waits for the first result card, as on the home page
+- most icons are written into the page itself instead of coming from a separate file (17 rarely
+  used ones still come from the file)
 
-**Why some runs are under 90.** Lighthouse doesn't measure a real slow phone: it loads the page on
-this machine and then simulates a slow phone from what it saw. When the page arrives very fast, all
-of its scripts (about 240 KB on the home page) have arrived before the first photo is painted, and
-the simulation then counts them before that photo: 3.7 s instead of about 3.2 s, and 89 instead of
-92. On search and listings there is more script, so the effect is bigger. The phase-6 speed work
-(the first screen waits for the first card, photos lower on the page load later, the server warms
-itself after a start, ~41 KB less on every page) moved the home page from 85–91 to 89–93; the next
-step is to send less script before the first screen, which is a larger change than a final check
-should make. The real site, on a server with HTTP/2 and a CDN, should also be measured with
-PageSpeed Insights once it is online (`OWNER_TODO.md`, "Speed").
+The full test run caught one mistake in this work, fixed before the clean run: after logging out,
+the "You're logged out" message could be lost, because the pop-up library could now start on the
+account page during the logout and take the message meant for the home page. The home page now
+decides at its start whether it was opened by a logout
+(`src/components/providers/toaster.tsx`).
+
+### Before the final speed pass (7 November 2026, port 4694)
+
+Home `/he`: 89–93 in 18 runs (90 or more in 15). `/he/batumi/short-stays` 92, 93, 93; a listing
+92, 91, 88; the same listing through the short address `/he/listing/89` (it forwards to the one
+above) 79, 84, 84; search 81, 88, 87.
+
+The real site, on a server with HTTP/2 and a CDN, should also be measured with PageSpeed Insights
+once it is online (`OWNER_TODO.md`, "Speed").
 
 ## What this check fixed
 
@@ -122,8 +157,9 @@ that needed fixing now. This check:
 
 ## Still open
 
-- **Lighthouse is not 90 on every run** (above). Next round: less script before the first screen,
-  then measure the real site with PageSpeed Insights.
+- **Lighthouse:** the home page is now 90 or more on every run, but with little to spare (90 when
+  the scripts are counted, above), and search can still score 87–89 in a run where the main script
+  comes first. Next: less script on search, then measure the real site with PageSpeed Insights.
 - **Google indexes nothing yet:** not until `SITE_URL` is the real domain, and each city page only
   once it has 3 real listings (demo listings never count). Then Search Console (item 10).
 - **Texts waiting for you:** the city-page texts (item 8), the footer line (item 7), the how-it-works

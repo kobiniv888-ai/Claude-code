@@ -313,12 +313,11 @@ before you pay.
 
 ## Speed (after the site is online)
 - [ ] **Check the real speed with PageSpeed Insights** (pagespeed.web.dev) on `/he`, a search, a
-      listing and `/he/batumi/short-stays` once the site is deployed. In the final check of round 3
-      (this machine, production mode, phone setting) the home page scored 89–93 (90 or more in 15
-      of 18 runs), a city page 92–93, a listing 88–92 and search 81–88; the numbers and the reason
-      are in `docs/round-3/final.md`. The next speed step (less script before the first screen) is
-      planned for the next round. A host with HTTP/2 and a CDN (e.g. Vercel) was
-      ~1 s faster in an earlier proxy test.
+      listing and `/he/batumi/short-stays` once the site is deployed. After the final speed pass of
+      round 3 (this machine, production mode, phone setting) the home page scored 90 or more on
+      every run (10 of 10: 96 or 90), a listing 94–96, a city page 90–96 and search 94 in four runs
+      of five (87 in one); the numbers and the reason are in `docs/round-3/final.md`. A host with
+      HTTP/2 and a CDN (e.g. Vercel) was ~1 s faster in an earlier proxy test.
 - [ ] **Try the fast version on your phone:** `bash .devcontainer/start-prod.sh` in the codespace
       and open the address ending in `-3000.app.github.dev/he` (photos are prepared in the
       background for 2–3 minutes).
