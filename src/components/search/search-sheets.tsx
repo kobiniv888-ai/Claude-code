@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
+import { afterLoadIdle } from "@/lib/idle";
 import type { PopularPlace } from "./place-combobox";
 
 /** A part of the filters sheet to scroll to when it opens (from the deal, price or rooms chips). */
@@ -57,16 +58,17 @@ export function SearchSheets({
     setOpen(kind);
   }, []);
 
-  // Fetch the sheets' code once the page is idle: none of it is needed for the first paint.
-  useEffect(() => {
-    const idle = window.requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 2500));
-    const cancel = window.cancelIdleCallback ?? window.clearTimeout;
-    const id = idle(() => {
-      preload("filters");
-      preload("sort");
-    });
-    return () => cancel(id);
-  }, []);
+  // Fetch the sheets' code after the first interaction (or a quiet start), when the browser is
+  // idle, like the other sheets (src/lib/idle.ts): none of it is needed for the first paint, and
+  // each opener still loads its code at the tap.
+  useEffect(
+    () =>
+      afterLoadIdle(() => {
+        preload("filters");
+        preload("sort");
+      }),
+    [],
+  );
 
   const value = useMemo<SheetsValue>(
     () => ({

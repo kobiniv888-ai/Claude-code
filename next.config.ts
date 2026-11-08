@@ -37,7 +37,10 @@ const nextConfig: NextConfig = {
   // Separate build folders let several dev servers run side by side (NEXT_DIST_DIR=.next-a).
   distDir: process.env.NEXT_DIST_DIR || ".next",
   allowedDevOrigins: extraOrigins,
-  ...(extraOrigins.length > 0 && { experimental: { serverActions: { allowedOrigins: extraOrigins } } }),
+  experimental: {
+    ...(extraOrigins.length > 0 && { serverActions: { allowedOrigins: extraOrigins } }),
+    turbopackChunking: { maxMergeChunkSize: 3000000, minChunkSize: 3000000, requestCost: 3000000, maxChunkCountPerGroup: 1 },
+  },
   poweredByHeader: false,
   turbopack: {
     rules: {
