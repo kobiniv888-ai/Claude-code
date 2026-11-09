@@ -690,6 +690,43 @@
       "whenLabel": "متى",
       "final": "لا تعرفه؟ تحقّق مع الموظف، وإن لزم أزل الدور من لوحة الإدارة.",
       "cta": "فتح أدوار الموظفين"
+    },
+    "security_alert": {
+      "subject": "تنبيه أمني: أمور للمراجعة – {count}",
+      "heading": "تنبيه أمني",
+      "intro": "خلال آخر {minutes} دقيقة لاحظ الموقع:",
+      "final": "هل كان ذلك أنت أو فريقك؟ إذن لا شيء عليك. وإن لم يكن، افتح لوحة الإدارة، وإن بدا الأمر هجومًا فاتبع INCIDENT_PLAN.md.",
+      "cta": "فتح سجل الإجراءات",
+      "kinds": {
+        "staff_new_device": "سجّل حساب من الطاقم الدخول من جهاز لم يستخدمه من قبل ({count}).",
+        "totp_locked": "قُفل حساب من الطاقم بعد 20 رمزًا خاطئًا للدخول بخطوتين ({count}).",
+        "totp_unlock_email": "طُلب رمز بالبريد لفتح قفل الدخول بخطوتين ({count}).",
+        "recovery_code_used": "استُخدم رمز استرداد لتسجيل الدخول ({count}).",
+        "login_failures": "رموز دخول خاطئة: {count} (التنبيه فوق {threshold}).",
+        "login_failures_ip": "رموز دخول خاطئة من اتصال واحد: {count} (التنبيه فوق {threshold}).",
+        "login_codes_locked": "رموز دخول أُوقفت بعد 5 محاولات خاطئة: {count} (التنبيه فوق {threshold}).",
+        "code_sends": "رموز دخول أُرسلت: {count} (التنبيه فوق {threshold}).",
+        "sms_paused": "أُوقف إرسال الرموز عبر SMS مؤقتًا: نفدت الميزانية اليومية أو أُكّد عدد قليل جدًا من الرموز ({count}).",
+        "permission_denials": "محاولات لفتح صفحات أو إجراءات الطاقم دون صلاحية: {count} (التنبيه فوق {threshold}).",
+        "permission_denials_ip": "محاولات كهذه من اتصال واحد: {count} (التنبيه فوق {threshold}).",
+        "id_guessing": "روابط حجز أو رحلة أو قائمة أو طلب لم تطابق شيئًا: {count} (التنبيه فوق {threshold}). ربما يحاول أحدهم تخمين الروابط.",
+        "id_guessing_ip": "روابط لم تطابق شيئًا من اتصال واحد: {count} (التنبيه فوق {threshold}).",
+        "rate_limited": "طلبات أوقفتها حدود السرعة: {count} (التنبيه فوق {threshold}).",
+        "csp_reports": "بلاغات من المتصفحات عن محتوى محجوب: {count} (التنبيه فوق {threshold}).",
+        "booking_cap": "حجوزات رُفضت بسبب حد حجزين قادمين لكل هاتف: {count} (التنبيه فوق {threshold}).",
+        "show_contact_cap": "زوار بلغوا الحد اليومي لـ«إظهار بيانات التواصل»: {count} (التنبيه فوق {threshold}).",
+        "signup_burst": "حسابات جديدة: {count} (التنبيه فوق {threshold}).",
+        "signup_burst_ip": "حسابات جديدة من اتصال واحد: {count} (التنبيه فوق {threshold}).",
+        "listing_burst": "إعلانات جديدة: {count} (التنبيه فوق {threshold}).",
+        "booking_burst": "حجوزات جديدة: {count} (التنبيه فوق {threshold}).",
+        "role_changed": "مُنح دور في الطاقم أو أُزيل ({count}).",
+        "maintenance_on": "فُعِّل وضع الصيانة.",
+        "maintenance_off": "أُوقف وضع الصيانة.",
+        "sessions_ended": "سُجّل خروج الجميع («تسجيل خروج الجميع»).",
+        "offsite_backup_failed": "فشلت النسخة الاحتياطية الأسبوعية خارج الموقع ({count}).",
+        "offsite_backup_missing": "لم تنجح أي نسخة احتياطية خارج الموقع منذ {days} يومًا.",
+        "certificate_expiry": "تنتهي شهادة HTTPS للموقع بعد {days} يومًا."
+      }
     }
   },
   "ticketStatus": {

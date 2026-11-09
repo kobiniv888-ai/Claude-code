@@ -286,7 +286,7 @@ export default async function TripPage({ params, searchParams }: Props) {
 
       {reveal ? (
         <>
-          <TripWhere locale={locale} address={reveal.address} directions={reveal.directions} point={extras.point} />
+          <TripWhere locale={locale} address={reveal.address} directions={reveal.directions} point={extras.point} unavailable={reveal.locationUnavailable} />
           <TripHost locale={locale} hostName={reveal.hostName} buttons={extras.contactButtons} contactHours={extras.contactHours} />
         </>
       ) : !cancelled ? (

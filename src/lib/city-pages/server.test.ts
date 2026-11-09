@@ -6,6 +6,7 @@
 import "dotenv/config";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { sealPin } from "@/lib/field-crypto";
 
 vi.mock("server-only", () => ({}));
 
@@ -48,8 +49,7 @@ async function listing(extra: Extra = {}) {
       price: 100,
       currency: "GEL",
       cityId: ids.city,
-      lat: 41.6,
-      lng: 41.6,
+      pinEnc: sealPin({ lat: 41.6, lng: 41.6 }),
       originalLocale: "en",
       title: `${prefix} city page listing`,
       description: "A test listing.",

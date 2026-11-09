@@ -54,6 +54,20 @@ export const SECURITY_EVENT_TYPES = [
   "data_export",
   /** An account deleted itself. */
   "account_deleted",
+  // Operations and incidents (SECURITY_REPORT 12.4.b, 12.5.c, 16.3, 17.1, 4.7.a; builder ops-incident).
+  /** The weekly encrypted off-site backup was uploaded and verified (meta: via, bytes, tables). */
+  "offsite_backup_ok",
+  /** The off-site backup failed (meta: via, step, reason: an error class name, never its text). */
+  "offsite_backup_failed",
+  /** An ADMIN switched maintenance mode on or off (meta: on). */
+  "maintenance_mode_changed",
+  /** An ADMIN ended every session but their own (meta: sessions). */
+  "all_sessions_ended",
+  /** A booking, trip, list or ticket link that matches nothing for this visitor (meta: kind): ID guessing shows as a burst. */
+  "id_not_found",
+  // Field encryption (SECURITY_REPORT 12.3.c, D7; builder field-encryption).
+  /** An encrypted exact address, pin or guest phone could not be opened (meta: field, reason, where); shown as not available. */
+  "field_decrypt_failed",
 ] as const;
 
 export type SecurityEventType = (typeof SECURITY_EVENT_TYPES)[number];

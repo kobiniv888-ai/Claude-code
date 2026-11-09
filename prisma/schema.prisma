@@ -616,15 +616,28 @@ model Listing {
   dealType     DealType      @default(SHORT_STAY)
   propertyType PropertyType  @default(APARTMENT)
 
-  // Location. lat/lng/address are PRIVATE; only approxLat/approxLng are public.
+  // Location. The exact address and the exact pin are PRIVATE and stored ENCRYPTED (addressEnc,
+  // pinEnc; src/lib/field-crypto.ts, SECURITY_REPORT 12.3.c). Only approxLat/approxLng, the moved
+  // public point, are plain (search, maps).
   countryCode    String        @default("GE")
   cityId         String?
   city           City?         @relation(fields: [cityId], references: [id])
   neighborhoodId String?
   neighborhood   Neighborhood? @relation(fields: [neighborhoodId], references: [id])
-  address        String?
-  lat            Float?
-  lng            Float?
+  /// PRIVATE, encrypted (AES-256-GCM with FIELD_ENCRYPTION_KEY, "fe1:<key id>:…"): the exact address
+  /// line the owner typed (street, number, apartment). Written by sealAddress, read by
+  /// openListingLocation (src/lib/field-crypto.ts) only.
+  addressEnc     String?
+  /// PRIVATE, encrypted: the exact pin, "lat,lng" with 6 decimals. sealPin / openListingLocation /
+  /// openPin only. Null = no pin (then approxLat/approxLng are null too).
+  pinEnc         String?
+  /// LEGACY plain copies of the exact address and pin, from before encryption. Never read or
+  /// written by the site: scripts/encrypt-fields.ts moves them into addressEnc/pinEnc and empties
+  /// them, then a CHECK constraint ("Listing_no_plain_location") refuses new values. Kept only so
+  /// a database that has not run the script yet keeps its data; dropped in a later release.
+  legacyAddress  String?       @map("address")
+  legacyLat      Float?        @map("lat")
+  legacyLng      Float?        @map("lng")
   approxLat      Float?
   approxLng      Float?
 
@@ -1071,11 +1084,20 @@ model Booking {
   messageToHost    String?
 
   // Guest snapshot (the host contacts the guest with these).
-  guestName  String
-  /// E.164, verified when booked.
-  guestPhone String
+  guestName        String
+  /// The guest's phone (E.164, verified when booked), ENCRYPTED with FIELD_ENCRYPTION_KEY
+  /// (sealGuestPhone / openGuestPhone in src/lib/field-crypto.ts; SECURITY_REPORT 12.3.c). Null
+  /// once erased (3 months after check-out, account deletion).
+  guestPhoneEnc    String?
+  /// HMAC lookup of the same number ("fl1:<key id>:…"): the 2-upcoming-bookings-per-phone cap
+  /// finds bookings made with a number without storing it in plain text. Null once erased.
+  guestPhoneLookup String?
+  /// LEGACY plain copy (NOT NULL before encryption). Never read or written by the site:
+  /// scripts/encrypt-fields.ts moves it into guestPhoneEnc and empties it, then a CHECK constraint
+  /// ("Booking_no_plain_guest_phone") refuses new values. Dropped in a later release.
+  legacyGuestPhone String? @map("guestPhone")
   /// The guest's language for messages about this booking.
-  locale     Locale
+  locale           Locale
 
   rulesAcceptedAt DateTime
   /// The 3-days-before reminder went out (cron /api/cron/booking-reminders).
@@ -1097,6 +1119,7 @@ model Booking {
   review          Review?
 
   @@unique([guestUserId, idempotencyKey])
+  @@index([guestPhoneLookup])
   @@index([listingId, checkIn])
   @@index([guestUserId, checkIn])
   @@index([hostUserId, checkIn])

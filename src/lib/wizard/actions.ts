@@ -13,6 +13,7 @@ import { requireUserForAction, type CurrentUser } from "@/lib/auth/session";
 import { getRates } from "@/lib/currency";
 import { toUsd } from "@/lib/currency/convert";
 import { db } from "@/lib/db";
+import { sealAddress, sealPin } from "@/lib/field-crypto";
 import { NotFoundError } from "@/lib/errors";
 import { removeListingPhotoFiles } from "@/lib/images";
 import { computeShabbatFriendly } from "@/lib/listing/fields";
@@ -157,6 +158,8 @@ const stepUpdateDeps: StepUpdateDeps = {
   getNeighborhoodIds: async (cityId) => (await getNeighborhoods(cityId)).map((n) => n.id),
   getRates: () => getRates(),
   mapPoint: (point, listingId) => publicMapPoint(point, listingId),
+  sealAddress: (address) => sealAddress(address),
+  sealPin: (pin) => sealPin(pin),
   walkMinutes: async (cityId, lat, lng) => walkMinutesFor(cityId ? (await getCityById(cityId))?.slug : null, lat, lng),
   parseContactMethods,
   countFutureDatePrices: (listingId) => countFutureDatePrices(listingId, null),

@@ -10,7 +10,8 @@
     "showMap": "Show the map",
     "mapSaver": "The map loads when you tap, to save data.",
     "mapOffline": "The map isn't available offline. The address and the directions buttons are above.",
-    "hiddenAfterStay": "The exact address and the host's contact details are shown until a week after the stay, so they are no longer here."
+    "hiddenAfterStay": "The exact address and the host's contact details are shown until a week after the stay, so they are no longer here.",
+    "locationUnavailable": "We can't show the exact address right now. Please try again in a few minutes, or contact the host."
   },
   "host": {
     "title": "Contact your host",

@@ -4,6 +4,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { isAppLocale, pickLocalized } from "@/i18n/locale";
 import { db } from "@/lib/db";
 import { NotFoundError } from "@/lib/errors";
+import { openListingLocation } from "@/lib/field-crypto";
 import { getPriceGuide, getRoomTypePriceGuides } from "@/lib/pricing/guide-server";
 import { pricePosition, type GuideInput } from "@/lib/pricing/guide";
 import { checkListingMistakes, type MistakeInput, type MistakeIssue, type MistakePricePosition, type MistakeResult } from "./mistake-check";
@@ -35,9 +36,9 @@ const MISTAKE_SELECT = {
   originalLocale: true,
   title: true,
   description: true,
-  address: true,
-  lat: true,
-  lng: true,
+  // The exact address and pin are encrypted (12.3.c): decrypted on the server for the check only.
+  addressEnc: true,
+  pinEnc: true,
   cityId: true,
   neighborhoodId: true,
   city: { select: { slug: true, lat: true, lng: true } },
@@ -161,15 +162,17 @@ export function toMistakeInput(
   // Guests see the main photos and those of the room types the hotel offers: a switched-off
   // room type's photos don't count towards the minimum.
   const offered = new Set(row.roomTypes.filter((room) => room.active).map((room) => room.id));
+  // One that cannot be decrypted counts as missing ("no exact address": publishing stays blocked).
+  const location = openListingLocation(row, "mistake_check");
   return {
     dealType: row.dealType,
     propertyType: row.propertyType,
     originalLocale: locale,
     title: row.title,
     description: row.description,
-    address: row.address,
-    lat: row.lat,
-    lng: row.lng,
+    address: location.address,
+    lat: location.pin?.lat ?? null,
+    lng: location.pin?.lng ?? null,
     city: row.city ? { slug: row.city.slug, lat: row.city.lat, lng: row.city.lng } : null,
     currency: row.currency as CurrencyCode,
     maxGuests: row.maxGuests,

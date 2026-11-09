@@ -13,8 +13,19 @@
  * (a Prisma error quoting its query, a fetch error quoting a URL) reaches Sentry masked
  * (SECURITY_REPORT 16.1, 5.l). Turn on Sentry's own "data scrubbing" and the EU data region too
  * (founder's decision 6).
+ *
+ * The SDK's "sendDefaultPii" is false here by construction (SEND_DEFAULT_PII): an event never has a
+ * `user` (no id, email or IP address), and its `request` only the method and the path — no
+ * headers, cookies, query string or body. `environment` is SITE_ENV (development / staging /
+ * production) and `release` the deployed commit (SENTRY_RELEASE, else VERCEL_GIT_COMMIT_SHA). A DSN
+ * outside Sentry's EU region (*.ingest.de.sentry.io) is reported once in the log and by the
+ * startup check (src/lib/ops-startup.ts).
  */
 import { scrubText } from "./log-scrub";
+import { sentryDsnInfo } from "./sentry-dsn";
+
+/** Never send personal data the SDK would add by default (Sentry's sendDefaultPii: false). */
+export const SEND_DEFAULT_PII = false;
 
 export type ErrorContext = {
   /** Where it happened: "render", "route", "action", "proxy", "cron"… */
@@ -106,6 +117,13 @@ export function buildEnvelope(
   ].join("\n");
 }
 
+/** environment = SITE_ENV, release = the deployed commit (pure; tested). */
+export function eventOptions(env: Partial<Record<string, string | undefined>>): { environment: string; release?: string } {
+  const release = env.SENTRY_RELEASE?.trim() || env.VERCEL_GIT_COMMIT_SHA?.trim() || undefined;
+  return { environment: env.SITE_ENV?.trim() || "unknown", ...(release ? { release } : {}) };
+}
+
+let regionWarned = false;
 const MAX_PER_MINUTE = 30;
 let windowStart = 0;
 let sentInWindow = 0;
@@ -122,11 +140,12 @@ export async function reportError(error: unknown, context: ErrorContext): Promis
     sentInWindow = 0;
   }
   if (++sentInWindow > MAX_PER_MINUTE) return;
+  if (!regionWarned && !sentryDsnInfo(process.env.SENTRY_DSN).eu) {
+    regionWarned = true;
+    console.warn("[monitoring] SENTRY_DSN is not in Sentry's EU region (*.ingest.de.sentry.io): the founder chose the EU data region.");
+  }
   try {
-    const body = buildEnvelope(error, context, {
-      environment: process.env.SENTRY_ENVIRONMENT || process.env.SITE_ENV || process.env.VERCEL_ENV || process.env.NODE_ENV,
-      release: process.env.SENTRY_RELEASE || process.env.VERCEL_GIT_COMMIT_SHA || undefined,
-    });
+    const body = buildEnvelope(error, context, eventOptions(process.env));
     await fetch(dsn.envelopeUrl, {
       method: "POST",
       body,

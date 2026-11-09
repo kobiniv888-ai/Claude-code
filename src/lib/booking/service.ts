@@ -6,6 +6,7 @@ import { verifiedPhoneOf } from "@/lib/auth/phone-once";
 import { audit } from "@/lib/audit";
 import { getRates } from "@/lib/currency";
 import { db } from "@/lib/db";
+import { guestPhoneLookups, sealGuestPhone } from "@/lib/field-crypto";
 import { NotFoundError } from "@/lib/errors";
 import { previewReason } from "@/lib/listing-page/access";
 import { assertRateLimit } from "@/lib/rate-limit";
@@ -354,7 +355,9 @@ async function bookingForAttempt(client: Client, guestUserId: string, idempotenc
 
 /**
  * The guest's upcoming bookings: confirmed and not checked out yet, made with this verified number
- * (by any account) or by this account (founder's decision 8).
+ * (by any account) or by this account (founder's decision 8). The number is matched through its
+ * HMAC lookup (Booking.guestPhoneLookup, under the current and any previous field key): it is
+ * never stored or compared in plain text (SECURITY_REPORT 12.3.c).
  */
 export async function countUpcomingBookings(
   client: Client,
@@ -368,7 +371,7 @@ export async function countUpcomingBookings(
     where: {
       status: "CONFIRMED",
       checkOut: { gt: dayToDate(tbilisiToday(now)) },
-      OR: [...(phones.length ? [{ guestPhone: { in: phones } }] : []), { guestUserId }],
+      OR: [...(phones.length ? [{ guestPhoneLookup: { in: guestPhoneLookups(phones) } }] : []), { guestUserId }],
     },
   });
 }
@@ -626,7 +629,8 @@ export async function createBooking(params: CreateBookingParams): Promise<Create
             status: "CONFIRMED",
             messageToHost: params.messageToHost?.trim() || null,
             guestName: params.guestName.trim(),
-            guestPhone: verifiedPhone,
+            // Encrypted, with its lookup for the per-phone cap (never in plain text: 12.3.c).
+            ...sealGuestPhone(verifiedPhone),
             locale: params.locale,
             rulesAcceptedAt: now,
             // Booked 3 days or less before arrival: the confirmation is the reminder.
@@ -1007,7 +1011,7 @@ export async function releaseBookingsOfDeletedAccount(userId: string, now: Date 
     });
     await notifyCancellation(booking.id);
   }
-  await db.booking.updateMany({ where: { guestUserId: userId }, data: { guestName: "—", guestPhone: "", messageToHost: null } });
+  await db.booking.updateMany({ where: { guestUserId: userId }, data: { guestName: "—", guestPhoneEnc: null, guestPhoneLookup: null, messageToHost: null } });
   // The guest's own words when they cancelled (hosts' reasons stay for staff review; the reason
   // code stays too).
   await db.booking.updateMany({

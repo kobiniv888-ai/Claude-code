@@ -10,6 +10,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { createTranslator } from "use-intl/core";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { openGuestPhone, sealAddress, sealPin } from "@/lib/field-crypto";
 
 process.env.TWILIO_ACCOUNT_SID = "";
 process.env.RESEND_API_KEY = "";
@@ -143,9 +144,8 @@ beforeAll(async () => {
       checkInFrom: "15:00",
       checkOutUntil: "11:00",
       cityId: ids.city,
-      lat: 41.7101,
-      lng: 44.7702,
-      address: "1 Test Street, Tbilisi",
+      pinEnc: sealPin({ lat: 41.7101, lng: 44.7702 }),
+      addressEnc: sealAddress("1 Test Street, Tbilisi"),
       contactMethods: [{ channel: "WHATSAPP", value: "+995555123456", order: 0 }],
       originalLocale: "en",
       title: "Quiet flat for booking tests",
@@ -209,7 +209,10 @@ describe("createBooking", () => {
       currency: "USD",
       cancellationPolicy: "MODERATE",
       paymentMethods: ["cash", "card"],
-      guestPhone: expect.stringMatching(/^\+99559/),
+      // The guest's verified phone is stored encrypted, with its lookup value (12.3.c), never plain.
+      guestPhoneEnc: expect.stringMatching(/^fe1:/),
+      guestPhoneLookup: expect.stringMatching(/^fl1:/),
+      legacyGuestPhone: null,
       messageToHost: "Hi!",
       locale: "he",
     });
@@ -335,7 +338,8 @@ describe("cancel, no-show, complete, remind", () => {
     const cancelled = await db.booking.findFirstOrThrow({ where: { listingId: ids.listing, status: "CANCELLED_BY_HOST" } });
     expect((await getGuestTrip(ids.guestB, cancelled.code, "en"))?.reveal).toBeNull();
     const hostView = await getHostBooking(ids.host, booking.code, "en");
-    expect(hostView?.guestPhone).toBe(booking.guestPhone);
+    expect(hostView?.guestPhone).toMatch(/^\+99559/);
+    expect(hostView?.guestPhone).toBe(openGuestPhone(booking.guestPhoneEnc, "test").value);
     expect(hostView?.canReportNoShow).toBe(false);
     const trips = await getGuestTrips(ids.guestB, "en");
     // Guest B may also hold the nights won in the concurrency test.
@@ -387,9 +391,8 @@ describe("hardening (round 2 review)", () => {
         cancellationPolicy: "FLEXIBLE",
         paymentMethodsAtCheckIn: ["cash"],
         cityId: ids.city,
-        lat: 41.7102,
-        lng: 44.7703,
-        address: "2 Test Street, Tbilisi",
+        pinEnc: sealPin({ lat: 41.7102, lng: 44.7703 }),
+        addressEnc: sealAddress("2 Test Street, Tbilisi"),
         contactMethods: [{ channel: "WHATSAPP", value: "+995555123457", order: 0 }],
         originalLocale: "en",
         title: "Second flat for booking tests",
@@ -519,9 +522,8 @@ describe("host alerts (round 3): a booking stands only once the host was told", 
         cancellationPolicy: "FLEXIBLE",
         paymentMethodsAtCheckIn: ["cash"],
         cityId: ids.city,
-        lat: 41.7103,
-        lng: 44.7704,
-        address: "3 Test Street, Tbilisi",
+        pinEnc: sealPin({ lat: 41.7103, lng: 44.7704 }),
+        addressEnc: sealAddress("3 Test Street, Tbilisi"),
         contactMethods: [{ channel: "WHATSAPP", value: "+995555123458", order: 0 }],
         originalLocale: "en",
         title: "Third flat for alert tests",
@@ -651,9 +653,8 @@ describe("alert channels (round 3): Telegram, notifications, cancellations", () 
         cancellationPolicy: "FLEXIBLE",
         paymentMethodsAtCheckIn: ["cash"],
         cityId: ids.city,
-        lat: 41.7104,
-        lng: 44.7705,
-        address: "4 Test Street, Tbilisi",
+        pinEnc: sealPin({ lat: 41.7104, lng: 44.7705 }),
+        addressEnc: sealAddress("4 Test Street, Tbilisi"),
         contactMethods: [{ channel: "WHATSAPP", value: "+995555123459", order: 0 }],
         originalLocale: "en",
         title: "Fourth flat for channel tests",

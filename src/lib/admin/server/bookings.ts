@@ -8,6 +8,7 @@ import { dateToDay } from "@/lib/booking/dates";
 import { bookingPriceLines } from "@/lib/booking/price-lines";
 import { toNumber } from "@/lib/booking/terms";
 import { db } from "@/lib/db";
+import { guestPhoneLookups, openGuestPhone } from "@/lib/field-crypto";
 import { taintObject } from "@/lib/security/taint";
 import { parseBookingSearch, stayOverlap, type AdminBookingStatus } from "../booking-search";
 import { bookingFlagKind, hoursFromBookingToCancel } from "../flags";
@@ -22,9 +23,10 @@ import { turnedAwayBookingIds } from "./shared";
  * the host could not be told (phase 1 "host unreachable", from the audit log).
  *
  * The guest's phone is ADMIN only (founder's decision Q12, ../staff-visibility.ts): the booking
- * page reads Booking.guestPhone only for a viewer who may see it, and only they may search bookings
- * by a phone number (a search is an answer too: "this number booked that place"). Other staff see
- * its last 2 digits only (founder's answer (c)).
+ * page decrypts Booking.guestPhoneEnc (src/lib/field-crypto.ts) and shows the number only to a viewer
+ * who may see it, and only they may search bookings by a phone number (a search is an answer too:
+ * "this number booked that place"; matched through Booking.guestPhoneLookup). Other staff see its
+ * last 2 digits only (founder's answer (c)).
  *
  * The guest of a booking with a turned-away report sent that report, and who sent a report is ADMIN
  * only too: for other staff such a booking comes without its guest (name, account, phone digits)
@@ -81,8 +83,9 @@ export async function bookingSearchWhere(filters: BookingSearchFilters, viewer: 
     // that the guest booked it would name the report's sender (Q12).
     const guestSide: Prisma.BookingWhereInput = canSeeReporter(viewer) ? {} : { reports: { none: { kind: "TURNED_AWAY" } } };
     if (people.text && people.text.length >= 2) or.push({ guestName: { contains: people.text, mode: "insensitive" }, ...guestSide });
-    if (phones && people.phones.length) or.push({ guestPhone: { in: people.phones } });
-    if (phones && people.phoneDigits) or.push({ guestPhone: { contains: people.phoneDigits } });
+    // The booking's phone is encrypted (12.3.c): a whole number is matched through its lookup;
+    // a few digits only through the guest's account below (userSearchWhere).
+    if (phones && people.phones.length) or.push({ guestPhoneLookup: { in: guestPhoneLookups(people.phones) } });
     const users = userSearchWhere(q, phones);
     if (users) or.push({ guest: users, ...guestSide }, { host: users });
     // Something was typed but nothing can match it.
@@ -312,7 +315,10 @@ export async function getAdminBooking(id: string, locale: AppLocale, viewer: Sta
   // The number for an ADMIN, the last 2 digits for other staff (Q12, (c)); read in its own query.
   const phone: StaffPhone = guestWithheld
     ? staffPhone(viewer, null)
-    : staffPhone(viewer, (await db.booking.findUnique({ where: { id: booking.id }, select: { guestPhone: true } }))?.guestPhone);
+    : staffPhone(
+        viewer,
+        openGuestPhone((await db.booking.findUnique({ where: { id: booking.id }, select: { guestPhoneEnc: true } }))?.guestPhoneEnc, "admin_booking").value,
+      );
 
   const [history, staff] = await Promise.all([
     db.auditLog.findMany({

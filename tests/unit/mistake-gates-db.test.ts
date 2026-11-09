@@ -18,6 +18,7 @@
 import "dotenv/config";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { openListingLocation, sealAddress, sealGuestPhone, sealPin } from "@/lib/field-crypto";
 
 const state = vi.hoisted(() => ({
   user: null as null | Record<string, unknown>,
@@ -120,9 +121,8 @@ async function listing(extra: Record<string, unknown> = {}, photos = 5) {
       dealType: "SHORT_STAY",
       propertyType: "APARTMENT",
       cityId,
-      lat: 41.64,
-      lng: 41.62,
-      address: "Fake street 1, apt 2",
+      pinEnc: sealPin({ lat: 41.64, lng: 41.62 }),
+      addressEnc: sealAddress("Fake street 1, apt 2"),
       originalLocale: "en",
       title: `${prefix} quiet flat by the sea`,
       description: "A quiet flat with a balcony and a full kitchen, five minutes from the sea and the old town.",
@@ -206,7 +206,7 @@ describe("auto-saves of a LIVE listing can't add an error (mistake-2)", () => {
   it("an empty address of a short stay is refused; a draft may save it", async () => {
     const live = await listing({ status: "LIVE" });
     expect(await actions.updateDraft(live, "location", { address: "" })).toEqual({ ok: false, error: "invalid_input", fieldErrors: { address: ["addressRequired"] } });
-    expect((await db.listing.findUniqueOrThrow({ where: { id: live } })).address).toBe("Fake street 1, apt 2");
+    expect(openListingLocation(await db.listing.findUniqueOrThrow({ where: { id: live } }), "test").address).toBe("Fake street 1, apt 2");
     const draft = await listing();
     expect((await actions.updateDraft(draft, "location", { address: "" })).ok).toBe(true);
   });
@@ -359,7 +359,7 @@ describe("deleting a room type and a booking at the same moment (hotel-1)", () =
           currency: "GEL",
           cancellationPolicy: "FLEXIBLE",
           guestName: "Guest Test",
-          guestPhone: "+995555989001",
+          ...sealGuestPhone("+995555989001"),
           locale: "en",
           rulesAcceptedAt: new Date(),
         },

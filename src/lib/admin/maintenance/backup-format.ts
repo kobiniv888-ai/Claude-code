@@ -39,6 +39,10 @@ export type BackupMeta = {
   totalBytes: number;
   /** pg_dump's file, its error, or null when the program is not installed. */
   pgDump: { file: string; bytes: number } | { error: string } | null;
+  /** SITE_ENV of the site that made it (older backups: missing). A production backup never goes into a codespace (2.4.j). */
+  siteEnv?: string | null;
+  /** The deployed commit (VERCEL_GIT_COMMIT_SHA), when known: its prisma/schema.prisma matches the rows. */
+  release?: string | null;
   complete: true;
 };
 
@@ -129,6 +133,21 @@ export function pgEnvFromUrl(url: string): Record<string, string> {
   const sslmode = parsed.searchParams.get("sslmode");
   if (sslmode) env.PGSSLMODE = sslmode;
   return env;
+}
+
+/**
+ * A restore target in this codespace or on this machine (SECURITY_REPORT 2.4.j; checklist 0.6: no
+ * real customer data in development): a local host name, or any target while running in a codespace.
+ */
+export function isDevelopmentRestoreTarget(url: string, env: Partial<Record<string, string | undefined>> = {}): boolean {
+  if (env.CODESPACES === "true" || env.CODESPACE_NAME) return true;
+  let host = "";
+  try {
+    host = new URL(url).hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  } catch {
+    return true;
+  }
+  return host === "localhost" || host === "::1" || host === "0.0.0.0" || /^127\./.test(host) || host.endsWith(".localhost") || !host.includes(".");
 }
 
 /** Removes anything that looks like a connection string or password from an error text. */

@@ -4,6 +4,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import type { ListingStatus, Locale } from "@/generated/prisma/enums";
 import { db } from "@/lib/db";
 import { hmacHash } from "@/lib/crypto";
+import { openListingLocation } from "@/lib/field-crypto";
 import { todayIn } from "@/lib/jewish-life/calendar";
 import { normalizeSearchText } from "@/lib/search-text";
 import { pageInfo, type PageInfo } from "../params";
@@ -43,16 +44,17 @@ export function locationKey(place: { cityId: string | null; address: string | nu
 
 const placeSelect = {
   cityId: true,
-  address: true,
-  lat: true,
-  lng: true,
+  // Encrypted (12.3.c): decrypted here for the fingerprint only, never shown.
+  addressEnc: true,
+  pinEnc: true,
   photos: { orderBy: { createdAt: "asc" }, take: MAX_COMPARED_PHOTOS, select: { id: true, createdAt: true } },
 } satisfies Prisma.ListingSelect;
 
 type PlaceRow = Prisma.ListingGetPayload<{ select: typeof placeSelect }>;
 
 function currentPlace(row: PlaceRow) {
-  return { location: locationKey(row), photos: row.photos };
+  const { address, pin } = openListingLocation(row, "visit_badge");
+  return { location: locationKey({ cityId: row.cityId, address, lat: pin?.lat ?? null, lng: pin?.lng ?? null }), photos: row.photos };
 }
 
 /** What the listing looks like now, saved with the visit (see changedSinceVisit). */

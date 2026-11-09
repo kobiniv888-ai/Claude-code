@@ -2,6 +2,7 @@ import "server-only";
 import { locales, siteConfig, type Localized } from "@/config/site";
 import { Prisma, type JewishPlaceType } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
+import { openPin } from "@/lib/field-crypto";
 import { siteUrl } from "@/lib/site-url";
 import { haversineMeters, walkingMinutes, type LatLng } from "@/lib/geo";
 
@@ -281,8 +282,7 @@ export async function computeListingProximity(
   const listing = await db.listing.findUnique({
     where: { id: listingId },
     select: {
-      lat: true,
-      lng: true,
+      pinEnc: true,
       approxLat: true,
       approxLng: true,
       isDemo: true,
@@ -292,14 +292,18 @@ export async function computeListingProximity(
   });
   if (!listing) throw new Error(`computeListingProximity: listing ${listingId} not found`);
 
-  if (listing.lat === null || listing.lng === null) {
+  // The exact pin is decrypted here, on the server, for the distances only (12.3.c). One that cannot
+  // be opened changes nothing (the saved values stay; never cleared or computed from a wrong point).
+  const pin = openPin(listing.pinEnc, "nearby");
+  if (pin.failed) return null;
+  if (!pin.value) {
     await db.listing.update({
       where: { id: listingId },
       data: { synagogueWalkMin: null, chabadWalkMin: null, nearby: Prisma.DbNull, nearbyUpdatedAt: new Date() },
     });
     return null;
   }
-  const point = { lat: listing.lat, lng: listing.lng };
+  const point = pin.value;
   const publicPoint = listing.approxLat !== null && listing.approxLng !== null ? { lat: listing.approxLat, lng: listing.approxLng } : null;
   const previous = parseNearby(listing.nearby);
 
@@ -357,16 +361,22 @@ export async function computeListingProximity(
 export async function recomputeProximityNear(lat: number, lng: number, radiusKm = 5): Promise<number> {
   const center = { lat, lng };
   const meters = radiusKm * 1000;
-  const box = boundingBox(center, meters);
+  // The exact pins are encrypted (12.3.c): candidates by the public point, which is at most
+  // approximateLocationMeters from the pin (box widened by that), then the exact distance from the
+  // decrypted pin.
+  const box = boundingBox(center, meters + siteConfig.listings.approximateLocationMeters + 50);
   const listings = await db.listing.findMany({
     where: {
       status: { not: "DELETED" },
-      lat: { gte: box.minLat, lte: box.maxLat },
-      lng: { gte: box.minLng, lte: box.maxLng },
+      approxLat: { gte: box.minLat, lte: box.maxLat },
+      approxLng: { gte: box.minLng, lte: box.maxLng },
     },
-    select: { id: true, lat: true, lng: true },
+    select: { id: true, pinEnc: true },
   });
-  const inRange = listings.filter((l) => l.lat !== null && l.lng !== null && haversineMeters(center, { lat: l.lat, lng: l.lng }) <= meters);
+  const inRange = listings.filter((l) => {
+    const exact = openPin(l.pinEnc, "nearby_recompute").value;
+    return exact !== null && haversineMeters(center, exact) <= meters;
+  });
 
   let updated = 0;
   const queue = [...inRange];

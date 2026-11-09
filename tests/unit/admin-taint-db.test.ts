@@ -11,6 +11,7 @@
 import "dotenv/config";
 import { randomInt, randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { sealAddress, sealGuestPhone, sealPin } from "@/lib/field-crypto";
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ revalidatePath: () => {}, revalidateTag: () => {}, unstable_cache: (fn: unknown) => fn, updateTag: () => {} }));
@@ -45,9 +46,8 @@ beforeAll(async () => {
       pricePeriod: "NIGHT",
       price: 100,
       currency: "USD",
-      lat: 41.7101,
-      lng: 44.7702,
-      address: "1 Taint Test Street",
+      pinEnc: sealPin({ lat: 41.7101, lng: 44.7702 }),
+      addressEnc: sealAddress("1 Taint Test Street"),
       contactMethods: [{ channel: "WHATSAPP", value: `+99559${stamp}3`, order: 0 }],
       originalLocale: "en",
       title: "Taint test flat",
@@ -72,7 +72,7 @@ beforeAll(async () => {
       cancellationPolicy: "MODERATE",
       status: "CONFIRMED",
       guestName: "Guest Test",
-      guestPhone: `+99559${stamp}2`,
+      ...sealGuestPhone(`+99559${stamp}2`),
       messageToHost: "We arrive late.",
       locale: "en",
       rulesAcceptedAt: new Date(),

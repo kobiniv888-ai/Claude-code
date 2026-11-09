@@ -3,6 +3,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import type { ListingStatus } from "@/generated/prisma/enums";
 import { db } from "@/lib/db";
 import { taintObject } from "@/lib/security/taint";
+import { openListingLocation } from "@/lib/field-crypto";
 import type { ContactMethod } from "@/lib/listing/fields";
 import { CONTACT_CHANNELS } from "@/lib/listing/fields";
 import { contentChangedSinceCheck } from "@/lib/listing/lifecycle";
@@ -180,9 +181,9 @@ const reviewSelect = {
   dealType: true,
   propertyType: true,
   countryCode: true,
-  address: true,
-  lat: true,
-  lng: true,
+  // Encrypted (12.3.c): decrypted below for the review page (staff check the address and the pin).
+  addressEnc: true,
+  pinEnc: true,
   approxLat: true,
   approxLng: true,
   originalLocale: true,
@@ -302,7 +303,11 @@ export async function getListingForReview(id: string, viewer: StaffViewer) {
   // The raw row (exact address and pin, the host's contact values) only through the copy below,
   // which drops the contact values for staff who may not see phones (React taint, 5.k).
   taintObject("raw listing row under review", row);
-  const listing = canSeePhone(viewer) ? { ...row } : { ...row, contactMethods: null };
+  // The exact address and pin, decrypted for the reviewer; "not available" when they cannot be.
+  const { addressEnc: _addressEnc, pinEnc: _pinEnc, ...plainRow } = row;
+  const location = openListingLocation(row, "admin_review");
+  const located = { ...plainRow, address: location.address, lat: location.pin?.lat ?? null, lng: location.pin?.lng ?? null, locationUnreadable: location.failed };
+  const listing = canSeePhone(viewer) ? located : { ...located, contactMethods: null };
 
   const ownerId = listing.ownerId;
   const [checksStale, duplicates, otherListings, reports, ownerReportsAgainst, ownerListingReports, devices, notes, staff, idRequest, ownerPhone] =

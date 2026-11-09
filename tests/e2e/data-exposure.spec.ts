@@ -2,6 +2,7 @@ import { randomBytes, randomInt } from "node:crypto";
 import type { APIRequestContext } from "@playwright/test";
 import { expect, openAs, openAsTestUser, test } from "./fixtures";
 import { createTestListing, createTestUser, sql } from "./helpers/db";
+import { openAddress, openPin, sealAddress, sealGuestPhone, sealPin } from "./helpers/field-crypto";
 
 /**
  * Security checklist 5 + 6 (SECURITY_REPORT 5.b, 5.c, 5.e, 5.f, 6.c, 6.d, 6.f): no private data in
@@ -36,9 +37,13 @@ type DemoRow = {
   publicId: number;
   ownerId: string;
   slug: string;
+  /** Decrypted here from addressEnc / pinEnc (the database holds them encrypted only: 12.3.c). */
   address: string | null;
   lat: number | null;
   lng: number | null;
+  /** The stored ciphertexts: they must never reach a page either. */
+  addressEnc: string | null;
+  pinEnc: string | null;
   approxLat: number | null;
   approxLng: number | null;
   contactMethods: { value?: unknown }[] | null;
@@ -79,6 +84,9 @@ function secretsOf(row: DemoRow): Leak[] {
     ...phoneForms(`#${row.publicId} owner phone`, row.phone),
   ];
   if (row.address && row.address.trim().length >= 8) secrets.push({ label: `#${row.publicId} address`, value: row.address.trim() });
+  for (const [label, sealed] of [["address ciphertext", row.addressEnc], ["pin ciphertext", row.pinEnc]] as const) {
+    if (sealed) secrets.push({ label: `#${row.publicId} ${label}`, value: sealed.split(":")[2]!.slice(0, 24) });
+  }
   if (row.email) secrets.push({ label: `#${row.publicId} owner email`, value: row.email });
   for (const method of row.contactMethods ?? []) {
     const value = typeof method?.value === "string" ? method.value.trim() : "";
@@ -132,12 +140,17 @@ async function fetchBoth(request: APIRequestContext, path: string): Promise<{ ht
 }
 
 async function demoListings(): Promise<DemoRow[]> {
-  return sql<DemoRow>(
-    `SELECT l.id, l."publicId", l."ownerId", c.slug, l.address, l.lat, l.lng, l."approxLat", l."approxLng",
+  const rows = await sql<Omit<DemoRow, "address" | "lat" | "lng">>(
+    `SELECT l.id, l."publicId", l."ownerId", c.slug, l."addressEnc", l."pinEnc", l."approxLat", l."approxLng",
             l."contactMethods", u.email, u."phoneNumber" AS phone
      FROM "Listing" l JOIN "City" c ON c.id = l."cityId" JOIN "User" u ON u.id = l."ownerId"
      WHERE l."isDemo" AND l.status = 'LIVE' AND l."deletedAt" IS NULL ORDER BY l."publicId"`,
   );
+  // The exact address and pin, opened with the test keys (the same code as the server).
+  return rows.map((row) => {
+    const pin = openPin(row.pinEnc);
+    return { ...row, address: openAddress(row.addressEnc), lat: pin?.lat ?? null, lng: pin?.lng ?? null };
+  });
 }
 
 /**
@@ -183,16 +196,16 @@ async function exposureListing() {
   const hostContact = `+99555599${String(randomInt(0, 10_000)).padStart(4, "0")}`;
   const address = `E2E ${randomBytes(3).toString("hex")} Exposure Lane 17, Mestia`;
   await sql(
-    `UPDATE "Listing" SET lat = $2, lng = $3, "approxLat" = $4, "approxLng" = $5, address = $6,
-       "contactMethods" = $7::jsonb, "synagogueWalkMin" = 7, "chabadWalkMin" = 13, "seaWalkMinutes" = NULL, "liftWalkMinutes" = NULL,
-       nearby = $8::jsonb WHERE id = $1`,
+    `UPDATE "Listing" SET "pinEnc" = $2, "addressEnc" = $3, "approxLat" = $4, "approxLng" = $5,
+       "contactMethods" = $6::jsonb, "synagogueWalkMin" = 7, "chabadWalkMin" = 13, "seaWalkMinutes" = NULL, "liftWalkMinutes" = NULL,
+       nearby = $7::jsonb WHERE id = $1`,
     [
       listing.id,
-      exact.lat,
-      exact.lng,
+      // Stored encrypted, as the site stores them (12.3.c).
+      sealPin(exact),
+      sealAddress(address),
       city.lat,
       city.lng,
-      address,
       JSON.stringify([{ channel: "WHATSAPP", value: hostContact, order: 0 }]),
       JSON.stringify({
         // Picked around the pin: staff only (walk-trilat-1), never on a page.
@@ -305,16 +318,31 @@ test.describe("data exposure (SECURITY_REPORT 5.c)", () => {
     const own = await exposureListing();
     const guest = await createTestUser({ name: "E2E Exposure Guest" });
     const stranger = await createTestUser({ name: "E2E Exposure Stranger" });
+    const phone = sealGuestPhone(guest.phone);
     const insert = async (checkIn: string, checkOut: string, status: "CONFIRMED" | "COMPLETED") => {
       const code = bookingCode();
       const nights = Math.round((Date.parse(checkOut) - Date.parse(checkIn)) / 86_400_000);
       await sql(
         `INSERT INTO "Booking" (id, code, "listingId", "guestUserId", "hostUserId", "checkIn", "checkOut", nights, adults,
-           "nightlyPrice", subtotal, total, currency, "cancellationPolicy", status, "guestName", "guestPhone", locale,
+           "nightlyPrice", subtotal, total, currency, "cancellationPolicy", status, "guestName", "guestPhoneEnc", "guestPhoneLookup", locale,
            "rulesAcceptedAt", "messageToHost", "updatedAt")
-         VALUES ($1, $2, $3, $4, $5, $6::date, $7::date, $8, 2, 80, $9, $9, 'USD', 'MODERATE', $10::"BookingStatus", 'E2E Guest', $11, 'he',
+         VALUES ($1, $2, $3, $4, $5, $6::date, $7::date, $8, 2, 80, $9, $9, 'USD', 'MODERATE', $10::"BookingStatus", 'E2E Guest', $11, $12, 'he',
            now(), 'E2E data exposure test', now())`,
-        [`e2e${randomBytes(8).toString("hex")}`, code, own.listing.id, guest.id, own.host.id, checkIn, checkOut, nights, 80 * nights, status, guest.phone],
+        [
+          `e2e${randomBytes(8).toString("hex")}`,
+          code,
+          own.listing.id,
+          guest.id,
+          own.host.id,
+          checkIn,
+          checkOut,
+          nights,
+          80 * nights,
+          status,
+          // The guest's phone, stored encrypted with its lookup value (12.3.c).
+          phone.guestPhoneEnc,
+          phone.guestPhoneLookup,
+        ],
       );
       return code;
     };

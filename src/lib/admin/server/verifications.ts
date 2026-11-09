@@ -2,6 +2,7 @@ import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
 import type { VerificationStatus, VerificationType } from "@/generated/prisma/enums";
 import { db } from "@/lib/db";
+import { openListingLocation } from "@/lib/field-crypto";
 import { taintObject } from "@/lib/security/taint";
 import { compareCadastralCodes, parseVerificationDocuments } from "../documents";
 import type { StaffViewer } from "../staff-visibility";
@@ -105,7 +106,8 @@ export async function getVerificationDetail(id: string, viewer: Pick<StaffViewer
           publicId: true,
           title: true,
           status: true,
-          address: true,
+          // Encrypted (12.3.c): decrypted below for the ownership check.
+          addressEnc: true,
           cadastralCode: true,
           ownerId: true,
           ownerVerifiedAt: true,
@@ -130,8 +132,12 @@ export async function getVerificationDetail(id: string, viewer: Pick<StaffViewer
     accountPhoneFor(viewer, request.user.id),
   ]);
 
+  // The listing's exact address, decrypted for the reviewer ("not available" when it cannot be).
+  const listing = request.listing
+    ? (({ addressEnc, ...rest }) => ({ ...rest, address: openListingLocation({ addressEnc }, "admin_verification").address }))(request.listing)
+    : null;
   return {
-    request: { ...request },
+    request: { ...request, listing },
     userPhone,
     documents: request.documentsDeletedAt ? [] : parseVerificationDocuments(request.documents),
     cadastral: compareCadastralCodes(request.cadastralCode, request.listing?.cadastralCode),

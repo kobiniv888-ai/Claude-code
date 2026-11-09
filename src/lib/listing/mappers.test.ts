@@ -65,7 +65,7 @@ describe("listingCardSelect", () => {
 
   it("never selects private columns", () => {
     const select = listingCardSelect("en") as Record<string, unknown>;
-    for (const key of ["address", "lat", "lng", "cadastralCode", "contactMethods", "description", "icalToken"]) {
+    for (const key of ["addressEnc", "pinEnc", "legacyAddress", "legacyLat", "legacyLng", "address", "lat", "lng", "cadastralCode", "contactMethods", "description", "icalToken"]) {
       expect(select).not.toHaveProperty(key);
     }
   });

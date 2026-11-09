@@ -11,6 +11,7 @@
 import "dotenv/config";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { sealAddress, sealPin } from "@/lib/field-crypto";
 
 process.env.TWILIO_ACCOUNT_SID = "";
 process.env.RESEND_API_KEY = "";
@@ -90,9 +91,8 @@ async function makeListing(ownerId: string, title: string) {
       cancellationPolicy: "MODERATE",
       paymentMethodsAtCheckIn: ["cash"],
       cityId: ids.city,
-      lat: 41.71,
-      lng: 44.77,
-      address: "1 Test Street, Tbilisi",
+      pinEnc: sealPin({ lat: 41.71, lng: 44.77 }),
+      addressEnc: sealAddress("1 Test Street, Tbilisi"),
       contactMethods: [{ channel: "WHATSAPP", value: "+995555000001", order: 0 }],
       originalLocale: "en",
       title: `${prefix} ${title}`,

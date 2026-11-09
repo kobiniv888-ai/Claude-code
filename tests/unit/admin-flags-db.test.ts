@@ -9,6 +9,7 @@
 import "dotenv/config";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { sealGuestPhone } from "@/lib/field-crypto";
 
 vi.mock("server-only", () => ({}));
 
@@ -60,7 +61,7 @@ async function booking(data: Partial<Parameters<typeof db.booking.create>[0]["da
       currency: "USD",
       cancellationPolicy: "MODERATE",
       guestName: `${prefix} Guest`,
-      guestPhone: "+995500000001",
+      ...sealGuestPhone("+995500000001"),
       locale: "he",
       rulesAcceptedAt: new Date(),
       ...data,

@@ -10,6 +10,7 @@
  */
 import { locales } from "@/config/site";
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
+import { sealAddress, sealPin } from "@/lib/field-crypto";
 import { newIcalToken } from "@/lib/listing/ical-token";
 import { prepareListingDerivedFields } from "@/lib/listing/lifecycle";
 import { computeListingProximity } from "@/lib/nearby";
@@ -93,9 +94,9 @@ async function seedListing(db: PrismaClient, seed: ListingSeed, places: PlaceIds
     countryCode: "GE",
     cityId,
     neighborhoodId,
-    address: seed.address,
-    lat: seed.lat,
-    lng: seed.lng,
+    // The exact (fake) address and pin, stored encrypted like every listing's (12.3.c).
+    addressEnc: sealAddress(seed.address),
+    pinEnc: sealPin({ lat: seed.lat, lng: seed.lng }),
     originalLocale: seed.originalLocale,
     title: original.title,
     description: original.description,

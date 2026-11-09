@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import type { Page } from "@playwright/test";
 import { expect, openAs, openAsTestUser, settle, test } from "./fixtures";
 import { createTestListing, createTestUser, newId, sql } from "./helpers/db";
+import { sealGuestPhone } from "./helpers/field-crypto";
 import { answerStaffProof, TEST_ADMIN_PHONE, verifyTwoFactor } from "./helpers/staff";
 
 /**
@@ -50,9 +51,10 @@ async function completedStay(listingId: string, guestId: string, hostId: string,
   const code = await freeBookingCode();
   await sql(
     `INSERT INTO "Booking" (id, code, "listingId", "guestUserId", "hostUserId", "checkIn", "checkOut", nights, adults, "nightlyPrice", subtotal, total,
-       currency, "cancellationPolicy", status, "guestName", "guestPhone", locale, "rulesAcceptedAt", "messageToHost", "updatedAt")
-     VALUES ($1, $2, $3, $4, $5, $6::date, $7::date, 3, 2, 55, 165, 165, 'GEL', 'MODERATE', 'COMPLETED', 'Dana', '+995555990999', 'he', now(), $8, now())`,
-    [id, code, listingId, guestId, hostId, georgiaDay(-daysAgo - 3), georgiaDay(-daysAgo), `${PREFIX}: test stay`],
+       currency, "cancellationPolicy", status, "guestName", "guestPhoneEnc", "guestPhoneLookup", locale, "rulesAcceptedAt", "messageToHost", "updatedAt")
+     VALUES ($1, $2, $3, $4, $5, $6::date, $7::date, 3, 2, 55, 165, 165, 'GEL', 'MODERATE', 'COMPLETED', 'Dana', $9, $10, 'he', now(), $8, now())`,
+    // The guest's phone is stored encrypted, with its lookup value (SECURITY_REPORT 12.3.c).
+    [id, code, listingId, guestId, hostId, georgiaDay(-daysAgo - 3), georgiaDay(-daysAgo), `${PREFIX}: test stay`, sealGuestPhone("+995555990999").guestPhoneEnc, sealGuestPhone("+995555990999").guestPhoneLookup],
   );
   return { id, code };
 }

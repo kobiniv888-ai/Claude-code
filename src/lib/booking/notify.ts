@@ -4,6 +4,7 @@ import { siteConfig, type AppLocale } from "@/config/site";
 import { isAppLocale, pickLocalized } from "@/i18n/locale";
 import { personName } from "@/lib/auth/first-name";
 import { db } from "@/lib/db";
+import { openGuestPhone, openListingLocation } from "@/lib/field-crypto";
 import { isEmailDeliveryConfigured, notificationEmailFor, sendEmail, type SendEmailResult } from "@/lib/email";
 import type { BookingEmailArrival, BookingEmailStay } from "@/lib/email/templates";
 import { formatDateRange } from "@/lib/format";
@@ -47,7 +48,7 @@ const userSelect = {
 } as const;
 
 async function loadBooking(bookingId: string) {
-  return db.booking.findUnique({
+  const row = await db.booking.findUnique({
     where: { id: bookingId },
     include: {
       guest: { select: userSelect },
@@ -56,7 +57,7 @@ async function loadBooking(bookingId: string) {
         select: {
           title: true,
           dealType: true,
-          address: true,
+          addressEnc: true,
           checkInFrom: true,
           checkOutUntil: true,
           checkInFlexible: true,
@@ -67,6 +68,15 @@ async function loadBooking(bookingId: string) {
       },
     },
   });
+  if (!row) return null;
+  // The exact address and the guest's phone, decrypted for these messages only (12.3.c). One that
+  // cannot be opened is left out (fail closed: the email says the address is on the trip page).
+  const { addressEnc, ...listing } = row.listing;
+  return {
+    ...row,
+    guestPhone: openGuestPhone(row.guestPhoneEnc, "booking_notify").value,
+    listing: { ...listing, address: openListingLocation({ addressEnc }, "booking_notify").address },
+  };
 }
 
 type LoadedBooking = NonNullable<Awaited<ReturnType<typeof loadBooking>>>;
@@ -249,7 +259,7 @@ export async function emailHostNewBooking(bookingId: string, opts: { outboxOnly?
         ...stayFor(booking, host.locale, host.path),
         hostName: personName(booking.host),
         guestName: booking.guestName,
-        guestPhone: booking.guestPhone,
+        guestPhone: booking.guestPhone ?? "",
         messageToHost: booking.messageToHost,
       },
     });
@@ -416,7 +426,7 @@ export async function notifyBookingReminder(bookingId: string, now: Date = new D
             ...stayFor(booking, host.locale, host.path),
             hostName: personName(booking.host),
             guestName: booking.guestName,
-            guestPhone: booking.guestPhone,
+            guestPhone: booking.guestPhone ?? "",
             daysLeft,
           },
         }),

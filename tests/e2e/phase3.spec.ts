@@ -3,6 +3,7 @@ import type { Browser, BrowserContext, Page } from "@playwright/test";
 import { expect, openAs, settle, test } from "./fixtures";
 import { loginByEmail } from "./helpers/auth";
 import { createReport, createTestListing, createTestUser, listingByPublicId, newId, sql, TEST_EMAIL_DOMAIN } from "./helpers/db";
+import { sealGuestPhone } from "./helpers/field-crypto";
 import { makePhotos } from "./helpers/photos";
 import { answerStaffProof, createTestStaff, TEST_ADMIN_PHONE, verifyTwoFactor } from "./helpers/staff";
 
@@ -169,10 +170,11 @@ async function createCancelledBooking(opts: { listingId: string; guest: TestUser
   const id = newId();
   await sql(
     `INSERT INTO "Booking" (id, code, "listingId", "guestUserId", "hostUserId", "checkIn", "checkOut", nights, adults, "nightlyPrice", subtotal, total,
-       currency, "cancellationPolicy", status, "cancelledAt", "cancelledById", "guestName", "guestPhone", locale, "rulesAcceptedAt", "createdAt", "updatedAt")
+       currency, "cancellationPolicy", status, "cancelledAt", "cancelledById", "guestName", "guestPhoneEnc", "guestPhoneLookup", locale, "rulesAcceptedAt", "createdAt", "updatedAt")
      VALUES ($1, $2, $3, $4, $5, current_date + 30, current_date + 33, 3, 2, 60, 180, 180,
-       'USD', 'MODERATE', 'CANCELLED_BY_HOST', now() - interval '2 days', $5, $6, $7, 'he', now() - interval '3 days', now() - interval '3 days', now())`,
-    [id, code, opts.listingId, opts.guest.id, opts.hostId, opts.guest.name, opts.guest.phone],
+       'USD', 'MODERATE', 'CANCELLED_BY_HOST', now() - interval '2 days', $5, $6, $7, $8, 'he', now() - interval '3 days', now() - interval '3 days', now())`,
+    // The guest's phone is stored encrypted, with its lookup value (SECURITY_REPORT 12.3.c).
+    [id, code, opts.listingId, opts.guest.id, opts.hostId, opts.guest.name, sealGuestPhone(opts.guest.phone).guestPhoneEnc, sealGuestPhone(opts.guest.phone).guestPhoneLookup],
   );
   // The day the host cancelled, in Tbilisi (the form's default date).
   const [{ day }] = await sql<{ day: string }>(`SELECT to_char(("cancelledAt" AT TIME ZONE 'UTC') + interval '4 hours', 'YYYY-MM-DD') AS day FROM "Booking" WHERE id = $1`, [id]);
@@ -539,9 +541,19 @@ test("every new admin page and file route answers 404 to a signed-in user who is
   const day = (days: number) => new Date(Date.now() + 4 * 3_600_000 + days * 86_400_000).toISOString().slice(0, 10);
   await sql(
     `INSERT INTO "Booking" (id, code, "listingId", "guestUserId", "hostUserId", "checkIn", "checkOut", nights, adults, "nightlyPrice", subtotal, total,
-       currency, "cancellationPolicy", status, "guestName", "guestPhone", locale, "rulesAcceptedAt", "messageToHost", "updatedAt")
-     VALUES ($1, $2, $3, $4, $5, $6::date, $7::date, 2, 2, 55, 110, 110, 'GEL', 'MODERATE', 'COMPLETED', 'E2E', $8, 'he', now(), 'E2E admin 404 stay', now())`,
-    [stayId, `BT-${Array.from({ length: 5 }, () => "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"[randomInt(0, 32)]).join("")}`, draft.id, user.id, host.id, day(-5), day(-3), user.phone],
+       currency, "cancellationPolicy", status, "guestName", "guestPhoneEnc", "guestPhoneLookup", locale, "rulesAcceptedAt", "messageToHost", "updatedAt")
+     VALUES ($1, $2, $3, $4, $5, $6::date, $7::date, 2, 2, 55, 110, 110, 'GEL', 'MODERATE', 'COMPLETED', 'E2E', $8, $9, 'he', now(), 'E2E admin 404 stay', now())`,
+    [
+      stayId,
+      `BT-${Array.from({ length: 5 }, () => "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"[randomInt(0, 32)]).join("")}`,
+      draft.id,
+      user.id,
+      host.id,
+      day(-5),
+      day(-3),
+      sealGuestPhone(user.phone).guestPhoneEnc,
+      sealGuestPhone(user.phone).guestPhoneLookup,
+    ],
   );
   await sql(
     `INSERT INTO "Review" (id, "bookingId", "listingId", "guestUserId", "hostUserId", rating, text, language, "updatedAt")

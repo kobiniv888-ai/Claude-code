@@ -8,6 +8,7 @@ import { addDays } from "@/lib/booking/dates";
 import { canRevealHostContact } from "@/lib/booking/policy";
 import { parseContactMethods } from "@/lib/contact/links";
 import { db } from "@/lib/db";
+import { openPin } from "@/lib/field-crypto";
 import { taintObject } from "@/lib/security/taint";
 import { haversineMeters, walkingMinutes } from "@/lib/geo";
 import { publicWalkMinutes } from "@/lib/geo/public-walk";
@@ -183,8 +184,7 @@ export async function getTripExtras(
       listing: {
         select: {
           countryCode: true,
-          lat: true,
-          lng: true,
+          pinEnc: true,
           smokingAllowed: true,
           petsAllowed: true,
           partiesAllowed: true,
@@ -211,7 +211,9 @@ export async function getTripExtras(
   // still reveals them (confirmed or completed, until a week after check-out: security checklist
   // 6.f), checked again here on the database row, whatever the caller passed.
   const revealed = trip.revealed && canRevealHostContact({ status: row.status, guestUserId, checkOut: row.checkOut }, guestUserId, options.now);
-  const point = revealed && isMapPoint(listing) ? { lat: listing.lat as number, lng: listing.lng as number } : null;
+  // The exact pin is decrypted only then (12.3.c); one that cannot be opened counts as none.
+  const pin = revealed ? openPin(listing.pinEnc, "trip_extras").value : null;
+  const point = pin && isMapPoint(pin) ? { lat: pin.lat, lng: pin.lng } : null;
 
   let shabbat: TripShabbat | null = null;
   // Only for a stay still ahead or under way: a cancelled or past trip does not need candle times.

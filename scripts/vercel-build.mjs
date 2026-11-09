@@ -25,4 +25,8 @@ if (process.env.DB_PUSH_ON_BUILD === "true") {
   run("npx prisma db push");
 }
 if (process.env.SEED_ON_BUILD === "true") run("npm run db:seed");
+// Field encryption (SECURITY_REPORT 12.3.c): plain addresses, pins and guest phones go into the
+// encrypted columns and the database guard is added. Idempotent; fails the build when something is
+// left that it could not encrypt (scripts/encrypt-fields.ts).
+if (process.env.DB_PUSH_ON_BUILD === "true" || process.env.SEED_ON_BUILD === "true") run("npm run --silent db:encrypt-fields");
 run("npx next build");

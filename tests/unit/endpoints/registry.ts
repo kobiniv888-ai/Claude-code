@@ -179,6 +179,11 @@ export const SERVER_ACTIONS: Record<string, Record<string, Access>> = {
     dryRunCleanupAction: staff("settings"),
     runCleanupAction: staff("settings"),
   },
+  // Incident tools (SECURITY_REPORT 12.5.c, 17.1): ADMIN only (canUseIncidentTools).
+  "src/lib/admin/maintenance/incident-actions.ts": {
+    setMaintenanceModeAction: adminOnly("settings", "maintenance mode takes the whole site offline: the founder's incident tool"),
+    endAllSessionsAction: adminOnly("settings", "signs every account out, staff included: the founder's incident tool"),
+  },
   "src/lib/alerts/actions.ts": {
     setAlertChannelAction: USER,
     connectTelegramAction: USER,
@@ -380,12 +385,16 @@ export const ROUTE_HANDLERS: Record<string, Record<string, Access>> = {
   "src/app/api/cron/daily-summary/route.ts": { GET: CRON },
   "src/app/api/cron/exchange-rates/route.ts": { GET: CRON },
   "src/app/api/cron/expire-listings/route.ts": { GET: CRON },
+  "src/app/api/cron/offsite-backup/route.ts": { GET: CRON },
   "src/app/api/cron/ical-sync/route.ts": { GET: CRON },
   "src/app/api/cron/saved-alerts/route.ts": { GET: CRON },
   "src/app/api/cron/weekly-host-stats/route.ts": { GET: CRON },
   "src/app/api/csp-report/route.ts": { POST: publicAccess("browser CSP violation reports (rate-limited per IP and site-wide; SECURITY_REPORT 10.2.c)") },
   "src/app/api/dev/last-otp/route.ts": { GET: { kind: "dev", why: "the last login code, for the test-mode screens only" } },
   "src/app/api/geocode/route.ts": { GET: USER },
+  "src/app/api/health/route.ts": {
+    GET: publicAccess("the uptime monitor's health check (ok / database / maintenance; nothing else)", "answers from a 10-second cache: at most one database ping per 10 s per server"),
+  },
   "src/app/api/ical/[token]/route.ts": { GET: token("the listing's private calendar export link (256-bit, replaceable)") },
   "src/app/api/ical/booking/[code]/route.ts": { GET: USER },
   "src/app/api/jewish-life/calendar/route.ts": { GET: publicAccess("Shabbat and holiday times") },
@@ -517,6 +526,9 @@ export const DESTRUCTIVE_STAFF_ACTIONS: readonly string[] = [
   "src/lib/admin/content/actions/home.ts#removeFeaturedListing",
   "src/lib/admin/content/actions/home.ts#removeEndedFeatured",
   "src/lib/admin/content/actions/translations.ts#resetTranslationOverride",
+  // Incident tools: the switch and the audit row in one transaction; the sessions deleted with their audit row.
+  "src/lib/admin/maintenance/incident-actions.ts#setMaintenanceModeAction",
+  "src/lib/admin/maintenance/incident-actions.ts#endAllSessionsAction",
 ];
 
 /**
@@ -596,4 +608,6 @@ export const FRESH_PROOF_STAFF_ACTIONS: Record<string, "consume" | "window"> = {
   "src/lib/admin/content/actions/home.ts#removeEndedFeatured": "window",
   "src/lib/admin/maintenance/actions.ts#createBackupAction": "window",
   "src/lib/admin/maintenance/actions.ts#runCleanupAction": "consume",
+  "src/lib/admin/maintenance/incident-actions.ts#setMaintenanceModeAction": "consume",
+  "src/lib/admin/maintenance/incident-actions.ts#endAllSessionsAction": "consume",
 };

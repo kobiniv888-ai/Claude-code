@@ -2,6 +2,7 @@ import { createHmac } from "node:crypto";
 import type { Locator, Page } from "@playwright/test";
 import { expect, openAsTestUser, settle, test } from "./fixtures";
 import { createTestUser, sql } from "./helpers/db";
+import { openAddress, openPin } from "./helpers/field-crypto";
 
 /**
  * The trip page (round 3, brief 7.1) in Hebrew: a fresh test guest books a Thursday→Saturday stay
@@ -58,11 +59,14 @@ async function plainText(locator: Locator): Promise<string> {
 test.describe("trip page", () => {
   test("Friday-night stay: total, address, Maps/Waze, candle lighting, safety note, .ics, offline, not found for others, cancel", async ({ browser }) => {
     test.slow();
-    const [listing] = await sql<{ id: string; address: string; lat: number; lng: number }>(
-      `SELECT id, address, lat, lng FROM "Listing" WHERE "publicId" = $1 AND "bookingMode" = 'INSTANT' AND status = 'LIVE'`,
+    const [row] = await sql<{ id: string; addressEnc: string | null; pinEnc: string | null }>(
+      `SELECT id, "addressEnc", "pinEnc" FROM "Listing" WHERE "publicId" = $1 AND "bookingMode" = 'INSTANT' AND status = 'LIVE'`,
       [PUBLIC_ID],
     );
-    expect(listing, `demo listing #${PUBLIC_ID} must be LIVE and INSTANT (npm run db:seed)`).toBeTruthy();
+    expect(row, `demo listing #${PUBLIC_ID} must be LIVE and INSTANT (npm run db:seed)`).toBeTruthy();
+    // The exact address and pin are stored encrypted (SECURITY_REPORT 12.3.c): opened with the test keys.
+    const pin = openPin(row.pinEnc)!;
+    const listing = { id: row.id, address: openAddress(row.addressEnc)!, lat: pin.lat, lng: pin.lng };
     const { checkIn, checkOut } = await freeFridayStay(listing.id);
 
     // A fresh test guest (at most 2 upcoming bookings per verified phone, founder's decision 8).

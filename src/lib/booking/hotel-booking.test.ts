@@ -10,6 +10,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { createTranslator } from "use-intl/core";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { sealAddress, sealPin } from "@/lib/field-crypto";
 
 process.env.TWILIO_ACCOUNT_SID = "";
 process.env.RESEND_API_KEY = "";
@@ -96,9 +97,8 @@ beforeAll(async () => {
       cancellationPolicy: "FLEXIBLE",
       paymentMethodsAtCheckIn: ["cash"],
       cityId: ids.city,
-      lat: 41.64,
-      lng: 41.63,
-      address: "1 Test Boulevard, Batumi",
+      pinEnc: sealPin({ lat: 41.64, lng: 41.63 }),
+      addressEnc: sealAddress("1 Test Boulevard, Batumi"),
       contactMethods: [{ channel: "WHATSAPP", value: "+995555123499", order: 0 }],
       originalLocale: "en",
       title: "Test hotel for room-type bookings",
@@ -241,9 +241,8 @@ describe("hotel booking by room type", () => {
         cancellationPolicy: "FLEXIBLE",
         paymentMethodsAtCheckIn: ["cash"],
         cityId: ids.city,
-        lat: 41.641,
-        lng: 41.631,
-        address: "2 Test Boulevard, Batumi",
+        pinEnc: sealPin({ lat: 41.641, lng: 41.631 }),
+        addressEnc: sealAddress("2 Test Boulevard, Batumi"),
         contactMethods: [{ channel: "WHATSAPP", value: "+995555123498", order: 0 }],
         originalLocale: "en",
         title: "Test hotel without room types",

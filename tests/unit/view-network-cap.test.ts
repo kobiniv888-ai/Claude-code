@@ -8,6 +8,7 @@
 import "dotenv/config";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { sealPin } from "@/lib/field-crypto";
 
 vi.mock("server-only", () => ({}));
 const request = vi.hoisted(() => ({ ip: "198.51.100.7" as string | null, userAgent: "Mozilla/5.0 (X11; Linux x86_64) Firefox/140.0" }));
@@ -64,8 +65,7 @@ beforeAll(async () => {
       price: 50,
       currency: "GEL",
       cityId: city.id,
-      lat: 41.7,
-      lng: 44.8,
+      pinEnc: sealPin({ lat: 41.7, lng: 44.8 }),
       originalLocale: "en",
       title: "View cap test flat",
       description: "A test listing.",

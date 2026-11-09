@@ -9,6 +9,8 @@ import { isEnabledCurrency } from "@/lib/currency/convert";
 import { cleanPaymentMethods } from "@/lib/booking/constants";
 import { db } from "@/lib/db";
 import { NotFoundError } from "@/lib/errors";
+import { openListingLocation } from "@/lib/field-crypto";
+import { taintObject } from "@/lib/security/taint";
 import { CONTACT_CHANNELS, DEFAULT_PRICE_PERIOD, type ContactMethod } from "@/lib/listing/fields";
 import { photoUrl } from "@/lib/media";
 import { getCities, getNeighborhoods } from "@/lib/places";
@@ -79,12 +81,28 @@ export function toWizardPhoto(photo: PhotoRow): WizardPhoto {
   };
 }
 
-/** The listing row (any non-deleted status) if `userId` owns it, else null. */
+/**
+ * The listing row (any non-deleted status) if `userId` owns it, else null — with its exact address
+ * and pin DECRYPTED for the owner's own post form (`address`, `lat`, `lng`; SECURITY_REPORT
+ * 12.3.c). When they cannot be opened they read as empty and `locationUnreadable` is true (fail
+ * closed: src/lib/field-crypto.ts). The row is tainted: only the form's values reach the page.
+ */
 export async function findOwnedListing(listingId: string, userId: string) {
   if (typeof listingId !== "string" || listingId.length === 0 || listingId.length > 64) return null;
-  return db.listing.findFirst({
+  const row = await db.listing.findFirst({
     where: { id: listingId, ownerId: userId, status: { in: EDITABLE_STATUSES }, deletedAt: null },
   });
+  if (!row) return null;
+  const location = openListingLocation(row, "post_form");
+  const listing = {
+    ...row,
+    address: location.address,
+    lat: location.pin?.lat ?? null,
+    lng: location.pin?.lng ?? null,
+    locationUnreadable: location.failed,
+  };
+  taintObject("owned listing row (exact address)", listing);
+  return listing;
 }
 
 /** Like findOwnedListing, but throws NotFoundError (for server actions). */

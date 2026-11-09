@@ -16,6 +16,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { createTranslator } from "use-intl/core";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { sealGuestPhone } from "@/lib/field-crypto";
 
 process.env.TWILIO_ACCOUNT_SID = "";
 process.env.RESEND_API_KEY = "";
@@ -72,7 +73,7 @@ function booking(listingId: string, guestUserId = ids.guest) {
       cancellationPolicy: "MODERATE",
       status: "COMPLETED",
       guestName: "Dana",
-      guestPhone: "+995555990702",
+      ...sealGuestPhone("+995555990702"),
       locale: "en",
       rulesAcceptedAt: new Date(),
     },

@@ -16,6 +16,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { sealGuestPhone } from "@/lib/field-crypto";
 import type { Prisma as PrismaTypes } from "@/generated/prisma/client";
 
 vi.mock("server-only", () => ({}));
@@ -54,7 +55,7 @@ function createBooking(data: Partial<PrismaTypes.BookingUncheckedCreateInput> = 
       cancellationPolicy: "MODERATE",
       status: "COMPLETED",
       guestName: "Guest",
-      guestPhone: "+995555990501",
+      ...sealGuestPhone("+995555990501"),
       locale: "he",
       rulesAcceptedAt: new Date(),
       ...data,

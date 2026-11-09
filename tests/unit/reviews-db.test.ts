@@ -16,6 +16,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { createTranslator } from "use-intl/core";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { sealGuestPhone } from "@/lib/field-crypto";
 import type { Prisma as PrismaTypes } from "@/generated/prisma/client";
 
 process.env.TWILIO_ACCOUNT_SID = "";
@@ -118,7 +119,7 @@ function createBooking(data: Partial<PrismaTypes.BookingUncheckedCreateInput> & 
       cancellationPolicy: "MODERATE",
       status: "COMPLETED",
       guestName: "Dana",
-      guestPhone: "+995555990701",
+      ...sealGuestPhone("+995555990701"),
       locale: "en",
       rulesAcceptedAt: new Date(),
       ...rest,

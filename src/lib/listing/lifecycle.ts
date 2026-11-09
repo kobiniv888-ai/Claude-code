@@ -8,6 +8,7 @@ import { audit, auditOrThrow } from "@/lib/audit";
 import { hmacHash } from "@/lib/crypto";
 import { getRates, toUsd, type Rates } from "@/lib/currency";
 import { db } from "@/lib/db";
+import { openPin } from "@/lib/field-crypto";
 import { notificationEmailFor, sendEmail, type EmailData, type EmailTemplate } from "@/lib/email";
 import { AppError, NotFoundError, ValidationError } from "@/lib/errors";
 import { approximateLocation, type LatLng } from "@/lib/geo";
@@ -237,8 +238,7 @@ export function publicMapPoint(point: LatLng, listingId: string): LatLng {
 export async function prepareListingDerivedFields(listingId: string): Promise<void> {
   const listing = await loadListing(listingId, {
     id: true,
-    lat: true,
-    lng: true,
+    pinEnc: true,
     price: true,
     currency: true,
     dealType: true,
@@ -253,8 +253,10 @@ export async function prepareListingDerivedFields(listingId: string): Promise<vo
     listing.roomTypes.map((room) => ({ price: Number(room.price), currency: room.currency, active: room.active })),
     rates,
   );
-  const approx =
-    listing.lat !== null && listing.lng !== null ? publicMapPoint({ lat: listing.lat, lng: listing.lng }, listing.id) : null;
+  // The exact pin, decrypted on the server for the derived values only (12.3.c). One that cannot be
+  // opened leaves the saved map point and walking times as they are (never cleared by mistake).
+  const pin = openPin(listing.pinEnc, "derived_fields");
+  const approx = pin.value ? publicMapPoint(pin.value, listing.id) : null;
 
   await db.$transaction([
     ...listing.roomTypes.map((room, i) =>
@@ -263,9 +265,13 @@ export async function prepareListingDerivedFields(listingId: string): Promise<vo
     db.listing.update({
       where: { id: listing.id },
       data: {
-        approxLat: approx?.lat ?? null,
-        approxLng: approx?.lng ?? null,
-        ...walkMinutesFor(listing.city?.slug, listing.lat, listing.lng),
+        ...(pin.failed
+          ? {}
+          : {
+              approxLat: approx?.lat ?? null,
+              approxLng: approx?.lng ?? null,
+              ...walkMinutesFor(listing.city?.slug, pin.value?.lat ?? null, pin.value?.lng ?? null),
+            }),
         priceUsd: prices.priceUsd,
         pricePerSqmUsd: prices.pricePerSqmUsd,
         isShabbatFriendly: computeShabbatFriendly(listing.shabbatFeatures),
@@ -314,8 +320,7 @@ const SUBMIT_SELECT = {
   rulesAcceptedAt: true,
   title: true,
   cityId: true,
-  lat: true,
-  lng: true,
+  pinEnc: true,
   price: true,
   contactMethods: true,
   roomTypes: { select: { price: true } },
@@ -329,7 +334,8 @@ const SUBMIT_SELECT = {
 async function publicationGaps(listing: Prisma.ListingGetPayload<{ select: typeof SUBMIT_SELECT }>): Promise<PublicationRequirement[]> {
   const gaps: PublicationRequirement[] = [];
   const isHotel = listing.dealType === "HOTEL_ROOM";
-  if (!listing.cityId || listing.lat === null || listing.lng === null) gaps.push("location");
+  // A pin that is missing, or cannot be decrypted, is a missing location (fail closed: 12.3.c).
+  if (!listing.cityId || !openPin(listing.pinEnc, "publish_check").value) gaps.push("location");
   if (listing.title.trim().length === 0) gaps.push("details");
   // The photos guests see: a switched-off room type's photos don't count (as in the mistake check).
   const photos = await db.listingPhoto.count({

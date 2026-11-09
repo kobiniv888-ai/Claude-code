@@ -2,6 +2,7 @@ import type { Locator, Page } from "@playwright/test";
 import { expect, openAs, openAsTestUser, settle, test } from "./fixtures";
 import { DEMO } from "./helpers/auth";
 import { createTestUser, sql } from "./helpers/db";
+import { openAddress } from "./helpers/field-crypto";
 
 /**
  * Booking end to end (brief 5.5 and 5.6, docs/redesign-2/booking.md), in Hebrew (the main
@@ -79,11 +80,13 @@ async function openDatesSheet(page: Page): Promise<Locator> {
 test.describe("booking", () => {
   test("guest books free nights → confirmation, trips, host list and calendar, iCal → guest cancels", async ({ browser }) => {
     test.slow();
-    const [listing] = await sql<{ id: string; icalToken: string; address: string }>(
-      `SELECT id, "icalToken", address FROM "Listing" WHERE "publicId" = $1 AND "bookingMode" = 'INSTANT' AND status = 'LIVE'`,
+    const [row] = await sql<{ id: string; icalToken: string; addressEnc: string | null }>(
+      `SELECT id, "icalToken", "addressEnc" FROM "Listing" WHERE "publicId" = $1 AND "bookingMode" = 'INSTANT' AND status = 'LIVE'`,
       [PUBLIC_ID],
     );
-    expect(listing, `demo listing #${PUBLIC_ID} must be LIVE and INSTANT (npm run db:seed)`).toBeTruthy();
+    expect(row, `demo listing #${PUBLIC_ID} must be LIVE and INSTANT (npm run db:seed)`).toBeTruthy();
+    // The exact address is stored encrypted (SECURITY_REPORT 12.3.c): opened with the test keys.
+    const listing = { id: row.id, icalToken: row.icalToken, address: openAddress(row.addressEnc)! };
     const { checkIn, checkOut } = await freeNights(listing.id);
     const icsDay = checkIn.replace(/-/g, "");
 

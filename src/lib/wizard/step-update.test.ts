@@ -51,6 +51,9 @@ const deps: StepUpdateDeps = {
   getNeighborhoodIds: async (cityId) => (cityId === "batumi" ? ["batumi-center", "old-batumi"] : ["vake"]),
   getRates: async () => ({ USD: 1, GEL: 2.7, ILS: 3.7, EUR: 0.92 }),
   mapPoint: (point) => ({ lat: point.lat + 1, lng: point.lng + 1 }),
+  // Stand-ins for src/lib/field-crypto.ts: the exact address and pin are only ever written sealed.
+  sealAddress: (address) => (address === null ? null : `sealed:${address}`),
+  sealPin: (pin) => (pin ? `sealed-pin:${pin.lat},${pin.lng}` : null),
   walkMinutes: async () => ({}), // the walking times are tested in src/lib/geo/walk-recompute.test.ts
   parseContactMethods: (value) => (Array.isArray(value) ? (value as never[]) : []),
   countFutureDatePrices: async (listingId) => (listingId === "with-date-prices" ? 2 : 0),
@@ -89,7 +92,7 @@ describe("buildStepUpdate per step", () => {
 
   it("location: an address change keeps the city, neighborhood and pin (the founder's listing 44)", async () => {
     const result = await update("location", { address: "Sherif Khimshiashvili 7, entrance 2, apt 14" });
-    expect(result.data).toEqual({ address: "Sherif Khimshiashvili 7, entrance 2, apt 14" });
+    expect(result.data).toEqual({ addressEnc: "sealed:Sherif Khimshiashvili 7, entrance 2, apt 14" });
     expect(result.contentChanged).toBe(false);
   });
 
@@ -108,13 +111,19 @@ describe("buildStepUpdate per step", () => {
 
   it("location: the pin is one answer with its public approximate point; outside the country is refused", async () => {
     const result = await update("location", { lat: 41.65, lng: 41.64 });
-    expect(result.data).toEqual({ lat: 41.65, lng: 41.64, approxLat: 42.65, approxLng: 42.64 });
+    expect(result.data).toEqual({ pinEnc: "sealed-pin:41.65,41.64", approxLat: 42.65, approxLng: 42.64 });
     expect((await update("location", { lat: 48.85, lng: 2.35 })).fieldErrors).toEqual({ lat: ["outsideGeorgia"] });
-    expect((await update("location", { lat: null, lng: null })).data).toEqual({ lat: null, lng: null, approxLat: null, approxLng: null });
+    expect((await update("location", { lat: null, lng: null })).data).toEqual({ pinEnc: null, approxLat: null, approxLng: null });
+  });
+
+  it("location: the exact address and pin are never written in plain text (SECURITY_REPORT 12.3.c)", async () => {
+    const result = await update("location", { address: "Rustaveli 1, apt 3", lat: 41.65, lng: 41.64, cityId: "batumi" });
+    for (const key of ["address", "lat", "lng", "legacyAddress", "legacyLat", "legacyLng"]) expect(result.data, key).not.toHaveProperty(key);
+    expect(result.data).toMatchObject({ addressEnc: "sealed:Rustaveli 1, apt 3", pinEnc: "sealed-pin:41.65,41.64" });
   });
 
   it("location: an empty address sent on purpose is cleared", async () => {
-    expect((await update("location", { address: "" })).data).toEqual({ address: null });
+    expect((await update("location", { address: "" })).data).toEqual({ addressEnc: null });
   });
 
   it("size / building / features: only the sent fields, empty text stored as null", async () => {

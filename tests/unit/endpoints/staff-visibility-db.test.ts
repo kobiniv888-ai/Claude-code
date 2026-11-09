@@ -17,6 +17,7 @@
 import "dotenv/config";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { sealGuestPhone } from "@/lib/field-crypto";
 
 vi.mock("server-only", () => ({}));
 
@@ -86,7 +87,7 @@ beforeAll(async () => {
     currency: "USD" as const,
     cancellationPolicy: "MODERATE" as const,
     guestName: GUEST_NAME,
-    guestPhone: GUEST_PHONE,
+    ...sealGuestPhone(GUEST_PHONE),
     locale: "he" as const,
     rulesAcceptedAt: new Date(),
   });
@@ -403,7 +404,7 @@ describe("the user page counts guest cancellations with the guest-flag rule (fla
             currency: "USD",
             cancellationPolicy: "MODERATE",
             guestName: GUEST_NAME,
-            guestPhone: GUEST_PHONE,
+            ...sealGuestPhone(GUEST_PHONE),
             locale: "he",
             rulesAcceptedAt: new Date(),
             status: "CANCELLED_BY_GUEST",

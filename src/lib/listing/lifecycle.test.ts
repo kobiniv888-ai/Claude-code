@@ -9,6 +9,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { createTranslator } from "use-intl/core";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { sealPin } from "@/lib/field-crypto";
 import { PLEDGE_CURRENT_VERSION } from "@/lib/pledge";
 
 process.env.OVERPASS_ENABLED = "false";
@@ -106,8 +107,7 @@ async function createListing(
       propertyType: "APARTMENT",
       pricePeriod: overrides.dealType === "SALE" ? "TOTAL" : "MONTH",
       cityId: ids.city,
-      lat: point.lat,
-      lng: point.lng,
+      pinEnc: sealPin({ lat: point.lat, lng: point.lng }),
       originalLocale: "en",
       title: overrides.title ?? "Bright two-room flat near Vake Park",
       description: overrides.description ?? "Renovated flat with a balcony, 75 m², 5th floor of 9, five minutes from the park.",

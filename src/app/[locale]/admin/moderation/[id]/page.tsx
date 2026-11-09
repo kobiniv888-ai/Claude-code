@@ -629,7 +629,9 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
                 </p>
               </>
             ) : (
-              <p className="text-sm text-muted-foreground">{t("noLocation")}</p>
+              <p role={listing.locationUnreadable ? "status" : undefined} className="text-sm text-muted-foreground">
+                {listing.locationUnreadable ? t("locationUnreadable") : t("noLocation")}
+              </p>
             )}
           </AdminSection>
 

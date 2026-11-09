@@ -4,6 +4,9 @@
 #   (src/lib/site-env.ts, src/lib/startup-check.ts), and a codespace is always a development site
 # - the public address of port 3000 (NEXT_PUBLIC_SITE_URL / BETTER_AUTH_URL), if .env still says localhost
 # - .env readable by its owner only (chmod 600)
+# - a throwaway FIELD_ENCRYPTION_KEY (the key of the encrypted addresses, pins and guest phones,
+#   src/lib/field-crypto.ts) when .env has none: made on this machine, marked as a development key
+#   (src/lib/dev-keys.ts), never committed, never printed
 # Service keys (map, translation, email, Google login, SMS, Telegram) and the PRIVATE admin
 # settings (BAYIT_ADMIN_EMAIL, BAYIT_ADMIN_PHONE, ADMIN_ALERT_EMAIL) are Codespaces secrets: the
 # codespace puts them in the environment of every process, and the website and the scripts read
@@ -43,6 +46,10 @@ sync_env() {
   if ! grep -q '^SITE_ENV=' .env; then
     set_env SITE_ENV "development"
     echo "Set SITE_ENV=development in .env (a codespace is a development site)"
+  fi
+  if ! grep -qE '^FIELD_ENCRYPTION_KEY="?[A-Za-z0-9+/]{43}=' .env; then
+    set_env FIELD_ENCRYPTION_KEY "$(node -e "const c=require('crypto');console.log(Buffer.concat([Buffer.from('BAYITDEV'),c.randomBytes(24)]).toString('base64'))")"
+    echo "Set a development FIELD_ENCRYPTION_KEY in .env (npm run db:encrypt-fields re-seals values made before with the derived key)"
   fi
   if [ -n "${CODESPACE_NAME:-}" ] && [ -n "${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-}" ]; then
     local url="https://${CODESPACE_NAME}-3000.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}"

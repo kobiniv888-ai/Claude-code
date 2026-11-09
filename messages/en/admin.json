@@ -710,7 +710,8 @@
         "warning": "Worth checking",
         "step": "In the form's “{name}” step"
       }
-    }
+    },
+    "locationUnreadable": "The exact address and pin can't be read right now (encryption key). Nothing was changed; the event is in the security log."
   },
   "reports": {
     "title": "Reports",

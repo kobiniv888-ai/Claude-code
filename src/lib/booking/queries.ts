@@ -6,6 +6,7 @@ import { pickLocalized } from "@/i18n/locale";
 import { personName } from "@/lib/auth/first-name";
 import { verifiedPhoneOf } from "@/lib/auth/phone-once";
 import { db } from "@/lib/db";
+import { openGuestPhone, openListingLocation } from "@/lib/field-crypto";
 import { taintObject } from "@/lib/security/taint";
 import { listingSlugParam } from "@/lib/listing/urls";
 import { photoUrl } from "@/lib/media";
@@ -233,6 +234,8 @@ export type GuestTrip = BookingSummary & {
     lat: number | null;
     lng: number | null;
     directions: Directions | null;
+    /** The stored address/pin could not be decrypted (src/lib/field-crypto.ts): show "not available". */
+    locationUnavailable: boolean;
     hostName: string | null;
     contact: HostContact;
   } | null;
@@ -265,9 +268,8 @@ export async function getGuestTrip(
           checkOutUntil: true,
           checkInFlexible: true,
           checkOutFlexible: true,
-          address: true,
-          lat: true,
-          lng: true,
+          addressEnc: true,
+          pinEnc: true,
           contactMethods: true,
           owner: { select: { name: true, firstName: true, phoneNumber: true, phoneNumberVerified: true } },
         },
@@ -280,12 +282,15 @@ export async function getGuestTrip(
   taintObject("raw booking row", row);
   taintObject("raw listing row (exact address)", row.listing);
   const summary = toSummary(row, locale, now);
-  const reveal = canRevealHostContact(row, guestUserId, now)
+  // Decrypted only inside the address window (12.3.c): a failure shows "not available", never half.
+  const location = canRevealHostContact(row, guestUserId, now) ? openListingLocation(row.listing, "trip") : null;
+  const reveal = location
     ? {
-        address: row.listing.address,
-        lat: row.listing.lat,
-        lng: row.listing.lng,
-        directions: directionsFor(row.listing.lat, row.listing.lng),
+        address: location.address,
+        lat: location.pin?.lat ?? null,
+        lng: location.pin?.lng ?? null,
+        directions: directionsFor(location.pin?.lat, location.pin?.lng),
+        locationUnavailable: location.failed,
         hostName: personName(row.listing.owner),
         contact: hostContactFor(row.listing.contactMethods, verifiedPhoneOf(row.listing.owner)),
       }
@@ -360,8 +365,8 @@ export async function getHostBookings(
 export type HostBooking = HostBookingSummary & {
   /** The itemized price the guest confirmed, in `currency` (adds up to `total`). */
   priceLines: PriceLine[];
-  /** E.164, verified when booked: call / WhatsApp the guest. */
-  guestPhone: string;
+  /** E.164, verified when booked: call / WhatsApp the guest. Null once erased, or when it cannot be decrypted. */
+  guestPhone: string | null;
   messageToHost: string | null;
   paymentMethods: string[];
   cancelReasonCode: string | null;
@@ -386,7 +391,7 @@ export async function getHostBooking(
     select: {
       ...summarySelect,
       ...priceSelect,
-      guestPhone: true,
+      guestPhoneEnc: true,
       messageToHost: true,
       paymentMethods: true,
       cancelReasonCode: true,
@@ -404,7 +409,7 @@ export async function getHostBooking(
     flaggedForReview: row.flaggedForReview,
     path: hostBookingPath(row.code),
     priceLines: priceLinesOf(row),
-    guestPhone: row.guestPhone,
+    guestPhone: openGuestPhone(row.guestPhoneEnc, "host_booking").value,
     messageToHost: row.messageToHost,
     paymentMethods: row.paymentMethods,
     cancelReasonCode: row.cancelReasonCode,

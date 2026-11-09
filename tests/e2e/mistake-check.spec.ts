@@ -1,7 +1,11 @@
 import type { Browser } from "@playwright/test";
 import { expect, openAs, openAsTestUser, settle, test } from "./fixtures";
 import { createTestListing, createTestUser, listingByPublicId, sql } from "./helpers/db";
+import { sealAddress } from "./helpers/field-crypto";
 import { TEST_ADMIN_PHONE } from "./helpers/staff";
+
+/** The exact address as the site stores it: encrypted (SECURITY_REPORT 12.3.c). */
+const E2E_ADDRESS = "E2E Street 7, apartment 5";
 
 /**
  * Round 3, brief 6.1: "בדיקה לפני פרסום" (the host's mistake check), in production mode.
@@ -54,9 +58,9 @@ async function mirrorListing44(listingId: string, title: string) {
   await sql(
     `UPDATE "Listing" SET "originalLocale" = 'he', title = $2, description = $3, currency = 'GEL', "checkInFrom" = '10:00',
        "checkOutUntil" = '13:00', "checkInFlexible" = false, "checkOutFlexible" = false, "maxGuests" = 1, "bedsSingle" = NULL,
-       "bedsDouble" = 1, "bedsSofa" = 1, bathrooms = 0, address = 'E2E Street 7, apartment 5', "contentUpdatedAt" = now()
+       "bedsDouble" = 1, "bedsSofa" = 1, bathrooms = 0, "addressEnc" = $4, "contentUpdatedAt" = now()
      WHERE id = $1`,
-    [listingId, title, LISTING_44_DESCRIPTION],
+    [listingId, title, LISTING_44_DESCRIPTION, sealAddress(E2E_ADDRESS)],
   );
   // Bedroom, kitchen and bathroom photos, so only listing 44's own problems show.
   await sql(
@@ -112,7 +116,7 @@ test.describe("mistake check before publishing (brief 6.1)", () => {
     await expect(panel.getByRole("heading", { name: "יש לתקן לפני פרסום" })).toHaveCount(0);
 
     // The exact address disappears after the panel was loaded: only the server can notice.
-    await sql(`UPDATE "Listing" SET address = NULL WHERE id = $1`, [draft.id]);
+    await sql(`UPDATE "Listing" SET "addressEnc" = NULL WHERE id = $1`, [draft.id]);
     await owner.page.locator("#rules-checkbox").check();
     await owner.page.getByRole("button", { name: "פרסום", exact: true }).click();
     await expect(panel.getByRole("heading", { name: "יש לתקן לפני פרסום" })).toBeVisible({ timeout: 30_000 });
@@ -126,7 +130,7 @@ test.describe("mistake check before publishing (brief 6.1)", () => {
     expect((await listingByPublicId(draft.publicId)).status).toBe("DRAFT");
 
     // Fixed: check again, publish. A host's first listing waits for review.
-    await sql(`UPDATE "Listing" SET address = 'E2E Street 7, apartment 5' WHERE id = $1`, [draft.id]);
+    await sql(`UPDATE "Listing" SET "addressEnc" = $2 WHERE id = $1`, [draft.id, sealAddress(E2E_ADDRESS)]);
     await panel.getByRole("button", { name: "לבדוק שוב" }).click();
     await expect(panel.getByRole("heading", { name: "יש לתקן לפני פרסום" })).toHaveCount(0);
     await expect(owner.page.locator("[data-sonner-toast]")).toHaveCount(0, { timeout: 15_000 });
@@ -177,7 +181,7 @@ test.describe("mistake check before publishing (brief 6.1)", () => {
     const host = await createHost("E2E Mistake Gal");
     const title = `E2E דירה מושהית ${digits()}`;
     const paused = await createTestListing({ ownerId: host.id, title, status: "LIVE", photos: 6 });
-    await sql(`UPDATE "Listing" SET status = 'PAUSED', address = NULL, "reviewedAt" = now() WHERE id = $1`, [paused.id]);
+    await sql(`UPDATE "Listing" SET status = 'PAUSED', "addressEnc" = NULL, "reviewedAt" = now() WHERE id = $1`, [paused.id]);
 
     const owner = await openAsUser(browser, host);
     await owner.page.goto("/he/account/listings");
@@ -193,7 +197,7 @@ test.describe("mistake check before publishing (brief 6.1)", () => {
     await settle(owner.page);
     await expect(owner.page.getByTestId("mistake-check").locator('[data-mistake="address_missing"]')).toBeVisible();
     // Fixed, it comes back on.
-    await sql(`UPDATE "Listing" SET address = 'E2E Street 7, apartment 5' WHERE id = $1`, [paused.id]);
+    await sql(`UPDATE "Listing" SET "addressEnc" = $2 WHERE id = $1`, [paused.id, sealAddress(E2E_ADDRESS)]);
     await owner.page.goto("/he/account/listings");
     await settle(owner.page);
     await owner.page.getByRole("article", { name: title }).getByRole("button", { name: "הפעלה מחדש" }).click();
@@ -204,7 +208,7 @@ test.describe("mistake check before publishing (brief 6.1)", () => {
 
     // The admin's review page: approve is off while the host's check has an error.
     const waiting = await createTestListing({ ownerId: host.id, title: `E2E דירה ממתינה ${digits()}`, status: "IN_REVIEW", photos: 6 });
-    await sql(`UPDATE "Listing" SET address = NULL WHERE id = $1`, [waiting.id]);
+    await sql(`UPDATE "Listing" SET "addressEnc" = NULL WHERE id = $1`, [waiting.id]);
     const admin = await openAs(browser, TEST_ADMIN_PHONE);
     await admin.page.goto(`/en/admin/moderation/${waiting.id}`);
     await settle(admin.page);

@@ -3,6 +3,7 @@ import { siteConfig } from "@/config/site";
 import type { Prisma } from "@/generated/prisma/client";
 import { siteUrl } from "@/lib/site-url";
 import { db } from "@/lib/db";
+import { openGuestPhone, openListingLocation } from "@/lib/field-crypto";
 import { isPlaceholderEmail } from "@/lib/email";
 import { absoluteMediaUrl, photoUrl } from "@/lib/media";
 import { bookingPriceLines } from "@/lib/booking/price-lines";
@@ -43,9 +44,14 @@ export const LISTING_EXPORT_COLUMNS = {
   countryCode: true,
   cityId: true,
   neighborhoodId: true,
-  address: true,
-  lat: true,
-  lng: true,
+  // The exact address and pin are stored encrypted (SECURITY_REPORT 12.3.c): read here and carried
+  // DECRYPTED as `address`, `lat`, `lng` (the owner's own data), never as ciphertext. The legacy
+  // plain columns are empty and never read.
+  addressEnc: true,
+  pinEnc: true,
+  legacyAddress: false,
+  legacyLat: false,
+  legacyLng: false,
   approxLat: true,
   approxLng: true,
   originalLocale: true,
@@ -388,7 +394,8 @@ export async function buildAccountExport(userId: string) {
       where: { guestUserId: userId },
       orderBy: { checkIn: "desc" },
       take: MAX_ROWS,
-      select: { ...BOOKING_EXPORT_SELECT, guestName: true, guestPhone: true, messageToHost: true, cancelReason: true, cancelledById: true },
+      // The guest's own phone on the booking: stored encrypted, exported decrypted (below).
+      select: { ...BOOKING_EXPORT_SELECT, guestName: true, guestPhoneEnc: true, messageToHost: true, cancelReason: true, cancelledById: true },
     }),
     db.booking.findMany({
       where: { hostUserId: userId },
@@ -481,17 +488,23 @@ export async function buildAccountExport(userId: string) {
     connectedAccounts: accounts.map((a) => ({ provider: a.providerId, connectedAt: a.createdAt })),
     termsAcceptances,
     twoFactorRecoveryCodesLeft: recoveryCodesLeft,
-    listings: listings.map(({ photos, city, neighborhood, ...listing }) => ({
-      ...listing,
-      city: city?.slug ?? null,
-      neighborhood: neighborhood?.slug ?? null,
-      photos: photos.map((p) => ({
-        url: absoluteMediaUrl(photoUrl(p, "lg")),
-        alt: p.alt,
-        isCover: p.isCover,
-        order: p.sortOrder,
-      })),
-    })),
+    listings: listings.map(({ photos, city, neighborhood, addressEnc, pinEnc, ...listing }) => {
+      const location = openListingLocation({ addressEnc, pinEnc }, "account_export");
+      return {
+        ...listing,
+        address: location.address,
+        lat: location.pin?.lat ?? null,
+        lng: location.pin?.lng ?? null,
+        city: city?.slug ?? null,
+        neighborhood: neighborhood?.slug ?? null,
+        photos: photos.map((p) => ({
+          url: absoluteMediaUrl(photoUrl(p, "lg")),
+          alt: p.alt,
+          isCover: p.isCover,
+          order: p.sortOrder,
+        })),
+      };
+    }),
     favorites: favorites.map((f) => ({
       listingId: f.listing.publicId,
       listingTitle: f.listing.title,
@@ -542,8 +555,9 @@ export async function buildAccountExport(userId: string) {
     contactClicks: contactClicks.map((c) => ({ listingId: c.listing.publicId, channel: c.channel, at: c.createdAt })),
     verificationRequests: verifications.map(({ listing, ...request }) => ({ ...request, listingId: listing?.publicId ?? null })),
     sessions,
-    trips: tripsAsGuest.map(({ cancelledById, ...booking }) => ({
+    trips: tripsAsGuest.map(({ cancelledById, guestPhoneEnc, ...booking }) => ({
       ...exportBooking(booking),
+      guestPhone: openGuestPhone(guestPhoneEnc, "account_export").value,
       cancelledBy: booking.cancelledAt ? (cancelledById === userId ? "you" : "host") : null,
     })),
     bookingsOfMyPlaces: bookingsAsHost.map(({ cancelledById, cancelReason, ...booking }) => ({

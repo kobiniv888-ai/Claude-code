@@ -690,6 +690,43 @@
       "whenLabel": "When",
       "final": "Don’t recognise it? Check with the staff member and, if needed, remove the role in the admin panel.",
       "cta": "Open staff roles"
+    },
+    "security_alert": {
+      "subject": "Security alert: {count, plural, one {1 thing} other {{count} things}} to look at",
+      "heading": "Security alert",
+      "intro": "In the last {minutes} minutes the site noticed:",
+      "final": "Was it you or your team? Then there is nothing to do. If not, open the admin panel, and follow INCIDENT_PLAN.md if it looks like an attack.",
+      "cta": "Open the audit log",
+      "kinds": {
+        "staff_new_device": "A staff account logged in from a device it never used before ({count}).",
+        "totp_locked": "A staff account was locked after 20 wrong 2-step codes ({count}).",
+        "totp_unlock_email": "An email code was asked for to unlock 2-step login ({count}).",
+        "recovery_code_used": "A 2-step recovery code was used to log in ({count}).",
+        "login_failures": "{count} wrong login codes (alert above {threshold}).",
+        "login_failures_ip": "{count} wrong login codes from one connection (alert above {threshold}).",
+        "login_codes_locked": "{count} login codes were stopped after 5 wrong tries (alert above {threshold}).",
+        "code_sends": "{count} login codes were sent (alert above {threshold}).",
+        "sms_paused": "Codes by SMS were paused: the daily budget ran out, or too few codes were confirmed ({count}).",
+        "permission_denials": "{count} attempts to open staff pages or actions without the right (alert above {threshold}).",
+        "permission_denials_ip": "{count} such attempts from one connection (alert above {threshold}).",
+        "id_guessing": "{count} booking, trip, list or ticket links that matched nothing (alert above {threshold}): someone may be guessing links.",
+        "id_guessing_ip": "{count} links that matched nothing, from one connection (alert above {threshold}).",
+        "rate_limited": "{count} requests were stopped by the speed limits (alert above {threshold}).",
+        "csp_reports": "{count} reports of blocked content from browsers (alert above {threshold}).",
+        "booking_cap": "{count} bookings were refused by the limit of 2 upcoming bookings per phone (alert above {threshold}).",
+        "show_contact_cap": "{count} visitors reached the daily “show contact” limit (alert above {threshold}).",
+        "signup_burst": "{count} new accounts (alert above {threshold}).",
+        "signup_burst_ip": "{count} new accounts from one connection (alert above {threshold}).",
+        "listing_burst": "{count} new listings (alert above {threshold}).",
+        "booking_burst": "{count} new bookings (alert above {threshold}).",
+        "role_changed": "A staff role was given or removed ({count}).",
+        "maintenance_on": "Maintenance mode was switched on.",
+        "maintenance_off": "Maintenance mode was switched off.",
+        "sessions_ended": "Everyone was signed out (“sign everyone out”).",
+        "offsite_backup_failed": "The weekly off-site backup failed ({count}).",
+        "offsite_backup_missing": "No off-site backup has succeeded for {days} days.",
+        "certificate_expiry": "The site’s HTTPS certificate ends in {days} days."
+      }
     }
   },
   "ticketStatus": {

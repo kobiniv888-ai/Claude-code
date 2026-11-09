@@ -6,6 +6,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { createInterface } from "node:readline";
 import pg from "pg";
+import { PRODUCTION_MARKER, SITE_ENV_MARKER_KEY } from "@/lib/site-env-marker";
 import {
   BACKUP_FORMAT,
   BACKUP_FORMAT_VERSION,
@@ -154,9 +155,13 @@ async function runPgDump(dir: string): Promise<BackupMeta["pgDump"]> {
   });
 }
 
-/** Makes a full backup and returns its metadata. Throws when the database cannot be read or the disk is not writable. */
-export async function createBackup(by: BackupMeta["createdBy"]): Promise<BackupMeta> {
-  const root = backupRoot();
+/**
+ * Makes a full backup and returns its metadata. Throws when the database cannot be read or the disk
+ * is not writable. `root`: another folder than backupRoot() (the off-site job writes to a temporary
+ * folder, ./offsite.ts).
+ */
+export async function createBackup(by: BackupMeta["createdBy"], options: { root?: string } = {}): Promise<BackupMeta> {
+  const root = options.root ?? backupRoot();
   const createdAt = new Date();
   const id = backupId(createdAt, randomBytes(3).toString("hex"));
   const partial = path.join(root, `${id}.partial`);
@@ -200,6 +205,8 @@ export async function createBackup(by: BackupMeta["createdBy"]): Promise<BackupM
       totalBytes:
         tables.reduce((sum, t) => sum + t.bytes, 0) + (schema?.length ?? 0) + (pgDump && "file" in pgDump ? pgDump.bytes : 0),
       pgDump,
+      siteEnv: process.env.SITE_ENV?.trim() || null,
+      release: process.env.VERCEL_GIT_COMMIT_SHA?.trim() || null,
       complete: true,
     };
     if (pgDump && "file" in pgDump) await fs.chmod(path.join(partial, pgDump.file), 0o600).catch(() => undefined);
@@ -260,6 +267,27 @@ export async function verifyBackupFiles(dir: string, meta: BackupMeta): Promise<
     }
   }
   return bad;
+}
+
+/**
+ * Was this backup made of the real site's database? Its metadata says SITE_ENV=production, or its
+ * SiteSetting rows carry the real site's marker (src/lib/site-env-marker.ts; backups older than
+ * the siteEnv field). Such a backup is never restored into a codespace or a local database (2.4.j).
+ */
+export async function isProductionBackup(dir: string, meta: BackupMeta): Promise<boolean> {
+  if (meta.siteEnv === "production") return true;
+  if (!meta.tables.some((t) => t.name === "SiteSetting")) return false;
+  const lines = createInterface({ input: createReadStream(path.join(dir, "tables", "SiteSetting.jsonl")), crlfDelay: Infinity });
+  for await (const line of lines) {
+    if (!line.includes(SITE_ENV_MARKER_KEY)) continue;
+    try {
+      const row = JSON.parse(line) as { key?: unknown; value?: unknown };
+      if (row.key === SITE_ENV_MARKER_KEY && row.value === PRODUCTION_MARKER) return true;
+    } catch {
+      // A damaged line: verifyBackupFiles reports it.
+    }
+  }
+  return false;
 }
 
 export type RestoreReport = { tables: number; rows: number; sequences: number };

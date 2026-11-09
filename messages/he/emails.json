@@ -690,6 +690,43 @@
       "whenLabel": "מתי",
       "final": "לא מוכר לכם? בדקו עם איש הצוות, ובמידת הצורך הסירו את התפקיד בפאנל הניהול.",
       "cta": "פתיחת תפקידי הצוות"
+    },
+    "security_alert": {
+      "subject": "התראת אבטחה: {count, plural, one {דבר אחד} other {{count} דברים}} לבדוק",
+      "heading": "התראת אבטחה",
+      "intro": "ב־{minutes} הדקות האחרונות האתר זיהה:",
+      "final": "זה הייתם אתם או הצוות? אז אין מה לעשות. אם לא – היכנסו ללוח הניהול, ואם זה נראה כמו מתקפה, פעלו לפי INCIDENT_PLAN.md.",
+      "cta": "ליומן הפעולות",
+      "kinds": {
+        "staff_new_device": "חשבון צוות התחבר ממכשיר שלא השתמש בו קודם ({count}).",
+        "totp_locked": "חשבון צוות ננעל אחרי 20 קודי אימות דו־שלבי שגויים ({count}).",
+        "totp_unlock_email": "התבקש קוד במייל לשחרור האימות הדו־שלבי ({count}).",
+        "recovery_code_used": "נעשה שימוש בקוד שחזור כדי להתחבר ({count}).",
+        "login_failures": "{count} קודי כניסה שגויים (התראה מעל {threshold}).",
+        "login_failures_ip": "{count} קודי כניסה שגויים מחיבור אחד (התראה מעל {threshold}).",
+        "login_codes_locked": "{count} קודי כניסה נחסמו אחרי 5 ניסיונות שגויים (התראה מעל {threshold}).",
+        "code_sends": "נשלחו {count} קודי כניסה (התראה מעל {threshold}).",
+        "sms_paused": "שליחת קודים ב־SMS הושהתה: התקציב היומי נגמר, או שמעט מדי קודים אושרו ({count}).",
+        "permission_denials": "{count} ניסיונות לפתוח דפים או פעולות של הצוות בלי הרשאה (התראה מעל {threshold}).",
+        "permission_denials_ip": "{count} ניסיונות כאלה מחיבור אחד (התראה מעל {threshold}).",
+        "id_guessing": "{count} קישורים להזמנה, לטיול, לרשימה או לפנייה שלא התאימו לכלום (התראה מעל {threshold}): ייתכן שמישהו מנחש קישורים.",
+        "id_guessing_ip": "{count} קישורים שלא התאימו לכלום, מחיבור אחד (התראה מעל {threshold}).",
+        "rate_limited": "{count} בקשות נעצרו בגלל מגבלות הקצב (התראה מעל {threshold}).",
+        "csp_reports": "{count} דיווחים מדפדפנים על תוכן שנחסם (התראה מעל {threshold}).",
+        "booking_cap": "{count} הזמנות נדחו בגלל המגבלה של 2 הזמנות קרובות לכל טלפון (התראה מעל {threshold}).",
+        "show_contact_cap": "{count} מבקרים הגיעו למגבלה היומית של „הצגת פרטי קשר” (התראה מעל {threshold}).",
+        "signup_burst": "{count} חשבונות חדשים (התראה מעל {threshold}).",
+        "signup_burst_ip": "{count} חשבונות חדשים מחיבור אחד (התראה מעל {threshold}).",
+        "listing_burst": "{count} מודעות חדשות (התראה מעל {threshold}).",
+        "booking_burst": "{count} הזמנות חדשות (התראה מעל {threshold}).",
+        "role_changed": "תפקיד צוות ניתן או הוסר ({count}).",
+        "maintenance_on": "מצב תחזוקה הופעל.",
+        "maintenance_off": "מצב תחזוקה כובה.",
+        "sessions_ended": "כל המשתמשים נותקו („ניתוק כולם”).",
+        "offsite_backup_failed": "הגיבוי השבועי מחוץ לאתר נכשל ({count}).",
+        "offsite_backup_missing": "כבר {days} ימים שלא הצליח גיבוי מחוץ לאתר.",
+        "certificate_expiry": "תעודת ה־HTTPS של האתר מסתיימת בעוד {days} ימים."
+      }
     }
   },
   "ticketStatus": {

@@ -17,6 +17,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { sealGuestPhone } from "@/lib/field-crypto";
 import type { Prisma as PrismaTypes } from "@/generated/prisma/client";
 
 const state = vi.hoisted(() => ({ user: null as null | { id: string; role: string } }));
@@ -77,7 +78,7 @@ function createBooking(data: { listingId: string; roomTypeId?: string | null; ro
       currency: "GEL",
       cancellationPolicy: "MODERATE",
       guestName: "Guest",
-      guestPhone: "+995555990401",
+      ...sealGuestPhone("+995555990401"),
       locale: "he",
       rulesAcceptedAt: new Date(),
       ...data,

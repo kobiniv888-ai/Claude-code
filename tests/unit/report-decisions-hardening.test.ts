@@ -18,6 +18,7 @@
 import "dotenv/config";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { sealAddress, sealGuestPhone, sealPin } from "@/lib/field-crypto";
 
 type Role = "ADMIN" | "MODERATOR" | "SUPPORT" | "EDITOR" | "USER";
 
@@ -114,9 +115,8 @@ async function listing(ownerId: string, status: "LIVE" | "PAUSED" | "DRAFT" | "I
       dealType: "SHORT_STAY",
       cityId,
       title: `${prefix} listing`,
-      lat: 41.64,
-      lng: 41.62,
-      address: "Fake street 1, apt 2",
+      pinEnc: sealPin({ lat: 41.64, lng: 41.62 }),
+      addressEnc: sealAddress("Fake street 1, apt 2"),
       price: 80,
       currency: "USD",
       pricePeriod: "NIGHT",
@@ -408,7 +408,7 @@ describe("flags", () => {
         currency: "USD",
         cancellationPolicy: "MODERATE",
         guestName: "Guest",
-        guestPhone: "+995500000000",
+        ...sealGuestPhone("+995500000000"),
         locale: "he",
         rulesAcceptedAt: new Date(),
       },

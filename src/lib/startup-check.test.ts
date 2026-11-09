@@ -30,6 +30,8 @@ const PROD: StartupEnv = {
   NEXT_PUBLIC_SITE_URL: "https://bayit.example.com",
   SITE_URL: "https://bayit.example.com",
   CRON_SECRET: "0c4f3a9b8e7d6c5b4a39281706f5e4d3c2b1a0ff9e8d7c6b",
+  // The field-encryption key (12.3.c): 32 random-looking bytes of its own (fake).
+  FIELD_ENCRYPTION_KEY: "Hc7tY2qLm9VxB4nR8wKs1pZf6jUe3gDa0oTi5vNyQbM=",
   NEXT_PUBLIC_TURNSTILE_SITE_KEY: "0x4AAAAAAAexamplesitekeyAB".replace("example", "zq7wrtk"),
   TURNSTILE_SECRET_KEY: "0x4AAAAAAAzq7wrtkSecretKey1234567",
   RESEND_API_KEY: "re_9Kq2Lm4Np6Rs8Tu0Vw",
@@ -48,6 +50,15 @@ const PROD: StartupEnv = {
   VAPID_PRIVATE_KEY: "FakePrivateKeyForTests0123456789",
   // Off Vercel: the header our proxy sets with the visitor's IP (Cloudflare here).
   CLIENT_IP_HEADER: "cf-connecting-ip",
+  // security.txt, Sentry (EU), the encrypted off-site backup (src/lib/ops-startup.ts; fake values).
+  SECURITY_CONTACT_EMAIL: "security@bayit.example.com",
+  SENTRY_DSN: "https://0123456789abcdef@o1.ingest.de.sentry.io/1",
+  BACKUP_ENCRYPTION_KEY: "Zq3vT8yLp1xR6mWc9nBs4kHf2jDg7aEu0oQi5tYwVrM=",
+  OFFSITE_S3_ENDPOINT: "https://s3.eu-central-003.backblazeb2.example.com",
+  OFFSITE_S3_REGION: "eu-central-003",
+  OFFSITE_S3_BUCKET: "bayit-offsite",
+  OFFSITE_S3_ACCESS_KEY_ID: "003fakeoffsitekeyid",
+  OFFSITE_S3_SECRET_ACCESS_KEY: "K003fakeOffsiteSecret0000000000",
 };
 
 const STAGING: StartupEnv = {

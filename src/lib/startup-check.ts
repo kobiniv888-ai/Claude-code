@@ -16,7 +16,8 @@
  *   (src/config/production-hosts.ts).
  * Staging and production add (the same rules, so staging proves the production setup):
  *   https site addresses on one origin (no localhost or Codespaces address); a TLS database
- *   connection; CRON_SECRET (32+); Turnstile keys; email (Resend key + sender); SMS (Twilio
+ *   connection; CRON_SECRET (32+); FIELD_ENCRYPTION_KEY (32 bytes, base64, a key of its own:
+ *   fieldEncryptionProblems); Turnstile keys; email (Resend key + sender); SMS (Twilio
  *   account + Messaging sender); S3 storage with an https public URL that NEXT_PUBLIC_MEDIA_BASE_URL
  *   matches; VAPID keys; never DEV_SKIP_STAFF_2FA or NEXT_PUBLIC_SHOW_DEV_UI; Node.js 22 or newer;
  *   a trusted client-IP source (Vercel, or CLIENT_IP_HEADER behind another proxy).
@@ -29,6 +30,8 @@
  */
 import { PRODUCTION_HOSTS, hostOfAddress, isRealSiteHost } from "../config/production-hosts";
 import { readSiteEnv, testModeRequested, type SiteEnv } from "./site-env";
+// Security contact, off-site backup, Sentry, database roles, codespace keys, maintenance mode (ops-incident).
+import { opsStartupProblems, opsStartupWarnings } from "./ops-startup";
 
 export type StartupEnv = Partial<Record<string, string | undefined>>;
 
@@ -330,12 +333,53 @@ function productionOnlyProblems(env: StartupEnv): string[] {
   return problems;
 }
 
+/** 32 bytes as standard base64 (the same rule as src/lib/field-crypto-core.ts parseFieldKey). */
+const isKey32 = (raw: string) => /^[A-Za-z0-9+/]+={0,2}$/.test(raw) && Buffer.from(raw, "base64").length === 32;
+
+/**
+ * FIELD_ENCRYPTION_KEY (SECURITY_REPORT 12.3.c, D7): the key of the encrypted exact addresses, pins
+ * and guest phones (src/lib/field-crypto.ts). Required on staging and production; a development
+ * site without one uses a key derived from BETTER_AUTH_SECRET (a warning; the codespace gets its
+ * own throwaway key from .devcontainer/env-sync.sh). Wherever it is set: 32 bytes as base64, not a
+ * placeholder, and a value of its own (never APP_ENCRYPTION_KEY or another secret). The previous
+ * key(s) of a rotation (FIELD_ENCRYPTION_KEY_PREVIOUS, comma-separated) follow the same rules and
+ * differ from the current key.
+ */
+function fieldEncryptionProblems(env: StartupEnv, site: SiteEnv | null): string[] {
+  const problems: string[] = [];
+  const hint = "generate it with: openssl rand -base64 32";
+  const current = value(env, "FIELD_ENCRYPTION_KEY");
+  const previous = value(env, "FIELD_ENCRYPTION_KEY_PREVIOUS").split(/[\s,]+/).filter(Boolean);
+  if (!current) {
+    if (site === "staging" || site === "production") problems.push(`FIELD_ENCRYPTION_KEY is not set (the key of the encrypted addresses and phones; ${hint}).`);
+    if (previous.length > 0) problems.push("FIELD_ENCRYPTION_KEY_PREVIOUS is set without FIELD_ENCRYPTION_KEY: a rotation needs the new key too.");
+    return problems;
+  }
+  const others = ["APP_ENCRYPTION_KEY", "BETTER_AUTH_SECRET", "HASH_SALT", "CRON_SECRET"].map((name) => value(env, name)).filter(Boolean);
+  const decoded = (raw: string) => Buffer.from(raw, "base64").toString("hex");
+  const sameAsAnother = (raw: string) => others.some((other) => other === raw || (isKey32(other) && decoded(other) === decoded(raw)));
+  if (!isKey32(current)) problems.push(`FIELD_ENCRYPTION_KEY must be 32 bytes encoded as base64 (${hint}).`);
+  else if (looksLikePlaceholder(current) || new Set(Buffer.from(current, "base64")).size < 16) {
+    problems.push(`FIELD_ENCRYPTION_KEY looks like a placeholder, not a random key (${hint}).`);
+  } else if (sameAsAnother(current)) {
+    problems.push("FIELD_ENCRYPTION_KEY must be a key of its own: not APP_ENCRYPTION_KEY, BETTER_AUTH_SECRET, HASH_SALT or CRON_SECRET.");
+  }
+  for (const raw of previous) {
+    if (!isKey32(raw)) problems.push("FIELD_ENCRYPTION_KEY_PREVIOUS must hold 32-byte base64 keys (comma-separated).");
+    else if (isKey32(current) && decoded(raw) === decoded(current)) problems.push("FIELD_ENCRYPTION_KEY_PREVIOUS is the same key as FIELD_ENCRYPTION_KEY: put the OLD key there.");
+    else if (sameAsAnother(raw)) problems.push("FIELD_ENCRYPTION_KEY_PREVIOUS must not be APP_ENCRYPTION_KEY, BETTER_AUTH_SECRET, HASH_SALT or CRON_SECRET.");
+  }
+  return problems;
+}
+
 /** Every reason the server must not start with this environment (empty: it may start). */
 export function startupProblems(env: StartupEnv, options: StartupOptions = {}): string[] {
   const productionHosts = options.productionHosts ?? PRODUCTION_HOSTS;
   const nodeVersion = options.nodeVersion ?? (typeof process === "undefined" ? undefined : process.versions?.node);
   const { site, problems } = siteEnvProblems(env);
   problems.push(...everySiteProblems(env, site), ...addressLabelProblems(env, site, productionHosts));
+  problems.push(...fieldEncryptionProblems(env, site));
+  problems.push(...opsStartupProblems(env, site));
   if (site === "staging" || site === "production") {
     problems.push(
       ...urlProblems(env, site),
@@ -355,6 +399,10 @@ export function startupWarnings(env: StartupEnv): string[] {
   if (site === "staging" && testModeRequested(env)) {
     warnings.push("[startup] SITE_ENV=staging with AUTH_TEST_MODE=true: login codes are shown on screen. Keep this site behind its password.");
   }
+  if (site === "development" && !value(env, "FIELD_ENCRYPTION_KEY")) {
+    warnings.push("[startup] FIELD_ENCRYPTION_KEY is not set: addresses and phones are encrypted with a development key derived from BETTER_AUTH_SECRET (fake data only).");
+  }
+  warnings.push(...opsStartupWarnings(env, site));
   return warnings;
 }
 

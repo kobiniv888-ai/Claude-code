@@ -18,6 +18,7 @@
 import "dotenv/config";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { sealGuestPhone } from "@/lib/field-crypto";
 
 const state = vi.hoisted(() => ({
   user: null as null | { id: string },
@@ -144,7 +145,7 @@ async function createBooking(suffix: string, guestUserId: string) {
       currency: "USD",
       cancellationPolicy: "MODERATE",
       guestName: "Guest",
-      guestPhone: "+995500000000",
+      ...sealGuestPhone("+995500000000"),
       locale: "he",
       rulesAcceptedAt: new Date(),
     },

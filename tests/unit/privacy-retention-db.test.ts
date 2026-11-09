@@ -12,6 +12,7 @@
 import "dotenv/config";
 import { randomInt, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { sealAddress, sealGuestPhone, sealPin } from "@/lib/field-crypto";
 
 vi.mock("server-only", () => ({}));
 
@@ -68,7 +69,7 @@ async function makeBooking(
       ...(extra.cancelReason ? { cancelReason: extra.cancelReason, cancelReasonCode: "OTHER", cancelledAt: extra.cancelledAt ?? dayToDate(checkIn) } : {}),
       messageToHost: "We arrive late, please leave the key with the neighbour.",
       guestName: "Noa Test",
-      guestPhone: "+995590000077",
+      ...sealGuestPhone("+995590000077"),
       locale: "en",
       rulesAcceptedAt: new Date(),
     },
@@ -95,9 +96,8 @@ beforeAll(async () => {
       price: 100,
       currency: "USD",
       cityId: ids.city,
-      lat: 41.7101,
-      lng: 44.7702,
-      address: "1 Privacy Test Street, Tbilisi",
+      pinEnc: sealPin({ lat: 41.7101, lng: 44.7702 }),
+      addressEnc: sealAddress("1 Privacy Test Street, Tbilisi"),
       contactMethods: [{ channel: "WHATSAPP", value: "+995590000088", order: 0 }],
       originalLocale: "en",
       title: "Privacy test flat",

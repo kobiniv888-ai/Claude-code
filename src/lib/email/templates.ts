@@ -15,6 +15,7 @@ import { WEEKLY_EMAIL_TEMPLATES, weeklyEmailBuilders, type WeeklyEmailData } fro
 import { SAVED_ALERT_EMAIL_TEMPLATES, savedAlertEmailBuilders, type SavedAlertEmailData } from "@/lib/saved-searches/email-templates";
 import { REVIEW_EMAIL_TEMPLATES, reviewEmailBuilders, type ReviewEmailData } from "@/lib/reviews/email-templates";
 import { SECURITY_EMAIL_TEMPLATES, securityEmailBuilders, type SecurityEmailData } from "@/lib/auth/security-email-templates";
+import { SECURITY_ALERT_EMAIL_TEMPLATES, securityAlertEmailBuilders, type SecurityAlertEmailData } from "@/lib/security/alerts-email-template";
 
 export const EMAIL_TEMPLATES = [
   "login_code",
@@ -59,6 +60,8 @@ export const EMAIL_TEMPLATES = [
   ...REVIEW_EMAIL_TEMPLATES,
   // Account security (SECURITY_REPORT 3.6, 3.7): src/lib/auth/security-email-templates.ts
   ...SECURITY_EMAIL_TEMPLATES,
+  // The founder's hourly security alerts (SECURITY_REPORT 16.3): src/lib/security/alerts-email-template.ts
+  ...SECURITY_ALERT_EMAIL_TEMPLATES,
 ] as const;
 export type EmailTemplate = (typeof EMAIL_TEMPLATES)[number];
 
@@ -241,7 +244,8 @@ export type EmailData = {
   WeeklyEmailData &
   SavedAlertEmailData &
   ReviewEmailData &
-  SecurityEmailData;
+  SecurityEmailData &
+  SecurityAlertEmailData;
 
 /**
  * - host_unreachable: a booking was refused because no alert channel of the host accepted the alert
@@ -1056,6 +1060,7 @@ const builders: { [K in EmailTemplate]: Builder<K> } = {
   ...savedAlertEmailBuilders,
   ...reviewEmailBuilders,
   ...securityEmailBuilders,
+  ...securityAlertEmailBuilders,
 };
 
 export function buildEmailContent<K extends EmailTemplate>(

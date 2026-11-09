@@ -28,8 +28,11 @@
     "admin:grant": "tsx --require ./scripts/server-script.cjs scripts/admin-grant.ts",
     "db:backup": "tsx --require ./scripts/server-script.cjs scripts/db-backup.ts",
     "db:restore": "tsx --require ./scripts/server-script.cjs scripts/db-restore.ts",
+    "db:restore-test": "tsx --require ./scripts/server-script.cjs scripts/db-restore-test.ts",
+    "backup:offsite": "tsx --require ./scripts/server-script.cjs scripts/offsite-backup.ts",
     "cleanup": "tsx --require ./scripts/server-script.cjs scripts/cleanup.ts",
     "ical:backfill-tokens": "tsx --require ./scripts/server-script.cjs scripts/backfill-ical-tokens.ts",
+    "db:encrypt-fields": "tsx --require ./scripts/server-script.cjs scripts/encrypt-fields.ts",
     "vercel-build": "node scripts/vercel-build.mjs"
   },
   "dependencies": {

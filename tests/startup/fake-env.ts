@@ -29,6 +29,8 @@ export function fakeProductionEnv(options: FakeEnvOptions = {}): Record<string, 
     SITE_URL: site,
     BETTER_AUTH_SECRET: random(32),
     APP_ENCRYPTION_KEY: randomBytes(32).toString("base64"),
+    // The key of the encrypted addresses and phones (src/lib/field-crypto.ts): its own random value.
+    FIELD_ENCRYPTION_KEY: randomBytes(32).toString("base64"),
     HASH_SALT: random(24),
     CRON_SECRET: hex(32),
     // Shaped like real Turnstile keys, but not Cloudflare's always-pass test keys.
@@ -51,6 +53,16 @@ export function fakeProductionEnv(options: FakeEnvOptions = {}): Record<string, 
     DEV_SKIP_STAFF_2FA: "false",
     // Off Vercel, the header our own proxy sets with the visitor's IP (behind Cloudflare).
     CLIENT_IP_HEADER: "cf-connecting-ip",
+    // security.txt's contact, error tracking in the EU region, the weekly encrypted off-site backup
+    // (src/lib/ops-startup.ts): made-up values of the right shape.
+    SECURITY_CONTACT_EMAIL: "security@bayit.example.com",
+    SENTRY_DSN: `https://${hex(16)}@o1.ingest.de.sentry.io/1`,
+    BACKUP_ENCRYPTION_KEY: randomBytes(32).toString("base64"),
+    OFFSITE_S3_ENDPOINT: "https://s3.eu-central-003.backblazeb2.example.com",
+    OFFSITE_S3_REGION: "eu-central-003",
+    OFFSITE_S3_BUCKET: "bayit-offsite-example",
+    OFFSITE_S3_ACCESS_KEY_ID: hex(12),
+    OFFSITE_S3_SECRET_ACCESS_KEY: random(30),
   };
 }
 
@@ -62,5 +74,6 @@ export const REFUSE_CASES: { name: string; change: Record<string, string>; expec
   { name: "test mode on a production site", change: { AUTH_TEST_MODE: "true" }, expect: /AUTH_TEST_MODE is on with SITE_ENV=production/ },
   { name: "a required secret missing (BETTER_AUTH_SECRET)", change: { BETTER_AUTH_SECRET: "" }, expect: /BETTER_AUTH_SECRET is not set/ },
   { name: "a required secret missing (HASH_SALT)", change: { HASH_SALT: "" }, expect: /HASH_SALT/ },
+  { name: "the field-encryption key missing", change: { FIELD_ENCRYPTION_KEY: "" }, expect: /FIELD_ENCRYPTION_KEY is not set/ },
   { name: "the database without TLS", change: { DATABASE_URL: "postgresql://bayit_app:x@db.example.com:5432/bayit" }, expect: /DATABASE_URL must use TLS/ },
 ];

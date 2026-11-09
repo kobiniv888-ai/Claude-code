@@ -8,6 +8,7 @@
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
 import type { BookingStatus } from "@/generated/prisma/enums";
 import { quoteStay } from "@/lib/booking/pricing";
+import { sealGuestPhone } from "@/lib/field-crypto";
 import { DAY_MS, georgiaDay } from "./lib";
 import { ALL_LISTINGS, demoListingId } from "./listings";
 import { bookingSettingsFor } from "./listings/booking-settings";
@@ -126,7 +127,8 @@ export async function seedBookings(db: PrismaClient, now: Date): Promise<number>
       noShowReportedAt: null,
       messageToHost: demo.messageToHost ?? null,
       guestName: "Noa",
-      guestPhone: guest.phone,
+      // Encrypted, with its lookup value, like every booking's (12.3.c).
+      ...sealGuestPhone(guest.phone),
       locale: guest.locale,
       rulesAcceptedAt: createdAt,
       // The reminder job may pick up the upcoming one; demo accounts only get logged texts and outbox emails.

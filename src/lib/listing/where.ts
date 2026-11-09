@@ -56,8 +56,9 @@ export const NEAR_LIFTS_WHERE = { liftWalkMinutes: { lte: NEAR_WALK_MINUTES } } 
  */
 export const NEAR_SEA_AMENITY_WHERE = {
   OR: [
-    { AND: [{ lat: { not: null } }, { lng: { not: null } }, NEAR_SEA_WHERE] },
-    { AND: [{ OR: [{ lat: null }, { lng: null }] }, { amenities: { has: NEAR_SEA_AMENITY } }] },
+    // "Has a pin" = an (encrypted) exact pin is stored; it is never opened for a filter (12.3.c).
+    { AND: [{ pinEnc: { not: null } }, NEAR_SEA_WHERE] },
+    { AND: [{ pinEnc: null }, { amenities: { has: NEAR_SEA_AMENITY } }] },
   ],
 } as const satisfies Prisma.ListingWhereInput;
 

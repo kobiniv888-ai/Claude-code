@@ -22,6 +22,7 @@ import path from "node:path";
 import type { Metadata } from "next";
 import { createTranslator } from "next-intl";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { sealPin } from "@/lib/field-crypto";
 
 vi.mock("server-only", () => ({}));
 // next-intl's navigation build does not load under vitest; metadata never renders a link.
@@ -319,8 +320,7 @@ describe("two listings with the same title (seo-10)", () => {
           price: 100,
           currency: "GEL",
           cityId: city.id,
-          lat: 41.6,
-          lng: 41.6,
+          pinEnc: sealPin({ lat: 41.6, lng: 41.6 }),
           originalLocale: "en",
           title: i === 0 ? "Apartment near the sea" : "apartment near the Sea",
           description: "The same words from one agency, for two different flats.",

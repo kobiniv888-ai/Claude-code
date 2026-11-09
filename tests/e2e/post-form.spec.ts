@@ -1,6 +1,7 @@
 import type { Locator, Page } from "@playwright/test";
 import { expect, openAs, settle, test } from "./fixtures";
 import { createTestUser, sql } from "./helpers/db";
+import { openAddress } from "./helpers/field-crypto";
 import { makePhotos } from "./helpers/photos";
 
 /**
@@ -210,12 +211,16 @@ test("post form: every step filled, back to step 1 and forward again, a reload i
   await checkStep(page, 14);
 
   // The answers are in the database too (the draft card in "My places" reads them).
-  const [row] = await sql<{ title: string; address: string; dealType: string; propertyType: string; price: string; city: string }>(
-    `SELECT l.title, l.address, l."dealType", l."propertyType", l.price::text AS price, c.slug AS city
+  const [row] = await sql<{ title: string; address: string | null; addressEnc: string | null; dealType: string; propertyType: string; price: string; city: string }>(
+    `SELECT l.title, l.address, l."addressEnc", l."dealType", l."propertyType", l.price::text AS price, c.slug AS city
        FROM "Listing" l JOIN "City" c ON c.id = l."cityId" WHERE l.title = $1`,
     [TITLE],
   );
-  expect(row).toMatchObject({ title: TITLE, address: ADDRESS, dealType: "SHORT_STAY", propertyType: "APARTMENT", city: "mestia" });
+  expect(row).toMatchObject({ title: TITLE, dealType: "SHORT_STAY", propertyType: "APARTMENT", city: "mestia" });
+  // The exact address is stored encrypted only (SECURITY_REPORT 12.3.c): never in the plain column.
+  expect(row.address).toBeNull();
+  expect(row.addressEnc).toMatch(/^fe1:/);
+  expect(openAddress(row.addressEnc)).toBe(ADDRESS);
   expect(Number(row.price)).toBe(95);
   expect(new URL(page.url()).pathname).toBe(draftPath);
   expect(consoleErrors).toEqual([]);

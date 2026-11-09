@@ -8,6 +8,7 @@
 import "dotenv/config";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { sealPin } from "@/lib/field-crypto";
 
 vi.mock("server-only", () => ({}));
 const sent = vi.hoisted(() => ({
@@ -78,8 +79,7 @@ async function createListing(ownerId: string, opts: { isDemo?: boolean; dealType
       propertyType: "APARTMENT",
       pricePeriod: opts.dealType === "MONTHLY_RENT" ? "MONTH" : "NIGHT",
       cityId: ids.city,
-      lat: 41.7,
-      lng: 44.8,
+      pinEnc: sealPin({ lat: 41.7, lng: 44.8 }),
       originalLocale: "en",
       title: `${prefix} flat ${Math.random().toString(36).slice(2, 6)}`,
       description: "A test listing for the saved-search email tests.",

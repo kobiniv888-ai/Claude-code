@@ -11,6 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import pg from "pg";
 import { E2E_USER_AGENT_TAG } from "./env";
+import { sealPin } from "./field-crypto";
 
 export const TEST_PHONE_PREFIX = "+99555599";
 export const TEST_EMAIL_DOMAIN = "e2e.bayit.invalid";
@@ -119,8 +120,12 @@ export async function createTestListing(opts: TestListingOptions): Promise<{ id:
     searchText: "lower($4)",
     cityId: "$6",
     neighborhoodId: "NULL",
-    lat: "$7",
-    lng: "$8",
+    // The exact pin is stored encrypted (SECURITY_REPORT 12.3.c): the city centre, sealed like the
+    // server seals it; the plain columns stay empty (the database refuses values there).
+    lat: "NULL",
+    lng: "NULL",
+    address: "NULL",
+    pinEnc: "$11",
     approxLat: "$7",
     approxLng: "$8",
     originalLocale: `'en'`,
@@ -159,7 +164,7 @@ export async function createTestListing(opts: TestListingOptions): Promise<{ id:
     `INSERT INTO "Listing" (${names.map((n) => `"${n}"`).join(", ")})
      SELECT ${select.join(", ")} FROM "Listing" WHERE id = $10`,
     // icalToken: 256-bit and URL-safe like newIcalToken() (src/lib/listing/ical-token.ts).
-    [id, ownerId, status, title, description, city.id, city.lat, city.lng, randomBytes(32).toString("base64url"), source.id],
+    [id, ownerId, status, title, description, city.id, city.lat, city.lng, randomBytes(32).toString("base64url"), source.id, sealPin({ lat: city.lat, lng: city.lng })],
   );
   for (let i = 0; i < photos; i += 1) {
     await sql(

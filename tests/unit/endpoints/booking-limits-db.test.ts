@@ -21,6 +21,7 @@
 import "dotenv/config";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { guestPhoneLookups, sealAddress, sealGuestPhone, sealPin } from "@/lib/field-crypto";
 
 process.env.TWILIO_ACCOUNT_SID = "";
 process.env.RESEND_API_KEY = "";
@@ -93,9 +94,8 @@ async function makeListing(title: string, dealType: "SHORT_STAY" | "HOTEL_ROOM")
       cancellationPolicy: "MODERATE",
       paymentMethodsAtCheckIn: ["cash"],
       cityId: ids.city,
-      lat: 41.71,
-      lng: 44.77,
-      address: "1 Test Street, Tbilisi",
+      pinEnc: sealPin({ lat: 41.71, lng: 44.77 }),
+      addressEnc: sealAddress("1 Test Street, Tbilisi"),
       contactMethods: [{ channel: "WHATSAPP", value: "+995555000001", order: 0 }],
       originalLocale: "en",
       title: `${prefix} ${title}`,
@@ -208,7 +208,7 @@ describe("at most 2 upcoming bookings per verified phone (decision 8)", () => {
         currency: "USD",
         cancellationPolicy: "MODERATE",
         guestName: "Earlier",
-        guestPhone: phone,
+        ...sealGuestPhone(phone),
         locale: "he",
         rulesAcceptedAt: new Date(),
       },
@@ -309,6 +309,6 @@ describe("the cap's two halves each have a test (booking-cap-tests-1)", () => {
     ]);
     expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
     expect((results.find((r) => r.status === "rejected") as PromiseRejectedResult | undefined)?.reason).toMatchObject({ code: "too_many_upcoming" });
-    expect(await db.booking.count({ where: { guestPhone: `+972${national}`, status: "CONFIRMED" } })).toBe(2);
+    expect(await db.booking.count({ where: { guestPhoneLookup: { in: guestPhoneLookups([`+972${national}`]) }, status: "CONFIRMED" } })).toBe(2);
   });
 });

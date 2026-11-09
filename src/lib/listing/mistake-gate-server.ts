@@ -4,6 +4,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { isAppLocale, pickLocalized } from "@/i18n/locale";
 import { db } from "@/lib/db";
 import { AppError, NotFoundError } from "@/lib/errors";
+import { openListingLocation } from "@/lib/field-crypto";
 import type { MistakeIssue } from "./mistake-check";
 import { mistakeErrors, visiblePhotos } from "./mistake-errors";
 
@@ -21,7 +22,8 @@ const GATE_SELECT = {
   originalLocale: true,
   title: true,
   description: true,
-  address: true,
+  // Encrypted (12.3.c); one that cannot be decrypted counts as missing (publishing stays blocked).
+  addressEnc: true,
   currency: true,
   photos: { select: { room: true, roomTypeId: true } },
   translations: { where: { editedByOwner: true }, select: { locale: true, title: true, description: true } },
@@ -47,7 +49,7 @@ export async function publishingErrors(listingId: string, client: GateClient = d
     originalLocale: locale,
     title: row.title,
     description: row.description,
-    address: row.address,
+    address: openListingLocation({ addressEnc: row.addressEnc }, "publish_gate").address,
     lat: null,
     lng: null,
     city: null,

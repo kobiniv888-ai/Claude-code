@@ -87,9 +87,9 @@ export async function deleteAccountData(userId: string): Promise<void> {
       where: { ownerId: userId },
       data: {
         contactMethods: Prisma.DbNull,
-        address: null,
-        lat: null,
-        lng: null,
+        // The exact address and pin (encrypted, 12.3.c).
+        addressEnc: null,
+        pinEnc: null,
         cadastralCode: null,
         kosherCertPhotoKey: null,
         icalImportUrls: [],

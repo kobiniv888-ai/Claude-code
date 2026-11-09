@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { mapTiles } from "@/config/map";
 import { locales, type AppLocale } from "@/config/site";
 import { routing } from "@/i18n/routing";
+import { maintenanceGate } from "@/lib/maintenance/proxy-gate";
 import { cspHeaders, tileOriginsFrom } from "@/lib/security/csp";
 import { NOINDEX_HEADER_VALUE, robotsHeaderFor } from "@/lib/seo";
 
@@ -84,6 +85,12 @@ function setCspHeaders(response: NextResponse, policies: ReturnType<typeof cspFo
 }
 
 export default async function proxy(request: NextRequest) {
+  // Maintenance mode (SECURITY_REPORT 12.5.c): one switch answers every public page and API with a
+  // calm 503 (admins with 2-step login, the health check, cron and security.txt stay reachable).
+  // Off: one cached read, no database work per request (src/lib/maintenance/).
+  const closed = await maintenanceGate(request);
+  if (closed) return closed;
+
   // Round 3, brief 10: every response of an address that isn't SITE_URL's (a codespace, localhost,
   // a preview) and the private areas everywhere say "noindex, nofollow". Headers only, no database.
   const robotsTag =

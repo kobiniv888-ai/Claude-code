@@ -105,6 +105,11 @@ if [ "$status" = "10" ] && [ "${BAYIT_SKIP_AUTO_SEED:-}" != "1" ]; then
   fi
 fi
 
+# Field encryption (SECURITY_REPORT 12.3.c): any plain address, pin or guest phone goes into the
+# encrypted columns, values under an old key are re-sealed, the database guard is added. Idempotent
+# and quick when there is nothing to do; prints counts only.
+npm run --silent db:encrypt-fields 2>&1 | tee -a "$LOG" || log "Encrypting the address/phone fields did not finish — see $LOG"
+
 # The founder's account becomes the admin once it exists (BAYIT_ADMIN_EMAIL / BAYIT_ADMIN_PHONE,
 # private Codespaces secrets). Says nothing while they are empty or the account is not made yet;
 # never prints the address. 2-step login is still asked for at the first visit to /admin.

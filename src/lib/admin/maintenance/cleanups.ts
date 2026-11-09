@@ -4,6 +4,7 @@ import path from "node:path";
 import type { Prisma } from "@/generated/prisma/client";
 import { audit, auditOrThrow } from "@/lib/audit";
 import { db } from "@/lib/db";
+import { openGuestPhone, sealGuestPhone } from "@/lib/field-crypto";
 import { parseVerificationDocuments, type VerificationDocument } from "@/lib/admin/documents";
 import { deletePrivate, isValidStorageKey, storageDriver } from "@/lib/storage";
 import { localPath } from "@/lib/storage/local";
@@ -66,7 +67,8 @@ async function collectPhones() {
   const [users, listings, bookings, places, lookups] = await Promise.all([
     db.user.findMany({ where: { phoneNumber: { not: null } }, select: { id: true, phoneNumber: true } }),
     db.listing.findMany({ select: { id: true, updatedAt: true, contactMethods: true } }),
-    db.booking.findMany({ select: { id: true, guestPhone: true } }),
+    // The guest's phone is encrypted (12.3.c): decrypted here for the plan, sealed again when changed.
+    db.booking.findMany({ where: { guestPhoneEnc: { not: null } }, select: { id: true, guestPhoneEnc: true } }),
     db.jewishPlace.findMany({ where: { phone: { not: null } }, select: { id: true, phone: true, countryCode: true } }),
     db.phoneLookup.findMany({ select: { phoneNumber: true } }),
   ]);
@@ -74,7 +76,10 @@ async function collectPhones() {
   const listingPlans = listings
     .map((l) => ({ id: l.id, updatedAt: l.updatedAt, plan: planContactMethods(l.contactMethods, null) }))
     .filter((l) => l.plan.next || l.plan.noCountry.length || l.plan.invalid.length);
-  const bookingPlans = bookings.map((b) => ({ id: b.id, plan: planPhone(b.guestPhone, null) }));
+  const bookingPlans = bookings.flatMap((b) => {
+    const phone = openGuestPhone(b.guestPhoneEnc, "phone_cleanup");
+    return phone.value ? [{ id: b.id, sealed: b.guestPhoneEnc, plan: planPhone(phone.value, null) }] : [];
+  });
   // A community place is in its country: a number without a country code is local.
   const placePlans = places.map((p) => ({ id: p.id, plan: planPhone(p.phone, p.countryCode || "GE") }));
   // Lookups are cached per number; a key that is not in international form is never hit again.
@@ -155,7 +160,8 @@ async function runPhones(): Promise<Omit<CleanupReport, "at">> {
   }
   for (const b of data.bookingPlans) {
     if (b.plan.status !== "changed") continue;
-    applied.bookings += (await db.booking.updateMany({ where: { id: b.id, guestPhone: b.plan.from }, data: { guestPhone: b.plan.to } })).count;
+    // Only while the booking still holds the value that was read (the same sealed text).
+    applied.bookings += (await db.booking.updateMany({ where: { id: b.id, guestPhoneEnc: b.sealed }, data: sealGuestPhone(b.plan.to) })).count;
   }
   for (const p of data.placePlans) {
     if (p.plan.status !== "changed") continue;

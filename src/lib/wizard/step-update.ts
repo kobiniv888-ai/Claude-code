@@ -23,7 +23,10 @@ import { stripTitleEmoji } from "@/lib/text/emoji";
 import { contactValueProblem, PRICE_PERIODS_BY_DEAL, type ParsedStep } from "./schemas";
 import { applies, isBusinessListing, usesBookingStep, type ListingKind, type SavableStepKey } from "./steps";
 
-/** The listing columns buildStepUpdate reads (a ListingRow fits). */
+/**
+ * The listing columns buildStepUpdate reads (a ListingRow fits). `lat`/`lng` are the owner's exact
+ * pin as findOwnedListing DECRYPTED it (./server.ts), not database columns.
+ */
 export type StepUpdateListing = {
   id: string;
   status: string;
@@ -54,6 +57,12 @@ export type StepUpdateDeps = {
   getRates: () => Promise<Partial<Rates>>;
   /** The public, approximate map point of an exact pin (stable per listing). */
   mapPoint: (point: LatLng, listingId: string) => LatLng;
+  /**
+   * The exact address and pin as stored: ENCRYPTED (sealAddress / sealPin in src/lib/field-crypto.ts,
+   * SECURITY_REPORT 12.3.c). The plain columns are never written.
+   */
+  sealAddress: (address: string | null) => string | null;
+  sealPin: (pin: LatLng | null) => string | null;
   /**
    * "≈ 5 דק׳ הליכה לים" / "למעליות" (brief 7.3): the Listing.seaWalkMinutes / liftWalkMinutes
    * columns to write for a pin in a city (walkMinutesFor in src/lib/geo/walk-targets.ts, by the
@@ -249,7 +258,7 @@ export async function buildStepUpdate<S extends SavableStepKey>(
           data.neighborhood = neighborhoodId ? { connect: { id: neighborhoodId } } : { disconnect: true };
         }
       }
-      if (has(v, "address")) data.address = orNull(v.address!);
+      if (has(v, "address")) data.addressEnc = deps.sealAddress(orNull(v.address!));
       let lat = listing.lat;
       let lng = listing.lng;
       if (has(v, "lat") || has(v, "lng")) {
@@ -261,7 +270,11 @@ export async function buildStepUpdate<S extends SavableStepKey>(
         lat = hasPin ? Number(newLat.toFixed(6)) : null;
         lng = hasPin ? Number(newLng.toFixed(6)) : null;
         const approx = hasPin ? deps.mapPoint({ lat: lat!, lng: lng! }, listing.id) : null;
-        Object.assign(data, { lat, lng, approxLat: approx?.lat ?? null, approxLng: approx?.lng ?? null });
+        Object.assign(data, {
+          pinEnc: deps.sealPin(hasPin ? { lat: lat!, lng: lng! } : null),
+          approxLat: approx?.lat ?? null,
+          approxLng: approx?.lng ?? null,
+        });
       }
       if (cityId !== listing.cityId || lat !== listing.lat || lng !== listing.lng) {
         // "≈ 5 דק׳ הליכה לים" / "למעליות" (brief 7.3): recomputed with the pin, in the same update.

@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { openPin } from "@/lib/field-crypto";
 import { walkMinutesFor, type WalkMinutes } from "./walk-targets";
 
 /**
@@ -25,8 +26,7 @@ export async function backfillWalkMinutes(opts: { apply?: boolean } = {}): Promi
     select: {
       id: true,
       publicId: true,
-      lat: true,
-      lng: true,
+      pinEnc: true,
       cityId: true,
       seaWalkMinutes: true,
       liftWalkMinutes: true,
@@ -37,11 +37,15 @@ export async function backfillWalkMinutes(opts: { apply?: boolean } = {}): Promi
   const changed: WalkBackfillChange[] = [];
   for (const row of rows) {
     const before = { seaWalkMinutes: row.seaWalkMinutes, liftWalkMinutes: row.liftWalkMinutes };
-    const after = walkMinutesFor(row.city?.slug, row.lat, row.lng);
+    // The exact pin, decrypted for the computation only (12.3.c); one that cannot be opened is skipped.
+    const pin = openPin(row.pinEnc, "walk_backfill");
+    if (pin.failed) continue;
+    const after = walkMinutesFor(row.city?.slug, pin.value?.lat ?? null, pin.value?.lng ?? null);
     if (same(before, after)) continue;
     changed.push({ id: row.id, publicId: row.publicId, city: row.city?.slug ?? null, before, after });
     if (opts.apply) {
-      await db.listing.updateMany({ where: { id: row.id, lat: row.lat, lng: row.lng, cityId: row.cityId }, data: after });
+      // Only while the pin (the same sealed value) and the city are still the ones computed from.
+      await db.listing.updateMany({ where: { id: row.id, pinEnc: row.pinEnc, cityId: row.cityId }, data: after });
     }
   }
   return { checked: rows.length, changed, applied: !!opts.apply };

@@ -45,6 +45,8 @@ describe("the post form's pin save recomputes the walking times", () => {
     getNeighborhoodIds: async () => [],
     getRates: async () => ({ USD: 1 }),
     mapPoint: (point) => point,
+    sealAddress: (address) => (address === null ? null : `sealed:${address}`),
+    sealPin: (pin) => (pin ? `sealed-pin:${pin.lat},${pin.lng}` : null),
     walkMinutes: async (cityId, lat, lng) => {
       calls.push([cityId, lat, lng]);
       return cityId === "batumi" && lat !== null ? { seaWalkMinutes: 4, liftWalkMinutes: null } : { seaWalkMinutes: null, liftWalkMinutes: null };
@@ -57,7 +59,7 @@ describe("the post form's pin save recomputes the walking times", () => {
 
   it("writes them with a moved pin, in the same update", async () => {
     const result = await save({ lat: 41.62, lng: 41.6 });
-    expect(result.data).toMatchObject({ lat: 41.62, lng: 41.6, seaWalkMinutes: 4, liftWalkMinutes: null });
+    expect(result.data).toMatchObject({ pinEnc: "sealed-pin:41.62,41.6", seaWalkMinutes: 4, liftWalkMinutes: null });
     expect(calls.at(-1)).toEqual(["batumi", 41.62, 41.6]);
   });
 
@@ -127,8 +129,8 @@ describe("the computed walk replaces the manual \"Near the sea\" amenity once th
     expect(and(["wifi", NEAR_SEA_AMENITY])).toEqual([{ amenities: { hasEvery: ["wifi"] } }, NEAR_SEA_AMENITY_WHERE]);
     expect(NEAR_SEA_AMENITY_WHERE).toEqual({
       OR: [
-        { AND: [{ lat: { not: null } }, { lng: { not: null } }, { seaWalkMinutes: { lte: 15 } }] },
-        { AND: [{ OR: [{ lat: null }, { lng: null }] }, { amenities: { has: NEAR_SEA_AMENITY } }] },
+        { AND: [{ pinEnc: { not: null } }, { seaWalkMinutes: { lte: 15 } }] },
+        { AND: [{ pinEnc: null }, { amenities: { has: NEAR_SEA_AMENITY } }] },
       ],
     });
   });

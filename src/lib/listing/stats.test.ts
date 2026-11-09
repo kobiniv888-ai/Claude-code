@@ -7,6 +7,7 @@
 import "dotenv/config";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { sealGuestPhone, sealPin } from "@/lib/field-crypto";
 
 vi.mock("server-only", () => ({}));
 const request = vi.hoisted(() => ({
@@ -58,8 +59,7 @@ async function createListing(ownerId: string, opts: { status?: "LIVE" | "PAUSED"
       propertyType: opts.dealType === "HOTEL_ROOM" ? "HOTEL" : "APARTMENT",
       pricePeriod: opts.dealType === "MONTHLY_RENT" ? "MONTH" : "NIGHT",
       cityId: ids.city,
-      lat: 41.7,
-      lng: 44.8,
+      pinEnc: sealPin({ lat: 41.7, lng: 44.8 }),
       originalLocale: "en",
       title: `${prefix} stats listing`,
       description: "A test listing for the stats tests.",
@@ -92,7 +92,7 @@ async function createBooking(listingId: string, hostUserId: string, guestUserId:
       currency: "GEL",
       cancellationPolicy: "FLEXIBLE",
       guestName: "Test guest",
-      guestPhone: "+995555000222",
+      ...sealGuestPhone("+995555000222"),
       locale: "en",
       rulesAcceptedAt: new Date(),
       status: extra.status ?? "CONFIRMED",

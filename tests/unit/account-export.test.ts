@@ -12,6 +12,7 @@
 import "dotenv/config";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { sealGuestPhone } from "@/lib/field-crypto";
 
 vi.mock("server-only", () => ({}));
 
@@ -80,7 +81,7 @@ beforeAll(async () => {
       ],
       cancellationPolicy: "FLEXIBLE",
       guestName: "Guest",
-      guestPhone: "+995555989002",
+      ...sealGuestPhone("+995555989002"),
       locale: "en",
       rulesAcceptedAt: new Date(),
     },
@@ -105,7 +106,7 @@ beforeAll(async () => {
         currency: "GEL",
         cancellationPolicy: "FLEXIBLE",
         guestName: GUEST_NAME,
-        guestPhone: "+995555989003",
+        ...sealGuestPhone("+995555989003"),
         locale: "en",
         rulesAcceptedAt: new Date(),
       },

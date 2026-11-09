@@ -76,8 +76,8 @@ const CANCELLED_STATUSES = ["CANCELLED_BY_GUEST", "CANCELLED_BY_HOST"] as const;
 /**
  * Founder's decision 9: on every booking whose check-out is at least 3 months ago (any status:
  * completed, no-show, cancelled), the guest's contact details are blanked — the name ("—", as
- * account deletion does), the phone (""), the message to the host and the free-text cancellation
- * reason. A cancelled booking was finished when it was cancelled, so it is blanked 3 months after
+ * account deletion does), the phone (its encrypted copy and its lookup value: null; SECURITY_REPORT
+ * 12.3.c), the message to the host and the free-text cancellation reason. A cancelled booking was finished when it was cancelled, so it is blanked 3 months after
  * the cancellation even when its planned check-out is still ahead (a stay booked 11 months ahead
  * and cancelled the next day does not keep the guest's phone for 14 months; retention-cancelled-1).
  * Guest flags count cancellations by account, never by these fields, so they are not weakened.
@@ -92,10 +92,18 @@ export async function eraseOldGuestContacts(now: Date = new Date(), scope: Prism
       AND: [
         scope,
         { OR: [{ checkOut: { lte: cutoff } }, { status: { in: [...CANCELLED_STATUSES] }, cancelledAt: { lt: cutoff } }] },
-        { OR: [{ guestName: { not: ERASED_GUEST_NAME } }, { guestPhone: { not: "" } }, { messageToHost: { not: null } }, { cancelReason: { not: null } }] },
+        {
+          OR: [
+            { guestName: { not: ERASED_GUEST_NAME } },
+            { guestPhoneEnc: { not: null } },
+            { guestPhoneLookup: { not: null } },
+            { messageToHost: { not: null } },
+            { cancelReason: { not: null } },
+          ],
+        },
       ],
     },
-    data: { guestName: ERASED_GUEST_NAME, guestPhone: "", messageToHost: null, cancelReason: null },
+    data: { guestName: ERASED_GUEST_NAME, guestPhoneEnc: null, guestPhoneLookup: null, messageToHost: null, cancelReason: null },
   });
   return count;
 }

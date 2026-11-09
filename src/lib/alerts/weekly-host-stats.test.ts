@@ -7,6 +7,7 @@
 import "dotenv/config";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { sealGuestPhone, sealPin } from "@/lib/field-crypto";
 
 vi.mock("server-only", () => ({}));
 const sent = vi.hoisted(() => ({ emails: [] as { to: string; template: string; locale: string; data: Record<string, unknown> }[], fail: false }));
@@ -64,8 +65,7 @@ async function createListing(ownerId: string, opts: { isDemo?: boolean; dealType
       propertyType: "APARTMENT",
       pricePeriod: opts.dealType === "MONTHLY_RENT" ? "MONTH" : "NIGHT",
       cityId: ids.city,
-      lat: 41.7,
-      lng: 44.8,
+      pinEnc: sealPin({ lat: 41.7, lng: 44.8 }),
       originalLocale: "he",
       title: `${prefix} דירה`,
       description: "A test listing for the weekly email tests.",
@@ -129,7 +129,7 @@ describe("weekly host stats email", () => {
         currency: "GEL",
         cancellationPolicy: "FLEXIBLE",
         guestName: "Guest",
-        guestPhone: "+995555000222",
+        ...sealGuestPhone("+995555000222"),
         locale: "he",
         rulesAcceptedAt: new Date(),
         createdAt: new Date("2026-11-03T10:00:00Z"),
