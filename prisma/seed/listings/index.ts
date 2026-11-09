@@ -21,10 +21,10 @@ import { ALL_LISTINGS, demoPhotoPath, REMOVED_LISTING_NUMBERS } from "./all";
 import { blocksOutsideDatePrices, bookingSettingsFor, demoDatePricesFor } from "./booking-settings";
 import photoManifest from "./photo-manifest.json";
 import { demoPhotoRoom } from "./photos";
-import { contactMethodsFor, demoListingId, listingTimeline, priceChangesFor } from "./timeline";
+import { contactMethodsFor, demoListingId, demoListingPublicId, listingTimeline, priceChangesFor } from "./timeline";
 import type { ListingSeed } from "./types";
 
-export { demoListingId } from "./timeline";
+export { demoListingId, demoListingPublicId } from "./timeline";
 export { ALL_LISTINGS } from "./all";
 
 type PhotoManifestEntry = { width: number; height: number; bytes: number; blurDataURL: string };
@@ -59,6 +59,9 @@ export async function seedListings(db: PrismaClient, places: PlaceIds, now: Date
   for (const seed of ALL_LISTINGS) {
     await seedListing(db, seed, places, now, firstListings.has(seed.n));
   }
+  // The demo numbers are set by hand (demoListingPublicId): move the counter past them, and never
+  // back (a number once used by a deleted listing is not given out again).
+  await db.$executeRaw`SELECT setval(pg_get_serial_sequence('"Listing"', 'publicId'), GREATEST((SELECT COALESCE(MAX("publicId"), 1) FROM "Listing"), (SELECT last_value FROM "Listing_publicId_seq")))`;
   return ALL_LISTINGS.length;
 }
 
@@ -125,8 +128,12 @@ async function seedListing(db: PrismaClient, seed: ListingSeed, places: PlaceIds
     deletedAt: null,
   } satisfies Prisma.ListingUncheckedUpdateInput;
 
+  // The demo number stays 88 + n (demoListingPublicId), unless another listing already has it.
+  const publicId = demoListingPublicId(seed.n);
+  const holder = await db.listing.findUnique({ where: { publicId }, select: { id: true } });
+  const pinned = !holder || holder.id === id ? { publicId } : {};
   // The calendar token is made once (256-bit, src/lib/listing/ical-token.ts) and kept on re-seeds.
-  await db.listing.upsert({ where: { id }, create: { id, ...data, icalToken: newIcalToken() }, update: data });
+  await db.listing.upsert({ where: { id }, create: { id, ...data, ...pinned, icalToken: newIcalToken() }, update: { ...data, ...pinned } });
 
   for (const locale of locales) {
     const text = seed.text[locale];

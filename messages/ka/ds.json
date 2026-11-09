@@ -8,7 +8,7 @@
     "kosherKitchen": "კოშერული სამზარეულო",
     "kosherMeals": "კოშერული კვება",
     "shabbatFriendly": "შაბათისთვის შესაფერისი",
-    "synagogueWalk": "{minutes, plural, =5 {სინაგოგამდე არაუმეტეს 5 წთ ფეხით} other {სინაგოგამდე ≈ {minutes} წთ ფეხით}}",
+    "synagogueWalk": "სინაგოგამდე არაუმეტეს {minutes} წთ ფეხით",
     "keepsShabbat": "იცავს შაბათს",
     "business": "ბიზნესი",
     "demo": "დემო",

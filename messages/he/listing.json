@@ -254,7 +254,7 @@
       "BUS": "שדה התעופה של בטומי",
       "KUT": "שדה התעופה של קוטאיסי"
     },
-    "walk": "{count, plural, =5 {עד 5 דק׳ הליכה} other {≈ {count} דק׳ הליכה}}",
+    "walk": "עד {count} דק׳ הליכה",
     "km": "{km} ק״מ",
     "transport": {
       "metro": "תחנת מטרו",
@@ -295,8 +295,8 @@
     "pool": "בריכה",
     "near_sea": "קרוב לים",
     "near_ski_lifts": "ליד הרכבל",
-    "seaWalk": "{count, plural, =5 {עד 5 דקות הליכה לים} other {≈ {count} דקות הליכה לים}}",
-    "liftWalk": "{count, plural, =5 {עד 5 דקות הליכה למעליות הסקי} other {≈ {count} דקות הליכה למעליות הסקי}}",
+    "seaWalk": "עד {count} דקות הליכה לים",
+    "liftWalk": "עד {count} דקות הליכה למעליות הסקי",
     "walkSource": "הערכה לפי מפת OpenStreetMap",
     "yard": "חצר",
     "balcony_terrace": "מרפסת",
@@ -345,7 +345,7 @@
     },
     "nearestSynagogue": "בית הכנסת הקרוב",
     "nearestChabad": "בית חב״ד הקרוב",
-    "walk": "{count, plural, =5 {עד 5 דקות הליכה} other {≈ {count} דקות הליכה}}",
+    "walk": "עד {count} דקות הליכה",
     "times": "זמני שבת ב{city}"
   },
   "booking": {

@@ -4,6 +4,7 @@ import type { UserRole, UserStatus } from "@/generated/prisma/enums";
 import { countsAsGuestCancellation } from "@/lib/booking/guest-flags";
 import { dateToDay } from "@/lib/booking/dates";
 import { db } from "@/lib/db";
+import { taintObject } from "@/lib/security/taint";
 import { canSeeGuestPhone, canSeeReporter, guestWithheldFor, staffPhone, type StaffViewer } from "../staff-visibility";
 import { parseUserSearch, type UserSearchTerms } from "../search";
 import { ADMIN_PAGE_SIZE, coverPhotoSelect, sharedDeviceAccounts, staffNames, turnedAwayBookingIds } from "./shared";
@@ -104,7 +105,10 @@ export async function searchUsers(filters: UserFilters, page: number, viewer: Pi
   });
   // Read with the row but never returned to other staff: they get "••• ••• ••45" only.
   return {
-    rows: rows.map(({ phoneNumber, ...row }) => {
+    rows: rows.map((raw) => {
+      // The raw row (with the phone) only through this DTO (React taint, 5.k).
+      taintObject("raw admin user list row", raw);
+      const { phoneNumber, ...row } = raw;
       const phone = staffPhone(viewer, phoneNumber);
       return { ...row, phoneNumber: phone.phoneNumber, phoneMasked: phone.phoneMasked };
     }),
@@ -158,6 +162,8 @@ export async function getUserDetail(id: string, viewer: StaffViewer) {
     },
   });
   if (!user) return null;
+  // The raw row (email, phone, contact address) only through the DTO below (React taint, 5.k).
+  taintObject("raw admin user row", user);
 
   const [listings, reportsMade, reportsAgainst, tickets, devices, deviceCount, notes, verifications, sessions, staff] =
     await Promise.all([

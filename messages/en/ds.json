@@ -8,7 +8,7 @@
     "kosherKitchen": "Kosher kitchen",
     "kosherMeals": "Kosher meals",
     "shabbatFriendly": "Shabbat-friendly",
-    "synagogueWalk": "{minutes, plural, =5 {Up to 5 min walk to synagogue} other {≈ {minutes} min walk to synagogue}}",
+    "synagogueWalk": "Up to {minutes} min walk to synagogue",
     "keepsShabbat": "Keeps Shabbat",
     "business": "Business",
     "demo": "Demo",

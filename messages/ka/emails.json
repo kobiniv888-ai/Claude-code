@@ -743,9 +743,9 @@
   },
   "sms": {
     "booking_confirmed_guest": "{brand}: ჯავშანი {code} დადასტურებულია. {title}, {dates}. მისამართი და მასპინძლის კონტაქტი: {url}",
-    "booking_new_host": "{brand}: ახალი ჯავშანი {code}, სტუმარი {guest}, {dates}, {guests}. დეტალები: {url}",
+    "booking_new_host": "{brand}: ახალი ჯავშანი {code}. დეტალები: {url}",
     "booking_reminder_guest": "{brand}: ჩამოსვლა — {title}, {count, plural, =0 {დღეს} =1 {ხვალ} other {{count} დღეში}}. მისამართი და მასპინძლის კონტაქტი: {url}",
-    "booking_reminder_host": "{brand}: {guest} ჩამოდის {count, plural, =0 {დღეს} =1 {ხვალ} other {{count} დღეში}} (ჯავშანი {code}). {url}",
+    "booking_reminder_host": "{brand}: შეხსენება ჯავშანზე {code}, ჩამოსვლა {count, plural, =0 {დღეს} =1 {ხვალ} other {{count} დღეში}}. დეტალები: {url}",
     "booking_cancelled_by_guest": "{brand}: სტუმარმა გააუქმა ჯავშანი {code} ({dates}). თარიღები ისევ თავისუფალია. {url}",
     "booking_cancelled_by_host": "{brand}: მასპინძელმა გააუქმა ჯავშანი {code} ({dates}). თქვენგან არაფერი ჩამოჭრილა. {url}",
     "booking_host_unreached_guest": "{brand}: ჩვენი შეტყობინება ჯავშანზე {code} მასპინძელს არ მიუვიდა. დაუკავშირდით და დარწმუნდით, რომ გელოდებათ: {url}"

@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import type { Page } from "@playwright/test";
 import { expect, openAs, openAsTestUser, settle, test } from "./fixtures";
 import { createTestListing, createTestUser, newId, sql } from "./helpers/db";
-import { TEST_ADMIN_PHONE, verifyTwoFactor } from "./helpers/staff";
+import { answerStaffProof, TEST_ADMIN_PHONE, verifyTwoFactor } from "./helpers/staff";
 
 /**
  * Real reviews (round 3, brief 8.1), in Hebrew on a phone, with test-only rows (a test host, a
@@ -214,7 +214,8 @@ test.describe("reviews", () => {
       await admin.page.getByLabel("Reason").selectOption("offensive");
       await admin.page.getByLabel("Internal note (required)").fill("E2E: hidden by the reviews test");
       await admin.page.getByRole("button", { name: "Hide the review" }).click();
-      await expect(admin.page.getByText("The review is hidden")).toBeVisible();
+      // Hiding is a destructive action: a fresh authenticator code first (3.6.c).
+      await answerStaffProof(admin.page, admin.page.getByText("The review is hidden"), ADMIN_PHONE);
     } finally {
       await admin.context.close();
     }

@@ -418,7 +418,8 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
               <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {listing.photos.map((photo, i) => {
                   // "Search this photo online" (SECURITY_REPORT 9.m): Google Lens and TinEye by the
-                  // photo's public address, in a new tab without a referrer. Nothing is uploaded.
+                  // photo's public address, in a new tab without a referrer. We upload nothing; the search
+                  // site downloads the photo itself (the hint says so; TinEye first).
                   const reverse = reverseImageSearchLinks(photoUrl(photo, "lg"));
                   return (
                     <li key={photo.id} className="relative">
@@ -445,8 +446,9 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
                           <span className="text-muted-foreground">{t("reverseSearch")}</span>
                           {(
                             [
-                              ["Google Lens", reverse.googleLens],
+                              // TinEye first: it does not tie the search to a Google account (9.m).
                               ["TinEye", reverse.tinEye],
+                              ["Google Lens", reverse.googleLens],
                             ] as const
                           ).map(([site, href]) => (
                             <a
@@ -614,7 +616,7 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
             ) : null}
             {listing.lat != null && listing.lng != null ? (
               <>
-                <div className="h-56 overflow-hidden rounded-lg border">
+                <div className="relative isolate h-56 overflow-hidden rounded-lg border">
                   <ExactLocationMapLoader
                     lat={listing.lat}
                     lng={listing.lng}

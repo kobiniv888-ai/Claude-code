@@ -10,10 +10,18 @@ import { createTestListing, createTestUser, sql } from "./helpers/db";
  * signed-in user who is neither the guest nor the host.
  *
  * Checked for every LIVE demo listing and for a test listing with known values:
- * - never the exact address, the exact coordinates (full precision, 6 and 5 decimals), the host's
- *   phone, email or contact values;
+ * - never the exact address, the exact coordinates (full precision, 6, 5 and 4 decimals), the
+ *   host's phone (also as the site prints numbers: "+995 555 99 12 34", "050-123-4567", national
+ *   digits; every body is also checked with the separators between digits removed), email or
+ *   contact values;
  * - never an exact walking time: every walking time in the page data is a multiple of 5 minutes,
- *   no "meters" travel with it, and the texts say "עד 5 דק׳" / "≈ 10 דק׳", never "≈ 7" or "≈ 5";
+ *   no "meters" travel with it, and every text says "עד N דק׳" / "up to N min", never "≈ N"
+ *   (founder's answer (b));
+ * - never the supermarket or stop picked around the pin (walk-trilat-1): only the ones picked
+ *   around the public point;
+ * - pages: listing pages and their share images, search (list and map), city and owner pages, the
+ *   home page, the sitemap, the map API, a shared list page and its share image, and, signed in as
+ *   another user, the compare page (its data comes from a server action);
  * - the trip page and the calendar file of a booking show the exact address only to its guest, and
  *   only until a week after check-out (6.f).
  *
@@ -41,22 +49,27 @@ type DemoRow = {
 /** The strings of a coordinate that would reveal it, minus those the public (offset) point shares. */
 function coordinateForms(label: string, exact: number | null, approx: number | null): Leak[] {
   if (exact === null || !Number.isFinite(exact)) return [];
-  const forms = new Set([String(exact), exact.toFixed(6), exact.toFixed(5)]);
-  if (approx !== null) for (const digits of [5, 6]) forms.delete(approx.toFixed(digits));
+  // 4 decimals is about 11 m: still the building.
+  const forms = new Set([String(exact), exact.toFixed(6), exact.toFixed(5), exact.toFixed(4)]);
+  if (approx !== null) for (const digits of [4, 5, 6]) forms.delete(approx.toFixed(digits));
   if (approx !== null) forms.delete(String(approx));
   return [...forms].map((value) => ({ label, value }));
 }
 
+/**
+ * A phone number in every form that would reveal it. leaksIn also checks each body with the
+ * separators between digits removed, so "+995 555 99 12 34", "555 99 12 34" and "050-123-4567"
+ * (the site's international and national spellings) are found through these digit forms.
+ */
 function phoneForms(label: string, phone: string | null | undefined): Leak[] {
   if (!phone) return [];
   const digits = phone.replace(/\D/g, "");
   if (digits.length < 8) return [];
-  return [
-    { label, value: phone },
-    { label, value: digits },
-    // The national part as it is often written ("555 12 34 56" is caught by the digits of the last 7).
-    { label, value: digits.slice(-9) },
-  ];
+  const forms = new Set([phone, digits, digits.slice(-9)]);
+  // The national number: Georgia without the country code ("555991234"), Israel with its 0 ("0501234567").
+  if (digits.startsWith("995")) forms.add(digits.slice(3));
+  if (digits.startsWith("972")) forms.add(`0${digits.slice(3)}`);
+  return [...forms].map((value) => ({ label, value }));
 }
 
 function secretsOf(row: DemoRow): Leak[] {
@@ -76,15 +89,24 @@ function secretsOf(row: DemoRow): Leak[] {
   return secrets;
 }
 
-/** Every secret that appears in the body (JSON in the RSC payload escapes "/" and quotes only). */
+/** Spaces, dots, dashes, brackets and direction marks between two digits ("+995 555 99-12-34"). */
+const BETWEEN_DIGITS = /(?<=\d)[\s\u00a0().\-\u2066-\u2069\u200e\u200f]+(?=\d)/g;
+
+/**
+ * Every secret that appears in the body (JSON in the RSC payload escapes "/" and quotes only), as
+ * written or once the separators between digits are removed (a phone printed for people).
+ */
 function leaksIn(body: string, secrets: Leak[]): string[] {
   const text = body.replace(/\\u002F/gi, "/").replace(/\\\//g, "/");
-  return secrets.filter((s) => text.includes(s.value)).map((s) => `${s.label}: ${s.value}`);
+  const joined = text.replace(BETWEEN_DIGITS, "");
+  return secrets
+    .filter((s) => text.includes(s.value) || (/^\+?\d{8,}$/.test(s.value) && joined.includes(s.value)))
+    .map((s) => `${s.label}: ${s.value}`);
 }
 
 /**
  * Walking times that are not public: a value under one of the walk keys that is not a multiple of
- * 5, a "meters" field, or a visible "≈ N" that is not a multiple of 5 above 5 (6.d).
+ * 5, a "meters" field, or any visible "≈ N min" (6.d; every walking time reads "up to N").
  */
 function exactWalks(body: string): string[] {
   const problems: string[] = [];
@@ -96,10 +118,7 @@ function exactWalks(body: string): string[] {
   for (const match of body.matchAll(nearbyMinutes)) if (Number(match[2]) % 5 !== 0) problems.push(`nearby ${match[1]} minutes=${match[2]}`);
   if (/\\?"meters\\?":\s*\d/.test(body)) problems.push("a meters field");
   const plain = body.replace(/[\u2066-\u2069\u200e\u200f]/g, "");
-  for (const match of plain.matchAll(/≈\s*(\d+)\s*(?:דק|min|мин|დ|წთ|წუთ|د)/g)) {
-    const minutes = Number(match[1]);
-    if (minutes % 5 !== 0 || minutes <= 5) problems.push(`shown "${match[0]}"`);
-  }
+  for (const match of plain.matchAll(/≈\s*(\d+)\s*(?:דק|min|мин|დ|წთ|წუთ|د)/g)) problems.push(`shown "${match[0]}"`);
   return problems;
 }
 
@@ -119,6 +138,30 @@ async function demoListings(): Promise<DemoRow[]> {
      FROM "Listing" l JOIN "City" c ON c.id = l."cityId" JOIN "User" u ON u.id = l."ownerId"
      WHERE l."isDemo" AND l.status = 'LIVE' AND l."deletedAt" IS NULL ORDER BY l."publicId"`,
   );
+}
+
+/**
+ * A shared list (owned by a test user) holding these listings; returns its link token. The global
+ * cleanup removes the test user, and the list and its saves with it.
+ */
+async function sharedListOf(listingIds: string[]): Promise<string> {
+  const owner = await createTestUser({ name: "E2E Exposure List Owner" });
+  const token = `e2e${randomBytes(20).toString("hex")}`.slice(0, 43);
+  const listId = `e2e-list-${randomBytes(6).toString("hex")}`;
+  await sql(
+    `INSERT INTO "SavedList" (id, "userId", name, "isDefault", "shareToken", "sharedAt", "createdAt", "updatedAt")
+     VALUES ($1, $2, 'E2E exposure list', false, $3, now(), now(), now())`,
+    [listId, owner.id, token],
+  );
+  for (const listingId of listingIds) {
+    await sql(`INSERT INTO "Favorite" (id, "userId", "listingId", "listId", "createdAt") VALUES ($1, $2, $3, $4, now())`, [
+      `e2e-fav-${randomBytes(6).toString("hex")}`,
+      owner.id,
+      listingId,
+      listId,
+    ]);
+  }
+  return token;
 }
 
 const BOOKING_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
@@ -152,8 +195,14 @@ async function exposureListing() {
       address,
       JSON.stringify([{ channel: "WHATSAPP", value: hostContact, order: 0 }]),
       JSON.stringify({
-        supermarket: { minutes: 3, meters: 210, name: "E2E Market" },
-        transport: { kind: "bus", minutes: 8, meters: 590, name: "E2E Stop" },
+        // Picked around the pin: staff only (walk-trilat-1), never on a page.
+        supermarket: { minutes: 1, meters: 60, name: "E2E Pin Market" },
+        transport: { kind: "tram", minutes: 2, meters: 110, name: "E2E Pin Stop" },
+        // Picked around the public point: what the page shows.
+        public: {
+          supermarket: { minutes: 3, meters: 210, name: "E2E Market" },
+          transport: { kind: "bus", minutes: 8, meters: 590, name: "E2E Stop" },
+        },
         airport: { code: "TBS", km: 23.4 },
       }),
     ],
@@ -164,6 +213,8 @@ async function exposureListing() {
     ...coordinateForms("test exact lng", exact.lng, city.lng),
     ...phoneForms("test host contact", hostContact),
     ...phoneForms("test host phone", host.phone),
+    { label: "supermarket picked around the pin", value: "E2E Pin Market" },
+    { label: "stop picked around the pin", value: "E2E Pin Stop" },
   ];
   return { host, listing, address, exact, hostContact, secrets };
 }
@@ -220,14 +271,29 @@ test.describe("data exposure (SECURITY_REPORT 5.c)", () => {
       check(path, await response.text());
     }
 
+    // A shared list with every checked listing in it, and its share image.
+    const token = await sharedListOf([...rows.map((r) => r.id), own.listing.id]);
+    const list = await fetchBoth(request, `/he/lists/${token}`);
+    expect(list.status, "the shared list page").toBe(200);
+    check(`/he/lists/${token}`, list.html);
+    check(`/he/lists/${token} (RSC)`, list.rsc);
+    const listOg = list.html.match(/<meta property="og:image" content="([^"]+)"/)?.[1];
+    expect(listOg, "og:image of the shared list").toBeTruthy();
+    const listImage = await request.get(new URL(listOg!.replace(/&amp;/g, "&")).pathname);
+    expect(listImage.status(), "the shared list's share image").toBe(200);
+    expect(listImage.headers()["content-type"]).toMatch(/^image\//);
+
     expect(leaks, "private values in public responses").toEqual([]);
     expect(walks, "exact walking times in public responses").toEqual([]);
 
-    // The test listing's walks reach the page rounded: supermarket 3 → "עד 5 דק׳", bus stop 8 → "≈ 10".
+    // The test listing's walks reach the page rounded and as "up to": supermarket 3 → "עד 5 דק׳",
+    // bus stop 8 → "עד 10 דק׳" — the ones picked around the public point, never the pin's.
     const page = await request.get(`/he/listing/${own.listing.publicId}`);
     const text = (await page.text()).replace(/[\u2066-\u2069\u200e\u200f]/g, "");
     expect(text).toContain("עד 5 דק׳ הליכה");
-    expect(text).toMatch(/≈ 10 דק׳ הליכה/);
+    expect(text).toContain("עד 10 דק׳ הליכה");
+    expect(text).toContain("E2E Market");
+    expect(text).not.toMatch(/≈ \d+ דק׳/);
     // The card data carries the rounded synagogue walk (7 → 10), never the exact 7.
     const searchRsc = (await fetchBoth(request, "/he/search?city=mestia")).rsc;
     expect(searchRsc).toMatch(/\\?"synagogueWalkMin\\?":\s*10\b/);
@@ -295,6 +361,21 @@ test.describe("data exposure (SECURITY_REPORT 5.c)", () => {
       const exported = await other.context.request.get("/api/account/export");
       expect(exported.status()).toBe(200);
       expect(leaksIn(await exported.text(), secrets)).toEqual([]);
+
+      // The compare page: its rows come from a server action (compareItemsAction) after load.
+      await other.page.addInitScript((id) => window.localStorage.setItem("bayit:compare", JSON.stringify([id])), own.listing.publicId);
+      const answered = other.page.waitForResponse(
+        (response) => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/account/compare"),
+      );
+      await other.page.goto("/he/account/compare");
+      const answer = await (await answered).text();
+      expect(answer, "the compare answer carries the test listing").toContain(String(own.listing.publicId));
+      await other.page.waitForLoadState("networkidle");
+      const compareBodies = [await other.page.content(), answer];
+      for (const body of compareBodies) {
+        expect(leaksIn(body, secrets), "compare page").toEqual([]);
+        expect(exactWalks(body), "compare page walks").toEqual([]);
+      }
     } finally {
       await other.context.close();
     }

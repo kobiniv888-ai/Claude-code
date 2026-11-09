@@ -27,6 +27,8 @@ vi.mock("@/lib/images", () => ({
   checkPdf: () => undefined,
   scanFile: async () => undefined,
   validateImage: async () => ({ format: "png" }),
+  // The HEIC step (decode when the bytes are HEIC) passes other images through as they are.
+  prepareUploadImage: async (buffer: Buffer) => ({ buffer, info: { format: "png", width: 800, height: 600 }, source: "png" }),
   processPrivateImage: async () => ({ body: Buffer.from("x"), contentType: "image/jpeg" }),
 }));
 

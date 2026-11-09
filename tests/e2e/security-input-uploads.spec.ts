@@ -2,12 +2,18 @@
  * SECURITY_REPORT sections 9 and 10 on the running build (the gate runs it):
  * - 9.m: the first-listing review shows a "search this photo online" link per photo (Google Lens
  *   and TinEye, new tab, rel noopener noreferrer, the photo's own address only);
- * - 9.a: an iPhone HEIC photo is refused with its own message; AVIF and SVG are refused;
+ * - 9.a / 9.g (founder's answer (e)): a real iPhone-style HEIC photo with GPS, a camera model and
+ *   XMP is converted on the server through the real upload route, and every stored copy is a
+ *   WebP/JPEG with no metadata; a HEIC file we cannot decode gets its own message; AVIF and SVG
+ *   are refused;
  * - 10.2 / 10.3.d: every page sends COOP same-origin, the enforced nonce CSP with base-uri 'none'
  *   and the stricter policy as Report-Only; /api/csp-report takes a browser report.
  * The unit tests hold the details (src/lib/media.test.ts, src/app/api/uploads/listing-photo/route.test.ts,
  * src/lib/security/csp.test.ts, tests/unit/security-headers-proxy.test.ts).
  */
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import sharp from "sharp";
 import { expect, openAs, openAsTestUser, settle, test } from "./fixtures";
 import { TEST_ADMIN_PHONE } from "./helpers/staff";
 import { createTestListing, createTestUser, sql } from "./helpers/db";
@@ -39,7 +45,51 @@ test("the review screen links each photo to a reverse image search (9.m)", async
   await context.close();
 });
 
-test("HEIC, AVIF and SVG photos are refused by the server (9.a)", async ({ browser }) => {
+/**
+ * tests/fixtures/heic/gps-photo.heic: a made-up 480×400 HEIC with a GPS position, the camera
+ * model "FixturePhone 15" and an XMP block naming exif:GPSLatitude (tests/fixtures/heic/make-gps-heic.mjs).
+ */
+const HEIC_FIXTURE = readFileSync(path.join(process.cwd(), "tests/fixtures/heic/gps-photo.heic"));
+const HEIC_SECRETS = ["FixturePhone 15", "FixtureCam", "exif:GPSLatitude", "GPSLatitude"];
+
+test("an iPhone HEIC photo with GPS is converted on the server and stored without metadata (9.a, 9.g)", async ({ browser }) => {
+  // Positive control: the fixture really carries the HEIC brand, the camera and the GPS block.
+  const raw = HEIC_FIXTURE.toString("latin1");
+  expect(raw.slice(4, 12)).toBe("ftypheic");
+  for (const secret of ["FixturePhone 15", "exif:GPSLatitude"]) expect(raw, secret).toContain(secret);
+
+  const owner = await createTestUser({ name: "E2E HEIC Owner" });
+  const listing = await createTestListing({ ownerId: owner.id, title: `E2E HEIC upload ${Date.now().toString(36)}`, status: "DRAFT", photos: 0 });
+  const { context } = await openAsTestUser(browser, owner);
+  // The browser sends it as Chrome on Windows would: a .HEIC file the page could not convert.
+  const res = await context.request.post("/api/uploads/listing-photo", {
+    multipart: { listingId: listing.id, file: { name: "IMG_4242.HEIC", mimeType: "image/heic", buffer: HEIC_FIXTURE } },
+  });
+  expect(res.status(), await res.text()).toBe(201);
+  const body = (await res.json()) as { id: string; url: string; width: number; height: number };
+  expect([body.width, body.height]).toEqual([480, 400]);
+
+  const [photo] = await sql<{ storageKey: string; url: string }>(`SELECT "storageKey", url FROM "ListingPhoto" WHERE id = $1 AND "listingId" = $2`, [body.id, listing.id]);
+  expect(photo?.url).toBe(body.url);
+  // Every stored copy: lg/md/sm WebP and the share-image JPEG.
+  for (const [variant, format] of [["lg", "webp"], ["md", "webp"], ["sm", "webp"], ["og", "jpeg"]] as const) {
+    const url = body.url.replace(/-lg\.webp(\?.*)?$/, variant === "og" ? "-og.jpg" : `-${variant}.webp`);
+    const file = await context.request.get(url);
+    expect(file.status(), url).toBe(200);
+    const bytes = Buffer.from(await file.body());
+    const meta = await sharp(bytes).metadata();
+    expect(meta.format, variant).toBe(format);
+    expect(meta.exif, `${variant} exif`).toBeUndefined();
+    expect(meta.xmp, `${variant} xmp`).toBeUndefined();
+    expect(meta.iptc, `${variant} iptc`).toBeUndefined();
+    const text = bytes.toString("latin1");
+    for (const secret of HEIC_SECRETS) expect(text.includes(secret), `${variant}: ${secret}`).toBe(false);
+    expect(text.includes("Exif\0\0"), `${variant}: EXIF block`).toBe(false);
+  }
+  await context.close();
+});
+
+test("an undecodable HEIC, AVIF and SVG are refused by the server (9.a)", async ({ browser }) => {
   const owner = await createTestUser({ name: "E2E Upload Owner" });
   const listing = await createTestListing({ ownerId: owner.id, title: `E2E Upload formats ${Date.now().toString(36)}`, status: "DRAFT", photos: 0 });
   const { context } = await openAsTestUser(browser, owner);

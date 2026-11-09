@@ -179,7 +179,7 @@
     "hasVideo": "ვიდეოთი",
     "furnished": "ავეჯით",
     "elevator": "ლიფტი",
-    "synagogueMaxWalk": "სინაგოგა {count} წუთის სავალზე"
+    "synagogueMaxWalk": "სინაგოგა არაუმეტეს {count} წთ ფეხით"
   },
   "facts": {
     "rooms": "{count, plural, one {{count} ოთახი} other {{count} ოთახი}}",
@@ -192,8 +192,8 @@
     "floor": "სართული {floor}",
     "floorOf": "სართული {floor} / {total}",
     "studio": "სტუდიო",
-    "synagogueWalk": "{count, plural, =5 {არაუმეტეს 5 წთ ფეხით სინაგოგამდე} other {≈ {count} წთ ფეხით სინაგოგამდე}}",
-    "chabadWalk": "{count, plural, =5 {არაუმეტეს 5 წთ ფეხით ხაბადის სახლამდე} other {≈ {count} წთ ფეხით ხაბადის სახლამდე}}",
+    "synagogueWalk": "არაუმეტეს {count} წთ ფეხით სინაგოგამდე",
+    "chabadWalk": "არაუმეტეს {count} წთ ფეხით ხაბადის სახლამდე",
     "minStay": "{count, plural, one {მინიმუმ {count} ღამე} other {მინიმუმ {count} ღამე}}"
   }
 }

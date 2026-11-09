@@ -258,9 +258,23 @@ describe("a destructive action whose audit row cannot be written does not happen
   it("a clean-up run: refused with audit_failed before anything is changed", async () => {
     const { runCleanupAction } = await import("@/lib/admin/maintenance/actions");
     const { auditOrThrow } = await import("@/lib/audit");
-    const listing = await db.listing.findFirst({ select: { id: true } });
-    expect(listing, "needs one listing in the local database (demo data)").not.toBeNull();
-    const tap = await db.contactClick.create({ data: { listingId: listing!.id, userId: ids.target, channel: "PHONE" } });
+    // Its own listing (the local demo data may have been removed by another test run).
+    const listing = await db.listing.create({
+      data: {
+        ownerId: ids.admin,
+        status: "DRAFT",
+        dealType: "SHORT_STAY",
+        propertyType: "APARTMENT",
+        pricePeriod: "NIGHT",
+        price: 100,
+        currency: "USD",
+        originalLocale: "en",
+        title: `${prefix} audit test flat`,
+        description: "A test listing.",
+      },
+      select: { id: true },
+    });
+    const tap = await db.contactClick.create({ data: { listingId: listing.id, userId: ids.target, channel: "PHONE" } });
     try {
       state.breakAudit = true;
       // The audit table really is "down" for auditOrThrow before the run is tried.
@@ -273,6 +287,7 @@ describe("a destructive action whose audit row cannot be written does not happen
     } finally {
       state.breakAudit = false;
       await db.contactClick.deleteMany({ where: { id: tap.id } });
+      await db.listing.deleteMany({ where: { id: listing.id } });
     }
   });
 

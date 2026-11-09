@@ -743,9 +743,9 @@
   },
   "sms": {
     "booking_confirmed_guest": "{brand}: бронирование {code} подтверждено. {title}, {dates}. Адрес и контакты хозяина: {url}",
-    "booking_new_host": "{brand}: новое бронирование {code} от {guest}, {dates}, {guests}. Подробнее: {url}",
+    "booking_new_host": "{brand}: новое бронирование {code}. Подробнее: {url}",
     "booking_reminder_guest": "{brand}: заезд в {title} {count, plural, =0 {сегодня} =1 {завтра} one {через {count} день} few {через {count} дня} many {через {count} дней} other {через {count} дня}}. Адрес и контакты хозяина: {url}",
-    "booking_reminder_host": "{brand}: {guest} приезжает {count, plural, =0 {сегодня} =1 {завтра} one {через {count} день} few {через {count} дня} many {через {count} дней} other {через {count} дня}} (бронирование {code}). {url}",
+    "booking_reminder_host": "{brand}: напоминание о бронировании {code}, заезд {count, plural, =0 {сегодня} =1 {завтра} one {через {count} день} few {через {count} дня} many {через {count} дней} other {через {count} дня}}. Подробнее: {url}",
     "booking_cancelled_by_guest": "{brand}: бронирование {code} ({dates}) отменено гостем. Даты снова свободны. {url}",
     "booking_cancelled_by_host": "{brand}: хозяин отменил бронирование {code} ({dates}). С вас ничего не списано. {url}",
     "booking_host_unreached_guest": "{brand}: наше сообщение о бронировании {code} не дошло до хозяина. Свяжитесь с ним и убедитесь, что он вас ждёт: {url}"

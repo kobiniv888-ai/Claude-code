@@ -249,10 +249,24 @@ order. The detailed steps and prices are in "Login & messages" below.
       that turned on 2-step login before this round have none yet.
 - [ ] **`ADMIN_ALERT_EMAIL`** must be set on the hosting, so the security alerts (staff logins on
       a new device, a locked 2-step login, a recovery code used, the SMS budget) reach you.
-- [ ] **Confirm three choices:** walking times are rounded **up** to 5 minutes (a 6–7 minute walk
-      shows "≈ 10", never "עד 5"); SUPPORT and MODERATOR no longer see phone numbers on user and
-      ticket pages either (Q12 applied a bit wider); retention of the outbox 90 days, device links
-      1 year, contact clicks 90 days.
+- [x] ~~Confirm three choices~~ — answered 8 November 2026 (afternoon): walking times show
+      "up to N" for every value, phone numbers are ADMIN-only (support and moderators see the last
+      2 digits), retention confirmed. See SECURITY_REPORT.md → "Your decisions" → addendum.
+- [ ] **Second backup on Backblaze B2 (your answer (a)).** About $0/month for the database alone,
+      about $0.35/month with 50 GB of photos. Steps:
+      1. Create a **new Backblaze account** just for backups (not your personal one), with its own
+         email address you control, and turn on **2-step login** (authenticator app) right away.
+      2. At sign-up choose the **EU Central** region (it cannot be changed later for the account).
+      3. Create a **private bucket** (e.g. `bayit-backup`) and switch **Object Lock ON while
+         creating it** (the simplest moment to do it). Default retention: **Compliance mode,
+         about 60 days**, so nobody — not even a stolen key, and not you — can delete or
+         overwrite a backup during that time.
+      4. Create an **application key limited to that one bucket**, allowed to list, read and
+         write files only (no delete, no other buckets), named e.g. `bayit-backup-job`. Give it
+         only to the backup job (the developer adds it as hosting secrets). Never use the account's
+         master key there. Old backups go by a **lifecycle rule** on the bucket (e.g. after 90
+         days), not by the key.
+      5. Keep the account's recovery codes offline, like your other 2-step codes.
 - [ ] **At deploy:** the login cookie got a new name, so everyone is logged out once and staff are
       asked for their 2-step code again.
 - [ ] **Launch day — the real domain in the code.** Add the real domain(s) (e.g. `bayit.ge` and

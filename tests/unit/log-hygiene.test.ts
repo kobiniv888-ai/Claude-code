@@ -32,7 +32,16 @@ const FORBIDDEN = [
   "password",
   "contactMethods",
   "body",
+  // log-scrub-1: a request's headers carry the session cookie and the client's IP.
+  "headers",
+  "cookie",
+  "cookies",
+  "ip",
+  "request",
 ];
+
+/** Ids, statuses and error codes of these objects are fine; the objects themselves are not. */
+const SAFE_MEMBER = /\b(?:request|cookie|cookies|headers)\s*\.\s*(?:id|error|ok|status|method)\b/g;
 
 /** Bare `code` / `otp` variables are login codes in this code base (booking.code etc. are fine). */
 const FORBIDDEN_BARE = ["code", "otp"];
@@ -145,7 +154,8 @@ function findings(): { found: Finding[]; checked: number } {
     for (let match = call.exec(source); match; match = call.exec(source)) {
       checked++;
       const open = match.index + match[0].length - 1;
-      const expressions = expressionsOnly(callArguments(source, open));
+      // `request.id` (a verification request's id) and `cookie.error` (an error code) are fine.
+      const expressions = expressionsOnly(callArguments(source, open)).replace(SAFE_MEMBER, " ");
       const hits = [...expressions.matchAll(property), ...expressions.matchAll(bare)].map((m) => m[1]);
       if (hits.length > 0) {
         found.push({ file: path.relative(process.cwd(), file), line: source.slice(0, match.index).split("\n").length, text: [...new Set(hits)].join(", ") });
@@ -166,6 +176,8 @@ describe("log hygiene (SECURITY_REPORT 5.l)", () => {
   it("the checker itself catches the patterns it is meant to catch", () => {
     const sample = (code: string) => expressionsOnly(callArguments(code, code.indexOf("(")));
     expect(sample("console.info(`sent to ${user.email}`)")).toContain("email");
+    expect(sample("console.error('[x] failed', request.headers)")).toMatch(/\bheaders\b/);
+    expect(sample("console.warn('from', ip)")).toMatch(/\bip\b/);
     expect(sample('console.error(`[email] Resend rejected "${template}" to ${recipient}:`, error.message)')).toMatch(/\brecipient\b/);
     expect(sample("console.log(`[sms] ${input.to}`, input.body)")).toMatch(/\bbody\b/);
     expect(sample("console.info(`code ${code} for ${maskPhone(phone)}`)")).toMatch(/\bcode\b/);

@@ -3,7 +3,8 @@ import * as React from "react";
 
 /**
  * React's taint API as a second safety net behind the DTOs (security checklist 5 "Extra guards",
- * SECURITY_REPORT 5.k). next.config.ts turns on `experimental.taint`; React then THROWS while
+ * SECURITY_REPORT 5.k). next.config.ts turns on `experimental.taint` (the one switch is
+ * src/config/taint.ts, ON as committed); React then THROWS while
  * rendering if a tainted object or value is about to cross into a Client Component, a Server
  * Action answer or the page data (RSC payload) — the page fails instead of leaking.
  *
@@ -24,9 +25,10 @@ import * as React from "react";
  * that never belong in a browser for anyone: personal values such as an email are not tainted by
  * value, because the same string legitimately appears on its owner's own settings page.
  *
- * A no-op where the API does not exist: outside the React Server Components layer (route handlers
- * that do not render, scripts, unit tests with React's stable build), and without the flag. Never
- * throws itself.
+ * A no-op where the API does not exist (feature-detected on every call, both functions or none):
+ * outside the React Server Components layer (route handlers that do not render, scripts, unit
+ * tests with React's stable build), and with the switch off, where the app runs React's stable
+ * build, which has no taint API. Never throws itself, so every page works in both modes.
  */
 
 type TaintApi = {

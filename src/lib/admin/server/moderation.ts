@@ -2,6 +2,7 @@ import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
 import type { ListingStatus } from "@/generated/prisma/enums";
 import { db } from "@/lib/db";
+import { taintObject } from "@/lib/security/taint";
 import type { ContactMethod } from "@/lib/listing/fields";
 import { CONTACT_CHANNELS } from "@/lib/listing/fields";
 import { contentChangedSinceCheck } from "@/lib/listing/lifecycle";
@@ -298,7 +299,10 @@ export type ReviewListing = Prisma.ListingGetPayload<{ select: typeof reviewSele
 export async function getListingForReview(id: string, viewer: StaffViewer) {
   const row = await db.listing.findUnique({ where: { id }, select: reviewSelect });
   if (!row) return null;
-  const listing = canSeePhone(viewer) ? row : { ...row, contactMethods: null };
+  // The raw row (exact address and pin, the host's contact values) only through the copy below,
+  // which drops the contact values for staff who may not see phones (React taint, 5.k).
+  taintObject("raw listing row under review", row);
+  const listing = canSeePhone(viewer) ? { ...row } : { ...row, contactMethods: null };
 
   const ownerId = listing.ownerId;
   const [checksStale, duplicates, otherListings, reports, ownerReportsAgainst, ownerListingReports, devices, notes, staff, idRequest, ownerPhone] =

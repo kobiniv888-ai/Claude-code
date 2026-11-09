@@ -283,7 +283,7 @@
     "clear": "Очистить",
     "removeFrom": "Убрать «{title}» из сравнения",
     "view": "Открыть объявление",
-    "walkMinutes": "{count, plural, =5 {Не больше {countText} минут пешком} one {≈ {countText} минута пешком} few {≈ {countText} минуты пешком} many {≈ {countText} минут пешком} other {≈ {countText} минуты пешком}}",
+    "walkMinutes": "{count, plural, one {Не больше {countText} минуты пешком} few {Не больше {countText} минут пешком} many {Не больше {countText} минут пешком} other {Не больше {countText} минуты пешком}}",
     "sections": {
       "basics": "Главное",
       "facts": "Характеристики",

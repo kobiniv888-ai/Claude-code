@@ -743,9 +743,9 @@
   },
   "sms": {
     "booking_confirmed_guest": "{brand}: تم تأكيد الحجز {code}. {title}، {dates}. العنوان وبيانات المضيف: {url}",
-    "booking_new_host": "{brand}: حجز جديد {code} من {guest}، {dates}، {guests}. التفاصيل: {url}",
+    "booking_new_host": "{brand}: حجز جديد {code}. التفاصيل: {url}",
     "booking_reminder_guest": "{brand}: الوصول إلى {title} {count, plural, =0 {اليوم} =1 {غدًا} =2 {بعد يومين} few {بعد {count} أيام} many {بعد {count} يومًا} other {بعد {count} يوم}}. العنوان وبيانات المضيف: {url}",
-    "booking_reminder_host": "{brand}: يصل {guest} {count, plural, =0 {اليوم} =1 {غدًا} =2 {بعد يومين} few {بعد {count} أيام} many {بعد {count} يومًا} other {بعد {count} يوم}} (الحجز {code}). {url}",
+    "booking_reminder_host": "{brand}: تذكير بالحجز {code}، الوصول {count, plural, =0 {اليوم} =1 {غدًا} =2 {بعد يومين} few {بعد {count} أيام} many {بعد {count} يومًا} other {بعد {count} يوم}}. التفاصيل: {url}",
     "booking_cancelled_by_guest": "{brand}: ألغى الضيف الحجز {code} ({dates}). التواريخ متاحة من جديد. {url}",
     "booking_cancelled_by_host": "{brand}: ألغى المضيف الحجز {code} ({dates}). لم يُخصم منك أي مبلغ. {url}",
     "booking_host_unreached_guest": "{brand}: لم تصل رسالتنا عن الحجز {code} إلى المضيف. تواصل معه وتأكد من أنه ينتظرك: {url}"

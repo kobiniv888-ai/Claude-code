@@ -12,13 +12,13 @@
  * Round 3 (brief 8.3): "ביקרנו במקום" (Bayit visited the place, set by the admin) is one of the two
  * tags and always comes FIRST: it is the strongest trust signal while the ID badges are hidden.
  *
- * Round 3 (brief 7.3): "≈ 5 דק׳ הליכה לים" / "≈ 5 דק׳ הליכה למעליות" (kinds "sea" and "lift") when
+ * Round 3 (brief 7.3): "עד 5 דק׳ הליכה לים" / "עד 10 דק׳ הליכה למעליות" (kinds "sea" and "lift") when
  * the computed walk from the pin is 15 minutes or less. Only listings in the sea and ski towns have
  * those values (src/lib/geo/walk-towns.ts), and there the tag comes first, before "ביקרנו במקום";
  * elsewhere nothing changes. It counts toward the two tags.
  *
  * Security checklist 6.d (founder's decision 2): every walking time on a card is rounded up to
- * 5 minutes ("עד 5 דק׳", "≈ 10 דק׳"). The card data already arrives rounded from the server
+ * 5 minutes and reads "up to N" ("עד 5 דק׳", "עד 10 דק׳"; founder's answer (b), never "≈"). The card data already arrives rounded from the server
  * (src/lib/listing/mappers.ts); the tags round again so a raw value can never be printed.
  *
  * Round 3 (brief section 3): every card that isn't a short stay names its type on the price line —

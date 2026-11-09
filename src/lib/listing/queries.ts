@@ -26,6 +26,7 @@ import {
   notPromotedWhere,
   promotedWhere,
   publicListingWhere,
+  sortBySynagogueStep,
 } from "@/lib/listing/where";
 import { getSettings } from "@/lib/settings";
 
@@ -133,6 +134,32 @@ function findCardRows(
   return db.listing.findMany({ where, orderBy, skip, take, select: listingCardSelect(locale) });
 }
 
+/** How many listings the "nearest synagogue" sort orders in memory (the nearest ones first). */
+const MAX_SYNAGOGUE_SORT_ROWS = 2_000;
+
+/**
+ * One page of the "nearest synagogue" sort, ordered by the walking time AS SHOWN (rounded up to
+ * 5 minutes) and then a walk-free order (sortBySynagogueStep; security checklist 6.d): the
+ * database cannot order by the rounded value, so the keys of the matching listings are sorted
+ * here and the page is loaded by id.
+ */
+async function synagogueStepPage(where: Prisma.ListingWhereInput, locale: AppLocale, skip: number, take: number): Promise<ListingCardRow[]> {
+  const keys = await db.listing.findMany({
+    where,
+    // The nearest first when there are more than the cap (a cut can only fall inside the last step).
+    orderBy: [{ synagogueWalkMin: { sort: "asc", nulls: "last" } }, { publicId: "desc" }],
+    take: MAX_SYNAGOGUE_SORT_ROWS,
+    select: { id: true, publicId: true, synagogueWalkMin: true, bumpedAt: true },
+  });
+  const ids = sortBySynagogueStep(keys)
+    .slice(skip, skip + take)
+    .map((k) => k.id);
+  if (ids.length === 0) return [];
+  const rows = await findCardRows({ AND: [where, { id: { in: ids } }] }, [{ publicId: "desc" }], locale, 0, ids.length);
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  return ids.map((id) => byId.get(id)).filter((r): r is ListingCardRow => r !== undefined);
+}
+
 function pageSizeOf(ctx: ListingQueryContext): number {
   const size = Math.trunc(ctx.pageSize ?? siteConfig.listings.pageSize);
   return Math.min(MAX_PAGE_SIZE, Math.max(1, Number.isFinite(size) ? size : siteConfig.listings.pageSize));
@@ -173,6 +200,8 @@ export async function searchListings(filters: SearchFilters, ctx: ListingQueryCo
       ),
     ]);
     rows = [...top, ...rest];
+  } else if (sort === "synagogue" && total > 0) {
+    rows = await synagogueStepPage(where, ctx.locale, offset, pageSize);
   } else {
     rows = total === 0 ? [] : await findCardRows(where, orderBy, ctx.locale, offset, pageSize);
   }

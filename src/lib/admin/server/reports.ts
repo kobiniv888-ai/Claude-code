@@ -5,6 +5,7 @@ import { isAppLocale } from "@/i18n/locale";
 import { siteConfig } from "@/config/site";
 import { dateToDay, tbilisiToday } from "@/lib/booking/dates";
 import { db } from "@/lib/db";
+import { taintObject } from "@/lib/security/taint";
 import { REPORT_REASONS } from "@/lib/listing/fields";
 import { hostCancelHours } from "@/lib/listing/host-flags";
 import { countOpenReports } from "@/lib/reports/queries";
@@ -234,6 +235,8 @@ export async function getReportDetail(id: string, locale: string, viewer: StaffV
     },
   });
   if (!report) return null;
+  // The raw rows (details, the reporter) only through the DTO below (React taint, 5.k).
+  taintObject("raw admin report row", report);
 
   // The account the report is really about: the reported user (the host for turned-away
   // reports), or the listing's owner.
@@ -304,6 +307,8 @@ export async function getReportDetail(id: string, locale: string, viewer: StaffV
     !!reporterAccount &&
     reporterNameForHost({ reporterRevealedAt: new Date(), reporter: reporterAccount }) !== null;
   const otherNames = await reporterNames(viewer, otherReports.map((r) => r.reporterId));
+  // Read only to decide; never returned (React taint, 5.k).
+  taintObject("raw reporter account row", reporterAccount);
 
   // The booking of a turned-away report names its sender (its guest): no code or id for other staff.
   const bookingWithheld = guestWithheldFor(viewer, report.kind === "TURNED_AWAY");

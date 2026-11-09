@@ -1,5 +1,6 @@
 # Supply-chain checks on every push and pull request, Dependabot's included (SECURITY_REPORT 2.3.d,
-# 2.3.g, 2.1.b): a new install script, a framework below the patched floor or a start-up rule that
+# 2.3.g, 2.1.b), and once a week on its own (16.6: new advisories appear without a push): a new
+# install script, a framework below the patched floor, a known advisory or a start-up rule that
 # stops working fails here before the pull request is merged. Make "supply-chain tests" a REQUIRED
 # check once main is protected (2.4.b, OWNER_TODO).
 # No third-party actions: the code is fetched with git, and Node.js comes from nodejs.org,
@@ -10,6 +11,9 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+  schedule:
+    # Mondays 06:17 UTC: `npm audit` and the version floors against the newest advisories.
+    - cron: "17 6 * * 1"
 
 permissions:
   contents: read

@@ -86,7 +86,7 @@ describe("the visited tag (round 3, brief 8.3)", () => {
 describe("cardTags: the walk to the sea / lifts (round 3, brief 7.3)", () => {
   const jewish = { kosherKitchen: true, shabbatFriendly: true, speaksHebrew: true };
 
-  it("shows ≈ N min to the sea or the lifts at 15 minutes or less", () => {
+  it("shows up to N min to the sea or the lifts at 15 minutes or less", () => {
     expect(cardTags({ seaWalkMinutes: 5 })).toEqual([{ kind: "sea", minutes: 5 }]);
     expect(cardTags({ seaWalkMinutes: 15 })).toEqual([{ kind: "sea", minutes: 15 }]);
     expect(cardTags({ liftWalkMinutes: 7 })).toEqual([{ kind: "lift", minutes: 10 }]);

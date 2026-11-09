@@ -8,6 +8,7 @@ import { dateToDay } from "@/lib/booking/dates";
 import { bookingPriceLines } from "@/lib/booking/price-lines";
 import { toNumber } from "@/lib/booking/terms";
 import { db } from "@/lib/db";
+import { taintObject } from "@/lib/security/taint";
 import { parseBookingSearch, stayOverlap, type AdminBookingStatus } from "../booking-search";
 import { bookingFlagKind, hoursFromBookingToCancel } from "../flags";
 import { pageInfo } from "../params";
@@ -302,6 +303,9 @@ export async function getAdminBooking(id: string, locale: AppLocale, viewer: Sta
     },
   });
   if (!booking) return null;
+  // The raw row (guest name, message, the listing's exact address) never reaches a page as it is
+  // (React taint, SECURITY_REPORT 5.k); the page gets the DTO built below.
+  taintObject("raw admin booking row", booking);
   // A turned-away report on this booking was sent by its guest: withheld from staff who may not see
   // who sent a report (Q12), with the guest's name, account, phone digits and their own history lines.
   const guestWithheld = guestWithheldFor(viewer, booking.reports.some((r) => r.kind === "TURNED_AWAY"));

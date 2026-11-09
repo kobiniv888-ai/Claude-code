@@ -15,7 +15,7 @@ import { isPromoted, localizedTitle } from "@/lib/listing/mappers";
 import { listingPath } from "@/lib/listing/urls";
 import { photoUrl } from "@/lib/media";
 import { parseNearby } from "@/lib/nearby";
-import { publicNearby, publicWalkMinutes } from "@/lib/geo/public-walk";
+import { publicWalkTimes } from "@/lib/geo/public-walk";
 import { taintObject } from "@/lib/security/taint";
 import { displayAmenities } from "@/lib/geo/walk-towns";
 import { georgiaToday } from "./calendar";
@@ -383,12 +383,9 @@ async function load(publicId: number, locale: AppLocale): Promise<LoadedListing 
     hotelJewishFeatures: row.hotelJewishFeatures,
     sharedRoomFor: row.sharedRoomFor,
     // Security checklist 6.d: every walking time is computed from the exact pin, so the page gets
-    // it rounded up to 5 minutes and without meters (src/lib/geo/public-walk.ts).
-    synagogueWalkMin: publicWalkMinutes(row.synagogueWalkMin),
-    chabadWalkMin: publicWalkMinutes(row.chabadWalkMin),
-    seaWalkMinutes: publicWalkMinutes(row.seaWalkMinutes),
-    liftWalkMinutes: publicWalkMinutes(row.liftWalkMinutes),
-    nearby: publicNearby(parseNearby(row.nearby)),
+    // it rounded up to 5 minutes, without meters, at most two of them, and the supermarket and
+    // stop picked around the public map point (src/lib/geo/public-walk.ts).
+    ...publicWalkTimes({ ...row, nearby: parseNearby(row.nearby) }),
     deposit: num(row.deposit),
     cleaningFee: num(row.cleaningFee),
     weekendPrice: num(row.weekendPrice),

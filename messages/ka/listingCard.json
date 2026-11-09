@@ -11,7 +11,7 @@
     "business": "ბიზნესი",
     "shabbatFriendly": "შაბათისთვის შესაფერისი",
     "kosherKitchen": "კოშერული სამზარეულო",
-    "synagogueWalk": "{count, plural, =5 {არაუმეტეს 5 წთ ფეხით სინაგოგამდე} other {≈ {count} წთ ფეხით სინაგოგამდე}}"
+    "synagogueWalk": "არაუმეტეს {count} წთ ფეხით სინაგოგამდე"
   },
   "price": {
     "per": {
@@ -78,9 +78,9 @@
     "visited": "ადგილზე ვიყავით",
     "kosherKitchen": "კოშერული სამზარეულო",
     "shabbatFriendly": "შაბათისთვის",
-    "sea": "{count, plural, =5 {არაუმეტეს 5 წთ ფეხით ზღვამდე} other {≈ {count} წთ ფეხით ზღვამდე}}",
-    "lift": "{count, plural, =5 {არაუმეტეს 5 წთ ფეხით საბაგირომდე} other {≈ {count} წთ ფეხით საბაგირომდე}}",
-    "synagogue": "{count, plural, =5 {არაუმეტეს 5 წთ სინაგოგამდე} other {≈ {count} წთ სინაგოგამდე}}",
+    "sea": "არაუმეტეს {count} წთ ფეხით ზღვამდე",
+    "lift": "არაუმეტეს {count} წთ ფეხით საბაგირომდე",
+    "synagogue": "არაუმეტეს {count} წთ სინაგოგამდე",
     "hebrew": "ებრაულად საუბრობს"
   },
   "rating": "შეფასება {average} 5-დან, {count, plural, one {{count} შეფასება} other {{count} შეფასება}}"

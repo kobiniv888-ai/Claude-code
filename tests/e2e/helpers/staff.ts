@@ -15,7 +15,7 @@
  */
 import os from "node:os";
 import path from "node:path";
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { freshPhone, newId, sql, TEST_EMAIL_DOMAIN, TEST_PHONE_PREFIX } from "./db";
 import { E2E_PORT } from "./env";
 import { decryptSecret, encryptSecret, newTotpSecret, nextCodeStep, totpCodeAt } from "./totp";
@@ -93,4 +93,20 @@ export async function verifyTwoFactor(page: Page, next = "/en/admin", phone = TE
   await expect(field).toBeVisible();
   await field.fill(await adminCode(phone));
   await page.waitForURL((url) => url.pathname === next, { timeout: 60_000 });
+}
+
+/**
+ * A destructive admin action asks for a NEW authenticator code when the last one is older than
+ * 5 minutes (SECURITY_REPORT 3.6.c; src/lib/admin/server/staff-proof.ts). After clicking such an
+ * action, call this with what the page shows once it worked (`done`): it types a fresh code into
+ * the "Confirm with your authenticator" dialog when the dialog comes, then waits for `done`.
+ * (Whether it comes depends on how long ago this session gave a code: both are right.)
+ */
+export async function answerStaffProof(page: Page, done: Locator, phone = TEST_ADMIN_PHONE) {
+  const proof = page.getByRole("dialog", { name: "Confirm with your authenticator" });
+  await expect(done.or(proof).first()).toBeVisible();
+  if (await proof.isVisible()) {
+    await proof.getByLabel("Authenticator code").fill(await adminCode(phone));
+  }
+  await expect(done.first()).toBeVisible();
 }

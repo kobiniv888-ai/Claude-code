@@ -11,7 +11,7 @@
     "business": "Компания",
     "shabbatFriendly": "Для Шаббата",
     "kosherKitchen": "Кошерная кухня",
-    "synagogueWalk": "{count, plural, =5 {Не больше 5 мин пешком до синагоги} other {≈ {count} мин пешком до синагоги}}"
+    "synagogueWalk": "Не больше {count} мин пешком до синагоги"
   },
   "price": {
     "per": {
@@ -78,9 +78,9 @@
     "visited": "Мы были на месте",
     "kosherKitchen": "Кошерная кухня",
     "shabbatFriendly": "Для Шаббата",
-    "sea": "{count, plural, =5 {Не больше 5 мин пешком до моря} other {≈ {count} мин пешком до моря}}",
-    "lift": "{count, plural, =5 {Не больше 5 мин пешком до подъёмников} other {≈ {count} мин пешком до подъёмников}}",
-    "synagogue": "{count, plural, =5 {Не больше 5 мин до синагоги} other {≈ {count} мин до синагоги}}",
+    "sea": "Не больше {count} мин пешком до моря",
+    "lift": "Не больше {count} мин пешком до подъёмников",
+    "synagogue": "Не больше {count} мин до синагоги",
     "hebrew": "Говорит на иврите"
   },
   "rating": "Оценка {average} из 5, {count, plural, one {{count} отзыв} few {{count} отзыва} many {{count} отзывов} other {{count} отзыва}}"

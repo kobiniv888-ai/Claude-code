@@ -7,6 +7,7 @@ import { documentChecksOn } from "@/config/verification";
 import type { Prisma } from "@/generated/prisma/client";
 import { usesRoomInventory } from "@/lib/booking/constants";
 import { toUsd, type Rates } from "@/lib/currency/convert";
+import { publicWalkMinutes } from "@/lib/geo/public-walk";
 import { NEAR_SEA_AMENITY, NEAR_WALK_MINUTES } from "@/lib/geo/walk-towns";
 import { AMENITIES, BIG_FAMILY_MIN_GUESTS, DEAL_TYPES, type Amenity } from "@/lib/listing/fields";
 import {
@@ -283,7 +284,10 @@ export function buildListingOrderBy(sort: SortOption): Prisma.ListingOrderByWith
     case "price_sqm":
       return [{ pricePerSqmUsd: { sort: "asc", nulls: "last" } }, tie];
     case "synagogue":
-      return [{ synagogueWalkMin: { sort: "asc", nulls: "last" } }, { bumpedAt: { sort: "desc", nulls: "last" } }, tie];
+      // Never by the exact minutes: within one shown step ("עד 10 דק׳") the order would tell
+      // which home is nearer (6 or 9 minutes). The step order is applied by sortBySynagogueStep
+      // (searchListings); this is its walk-free tie order, also used by the map.
+      return [{ bumpedAt: { sort: "desc", nulls: "last" } }, tie];
     case "updated":
       return [{ contentUpdatedAt: "desc" }, tie];
     case "price_drop":
@@ -293,4 +297,19 @@ export function buildListingOrderBy(sort: SortOption): Prisma.ListingOrderByWith
     default:
       return [{ bumpedAt: { sort: "desc", nulls: "last" } }, tie];
   }
+}
+
+/** The fields sortBySynagogueStep reads. */
+export type SynagogueSortKey = { synagogueWalkMin: number | null; bumpedAt: Date | null; publicId: number };
+
+/**
+ * The "nearest synagogue" sort (security checklist 6.d): by the walking time AS SHOWN (rounded up
+ * to 5 minutes, publicWalkMinutes), listings without one last, then by the same walk-free order as
+ * "recommended" (bumpedAt, newest first; then the public ID). Within one step the exact minutes
+ * never decide the order, so the order tells no more than the labels. Pure; returns a new array.
+ */
+export function sortBySynagogueStep<T extends SynagogueSortKey>(rows: readonly T[]): T[] {
+  const step = (row: SynagogueSortKey) => publicWalkMinutes(row.synagogueWalkMin) ?? Number.POSITIVE_INFINITY;
+  const bumped = (row: SynagogueSortKey) => row.bumpedAt?.getTime() ?? Number.NEGATIVE_INFINITY;
+  return [...rows].sort((a, b) => step(a) - step(b) || bumped(b) - bumped(a) || b.publicId - a.publicId);
 }

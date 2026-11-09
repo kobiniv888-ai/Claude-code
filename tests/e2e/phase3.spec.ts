@@ -4,7 +4,7 @@ import { expect, openAs, settle, test } from "./fixtures";
 import { loginByEmail } from "./helpers/auth";
 import { createReport, createTestListing, createTestUser, listingByPublicId, newId, sql, TEST_EMAIL_DOMAIN } from "./helpers/db";
 import { makePhotos } from "./helpers/photos";
-import { createTestStaff, TEST_ADMIN_PHONE, verifyTwoFactor } from "./helpers/staff";
+import { answerStaffProof, createTestStaff, TEST_ADMIN_PHONE, verifyTwoFactor } from "./helpers/staff";
 
 /**
  * Round 3, phase 3 together, in production mode: the admin panel (brief 9), turned-away reports
@@ -443,7 +443,8 @@ test.describe("“ביקרנו במקום” badge (brief 8.3)", () => {
     const clear = admin.page.getByRole("alertdialog").or(admin.page.getByRole("dialog"));
     await clear.getByRole("textbox").fill("E2E: test over");
     await clear.getByRole("button", { name: "Remove", exact: true }).click();
-    await expect(admin.page.getByText("Badge removed")).toBeVisible();
+    // Removing is a destructive action: a fresh authenticator code first (3.6.c).
+    await answerStaffProof(admin.page, admin.page.getByText("Badge removed"));
     await page.goto(`/he/listing/${listing.publicId}`);
     await expect(page.getByRole("heading", { level: 1, name: title })).toBeVisible();
     await expect(page.locator("[data-visited-badge]")).toHaveCount(0);

@@ -743,9 +743,9 @@
   },
   "sms": {
     "booking_confirmed_guest": "{brand}: booking {code} is confirmed. {title}, {dates}. Address and host details: {url}",
-    "booking_new_host": "{brand}: new booking {code} from {guest}, {dates}, {guests}. Details: {url}",
+    "booking_new_host": "{brand}: new booking {code}. Details: {url}",
     "booking_reminder_guest": "{brand}: your stay at {title} starts {count, plural, =0 {today} =1 {tomorrow} other {in {count} days}}. Address and host details: {url}",
-    "booking_reminder_host": "{brand}: {guest} arrives {count, plural, =0 {today} =1 {tomorrow} other {in {count} days}} (booking {code}). {url}",
+    "booking_reminder_host": "{brand}: reminder for booking {code}, arriving {count, plural, =0 {today} =1 {tomorrow} other {in {count} days}}. Details: {url}",
     "booking_cancelled_by_guest": "{brand}: booking {code} ({dates}) was cancelled by the guest. The dates are free again. {url}",
     "booking_cancelled_by_host": "{brand}: the host cancelled booking {code} ({dates}). You were not charged anything. {url}",
     "booking_host_unreached_guest": "{brand}: our message about booking {code} didn't reach the host. Please contact them to make sure they expect you: {url}"

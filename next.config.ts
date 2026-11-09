@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 import { imagesConfig } from "./src/config/images";
 import { SECURITY_HEADERS } from "./src/config/security-headers";
+import { reactTaintEnabled } from "./src/config/taint";
 import { extraAllowedHosts } from "./src/lib/auth/dev-origins";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
@@ -25,7 +26,8 @@ const nextConfig: NextConfig = {
     // React's taint API (SECURITY_REPORT 5.k): secrets, sessions and raw rows with the exact
     // address or contact values can never be passed to the browser (src/lib/security/taint.ts).
     // It also switches the app directory to React's experimental build that carries the API.
-    taint: true,
+    // The one switch: src/config/taint.ts.
+    taint: reactTaintEnabled(),
     ...(extraOrigins.length > 0 && { serverActions: { allowedOrigins: extraOrigins } }),
     turbopackChunking: { maxMergeChunkSize: 3000000, minChunkSize: 3000000, requestCost: 3000000, maxChunkCountPerGroup: 1 },
   },

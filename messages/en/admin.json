@@ -543,7 +543,7 @@
     "riskNone": "No warning signs were found.",
     "points": "{points} points",
     "photosTitle": "{count, plural, one {{count} photo} other {{count} photos}}",
-    "photosReverseHint": "Check each photo online: a photo copied from another site is a common sign of a fake listing. The link opens in a new tab and sends only the photo's address.",
+    "photosReverseHint": "Check each photo online: a photo copied from another site is a common sign of a fake listing. The link opens in a new tab, and the search site downloads the photo itself and may keep it, even before the listing is published. Use a work browser profile that is not signed in to Google, and start with TinEye.",
     "reverseSearch": "Search this photo online:",
     "reverseSearchOn": "Search photo {number} on {site} (opens in a new tab)",
     "noPhotos": "This listing has no photos.",

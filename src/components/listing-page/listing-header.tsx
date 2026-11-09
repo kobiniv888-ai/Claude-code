@@ -132,8 +132,8 @@ export function HostLine({ data, verified, welcomes }: { data: ListingPageData; 
 
 /**
  * Three highlights with icons, computed from the listing's data (lib/listing-page/highlights).
- * Round 3 (brief 7.3): the computed walk to the sea / ski lifts comes first, with "≈" and its
- * source (OpenStreetMap).
+ * Round 3 (brief 7.3): the computed walk to the sea / ski lifts comes first, as "up to N minutes"
+ * (rounded up to 5; founder's answer (b)) with its source (OpenStreetMap).
  */
 export function Highlights({ items, walk = null }: { items: Highlight[]; walk?: WalkHighlight | null }) {
   const t = useTranslations("listing.highlights");

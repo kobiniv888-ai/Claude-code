@@ -1,5 +1,5 @@
 import { expect, openAs, settle, test } from "./fixtures";
-import { TEST_ADMIN_PHONE } from "./helpers/staff";
+import { answerStaffProof, TEST_ADMIN_PHONE } from "./helpers/staff";
 import { createReport, createTestListing, createTestUser, createTicket, sql } from "./helpers/db";
 
 /** Definition of done: an admin can handle reports and answer tickets. */
@@ -65,7 +65,8 @@ test("an admin rejects a listing", async ({ browser }) => {
   await dialog.getByRole("combobox", { name: "Reason" }).click();
   await page.getByRole("option", { name: "Suspected scam" }).click();
   await dialog.getByRole("button", { name: "Reject listing" }).click();
-  await expect(page.getByText("The listing was rejected.")).toBeVisible();
+  // Rejecting is a destructive action: a fresh authenticator code first (3.6.c).
+  await answerStaffProof(page, page.getByText("The listing was rejected."));
   await expect.poll(async () => (await sql<{ status: string }>(`SELECT status FROM "Listing" WHERE id = $1`, [listing.id]))[0].status).toBe("REJECTED");
   expect(consoleErrors).toEqual([]);
   await context.close();

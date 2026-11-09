@@ -283,7 +283,7 @@
     "clear": "Clear all",
     "removeFrom": "Remove {title} from compare",
     "view": "View listing",
-    "walkMinutes": "{count, plural, =5 {Up to {countText} min walk} other {≈ {countText} min walk}}",
+    "walkMinutes": "Up to {countText} min walk",
     "sections": {
       "basics": "Basics",
       "facts": "Key facts",

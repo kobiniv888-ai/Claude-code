@@ -254,7 +254,7 @@
       "BUS": "Batumi Airport",
       "KUT": "Kutaisi Airport"
     },
-    "walk": "{count, plural, =5 {Up to 5 min walk} other {≈ {count} min walk}}",
+    "walk": "Up to {count} min walk",
     "km": "{km} km",
     "transport": {
       "metro": "Metro station",
@@ -295,8 +295,8 @@
     "pool": "Pool",
     "near_sea": "Near the sea",
     "near_ski_lifts": "Near the ski lifts",
-    "seaWalk": "{count, plural, =5 {Up to 5 minutes' walk to the sea} other {≈ {count} minutes' walk to the sea}}",
-    "liftWalk": "{count, plural, =5 {Up to 5 minutes' walk to the ski lifts} other {≈ {count} minutes' walk to the ski lifts}}",
+    "seaWalk": "Up to {count} minutes' walk to the sea",
+    "liftWalk": "Up to {count} minutes' walk to the ski lifts",
     "walkSource": "Estimated from OpenStreetMap",
     "yard": "Yard",
     "balcony_terrace": "Balcony or terrace",
@@ -345,7 +345,7 @@
     },
     "nearestSynagogue": "Nearest synagogue",
     "nearestChabad": "Nearest Chabad house",
-    "walk": "{count, plural, =5 {up to 5 minutes' walk} other {≈ {count} minutes' walk}}",
+    "walk": "up to {count} minutes' walk",
     "times": "Shabbat times in {city}"
   },
   "booking": {

@@ -54,3 +54,37 @@ describe("alertTexts (5.i): as little as possible", () => {
     });
   }
 });
+
+/**
+ * The host's TEXT MESSAGES about a booking (messages/<locale>/emails.json, sms.booking_new_host and
+ * sms.booking_reminder_host; src/lib/booking/notify.ts) follow the same rule: the booking number,
+ * when the guest arrives (reminder), and "open Bayit". No guest name, guest count or listing.
+ */
+describe("host booking texts (5.i): the number and the link, no guest name", () => {
+  const values = {
+    brand: "Bayit",
+    code: "BT-7K3Q9",
+    url: booking.url,
+    // Values a text could be given by mistake: none of them may come out.
+    guest: booking.guest,
+    guests: booking.guests,
+    title: booking.title,
+    dates: booking.dates,
+  };
+  for (const locale of locales) {
+    it(`${locale}: new booking and reminder`, () => {
+      const emails = JSON.parse(fs.readFileSync(path.join(process.cwd(), "messages", locale, "emails.json"), "utf8"));
+      const t = createTranslator({ locale, messages: { emails }, namespace: "emails" });
+      for (const key of ["sms.booking_new_host", "sms.booking_reminder_host"] as const) {
+        const raw = String(emails.sms[key.slice(4)]);
+        expect(raw, key).not.toMatch(/\{(guest|guests|title|dates)\}/);
+        for (const count of [0, 1, 3]) {
+          const text = t(key as never, { ...values, count } as never) as string;
+          expect(text, key).toContain("BT-7K3Q9");
+          expect(text, key).toContain(booking.url);
+          for (const detail of [booking.guest, "Noa", booking.guests, booking.title, booking.dates]) expect(text, key).not.toContain(detail);
+        }
+      }
+    });
+  }
+});

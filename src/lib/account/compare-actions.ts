@@ -20,7 +20,8 @@ import { photoUrl } from "@/lib/media";
 import { assertRateLimit } from "@/lib/rate-limit";
 import { getSettings } from "@/lib/settings";
 import { displayAmenities } from "@/lib/geo/walk-towns";
-import { publicWalkMinutes } from "@/lib/geo/public-walk";
+import { publicWalkTimes } from "@/lib/geo/public-walk";
+import { parseNearby } from "@/lib/nearby";
 
 export type CompareItem = {
   publicId: number;
@@ -111,6 +112,9 @@ export async function getCompareItems(publicIds: unknown): Promise<ActionResult<
         kosherCertName: true,
         synagogueWalkMin: true,
         chabadWalkMin: true,
+        seaWalkMinutes: true,
+        liftWalkMinutes: true,
+        nearby: true,
         shabbatFeatures: true,
         jewishFeatures: true,
         hotelJewishFeatures: true,
@@ -142,6 +146,7 @@ export async function getCompareItems(publicIds: unknown): Promise<ActionResult<
           ? { amount: own, currency: row.currency as CurrencyCode, period: row.pricePeriod, from: false }
           : { amount: num(room.price), currency: room.currency as CurrencyCode, period: room.pricePeriod, from: true };
       const photo = row.photos[0];
+      const walks = publicWalkTimes({ ...row, nearby: parseNearby(row.nearby) });
       const place = [row.neighborhood ? pickLocalized(row.neighborhood.names, locale) : "", row.city ? pickLocalized(row.city.names, locale) : ""]
         .filter(Boolean)
         .join(" · ");
@@ -170,9 +175,10 @@ export async function getCompareItems(publicIds: unknown): Promise<ActionResult<
             shabbatFriendly: row.isShabbatFriendly,
             kitchenKosher: row.kitchenKosher,
             kosherCertName: row.kosherCertName?.trim() || null,
-            // Security checklist 6.d: rounded up to 5 minutes (src/lib/geo/public-walk.ts).
-            synagogueWalkMin: publicWalkMinutes(row.synagogueWalkMin),
-            chabadWalkMin: publicWalkMinutes(row.chabadWalkMin),
+            // Security checklist 6.d: rounded up to 5 minutes, at most two walking times from the
+            // pin per listing, the same as the listing page (src/lib/geo/public-walk.ts).
+            synagogueWalkMin: walks.synagogueWalkMin,
+            chabadWalkMin: walks.chabadWalkMin,
             features: [...row.shabbatFeatures.map((f) => `shabbat:${f}`), ...row.jewishFeatures.map((f) => `jewish:${f}`), ...row.hotelJewishFeatures.map((f) => `hotel:${f}`)],
           },
           // Brief 7.3: with a pin, the computed walk replaces the host's "Near the sea" tick.

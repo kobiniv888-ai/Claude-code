@@ -179,7 +179,7 @@
     "hasVideo": "Has video",
     "furnished": "Furnished",
     "elevator": "Elevator",
-    "synagogueMaxWalk": "Synagogue within {count} min walk"
+    "synagogueMaxWalk": "Synagogue up to {count} min walk"
   },
   "facts": {
     "rooms": "{count, plural, one {{count} room} other {{count} rooms}}",
@@ -192,8 +192,8 @@
     "floor": "Floor {floor}",
     "floorOf": "Floor {floor} of {total}",
     "studio": "Studio",
-    "synagogueWalk": "{count, plural, =5 {Up to 5 min walk to synagogue} other {≈ {count} min walk to synagogue}}",
-    "chabadWalk": "{count, plural, =5 {Up to 5 min walk to Chabad house} other {≈ {count} min walk to Chabad house}}",
+    "synagogueWalk": "Up to {count} min walk to synagogue",
+    "chabadWalk": "Up to {count} min walk to Chabad house",
     "minStay": "{count, plural, one {Minimum {count} night} other {Minimum {count} nights}}"
   }
 }

@@ -179,7 +179,7 @@
     "hasVideo": "С видео",
     "furnished": "С мебелью",
     "elevator": "Лифт",
-    "synagogueMaxWalk": "Синагога в {count} мин пешком"
+    "synagogueMaxWalk": "Синагога не больше {count} мин пешком"
   },
   "facts": {
     "rooms": "{count, plural, one {{count} комната} few {{count} комнаты} many {{count} комнат} other {{count} комнаты}}",
@@ -192,8 +192,8 @@
     "floor": "Этаж {floor}",
     "floorOf": "Этаж {floor} из {total}",
     "studio": "Студия",
-    "synagogueWalk": "{count, plural, =5 {Не больше 5 мин пешком до синагоги} other {≈ {count} мин пешком до синагоги}}",
-    "chabadWalk": "{count, plural, =5 {Не больше 5 мин пешком до Бейт Хабада} other {≈ {count} мин пешком до Бейт Хабада}}",
+    "synagogueWalk": "Не больше {count} мин пешком до синагоги",
+    "chabadWalk": "Не больше {count} мин пешком до Бейт Хабада",
     "minStay": "{count, plural, one {Минимум {count} ночь} few {Минимум {count} ночи} many {Минимум {count} ночей} other {Минимум {count} ночи}}"
   }
 }

@@ -22,15 +22,17 @@ type ExperimentalReact = {
 };
 const reactServer = require("next/dist/compiled/react-experimental/cjs/react.react-server.production.js") as ExperimentalReact;
 const registry = reactServer.__SERVER_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
+/** React's stable server build: what the app directory runs when the switch is off (src/config/taint.ts). */
+const stableReactServer = require("next/dist/compiled/react/cjs/react.react-server.production.js") as Partial<ExperimentalReact>;
 
 const taint = await import("./taint");
 
 afterEach(() => taint.setTaintApiForTests(null));
 
 describe("taint helpers (5.k)", () => {
-  it("is switched on in next.config.ts (experimental.taint)", () => {
+  it("next.config.ts takes experimental.taint from the one switch (src/config/taint.ts)", () => {
     const config = fs.readFileSync(path.join(process.cwd(), "next.config.ts"), "utf8");
-    expect(config).toMatch(/experimental:\s*\{[^}]*\btaint:\s*true/);
+    expect(config).toMatch(/experimental:\s*\{[^}]*\btaint:\s*reactTaintEnabled\(\)/);
   });
 
   it("do nothing on React's stable build (unit tests, scripts)", () => {
@@ -78,5 +80,32 @@ describe("taint helpers (5.k)", () => {
     taint.setTaintApiForTests(reactServer);
     for (const value of [null, undefined, 42, "text", Symbol("s")]) expect(() => taint.taintObject("x", value)).not.toThrow();
     expect(() => taint.taintValue("x", {}, 123)).not.toThrow();
+  });
+  it("switch OFF: on React's real stable server build every helper is a silent no-op", () => {
+    expect(stableReactServer.experimental_taintObjectReference).toBeUndefined();
+    expect(stableReactServer.experimental_taintUniqueValue).toBeUndefined();
+    taint.setTaintApiForTests(stableReactServer);
+    expect(taint.taintAvailable()).toBe(false);
+    const row = { id: "l-off", address: "1 Test Street" };
+    expect(() => taint.taintObject("raw listing row", row)).not.toThrow();
+    expect(() => taint.taintValue("session token", row, "sess-token-0123456789abcdefghij")).not.toThrow();
+    expect(taint.taintServerSecrets({ SITE_ENV: "development", BETTER_AUTH_SECRET: "x".repeat(40) })).toBe(0);
+    expect(registry.TaintRegistryObjects.has(row)).toBe(false);
+  });
+
+  it("switch ON: on React's experimental server build the helpers are live", () => {
+    taint.setTaintApiForTests(reactServer);
+    expect(taint.taintAvailable()).toBe(true);
+    const row = { id: "l-on", address: "1 Test Street" };
+    taint.taintObject("raw listing row", row);
+    expect(registry.TaintRegistryObjects.get(row)).toContain("raw listing row");
+  });
+
+  it("a half-present API (one function missing) counts as missing", () => {
+    taint.setTaintApiForTests({ experimental_taintObjectReference: reactServer.experimental_taintObjectReference });
+    expect(taint.taintAvailable()).toBe(false);
+    const row = { id: "l-half" };
+    expect(() => taint.taintObject("raw listing row", row)).not.toThrow();
+    expect(registry.TaintRegistryObjects.has(row)).toBe(false);
   });
 });

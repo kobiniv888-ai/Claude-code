@@ -2,6 +2,7 @@ import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
 import type { VerificationStatus, VerificationType } from "@/generated/prisma/enums";
 import { db } from "@/lib/db";
+import { taintObject } from "@/lib/security/taint";
 import { compareCadastralCodes, parseVerificationDocuments } from "../documents";
 import type { StaffViewer } from "../staff-visibility";
 import { accountPhoneFor, ADMIN_PAGE_SIZE, coverPhotoSelect } from "./shared";
@@ -116,6 +117,8 @@ export async function getVerificationDetail(id: string, viewer: Pick<StaffViewer
     },
   });
   if (!request) return null;
+  // The raw row (documents, the account's contact values) only through the DTO below (React taint, 5.k).
+  taintObject("raw verification request row", request);
 
   const [history, userPhone] = await Promise.all([
     db.verificationRequest.findMany({
@@ -128,7 +131,7 @@ export async function getVerificationDetail(id: string, viewer: Pick<StaffViewer
   ]);
 
   return {
-    request,
+    request: { ...request },
     userPhone,
     documents: request.documentsDeletedAt ? [] : parseVerificationDocuments(request.documents),
     cadastral: compareCadastralCodes(request.cadastralCode, request.listing?.cadastralCode),

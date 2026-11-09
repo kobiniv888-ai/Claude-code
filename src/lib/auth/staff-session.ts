@@ -49,7 +49,8 @@ export async function checkStaffSessionIdle(input: { userId: string; sessionId: 
       db.session.updateMany({ where: { id: input.sessionId, userId: input.userId }, data: { twoFactorVerifiedAt: null } }),
       db.verification.deleteMany({ where: { identifier } }),
     ]);
-    void recordSecurityEvent({ type: "staff_session_idle_logout", userId: input.userId, meta: { hadMarker: !!marker } });
+    // Awaited (it never throws): an idle logout is rare, and the row must exist when the check returns.
+    await recordSecurityEvent({ type: "staff_session_idle_logout", userId: input.userId, meta: { hadMarker: !!marker } });
     return "idle";
   } catch (error) {
     console.error("[auth] staff idle check failed — asking for the 2-step code again:", (error as Error)?.message);

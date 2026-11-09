@@ -283,7 +283,7 @@
     "clear": "ყველას გასუფთავება",
     "removeFrom": "{title} — შედარებიდან წაშლა",
     "view": "განცხადების ნახვა",
-    "walkMinutes": "{count, plural, =5 {არაუმეტეს {countText} წუთი ფეხით} other {≈ {countText} წუთი ფეხით}}",
+    "walkMinutes": "არაუმეტეს {countText} წუთი ფეხით",
     "sections": {
       "basics": "მთავარი",
       "facts": "ძირითადი მონაცემები",

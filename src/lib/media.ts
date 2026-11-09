@@ -102,8 +102,11 @@ export type ReverseImageLinks = { googleLens: string; tinEye: string };
 /**
  * "Search this photo online" links for the first-listing review (SECURITY_REPORT 9.m): Google Lens
  * and TinEye, both free, by the photo's public address. Nothing is uploaded by us: the staff
- * member opens the link in a new tab and the search site fetches the public photo itself. Null
- * for anything that is not an absolute http(s) address (a stored URL we would not link to).
+ * member opens the link in a new tab and the search site DOWNLOADS the photo itself and may keep
+ * it, before the listing is published; Google Lens also ties the search to the staff member's
+ * Google account, so the review page lists TinEye first and its hint says to use a work browser
+ * profile that is not signed in to Google (reverse-image-privacy-1). Null for anything that is not
+ * an absolute http(s) address (a stored URL we would not link to).
  */
 export function reverseImageSearchLinks(imageUrl: string): ReverseImageLinks | null {
   // An absolute http(s) address, or a path on our own site ("/api/media/…"); nothing else.

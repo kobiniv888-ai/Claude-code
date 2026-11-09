@@ -283,7 +283,7 @@
     "clear": "مسح الكل",
     "removeFrom": "إزالة {title} من المقارنة",
     "view": "عرض الإعلان",
-    "walkMinutes": "{count, plural, =5 {حتى {countText} دقائق سيرًا} few {≈ {countText} دقائق سيرًا} other {≈ {countText} دقيقة سيرًا}}",
+    "walkMinutes": "{count, plural, few {حتى {countText} دقائق سيرًا} other {حتى {countText} دقيقة سيرًا}}",
     "sections": {
       "basics": "الأساسيات",
       "facts": "معلومات رئيسية",

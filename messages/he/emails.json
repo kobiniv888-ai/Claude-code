@@ -743,9 +743,9 @@
   },
   "sms": {
     "booking_confirmed_guest": "{brand}: ההזמנה {code} אושרה. {title}, {dates}. כתובת ופרטי המארח: {url}",
-    "booking_new_host": "{brand}: הזמנה חדשה {code} מאת {guest}, {dates}, {guests}. פרטים: {url}",
+    "booking_new_host": "{brand}: הזמנה חדשה {code}. לפרטים: {url}",
     "booking_reminder_guest": "{brand}: ההגעה למקום {title} {count, plural, =0 {היום} =1 {מחר} =2 {בעוד יומיים} other {בעוד {count} ימים}}. כתובת ופרטי המארח: {url}",
-    "booking_reminder_host": "{brand}: ההגעה של {guest} {count, plural, =0 {היום} =1 {מחר} =2 {בעוד יומיים} other {בעוד {count} ימים}} (הזמנה {code}). {url}",
+    "booking_reminder_host": "{brand}: תזכורת להזמנה {code}, ההגעה {count, plural, =0 {היום} =1 {מחר} =2 {בעוד יומיים} other {בעוד {count} ימים}}. לפרטים: {url}",
     "booking_cancelled_by_guest": "{brand}: ההזמנה {code} ({dates}) בוטלה על ידי האורח. התאריכים פנויים שוב. {url}",
     "booking_cancelled_by_host": "{brand}: המארח ביטל את ההזמנה {code} ({dates}). לא חויבת בכלום. {url}",
     "booking_host_unreached_guest": "{brand}: ההודעה שלנו על ההזמנה {code} לא הגיעה למארח. כדאי לפנות אליו ולוודא שהוא מחכה לכם: {url}"

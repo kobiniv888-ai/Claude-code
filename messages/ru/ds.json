@@ -8,7 +8,7 @@
     "kosherKitchen": "Кошерная кухня",
     "kosherMeals": "Кошерное питание",
     "shabbatFriendly": "Подходит для шабата",
-    "synagogueWalk": "{minutes, plural, =5 {Не больше 5 мин пешком до синагоги} other {≈ {minutes} мин пешком до синагоги}}",
+    "synagogueWalk": "Не больше {minutes} мин пешком до синагоги",
     "keepsShabbat": "Соблюдает шабат",
     "business": "Компания",
     "demo": "Демо",

@@ -155,18 +155,15 @@ type SmsKey =
 async function text(booking: LoadedBooking, side: Side, key: SmsKey, extra: Record<string, string | number> = {}) {
   const r = recipient(booking, side);
   if (!r.phone) return;
-  const [t, tb] = await Promise.all([
-    getTranslations({ locale: r.locale, namespace: "emails" }),
-    getTranslations({ locale: r.locale, namespace: "booking" }),
-  ]);
+  const t = await getTranslations({ locale: r.locale, namespace: "emails" });
   const title = titleIn(booking, r.locale);
   const body = t(`sms.${key}`, {
     brand: siteConfig.localizedName[r.locale] ?? siteConfig.name,
     code: booking.code,
     title: title.length > 40 ? `${title.slice(0, 39)}…` : title,
     dates: formatDateRange(dateToDay(booking.checkIn), dateToDay(booking.checkOut), r.locale, { day: "numeric", month: "short" }),
-    guest: booking.guestName,
-    guests: tb("guests.total", { count: booking.adults + booking.children }),
+    // No guest name or guest count in any text: a text shows on a lock screen (SECURITY_REPORT
+    // 5.i; the host texts say the booking number and "open Bayit", like push and Telegram).
     url: absoluteUrl(r.locale, r.path),
     ...extra,
   });
