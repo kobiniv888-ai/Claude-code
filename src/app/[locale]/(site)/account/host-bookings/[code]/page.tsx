@@ -30,6 +30,7 @@ import { whatsappUrl } from "@/lib/booking/reveal";
 import { telHref } from "@/lib/phone";
 import { formatDate, formatDateRange, formatTime } from "@/lib/format";
 import { pageMetadata } from "@/lib/seo";
+import { recordIdMiss } from "@/lib/security/id-guess";
 import { HostBookingReview } from "@/components/reviews/host-booking-review";
 
 type Props = {
@@ -67,7 +68,11 @@ export default async function HostBookingPage({ params, searchParams }: Props) {
   setRequestLocale(locale);
   const user = await requireUser({ next: hostBookingPath(code) });
   const booking = await getHostBooking(user.id, code, locale as AppLocale);
-  if (!booking) notFound();
+  if (!booking) {
+    // 4.7.a: a burst of codes that match nothing alerts the founder (src/lib/security/id-guess.ts).
+    await recordIdMiss("host_booking", user.id);
+    notFound();
+  }
   const [t, tb, tl] = await Promise.all([
     getTranslations("hostBooking.details"),
     getTranslations("booking"),

@@ -38,6 +38,8 @@ const COLUMNS = [
       { key: "safety", href: "/safety" },
       { key: "emergency", href: "/safety#emergency" },
       { key: "listingRules", href: "/legal/listing-rules" },
+      // SECURITY_REPORT 18.2: how to report a security problem (also /.well-known/security.txt).
+      { key: "security", href: "/security" },
     ],
   },
   {

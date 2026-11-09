@@ -14,6 +14,7 @@ import { REVIEWS_PATH, writeReviewPath } from "@/lib/reviews/paths";
 import { getReviewFormContext } from "@/lib/reviews/queries";
 import { isValidRating } from "@/lib/reviews/rules";
 import { pageMetadata } from "@/lib/seo";
+import { recordIdMiss } from "@/lib/security/id-guess";
 
 type Props = {
   params: Promise<{ locale: string; code: string }>;
@@ -51,7 +52,11 @@ export default async function WriteReviewPage({ params, searchParams }: Props) {
     getReviewFormContext(user.id, code, locale),
     searchParams,
   ]);
-  if (!context) notFound();
+  if (!context) {
+    // 4.7.a: a burst of codes that match nothing alerts the founder (src/lib/security/id-guess.ts).
+    await recordIdMiss("review", user.id);
+    notFound();
+  }
   const wanted = Number(Array.isArray(query.rating) ? query.rating[0] : query.rating);
   const trip = tripPath(context.code);
   const until = formatDate(context.closes, locale, { day: "numeric", month: "long", year: "numeric" });

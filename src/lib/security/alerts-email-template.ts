@@ -4,8 +4,10 @@
  * messages/<locale>/emails.json under templates.security_alert.*. Sent by ./alerts.ts, together
  * with the same lines by Telegram.
  *
- * Counts and kinds only: no names, email addresses, phone numbers, IPs or ids (the audit log and
- * the security event log hold the rest, for staff).
+ * Counts and kinds only: no names, email addresses, phone numbers, street addresses, IPs or ids
+ * (the audit log and the security event log hold the rest, for staff). Late support tickets are
+ * named by their running number only. The same lines go by Telegram (founder's answer 10: no
+ * address ever reaches a Telegram or push text).
  */
 import type { EmailContent, TemplateContext } from "@/lib/email/templates";
 import { SECURITY_ALERT_KINDS, type SecurityAlert } from "./alerts-rules";
@@ -34,6 +36,10 @@ export function securityAlertLines(alerts: SecurityAlert[], t: Translate): strin
         count: alert.count,
         threshold: alert.threshold ?? 0,
         days: alert.days ?? 0,
+        perIp: alert.perIp ?? 0,
+        perIpThreshold: alert.perIpThreshold ?? 0,
+        // Running numbers only, Western digits, written left to right ("#12, #15").
+        tickets: (alert.tickets ?? []).map((n) => `#${Math.trunc(n)}`).join(", "),
       }),
     );
 }

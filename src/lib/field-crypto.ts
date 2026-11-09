@@ -148,15 +148,26 @@ export function openListingLocation(row: { addressEnc?: string | null; pinEnc?: 
   const failed = address.failed || pin.failed;
   const location: OpenedLocation = failed ? { address: null, pin: null, failed } : { address: address.value, pin: pin.value, failed };
   taintObject("decrypted exact location", location);
+  taintObject("decrypted exact pin", location.pin);
   return location;
 }
 
-/** Only the exact pin (save-time computations: walking times, nearby places). */
+/**
+ * Only the exact pin (save-time computations: walking times, nearby places; the trip map). The pin
+ * object is tainted by reference: a page gets only a copy of the numbers it needs.
+ */
 export function openPin(stored: string | null | undefined, where: string): Opened<Pin> {
-  return open("listing.pin", stored, where, decodePin);
+  const opened = open("listing.pin", stored, where, decodePin);
+  taintObject("decrypted exact pin", opened.value);
+  return opened;
 }
 
-/** The guest's phone on a booking (E.164), or null (none, erased, or not openable: `failed`). */
+/**
+ * The guest's phone on a booking (E.164), or null (none, erased, or not openable: `failed`).
+ * A phone is a short string that legitimately reaches its host's and an ADMIN's own pages, so it is
+ * not tainted by value (React taint would block those too): the rows it is read with are tainted by
+ * reference, and only the callers allowed by Q12 call this.
+ */
 export function openGuestPhone(stored: string | null | undefined, where: string): Opened<string> {
   return open("booking.guestPhone", stored, where, (text) => text);
 }

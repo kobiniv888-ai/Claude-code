@@ -1,6 +1,6 @@
 /**
  * The founder's security alerts (SECURITY_REPORT 16.3, 4.7.a, 3.8.c): which signals of the last
- * hour become an alert, and how often the same alert may repeat. Pure (no imports): the hourly job
+ * hour become an alert, and how often the same alert may repeat. Pure (no server imports): the hourly job
  * (./alerts.ts, /api/cron/security-alerts) collects the numbers, these rules decide.
  *
  * The thresholds are founder choices with defaults (one line each, below). A "burst" threshold is
@@ -10,8 +10,14 @@
  *
  * Dedupe: one alert per kind per ALERT_REPEAT_MINUTES (an hour), longer for the daily kinds
  * (certificate, missing backup). Alerts carry counts and kinds only: no names, addresses, phones,
- * IPs or ids.
+ * IPs or ids (the one exception: the running numbers of late support tickets, so the founder can
+ * open them; never their subject or who wrote them).
+ *
+ * Sign-ups (founder's answer 6 of 9 November 2026): ALERT ONLY, nothing is ever blocked by an IP
+ * address or a connection, and at most ONE sign-up alert an hour: the site-wide burst and the
+ * one-connection burst are a single kind ("signup_burst") that says both numbers.
  */
+import { SUPPORT_ALERT_MAX_LISTED } from "./alerts-support-rules";
 
 export const SECURITY_ALERT_WINDOW_MINUTES = 60;
 
@@ -71,7 +77,6 @@ export const SECURITY_ALERT_KINDS = [
   "booking_cap",
   "show_contact_cap",
   "signup_burst",
-  "signup_burst_ip",
   "listing_burst",
   "booking_burst",
   "role_changed",
@@ -81,6 +86,7 @@ export const SECURITY_ALERT_KINDS = [
   "offsite_backup_failed",
   "offsite_backup_missing",
   "certificate_expiry",
+  "support_overdue",
 ] as const;
 export type SecurityAlertKind = (typeof SECURITY_ALERT_KINDS)[number];
 
@@ -109,10 +115,25 @@ export type SecuritySignals = {
   offsite: { configured: boolean; lastOkAt: Date | null } | null;
   /** Days left on the HTTPS certificate (null: not checked). */
   certificateDaysLeft: number | null;
+  /**
+   * Support tickets late for the reply promise that the founder has not heard about yet (the job
+   * filters with ./alerts-support-rules.ts newlyOverdue), oldest first: their running numbers.
+   */
+  supportOverdue?: number[];
   now: Date;
 };
 
-export type SecurityAlert = { kind: SecurityAlertKind; count: number; threshold?: number; days?: number };
+export type SecurityAlert = {
+  kind: SecurityAlertKind;
+  count: number;
+  threshold?: number;
+  days?: number;
+  /** signup_burst: the most new accounts from one connection, and its threshold. */
+  perIp?: number;
+  perIpThreshold?: number;
+  /** support_overdue: the ticket numbers (at most SUPPORT_ALERT_MAX_LISTED). */
+  tickets?: number[];
+};
 
 const T = SECURITY_ALERT_THRESHOLDS;
 
@@ -146,8 +167,10 @@ export function evaluateSecurityAlerts(s: SecuritySignals): SecurityAlert[] {
   else over("csp_reports", n("csp_report"), T.cspReports);
   over("booking_cap", n("booking_cap_hit"), T.bookingCapHits);
   over("show_contact_cap", n("show_contact_cap_hit"), T.showContactCapHits);
-  over("signup_burst", s.signupsSite, T.signupsSite);
-  over("signup_burst_ip", s.signupsPerIpMax, T.signupsPerIp);
+  // One sign-up kind (answer 6): a burst site-wide OR from one connection; alert only.
+  if (s.signupsSite > T.signupsSite || s.signupsPerIpMax > T.signupsPerIp) {
+    out.push({ kind: "signup_burst", count: s.signupsSite, threshold: T.signupsSite, perIp: s.signupsPerIpMax, perIpThreshold: T.signupsPerIp });
+  }
   over("listing_burst", s.listingsCreated, T.listingsCreated);
   over("booking_burst", s.bookingsCreated, T.bookingsCreated);
   each("role_changed", s.roleChanges);
@@ -162,6 +185,8 @@ export function evaluateSecurityAlerts(s: SecuritySignals): SecurityAlert[] {
   if (s.certificateDaysLeft !== null && s.certificateDaysLeft <= T.certificateDays) {
     out.push({ kind: "certificate_expiry", count: 1, days: Math.max(0, s.certificateDaysLeft) });
   }
+  const late = s.supportOverdue ?? [];
+  if (late.length > 0) out.push({ kind: "support_overdue", count: late.length, tickets: late.slice(0, SUPPORT_ALERT_MAX_LISTED) });
   return out;
 }
 

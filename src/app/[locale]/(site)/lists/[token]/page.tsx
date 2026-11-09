@@ -18,6 +18,7 @@ import { getListingCards } from "@/lib/listing/queries";
 import { accountListPath, sharedListPath } from "@/lib/lists/paths";
 import { getSharedList, publicListName } from "@/lib/lists/server";
 import { pageMetadata } from "@/lib/seo";
+import { recordIdMiss } from "@/lib/security/id-guess";
 
 type Props = { params: Promise<{ locale: string; token: string }> };
 
@@ -63,7 +64,11 @@ export default async function SharedListPage({ params }: Props) {
   setRequestLocale(raw);
   const locale: AppLocale = isAppLocale(raw) ? raw : siteConfig.i18n.primaryLocale;
   const shared = await loadList(token);
-  if (!shared) notFound();
+  if (!shared) {
+    // 4.7.a: a burst of links that match nothing alerts the founder (src/lib/security/id-guess.ts).
+    await recordIdMiss("list");
+    notFound();
+  }
 
   const [t, ctx, viewer] = await Promise.all([getTranslations("lists"), getCardContext(locale), getCurrentUser().catch(() => null)]);
   const cards = await getListingCards(shared.listingIds, ctx);

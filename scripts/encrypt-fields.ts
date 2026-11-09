@@ -7,6 +7,8 @@
  *   npm run db:encrypt-fields -- --dry-run     count only, change nothing
  *   npm run db:encrypt-fields                  encrypt / re-seal, empty the plain columns, add the guard
  *   npm run db:encrypt-fields -- --batch 500   rows per batch (default 200)
+ *   npm run db:encrypt-fields -- --verify      also open EVERY stored value and count those that do
+ *                                              not open (before removing an old key, after a restore)
  *
  * Needs the new columns first (npx prisma db execute --file prisma/sql/before-push.sql && npx prisma
  * db push) and the key the site uses (FIELD_ENCRYPTION_KEY; during a rotation also
@@ -31,10 +33,12 @@ function batchSize(argv: string[]): number | undefined {
 async function main() {
   const argv = process.argv.slice(2);
   const dryRun = argv.includes("--dry-run");
-  const report = await encryptPlainFields(db, { dryRun, batchSize: batchSize(argv) });
+  const verify = argv.includes("--verify");
+  const report = await encryptPlainFields(db, { dryRun, verify, batchSize: batchSize(argv) });
   const t = (name: string, r: typeof report.listings) =>
-    `${name}: ${r.changed} rows ${dryRun ? "to change" : "changed"} (${r.sealed} sealed, ${r.resealed} re-sealed, ${r.cleared} plain copies emptied, ${r.unreadable} unreadable, ${r.skipped} skipped)`;
-  console.log(`[encrypt-fields] key ${report.keyId}${dryRun ? " — dry run, nothing changed" : ""}`);
+    `${name}: ${r.changed} rows ${dryRun ? "to change" : "changed"} (${r.sealed} sealed, ${r.resealed} re-sealed, ${r.cleared} plain copies emptied, ${r.unreadable} unreadable, ${r.skipped} skipped` +
+    `${verify ? `, ${r.verified} checked` : ""})`;
+  console.log(`[encrypt-fields] key ${report.keyId}${dryRun ? " — dry run, nothing changed" : ""}${verify ? " — every stored value opened and checked" : ""}`);
   console.log(`[encrypt-fields] ${t("listings", report.listings)}`);
   console.log(`[encrypt-fields] ${t("bookings", report.bookings)}`);
   console.log(

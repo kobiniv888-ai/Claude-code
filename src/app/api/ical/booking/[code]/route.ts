@@ -3,6 +3,7 @@ import { isAppLocale } from "@/i18n/locale";
 import { requireUserForAction, type CurrentUser } from "@/lib/auth/session";
 import { getGuestTrip } from "@/lib/booking/queries";
 import { rateLimitByIp, rateLimitHeaders } from "@/lib/rate-limit";
+import { recordIdMiss } from "@/lib/security/id-guess";
 import { tripIcsFile } from "@/lib/trip/calendar-server";
 
 /**
@@ -53,7 +54,12 @@ export async function GET(request: Request, context: Context) {
 
   try {
     const trip = await getGuestTrip(user.id, code, locale);
-    if (!trip || trip.status !== "CONFIRMED" || !trip.reveal) return plain(404, "Not found");
+    if (!trip) {
+      // 4.7.a: a burst of codes that match nothing alerts the founder (src/lib/security/id-guess.ts).
+      await recordIdMiss("booking_ics", user.id);
+      return plain(404, "Not found");
+    }
+    if (trip.status !== "CONFIRMED" || !trip.reveal) return plain(404, "Not found");
     const body = await tripIcsFile(trip, locale);
     return new Response(body, {
       status: 200,

@@ -122,7 +122,8 @@ Environment Variables**) and redeploy.
 ## Other keys (translation, email, Google login, SMS)
 
 They work the same way as the map key: add a **Codespaces secret** with the exact name and restart
-the codespace. `start.sh` copies these names into `.env`: `GOOGLE_TRANSLATE_API_KEY`,
+the codespace. The website and the scripts read these names from the codespace's environment,
+never from `.env` (`.devcontainer/env-sync.sh` removes any copy of them from it): `GOOGLE_TRANSLATE_API_KEY`,
 `AZURE_TRANSLATOR_KEY`, `AZURE_TRANSLATOR_REGION`, `RESEND_API_KEY`, `EMAIL_FROM`,
 `RESEND_WEBHOOK_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `TWILIO_ACCOUNT_SID`,
 `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID`, `TWILIO_MESSAGING_SERVICE_SID`,

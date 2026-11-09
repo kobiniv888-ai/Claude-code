@@ -28,5 +28,10 @@ if (process.env.SEED_ON_BUILD === "true") run("npm run db:seed");
 // Field encryption (SECURITY_REPORT 12.3.c): plain addresses, pins and guest phones go into the
 // encrypted columns and the database guard is added. Idempotent; fails the build when something is
 // left that it could not encrypt (scripts/encrypt-fields.ts).
-if (process.env.DB_PUSH_ON_BUILD === "true" || process.env.SEED_ON_BUILD === "true") run("npm run --silent db:encrypt-fields");
+// It adds a table constraint, so it runs as the migration role when one is set (SECURITY_REPORT
+// 12.3.b: the app's own role, DATABASE_URL, cannot change tables; prisma.config.ts does the same).
+if (process.env.DB_PUSH_ON_BUILD === "true" || process.env.SEED_ON_BUILD === "true") {
+  const migrationUrl = process.env.MIGRATION_DATABASE_URL?.trim();
+  execSync("npm run --silent db:encrypt-fields", { stdio: "inherit", env: migrationUrl ? { ...process.env, DATABASE_URL: migrationUrl } : process.env });
+}
 run("npx next build");

@@ -110,6 +110,15 @@ order. The detailed steps and prices are in "Login & messages" below.
       runs every hour; reminders, "stay completed" with the review request, your daily summary,
       the hosts' weekly email and the saved-search and price-drop emails run every morning. Details
       below.
+- [ ] **`FIELD_ENCRYPTION_KEY`** (SECURITY_REPORT 12.3.c): the key that encrypts the exact
+      addresses, pins and guests' phones in the database. Make one for the real site and a
+      **different** one for staging, each with `openssl rand -base64 32`, and set it in the
+      hosting's settings (never copy the codespace's; the server refuses a codespace key, a reused
+      secret, or no key). **Save both in your password manager with the date**: without the key
+      nobody, not even you, can read those addresses and phones again, and keep every old key as
+      long as a backup made with it exists. After the tables are created on the real database,
+      run `npm run db:encrypt-fields` once (it adds the database rule that refuses unencrypted
+      values). Changing the key later: `docs/security/field-encryption.md` → "Key rotation".
 - [ ] **Telegram bot for booking alerts (free).** In Telegram, open **@BotFather** → `/newbot` →
       a name ("Bayit") and a username that ends in "bot". It gives you a token. Add three
       Codespaces secrets (and the same names on the hosting): `TELEGRAM_BOT_TOKEN` (the token),

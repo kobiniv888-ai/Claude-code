@@ -304,8 +304,8 @@ export async function getListingForReview(id: string, viewer: StaffViewer) {
   // which drops the contact values for staff who may not see phones (React taint, 5.k).
   taintObject("raw listing row under review", row);
   // The exact address and pin, decrypted for the reviewer; "not available" when they cannot be.
-  const { addressEnc: _addressEnc, pinEnc: _pinEnc, ...plainRow } = row;
-  const location = openListingLocation(row, "admin_review");
+  const { addressEnc, pinEnc, ...plainRow } = row;
+  const location = openListingLocation({ addressEnc, pinEnc }, "admin_review");
   const located = { ...plainRow, address: location.address, lat: location.pin?.lat ?? null, lng: location.pin?.lng ?? null, locationUnreadable: location.failed };
   const listing = canSeePhone(viewer) ? located : { ...located, contactMethods: null };
 

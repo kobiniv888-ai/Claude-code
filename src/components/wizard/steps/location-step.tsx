@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { EyeOffIcon, LoaderCircleIcon, LocateFixedIcon, MapPinIcon, SearchIcon, ShieldCheckIcon } from "lucide-react";
+import { EyeOffIcon, LoaderCircleIcon, LocateFixedIcon, MapPinIcon, MapPinOffIcon, SearchIcon, ShieldCheckIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -193,7 +193,7 @@ function AddressSearch({
 }
 
 /** Step 3 — city, neighborhood, address search, pin on the map. Address and pin stay private. */
-export function LocationStep({ values, set, errors, context, locale }: StepProps) {
+export function LocationStep({ listing, values, set, errors, context, locale }: StepProps) {
   const t = useTranslations("wizard.location");
   const [focusKey, setFocusKey] = useState(0);
   const [locating, setLocating] = useState(false);
@@ -260,6 +260,14 @@ export function LocationStep({ values, set, errors, context, locale }: StepProps
 
   return (
     <div className="grid gap-6">
+      {listing.locationUnreadable ? (
+        // The saved address and pin could not be decrypted (SECURITY_REPORT 12.3.c): nothing is lost
+        // or overwritten unless the owner enters them again.
+        <div role="status" className="flex items-start gap-3 rounded-xl bg-muted p-3.5 text-sm text-foreground">
+          <MapPinOffIcon className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden />
+          <p className="text-pretty">{t("unreadable")}</p>
+        </div>
+      ) : null}
       <Section>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label={t("cityLabel")} error={errors.cityId}>

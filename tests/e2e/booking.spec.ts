@@ -80,13 +80,13 @@ async function openDatesSheet(page: Page): Promise<Locator> {
 test.describe("booking", () => {
   test("guest books free nights → confirmation, trips, host list and calendar, iCal → guest cancels", async ({ browser }) => {
     test.slow();
-    const [row] = await sql<{ id: string; icalToken: string; addressEnc: string | null }>(
+    const [seeded] = await sql<{ id: string; icalToken: string; addressEnc: string | null }>(
       `SELECT id, "icalToken", "addressEnc" FROM "Listing" WHERE "publicId" = $1 AND "bookingMode" = 'INSTANT' AND status = 'LIVE'`,
       [PUBLIC_ID],
     );
-    expect(row, `demo listing #${PUBLIC_ID} must be LIVE and INSTANT (npm run db:seed)`).toBeTruthy();
+    expect(seeded, `demo listing #${PUBLIC_ID} must be LIVE and INSTANT (npm run db:seed)`).toBeTruthy();
     // The exact address is stored encrypted (SECURITY_REPORT 12.3.c): opened with the test keys.
-    const listing = { id: row.id, icalToken: row.icalToken, address: openAddress(row.addressEnc)! };
+    const listing = { id: seeded.id, icalToken: seeded.icalToken, address: openAddress(seeded.addressEnc)! };
     const { checkIn, checkOut } = await freeNights(listing.id);
     const icsDay = checkIn.replace(/-/g, "");
 

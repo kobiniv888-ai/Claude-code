@@ -86,6 +86,12 @@ export type WizardAnswers = {
   publicPath: string | null;
   /** The listing row's updatedAt (ISO). */
   updatedAt: string;
+  /**
+   * The saved exact address and pin could not be decrypted (src/lib/field-crypto.ts, fail closed):
+   * the location step shows them empty with a note, and nothing is overwritten unless the owner
+   * enters them again (SECURITY_REPORT 12.3.c).
+   */
+  locationUnreadable?: boolean;
 };
 
 export type WizardListing = WizardAnswers & {

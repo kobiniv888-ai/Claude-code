@@ -47,6 +47,12 @@ export type EncryptFieldsOptions = {
   bookingIds?: readonly string[];
   /** Add the CHECK constraints once no plain value is left (default true; never in a dry run). */
   installGuard?: boolean;
+  /**
+   * Also open every value already sealed with the CURRENT key and count those that do not open
+   * (`unreadable`): run it before removing FIELD_ENCRYPTION_KEY_PREVIOUS after a rotation, or after
+   * a restore. Slower (reads every row); without it only plain or old-key values are read.
+   */
+  verify?: boolean;
   /** Tests: another keyring (rotation); default: the server's (FIELD_ENCRYPTION_KEY…). */
   keyring?: FieldKeyring;
 };
@@ -64,10 +70,13 @@ export type TableReport = {
   unreadable: number;
   /** Rows skipped because they changed while the script ran (the next run picks them up). */
   skipped: number;
+  /** Rows whose stored values were all opened and checked (`verify` only). */
+  verified: number;
 };
 
 export type EncryptFieldsReport = {
   dryRun: boolean;
+  verify: boolean;
   keyId: string;
   listings: TableReport;
   bookings: TableReport;
@@ -82,7 +91,7 @@ export const LISTING_GUARD = "Listing_no_plain_location";
 export const BOOKING_GUARD = "Booking_no_plain_guest_phone";
 const DEFAULT_BATCH = 200;
 
-const emptyReport = (): TableReport => ({ changed: 0, sealed: 0, resealed: 0, cleared: 0, unreadable: 0, skipped: 0 });
+const emptyReport = (): TableReport => ({ changed: 0, sealed: 0, resealed: 0, cleared: 0, unreadable: 0, skipped: 0, verified: 0 });
 
 type ListingRow = { id: string; address: string | null; lat: number | null; lng: number | null; addressEnc: string | null; pinEnc: string | null };
 type BookingRow = { id: string; guestPhone: string | null; guestPhoneEnc: string | null; guestPhoneLookup: string | null };
@@ -100,7 +109,8 @@ function resealIfOld(ring: FieldKeyring, purpose: "listing.address" | "listing.p
   }
 }
 
-const idFilter = (ids: readonly string[] | undefined, index: number) => (ids ? ` AND "id" = ANY($${index}::text[])` : "");
+/** Tests: only these rows (the parameter is null for "every row", so it is always typed). */
+const idFilter = (index: number) => ` AND ($${index}::text[] IS NULL OR "id" = ANY($${index}::text[]))`;
 
 async function migrateListings(client: RawSqlClient, ring: FieldKeyring, options: EncryptFieldsOptions, report: TableReport) {
   const batch = options.batchSize ?? DEFAULT_BATCH;
@@ -111,13 +121,14 @@ async function migrateListings(client: RawSqlClient, ring: FieldKeyring, options
       `SELECT "id", "address", "lat", "lng", "addressEnc", "pinEnc" FROM "Listing"
        WHERE "id" > $1
          AND ("address" IS NOT NULL OR "lat" IS NOT NULL OR "lng" IS NOT NULL
-              OR ("addressEnc" IS NOT NULL AND "addressEnc" NOT LIKE $2)
-              OR ("pinEnc" IS NOT NULL AND "pinEnc" NOT LIKE $2))${idFilter(options.listingIds, 4)}
+              OR ("addressEnc" IS NOT NULL AND ("addressEnc" NOT LIKE $2 OR $5::boolean))
+              OR ("pinEnc" IS NOT NULL AND ("pinEnc" NOT LIKE $2 OR $5::boolean)))${idFilter(4)}
        ORDER BY "id" LIMIT $3`,
       cursor,
       current,
       batch,
-      ...(options.listingIds ? [[...options.listingIds]] : []),
+      options.listingIds ? [...options.listingIds] : null,
+      !!options.verify,
     );
     if (rows.length === 0) return;
     cursor = rows[rows.length - 1]!.id;
@@ -135,6 +146,7 @@ async function migrateListings(client: RawSqlClient, ring: FieldKeyring, options
         report.unreadable++;
         continue;
       }
+      if (options.verify) report.verified++;
       // The address: an encrypted value wins; else the plain one is sealed (an empty one is dropped).
       if (address) {
         if (address.changed) {
@@ -202,14 +214,15 @@ async function migrateBookings(client: RawSqlClient, ring: FieldKeyring, options
       `SELECT "id", "guestPhone", "guestPhoneEnc", "guestPhoneLookup" FROM "Booking"
        WHERE "id" > $1
          AND ("guestPhone" IS NOT NULL
-              OR ("guestPhoneEnc" IS NOT NULL AND ("guestPhoneEnc" NOT LIKE $2 OR "guestPhoneLookup" IS NULL OR "guestPhoneLookup" NOT LIKE $3))
-              OR ("guestPhoneEnc" IS NULL AND "guestPhoneLookup" IS NOT NULL))${idFilter(options.bookingIds, 5)}
+              OR ("guestPhoneEnc" IS NOT NULL AND ("guestPhoneEnc" NOT LIKE $2 OR "guestPhoneLookup" IS NULL OR "guestPhoneLookup" NOT LIKE $3 OR $6::boolean))
+              OR ("guestPhoneEnc" IS NULL AND "guestPhoneLookup" IS NOT NULL))${idFilter(5)}
        ORDER BY "id" LIMIT $4`,
       cursor,
       current,
       currentLookup,
       batch,
-      ...(options.bookingIds ? [[...options.bookingIds]] : []),
+      options.bookingIds ? [...options.bookingIds] : null,
+      !!options.verify,
     );
     if (rows.length === 0) return;
     cursor = rows[rows.length - 1]!.id;
@@ -226,6 +239,7 @@ async function migrateBookings(client: RawSqlClient, ring: FieldKeyring, options
           report.unreadable++;
           continue;
         }
+        if (options.verify) report.verified++;
         const nextLookup = fieldLookup(ring, "booking.guestPhone", result.plain);
         if (result.changed || nextLookup !== row.guestPhoneLookup) resealed++;
         enc = result.value;
@@ -326,6 +340,7 @@ export async function encryptPlainFields(client: RawSqlClient, options: EncryptF
   }
   return {
     dryRun: !!options.dryRun,
+    verify: !!options.verify,
     keyId: ring.current.id,
     listings,
     bookings,

@@ -368,6 +368,7 @@
     "geoDenied": "Location access was blocked. You can allow it in your browser settings, or tap the map.",
     "geoFailed": "We couldn't find your location. Please search the address or tap the map.",
     "privacyNote": "Only the approximate area (about {meters} m) is shown publicly. You share the exact address after a guest contacts you.",
+    "unreadable": "We can't show the address and pin you saved right now. They haven't been deleted. Try again in a few minutes, or enter them again.",
     "searchShort": "Type at least 3 letters, then press Search.",
     "searchBusy": "Lots of searches right now. Try again in a few seconds, or tap the map.",
     "addressFromSearch": "We filled in the street and house number. Add the entrance and apartment — only you see this address."

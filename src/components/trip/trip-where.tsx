@@ -46,7 +46,8 @@ export async function TripWhere({
       ) : (
         <p className="text-small text-muted-foreground">{tb("noAddress")}</p>
       )}
-      {point ? <TripMap lat={point.lat} lng={point.lng} label={t("mapLabel")} /> : null}
+      {/* Fail closed (12.3.c): when the stored location could not be opened, no map either (never half of it). */}
+      {point && !unavailable ? <TripMap lat={point.lat} lng={point.lng} label={t("mapLabel")} /> : null}
       {directions ? (
         <div className="grid gap-2 sm:flex sm:flex-wrap">
           <a href={directions.google} target="_blank" rel="noopener noreferrer" className={buttonStyles({ variant: "secondary", size: "md" })}>

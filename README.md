@@ -75,6 +75,7 @@ Generate the secrets in `.env` like this:
 ```bash
 openssl rand -base64 32   # BETTER_AUTH_SECRET
 openssl rand -base64 32   # APP_ENCRYPTION_KEY
+openssl rand -base64 32   # FIELD_ENCRYPTION_KEY (a different key)
 openssl rand -hex 16      # HASH_SALT
 ```
 
@@ -231,7 +232,7 @@ no "quick preview" on a public address any more: test mode and demo accounts nev
    start-up settings check and stops when something is missing). In **Settings → Environment
    Variables** add the production variables of section 4 one by one. **Never copy your `.env`
    or anything from the codespace:** generate every secret fresh on the hosting
-   (`BETTER_AUTH_SECRET`, `APP_ENCRYPTION_KEY`, `HASH_SALT`, `CRON_SECRET`, a new VAPID pair —
+   (`BETTER_AUTH_SECRET`, `APP_ENCRYPTION_KEY`, `FIELD_ENCRYPTION_KEY`, `HASH_SALT`, `CRON_SECRET`, a new VAPID pair —
    development and production never share a key), and never set the development-only flags
    (`AUTH_TEST_MODE`, `DEV_SKIP_STAFF_2FA`, `NEXT_PUBLIC_SHOW_DEV_UI`, `EXTRA_ALLOWED_ORIGINS`):
    the real site refuses to start with them. Set `SITE_ENV="production"` and your real domain in
@@ -324,6 +325,7 @@ image settings); the server it builds does, and `npm run vercel-build` checks be
 | `BETTER_AUTH_URL` | The address the site runs on (the same as `NEXT_PUBLIC_SITE_URL` on staging and production) |
 | `BETTER_AUTH_SECRET` | Signs login sessions, 32+ random characters (`openssl rand -base64 32`) |
 | `APP_ENCRYPTION_KEY` | Encrypts ID documents and 2-step secrets: 32 bytes in base64 (`openssl rand -base64 32`) |
+| `FIELD_ENCRYPTION_KEY` | Encrypts the exact addresses, pins and guests' phones in the database: 32 bytes in base64, a key of its own. Required on staging and production (development falls back to a key derived from `BETTER_AUTH_SECRET`). Losing it loses those values; rotation with `FIELD_ENCRYPTION_KEY_PREVIOUS`: `docs/security/field-encryption.md` |
 | `HASH_SALT` | Salt for hashing IPs and device ids in logs, 16+ characters (`openssl rand -hex 16`); the three secrets must differ |
 
 **Also required on staging and production** (`SITE_ENV=staging` / `production`), generated fresh

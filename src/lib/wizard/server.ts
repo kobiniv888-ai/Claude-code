@@ -337,6 +337,7 @@ export async function loadWizardAnswers(listing: ListingRow, businessName: strin
     rulesAccepted: listing.rulesAcceptedAt !== null,
     publicPath: publicPathFor(listing),
     updatedAt: listing.updatedAt.toISOString(),
+    locationUnreadable: listing.locationUnreadable,
   };
 }
 

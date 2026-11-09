@@ -715,8 +715,7 @@
         "csp_reports": "بلاغات من المتصفحات عن محتوى محجوب: {count} (التنبيه فوق {threshold}).",
         "booking_cap": "حجوزات رُفضت بسبب حد حجزين قادمين لكل هاتف: {count} (التنبيه فوق {threshold}).",
         "show_contact_cap": "زوار بلغوا الحد اليومي لـ«إظهار بيانات التواصل»: {count} (التنبيه فوق {threshold}).",
-        "signup_burst": "حسابات جديدة: {count} (التنبيه فوق {threshold}).",
-        "signup_burst_ip": "حسابات جديدة من اتصال واحد: {count} (التنبيه فوق {threshold}).",
+        "signup_burst": "{count} حسابات جديدة خلال الساعة، حتى {perIp} من اتصال واحد (تنبيه عند أكثر من {threshold} إجمالًا أو {perIpThreshold} من اتصال واحد). تنبيه فقط: لم يُحظر أحد.",
         "listing_burst": "إعلانات جديدة: {count} (التنبيه فوق {threshold}).",
         "booking_burst": "حجوزات جديدة: {count} (التنبيه فوق {threshold}).",
         "role_changed": "مُنح دور في الطاقم أو أُزيل ({count}).",
@@ -725,7 +724,8 @@
         "sessions_ended": "سُجّل خروج الجميع («تسجيل خروج الجميع»).",
         "offsite_backup_failed": "فشلت النسخة الاحتياطية الأسبوعية خارج الموقع ({count}).",
         "offsite_backup_missing": "لم تنجح أي نسخة احتياطية خارج الموقع منذ {days} يومًا.",
-        "certificate_expiry": "تنتهي شهادة HTTPS للموقع بعد {days} يومًا."
+        "certificate_expiry": "تنتهي شهادة HTTPS للموقع بعد {days} يومًا.",
+        "support_overdue": "{count, plural, one {طلب دعم واحد ينتظر} two {طلبا دعم ينتظران} other {{count} طلبات دعم تنتظر}} أكثر من مدة الرد التي وعدنا بها (يوم عمل واحد، من الأحد إلى الخميس): {tickets}."
       }
     }
   },

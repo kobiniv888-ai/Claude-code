@@ -60,6 +60,15 @@ describe("FIELD_ENCRYPTION_KEY", () => {
     const shared = key();
     expect(problemsOf({ ...PROD, FIELD_ENCRYPTION_KEY: shared, BETTER_AUTH_SECRET: shared })).toMatch(/a key of its own/);
     expect(problemsOf({ ...PROD, FIELD_ENCRYPTION_KEY: shared, CRON_SECRET: shared })).toMatch(/a key of its own/);
+    // Any other secret setting too (the off-site backup key, provider tokens…), named, never shown.
+    expect(problemsOf({ ...PROD, FIELD_ENCRYPTION_KEY: shared, BACKUP_ENCRYPTION_KEY: shared })).toMatch(/same as BACKUP_ENCRYPTION_KEY/);
+    expect(problemsOf({ ...PROD, FIELD_ENCRYPTION_KEY: shared, TWILIO_AUTH_TOKEN: shared })).toMatch(/same as TWILIO_AUTH_TOKEN/);
+    expect(problemsOf({ ...PROD, FIELD_ENCRYPTION_KEY: shared, BACKUP_ENCRYPTION_KEY: shared })).not.toContain(shared);
+    // The same key in another spelling (URL-safe base64 without padding is not accepted as a key,
+    // but the same bytes as a standard base64 secret are caught).
+    expect(problemsOf({ ...PROD, FIELD_ENCRYPTION_KEY: shared, APP_ENCRYPTION_KEY: ` ${shared} ` })).toMatch(/a key of its own/);
+    // A public setting with the same value is not a secret (and never compared).
+    expect(problemsOf({ ...PROD, NEXT_PUBLIC_MAP_TILE_KEY: shared, FIELD_ENCRYPTION_KEY: shared })).toBe("");
   });
 
   it("rotation: the previous key must be a valid, different key", () => {

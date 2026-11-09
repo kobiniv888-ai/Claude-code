@@ -12,7 +12,11 @@
 import "dotenv/config";
 import { randomInt, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { sealAddress, sealGuestPhone, sealPin } from "@/lib/field-crypto";
+import { openGuestPhone, sealAddress, sealGuestPhone, sealPin } from "@/lib/field-crypto";
+
+/** The erased guest phone: the encrypted copy and its lookup value are gone, the old plain column stays empty (12.3.c). */
+const ERASED_PHONE = { guestPhoneEnc: null, guestPhoneLookup: null, legacyGuestPhone: null };
+const phoneOf = (row: { guestPhoneEnc: string | null }) => openGuestPhone(row.guestPhoneEnc, "test").value;
 
 vi.mock("server-only", () => ({}));
 
@@ -163,7 +167,7 @@ describe("decision 9: guest contact details are blanked 3 months after check-out
     expect(await retention.eraseOldGuestContacts(now, scope)).toBe(3);
     for (const id of [old.id, onCutoff.id, cancelled.id]) {
       const row = await db.booking.findUniqueOrThrow({ where: { id } });
-      expect(row).toMatchObject({ guestName: retention.ERASED_GUEST_NAME, guestPhone: "", messageToHost: null, cancelReason: null });
+      expect(row).toMatchObject({ guestName: retention.ERASED_GUEST_NAME, ...ERASED_PHONE, messageToHost: null, cancelReason: null });
       // Anonymous stats stay: dates, nights, price, listing, status, reason code, the account link.
       expect(row.nights).toBeGreaterThan(0);
       expect(Number(row.total)).toBeGreaterThan(0);
@@ -173,7 +177,8 @@ describe("decision 9: guest contact details are blanked 3 months after check-out
     expect((await db.booking.findUniqueOrThrow({ where: { id: cancelled.id } })).cancelReasonCode).toBe("OTHER");
     expect((await db.booking.findUniqueOrThrow({ where: { id: cancelled.id } })).status).toBe("CANCELLED_BY_GUEST");
     const kept = await db.booking.findUniqueOrThrow({ where: { id: keep.id } });
-    expect(kept).toMatchObject({ guestName: "Noa Test", guestPhone: "+995590000077" });
+    expect(kept).toMatchObject({ guestName: "Noa Test", guestPhoneLookup: expect.stringMatching(/^fl1:/) });
+    expect(phoneOf(kept)).toBe("+995590000077");
     expect(kept.messageToHost).not.toBeNull();
 
     // Idempotent: nothing left to change.
@@ -195,11 +200,13 @@ describe("decision 9: guest contact details are blanked 3 months after check-out
     expect(await retention.eraseOldGuestContacts(now, scope)).toBe(2);
     for (const id of [cancelledLongAgo.id, cancelledByHost.id]) {
       const row = await db.booking.findUniqueOrThrow({ where: { id } });
-      expect(row).toMatchObject({ guestName: retention.ERASED_GUEST_NAME, guestPhone: "", messageToHost: null, cancelReason: null });
+      expect(row).toMatchObject({ guestName: retention.ERASED_GUEST_NAME, ...ERASED_PHONE, messageToHost: null, cancelReason: null });
       expect(row.cancelReasonCode).toBe("OTHER");
     }
     for (const id of [cancelledRecently.id, upcoming.id]) {
-      expect(await db.booking.findUniqueOrThrow({ where: { id } })).toMatchObject({ guestName: "Noa Test", guestPhone: "+995590000077" });
+      const row = await db.booking.findUniqueOrThrow({ where: { id } });
+      expect(row.guestName).toBe("Noa Test");
+      expect(phoneOf(row)).toBe("+995590000077");
     }
     expect(await retention.eraseOldGuestContacts(now, scope)).toBe(0);
   });

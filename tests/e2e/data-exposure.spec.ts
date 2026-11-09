@@ -421,4 +421,56 @@ test.describe("data exposure (SECURITY_REPORT 5.c)", () => {
       await visitor.context.close();
     }
   });
+
+  // SECURITY_REPORT 12.3.c: an encrypted address that cannot be opened (a changed ciphertext, a
+  // missing key) fails CLOSED: the guest's own trip page answers normally, shows "not available"
+  // instead of the address and the map, never the ciphertext, and a security event is written.
+  test("an exact address that cannot be decrypted: 'not available' on the trip page, no crash, no ciphertext (12.3.c)", async ({ browser }) => {
+    test.slow();
+    const own = await exposureListing();
+    const [stored] = await sql<{ addressEnc: string; pinEnc: string }>(`SELECT "addressEnc", "pinEnc" FROM "Listing" WHERE id = $1`, [own.listing.id]);
+    // Flip one character of the sealed address: GCM refuses it (tampered).
+    const last = stored.addressEnc.slice(-1);
+    const tampered = `${stored.addressEnc.slice(0, -1)}${last === "A" ? "B" : "A"}`;
+    await sql(`UPDATE "Listing" SET "addressEnc" = $2 WHERE id = $1`, [own.listing.id, tampered]);
+    const [{ since }] = await sql<{ since: Date }>(`SELECT now() AS since`);
+
+    const guest = await createTestUser({ name: "E2E Undecryptable Guest" });
+    const phone = sealGuestPhone(guest.phone);
+    const code = bookingCode();
+    await sql(
+      `INSERT INTO "Booking" (id, code, "listingId", "guestUserId", "hostUserId", "checkIn", "checkOut", nights, adults,
+         "nightlyPrice", subtotal, total, currency, "cancellationPolicy", status, "guestName", "guestPhoneEnc", "guestPhoneLookup", locale,
+         "rulesAcceptedAt", "messageToHost", "updatedAt")
+       VALUES ($1, $2, $3, $4, $5, $6::date, $7::date, 3, 2, 80, 240, 240, 'USD', 'MODERATE', 'CONFIRMED', 'E2E Guest', $8, $9, 'he',
+         now(), 'E2E undecryptable address', now())`,
+      [`e2e${randomBytes(8).toString("hex")}`, code, own.listing.id, guest.id, own.host.id, day(-1), day(2), phone.guestPhoneEnc, phone.guestPhoneLookup],
+    );
+
+    const asGuest = await openAsTestUser(browser, guest);
+    try {
+      const trip = await fetchBoth(asGuest.context.request, `/he/account/trips/${code}`);
+      expect(trip.status).toBe(200);
+      for (const body of [trip.html, trip.rsc]) {
+        expect(body).not.toContain(own.address);
+        // Neither the stored ciphertexts nor a piece of them reach the page.
+        for (const sealed of [tampered, stored.pinEnc]) expect(body).not.toContain(sealed.split(":")[2]!.slice(0, 24));
+      }
+      await asGuest.page.goto(`/he/account/trips/${code}`);
+      await expect(asGuest.page.locator("main").getByText("לא הצלחנו להציג את הכתובת המדויקת כרגע")).toBeVisible();
+      // The rest of the trip page still works (the booking number is there), and no map of the pin.
+      await expect(asGuest.page.locator("main")).toContainText(code);
+      await expect(asGuest.page.locator("main").getByRole("link", { name: /Google Maps|Waze/ })).toHaveCount(0);
+    } finally {
+      await asGuest.context.close();
+    }
+    const [{ events }] = await sql<{ events: string }>(
+      // The event is written at most once a minute per field, reason and place: a retry within the
+      // minute finds the first attempt's event.
+      `SELECT count(*)::text AS events FROM "SecurityEvent"
+       WHERE type = 'field_decrypt_failed' AND "createdAt" >= $1::timestamptz - interval '2 minutes' AND meta->>'field' = 'listing.address'`,
+      [since],
+    );
+    expect(Number(events)).toBeGreaterThanOrEqual(1);
+  });
 });

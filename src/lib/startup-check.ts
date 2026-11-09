@@ -355,19 +355,34 @@ function fieldEncryptionProblems(env: StartupEnv, site: SiteEnv | null): string[
     if (previous.length > 0) problems.push("FIELD_ENCRYPTION_KEY_PREVIOUS is set without FIELD_ENCRYPTION_KEY: a rotation needs the new key too.");
     return problems;
   }
-  const others = ["APP_ENCRYPTION_KEY", "BETTER_AUTH_SECRET", "HASH_SALT", "CRON_SECRET"].map((name) => value(env, name)).filter(Boolean);
+  // Every other secret setting: the named ones, and any whose name says it is a secret
+  // (BACKUP_ENCRYPTION_KEY, TWILIO_AUTH_TOKEN, …; never a NEXT_PUBLIC_ one). Compared as text and
+  // as decoded bytes, so the same key in another spelling is caught too. Only names are reported.
+  const secretName = /(?:KEY|SECRET|SALT|TOKEN|PASSWORD)$/;
+  const otherNames = [
+    ...new Set([
+      "APP_ENCRYPTION_KEY",
+      "BETTER_AUTH_SECRET",
+      "HASH_SALT",
+      "CRON_SECRET",
+      ...Object.keys(env).filter((name) => secretName.test(name) && !name.startsWith("NEXT_PUBLIC_")),
+    ]),
+  ].filter((name) => name !== "FIELD_ENCRYPTION_KEY" && name !== "FIELD_ENCRYPTION_KEY_PREVIOUS");
+  const others = otherNames.map((name) => ({ name, raw: value(env, name) })).filter((other) => other.raw);
   const decoded = (raw: string) => Buffer.from(raw, "base64").toString("hex");
-  const sameAsAnother = (raw: string) => others.some((other) => other === raw || (isKey32(other) && decoded(other) === decoded(raw)));
+  const sameAsAnother = (raw: string) => others.find((other) => other.raw === raw || (isKey32(other.raw) && decoded(other.raw) === decoded(raw)))?.name;
+  const currentTwin = isKey32(current) ? sameAsAnother(current) : undefined;
   if (!isKey32(current)) problems.push(`FIELD_ENCRYPTION_KEY must be 32 bytes encoded as base64 (${hint}).`);
   else if (looksLikePlaceholder(current) || new Set(Buffer.from(current, "base64")).size < 16) {
     problems.push(`FIELD_ENCRYPTION_KEY looks like a placeholder, not a random key (${hint}).`);
-  } else if (sameAsAnother(current)) {
-    problems.push("FIELD_ENCRYPTION_KEY must be a key of its own: not APP_ENCRYPTION_KEY, BETTER_AUTH_SECRET, HASH_SALT or CRON_SECRET.");
+  } else if (currentTwin) {
+    problems.push(`FIELD_ENCRYPTION_KEY must be a key of its own: it is the same as ${currentTwin} (never APP_ENCRYPTION_KEY or another secret).`);
   }
   for (const raw of previous) {
+    const twin = isKey32(raw) ? sameAsAnother(raw) : undefined;
     if (!isKey32(raw)) problems.push("FIELD_ENCRYPTION_KEY_PREVIOUS must hold 32-byte base64 keys (comma-separated).");
     else if (isKey32(current) && decoded(raw) === decoded(current)) problems.push("FIELD_ENCRYPTION_KEY_PREVIOUS is the same key as FIELD_ENCRYPTION_KEY: put the OLD key there.");
-    else if (sameAsAnother(raw)) problems.push("FIELD_ENCRYPTION_KEY_PREVIOUS must not be APP_ENCRYPTION_KEY, BETTER_AUTH_SECRET, HASH_SALT or CRON_SECRET.");
+    else if (twin) problems.push(`FIELD_ENCRYPTION_KEY_PREVIOUS must not be APP_ENCRYPTION_KEY or another secret: one of its keys is the same as ${twin}.`);
   }
   return problems;
 }

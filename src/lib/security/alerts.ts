@@ -18,6 +18,7 @@ import {
   type SecurityAlert,
   type SecuritySignals,
 } from "./alerts-rules";
+import { newlyOverdue, nextSupportAlerted, overdueTickets, type SupportAlerted, type WaitingTicket } from "./alerts-support-rules";
 
 /**
  * The founder's security alerts (SECURITY_REPORT 16.3, 4.7.a, 3.8.c), run hourly by
@@ -27,8 +28,12 @@ import {
  * Telegram (ADMIN_ALERT_TELEGRAM_CHAT_ID, else the admin accounts that connected the bot). The same
  * kind alerts at most once an hour (daily for the certificate and a missing off-site backup).
  *
- * Its state (last run, last time each kind was sent, the daily certificate check) is the
- * SiteSetting "securityAlertsState". Counts only: no names, addresses, phones, IPs or ids leave.
+ * Also the support reply promise (founder's answer 9): a ticket still waiting for our reply after
+ * one business day (./alerts-support-rules.ts) alerts once per waiting spell.
+ *
+ * Its state (last run, last time each kind was sent, the daily certificate check, the late tickets
+ * already reported) is the SiteSetting "securityAlertsState". Counts only: no names, addresses,
+ * phones, IPs or ids leave (late tickets: their running number only).
  */
 
 export const SECURITY_ALERTS_STATE_KEY = "securityAlertsState";
@@ -38,6 +43,8 @@ export type SecurityAlertsState = {
   lastSent?: Partial<Record<string, string>>;
   certCheckedAt?: string;
   certDaysLeft?: number | null;
+  /** Late support tickets already reported: ticket id → its waitingSince (ISO). */
+  supportAlerted?: SupportAlerted;
 };
 
 /** The event types whose count from one IP hash matters (ID guessing, password-spray style bursts). */
@@ -53,6 +60,10 @@ function parseState(value: unknown): SecurityAlertsState {
     lastSent: raw.lastSent && typeof raw.lastSent === "object" ? raw.lastSent : {},
     certCheckedAt: typeof raw.certCheckedAt === "string" ? raw.certCheckedAt : undefined,
     certDaysLeft: typeof raw.certDaysLeft === "number" ? raw.certDaysLeft : null,
+    supportAlerted:
+      raw.supportAlerted && typeof raw.supportAlerted === "object" && !Array.isArray(raw.supportAlerted)
+        ? Object.fromEntries(Object.entries(raw.supportAlerted).filter(([, v]) => typeof v === "string"))
+        : {},
   };
 }
 
@@ -119,6 +130,31 @@ export async function collectSecuritySignals(since: Date, now: Date, opts: { cer
     certificateDaysLeft: opts.certificateDaysLeft ?? null,
     now,
   };
+}
+
+/** At most this many waiting tickets are read per run (oldest first). */
+const MAX_WAITING_TICKETS = 500;
+
+/**
+ * Tickets waiting for our reply (open or in progress, the user wrote after our last public
+ * reply), with the time of the user's first unanswered message. Demo accounts' tickets are left
+ * out; a ticket without any message counts from its creation.
+ */
+export async function waitingSupportTickets(): Promise<WaitingTicket[]> {
+  const rows = await db.$queryRaw<{ id: string; number: number; waiting_since: Date }[]>`
+    SELECT t.id, t.number, COALESCE(MIN(m."createdAt"), t."createdAt") AS waiting_since
+    FROM "Ticket" t
+    LEFT JOIN "User" u ON u.id = t."userId"
+    LEFT JOIN "TicketMessage" m ON m."ticketId" = t.id AND m.internal = false AND m."fromStaff" = false
+      AND m."createdAt" > COALESCE(
+        (SELECT MAX(s."createdAt") FROM "TicketMessage" s WHERE s."ticketId" = t.id AND s."fromStaff" = true AND s.internal = false),
+        'epoch'::timestamp)
+    WHERE t.status IN ('OPEN', 'IN_PROGRESS') AND (u.id IS NULL OR u."isDemo" = false)
+    GROUP BY t.id, t.number, t."createdAt"
+    HAVING COUNT(m.id) > 0 OR NOT EXISTS (SELECT 1 FROM "TicketMessage" x WHERE x."ticketId" = t.id AND x.internal = false)
+    ORDER BY waiting_since ASC
+    LIMIT ${MAX_WAITING_TICKETS}`;
+  return rows.map((row) => ({ id: row.id, number: Number(row.number), waitingSince: new Date(row.waiting_since) }));
 }
 
 /** Days until the HTTPS certificate of `host` ends (null when it cannot be read). Never throws. */
@@ -190,6 +226,7 @@ export type SecurityAlertsDeps = {
   deliver?: (alerts: SecurityAlert[], windowMinutes: number, now: Date) => Promise<{ email: boolean; telegram: number }>;
   checkCertificate?: (host: string, now: Date) => Promise<number | null>;
   certificateHost?: () => string | null;
+  waitingTickets?: () => Promise<WaitingTicket[]>;
 };
 
 export type SecurityAlertsResult = { skipped?: "already_running"; alerts: string[]; sent: string[]; email?: boolean; telegram?: number };
@@ -211,21 +248,35 @@ export async function runSecurityAlerts(deps: SecurityAlertsDeps = {}): Promise<
     certCheckedAt = now.toISOString();
   }
 
+  // Support tickets late for the reply promise, each reported once per waiting spell.
+  const supportAlerted = state.supportAlerted ?? {};
+  const overdue = overdueTickets(await (deps.waitingTickets ?? waitingSupportTickets)(), now);
+  const lateNew = newlyOverdue(overdue, supportAlerted);
+
   const signals = await (deps.collect ?? collectSecuritySignals)(since, now, { certificateDaysLeft: host ? certDaysLeft : null });
-  const alerts = evaluateSecurityAlerts(signals);
+  const alerts = evaluateSecurityAlerts({ ...signals, supportOverdue: lateNew.map((ticket) => ticket.number) });
   const due = dueAlerts(alerts, state.lastSent ?? {}, now);
   const lastSent = { ...(state.lastSent ?? {}) };
   let delivery: { email: boolean; telegram: number } | undefined;
+  let accepted = false;
   if (due.length) {
     const minutes = Math.max(SECURITY_ALERT_WINDOW_MINUTES, Math.round((now.getTime() - since.getTime()) / 60_000));
     delivery = await (deps.deliver ?? deliverSecurityAlerts)(due, minutes, now);
     // Nothing accepted it (no email and no Telegram): the same alerts go again next hour.
-    if (delivery.email || delivery.telegram > 0) for (const alert of due) lastSent[alert.kind] = now.toISOString();
+    accepted = delivery.email || delivery.telegram > 0;
+    if (accepted) for (const alert of due) lastSent[alert.kind] = now.toISOString();
   }
-  await (deps.writeState ?? writeState)({ lastRunAt: now.toISOString(), lastSent, certCheckedAt, certDaysLeft });
+  const supportSent = accepted && due.some((alert) => alert.kind === "support_overdue") ? lateNew : [];
+  await (deps.writeState ?? writeState)({
+    lastRunAt: now.toISOString(),
+    lastSent,
+    certCheckedAt,
+    certDaysLeft,
+    supportAlerted: nextSupportAlerted(overdue, supportAlerted, supportSent),
+  });
   return {
     alerts: alerts.map((a) => a.kind),
-    sent: delivery && (delivery.email || delivery.telegram > 0) ? due.map((a) => a.kind) : [],
+    sent: accepted ? due.map((a) => a.kind) : [],
     ...(delivery ? { email: delivery.email, telegram: delivery.telegram } : {}),
   };
 }

@@ -112,7 +112,9 @@ function sessionUser(userId: string) {
 type ListingData = Parameters<typeof db.listing.create>[0]["data"];
 
 /** A complete short stay (every publishing requirement met, no mistake-check error). */
-async function listing(extra: Record<string, unknown> = {}, photos = 5) {
+async function listing(options: Record<string, unknown> = {}, photos = 5) {
+  // `address` is the exact address as the owner typed it: stored encrypted (12.3.c); "" or null = none.
+  const { address, ...extra } = options;
   const status = (extra.status as string | undefined) ?? "DRAFT";
   const row = await db.listing.create({
     data: {
@@ -122,7 +124,7 @@ async function listing(extra: Record<string, unknown> = {}, photos = 5) {
       propertyType: "APARTMENT",
       cityId,
       pinEnc: sealPin({ lat: 41.64, lng: 41.62 }),
-      addressEnc: sealAddress("Fake street 1, apt 2"),
+      addressEnc: sealAddress("address" in options ? (address as string | null) : "Fake street 1, apt 2"),
       originalLocale: "en",
       title: `${prefix} quiet flat by the sea`,
       description: "A quiet flat with a balcony and a full kitchen, five minutes from the sea and the old town.",

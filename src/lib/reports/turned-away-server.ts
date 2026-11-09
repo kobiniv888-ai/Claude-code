@@ -1,6 +1,7 @@
 import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
+import { recordIdMiss } from "@/lib/security/id-guess";
 import { isOwnReportUpload, type ReportAttachment, type TurnedAwayData } from "./turned-away";
 
 /**
@@ -25,7 +26,11 @@ export async function resolveTurnedAwayTarget(
       where: { id: input.bookingId, guestUserId: reporterId },
       select: { id: true, listingId: true, hostUserId: true },
     });
-    if (!booking) return { ok: false, error: "not_found" };
+    if (!booking) {
+      // 4.7.a: a burst of booking ids that match nothing alerts the founder (src/lib/security/id-guess.ts).
+      await recordIdMiss("report", reporterId);
+      return { ok: false, error: "not_found" };
+    }
     if (booking.hostUserId === reporterId) return { ok: false, error: "own_target" };
     return { ok: true, target: { hostId: booking.hostUserId, listingId: booking.listingId, bookingId: booking.id } };
   }

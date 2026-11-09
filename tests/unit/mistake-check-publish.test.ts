@@ -65,6 +65,7 @@ vi.mock("@/lib/nearby", async (importOriginal) => ({
 }));
 
 const { db } = await import("@/lib/db");
+const { sealAddress, sealPin } = await import("@/lib/field-crypto");
 const { PLEDGE_CURRENT_VERSION } = await import("@/lib/pledge");
 const { acceptRulesAndPublish, saveChanges, updatePhotoRoom } = await import("@/lib/wizard/actions");
 const { getListingMistakes } = await import("@/lib/listing/mistake-check-server");
@@ -79,7 +80,9 @@ function sessionUser(userId: string) {
 }
 
 /** A complete short stay (every publishing requirement met) that the test then breaks. */
-async function draft(extra: Record<string, unknown> = {}, photos = 5) {
+async function draft(options: Record<string, unknown> = {}, photos = 5) {
+  // `address` is the exact address as typed: stored encrypted (12.3.c); "" or null = none.
+  const { address, ...extra } = options;
   const row = await db.listing.create({
     data: {
       ownerId: users.owner,
@@ -87,9 +90,8 @@ async function draft(extra: Record<string, unknown> = {}, photos = 5) {
       dealType: "SHORT_STAY",
       propertyType: "APARTMENT",
       cityId,
-      lat: 41.64,
-      lng: 41.62,
-      address: "Fake street 1, apt 2",
+      pinEnc: sealPin({ lat: 41.64, lng: 41.62 }),
+      addressEnc: sealAddress("address" in options ? (address as string | null) : "Fake street 1, apt 2"),
       originalLocale: "en",
       title: `${prefix} quiet flat by the sea`,
       description: "A quiet flat with a balcony and a full kitchen, five minutes from the sea and the old town.",

@@ -715,8 +715,7 @@
         "csp_reports": "{count} reports of blocked content from browsers (alert above {threshold}).",
         "booking_cap": "{count} bookings were refused by the limit of 2 upcoming bookings per phone (alert above {threshold}).",
         "show_contact_cap": "{count} visitors reached the daily “show contact” limit (alert above {threshold}).",
-        "signup_burst": "{count} new accounts (alert above {threshold}).",
-        "signup_burst_ip": "{count} new accounts from one connection (alert above {threshold}).",
+        "signup_burst": "{count} new accounts in the hour, up to {perIp} from one connection (alert above {threshold} in all or {perIpThreshold} from one connection). Alert only: nobody was blocked.",
         "listing_burst": "{count} new listings (alert above {threshold}).",
         "booking_burst": "{count} new bookings (alert above {threshold}).",
         "role_changed": "A staff role was given or removed ({count}).",
@@ -725,7 +724,8 @@
         "sessions_ended": "Everyone was signed out (“sign everyone out”).",
         "offsite_backup_failed": "The weekly off-site backup failed ({count}).",
         "offsite_backup_missing": "No off-site backup has succeeded for {days} days.",
-        "certificate_expiry": "The site’s HTTPS certificate ends in {days} days."
+        "certificate_expiry": "The site’s HTTPS certificate ends in {days} days.",
+        "support_overdue": "{count, plural, one {1 support ticket has} other {{count} support tickets have}} waited longer than the reply promise (one business day, Sunday to Thursday): {tickets}."
       }
     }
   },

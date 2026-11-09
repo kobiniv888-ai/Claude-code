@@ -62,6 +62,7 @@ vi.mock("@/lib/admin/server/common", async (importOriginal) => ({
 }));
 
 const { db } = await import("@/lib/db");
+const { sealAddress, sealPin } = await import("@/lib/field-crypto");
 const lifecycle = await import("@/lib/listing/lifecycle");
 const { approveListingAction } = await import("@/lib/admin/actions/moderation");
 const { banUser, reactivateUser } = await import("@/lib/admin/server/user-moderation");
@@ -91,9 +92,9 @@ async function listing(ownerId: string, status: string, extra: Record<string, un
       pricePeriod: "NIGHT",
       // Complete enough to go (back) on the site: approve, restore and unpause check the
       // publishing requirements and the mistake check's errors (round 3, brief 6.1).
-      lat: 41.64,
-      lng: 41.62,
-      address: "Fake street 1, apt 2",
+      // The exact pin and address, stored encrypted like every listing's (12.3.c).
+      pinEnc: sealPin({ lat: 41.64, lng: 41.62 }),
+      addressEnc: sealAddress("Fake street 1, apt 2"),
       contactMethods: [{ channel: "WHATSAPP", value: "+995555990003", order: 0 }],
       ...extra,
     } as Parameters<typeof db.listing.create>[0]["data"],

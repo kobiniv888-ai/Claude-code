@@ -32,6 +32,7 @@ vi.mock("@/lib/auth/session", async () => {
 });
 
 const { db } = await import("@/lib/db");
+const { sealPin } = await import("@/lib/field-crypto");
 const { deleteDatePriceAction, saveDatePriceAction } = await import("@/lib/booking/date-price-actions");
 const { getBookingQuote } = await import("@/lib/booking/service");
 const { addDays, tbilisiToday } = await import("@/lib/booking/dates");
@@ -66,8 +67,8 @@ beforeAll(async () => {
     propertyType: "APARTMENT" as const,
     currency: "GEL" as const,
     cityId,
-    lat: 41.71,
-    lng: 44.77,
+    // The exact pin, stored encrypted (12.3.c).
+    pinEnc: sealPin({ lat: 41.71, lng: 44.77 }),
     originalLocale: "he" as const,
     description: "A test listing.",
   };

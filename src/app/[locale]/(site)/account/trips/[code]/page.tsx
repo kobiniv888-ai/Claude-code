@@ -37,6 +37,7 @@ import { getGuestTrip } from "@/lib/booking/queries";
 import { formatDate, formatDateRange, formatMoney, formatTime } from "@/lib/format";
 import { guestBookingReports } from "@/lib/reports/queries";
 import { pageMetadata } from "@/lib/seo";
+import { recordIdMiss } from "@/lib/security/id-guess";
 import { tripGoogleCalendarUrl } from "@/lib/trip/calendar-server";
 import { cancellationView } from "@/lib/trip/deadline";
 import { OFFLINE_TRIP_GONE_MARKER, OFFLINE_TRIP_GONE_VALUE, OFFLINE_TRIP_MARKER, offlineSaveAllowed } from "@/lib/trip/offline";
@@ -115,7 +116,11 @@ export default async function TripPage({ params, searchParams }: Props) {
   // notFound() reaches the browser only in the page's data, so the service worker would not see
   // the not-found page's "gone" mark in the HTML and could not delete another account's saved
   // copy (public/sw.js). The page is "noindex" either way.
-  if (!trip) return <TripNotFound />;
+  if (!trip) {
+    // 4.7.a: a burst of codes that match nothing alerts the founder (src/lib/security/id-guess.ts).
+    await recordIdMiss("trip", user.id);
+    return <TripNotFound />;
+  }
 
   const brand = siteConfig.localizedName[locale] ?? siteConfig.name;
   const dates = formatDateRange(trip.checkIn, trip.checkOut, locale, { day: "numeric", month: "short" });

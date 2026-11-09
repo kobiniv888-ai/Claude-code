@@ -124,4 +124,19 @@ describe("reading fails closed", () => {
     const location = fc.openListingLocation({ addressEnc: fc.sealAddress("12 Fake Street") }, "test");
     expect(tainted).toContain(location);
   });
+
+  it("an opened pin is tainted by reference too (alone, or inside the location)", () => {
+    const tainted: object[] = [];
+    taint.setTaintApiForTests({
+      experimental_taintObjectReference: (_message, object) => void tainted.push(object),
+      experimental_taintUniqueValue: () => undefined,
+    });
+    useEnv({ SITE_ENV: "production", FIELD_ENCRYPTION_KEY: randomBytes(32).toString("base64") });
+    const pinEnc = fc.sealPin({ lat: 41.71, lng: 44.82 });
+    const pin = fc.openPin(pinEnc, "test");
+    expect(pin.value).toEqual({ lat: 41.71, lng: 44.82 });
+    expect(tainted).toContain(pin.value);
+    const location = fc.openListingLocation({ pinEnc }, "test");
+    expect(tainted).toContain(location.pin);
+  });
 });

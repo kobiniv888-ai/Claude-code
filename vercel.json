@@ -10,6 +10,8 @@
     { "path": "/api/cron/cleanup", "schedule": "41 2 * * *" },
     { "path": "/api/cron/daily-summary", "schedule": "3 5-9 * * *" },
     { "path": "/api/cron/weekly-host-stats", "schedule": "11 6-9 * * 0-2" },
-    { "path": "/api/cron/saved-alerts", "schedule": "29 5-9 * * *" }
+    { "path": "/api/cron/saved-alerts", "schedule": "29 5-9 * * *" },
+    { "path": "/api/cron/security-alerts", "schedule": "53 * * * *" },
+    { "path": "/api/cron/offsite-backup", "schedule": "37 1 * * 0" }
   ]
 }

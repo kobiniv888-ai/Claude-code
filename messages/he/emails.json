@@ -715,8 +715,7 @@
         "csp_reports": "{count} דיווחים מדפדפנים על תוכן שנחסם (התראה מעל {threshold}).",
         "booking_cap": "{count} הזמנות נדחו בגלל המגבלה של 2 הזמנות קרובות לכל טלפון (התראה מעל {threshold}).",
         "show_contact_cap": "{count} מבקרים הגיעו למגבלה היומית של „הצגת פרטי קשר” (התראה מעל {threshold}).",
-        "signup_burst": "{count} חשבונות חדשים (התראה מעל {threshold}).",
-        "signup_burst_ip": "{count} חשבונות חדשים מחיבור אחד (התראה מעל {threshold}).",
+        "signup_burst": "{count} חשבונות חדשים בשעה האחרונה, עד {perIp} מאותו חיבור (התראה מעל {threshold} בסך הכול או מעל {perIpThreshold} מחיבור אחד). התראה בלבד: אף אחד לא נחסם.",
         "listing_burst": "{count} מודעות חדשות (התראה מעל {threshold}).",
         "booking_burst": "{count} הזמנות חדשות (התראה מעל {threshold}).",
         "role_changed": "תפקיד צוות ניתן או הוסר ({count}).",
@@ -725,7 +724,8 @@
         "sessions_ended": "כל המשתמשים נותקו („ניתוק כולם”).",
         "offsite_backup_failed": "הגיבוי השבועי מחוץ לאתר נכשל ({count}).",
         "offsite_backup_missing": "כבר {days} ימים שלא הצליח גיבוי מחוץ לאתר.",
-        "certificate_expiry": "תעודת ה־HTTPS של האתר מסתיימת בעוד {days} ימים."
+        "certificate_expiry": "תעודת ה־HTTPS של האתר מסתיימת בעוד {days} ימים.",
+        "support_overdue": "{count, plural, one {פנייה אחת לתמיכה ממתינה} other {{count} פניות לתמיכה ממתינות}} יותר מזמן המענה שהבטחנו (יום עסקים אחד, ראשון עד חמישי): {tickets}."
       }
     }
   },

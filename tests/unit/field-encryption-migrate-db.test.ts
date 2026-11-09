@@ -7,6 +7,7 @@
  * - IDEMPOTENT (a second run changes nothing) and BATCHED (more rows than one batch);
  * - an encrypted value already there wins over a plain copy; half a pin and an erased ("") phone
  *   are dropped; a value that cannot be opened is left untouched with its plain copy (nothing lost);
+ *   `verify` opens every stored value (also those under the current key) and counts the bad ones;
  * - KEY ROTATION: with the old key as FIELD_ENCRYPTION_KEY_PREVIOUS everything is re-sealed with the
  *   new key and given new lookup values; afterwards the old key is not needed;
  * - once no plain value is left the database REFUSES new ones (CHECK constraints): no write path,
@@ -162,8 +163,12 @@ describe("key rotation", () => {
     expect(b.guestPhoneLookup).toBe(fieldLookup(newOnlyRing, "booking.guestPhone", "+995555000001"));
     // The per-phone cap finds the booking with the new key alone.
     expect(fieldLookups(newOnlyRing, "booking.guestPhone", "+995555000001")).toContain(b.guestPhoneLookup);
-    // Idempotent under the new key too.
+    // Idempotent under the new key too, and --verify with the NEW key alone opens everything: the
+    // old key can be removed (docs/security/field-encryption.md, step 5).
     expect((await encryptPlainFields(prisma, { keyring: newOnlyRing })).bookings.changed).toBe(0);
+    const check = await encryptPlainFields(prisma, { keyring: newOnlyRing, verify: true });
+    expect(check.listings.unreadable + check.bookings.unreadable).toBe(0);
+    expect(check.bookings.verified).toBe(7);
   });
 });
 
@@ -174,9 +179,19 @@ describe("a value that cannot be opened", () => {
     await q(`INSERT INTO "Booking" (id, "guestPhone", "guestPhoneEnc") VALUES ('foreign', '+995555000777', $1)`, [foreign]);
     const tampered = (await listing("l2")).addressEnc.replace(/.$/, (c: string) => (c === "A" ? "B" : "A"));
     await q(`UPDATE "Listing" SET "addressEnc" = $1 WHERE id = 'l2'`, [tampered]);
+    // An ordinary run reads only plain and old-key values: the foreign-key phone is found, the
+    // tampered address (under the current key) is not read at all, so nothing touches it.
     const report = await encryptPlainFields(prisma, { keyring: newOnlyRing });
     expect(report.bookings.unreadable).toBe(1);
-    expect(report.listings.unreadable).toBe(1);
+    expect(report.listings.unreadable).toBe(0);
+    expect(report.verify).toBe(false);
+    // --verify opens every stored value and finds the tampered one too.
+    const verified = await encryptPlainFields(prisma, { keyring: newOnlyRing, verify: true });
+    expect(verified.verify).toBe(true);
+    expect(verified.listings.unreadable).toBe(1);
+    expect(verified.bookings.unreadable).toBe(1);
+    expect(verified.listings.verified).toBeGreaterThan(0);
+    expect(verified.listings.changed + verified.bookings.changed).toBe(0);
     expect(await booking("foreign")).toMatchObject({ guestPhone: "+995555000777", guestPhoneEnc: foreign });
     expect((await listing("l2")).addressEnc).toBe(tampered);
     // A plain value is still there, so the bookings guard stays off until it is solved.

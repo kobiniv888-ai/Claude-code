@@ -31,7 +31,7 @@ vi.mock("next-intl/server", () => ({
 }));
 vi.mock("@/lib/request", () => ({ getIpHash: async () => "test-ip" }));
 
-type Sent = { to: string; template: string; locale: string; subject: string; text: string };
+type Sent = { to: string; template: string; locale: string; subject: string; text: string; redact?: string[] };
 const sent: Sent[] = [];
 /** Runs while an email is being "sent" (to act in the middle of a slow notification). */
 const hooks: {
@@ -46,7 +46,7 @@ vi.mock("@/lib/email", async (importOriginal) => {
     sendEmail: vi.fn(async (input: Parameters<typeof real.sendEmail>[0]) => {
       await hooks.onEmail?.();
       const rendered = await real.renderEmail(input.template, input.locale, input.data as never);
-      sent.push({ to: input.to, template: input.template, locale: String(input.locale), subject: rendered.subject, text: rendered.text });
+      sent.push({ to: input.to, template: input.template, locale: String(input.locale), subject: rendered.subject, text: rendered.text, redact: input.redact });
       return hooks.result?.(input.template) ?? { ok: true, delivery: "logged" as const };
     }),
   };
@@ -228,6 +228,11 @@ describe("createBooking", () => {
     // SECURITY_REPORT 5.h: each email reaches only its own person (the address only the guest).
     expect(sent.find((s) => s.template === "booking_confirmed_guest")?.to).toBe(`${ids.guestC}@example.com`);
     expect(sent.find((s) => s.template === "booking_new_host")?.to).toBe(`${ids.host}@example.com`);
+    // 12.3.c: the outbox copy (EmailOutbox) of each email masks the decrypted exact address and the
+    // guest's phone, so no plain copy of an encrypted field stays in the database.
+    const guestPhone = (await db.user.findUniqueOrThrow({ where: { id: ids.guestC }, select: { phoneNumber: true } })).phoneNumber!;
+    expect(sent.find((s) => s.template === "booking_new_host")?.redact).toEqual(expect.arrayContaining(["1 Test Street, Tbilisi", guestPhone]));
+    expect(sent.find((s) => s.template === "booking_confirmed_guest")?.redact).toEqual(expect.arrayContaining(["1 Test Street, Tbilisi", guestPhone]));
     expect(texts).toHaveLength(2);
     expect(texts.every((t) => t.body.includes(created.code))).toBe(true);
 

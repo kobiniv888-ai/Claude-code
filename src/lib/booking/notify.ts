@@ -5,7 +5,8 @@ import { isAppLocale, pickLocalized } from "@/i18n/locale";
 import { personName } from "@/lib/auth/first-name";
 import { db } from "@/lib/db";
 import { openGuestPhone, openListingLocation } from "@/lib/field-crypto";
-import { isEmailDeliveryConfigured, notificationEmailFor, sendEmail, type SendEmailResult } from "@/lib/email";
+import { isEmailDeliveryConfigured, notificationEmailFor, sendEmail, type EmailTemplate, type SendEmailInput, type SendEmailResult } from "@/lib/email";
+import { escapeHtml } from "@/lib/email/layout";
 import type { BookingEmailArrival, BookingEmailStay } from "@/lib/email/templates";
 import { formatDateRange } from "@/lib/format";
 import { searchPath } from "@/lib/listing/urls";
@@ -80,6 +81,21 @@ async function loadBooking(bookingId: string) {
 }
 
 type LoadedBooking = NonNullable<Awaited<ReturnType<typeof loadBooking>>>;
+
+/**
+ * The decrypted exact address and guest phone, as they can appear in a rendered email. The email
+ * itself carries them, but the copy kept in the EmailOutbox table (ADMIN-only log, 90 days) gets
+ * them masked: no plain copy of an encrypted field stays in the database (SECURITY_REPORT 12.3.c).
+ */
+function encryptedValuesIn(booking: LoadedBooking): string[] {
+  const values = [booking.listing.address?.trim(), booking.guestPhone?.trim()].filter((v): v is string => !!v);
+  return [...new Set(values.flatMap((value) => [value, escapeHtml(value)]))];
+}
+
+/** sendEmail for a booking: the outbox copy never keeps the exact address or the guest's phone. */
+function sendBookingEmail<K extends EmailTemplate>(booking: LoadedBooking, input: SendEmailInput<K>) {
+  return sendEmail({ ...input, redact: [...(input.redact ?? []), ...encryptedValuesIn(booking)] });
+}
 
 function localeOf(value: string | null | undefined): AppLocale {
   return isAppLocale(value) ? value : siteConfig.i18n.fallbackLocale;
@@ -249,7 +265,7 @@ export async function emailHostNewBooking(bookingId: string, opts: { outboxOnly?
     const host = recipient(booking, "host");
     const to = notificationEmailFor(booking.host);
     if (!to) return { ok: false, delivery: "failed" };
-    return await sendEmail({
+    return await sendBookingEmail(booking, {
       to,
       locale: host.locale,
       template: "booking_new_host",
@@ -284,7 +300,7 @@ export async function notifyBookingConfirmed(bookingId: string, now: Date = new 
     const displayTotal = toNumber(booking.displayTotal);
     await Promise.all([
       guest.email &&
-        sendEmail({
+        sendBookingEmail(booking, {
           to: guest.email,
           locale: guest.locale,
           template: "booking_confirmed_guest",
@@ -317,7 +333,7 @@ export async function notifyGuestHostUnreached(bookingId: string): Promise<void>
     const contact = arrivalFor(booking);
     await Promise.all([
       guest.email &&
-        sendEmail({
+        sendBookingEmail(booking, {
           to: guest.email,
           locale: guest.locale,
           template: "booking_host_unreached_guest",
@@ -347,7 +363,7 @@ export async function emailHostCancelledByGuest(bookingId: string, opts: { outbo
     const to = notificationEmailFor(booking.host);
     if (!to) return { ok: false, delivery: "failed" };
     const checkIn = dateToDay(booking.checkIn);
-    return await sendEmail({
+    return await sendBookingEmail(booking, {
       to,
       locale: host.locale,
       template: "booking_cancelled_by_guest",
@@ -383,7 +399,7 @@ export async function notifyBookingCancelled(bookingId: string): Promise<void> {
       const deal = booking.listing.dealType === "HOTEL_ROOM" ? "hotels" : "short-stay";
       await Promise.all([
         guest.email &&
-          sendEmail({
+          sendBookingEmail(booking, {
             to: guest.email,
             locale: guest.locale,
             template: "booking_cancelled_by_host",
@@ -411,14 +427,14 @@ export async function notifyBookingReminder(bookingId: string, now: Date = new D
     const host = recipient(booking, "host");
     await Promise.all([
       guest.email &&
-        sendEmail({
+        sendBookingEmail(booking, {
           to: guest.email,
           locale: guest.locale,
           template: "booking_reminder_guest",
           data: { ...stayFor(booking, guest.locale, guest.path), ...arrivalFor(booking), guestName: booking.guestName, daysLeft },
         }),
       host.email &&
-        sendEmail({
+        sendBookingEmail(booking, {
           to: host.email,
           locale: host.locale,
           template: "booking_reminder_host",
@@ -444,7 +460,7 @@ export async function notifyBookingCompleted(bookingId: string): Promise<void> {
     const guest = recipient(booking, "guest");
     if (!guest.email) return;
     const stay = stayFor(booking, guest.locale, guest.path);
-    await sendEmail({
+    await sendBookingEmail(booking, {
       to: guest.email,
       locale: guest.locale,
       template: "booking_completed",
