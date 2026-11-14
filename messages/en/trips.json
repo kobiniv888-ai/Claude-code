@@ -92,8 +92,13 @@
   },
   "safety": {
     "title": "Safety",
-    "note": "{brand} never takes payment. Never pay in advance through a link someone sends you.",
+    "note": "{brand} takes no payment. Never pay in advance by link or transfer. You pay the host when you arrive.",
     "emergency": "Emergency numbers",
-    "call": "Emergency: <ltr>{number}</ltr>"
+    "call": "Emergency: <ltr>{number}</ltr>",
+    "contactChanged": {
+      "title": "The host's contact details changed recently",
+      "body": "If anyone now asks you to pay by link, by transfer or to “verify” a card, it's a scam. Never pay in advance — you pay the host when you arrive. Something looks wrong? Tell us."
+    },
+    "reportScam": "Report a scam"
   }
 }

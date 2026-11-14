@@ -13,6 +13,8 @@ import {
 } from "@/components/account/settings-forms";
 import { BookingAlerts } from "@/components/account/booking-alerts";
 import { LogoutEverywhere } from "@/components/account/logout-everywhere";
+import { AccountEmailStep } from "@/components/auth/account-email-step";
+import { DeletionKeeps } from "@/components/legal/deletion-keeps";
 import { TwoFactorSettings } from "@/components/auth/two-factor-settings";
 import { Ltr } from "@/components/common/ltr";
 import { PageHeader } from "@/components/common/page-header";
@@ -79,7 +81,8 @@ export default async function SettingsPage({ params }: Props) {
           )
         }
       >
-        <ContactEmailForm loginEmail={data.loginEmail} contactEmail={data.contactEmail} />
+        {/* Founder's answer (5): an account without a real email adds one (its login email) first. */}
+        {user.emailIsPlaceholder ? <AccountEmailStep /> : <ContactEmailForm loginEmail={data.loginEmail} contactEmail={data.contactEmail} />}
       </SettingsSection>
 
       <SettingsSection id="preferences" title={t("preferences.title")} lead={t("preferences.lead")}>
@@ -122,6 +125,8 @@ export default async function SettingsPage({ params }: Props) {
 
       <SettingsSection id="delete" title={t("delete.title")} lead={t("delete.lead")} tone="danger">
         <DeleteAccount isStaff={user.isStaff} />
+        {/* SECURITY_REPORT 15.8.b: what stays after a deletion, and for how long. */}
+        {user.isStaff ? null : <DeletionKeeps />}
       </SettingsSection>
     </div>
   );

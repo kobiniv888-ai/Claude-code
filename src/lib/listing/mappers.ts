@@ -250,7 +250,7 @@ export function toListingCard(row: ListingCardRow, ctx: CardMapContext): Listing
       // Proximity of a real listing is computed from verified, non-demo community places only
       // (proximityPlaceWhere in src/lib/nearby.ts); a demo listing may use demo places, so it
       // never gets the tag.
-      synagogueVerified: !row.isDemo && row.synagogueWalkMin != null,
+      synagogueVerified: !row.isDemo && walks.synagogueWalkMin != null,
       seaWalkMinutes: walks.seaWalkMinutes,
       liftWalkMinutes: walks.liftWalkMinutes,
       isNew: within(row.publishedAt, newLabelDays, now),

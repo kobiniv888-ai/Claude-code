@@ -56,6 +56,9 @@ export function fakeProductionEnv(options: FakeEnvOptions = {}): Record<string, 
     // security.txt's contact, error tracking in the EU region, the weekly encrypted off-site backup
     // (src/lib/ops-startup.ts): made-up values of the right shape.
     SECURITY_CONTACT_EMAIL: "security@bayit.example.com",
+    // The accessibility statement's coordinator (src/lib/legal/accessibility.ts): made-up values.
+    ACCESSIBILITY_COORDINATOR_NAME: "Example Coordinator",
+    ACCESSIBILITY_COORDINATOR_EMAIL: "access@bayit.example.com",
     SENTRY_DSN: `https://${hex(16)}@o1.ingest.de.sentry.io/1`,
     BACKUP_ENCRYPTION_KEY: randomBytes(32).toString("base64"),
     OFFSITE_S3_ENDPOINT: "https://s3.eu-central-003.backblazeb2.example.com",
@@ -75,5 +78,13 @@ export const REFUSE_CASES: { name: string; change: Record<string, string>; expec
   { name: "a required secret missing (BETTER_AUTH_SECRET)", change: { BETTER_AUTH_SECRET: "" }, expect: /BETTER_AUTH_SECRET is not set/ },
   { name: "a required secret missing (HASH_SALT)", change: { HASH_SALT: "" }, expect: /HASH_SALT/ },
   { name: "the field-encryption key missing", change: { FIELD_ENCRYPTION_KEY: "" }, expect: /FIELD_ENCRYPTION_KEY is not set/ },
+  // Security round S2: the settings the real site now requires (src/lib/ops-startup.ts,
+  // src/lib/admin/maintenance/offsite-config.ts, src/lib/legal/accessibility.ts).
+  { name: "the security contact missing (SECURITY_CONTACT_EMAIL)", change: { SECURITY_CONTACT_EMAIL: "" }, expect: /SECURITY_CONTACT_EMAIL is not set/ },
+  { name: "error tracking missing (SENTRY_DSN)", change: { SENTRY_DSN: "" }, expect: /SENTRY_DSN is not set/ },
+  { name: "the backup encryption key missing (BACKUP_ENCRYPTION_KEY)", change: { BACKUP_ENCRYPTION_KEY: "" }, expect: /BACKUP_ENCRYPTION_KEY is not set/ },
+  { name: "an off-site backup setting missing (OFFSITE_S3_BUCKET)", change: { OFFSITE_S3_BUCKET: "" }, expect: /OFFSITE_S3_BUCKET is not set/ },
+  { name: "the accessibility coordinator missing", change: { ACCESSIBILITY_COORDINATOR_NAME: "" }, expect: /ACCESSIBILITY_COORDINATOR_NAME is not set/ },
+  { name: "a codespace development key (HASH_SALT)", change: { HASH_SALT: "bayit-dev-0123456789abcdef0123456789" }, expect: /HASH_SALT is a codespace development key/ },
   { name: "the database without TLS", change: { DATABASE_URL: "postgresql://bayit_app:x@db.example.com:5432/bayit" }, expect: /DATABASE_URL must use TLS/ },
 ];

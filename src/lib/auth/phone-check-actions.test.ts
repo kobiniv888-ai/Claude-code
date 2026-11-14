@@ -1,6 +1,9 @@
 /**
- * "Verify your phone" (hardening A1): the "number taken" answer reveals whether some account has a
- * number, so the action must charge its rate limits and check the CAPTCHA before it looks.
+ * "Verify your phone" (hardening A1, founder's answer (5) of 9 Nov 2026): the answer is the SAME
+ * whether or not another account has the number (no "number already used"): the limits and the
+ * CAPTCHA are charged first, and a number another account has gets the neutral send (the code is
+ * stored and every limit charged, but no text goes out: ./phone-neutral.ts), so the confirm fails
+ * like a wrong code. Every account needs a real email first (./account-email-guard.ts).
  * SECURITY_REPORT 3.2.f: the SERVER checks where the check happens (a bookable listing for a guest,
  * a host for the account page) before any SMS.
  */
@@ -22,7 +25,10 @@ const state = vi.hoisted(() => ({
   bookable: true as boolean,
   listingOwner: "host-1",
   listings: 0,
-  user: { id: "me", sessionId: "session-me", phoneNumber: "+995555000099", phoneNumberVerified: true } as Record<string, unknown>,
+  user: { id: "me", sessionId: "session-me", email: "me@example.com", phoneNumber: "+995555000099", phoneNumberVerified: true } as Record<string, unknown>,
+  /** Whether each send ran inside the neutral context (no text). */
+  neutralSends: [] as boolean[],
+  screenCodes: true,
   /** Verification rows by identifier (the session bindings). */
   verifications: new Map<string, { value: string; expiresAt: Date; createdAt: Date }>(),
 }));
@@ -90,9 +96,11 @@ vi.mock("./session", () => ({
 vi.mock("./server", () => ({
   auth: {
     api: {
-      sendPhoneNumberOTP: (...args: unknown[]) => {
+      sendPhoneNumberOTP: async (...args: unknown[]) => {
         state.send(...args);
-        return Promise.resolve({});
+        const { isNeutralPhoneSend } = await import("./phone-neutral");
+        state.neutralSends.push(isNeutralPhoneSend());
+        return {};
       },
       consumePhoneNumberOTP: (...args: unknown[]) => {
         state.consume(...args);
@@ -104,7 +112,7 @@ vi.mock("./server", () => ({
 vi.mock("./sms", () => ({
   phoneCodeRoute: async () => "screen",
   phoneCodeKey: (phone: string) => phone,
-  readScreenCode: () => "123456",
+  readScreenCode: () => (state.screenCodes ? "123456" : null),
   forgetScreenCode: () => {},
 }));
 vi.mock("./code-display", () => ({ codeDisplayForHeaders: () => "screen" }));
@@ -134,7 +142,9 @@ describe("sendPhoneCheckCode", () => {
     state.newHostOk = true;
     state.newHostLimit.mockClear();
     state.verifications.clear();
-    state.user = { id: "me", sessionId: "session-me", phoneNumber: "+995555000099", phoneNumberVerified: true };
+    state.neutralSends.length = 0;
+    state.screenCodes = true;
+    state.user = { id: "me", sessionId: "session-me", email: "me@example.com", phoneNumber: "+995555000099", phoneNumberVerified: true };
   });
 
   it("does not say whether a number has an account when the CAPTCHA fails", async () => {
@@ -152,10 +162,33 @@ describe("sendPhoneCheckCode", () => {
     expect(state.limit).toHaveBeenCalledWith("me");
   });
 
-  it("answers phone_taken only after the limits and the CAPTCHA, and sends no code", async () => {
-    const result = await sendPhoneCheckCode({ phoneNumber: NUMBER, ...BOOKING });
-    expect(result).toEqual({ ok: false, error: "phone_taken" });
-    expect(state.limit).toHaveBeenCalledTimes(1);
+  it("a number another account has: the same answer as a free number, every limit charged, but no text (answer (5))", async () => {
+    // Production: no codes on screen, so both answers are byte-identical.
+    state.screenCodes = false;
+    const taken = await sendPhoneCheckCode({ phoneNumber: NUMBER, ...BOOKING });
+    state.otherAccount = false;
+    const free = await sendPhoneCheckCode({ phoneNumber: NUMBER, ...BOOKING });
+    expect(JSON.stringify(taken)).toBe(JSON.stringify(free));
+    expect(taken).toEqual({ ok: true, data: { status: "sent", phoneNumber: NUMBER, screenCode: null } });
+    // Both went through the library's send (number rules, waits, daily caps); the first one inside
+    // the neutral context, where sendOTP sends nothing (./server.ts).
+    expect(state.limit).toHaveBeenCalledTimes(2);
+    expect(state.send).toHaveBeenCalledTimes(2);
+    expect(state.neutralSends).toEqual([true, false]);
+    // The session may confirm either one (the confirm then fails like a wrong code for the taken one).
+    expect(state.verifications.has(phoneCheckBindingKey("session-me", NUMBER))).toBe(true);
+  });
+
+  it("test mode never shows a code for a number another account has", async () => {
+    const taken = await sendPhoneCheckCode({ phoneNumber: NUMBER, ...BOOKING });
+    expect(taken).toMatchObject({ ok: true, data: { status: "sent", screenCode: null } });
+  });
+
+  it("an account without a real email adds one first (account_email_required), before any limit or text", async () => {
+    state.otherAccount = false;
+    state.user = { ...state.user, email: "995555000099@phone.bayit.invalid", emailIsPlaceholder: true };
+    expect(await sendPhoneCheckCode({ phoneNumber: NUMBER, ...BOOKING })).toEqual({ ok: false, error: "account_email_required" });
+    expect(state.limit).not.toHaveBeenCalled();
     expect(state.send).not.toHaveBeenCalled();
   });
 
@@ -247,7 +280,7 @@ describe("confirmPhoneCheckCode: the code belongs to the session that asked for 
     state.send.mockClear();
     state.verifications.clear();
     state.listings = 1;
-    state.user = { id: "me", sessionId: "session-me", phoneNumber: null, phoneNumberVerified: false };
+    state.user = { id: "me", sessionId: "session-me", email: "me@example.com", phoneNumber: null, phoneNumberVerified: false };
   });
 
   it("a send writes this session's binding; the confirm then uses up the code and saves the number", async () => {
@@ -267,7 +300,7 @@ describe("confirmPhoneCheckCode: the code belongs to the session that asked for 
 
   it("a binding made in session A does not work in session V, even for the same account", async () => {
     await sendPhoneCheckCode({ phoneNumber: OTHER, place: "account" });
-    state.user = { id: "me", sessionId: "session-other", phoneNumber: null, phoneNumberVerified: false };
+    state.user = { id: "me", sessionId: "session-other", email: "me@example.com", phoneNumber: null, phoneNumberVerified: false };
     expect(await confirmPhoneCheckCode({ phoneNumber: OTHER, code: "123456" })).toEqual({ ok: false, error: "code_expired" });
     expect(state.consume).not.toHaveBeenCalled();
   });
@@ -287,7 +320,7 @@ describe("confirmPhoneCheckCode: the code belongs to the session that asked for 
   it("a replacement whose binding is 'first' (the number became verified after the send) asks for a fresh proof", async () => {
     await sendPhoneCheckCode({ phoneNumber: OTHER, place: "account" });
     state.replacement = true;
-    state.user = { id: "me", sessionId: "session-me", phoneNumber: "+995555000099", phoneNumberVerified: true };
+    state.user = { id: "me", sessionId: "session-me", email: "me@example.com", phoneNumber: "+995555000099", phoneNumberVerified: true };
     expect(await confirmPhoneCheckCode({ phoneNumber: OTHER, code: "123456" })).toEqual({ ok: false, error: "fresh_proof_required" });
     expect(state.freshProof).toHaveBeenCalledTimes(1);
     expect(state.consume).not.toHaveBeenCalled();
@@ -297,7 +330,7 @@ describe("confirmPhoneCheckCode: the code belongs to the session that asked for 
   it("a replacement bound as 'replace' (fresh proof at send time) goes through without asking again", async () => {
     state.verifications.set(phoneCheckBindingKey("session-me", OTHER), { value: "replace:me", expiresAt: new Date(Date.now() + 60_000), createdAt: new Date() });
     state.replacement = true;
-    state.user = { id: "me", sessionId: "session-me", phoneNumber: "+995555000099", phoneNumberVerified: true };
+    state.user = { id: "me", sessionId: "session-me", email: "me@example.com", phoneNumber: "+995555000099", phoneNumberVerified: true };
     expect(await confirmPhoneCheckCode({ phoneNumber: OTHER, code: "123456" })).toEqual({ ok: true, data: { phoneNumber: OTHER } });
     expect(state.freshProof).not.toHaveBeenCalled();
   });

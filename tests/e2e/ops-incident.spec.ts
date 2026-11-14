@@ -27,8 +27,8 @@ for (const [locale, heading] of Object.entries(HEADINGS)) {
     expect(response?.status()).toBe(200);
     await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
     await expect(page.locator("html")).toHaveAttribute("dir", locale === "he" || locale === "ar" ? "rtl" : "ltr");
-    // Five sections: how, what, next, the promise, what not to do.
-    await expect(page.locator("main h2")).toHaveCount(5);
+    // Six sections: how, our only domain (SECURITY_REPORT 14.4.b), what, next, the promise, what not to do.
+    await expect(page.locator("main h2")).toHaveCount(6);
     // The footer links here.
     await expect(page.locator(`footer a[href="/${locale}/security"]`).first()).toBeAttached();
     // A mailto link (SECURITY_CONTACT_EMAIL) or, without it, the support form.

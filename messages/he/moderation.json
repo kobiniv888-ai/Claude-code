@@ -64,7 +64,11 @@
     "shared_device": "מכשיר משותף עם חשבונות אחרים",
     "voip_phone": "מספר טלפון וירטואלי (VoIP)",
     "first_listing": "המודעה הראשונה של החשבון",
-    "phone_not_verified": "הטלפון לא אומת"
+    "phone_not_verified": "הטלפון לא אומת",
+    "payment_details": "פרטי תשלום בטקסט",
+    "exclusionary_text": "טקסט מדיר",
+    "copied_description": "תיאור מועתק ממודעה של חשבון אחר",
+    "price_below_guide": "מחיר נמוך בהרבה ממדריך המחירים"
   },
   "statuses": {
     "DRAFT": {

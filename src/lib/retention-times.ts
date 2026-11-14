@@ -27,5 +27,21 @@ export const PHONE_LOOKUP_RETENTION_DAYS = 90;
 /** A browser notification subscription that keeps failing and has not worked for 90 days is removed. */
 export const DEAD_PUSH_RETENTION_DAYS = 90;
 
+/** Founder's decision 9 (8 Nov 2026): guest contact details go 3 months after check-out. */
+export const GUEST_CONTACT_RETENTION_MONTHS = 3;
+/** Founder's answer Q20: staff actions are kept for 1 year. */
+export const AUDIT_LOG_RETENTION_DAYS = 365;
+/** The email outbox holds the recipient and the full message (names, booking details). */
+export const EMAIL_OUTBOX_RETENTION_DAYS = 90;
+/** "Show contact" taps keep their account this long (the daily cap needs one day), then only the count stays. */
+export const CONTACT_CLICK_USER_RETENTION_DAYS = 90;
+/** A device not seen for a year is forgotten (the sign-up device cap looks back 30 days). */
+export const DEVICE_LINK_RETENTION_DAYS = 365;
+/**
+ * Each off-site backup copy stays locked this many days unless OFFSITE_RETENTION_DAYS says
+ * otherwise (the same default as src/lib/admin/maintenance/offsite-config.ts; a test keeps them equal).
+ */
+export const OFFSITE_BACKUP_DEFAULT_DAYS = 60;
+
 /** What an erased text keeps instead (the same mark as account deletion). */
 export const ERASED_TEXT = "—";

@@ -9,6 +9,7 @@ import { db } from "@/lib/db";
 import { NotFoundError } from "@/lib/errors";
 import { dominantScript } from "@/lib/listing/text-checks";
 import { detectContactInfo, hasContactInfo } from "@/lib/risk/contact-info";
+import { refusePaymentDetails } from "@/lib/risk/text-guard";
 import { ReviewError } from "./errors";
 import {
   REPLY_TEXT_MIN,
@@ -120,6 +121,10 @@ export async function createReviewForBooking(input: NewReview): Promise<{ id: st
   const before = blockFor(booking, today);
   if (before) throw new ReviewError(before);
   assertNoContactInfo(input.text);
+  // SECURITY_REPORT 14.2.a: payment details are refused, the account flagged (src/lib/risk/text-guard.ts).
+  if (await refusePaymentDetails({ surface: "review", userId: input.guestId, listingId: booking.listingId, texts: [input.text] })) {
+    throw new ReviewError("payment_in_text", 400);
+  }
   assertLongEnough(input.text, REVIEW_TEXT_MIN);
   const language = textLanguage(input.text, input.pageLocale ?? booking.locale);
 
@@ -161,6 +166,9 @@ export async function createReviewForBooking(input: NewReview): Promise<{ id: st
 export async function postHostReply(input: { hostId: string; reviewId: string; text: string; pageLocale?: string | null; now?: Date }): Promise<void> {
   const now = input.now ?? new Date();
   assertNoContactInfo(input.text);
+  if (await refusePaymentDetails({ surface: "review_reply", userId: input.hostId, texts: [input.text] })) {
+    throw new ReviewError("payment_in_text", 400);
+  }
   assertLongEnough(input.text, REPLY_TEXT_MIN);
   const language = textLanguage(input.text, input.pageLocale);
   const { count } = await db.review.updateMany({

@@ -17,6 +17,7 @@ import { AvailabilityPicker } from "@/components/listing-page/availability-picke
 import { BookingBar, BookingBox, DatesSheet } from "@/components/listing-page/booking-bar";
 import { ContactBox, HostCard, OwnerHeader, ShabbatReplyNotice, type ShabbatNow } from "@/components/listing-page/contact-box";
 import { Gallery } from "@/components/listing-page/gallery";
+import { PayWarning } from "@/components/listing-page/pay-warning";
 import { AmenitiesSection, DetailsSection, ImportantToKnow, SalePriceSection } from "@/components/listing-page/info-sections";
 import { KosherShabbatSection } from "@/components/listing-page/kosher-shabbat";
 import { Highlights, HostLine, TitleBlock } from "@/components/listing-page/listing-header";
@@ -341,12 +342,15 @@ export default async function ListingPage({ params, searchParams }: Props) {
             ) : null}
             <LocationSection data={data} place={place} />
             <ImportantToKnow data={data} />
+            {/* SECURITY_REPORT 14.2.b/c: the pay warning and the scam button, for every screen size. */}
+            {isPublic && !isOwner ? <PayWarning listingNumber={data.publicId} className="lg:hidden" /> : null}
             <HostCard data={data} nowIso={nowIso} shabbatNow={shabbatNow} showContact={!booking && !contactBarShown} report={report} />
           </div>
 
           <aside aria-label={booking ? t("booking.boxLabel") : t("contactBox.label")} className="hidden lg:col-start-2 lg:row-start-1 lg:block">
             <div className="sticky top-[calc(var(--header-height)+1.5rem)]">
               {booking ? <BookingBox /> : <ContactBox data={data} shabbatNow={shabbatNow} />}
+              {isPublic && !isOwner ? <PayWarning listingNumber={data.publicId} className="mt-4" /> : null}
             </div>
           </aside>
         </div>
@@ -370,6 +374,7 @@ export default async function ListingPage({ params, searchParams }: Props) {
             <div className="grid gap-3">
               <OwnerHeader owner={data.owner} sale={isSale} />
               <ShabbatReplyNotice now={shabbatNow} />
+              {isPublic && !isOwner ? <PayWarning listingNumber={data.publicId} /> : null}
             </div>
           }
         />

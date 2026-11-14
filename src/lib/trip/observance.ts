@@ -1,9 +1,9 @@
 /**
  * Shabbat and Yom Tov on a stay (round 3, brief 7.1; pure, client-safe).
  *
- * The trip page shows candle-lighting and Havdalah times, the nearest verified synagogue, Chabad
- * house and kosher place, and "המארח לא עונה בשבת" ONLY when the stay includes a Friday night or a
- * Jewish holiday. The rule, in calendar days of the stay (Asia/Tbilisi, src/lib/booking/dates.ts):
+ * The trip page shows candle-lighting and Havdalah times, the nearest verified synagogue and kosher
+ * place (never a Chabad house walk: founder's answer (2)), and "המארח לא עונה בשבת" ONLY when the
+ * stay includes a Friday night or a Jewish holiday. The rule, in calendar days of the stay (Asia/Tbilisi, src/lib/booking/dates.ts):
  *
  *   a stay includes Shabbat or Yom Tov ⇔ one of its NIGHTS (checkIn … checkOut − 1) is the
  *   evening before a day of rest: a Saturday, or a day of Yom Tov on the ISRAELI schedule

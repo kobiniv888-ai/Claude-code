@@ -34,7 +34,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { CurrencyCode } from "@/config/site";
 import { deleteAllDemoData, saveEmergencyContacts, saveSettings } from "@/lib/admin/content/actions/settings";
-import { emptyLocalized, type LocalizedForm } from "@/lib/admin/content/localized";
+import { emptyLocalized, toLocalizedForm, type LocalizedForm } from "@/lib/admin/content/localized";
 import { moveItem } from "@/lib/admin/content/order";
 import { DELETE_DEMO_CONFIRMATION, LIMITS, emergencyContactsInputSchema } from "@/lib/admin/content/schemas";
 import { formatDate, formatNumber, formatTime } from "@/lib/format";
@@ -52,6 +52,8 @@ export type SettingsData = {
   scamBannerEnabled: boolean;
   demoDataVisible: boolean;
   paidFeaturePrices: Record<string, number>;
+  /** The support reply promise per language (SECURITY_REPORT 19.b); empty = the default text. */
+  supportReplyPromise: Partial<Record<string, string>>;
 };
 
 export type EmergencyContactForm = { label: LocalizedForm; phone: string; url: string };
@@ -121,6 +123,8 @@ export function SettingsForm({
   const safetyErrors = useFieldErrors();
   const priceErrors = useFieldErrors();
   const emergencyErrors = useFieldErrors();
+  const supportErrors = useFieldErrors();
+  const [replyPromise, setReplyPromise] = useState<LocalizedForm>(() => toLocalizedForm(settings.supportReplyPromise));
 
   const [expiry, setExpiry] = useState(String(settings.listingExpiryDays));
   const [risk, setRisk] = useState(String(settings.reviewRiskThreshold));
@@ -158,6 +162,25 @@ export function SettingsForm({
         />
         <SaveRow>
           <Button type="button" disabled={pending} onClick={() => save({ listingExpiryDays: parseNumber(expiry) }, listingErrors)}>
+            <Save aria-hidden />
+            {t("save")}
+          </Button>
+        </SaveRow>
+      </AdminSection>
+
+      <AdminSection title={t("support.title")} description={t("support.description")}>
+        <LocalizedInputs
+          label={t("support.replyPromise")}
+          value={replyPromise}
+          required={[]}
+          maxLength={300}
+          errors={supportErrors.errors}
+          path="supportReplyPromise"
+          onChange={setReplyPromise}
+        />
+        <p className="mt-2 text-xs text-muted-foreground">{t("support.replyPromiseHint")}</p>
+        <SaveRow>
+          <Button type="button" disabled={pending} onClick={() => save({ supportReplyPromise: replyPromise }, supportErrors)}>
             <Save aria-hidden />
             {t("save")}
           </Button>

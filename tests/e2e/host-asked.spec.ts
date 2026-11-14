@@ -44,8 +44,12 @@ test("the host confirms 'the host asked me to cancel' on their booking page", as
   // The guest (another account) gets no card on the host's page (it is not their booking).
   const asGuest = await openAsTestUser(browser, guest);
   try {
-    const response = await asGuest.page.goto(`/en/account/host-bookings/${code}`);
-    expect(response?.status()).toBe(404);
+    // (Account pages stream, so a booking that is not yours answers 200 with the "not found" state,
+    // like the trip page: SECURITY_REPORT section 4, P2 note.)
+    await asGuest.page.goto(`/en/account/host-bookings/${code}`);
+    await expect(asGuest.page.locator("main").getByText("We couldn't find this booking")).toBeVisible();
+    await expect(asGuest.page.getByRole("heading", { name: "The guest says you asked them to cancel" })).toHaveCount(0);
+    await expect(asGuest.page.getByRole("button", { name: "Yes, I asked them to cancel" })).toHaveCount(0);
   } finally {
     await asGuest.context.close();
   }

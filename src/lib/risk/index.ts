@@ -5,8 +5,11 @@ import { db } from "@/lib/db";
 import { NotFoundError } from "@/lib/errors";
 import { getSettings } from "@/lib/settings";
 import { detectContactInfo, hasContactInfo, type ContactInfoFindings } from "./contact-info";
+import { detectExclusionaryText } from "./exclusion";
+import { detectPaymentInfo } from "./payment-info";
 import { lookupPhoneLine } from "./phone-lookup";
 import { baselinePrice, comparablePrice, referencePrice } from "./price";
+import { findCopiedDescriptions, priceGuideCheck } from "./review-warnings";
 import { scanText } from "./scan";
 
 /**
@@ -26,10 +29,14 @@ import { scanText } from "./scan";
  * | new account (< newAccountDays) posting > N listings in 24 h    | +25           |
  * | owner's device also used by other accounts                     | +20           |
  * | owner / contact phone is a virtual (VoIP) number               | +25           |
+ * | payment details in any public text (link, IBAN, card, wallet…)  | blocked, +60  |
+ * | exclusionary text ("no Arabs", "Jews only"; 14.5.e)            | review, +20   |
+ * | description copied from another account's listing (14.1.f)    | +30           |
+ * | price < half the price guide's / reference range's low end     | +25           |
  * | first listing of the account                                   | review, 0     |
  * | owner's phone not verified                                     | blocked       |
  *
- * requiresReview = first listing OR score ≥ settings.reviewRiskThreshold. Score is capped at 100.
+ * requiresReview = first listing OR exclusionary text OR score ≥ settings.reviewRiskThreshold. Score is capped at 100.
  *
  * Two more checks are pluggable and OFF by default — set them in `riskHooks` at startup
  * (e.g. from src/instrumentation.ts) once a provider is chosen:
@@ -59,6 +66,11 @@ export const RISK_REASON_CODES = [
   "voip_phone",
   "first_listing",
   "phone_not_verified",
+  // SECURITY_REPORT 14.2.a, 14.5.e, 14.1.f, 14.1.d (builder trust-scams).
+  "payment_details",
+  "exclusionary_text",
+  "copied_description",
+  "price_below_guide",
 ] as const;
 export type RiskReasonCode = (typeof RISK_REASON_CODES)[number];
 
@@ -80,6 +92,10 @@ export const RISK_POINTS = {
   newAccountVelocity: 25,
   sharedDevice: 20,
   voipPhone: 25,
+  paymentDetails: 60,
+  exclusionaryText: 20,
+  copiedDescription: 30,
+  priceBelowGuide: 25,
 } as const;
 
 /** Photos at most this many bits apart (of 64) are "the same photo". */
@@ -114,14 +130,16 @@ const LISTING_SELECT = {
   isDemo: true,
   publishedAt: true,
   contactMethods: true,
-  photos: { select: { id: true, url: true, storageKey: true, phash: true } },
+  kosherCertName: true,
+  photos: { select: { id: true, url: true, storageKey: true, phash: true, alt: true } },
+  roomTypes: { select: { names: true, description: true } },
   translations: { where: { editedByOwner: true }, select: { title: true, description: true } },
   owner: { select: { createdAt: true, phoneNumber: true, phoneNumberVerified: true } },
 } satisfies Prisma.ListingSelect;
 
 type ListingForRisk = Prisma.ListingGetPayload<{ select: typeof LISTING_SELECT }>;
 
-type CheckResult = { reasons: RiskReason[]; blocked?: boolean; firstListing?: boolean };
+type CheckResult = { reasons: RiskReason[]; blocked?: boolean; firstListing?: boolean; review?: boolean };
 
 // ─── Individual checks ────────────────────────────────────────
 
@@ -241,6 +259,73 @@ async function checkPhrases(listing: ListingForRisk): Promise<CheckResult> {
     });
   }
   return { reasons, blocked: blocks.length > 0 };
+}
+
+/** The strings of a localized JSON value ({ he: "…", en: "…" }) or a plain string. */
+function localizedStrings(value: unknown): string[] {
+  if (typeof value === "string") return [value];
+  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+  return Object.values(value as Record<string, unknown>).filter((v): v is string => typeof v === "string");
+}
+
+/** Every text of the listing guests read as the host wrote it: title, description, owner translations, room types, photo descriptions, kosher certificate. */
+function publicText(listing: ListingForRisk): string {
+  return [
+    listingText(listing),
+    listing.kosherCertName,
+    ...listing.roomTypes.flatMap((room) => [...localizedStrings(room.names), ...localizedStrings(room.description)]),
+    ...listing.photos.map((photo) => photo.alt),
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+/** SECURITY_REPORT 14.2.a: payment details anywhere guests read block publishing (and send a live listing to review). */
+function checkPaymentDetails(listing: ListingForRisk): CheckResult {
+  const found = detectPaymentInfo(publicText(listing));
+  if (found.kinds.length === 0) return { reasons: [] };
+  const detail = found.samples.map((s) => `${s.kind}: ${s.text}`).join(", ").slice(0, 300);
+  return { reasons: [{ code: "payment_details", points: RISK_POINTS.paymentDetails, detail }], blocked: true };
+}
+
+/** SECURITY_REPORT 14.5.e: excluding guests by religion, nationality or ethnicity goes to a person (never blocked automatically). */
+function checkExclusion(listing: ListingForRisk): CheckResult {
+  const found = detectExclusionaryText(publicText(listing));
+  if (found.length === 0) return { reasons: [] };
+  return {
+    reasons: [{ code: "exclusionary_text", points: RISK_POINTS.exclusionaryText, detail: found.map((p) => `"${p}"`).join(", ").slice(0, 300) }],
+    review: true,
+  };
+}
+
+/** SECURITY_REPORT 14.1.f: the description is mostly another account's listing's (./review-checks.ts shingles). */
+async function checkCopiedDescription(listing: ListingForRisk): Promise<CheckResult> {
+  const copies = await findCopiedDescriptions(listing);
+  if (copies.length === 0) return { reasons: [] };
+  return {
+    reasons: [
+      {
+        code: "copied_description",
+        points: RISK_POINTS.copiedDescription,
+        detail: copies.map((c) => `#${c.publicId} (${c.percent}%)`).join(", ").slice(0, 300),
+      },
+    ],
+  };
+}
+
+/** SECURITY_REPORT 14.1.d: far below the price guide (similar places of other owners) and the reference ranges. */
+async function checkPriceGuide(listing: ListingForRisk): Promise<CheckResult> {
+  const result = await priceGuideCheck(listing.id);
+  if (result.status !== "far_below") return { reasons: [] };
+  return {
+    reasons: [
+      {
+        code: "price_below_guide",
+        points: RISK_POINTS.priceBelowGuide,
+        detail: `${Math.round(result.price)} ${result.currency ?? ""} vs ${Math.round(result.low)} (${result.source}${result.places ? `, ${result.places}` : ""})`.slice(0, 300),
+      },
+    ],
+  };
 }
 
 function describeContactInfo(found: ContactInfoFindings): string {
@@ -377,7 +462,7 @@ export function combineRiskResults(results: CheckResult[], reviewThreshold: numb
   return {
     score,
     reasons: unique,
-    requiresReview: firstListing || score >= reviewThreshold,
+    requiresReview: firstListing || results.some((r) => r.review) || score >= reviewThreshold,
     blocked: results.some((r) => r.blocked),
   };
 }
@@ -414,6 +499,10 @@ export async function assessListing(listingId: string): Promise<RiskAssessment> 
     safely("velocity", () => checkVelocity(listing)),
     safely("shared_device", () => checkSharedDevice(listing)),
     safely("voip", () => checkVoip(listing)),
+    safely("payment_details", () => checkPaymentDetails(listing)),
+    safely("exclusion", () => checkExclusion(listing)),
+    safely("copied_description", () => checkCopiedDescription(listing)),
+    safely("price_guide", () => checkPriceGuide(listing)),
     safely("hooks", () => runHooks(listing)),
   ]);
   return combineRiskResults(results, settings.reviewRiskThreshold);

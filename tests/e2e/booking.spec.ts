@@ -3,6 +3,8 @@ import { expect, openAs, openAsTestUser, settle, test } from "./fixtures";
 import { DEMO } from "./helpers/auth";
 import { createTestUser, sql } from "./helpers/db";
 import { openAddress } from "./helpers/field-crypto";
+import { acceptTermsBox, acceptTermsBoxIfShown } from "./helpers/terms";
+import { TERMS_VERSION } from "../../src/lib/legal/terms";
 
 /**
  * Booking end to end (brief 5.5 and 5.6, docs/redesign-2/booking.md), in Hebrew (the main
@@ -128,6 +130,7 @@ test.describe("booking", () => {
     // The host raises the price while the guest is on this page → no booking at a price the guest
     // never saw: a clear message and the new total (hardening B2), then back to $70.
     await page.getByRole("checkbox", { name: /קראתי ואני מסכים/ }).check();
+    await acceptTermsBox(page); // the "18 or older + Terms" box (SECURITY_REPORT 15.11.b/c)
     await sql(`UPDATE "Listing" SET price = 75 WHERE id = $1`, [listing.id]);
     try {
       await confirmButton(page).click();
@@ -143,11 +146,21 @@ test.describe("booking", () => {
 
     await page.getByLabel("הודעה למארח (לא חובה)").fill(MESSAGE);
     await page.getByRole("checkbox", { name: /קראתי ואני מסכים/ }).check();
+    await acceptTermsBox(page); // the "18 or older + Terms" box (SECURITY_REPORT 15.11.b/c)
     await confirmButton(page).click();
 
     // ── 3. Confirmation = the trip page ──
     await expect(page).toHaveURL(/\/he\/account\/trips\/BT-[A-Z0-9]{5}\?booked=1/, { timeout: 60_000 });
     const code = decodeURIComponent(new URL(page.url()).pathname.split("/").pop() ?? "");
+    // SECURITY_REPORT 15.11.b/c: the first booking logged its own Terms acceptance (with the 18+
+    // confirmation) on top of the sign-up one the test helper wrote.
+    const acceptances = await sql<{ version: string; ageConfirmed: boolean }>(
+      `SELECT t.version, t."ageConfirmed" FROM "TermsAcceptance" t JOIN "Booking" b ON b."guestUserId" = t."userId"
+        WHERE b.code = $1 ORDER BY t."acceptedAt"`,
+      [code],
+    );
+    expect(acceptances.length).toBeGreaterThanOrEqual(2);
+    expect(acceptances.at(-1)).toEqual({ version: TERMS_VERSION, ageConfirmed: true });
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("ההזמנה אושרה!");
     await expect(page.locator("main")).toContainText(code);
     await expect(page.locator("main")).toContainText(listing.address);
@@ -193,6 +206,7 @@ test.describe("booking", () => {
 
     // ── 5. The same nights again: the late tab fails gracefully ("נתפסו הרגע"), no second booking ──
     await late.getByRole("checkbox", { name: /קראתי ואני מסכים/ }).check();
+    await acceptTermsBoxIfShown(late); // the "18 or older + Terms" box (SECURITY_REPORT 15.11.b/c)
     await confirmButton(late).click();
     await expect(late.getByText("התאריכים האלה נתפסו הרגע")).toBeVisible();
     await expect(late).toHaveURL(/\/book\?/);
@@ -301,6 +315,7 @@ test.describe("booking", () => {
 
       await page.getByLabel("הודעה למארח (לא חובה)").fill("E2E holiday price booking test, please ignore");
       await page.getByRole("checkbox", { name: /קראתי ואני מסכים/ }).check();
+      await acceptTermsBoxIfShown(page); // the "18 or older + Terms" box (SECURITY_REPORT 15.11.b/c)
       await confirmButton(page).click();
       await expect(page).toHaveURL(/\/he\/account\/trips\/BT-[A-Z0-9]{5}\?booked=1/, { timeout: 60_000 });
       const code = decodeURIComponent(new URL(page.url()).pathname.split("/").pop() ?? "");

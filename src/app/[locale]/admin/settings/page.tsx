@@ -62,6 +62,7 @@ export default async function SettingsPage({ params }: PageProps<"/[locale]/admi
             scamBannerEnabled: settings.scamBannerEnabled,
             demoDataVisible: settings.demoDataVisible,
             paidFeaturePrices: settings.paidFeaturePrices,
+            supportReplyPromise: settings.supportReplyPromise,
           }}
           currencies={[...enabledCurrencies]}
           paidFeatureKeys={Object.keys(siteConfig.paidFeatures)}

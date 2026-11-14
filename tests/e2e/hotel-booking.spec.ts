@@ -1,6 +1,7 @@
 import type { Locator, Page } from "@playwright/test";
 import { expect, openAsTestUser, settle, test } from "./fixtures";
 import { createTestListing, createTestUser, newId, sql } from "./helpers/db";
+import { acceptTermsBox, acceptTermsBoxIfShown } from "./helpers/terms";
 
 /**
  * Hotel booking by room type (round 3, founder's answer 3), in Hebrew, on a TEST-ONLY hotel (an
@@ -140,6 +141,7 @@ test.describe("hotel booking by room type", () => {
     await settle(late);
 
     await page.getByRole("checkbox", { name: /קראתי ואני מסכים/ }).check();
+    await acceptTermsBox(page); // the "18 or older + Terms" box (SECURITY_REPORT 15.11.b/c)
     await confirmButton(page).click();
 
     // ── 3. The trip page shows the room type and the 2 rooms ──
@@ -157,6 +159,7 @@ test.describe("hotel booking by room type", () => {
 
     // ── 4. More rooms than are left: the late tab is refused, and the picker shows 1 left ──
     await late.getByRole("checkbox", { name: /קראתי ואני מסכים/ }).check();
+    await acceptTermsBoxIfShown(late); // the "18 or older + Terms" box (SECURITY_REPORT 15.11.b/c)
     await confirmButton(late).click();
     await expect(late.getByText("החדרים האלה נתפסו הרגע")).toBeVisible();
     await expect(late.getByText("נשאר חדר אחד").first()).toBeVisible();

@@ -68,6 +68,14 @@ export const SECURITY_EVENT_TYPES = [
   // Field encryption (SECURITY_REPORT 12.3.c, D7; builder field-encryption).
   /** An encrypted exact address, pin or guest phone could not be opened (meta: field, reason, where); shown as not available. */
   "field_decrypt_failed",
+  // Trust and scams (SECURITY_REPORT 14.2.a, 14.5.b; builder trust-scams).
+  /** Payment details (a payment link, IBAN, card, wallet, transfer ask…) were refused in user text (meta: surface, kinds). */
+  "payment_details_blocked",
+  /** A listing got an unusual number of reviews in a short time (meta: count, hours). */
+  "review_burst",
+  // Fake sign-ups (SECURITY_REPORT 3.8.b; builder legal-privacy).
+  /** A new account is over the cap of accounts made on one device in 30 days (meta: accounts, windowDays, cap). Flag only, never a block. */
+  "signup_device_cap",
 ] as const;
 
 export type SecurityEventType = (typeof SECURITY_EVENT_TYPES)[number];

@@ -29,7 +29,11 @@ async function send(input: Parameters<typeof limitCodeSend>[0]) {
   return limitCodeSend(input);
 }
 
-const T0 = new Date("2026-11-08T10:00:00Z");
+// The clock starts NOW (whole seconds), not on a fixed past date: the counters this file writes must
+// stay live in real time. Rows whose window ended more than a day ago are pruned by any other test
+// file's first rateLimit() call (src/lib/rate-limit.ts maybePrune) and by the cleanup job, so a fixed
+// past T0 let a parallel file delete these counters mid-test (a random case failed under the full run).
+const T0 = new Date(Math.floor(Date.now() / 1000) * 1000);
 const at = (seconds: number) => new Date(T0.getTime() + seconds * 1000);
 
 beforeAll(() => {
@@ -84,7 +88,32 @@ describe("limitCodeSend (Postgres, atomic)", () => {
       reason: "daily_cap",
       scope: "ip",
     });
-    expect(await send({ channel: "phone", target: fakePhone(), ipHash: ip, deviceHash: device(32), now: at(32) })).toMatchObject({ ok: false, scope: "ip" });
+    // The IP caps count per channel (founder's answer (5)): emailed codes never use up the texts' share.
+    expect(await send({ channel: "phone", target: fakePhone(), ipHash: ip, deviceHash: device(32), now: at(32) })).toMatchObject({ ok: true });
+  });
+
+  it("texts used up on a device or connection never take away the email route (founder's answer (5))", async () => {
+    const ip = ipHash("texts-then-email");
+    const device = `vitest-${run}-texts-device`;
+    const stamp = String(Date.now() % 100_000).padStart(5, "0");
+    // Ten numbers in ten different ranges of 1000 (so only the device cap can stop them).
+    const phone = (i: number) => `+97250${String(i).padStart(2, "0")}${stamp}`;
+    for (let i = 0; i < 10; i++) {
+      expect(await send({ channel: "phone", target: phone(i), ipHash: ip, deviceHash: device, now: at(i) }), `text ${i + 1}`).toMatchObject({ ok: true });
+    }
+    expect(await send({ channel: "phone", target: phone(10), ipHash: ip, deviceHash: device, now: at(11) })).toMatchObject({ ok: false, scope: "device" });
+    // The same browser and connection can still get a code by email.
+    expect(await send({ channel: "email", target: fakeEmail(), ipHash: ip, deviceHash: device, now: at(12) })).toMatchObject({ ok: true });
+    // And without a device cookie (one device counter per IP and channel).
+    const bare = ipHash("texts-then-email-nodevice");
+    for (let i = 0; i < 10; i++) {
+      expect(await send({ channel: "phone", target: phone(20 + i), ipHash: bare, deviceHash: null, now: at(20 + i) })).toMatchObject({ ok: true });
+    }
+    expect(await send({ channel: "phone", target: phone(40), ipHash: bare, deviceHash: null, now: at(31) })).toMatchObject({ ok: false, scope: "device" });
+    expect(await send({ channel: "email", target: fakeEmail(), ipHash: bare, deviceHash: null, now: at(32) })).toMatchObject({ ok: true });
+    expect(codeSendKeys({ channel: "email", target: "a@example.com", ipHash: ip, deviceHash: device }).ipDay).not.toBe(
+      codeSendKeys({ channel: "phone", target: phone(0), ipHash: ip, deviceHash: device }).ipDay,
+    );
   });
 
   it("no device id (no cookie): one device counter per IP — the 11th code is refused as 'device'", async () => {

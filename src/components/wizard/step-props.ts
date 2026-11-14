@@ -3,6 +3,7 @@ import type { AppLocale } from "@/config/site";
 import type { PledgeStatus } from "@/lib/pledge";
 import type { StepIssues, WizardValues } from "@/lib/wizard/schemas";
 import type { ListingKind, WizardStepKey } from "@/lib/wizard/steps";
+import type { TermsConsentState } from "@/components/legal/terms-consent";
 import type {
   DayRange,
   PublishOutcome,
@@ -72,4 +73,6 @@ export type PublishController = {
    * while there are any, "פרסום" shows them instead of asking the server (which refuses too).
    */
   setMistakeErrors?: (count: number) => void;
+  /** The "18 or older + Terms" box (SECURITY_REPORT 15.11.b/c): the account's first publish, or the Terms changed. */
+  terms?: TermsConsentState;
 };

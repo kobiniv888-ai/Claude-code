@@ -7,6 +7,7 @@ import { normalizeSearchText, SEARCH_TEXT_SEPARATOR, splitSearchText } from "@/l
 import { stripTitleEmoji } from "@/lib/text/emoji";
 import type { TranslatedText } from "@/lib/translate/provider";
 import { activeTranslationProvider } from "@/lib/translate/registry";
+import { numbersSafeTranslation } from "./translate/numbers";
 
 /**
  * Automatic translation of listings (server-only), through one small provider interface
@@ -42,7 +43,22 @@ export function translationProviderId(): string | null {
 async function translateMany(texts: string[], targets: AppLocale[], from?: AppLocale): Promise<Map<AppLocale, TranslatedText[]> | null> {
   const provider = activeTranslationProvider();
   if (!provider || targets.length === 0) return null;
-  return provider.translate(texts, targets, from);
+  const result = await provider.translate(texts, targets, from);
+  if (!result) return result;
+  // SECURITY_REPORT 7.n: a translation that changed a number (price, time, date) is not used; the
+  // original text is kept instead (src/lib/translate/numbers.ts).
+  for (const [target, items] of result) {
+    result.set(
+      target,
+      items.map((item, index) => {
+        const source = texts[index] ?? "";
+        const safe = numbersSafeTranslation(source, item.text ?? "");
+        if (!safe.kept) console.warn(`[translate] ${target}: the translation changed a number, the original text is kept`);
+        return safe.kept ? item : { ...item, text: safe.text };
+      }),
+    );
+  }
+  return result;
 }
 
 async function translateBatch(texts: string[], to: AppLocale, from?: AppLocale): Promise<TranslatedText[] | null> {

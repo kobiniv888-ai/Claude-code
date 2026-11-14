@@ -41,6 +41,7 @@ import { deletePublic } from "@/lib/storage";
 import { deleteAccountData } from "./delete-account";
 import { MUTATING_ACTIONS } from "./listing-status";
 import { getAccountSettings } from "./queries";
+import { refusePaymentFields } from "@/lib/risk/text-guard";
 import {
   confirmationMatches,
   contactEmailSchema,
@@ -248,6 +249,13 @@ export async function updateProfile(input: unknown): Promise<ActionResult> {
     if (!parsed.success) return fail("invalid_input", z.flattenError(parsed.error).fieldErrors);
     await assertRateLimit(`account:settings:${user.id}`, SETTINGS_LIMIT);
     const data = parsed.data;
+    // SECURITY_REPORT 14.2.a: the public profile (owner page, listing host box) holds no payment details.
+    const paymentErrors = await refusePaymentFields({
+      surface: "profile",
+      userId: user.id,
+      fields: { name: data.name, firstName: data.firstName, bio: data.bio, businessName: data.accountType === "BUSINESS" ? data.businessName : null },
+    });
+    if (paymentErrors) return fail("payment_in_text", paymentErrors);
     await db.user.update({
       where: { id: user.id },
       data: {

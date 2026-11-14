@@ -9,6 +9,7 @@ import { bookingFlagKind, FLAG_NOTE_MAX } from "../flags";
 import { AdminActionError, runStaffAction } from "../server/common";
 import { hostFlagSummary } from "../server/flags";
 import { GUEST_FLAG_REVIEWED_ACTION, guestFlagSummary, LONG_STAY_REVIEWED_ACTION, longStayReview } from "../server/guest-flags";
+import { DEVICE_FLAG_REVIEWED_ACTION, deviceFlagSummary } from "@/lib/security/signup-guard";
 
 /**
  * Admin → Flags: "mark reviewed" with a note ("moderation" permission). A booking flag stores
@@ -209,6 +210,37 @@ export async function markGuestFlagReviewedAction(input: unknown): Promise<Actio
         targetType: "User",
         targetId: summary.id,
         details: { note: parsed.data.note, cancellations: summary.cancellations, noShows: summary.noShows, reasons: summary.reasons, previousReviewAt: summary.reviewedAt },
+      });
+      return ok({ changed: true });
+    },
+    { limit: 60, windowSeconds: 60 },
+  );
+}
+
+/**
+ * "Accounts on one device" (SECURITY_REPORT 3.8.b, src/lib/security/signup-guard.ts): like a
+ * guest flag, the audit entry IS the marker; it changes nothing for the account. A newer
+ * sign-up event on that device reopens it; `seenLatest` refuses one the page did not show.
+ */
+export async function markDeviceFlagReviewedAction(input: unknown): Promise<ActionResult<{ changed: boolean }>> {
+  return runStaffAction<{ changed: boolean }>(
+    "moderation",
+    "flags.device_reviewed",
+    async (staff) => {
+      const parsed = guestSchema.safeParse(input);
+      if (!parsed.success) return fail("invalid_input", z.flattenError(parsed.error).fieldErrors);
+      if (parsed.data.userId === staff.id) throw new AdminActionError("not_allowed_on_self", 403);
+      const summary = await deviceFlagSummary(parsed.data.userId);
+      if (!summary) throw new AdminActionError("not_flagged", 409);
+      if (!summary.open) return ok({ changed: false });
+      const seen = parsed.data.seenLatest ? new Date(parsed.data.seenLatest) : null;
+      if (!seen || summary.latestAt.getTime() > seen.getTime()) throw new AdminActionError("changed_since_view", 409);
+      await auditOrThrow({
+        actorId: staff.id,
+        action: DEVICE_FLAG_REVIEWED_ACTION,
+        targetType: "User",
+        targetId: summary.id,
+        details: { note: parsed.data.note, accounts: summary.accounts, previousReviewAt: summary.reviewedAt },
       });
       return ok({ changed: true });
     },

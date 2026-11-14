@@ -18,8 +18,8 @@ describe("once per number", () => {
     expect(phoneCheckStep({ phoneNumber: PHONE, phoneNumberVerified: true }, "+995555123456", { usedByAnotherAccount: false })).toBe("send");
   });
 
-  it("does not waste an SMS on a number another account already has", () => {
-    expect(phoneCheckStep({ phoneNumber: null, phoneNumberVerified: false }, PHONE, { usedByAnotherAccount: true })).toBe("phone_taken");
+  it("a number another account has: the neutral send (same answer, no text; founder's answer (5))", () => {
+    expect(phoneCheckStep({ phoneNumber: null, phoneNumberVerified: false }, PHONE, { usedByAnotherAccount: true })).toBe("send_neutral");
   });
 
   it("reports the verified number", () => {

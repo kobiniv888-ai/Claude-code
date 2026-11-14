@@ -64,7 +64,11 @@
     "shared_device": "جهاز مشترك مع حسابات أخرى",
     "voip_phone": "رقم هاتف افتراضي (VoIP)",
     "first_listing": "أول إعلان للحساب",
-    "phone_not_verified": "الهاتف غير مؤكَّد"
+    "phone_not_verified": "الهاتف غير مؤكَّد",
+    "payment_details": "تفاصيل دفع في النص",
+    "exclusionary_text": "نص إقصائي",
+    "copied_description": "وصف منسوخ من إعلان حساب آخر",
+    "price_below_guide": "سعر أقل بكثير من دليل الأسعار"
   },
   "statuses": {
     "DRAFT": {

@@ -64,7 +64,11 @@
     "shared_device": "მოწყობილობას სხვა ანგარიშებიც იყენებენ",
     "voip_phone": "ვირტუალური ნომერი (VoIP)",
     "first_listing": "ანგარიშის პირველი განცხადება",
-    "phone_not_verified": "ტელეფონი დადასტურებული არ არის"
+    "phone_not_verified": "ტელეფონი დადასტურებული არ არის",
+    "payment_details": "გადახდის მონაცემები ტექსტში",
+    "exclusionary_text": "გამრიცხავი ტექსტი",
+    "copied_description": "აღწერა სხვა ანგარიშის განცხადებიდანაა",
+    "price_below_guide": "ფასი ბევრად დაბალია გზამკვლევზე"
   },
   "statuses": {
     "DRAFT": {

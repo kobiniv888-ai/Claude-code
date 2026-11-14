@@ -106,7 +106,7 @@ let cityId = "";
 const past = new Date(Date.now() - 86_400_000);
 
 function sessionUser(userId: string) {
-  return { id: userId, role: "USER", phoneNumberVerified: true, twoFactorVerified: true, businessName: null, accountType: "PRIVATE" };
+  return { id: userId, email: `${userId}@example.com`, emailIsPlaceholder: false, role: "USER", phoneNumberVerified: true, twoFactorVerified: true, businessName: null, accountType: "PRIVATE" };
 }
 
 type ListingData = Parameters<typeof db.listing.create>[0]["data"];
@@ -272,7 +272,7 @@ describe("publish and 'Save changes'", () => {
   it("an edit saved while publishing runs is caught under the lock (mistake-11)", { timeout: 20_000 }, async () => {
     const listingId = await listing();
     state.injectPhoneInto = listingId;
-    const result = await actions.acceptRulesAndPublish(listingId, { rulesAccepted: true });
+    const result = await actions.acceptRulesAndPublish(listingId, { rulesAccepted: true, termsAccepted: true, ageConfirmed: true });
     expect(result).toEqual({ ok: false, error: "listing_mistakes", fieldErrors: { mistakes: ["contact_in_description"] } });
     expect(await statusOf(listingId)).toBe("DRAFT");
   });

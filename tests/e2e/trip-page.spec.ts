@@ -3,6 +3,7 @@ import type { Locator, Page } from "@playwright/test";
 import { expect, openAsTestUser, settle, test } from "./fixtures";
 import { createTestUser, sql } from "./helpers/db";
 import { openAddress, openPin } from "./helpers/field-crypto";
+import { acceptTermsBox } from "./helpers/terms";
 
 /**
  * The trip page (round 3, brief 7.1) in Hebrew: a fresh test guest books a Thursday→Saturday stay
@@ -22,7 +23,8 @@ import { openAddress, openPin } from "./helpers/field-crypto";
 
 const PUBLIC_ID = 89;
 const MESSAGE = "E2E trip page test, please ignore";
-const SAFETY = "בית לא גובה תשלום. לעולם אל תשלמו מראש בקישור ששלחו לכם.";
+// The founder's exact warning (SECURITY_REPORT 14.2.b).
+const SAFETY = "בית לא גובה תשלום. לעולם אל תשלמו מראש בקישור או בהעברה. משלמים למארח כשמגיעים.";
 
 function addDays(day: string, days: number): string {
   const date = new Date(`${day}T00:00:00Z`);
@@ -78,6 +80,7 @@ test.describe("trip page", () => {
       await settle(page);
       await page.getByLabel("הודעה למארח (לא חובה)").fill(MESSAGE);
       await page.getByRole("checkbox", { name: /קראתי ואני מסכים/ }).check();
+      await acceptTermsBox(page); // the "18 or older + Terms" box (SECURITY_REPORT 15.11.b/c)
       await page.getByRole("button", { name: "אישור הזמנה" }).filter({ visible: true }).first().click();
       await expect(page).toHaveURL(/\/he\/account\/trips\/BT-[A-Z0-9]{5}\?booked=1/, { timeout: 60_000 });
       const code = decodeURIComponent(new URL(page.url()).pathname.split("/").pop() ?? "");
@@ -122,6 +125,18 @@ test.describe("trip page", () => {
       expect(body).toContain(`UID:booking-${code}@`);
       expect(body).toContain("LOCATION:");
       expect(body.replace(/\r\n /g, "")).toContain(code);
+      // Founder's answer (10), 9 Nov 2026: the exact address and pin stay OUT of the calendar file
+      // (LOCATION is the city; no GEO line), and out of the Google Calendar link.
+      const unfolded = body.replace(/\r\n /g, "").replace(/\\([,;\\])/g, "$1");
+      const street = listing.address.split(",")[0].trim();
+      expect(unfolded).not.toContain(listing.address);
+      expect(unfolded).not.toContain(street);
+      expect(unfolded).not.toMatch(/^GEO:/m);
+      expect(unfolded).not.toContain(listing.lat.toFixed(4));
+      expect(unfolded).not.toContain(listing.lng.toFixed(4));
+      const googleHref = decodeURIComponent((await page.getByRole("link", { name: "Google Calendar" }).getAttribute("href")) ?? "").replace(/\+/g, " ");
+      expect(googleHref).not.toContain(street);
+      expect(googleHref).not.toContain(listing.lat.toFixed(4));
       expect(body.replace(/\r\n/g, "")).not.toMatch(/[\r\n]/); // CRLF only
       await expect(page.getByRole("link", { name: "Google Calendar" })).toHaveAttribute("href", /^https:\/\/calendar\.google\.com\/calendar\/render\?/);
 

@@ -51,7 +51,6 @@ const listings: string[] = [];
 const ids = { city: "", host: "", staff: "", flat: "" };
 const today = tbilisiToday();
 const day = (n: number) => addDays(today, n);
-const ago = (days: number) => new Date(Date.now() - days * 24 * 3600 * 1000);
 let codeSeq = 0;
 
 async function makeUser(name: string, last: string, role: "USER" | "MODERATOR" = "USER") {

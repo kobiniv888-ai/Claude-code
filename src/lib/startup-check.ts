@@ -32,6 +32,7 @@ import { PRODUCTION_HOSTS, hostOfAddress, isRealSiteHost } from "../config/produ
 import { readSiteEnv, testModeRequested, type SiteEnv } from "./site-env";
 // Security contact, off-site backup, Sentry, database roles, codespace keys, maintenance mode (ops-incident).
 import { opsStartupProblems, opsStartupWarnings } from "./ops-startup";
+import { accessibilityStartupProblems } from "./legal/accessibility";
 
 export type StartupEnv = Partial<Record<string, string | undefined>>;
 
@@ -395,6 +396,8 @@ export function startupProblems(env: StartupEnv, options: StartupOptions = {}): 
   problems.push(...everySiteProblems(env, site), ...addressLabelProblems(env, site, productionHosts));
   problems.push(...fieldEncryptionProblems(env, site));
   problems.push(...opsStartupProblems(env, site));
+  // The accessibility coordinator on the real site (SECURITY_REPORT 15.6.b; builder legal-privacy).
+  problems.push(...accessibilityStartupProblems(env, site));
   if (site === "staging" || site === "production") {
     problems.push(
       ...urlProblems(env, site),

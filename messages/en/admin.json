@@ -491,7 +491,10 @@
       "maintenance_restore_test": "Restore test run",
       "maintenance_mode_on": "Maintenance mode switched on",
       "maintenance_mode_off": "Maintenance mode switched off",
-      "sessions_end_all": "Everyone signed out"
+      "sessions_end_all": "Everyone signed out",
+      "account_email_added": "Email address added to the account",
+      "booking_host_asked_expired": "\"Host asked me to cancel\" not answered by the host: sent to review",
+      "flag_signup_device_reviewed": "Accounts on one device reviewed"
     }
   },
   "moderation": {
@@ -695,7 +698,11 @@
         "contact_info": "Contact details in the text",
         "velocity": "New account posting a lot",
         "shared_device": "Device shared by several accounts",
-        "voip": "Virtual phone number"
+        "voip": "Virtual phone number",
+        "payment": "Payment details",
+        "exclusion": "Turning guests away",
+        "copied_text": "Copied description",
+        "price_guide": "Price vs the price guide"
       },
       "status": {
         "ok": "OK",
@@ -716,7 +723,37 @@
         "step": "In the form's “{name}” step"
       }
     },
-    "locationUnreadable": "The exact address and pin can't be read right now (encryption key). Nothing was changed; the event is in the security log."
+    "locationUnreadable": "The exact address and pin can't be read right now (encryption key). Nothing was changed; the event is in the security log.",
+    "reviewWarnings": {
+      "title": "Review warnings",
+      "description": "Checked now: the address against the pin, the price against the price guide, and description text copied from another listing.",
+      "address": {
+        "title": "Address vs the pin",
+        "match": "The address is about {distance} m from the pin (up to {tolerance} m is fine).",
+        "mismatch": "The address is about {distance} m from the pin — more than {tolerance} m. Check with the host.",
+        "not_found": "The address wasn't found on the map. Check it by hand.",
+        "unavailable": "Couldn't check right now (the map service is unavailable). Refresh in a moment.",
+        "no_address": "No exact address or pin to compare."
+      },
+      "price": {
+        "title": "Price vs the price guide",
+        "far_below": "{price} — less than half of {low} ({source}).",
+        "ok": "{price} — not far below {low} ({source}).",
+        "noData": "Not enough data to compare.",
+        "unavailable": "Couldn't check right now.",
+        "sources": {
+          "guide": "the usual range of similar places",
+          "reference": "a reference price range"
+        }
+      },
+      "copies": {
+        "title": "Copied description",
+        "none": "No similar description in other accounts' listings.",
+        "unavailable": "Couldn't check right now.",
+        "percent": "{percent} of the text is the same",
+        "search": "Search this text online"
+      }
+    }
   },
   "reports": {
     "title": "Reports",
@@ -1064,7 +1101,7 @@
     "detailTitle": "Verification request",
     "backToList": "Back to verifications",
     "requestTitle": "{type} request",
-    "deleteNotice": "After approving or rejecting, the documents are deleted for good. Only “verified on [date] by [you]” is kept.",
+    "deleteNotice": "After approving or rejecting, the documents are deleted for good. Only the date of the check and who did it are kept.",
     "ownRequest": "This is your own request — another staff member must decide.",
     "decided": "{status} by {name} on {date}.",
     "documentsTitle": "Documents",
@@ -1322,7 +1359,8 @@
       "noShows": "No-shows",
       "longStays": "Long stays",
       "guests": "Guests",
-      "hosts": "Hosts"
+      "hosts": "Hosts",
+      "devices": "One device"
     },
     "stateLabel": "State",
     "states": {
@@ -1334,7 +1372,8 @@
       "noShows": "For information: the host says the guest didn't come. A guest with 2 of these in a year also shows on the \"Guests\" tab for review. Nothing happens automatically.",
       "longStays": "Bookings of {nights} nights or more that haven't ended yet: one booking can block a host's calendar for weeks. For review only; the booking stays.",
       "guests": "Guests with {cancel} or more cancellations in the last 90 days, or {noShow} or more no-show reports in the last 12 months. For review only: nobody is blocked or told. A cancellation because the flight was cancelled doesn't count. A new cancellation or no-show opens the flag again.",
-      "hosts": "Hosts with {min} or more reports in the last 12 months, dismissed ones left out. A new report opens the flag again."
+      "hosts": "Hosts with {min} or more reports in the last 12 months, dismissed ones left out. A new report opens the flag again.",
+      "devices": "New accounts made on a device that already made more than {cap} accounts in {days} days. For review only: nobody is blocked or told. Open the account to see its devices and the other accounts on them."
     },
     "empty": {
       "open": {
@@ -1342,14 +1381,16 @@
         "noShows": "No no-shows reported",
         "longStays": "No long stays waiting for review",
         "guests": "No guests who cancel again and again",
-        "hosts": "No hosts with several reports"
+        "hosts": "No hosts with several reports",
+        "devices": "No devices with too many new accounts"
       },
       "reviewed": {
         "cancellations": "No cancellations reviewed yet",
         "noShows": "No no-shows reviewed yet",
         "longStays": "No long stays reviewed yet",
         "guests": "No guests reviewed yet",
-        "hosts": "No hosts reviewed yet"
+        "hosts": "No hosts reviewed yet",
+        "devices": "No device flags reviewed yet"
       }
     },
     "emptyHint": "New flags show up here by themselves.",
@@ -1387,7 +1428,9 @@
       "longStayTitle": "Mark the long stay reviewed?",
       "longStayDescription": "Booking {label} moves to the reviewed list. Nothing changes in the booking itself. Your note is kept in the audit log.",
       "guestTitle": "Mark the guest reviewed?",
-      "guestDescription": "The flag on {label} closes, and a new cancellation or no-show opens it again. The guest is not told. Your note is kept in the audit log."
+      "guestDescription": "The flag on {label} closes, and a new cancellation or no-show opens it again. The guest is not told. Your note is kept in the audit log.",
+      "deviceTitle": "Mark the account reviewed?",
+      "deviceDescription": "The flag on {label} closes, and a new sign-up on the same device opens it again. The account is not told. Your note is kept in the audit log."
     },
     "noShowClear": {
       "button": "Clear the report",
@@ -1403,7 +1446,9 @@
     "guestNoShows": "{count, plural, one {1 no-show in the last 12 months} other {{count} no-shows in the last 12 months}}",
     "latestEvent": "Latest: {when}",
     "accountSince": "Account opened {when}",
-    "guestBookings": "The guest's bookings"
+    "guestBookings": "The guest's bookings",
+    "deviceAccounts": "{count, plural, one {{count} account} other {{count} accounts}} on this device in {days} days",
+    "deviceOpenUser": "Open the account and its devices"
   },
   "bookings": {
     "title": "Bookings",

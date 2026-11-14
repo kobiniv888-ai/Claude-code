@@ -1,5 +1,6 @@
 "use server";
 
+import { after } from "next/server";
 import { getLocale } from "next-intl/server";
 import { z } from "zod";
 import type { Prisma } from "@/generated/prisma/client";
@@ -8,6 +9,7 @@ import { isAppLocale } from "@/i18n/locale";
 import { absoluteUrl } from "@/lib/site-url";
 import { fail, ok, toActionError, type ActionResult } from "@/lib/action";
 import { consumeFreshProof, requireFreshProof } from "@/lib/auth/fresh-proof";
+import { requireAccountEmail } from "@/lib/auth/account-email-guard";
 import { notifySecurityChange } from "@/lib/auth/security-notices";
 import { requireUserForAction, type CurrentUser } from "@/lib/auth/session";
 import { getRates } from "@/lib/currency";
@@ -31,11 +33,14 @@ import { getCityById, getNeighborhoods } from "@/lib/places";
 import { walkMinutesFor } from "@/lib/geo/walk-targets";
 import { assertRateLimit } from "@/lib/rate-limit";
 import { detectContactInfo, hasContactInfo } from "@/lib/risk/contact-info";
+import { refusePaymentFields } from "@/lib/risk/text-guard";
+import { notifyGuestsOfContactChange } from "@/lib/contact/changed-server";
 import { scanText } from "@/lib/risk/scan";
 import { assertNotShabbatMode } from "@/lib/settings";
 import { stripTitleEmoji } from "@/lib/text/emoji";
 import { isTranslationEnabled, scheduleListingTranslation, translateListing } from "@/lib/translate";
 import { assertTurnstile } from "@/lib/turnstile";
+import { requireTermsFor } from "@/lib/legal/terms-server";
 import { normalizeRanges } from "./availability";
 import { getPledgeStatus, hasCurrentPledge } from "@/lib/pledge/server";
 import { getHostCalendar, HOST_CALENDAR_MONTHS, type HostCalendarData } from "@/lib/booking/host-calendar";
@@ -195,6 +200,15 @@ export async function updateDraft(
     if (!parsed.success) return fail("invalid_input", z.flattenError(parsed.error).fieldErrors as Record<string, string[]>);
 
     const listing = await requireOwnedListing(id, user.id);
+    // SECURITY_REPORT 14.2.a: payment details in text guests read (a payment link, an IBAN, a card,
+    // a wallet, a transfer ask) are refused in every state, drafts too (src/lib/risk/text-guard.ts).
+    const paymentErrors = await refusePaymentFields({
+      surface: step === "property" ? "listing_business_name" : step === "jewish" ? "listing_kosher_cert" : "listing_text",
+      userId: user.id,
+      listingId: listing.id,
+      fields: publicTextFields(step, parsed.data as Record<string, unknown>),
+    });
+    if (paymentErrors) return fail("payment_in_text", paymentErrors);
     const update = await buildStepUpdate(step, parsed.data as Partial<ParsedStep<typeof step>>, listing, user, stepUpdateDeps);
     if (update.fieldErrors) return fail("invalid_input", update.fieldErrors);
     // A live listing shows the edit at once: an edit that adds a mistake-check error (contact
@@ -240,6 +254,8 @@ export async function updateDraft(
         kind: "listing_contact",
         masked: maskedContactSummary((parsed.data as Partial<ParsedStep<"contact">>).contactMethods ?? []),
       });
+      // SECURITY_REPORT 14.3.c: guests with upcoming bookings are told too (once, after the response).
+      after(() => notifyGuestsOfContactChange(listing.id));
     }
 
     if (update.textChanged && listing.status === "LIVE") {
@@ -264,6 +280,12 @@ export async function updateDraft(
   } catch (error) {
     return toActionError(error);
   }
+}
+
+/** The fields of a step that guests read as written (SECURITY_REPORT 14.2.a: checked for payment details). */
+function publicTextFields(step: SavableStepKey, data: Record<string, unknown>): Record<string, string | undefined> {
+  const keys = step === "text" ? ["title", "description"] : step === "property" ? ["businessName"] : step === "jewish" ? ["kosherCertName"] : [];
+  return Object.fromEntries(keys.map((key) => [key, typeof data[key] === "string" ? data[key] : undefined]));
 }
 
 /** True when an auto-saved edit of a live listing must be checked right away (see updateDraft). */
@@ -461,6 +483,9 @@ export async function updatePhotoAlt(listingId: string, photoId: string, alt: st
     const text = photoAltSchema.parse(alt);
     // Shown to guests (screen readers, the gallery): no contact details, like the title.
     if (hasContactInfo(detectContactInfo(text))) return fail("contact_in_text", { alt: ["contactInText"] });
+    if (await refusePaymentFields({ surface: "photo_alt", userId: user.id, listingId: listing.id, fields: { alt: text } })) {
+      return fail("payment_in_text", { alt: ["paymentInText"] });
+    }
     const { count } = await db.listingPhoto.updateMany({
       where: { id: listingIdSchema.parse(photoId), listingId: listing.id },
       data: { alt: text || null },
@@ -514,6 +539,8 @@ export async function saveRoomType(listingId: string, input: unknown): Promise<A
     const v = parsed.data;
     // The room type's name is public text, like the title: contact details only through "show contact".
     if (hasContactInfo(detectContactInfo(v.name))) return fail("invalid_input", { name: ["contactInText"] });
+    const roomPayment = await refusePaymentFields({ surface: "room_type", userId: user.id, listingId: listing.id, fields: { name: v.name } });
+    if (roomPayment) return fail("payment_in_text", roomPayment);
     const rates = await getRates();
     const priceUsd = Math.round(toUsd(v.price, v.currency, rates) * 100) / 100;
     const fields = {
@@ -690,6 +717,13 @@ export async function saveTranslations(
     if (v.locale === listing.originalLocale) return fail("edit_original_in_details");
     // A hand-written version is shown as written: no contact details, like the original's text.
     const contact = { title: hasContactInfo(detectContactInfo(v.title)), description: hasContactInfo(detectContactInfo(v.description)) };
+    const translationPayment = await refusePaymentFields({
+      surface: "listing_translation",
+      userId: user.id,
+      listingId: listing.id,
+      fields: { title: v.title, description: v.description },
+    });
+    if (translationPayment) return fail("payment_in_text", translationPayment);
     if (contact.title || contact.description) {
       return fail("contact_in_text", {
         ...(contact.title ? { title: ["contactInText"] } : {}),
@@ -855,10 +889,12 @@ const turnstileTokenSchema = z.string().max(2048).nullish();
  */
 export async function acceptRulesAndPublish(
   listingId: string,
-  input: { rulesAccepted: boolean; turnstileToken?: string | null },
+  input: { rulesAccepted: boolean; turnstileToken?: string | null; termsAccepted?: boolean; ageConfirmed?: boolean },
 ): Promise<ActionResult<PublishOutcome>> {
   try {
     const user = await ownerForMutation("publish", PUBLISH_LIMIT);
+    // Founder's answer (5): a host has a real email (the review notices, a way to sign in when texts are capped).
+    requireAccountEmail(user);
     const listing = await requireOwnedListing(listingIdSchema.parse(listingId), user.id);
     if (input?.rulesAccepted !== true) return fail("rules_not_accepted", { rulesAccepted: ["required"] });
     if (listing.status !== "DRAFT") return fail("already_published");
@@ -867,6 +903,9 @@ export async function acceptRulesAndPublish(
     const mistakes = await mistakeRefusal(listing.id);
     if (mistakes) return mistakes;
     await assertTurnstile(turnstileTokenSchema.parse(input?.turnstileToken), { expectedAction: "publish" });
+    // SECURITY_REPORT 15.11.b/c: the account's first publish, and the next one after the Terms
+    // changed, needs the ticked "18 or older + Terms" box in this request (logged in TermsAcceptance).
+    await requireTermsFor(user.id, "publish", input);
 
     await finalizeListing(listing, user, { rulesAcceptedAt: new Date(), wizardStep: stepsFor(kindOf(listing)).length });
     // submitForPublication checks the errors again under the row lock, with the status change:

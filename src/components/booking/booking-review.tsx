@@ -28,6 +28,7 @@ import { usesRoomInventory } from "@/lib/booking/constants";
 import type { FreeSegment } from "@/lib/booking/room-availability";
 import { useRouter } from "@/i18n/navigation";
 import { createBookingAction, quoteBookingAction } from "@/lib/booking/actions";
+import { TermsConsentField, useTermsConsent } from "@/components/legal/terms-consent";
 import { newAttemptKey } from "@/lib/booking/attempt-key";
 import { MAX_UPCOMING_BOOKINGS_PER_PHONE } from "@/lib/booking/guest-flags";
 import { GUEST_NAME_MAX, MAX_STAY_NIGHTS, MESSAGE_TO_HOST_MAX, type PaymentMethod } from "@/lib/booking/constants";
@@ -78,6 +79,11 @@ export type ReviewUser = {
   name: string;
   /** E.164, when the account has a verified phone. */
   verifiedPhone: string | null;
+  /**
+   * The "18 or older + Terms" box is needed (the account's first booking, or the Terms changed
+   * since its last acceptance; SECURITY_REPORT 15.11.b/c). The server checks again.
+   */
+  termsNeeded?: boolean;
 };
 
 type Props = {
@@ -245,6 +251,7 @@ function ReviewForm({
   const [phone, setPhone] = useState<string | null>(user?.verifiedPhone ?? null);
   const [message, setMessage] = useState("");
   const [accepted, setAccepted] = useState(false);
+  const consent = useTermsConsent("booking", { initialNeeded: user ? (user.termsNeeded ?? null) : false, id: `${ids}-terms`, enabled: !!user });
   const [errors, setErrors] = useState<{ name?: string; phone?: string; rules?: string }>({});
   // "Taken a moment ago" for the stay that was refused (a new choice of dates or rooms clears it).
   const stayKey = JSON.stringify(request);
@@ -299,7 +306,8 @@ function ReviewForm({
     if (!phone) next.phone = t("review.verifyFirst");
     if (!accepted) next.rules = t("errors.rules_not_accepted");
     setErrors(next);
-    const first = next.rules ? `${ids}-rules` : next.name ? `${ids}-name` : next.phone ? `${ids}-phone` : null;
+    const termsOk = consent.validate();
+    const first = next.rules ? `${ids}-rules` : !termsOk ? consent.id : next.name ? `${ids}-name` : next.phone ? `${ids}-phone` : null;
     if (first) {
       focus(first);
       return;
@@ -322,6 +330,8 @@ function ReviewForm({
         guestName: name,
         messageToHost: message,
         rulesAccepted: true,
+        // The "18 or older + Terms" box, when it was shown and ticked (logged by the server).
+        ...consent.payload(),
         locale,
         // What the guest is confirming: the server refuses with "terms_changed" if it has changed.
         expectedTotal: quote?.total,
@@ -364,6 +374,11 @@ function ReviewForm({
         case "rules_not_accepted":
           setErrors({ rules: t("errors.rules_not_accepted") });
           focus(`${ids}-rules`);
+          break;
+        case "terms_required":
+          consent.require();
+          // The box appears now: focus it once it is on the page.
+          requestAnimationFrame(() => focus(consent.id));
           break;
         case "name_required":
         case "too_long":
@@ -622,6 +637,7 @@ function ReviewForm({
                 </p>
               ) : null}
             </div>
+            <TermsConsentField consent={consent} />
           </Card>
 
           <Card as="section" aria-labelledby={`${ids}-guest-title`} className="grid gap-4">

@@ -392,5 +392,9 @@
   },
   "headline": {
     "perSqm": "{price} / m²"
+  },
+  "payWarning": {
+    "text": "Never pay in advance by link or transfer. You pay the host when you arrive.",
+    "report": "Report a scam"
   }
 }

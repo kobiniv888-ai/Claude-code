@@ -9,6 +9,7 @@ import { oauthErrorKey } from "@/lib/auth/error-codes";
 import { safeNextPath, withNext } from "@/lib/auth/next-path";
 import { needsFirstName } from "@/lib/auth/first-name";
 import { needsAccountEmail } from "@/lib/auth/account-email";
+import { termsNeededFor } from "@/lib/legal/terms-server";
 import { getCurrentUser } from "@/lib/auth/session";
 import { loginSubtitleKey } from "@/lib/auth/login-subtitle";
 import { LoginCard } from "./login-card";
@@ -32,10 +33,13 @@ export default async function LoginPage({ params, searchParams }: Props) {
   // Signed in (also on the way back from Google/Apple): the 2-step code, then the first name of a
   // new account (asked here, one short step), then on to `next`.
   const user = await getCurrentUser();
+  // SECURITY_REPORT 15.11.b/c: a new account (Google/Apple ones come back here) confirms it is 18
+  // or older and accepts the Terms; demo accounts are never asked; a lookup error asks.
+  const needsTerms = !!user && user.twoFactorVerified && !user.isDemo && (await termsNeededFor(user.id, "signup").catch(() => true));
   if (user) {
     if (!user.twoFactorVerified) return redirect({ href: withNext("/two-factor", next), locale });
     // Founder's answer (5): an account without a real email adds one here before continuing.
-    if (!needsAccountEmail(user) && !needsFirstName(user)) return redirect({ href: next, locale });
+    if (!needsAccountEmail(user) && !needsTerms && !needsFirstName(user)) return redirect({ href: next, locale });
   }
 
   const t = await getTranslations("auth.login");
@@ -55,7 +59,7 @@ export default async function LoginPage({ params, searchParams }: Props) {
           config={config}
           next={next}
           initialError={error}
-          initialStage={user ? (needsAccountEmail(user) ? "email" : "name") : "start"}
+          initialStage={user ? (needsAccountEmail(user) ? "email" : needsTerms ? "terms" : "name") : "start"}
           title={t("title", { name: siteConfig.localizedName[locale as AppLocale] ?? siteConfig.name })}
           description={t(loginSubtitleKey(config))}
         />

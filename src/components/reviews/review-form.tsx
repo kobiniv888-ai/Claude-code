@@ -102,7 +102,7 @@ export function ReviewForm({
         setDone(true);
         return;
       }
-      const field: Field = ["too_short", "too_long", "contact_in_text"].includes(result.error) ? "text" : "form";
+      const field: Field = ["too_short", "too_long", "contact_in_text", "payment_in_text"].includes(result.error) ? "text" : "form";
       show(field, errorText(result.error));
     } catch {
       show("form", tc("network"));

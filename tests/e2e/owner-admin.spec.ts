@@ -4,6 +4,7 @@ import { loginThroughForm } from "./helpers/auth";
 import { TEST_ADMIN_PHONE } from "./helpers/staff";
 import { createTestListing, freshPhone, listingByPublicId, sql, userIdByPhone } from "./helpers/db";
 import { makePhotos } from "./helpers/photos";
+import { acceptTermsBox } from "./helpers/terms";
 
 /**
  * Definition of done:
@@ -47,6 +48,12 @@ test("a new user signs up, posts a listing with photos and it goes into review",
   await expect(page).toHaveURL(/\/en\/account$/, { timeout: 90_000 });
   await expect(page.getByRole("banner").getByRole("link", { name: "Log in" })).toBeHidden({ timeout: 30_000 });
   const [user] = await sql<{ phoneNumberVerified: boolean }>(`SELECT "phoneNumberVerified" FROM "User" WHERE "phoneNumber" = $1`, [ownerPhone]);
+  // SECURITY_REPORT 15.11.b/c: the sign-up's "18 or older + Terms" step logged the acceptance.
+  const signupTerms = await sql<{ ageConfirmed: boolean }>(
+    `SELECT t."ageConfirmed" FROM "TermsAcceptance" t JOIN "User" u ON u.id = t."userId" WHERE u."phoneNumber" = $1`,
+    [ownerPhone],
+  );
+  expect(signupTerms).toEqual([{ ageConfirmed: true }]);
   expect(user?.phoneNumberVerified).toBe(true);
 
   // Post a listing.
@@ -124,6 +131,7 @@ test("a new user signs up, posts a listing with photos and it goes into review",
   await expectStep(page, 14, "Preview and publish");
   await expect(page.getByRole("region", { name: "Before you can publish" })).toHaveCount(0);
   await page.getByRole("checkbox", { name: /I accept the listing rules/ }).check();
+  await acceptTermsBox(page); // the "18 or older + Terms" box (SECURITY_REPORT 15.11.b/c)
   await page.getByRole("button", { name: "Publish", exact: true }).click(); // the bottom bar (bug 2.7)
   await expect(page.getByRole("heading", { name: "We're checking your listing" })).toBeVisible({ timeout: 60_000 });
 

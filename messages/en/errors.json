@@ -12,6 +12,7 @@
   "heic_not_supported": "We couldn't open this HEIC photo (the file may be damaged). Please send it as a JPEG: choose it again from your Photos library (not from Files) and your iPhone will send a JPEG. To take JPEG photos from now on: Settings › Camera › Formats › Most Compatible.",
   "too_many_photos": "You've reached the photo limit. Remove a photo before adding a new one.",
   "phone_not_verified": "Please verify your phone number first — it only takes a minute.",
-  "account_email_required": "Add an email address to your account first. Sign out and sign in again to add it.",
-  "network": "No connection. Please check your internet and try again."
+  "account_email_required": "Add an email address to your account first: in your account settings, under email.",
+  "network": "No connection. Please check your internet and try again.",
+  "terms_required": "First confirm that you are 18 or older and accept the Terms of use."
 }

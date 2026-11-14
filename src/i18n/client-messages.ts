@@ -26,6 +26,7 @@ import type { AbstractIntlMessages } from "next-intl";
 
 /** Root layout: the shell of every page. */
 export const SHELL_MESSAGES = [
+  "auth.accountEmail",
   "auth.codes",
   "auth.country",
   "auth.devHints",
@@ -35,6 +36,8 @@ export const SHELL_MESSAGES = [
   "auth.menu",
   "auth.name",
   "auth.phone",
+  // The "18 or older + Terms" box: the login's terms step, the booking review, the publish step.
+  "auth.terms",
   "auth.twoFactor",
   "auth.welcome",
   "common",

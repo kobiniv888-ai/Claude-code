@@ -119,6 +119,10 @@ order. The detailed steps and prices are in "Login & messages" below.
       long as a backup made with it exists. After the tables are created on the real database,
       run `npm run db:encrypt-fields` once (it adds the database rule that refuses unencrypted
       values). Changing the key later: `docs/security/field-encryption.md` → "Key rotation".
+- [ ] **The accessibility coordinator** (SECURITY_REPORT 15.6.b): `ACCESSIBILITY_COORDINATOR_NAME`
+      (a name or a role) and `ACCESSIBILITY_COORDINATOR_EMAIL` or `ACCESSIBILITY_COORDINATOR_PHONE`,
+      in the hosting's settings only (never in a file). The accessibility statement shows them;
+      the real site refuses to start without them.
 - [ ] **Telegram bot for booking alerts (free).** In Telegram, open **@BotFather** → `/newbot` →
       a name ("Bayit") and a username that ends in "bot". It gives you a token. Add three
       Codespaces secrets (and the same names on the hosting): `TELEGRAM_BOT_TOKEN` (the token),
@@ -155,10 +159,10 @@ order. The detailed steps and prices are in "Login & messages" below.
       four languages follow it).
 - [ ] **About page story (phase 5).** The About page (linked as "הסיפור שלנו" from the footer and
       the menu) opens with your Hebrew and English drafts, word for word, translated into
-      Russian, Arabic and Georgian. Please review all five and send your name: the signature shows
-      `[השם שלכם]` / `[Your name]` / `[Ваше имя]` / `[اسمكم]` / `[თქვენი სახელი]` until then
-      (`messages/<lang>/about.json` → `story.signature`). The rest of the page (what Bayit is, how
-      booking works, values) needs a quick read too.
+      Russian, Arabic and Georgian. Please review all five. The story is signed "צוות בית" (Bayit
+      team) for now. To sign it with your name, put the name you want shown in the hosting setting
+      `FOUNDER_DISPLAY_NAME` (it is never written in a file of the code). The rest of the page (what
+      Bayit is, how booking works, values) needs a quick read too.
 - [ ] **Help FAQ for bookings (phase 5).** New questions: "how booking works and when do I pay",
       "cancellations and what happens if the host cancels" (under "הזמנות ויצירת קשר") and "calendar
       sync" (under "פרסום מודעה"). Seeded questions are restored by re-running the seed, so make
@@ -239,6 +243,14 @@ order. The detailed steps and prices are in "Login & messages" below.
       arrive" report from a host and a cancellation after the free period are only recorded (and
       host cancellations within 48 hours of a booking are flagged for review). Tell us if you want
       consequences (warnings, limits on booking) and how they should read in the Terms.
+- [ ] **The lawyer's review of the security round S2 drafts** (14 November 2026): the privacy policy
+      (every processor now named with its country; hosting and database regions still `<todo>`),
+      the Terms with the "18 or older" acceptance that is now logged with its version, the
+      account-deletion text ("what we keep and for how long"), the cookie list (are the language
+      and currency cookies "essential"? we treat them so), and the accessibility statement. Still
+      to draft for the lawyer: the Amendment 13 risk assessment and the written data-security
+      policy (SECURITY_REPORT 15.1, 15.2), and whether inactive accounts should be deleted after
+      3 years (it needs a database change first).
 - [ ] **Ask the lawyer: "the shortest safe time" to keep the texts of closed cases** (your answer
       7 of 9 November 2026). Support-ticket texts, report texts and report screenshots are erased
       on ONE clock, today **180 days after the ticket was closed or the report decided** (an
@@ -367,13 +379,27 @@ order. The detailed steps and prices are in "Login & messages" below.
       the "high" or "critical" lines, and any Next.js or React security advisory it links, to the
       developer the same day. A red result because a package is "too new" is not urgent (it turns
       green by itself after 14 days).
-- [ ] **Twilio SMS Pumping Protection (founder's answer 8).** You decided to turn it on: Twilio
-      Console → Messaging → Settings → General → **SMS Pumping Protection** (if Twilio moved it,
-      search the Console for "SMS Pumping"), for the account the site uses. The **Basic** tier is
-      free and usually on already; the **Advanced** tier costs extra per message: take the current
-      price from the separate price check before you choose it. Keep **Geo permissions** to Israel
-      and Georgia only: the site also refuses every other country itself, so this stays true even
-      if the console setting changes.
+- [ ] **Twilio SMS Pumping Protection (founder's answer 8).** You decided to turn it on. **Price
+      (checked 14 November 2026): $0.025 for every code text** to Israel or Georgia, on top of the
+      text itself (Israel $0.2575, Georgia $0.1684): about 10% more for Israeli texts and 15% more
+      for Georgian ones. The site sends at most 300 code texts a day, so it can never cost more
+      than about **$225 a month** (100 texts: $2.50; 1,000 texts: $25). Twilio's own page shows
+      one paid on/off switch (free only in the US and Canada): don't count on a free "Basic" level.
+      Steps:
+      1. Twilio Console → **Messaging → Settings → SMS Pumping Protection → Enabled** (one switch
+         for the whole account; a subaccount needs its own). If Twilio moved it, search the Console
+         for "SMS Pumping". No Messaging Service setting is needed for it.
+      2. Right after, send a few test codes to your own Israeli and Georgian phones (the first
+         texts to a country can be held while Twilio learns the account).
+      3. If a real person is ever blocked by mistake (Twilio error 30450, for 15–30 minutes), the
+         screen tells them to try again in a few minutes or to sign in with email. Look at
+         Console → Insights → SMS Pumping once a month ("prevention cost").
+      4. Keep **Geo permissions** to Israel and Georgia only (free): the site also refuses every
+         other country itself, so this stays true even if the console setting changes.
+- [ ] **Walking times on the real database (founder's answers 2 and 3).** Nothing to do before
+      launch (the real database has no listings yet). If listings are ever imported from another
+      database, run `scripts/backfill-walk-minutes.ts` once (with the developer): it recomputes
+      the stored walking times so no Chabad house counts as a walk.
 - [ ] **Never copy keys from the codespace.** The codespace now marks every key it makes for
       itself (`bayit-dev-…` or a hidden `BAYITDEV` inside 32-byte keys); a staging or real site
       refuses to start with a marked key. Keys made before this change carry no mark: they are
@@ -427,10 +453,10 @@ before you pay.
       a sender number) → set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` and
       `TWILIO_MESSAGING_SERVICE_SID` (MG…). In **Messaging → Settings → Geo permissions** allow
       only Israel and Georgia. **SMS Pumping Protection for Programmable Messaging** (against
-      SMS-pumping fraud): the **Basic** tier is on by default; the **Advanced** tier is paid (about
-      **$0.025 per message segment** outside the US and Canada). **Your decision** whether to buy
-      Advanced; the site's own brakes (per-account and per-network shares and a daily SMS budget)
-      work either way.
+      SMS-pumping fraud): **you decided to turn it on** (answer 8 of 9 November): **$0.025 per code
+      text**, at most about $225 a month with the site's daily cap; the steps are in "Security
+      round S2" above. The site's own brakes (per-account and per-network shares and a daily SMS
+      budget) work either way.
 - [ ] **Booking text messages (Twilio Messaging).** The same Messaging Service
       (`TWILIO_MESSAGING_SERVICE_SID`, or `TWILIO_FROM_NUMBER`) sends the booking texts; without
       it they are just written to the server log (emails still go out). The texts, each in the

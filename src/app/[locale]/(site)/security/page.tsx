@@ -1,4 +1,4 @@
-import { Ban, Bug, CircleCheck, Info, ListChecks, Mail, Scale, ShieldCheck } from "lucide-react";
+import { Ban, Bug, CircleCheck, Globe, Info, ListChecks, Mail, Scale, ShieldCheck } from "lucide-react";
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import type { ReactNode } from "react";
@@ -11,12 +11,23 @@ import { contentMetadata } from "@/components/content/metadata";
 import { PageHero } from "@/components/content/page-hero";
 import { contentTags, contentValues } from "@/components/content/rich";
 import { Link } from "@/i18n/navigation";
+import { SCAM_REPORT_PATH } from "@/lib/reports/scam";
 import { SECURITY_PAGE_PATH, SECURITY_TXT_PATH, securityContactEmail } from "@/lib/security/security-txt";
+import { siteUrl } from "@/lib/site-url";
 
 type Props = { params: Promise<{ locale: string }> };
 
 /** The support form, opened on "Technical problem" (only while no security address is set: a codespace). */
 const TECHNICAL_TICKET = "/help/new-ticket?category=TECHNICAL";
+
+/** Our one domain (SECURITY_REPORT 14.4.b): from SITE_URL, never hard-coded. */
+function siteDomain(): string {
+  try {
+    return new URL(siteUrl()).host;
+  } catch {
+    return "";
+  }
+}
 
 const linkClass =
   "font-medium text-primary underline decoration-primary/40 underline-offset-4 transition-colors hover:decoration-primary focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
@@ -69,6 +80,13 @@ export default async function SecurityPolicyPage({ params }: Props) {
         {chunks}
       </Link>
     ),
+    domain: siteDomain(),
+    site: (chunks: ReactNode) => <Ltr className="font-semibold text-foreground">{chunks}</Ltr>,
+    report: (chunks: ReactNode) => (
+      <Link href={SCAM_REPORT_PATH} className={linkClass}>
+        {chunks}
+      </Link>
+    ),
     file: (chunks: ReactNode) => (
       // A plain link: the file lives outside the language folders.
       <a href={SECURITY_TXT_PATH} className={linkClass}>
@@ -82,6 +100,7 @@ export default async function SecurityPolicyPage({ params }: Props) {
   const includeItems = ["what", "steps", "impact", "contact"] as const;
   const nextItems = ["confirm", "check", "fix", "reward"] as const;
   const dontItems = ["data", "disrupt", "people", "real", "public"] as const;
+  const neverItems = ["link", "card", "code"] as const;
 
   return (
     <div className="pb-16">
@@ -101,6 +120,13 @@ export default async function SecurityPolicyPage({ params }: Props) {
           <p className="mt-4 text-small text-muted-foreground">{t("how.languages")}</p>
           <p className="mt-1 text-small text-muted-foreground">{t("how.privacy")}</p>
         </section>
+
+        {/* SECURITY_REPORT 14.4.b: our only domain and what we never ask for. */}
+        <Section id="only-domain" icon={Globe} title={t("onlyDomain.title")}>
+          <p>{t.rich("onlyDomain.body", rich)}</p>
+          <CheckList className="mt-3" icon={Ban} iconClassName="text-destructive" items={neverItems.map((key) => t(`onlyDomain.never.${key}`))} />
+          <p className="mt-3 text-small text-muted-foreground">{t.rich("onlyDomain.fake", rich)}</p>
+        </Section>
 
         <Section id="report" icon={Bug} title={t("report.title")}>
           <p className="text-muted-foreground">{t("report.lead")}</p>

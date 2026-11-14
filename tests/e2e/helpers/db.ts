@@ -12,6 +12,7 @@ import path from "node:path";
 import pg from "pg";
 import { E2E_USER_AGENT_TAG } from "./env";
 import { sealPin } from "./field-crypto";
+import { TERMS_VERSION } from "../../../src/lib/legal/terms";
 
 export const TEST_PHONE_PREFIX = "+99555599";
 export const TEST_EMAIL_DOMAIN = "e2e.bayit.invalid";
@@ -83,6 +84,13 @@ export async function createTestUser(opts: { name?: string; role?: string } = {}
     `INSERT INTO "User" (id, name, email, "emailVerified", "phoneNumber", "phoneNumberVerified", role, locale, "updatedAt")
      VALUES ($1, $2, $3, false, $4, true, $5::"UserRole", 'en', now())`,
     [id, name, `${phone.slice(1)}@${TEST_EMAIL_DOMAIN}`, phone, opts.role ?? "USER"],
+  );
+  // Like an account that accepted the Terms (+ 18 or older) at sign-up (SECURITY_REPORT 15.11.b/c),
+  // so a login skips the "terms" step. Its first booking and first publish still show the box
+  // (acceptTermsBox in ./terms.ts). Deleted with the user.
+  await sql(
+    `INSERT INTO "TermsAcceptance" (id, "userId", version, "ageConfirmed", "acceptedAt") VALUES ($1, $2, $3, true, now())`,
+    [newId(), id, TERMS_VERSION],
   );
   return { id, phone, name };
 }
@@ -260,9 +268,13 @@ export async function restoreCounters(snapshot: CounterSnapshot) {
 
 /** Deletes every row the tests created (test users and everything that belongs to them). */
 export async function cleanupTestData(opts: { since?: Date } = {}) {
+  // A test account deleted by a test lost its phone and email: deletion rewrites the email to
+  // "deleted-<id>@deleted.bayit.invalid" (src/lib/account/settings-schema.ts deletedEmailFor). Its id
+  // still says it was made here (newId(): "e2e" + base36 time + 12 hex, lowercase, ~23 characters;
+  // Better Auth's own ids are 32 mixed-case characters), so it is removed too.
   const users = await sql<{ id: string; email: string }>(
-    `SELECT id, email FROM "User" WHERE "phoneNumber" LIKE $1 OR email LIKE $2`,
-    [`${TEST_PHONE_PREFIX}%`, `%@${TEST_EMAIL_DOMAIN}`],
+    `SELECT id, email FROM "User" WHERE "phoneNumber" LIKE $1 OR email LIKE $2 OR email ~ $3`,
+    [`${TEST_PHONE_PREFIX}%`, `%@${TEST_EMAIL_DOMAIN}`, "^deleted-e2e[0-9a-z]{10,25}@deleted\\.bayit\\.invalid$"],
   );
   const userIds = users.map((u) => u.id);
   const listings = await sql<{ id: string }>(`SELECT id FROM "Listing" WHERE "ownerId" = ANY($1) OR title LIKE 'E2E %'`, [userIds]);
@@ -340,7 +352,10 @@ export async function cleanupTestData(opts: { since?: Date } = {}) {
   // Rate-limit windows the tests filled (login codes, contact form, staff actions, per-user keys).
   await sql(
     `DELETE FROM "RateLimit" WHERE key LIKE 'auth:otp-%' OR key LIKE 'auth:email-otp-%' OR key LIKE 'ticket:contact%' OR key LIKE 'admin:%' OR key LIKE 'booking:%'
-       OR key LIKE 'contact-reveal:listing:%' OR key LIKE 'auth:totp:%' OR EXISTS (SELECT 1 FROM unnest($1::text[]) u WHERE key LIKE '%' || u || '%')`,
+       OR key LIKE 'contact-reveal:listing:%' OR key LIKE 'auth:totp:%' OR key LIKE 'report:%'
+       OR EXISTS (SELECT 1 FROM unnest($1::text[]) u WHERE key LIKE '%' || u || '%')`,
+    // ('report:%': the scam and turned-away report forms count per IP, 5 an hour, and every test
+    // runs from 127.0.0.1: two runs within an hour would otherwise meet the limit.)
     // (Test listings' keys too, e.g. the founder's "listing waits for review" email window.)
     [[...userIds, ...listingIds]],
   );

@@ -14,6 +14,8 @@ import { REPORT_EMAIL_TEMPLATES, reportEmailBuilders, type ReportEmailData } fro
 import { WEEKLY_EMAIL_TEMPLATES, weeklyEmailBuilders, type WeeklyEmailData } from "@/lib/alerts/weekly-host-email-template";
 import { SAVED_ALERT_EMAIL_TEMPLATES, savedAlertEmailBuilders, type SavedAlertEmailData } from "@/lib/saved-searches/email-templates";
 import { REVIEW_EMAIL_TEMPLATES, reviewEmailBuilders, type ReviewEmailData } from "@/lib/reviews/email-templates";
+import { CONTACT_EMAIL_TEMPLATES, contactEmailBuilders, type ContactEmailData } from "@/lib/contact/email-templates";
+import { scamReportHref } from "@/lib/reports/scam";
 import { SECURITY_EMAIL_TEMPLATES, securityEmailBuilders, type SecurityEmailData } from "@/lib/auth/security-email-templates";
 import { SECURITY_ALERT_EMAIL_TEMPLATES, securityAlertEmailBuilders, type SecurityAlertEmailData } from "@/lib/security/alerts-email-template";
 
@@ -58,6 +60,8 @@ export const EMAIL_TEMPLATES = [
   ...SAVED_ALERT_EMAIL_TEMPLATES,
   // Reviews (round 3, brief 8.1): src/lib/reviews/email-templates.ts
   ...REVIEW_EMAIL_TEMPLATES,
+  // "The host's contact details changed" (SECURITY_REPORT 14.3.c): src/lib/contact/email-templates.ts
+  ...CONTACT_EMAIL_TEMPLATES,
   // Account security (SECURITY_REPORT 3.6, 3.7): src/lib/auth/security-email-templates.ts
   ...SECURITY_EMAIL_TEMPLATES,
   // The founder's hourly security alerts (SECURITY_REPORT 16.3): src/lib/security/alerts-email-template.ts
@@ -244,6 +248,7 @@ export type EmailData = {
   WeeklyEmailData &
   SavedAlertEmailData &
   ReviewEmailData &
+  ContactEmailData &
   SecurityEmailData &
   SecurityAlertEmailData;
 
@@ -807,7 +812,8 @@ const builders: { [K in EmailTemplate]: Builder<K> } = {
     }
     blocks.push(
       { type: "paragraph", text: t("templates.booking_confirmed_guest.body2") },
-      { type: "notice", text: tb("noPrepayment", { brand }) },
+      // SECURITY_REPORT 14.2.b/c: the founder's warning and the one-tap scam report for this booking.
+      { type: "notice", text: tb("noPrepayment", { brand }), link: { label: t("scamReport"), url: ctx.page(scamReportHref({ booking: data.code })) } },
     );
     return {
       subject: t("templates.booking_confirmed_guest.subject", { title, code: data.code }),
@@ -867,7 +873,7 @@ const builders: { [K in EmailTemplate]: Builder<K> } = {
         { type: "details", rows: [...stayRows(data, ctx), ...arrivalRows({ ...data, address: null }, ctx)] },
         { type: "paragraph", text: t("templates.booking_reminder_guest.addressOnTrip") },
         { type: "paragraph", text: payLine(data, ctx) },
-        { type: "notice", text: tb("noPrepayment", { brand }) },
+        { type: "notice", text: tb("noPrepayment", { brand }), link: { label: t("scamReport"), url: ctx.page(scamReportHref({ booking: data.code })) } },
       ],
       cta: { label: t("templates.booking_reminder_guest.cta"), url: url(data.bookingUrl) ?? ctx.page("/account") },
       audience: "account",
@@ -1068,6 +1074,7 @@ const builders: { [K in EmailTemplate]: Builder<K> } = {
   ...weeklyEmailBuilders,
   ...savedAlertEmailBuilders,
   ...reviewEmailBuilders,
+  ...contactEmailBuilders,
   ...securityEmailBuilders,
   ...securityAlertEmailBuilders,
 };

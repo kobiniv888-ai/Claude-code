@@ -83,7 +83,8 @@ export async function createReport(input: unknown): Promise<ActionResult> {
       await lockReporter(tx, user.id);
       if (await tx.report.findFirst({ where: openReport, select: { id: true } })) return null;
       return tx.report.create({
-        data: { targetType, listingId, targetUserId, reporterId: user.id, reason, details },
+        // SECURITY_REPORT 14.2.c: a scam report ("asked me to pay in advance") goes to the top of the queue.
+        data: { targetType, listingId, targetUserId, reporterId: user.id, reason, details, priority: reason === "ASKED_MONEY_UPFRONT" ? "URGENT" : "NORMAL" },
         select: { id: true },
       });
     });

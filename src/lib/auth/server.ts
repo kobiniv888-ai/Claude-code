@@ -18,7 +18,7 @@ import { LOGIN_CODE_MAX_ATTEMPTS, LOGIN_CODE_TTL_SECONDS, type CodeSendDecision 
 import { checkLoginEmail, exactLoginEmail, hashEmailCode, sendLoginEmailCode } from "./email-code";
 import { AUTH_HOOK_ERRORS } from "./error-codes";
 import { consumeFreshProof, hasFreshProof } from "./fresh-proof";
-import { afterSignIn, linkDevice, sendWelcomeEmail } from "./hooks";
+import { afterSignIn, afterSignUpDevice, sendWelcomeEmail } from "./hooks";
 import { notifySecurityChange } from "./security-notices";
 import { authCookieOptions, secureCookiesFor } from "./session-cookies";
 import { ACCOUNT_LINKING_OPTIONS, socialProviderOptions, validateOAuthUserInfo } from "./social-login";
@@ -387,7 +387,8 @@ export const auth = betterAuth({
           return locale ? { data: { ...user, locale } } : { data: user };
         },
         after: async (user, ctx) => {
-          await linkDevice(user.id);
+          // The device link and the accounts-per-device flag (SECURITY_REPORT 3.8.b, ./hooks.ts).
+          await afterSignUpDevice(user.id);
           await sendWelcomeEmail({ ...user, locale: localeFromRequest(ctx) });
         },
       },

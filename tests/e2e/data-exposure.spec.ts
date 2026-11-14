@@ -411,12 +411,19 @@ test.describe("data exposure (SECURITY_REPORT 5.c)", () => {
 
       // The compare page: its rows come from a server action (compareItemsAction) after load.
       await other.page.addInitScript((id) => window.localStorage.setItem("bayit:compare", JSON.stringify([id])), own.listing.publicId);
-      const answered = other.page.waitForResponse(
-        (response) => response.request().method() === "POST" && new URL(response.url()).pathname.endsWith("/account/compare"),
-      );
+      // The answer is read through route.fetch: a response body read after the page has moved on
+      // (a refresh after the action) is no longer available to the browser protocol.
+      let answer = "";
+      await other.page.route("**/account/compare", async (route) => {
+        if (route.request().method() !== "POST") return route.fallback();
+        const response = await route.fetch();
+        const body = await response.text();
+        if (body.includes(String(own.listing.publicId))) answer = body;
+        await route.fulfill({ response });
+      });
       await other.page.goto("/he/account/compare");
-      const answer = await (await answered).text();
-      expect(answer, "the compare answer carries the test listing").toContain(String(own.listing.publicId));
+      await expect.poll(() => answer, { message: "the compare answer carries the test listing" }).toContain(String(own.listing.publicId));
+      await other.page.unroute("**/account/compare");
       await other.page.waitForLoadState("networkidle");
       const compareBodies = [await other.page.content(), answer];
       for (const body of compareBodies) {

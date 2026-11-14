@@ -49,16 +49,16 @@ import {
 
 const DAY_MS = 24 * 3600 * 1000;
 
-/** Founder's decision 9 (8 Nov 2026): guest contact details go 3 months after check-out. */
-export const GUEST_CONTACT_RETENTION_MONTHS = 3;
-/** Founder's answer Q20: staff actions are kept for 1 year. */
-export const AUDIT_LOG_RETENTION_DAYS = 365;
-/** The email outbox holds the recipient and the full message (names, booking details). */
-export const EMAIL_OUTBOX_RETENTION_DAYS = 90;
-/** "Show contact" taps keep their account this long (the daily cap needs one day), then only the count stays. */
-export const CONTACT_CLICK_USER_RETENTION_DAYS = 90;
-/** A device not seen for a year is forgotten (the sign-up device cap looks back 30 days). */
-export const DEVICE_LINK_RETENTION_DAYS = 365;
+// The times themselves live in the pure src/lib/retention-times.ts, so the privacy policy and the
+// account-deletion text (public pages) quote the same numbers without loading this module.
+import {
+  AUDIT_LOG_RETENTION_DAYS,
+  CONTACT_CLICK_USER_RETENTION_DAYS,
+  DEVICE_LINK_RETENTION_DAYS,
+  EMAIL_OUTBOX_RETENTION_DAYS,
+  GUEST_CONTACT_RETENTION_MONTHS,
+} from "@/lib/retention-times";
+export { AUDIT_LOG_RETENTION_DAYS, CONTACT_CLICK_USER_RETENTION_DAYS, DEVICE_LINK_RETENTION_DAYS, EMAIL_OUTBOX_RETENTION_DAYS, GUEST_CONTACT_RETENTION_MONTHS };
 
 /** What a blanked booking keeps instead of the guest's name (the same mark as account deletion). */
 export const ERASED_GUEST_NAME = "—";

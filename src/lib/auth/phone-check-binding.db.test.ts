@@ -54,10 +54,10 @@ const N2 = fakeNumber("3"); // V's own new number (the honest replacement)
 const A = { id: `pbind-a-${tag}`, sessionId: `pbind-sa-${tag}` };
 const V = { id: `pbind-v-${tag}`, sessionId: `pbind-sv-${tag}`, otherSessionId: `pbind-sv2-${tag}` };
 
-const asA = () => ({ id: A.id, sessionId: A.sessionId, phoneNumber: null, phoneNumberVerified: false });
+const asA = () => ({ id: A.id, sessionId: A.sessionId, email: `pbind-a-${tag}@example.com`, phoneNumber: null, phoneNumberVerified: false });
 const asV = async () => {
   const row = await db.user.findUniqueOrThrow({ where: { id: V.id }, select: { phoneNumber: true, phoneNumberVerified: true } });
-  return { id: V.id, sessionId: V.sessionId, phoneNumber: row.phoneNumber, phoneNumberVerified: row.phoneNumberVerified };
+  return { id: V.id, sessionId: V.sessionId, email: `pbind-v-${tag}@example.com`, phoneNumber: row.phoneNumber, phoneNumberVerified: row.phoneNumberVerified };
 };
 const vPhone = async () => db.user.findUniqueOrThrow({ where: { id: V.id }, select: { phoneNumber: true, phoneNumberVerified: true } });
 const vSessions = async () => (await db.session.findMany({ where: { userId: V.id }, select: { id: true } })).map((s) => s.id).sort();

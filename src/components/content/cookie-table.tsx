@@ -3,9 +3,9 @@ import { Ltr } from "@/components/common/ltr";
 import { cn } from "@/lib/utils";
 import { siteCookies } from "./legal-docs";
 
+// Every cookie is essential (src/lib/legal/cookies.ts); optional storage is not a cookie.
 const categoryStyle = {
   necessary: "bg-primary/10 text-primary",
-  preferences: "bg-accent text-accent-foreground",
 } as const;
 
 /** The cookies we set, as a list of cards (readable at 360px, a grid on wider screens). */

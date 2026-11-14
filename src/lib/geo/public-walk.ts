@@ -139,7 +139,14 @@ export function keptWalkKinds(present: Partial<Record<PublicWalkKind, boolean>>)
  * of the stored JSON are dropped. `townWalks` = how many sea/lift walks the listing shows (they
  * come first in PUBLIC_WALK_ORDER, so they leave less room here).
  */
-export function publicNearby(nearby: NearbyInfo | null | undefined, opts: { townWalks?: number } = {}): PublicNearbyInfo {
+export function publicNearby(
+  nearby: NearbyInfo | null | undefined,
+  opts: {
+    townWalks?: number;
+    /** The listing shows a synagogue walk from its synagogueWalkMin column (it takes its place in the order even without nearby.synagogue). */
+    synagogueWalk?: boolean;
+  } = {},
+): PublicNearbyInfo {
   const out: PublicNearbyInfo = {};
   if (!nearby || typeof nearby !== "object") return out;
   const synagogue = place(nearby.synagogue);
@@ -150,7 +157,7 @@ export function publicNearby(nearby: NearbyInfo | null | undefined, opts: { town
   const kept = keptWalkKinds({
     sea: town >= 1,
     lift: town >= 2,
-    synagogue: !!synagogue,
+    synagogue: !!synagogue || !!opts.synagogueWalk,
     transport: !!transportPoi && !!fromPublicPoint.transport,
     supermarket: !!supermarket,
   });
@@ -190,7 +197,9 @@ export function publicWalkTimes(row: StoredWalkTimes): PublicWalkTimes {
   const sea = publicWalkMinutes(row.seaWalkMinutes);
   const lift = publicWalkMinutes(row.liftWalkMinutes);
   const synagogue = publicWalkMinutes(row.synagogueWalkMin);
-  const nearby = publicNearby(row.nearby, { townWalks: (sea !== null ? 1 : 0) + (lift !== null ? 1 : 0) });
+  // The synagogue walk counts once, from the column or the JSON: either way it takes its place in
+  // the order before the stop and the shop (a column without a JSON entry made a 4th walk before).
+  const nearby = publicNearby(row.nearby, { townWalks: (sea !== null ? 1 : 0) + (lift !== null ? 1 : 0), synagogueWalk: synagogue !== null });
   // The synagogue walk keeps its place in the order whether it comes from the column or the JSON.
   const kept = keptWalkKinds({ sea: sea !== null, lift: lift !== null, synagogue: synagogue !== null || !!nearby.synagogue });
   const synagogueKept = kept.has("synagogue");

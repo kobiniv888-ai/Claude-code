@@ -152,10 +152,15 @@ export function codeSendKeys(input: CodeSendInput) {
     targetNext: `auth:otp-code:${input.channel}:${targetHash}${own}:next`,
     targetHour: `auth:otp-code:${input.channel}:${targetHash}${own}:hour`,
     rangeDay: input.channel === "phone" ? `auth:otp-code:range:${hmacHash(`range:${phoneRangeOf(target)}`)}:day` : null,
+    // The IP and device caps are counted PER CHANNEL (founder's answer (5), 9 Nov 2026): texts used
+    // up on a connection or device never take away the email route, which every account has. (The
+    // SMS budget and country pause apply to texts only: ./server.ts, ./sms-guard.ts.)
     // No IP (it could not be read): one shared, strict bucket rather than no limit.
-    ipDay: `auth:otp-code:ip:${input.ipHash ?? "unknown"}:day`,
+    ipDay: `auth:otp-code:${input.channel}:ip:${input.ipHash ?? "unknown"}:day`,
     // No device id (no cookie, or a new one each time): one device counter per IP, not none.
-    deviceDay: input.deviceHash ? `auth:otp-code:device:${input.deviceHash}:day` : `auth:otp-code:nodevice:${input.ipHash ?? "unknown"}:day`,
+    deviceDay: input.deviceHash
+      ? `auth:otp-code:${input.channel}:device:${input.deviceHash}:day`
+      : `auth:otp-code:${input.channel}:nodevice:${input.ipHash ?? "unknown"}:day`,
   };
 }
 

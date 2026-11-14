@@ -39,6 +39,8 @@ export const BOOKING_ERROR_CODES = [
   "request_reused",
   /** The first attempt with this key made the booking and is still telling the host: try again in a moment (idempotency-unalerted-1). */
   "booking_in_progress",
+  /** The message to the host or a cancellation reason holds payment details (SECURITY_REPORT 14.2.a). */
+  "payment_in_text",
 ] as const;
 export type BookingErrorCode = (typeof BOOKING_ERROR_CODES)[number];
 

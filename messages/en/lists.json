@@ -38,7 +38,8 @@
       "own_list": "This is your own list, and it is already in your account.",
       "device_full": "There is no room for more saved places on this device. Log in to save more.",
       "storage_blocked": "Your browser doesn't allow saving on this device. Log in to save.",
-      "failed": "We could not update the list. Please try again."
+      "failed": "We could not update the list. Please try again.",
+      "name_has_payment": "A list name can't include payment details (a payment link, bank account or card)."
     }
   },
   "copyOfDefaultName": "Shared with me",

@@ -16,6 +16,8 @@ export const REVIEW_ERROR_CODES = [
   "already_reviewed",
   // Text.
   "contact_in_text",
+  /** Payment details (a payment link, IBAN, card, wallet…): SECURITY_REPORT 14.2.a. */
+  "payment_in_text",
   "too_short",
   "too_long",
   // The host's reply and report.

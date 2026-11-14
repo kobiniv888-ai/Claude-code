@@ -76,7 +76,7 @@ const users = { owner: id("owner"), other: id("other") };
 let cityId = "";
 
 function sessionUser(userId: string) {
-  return { id: userId, role: "USER", phoneNumberVerified: true, twoFactorVerified: true, businessName: null, accountType: "PRIVATE" };
+  return { id: userId, email: `${userId}@example.com`, emailIsPlaceholder: false, role: "USER", phoneNumberVerified: true, twoFactorVerified: true, businessName: null, accountType: "PRIVATE" };
 }
 
 /** A complete short stay (every publishing requirement met) that the test then breaks. */
@@ -151,14 +151,14 @@ beforeEach(() => {
 describe("publishing refuses while the mistake check has errors (server-side)", () => {
   it("no exact address for a short stay", async () => {
     const listingId = await draft({ address: null });
-    const result = await acceptRulesAndPublish(listingId, { rulesAccepted: true });
+    const result = await acceptRulesAndPublish(listingId, { rulesAccepted: true, termsAccepted: true, ageConfirmed: true });
     expect(result).toEqual({ ok: false, error: "listing_mistakes", fieldErrors: { mistakes: ["address_missing"] } });
     expect((await db.listing.findUniqueOrThrow({ where: { id: listingId } })).status).toBe("DRAFT");
   });
 
   it("a phone number in the description", async () => {
     const listingId = await draft({ description: "A quiet flat with a balcony and a full kitchen. Call me on +995 555 12 34 56 for a discount." });
-    const result = await acceptRulesAndPublish(listingId, { rulesAccepted: true });
+    const result = await acceptRulesAndPublish(listingId, { rulesAccepted: true, termsAccepted: true, ageConfirmed: true });
     expect(result.ok).toBe(false);
     expect(!result.ok && result.fieldErrors?.mistakes).toEqual(["contact_in_description"]);
     expect((await db.listing.findUniqueOrThrow({ where: { id: listingId } })).status).toBe("DRAFT");
@@ -169,7 +169,7 @@ describe("publishing refuses while the mistake check has errors (server-side)", 
     const mistakes = await getListingMistakes(listingId);
     expect(mistakes.errors).toEqual([]);
     expect(mistakes.warnings.map((w) => w.code)).toEqual(["no_bathrooms", "photo_rooms_missing"]);
-    const result = await acceptRulesAndPublish(listingId, { rulesAccepted: true });
+    const result = await acceptRulesAndPublish(listingId, { rulesAccepted: true, termsAccepted: true, ageConfirmed: true });
     expect(result.ok && result.data.status).toBe("IN_REVIEW");
   });
 });

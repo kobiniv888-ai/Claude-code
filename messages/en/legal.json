@@ -5,7 +5,8 @@
     "draftBody": "This is a working draft prepared for {siteName}. It is not legal advice and is not yet binding. A qualified lawyer will review and complete it before the site opens to the public.",
     "lastUpdated": "Last updated",
     "toc": "On this page",
-    "otherDocs": "Other legal pages"
+    "otherDocs": "Other legal pages",
+    "toBeAdded": "to be added"
   },
   "nav": {
     "terms": "Terms of use",
@@ -64,7 +65,8 @@
           "b": "The information you give us must be true and up to date, including your name and phone number.",
           "c": "Keep your login safe. Never share codes sent to your phone — our team will never ask for them.",
           "d": "One person may have one personal account. Businesses must register as a business.",
-          "e": "You are responsible for what happens in your account. Tell us at once if you think someone else has used it."
+          "e": "You are responsible for what happens in your account. Tell us at once if you think someone else has used it.",
+          "f": "When you sign up, and before your first booking and your first listing, you confirm that you are {minAge} or older and accept these terms. We keep a record of which version you accepted and when."
         }
       },
       "conduct": {
@@ -136,7 +138,8 @@
       },
       "changes": {
         "title": "Changes",
-        "p1": "We may change the service and these terms. If a change is important, we will tell you on the site or by email before it applies. The date at the top of this page shows when the terms last changed."
+        "p1": "We may change the service and these terms. If a change is important, we will tell you on the site or by email before it applies. The date at the top of this page shows when the terms last changed.",
+        "p2": "This is the version of {termsVersion}. When we change these terms in an important way, we ask you to accept the new version before your next booking or listing."
       },
       "law": {
         "title": "Governing law and disputes",
@@ -157,35 +160,37 @@
     "sections": {
       "intro": {
         "title": "Who we are",
-        "p1": "This policy explains how {siteName} collects and uses personal data when you use the website and any app. The data controller is <todo>company name, registration number and address</todo>.",
-        "p2": "We have tried to write it in plain language. If anything is unclear, <contact>ask us</contact>."
+        "p1": "This policy explains how {siteName} collects and uses personal data when you use the website. The data controller is <todo>company name, registration number and address</todo>.",
+        "p2": "We have tried to write it in plain language. If anything is unclear, <ticket>ask us through the support form</ticket>."
       },
       "collect": {
         "title": "What we collect",
         "list": {
-          "a": "<b>Account data</b> — your name, email address, photo (if you add one), language and currency, and how you sign in (Google, Apple or phone). When you are signed in, the places you viewed recently (up to 50) are also kept in your account, so you can find them on any device. You can clear them at any time on the home page.",
-          "b": "<b>Phone number</b> — to verify your account with a code and, if you are an owner, so guests can contact you. We check whether a number is virtual (VoIP) to prevent fraud.",
-          "c": "<b>Listing data</b> — everything you enter when you post: the property's details, photos, prices, availability and exact address. The exact address is never shown publicly; the map shows an approximate location.",
-          "d": "<b>Contact clicks</b> — when someone taps “Show contact” or a contact button, we record it, to show owners their statistics and to detect abuse.",
-          "e": "<b>Support and reports</b> — your tickets, messages and screenshots, and the reports you send.",
-          "f": "<b>Device and anti-fraud data</b> — IP address, approximate country, browser and device type, and a random device ID stored in a cookie. These help us detect fake accounts and scams.",
-          "g": "<b>ID and ownership documents</b> — only if you ask for a verification badge (see the next section)."
+          "a": "<b>Account data</b>: your name, email address (every account has one, so you can always sign in), photo if you add one, language and currency, and how you sign in (an email code, Google or Apple). When you are signed in, the places you viewed recently (up to 50) are kept in your account, so you can find them on any device. You can clear them on the home page.",
+          "b": "<b>Phone number</b>: checked with a code before you book or publish, so hosts and guests know it is real. We check whether a number is a mobile number, to stop fraud.",
+          "c": "<b>Listings</b>: what a host enters: the property, photos, prices, availability, contact details and the exact address. The exact address and the map point are stored encrypted and are never shown publicly; the map shows an approximate area.",
+          "d": "<b>Bookings</b>: the dates, the number of guests, the name you give the host, your verified phone number, your message and the price, and the reason if you cancel.",
+          "e": "<b>Your acceptance of our Terms</b>: which version of the <terms>Terms of use</terms> you accepted, when, and that you confirmed you are {minAge} or older.",
+          "f": "<b>Contact clicks</b>: when someone taps “Show contact” or a contact button, to show hosts their statistics and to stop abuse.",
+          "g": "<b>Support and reports</b>: your tickets, messages and screenshots, and the reports you send.",
+          "h": "<b>Security data</b>: your IP address (in our security log only as a keyed fingerprint, never the address itself), approximate country, browser and device type, a random device ID kept in a cookie, and sign-in and security events, such as a new device or a changed email.",
+          "i": "<b>ID and ownership documents</b>: only if you ask for a verification badge (see the next section)."
         }
       },
       "documents": {
         "title": "ID and ownership documents",
         "p1": "If you ask for the “ID verified” or “Owner verified” badge, you upload an ID document and a selfie and, for ownership, a Public Registry (NAPR) extract or a business registration.",
-        "p2": "These files are stored encrypted in private storage, seen only by the staff who check them, and deleted after the review. We keep only a record of the result — for example, “verified on [date] by [staff member]”."
+        "p2": "These files are stored encrypted in private storage, seen only by the staff who check them, and deleted after the review. We keep only a record of the result — what was checked, when, and by which staff member."
       },
       "why": {
         "title": "Why we use your data",
         "list": {
-          "a": "to run the service: create your account, publish listings and let guests contact owners;",
-          "b": "to keep users safe: verify phones and identities, run automatic scam checks, review listings and handle reports;",
-          "c": "to translate listings into the other languages;",
-          "d": "to send service messages: verification codes, listing approved or needs changes, listing about to expire, replies to your tickets;",
+          "a": "to run the service: your account, listings and bookings, and letting guests and hosts reach each other;",
+          "b": "to keep people safe: phone and identity checks, automatic scam checks, listing reviews, reports and limits against abuse;",
+          "c": "to translate listings and reviews into the other languages;",
+          "d": "to send service messages: login codes, booking confirmations and changes, listing reviews and expiry, replies to your tickets, and the alerts you turned on;",
           "e": "to answer your support requests;",
-          "f": "to improve the site — with analytics only if you allow it;",
+          "f": "to show hosts how their listings do (views and contact taps, counted without tracking anyone). We use no advertising or analytics trackers;",
           "g": "to meet our legal obligations and to defend legal claims."
         }
       },
@@ -195,7 +200,7 @@
         "list": {
           "a": "<b>Contract</b> — to provide the service you signed up for;",
           "b": "<b>Legitimate interests</b> — to prevent fraud, keep the service secure and improve it, balanced against your rights;",
-          "c": "<b>Consent</b> — for optional cookies and analytics. You can withdraw it at any time;",
+          "c": "<b>Consent</b>: for optional storage in your browser (the places you viewed recently and your last search, on this device) and any analytics we might add. You can withdraw it at any time;",
           "d": "<b>Legal obligation</b> — where the law requires us to keep or share data."
         }
       },
@@ -203,34 +208,81 @@
         "title": "Who we share data with",
         "p1": "We don't sell your personal data. We share it only as needed to run the service:",
         "list": {
-          "a": "<b>Other users</b> — your public profile and listings. An owner's contact details are shown only to signed-in users who tap “Show contact”.",
-          "b": "<b>Service providers (processors)</b> — hosting and storage, SMS and phone checks, email delivery, automatic translation and security (CAPTCHA). They act on our instructions and must protect your data. <todo>List of processors and their countries</todo>",
-          "c": "<b>Authorities</b> — when the law requires it, or to protect someone from serious harm or fraud."
+          "a": "<b>Other users</b>: your public profile and your listings. A host's contact details are shown only to signed-in users who tap “Show contact”.",
+          "b": "<b>The other side of a booking</b>: the host receives your name, verified phone number, dates, number of guests and message. You receive the host's contact details and the exact address, shown on your trip page until {addressDays} days after check-out.",
+          "c": "<b>Our service providers</b>: the companies in the next section, which process data only on our instructions.",
+          "d": "<b>Authorities</b>: when the law requires it, or to protect someone from serious harm or fraud."
+        }
+      },
+      "processors": {
+        "title": "The companies that process data for us",
+        "p1": "Each provider receives only what its task needs, and must protect it under a data-processing agreement.",
+        "list": {
+          "a": "<b>Vercel</b> (USA): hosts and runs the website. Region: <todo>hosting region</todo>.",
+          "b": "<b>Neon</b> (USA): our database. Region: <todo>database region</todo>.",
+          "c": "<b>Cloudflare</b> (USA): stores photos and files (R2) and runs the bot check (Turnstile) on sign-in and on forms.",
+          "d": "<b>Backblaze</b> (USA): keeps an encrypted second copy of our backups, stored in the European Union (EU Central).",
+          "e": "<b>Resend</b> (USA): sends our emails.",
+          "f": "<b>Twilio</b> (USA): sends text-message codes and checks phone numbers.",
+          "g": "<b>Microsoft Azure AI Translator</b> (USA): translates the text of listings and reviews. It receives the text only.",
+          "h": "<b>CARTO</b> (Spain): the map images. Your browser loads them from CARTO, which sees your IP address.",
+          "i": "<b>Sentry</b> (USA): error reports, with personal data removed before they are sent, in its EU data region where offered.",
+          "j": "<b>Google</b> and <b>Apple</b> (USA): only if you choose to sign in with them.",
+          "k": "<b>Telegram</b> (United Arab Emirates): booking alerts, only for hosts who connect our bot. The messages carry a booking code, never names or addresses.",
+          "l": "<b>Web push services</b> of Google, Apple and Mozilla (USA): deliver the browser notifications you turn on. They carry a short text without names or addresses."
         },
-        "p2": "Some providers are in other countries. When data leaves the EU, the UK or Israel, we use protections the law accepts, such as adequacy decisions or standard contractual clauses."
+        "p2": "Some providers are outside Israel, the European Union and Georgia. When data goes to them, we use protections the law accepts, such as adequacy decisions or standard contractual clauses. <todo>Lawyer: confirm the transfer basis for each provider</todo>"
+      },
+      "where": {
+        "title": "Where your data is stored",
+        "p1": "Our database and files are kept by the providers above, in the regions they list. Exact addresses, map points and guests' phone numbers are encrypted in the database. Backups are encrypted too: a second copy is kept in the European Union, and each copy is deleted after {backupDays} days."
       },
       "retention": {
         "title": "How long we keep data",
+        "p1": "We delete data automatically once we no longer need it. Times marked “interim” are our current choice until our lawyer confirms them.",
         "list": {
-          "a": "<b>Account data</b> — while your account is open. It is deleted when you delete your account, except what the law requires us to keep.",
-          "b": "<b>Listings</b> — while they are live or saved in your account. <todo>Period after which deleted listings are erased</todo>",
-          "c": "<b>ID and ownership documents</b> — deleted after the review; only the verification record is kept.",
-          "d": "<b>Support tickets and reports</b> — <todo>period after they are closed</todo>",
-          "e": "<b>Security and anti-fraud logs</b> — <todo>period</todo>"
+          "a": "<b>Your account</b>: while it is open. When you delete it, your personal data is removed (see “Deleting your account” below).",
+          "b": "<b>Login codes</b>: a code works for {codeMinutes} minutes, and its record is deleted within {codeHours} hours.",
+          "c": "<b>Login sessions</b>: deleted {sessionDays} days after they expire.",
+          "d": "<b>Guest details on finished bookings</b> (name, phone, message): deleted {guestContactMonths} months after check-out. The booking keeps only anonymous facts, such as dates, nights and price, for statistics.",
+          "e": "<b>The exact address of a stay</b>: shown on your trip page until {addressDays} days after check-out. The booking confirmation email also contains it and stays in your mailbox: we can't delete emails already sent.",
+          "f": "<b>Support tickets and reports</b>: their texts and screenshots are erased {caseDays} days after the case is closed (interim).",
+          "g": "<b>Phone-number checks</b>: {phoneLookupDays} days. <b>Browser notification subscriptions</b> that stopped working: {pushDays} days.",
+          "h": "<b>Our log of sent emails</b>: {outboxDays} days. <b>“Show contact” records</b>: {contactClickDays} days, then only the count stays.",
+          "i": "<b>Security log</b>: {securityDays} days. <b>Log of staff actions</b>: {auditDays} days (one year).",
+          "j": "<b>Remembered devices</b>: {deviceDays} days after their last use. They only mean we don't send a new-device alert again.",
+          "k": "<b>ID and ownership documents</b>: deleted after the review; only the result is kept.",
+          "l": "<b>Listings</b>: while live or saved in your account. <todo>Period after which deleted listings are erased</todo>",
+          "m": "<b>Accounts unused for a long time</b>: <todo>3 years, after a warning email (to be built once the lawyer confirms)</todo>"
+        }
+      },
+      "deletion": {
+        "title": "Deleting your account",
+        "p1": "You can delete your account in your <settings>account settings</settings>. Your listings, saved places, sessions, devices and documents are deleted, and your name and contact details are removed. Some records stay, without your name or contact details:",
+        "list": {
+          "a": "past bookings, as anonymous facts (dates, nights, price) for statistics;",
+          "b": "reviews you wrote, shown as “Guest”;",
+          "c": "the log of staff actions for {auditDays} days, and the security log for {securityDays} days, no longer linked to you;",
+          "d": "support tickets and reports, until their texts are erased {caseDays} days after the case is closed;",
+          "e": "encrypted backups, until they are deleted after {backupDays} days."
         }
       },
       "rights": {
         "title": "Your rights",
         "p1": "Depending on where you live, you may have the right to:",
         "list": {
-          "a": "see the data we hold about you and get a copy — use <b>Download my data</b> in your <settings>account settings</settings>;",
-          "b": "correct data that is wrong;",
-          "c": "delete your account and your data — use <b>Delete my account</b> in your account settings;",
+          "a": "see the data we hold about you and get a copy: use <b>Download my data</b> in your <settings>account settings</settings>;",
+          "b": "correct data that is wrong: change it in your <settings>account settings</settings>, or ask us;",
+          "c": "delete your account and your data: use <b>Delete my account</b> in your account settings;",
           "d": "object to or limit some uses of your data, and withdraw consent at any time;",
-          "e": "receive your data in a format you can take to another service;",
+          "e": "receive your data in a format you can take to another service (the download is a JSON file);",
           "f": "complain to a data-protection authority."
         },
-        "p2": "To use a right that isn't in your settings, write to <mailto>{email}</mailto>. We may ask you to confirm your identity first."
+        "p2": "To use a right that isn't in your settings, write to us through the <ticket>support form</ticket>. We may ask you to confirm your identity first."
+      },
+      "cookies": {
+        "title": "Cookies",
+        "p1": "We use only essential cookies: to keep you signed in, keep the site secure, and remember your cookie choice, language and currency. Optional storage in your browser is used only if you allow it. The details are in the <cookies>Cookie policy</cookies>."
       },
       "laws": {
         "title": "Laws we follow",
@@ -243,11 +295,11 @@
       },
       "security": {
         "title": "How we protect your data",
-        "p1": "We use HTTPS everywhere, encrypt sensitive files, limit staff access by role, require 2-step login for staff, log staff actions and keep daily backups. No system is perfect: if a breach affects you, we will tell you as the law requires."
+        "p1": "We use HTTPS everywhere, encrypt exact addresses, map points and guests' phone numbers in the database, keep sensitive files in private storage, limit staff access by role, require 2-step login for staff, log staff actions and keep encrypted backups. No system is perfect: if a breach affects you, we will tell you and the authorities as the law requires."
       },
       "children": {
-        "title": "Children",
-        "p1": "The service is not meant for children. You must be at least 18 to create an account."
+        "title": "Age: {minAge} or older",
+        "p1": "The service is for adults only: you must be at least {minAge} to create an account. We ask you to confirm it when you sign up, before your first booking and before your first listing, and we keep a record of it."
       },
       "changes": {
         "title": "Changes to this policy",
@@ -255,7 +307,7 @@
       },
       "contact": {
         "title": "Contact",
-        "p1": "For privacy questions, write to <mailto>{email}</mailto>.",
+        "p1": "For privacy questions, write to us through the <ticket>support form</ticket>.",
         "p2": "<todo>Data protection officer or EU/UK representative, if required</todo>"
       }
     }
@@ -268,14 +320,14 @@
     "sections": {
       "intro": {
         "title": "What cookies are",
-        "p1": "Cookies are small text files that a website saves in your browser. We use them to keep you signed in, remember your choices and protect the site from fraud. We also use similar technology, such as your browser's local storage, for the same purposes."
+        "p1": "Cookies are small text files that a website saves in your browser. We set only the ones the site needs: to keep you signed in, keep the site secure, and remember the choices you make. We set no advertising or tracking cookies, and we load no trackers from other companies."
       },
       "categories": {
         "title": "The kinds of cookies we use",
         "list": {
-          "a": "<b>Strictly necessary</b> — needed for the site to work and stay secure: signing in, security and fraud prevention, and remembering your cookie choice. These are always on.",
-          "b": "<b>Preferences</b> — remember your language and currency, so you don't have to choose them again, and, on this device only, the places you viewed recently and your last search, so the home page can offer them again.",
-          "c": "<b>Analytics</b> — help us understand how the site is used, so we can improve it. Only with your consent. <todo>Name of the analytics tool, if any</todo>"
+          "a": "<b>Strictly necessary</b>: signing in, security and fraud prevention, and remembering your cookie choice and the language and currency you chose. These are the only cookies we set, and they are always on.",
+          "b": "<b>Preferences (optional, stored in your browser, not in cookies)</b>: on this device only, the places you viewed recently and your last search, so the home page can offer them again. Only if you allow “Preferences”.",
+          "c": "<b>Analytics (optional)</b>: we use no analytics tool today. If we ever add one, it will run only with your consent and will be named here."
         }
       },
       "list": {
@@ -284,37 +336,40 @@
           "purpose": "What it does",
           "duration": "How long it stays",
           "categories": {
-            "necessary": "Strictly necessary",
-            "preferences": "Preferences"
+            "necessary": "Strictly necessary"
           },
           "rows": {
+            "session": {
+              "purpose": "Keep you signed in securely: the session, the staff 2-step check and the short sign-in steps. Set only when you sign in.",
+              "duration": "Until you sign out, at most 30 days"
+            },
+            "consent": {
+              "purpose": "Remembers your cookie choice, so we don't ask again on every page.",
+              "duration": "180 days"
+            },
+            "device": {
+              "purpose": "A random device ID, for security only: it helps us spot fake accounts and sign-ins from new devices, and keeps a host's own visits out of their statistics. It holds no name or contact details and is never used for advertising.",
+              "duration": "1 year"
+            },
             "locale": {
-              "purpose": "Remembers the language you chose.",
+              "purpose": "Remembers the language you chose, or the language of the page you opened.",
               "duration": "1 year"
             },
             "currency": {
               "purpose": "Remembers the currency you chose for prices.",
               "duration": "1 year"
-            },
-            "consent": {
-              "purpose": "Remembers your cookie choice, so we don't ask again on every page.",
-              "duration": "1 year"
-            },
-            "device": {
-              "purpose": "A random device ID that helps us detect fake accounts and fraud. It contains no name or contact details.",
-              "duration": "1 year"
-            },
-            "session": {
-              "purpose": "Keep you signed in securely (Better Auth session cookies).",
-              "duration": "Until you sign out or the session expires"
             }
           }
         },
-        "p1": "The durations are approximate. We will keep this list up to date when we add or change cookies."
+        "p1": "The durations are the longest a cookie stays. A cookie that is not on this list is never set."
+      },
+      "storage": {
+        "title": "Other storage in your browser",
+        "p1": "Your browser's local storage keeps, on this device only, small settings you chose: light or dark mode, notices you closed, the phone country you used last, and that you read our safety tips. With your consent to “Preferences”, it also keeps the places you viewed recently and your last search. None of it is sent to other companies."
       },
       "thirdParty": {
         "title": "Cookies from other services",
-        "p1": "If you sign in with Google or Apple, those companies may set their own cookies on their pages, under their own policies. Our security providers — for example, the CAPTCHA that blocks bots — may also use strictly necessary cookies or similar technology."
+        "p1": "If you sign in with Google or Apple, those companies may set their own cookies on their pages, under their own policies. The bot check (Cloudflare Turnstile) runs in a small frame from Cloudflare, and the map images load from CARTO: these companies receive your IP address to provide the service."
       },
       "control": {
         "title": "How to change your choice",
@@ -324,7 +379,7 @@
       },
       "contact": {
         "title": "Contact",
-        "p1": "Questions about cookies? Write to <mailto>{email}</mailto>."
+        "p1": "Questions about cookies? Write to us through the <ticket>support form</ticket>."
       }
     }
   },
@@ -458,11 +513,11 @@
       },
       "contact": {
         "title": "Contact our accessibility coordinator",
-        "p1": "If something on the site is hard to use, or you need information in another format, please tell us. We aim to reply within <todo>number</todo> business days.",
+        "p1": "If something on the site is hard to use, or you need information in another format, please tell us. We reply within one business day, Sunday to Thursday.",
         "list": {
-          "a": "Accessibility coordinator: <todo>name</todo>",
-          "b": "Phone: <todo>phone number</todo>",
-          "c": "Email: <mailto>{email}</mailto>",
+          "a": "Accessibility coordinator: {coordinatorName}",
+          "b": "Phone: <ltr>{coordinatorPhone}</ltr>",
+          "c": "Email: <ltr>{coordinatorEmail}</ltr>",
           "d": "Or open a ticket in the <help>help center</help>."
         }
       },

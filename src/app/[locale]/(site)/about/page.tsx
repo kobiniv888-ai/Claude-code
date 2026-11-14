@@ -81,11 +81,10 @@ export default async function AboutPage({ params }: Props) {
             </span>
             {t("story.p5")}
           </p>
-          {/* A visible placeholder until the founder signs it (OWNER_TODO.md). */}
-          <p className="mt-6 text-body font-medium text-foreground">
-            <span className="rounded-md border border-dashed border-border-strong bg-surface-muted px-2 py-0.5">
-              {t("story.signature")}
-            </span>
+          {/* SECURITY_REPORT 19.c/19.e: the founder's name from FOUNDER_DISPLAY_NAME (not committed); until
+              it is set, "the Bayit team" — never a bracketed placeholder. */}
+          <p className="mt-6 text-body font-medium text-foreground" dir="auto">
+            {process.env.FOUNDER_DISPLAY_NAME?.trim() || t("story.signatureTeam")}
           </p>
         </ContentContainer>
       </article>

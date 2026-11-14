@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Ltr } from "@/components/common/ltr";
 import { siteConfig, type AppLocale } from "@/config/site";
 import { Link } from "@/i18n/navigation";
+import { SCAM_REPORT_PATH } from "@/lib/reports/scam";
 
 const linkClass =
   "font-medium text-primary underline decoration-primary/40 underline-offset-4 transition-colors hover:decoration-primary focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
@@ -60,7 +61,7 @@ export const contentTags = {
   help: internal("/help"),
   contact: internal("/contact"),
   ticket: internal("/help/new-ticket"),
-  scamTicket: internal("/help/new-ticket?category=SCAM_REPORT"),
+  scamTicket: internal(SCAM_REPORT_PATH),
   search: internal("/search"),
   post: internal("/post"),
   settings: internal("/account/settings"),

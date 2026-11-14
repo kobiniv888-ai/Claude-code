@@ -75,6 +75,8 @@ export const SERVER_ACTIONS: Record<string, Record<string, Access>> = {
     clearNoShowAction: staff("moderation"),
     markLongStayReviewedAction: staff("moderation"),
     markGuestFlagReviewedAction: staff("moderation"),
+    // SECURITY_REPORT 3.8.b: accounts made on one device (src/lib/security/signup-guard.ts).
+    markDeviceFlagReviewedAction: staff("moderation"),
   },
   "src/lib/admin/actions/moderation.ts": {
     approveListingAction: staff("moderation"),
@@ -274,6 +276,11 @@ export const SERVER_ACTIONS: Record<string, Record<string, Access>> = {
   "src/lib/home/actions.ts": {
     getHomeRecommendedAction: publicAccess("public listing cards for a home tab"),
   },
+  // SECURITY_REPORT 15.11.b/c: the "18 or older + Terms" box (builder legal-privacy).
+  "src/lib/legal/actions.ts": {
+    termsStatusAction: USER,
+    acceptTermsAction: USER,
+  },
   "src/lib/listing/card-actions.ts": {
     getListingCardsAction: publicAccess("public listing cards by public id"),
   },
@@ -309,6 +316,9 @@ export const SERVER_ACTIONS: Record<string, Record<string, Access>> = {
   "src/lib/recently-viewed/actions.ts": {
     syncRecentlyViewedAction: USER,
     clearRecentlyViewedAction: USER,
+  },
+  "src/lib/reports/scam-actions.ts": {
+    createScamReport: publicAccess("the one-tap scam report (SECURITY_REPORT 14.2.c): visitors too, behind the CAPTCHA, per IP and per account"),
   },
   "src/lib/reports/actions.ts": {
     createReport: USER,
@@ -455,6 +465,7 @@ export const UNGUARDED_LAYOUTS: Record<string, string> = {
 export const RESULT_CONTACT_KEYS: Record<string, { keys: string[]; why: string }> = {
   "src/lib/account/actions.ts#updateContactEmail": { keys: ["data.contactEmail"], why: "the caller's own contact address, as saved" },
   "src/lib/auth/contact-email-actions.ts#confirmContactEmailChange": { keys: ["data.contactEmail"], why: "the caller's own new contact address" },
+  "src/lib/auth/account-email-actions.ts#confirmAccountEmail": { keys: ["data.email"], why: "the caller's own new login address, just proven by its code (founder's answer (5))" },
   "src/lib/auth/fresh-proof-actions.ts#getProofOptions": { keys: ["data.email"], why: "the caller's own login address, masked (da***@…)" },
   "src/lib/auth/phone-check-actions.ts#sendPhoneCheckCode": { keys: ["data.phoneNumber"], why: "the number the caller typed, normalized" },
   "src/lib/auth/phone-check-actions.ts#confirmPhoneCheckCode": { keys: ["data.phoneNumber"], why: "the caller's own number just verified" },

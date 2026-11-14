@@ -64,7 +64,11 @@
     "shared_device": "Устройство используют другие аккаунты",
     "voip_phone": "Виртуальный номер (VoIP)",
     "first_listing": "Первое объявление аккаунта",
-    "phone_not_verified": "Телефон не подтверждён"
+    "phone_not_verified": "Телефон не подтверждён",
+    "payment_details": "Платёжные данные в тексте",
+    "exclusionary_text": "Дискриминирующий текст",
+    "copied_description": "Описание скопировано из объявления другого аккаунта",
+    "price_below_guide": "Цена намного ниже ориентира"
   },
   "statuses": {
     "DRAFT": {

@@ -1,4 +1,4 @@
-import { CalendarRange, CalendarX2, CheckCheck, UserRoundX, UsersRound, UserX } from "lucide-react";
+import { CalendarRange, CalendarX2, CheckCheck, Smartphone, UserRoundX, UsersRound, UserX } from "lucide-react";
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { UserStatusBadge } from "@/components/admin/badges";
@@ -18,6 +18,8 @@ import { FLAG_STATES, FLAG_VIEWS, FLAGS_PAGE_SIZE, listFlags, type FlagState, ty
 import { requireStaff } from "@/lib/auth/session";
 import { formatDate, formatDateRange, formatMoney, formatNumber, formatTime, isolate } from "@/lib/format";
 import { FlagReviewButton } from "./_components/flag-review-button";
+import { personName } from "@/lib/auth/first-name";
+import { SIGNUP_DEVICE_ACCOUNT_CAP, SIGNUP_DEVICE_WINDOW_DAYS } from "@/lib/security/signup-rules";
 
 const STATUS_TONE: Record<BookingStatus, PillTone> = {
   CONFIRMED: "success",
@@ -26,7 +28,7 @@ const STATUS_TONE: Record<BookingStatus, PillTone> = {
   CANCELLED_BY_HOST: "warning",
   NO_SHOW: "warning",
 };
-const EMPTY_ICON = { cancellations: CalendarX2, noShows: UserX, longStays: CalendarRange, guests: UsersRound, hosts: UserRoundX } as const;
+const EMPTY_ICON = { cancellations: CalendarX2, noShows: UserX, longStays: CalendarRange, guests: UsersRound, hosts: UserRoundX, devices: Smartphone } as const;
 /** Waiting on staff (the others are for review when there is time; decision 7). */
 const URGENT_VIEWS: readonly FlagView[] = ["cancellations", "hosts"];
 
@@ -113,6 +115,8 @@ export default async function FlagsPage({ params, searchParams }: Props) {
           nights: n(LONG_STAY_FLAG_NIGHTS),
           cancel: n(REPEAT_CANCEL_FLAG_MIN),
           noShow: n(REPEAT_NO_SHOW_FLAG_MIN),
+          cap: n(SIGNUP_DEVICE_ACCOUNT_CAP),
+          days: n(SIGNUP_DEVICE_WINDOW_DAYS),
         })}
       </p>
 
@@ -122,7 +126,9 @@ export default async function FlagsPage({ params, searchParams }: Props) {
           ? result.longStays.length
           : view === "guests"
             ? result.guests.length
-            : result.bookings.length) === 0 ? (
+            : view === "devices"
+              ? result.devices.length
+              : result.bookings.length) === 0 ? (
         <EmptyState bordered icon={state === "reviewed" ? CheckCheck : EMPTY_ICON[view]} title={t(`empty.${state}.${view}`)} description={t("emptyHint")} />
       ) : view === "longStays" ? (
         <ul className="divide-y rounded-xl border bg-card shadow-xs">
@@ -204,6 +210,35 @@ export default async function FlagsPage({ params, searchParams }: Props) {
                 ) : null}
                 <Link href={`/admin/users/${guest.id}`} className="inline-flex h-8 min-h-11 items-center rounded-md px-2 text-sm font-medium text-primary hover:underline sm:min-h-0">
                   {t("guestBookings")}
+                </Link>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : view === "devices" ? (
+        // SECURITY_REPORT 3.8.b: accounts made on one device over the cap. For review only.
+        <ul className="divide-y rounded-xl border bg-card shadow-xs">
+          {result.devices.map((account) => (
+            <li key={account.id} className="grid gap-2 p-3 sm:px-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <Link href={`/admin/users/${account.id}`} className="font-medium underline-offset-4 hover:underline">
+                  <span dir="auto">{personName(account) || t("noName")}</span>
+                </Link>
+                <UserStatusBadge status={account.status as UserStatus} className="h-5" />
+                <Pill tone="warning">{t("deviceAccounts", { count: account.accounts, days: n(SIGNUP_DEVICE_WINDOW_DAYS) })}</Pill>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {t("latestEvent", { when: when(account.latestAt) })}
+                {account.reviewedAt ? <> · {t("lastReviewed", { when: when(account.reviewedAt) })}</> : null}
+                {" · "}
+                {t("accountSince", { when: formatDate(account.createdAt, locale) })}
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                {state === "open" && account.id !== staff.id ? (
+                  <FlagReviewButton target={{ deviceUserId: account.id, seenLatest: account.latestAt.toISOString() }} label={personName(account) || t("noName")} />
+                ) : null}
+                <Link href={`/admin/users/${account.id}`} className="inline-flex h-8 min-h-11 items-center rounded-md px-2 text-sm font-medium text-primary hover:underline sm:min-h-0">
+                  {t("deviceOpenUser")}
                 </Link>
               </div>
             </li>

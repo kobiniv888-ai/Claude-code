@@ -152,6 +152,23 @@ describe("publicNearby", () => {
     expect(countPublicWalks(noColumn)).toBe(3);
   });
 
+  it("a synagogue walk from the column alone still takes its place: never a 4th walk (S2 gate)", () => {
+    // A row with synagogueWalkMin but no nearby.synagogue entry (older data): lift, synagogue and the
+    // stop; the shop is left out. Before the fix the JSON part kept stop + shop as if there were no
+    // synagogue, and the column added a 4th walk (caught by data-exposure.spec.ts).
+    const withoutSynagogue = { ...stored, synagogue: undefined } as NearbyInfo;
+    const lift = publicWalkTimes({ synagogueWalkMin: 7, seaWalkMinutes: null, liftWalkMinutes: 12, nearby: withoutSynagogue });
+    expect(lift).toMatchObject({ liftWalkMinutes: 15, synagogueWalkMin: 10 });
+    expect(lift.nearby.transport).toBeDefined();
+    expect(lift.nearby.supermarket).toBeUndefined();
+    expect(countPublicWalks(lift)).toBe(3);
+    const values = [null, 3, 12];
+    for (const s of values) for (const l of values) for (const g of values) {
+      const out = publicWalkTimes({ synagogueWalkMin: g, seaWalkMinutes: s, liftWalkMinutes: l, nearby: withoutSynagogue });
+      expect(countPublicWalks(out)).toBeLessThanOrEqual(MAX_PUBLIC_WALKS);
+    }
+  });
+
   it("tolerates empty or broken values", () => {
     expect(publicNearby(null)).toEqual({});
     expect(publicNearby({ synagogue: { id: "x", minutes: "7" } } as unknown as NearbyInfo)).toEqual({});

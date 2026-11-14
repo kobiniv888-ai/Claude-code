@@ -22,6 +22,8 @@ import { TripHost } from "@/components/trip/trip-host";
 import { TripKeep } from "@/components/trip/trip-keep";
 import { TripRules } from "@/components/trip/trip-rules";
 import { TripSafety } from "@/components/trip/trip-safety";
+import { contactChangedNoticeFor } from "@/lib/contact/changed-server";
+import { scamReportHref } from "@/lib/reports/scam";
 import { TripShabbat } from "@/components/trip/trip-shabbat";
 import { TripWhere } from "@/components/trip/trip-where";
 import { TripReviewPrompt } from "@/components/reviews/trip-review-prompt";
@@ -90,8 +92,9 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
  * - "הוספה ליומן" (.ics + Google Calendar) and "שמירה לשימוש בלי אינטרנט" (on a tap only; not
  *   for a cancelled trip or after the keep window, when a copy saved earlier is deleted instead);
  * - ONLY when the stay includes a Friday night or a night of a holiday (Israeli calendar):
- *   candle-lighting and Havdalah times for the city, the nearest verified synagogue, Chabad house
- *   and kosher place with walking times, "המארח לא עונה בשבת" (src/lib/trip/server.ts);
+ *   candle-lighting and Havdalah times for the city, the nearest verified synagogue and kosher
+ *   place with "up to N" walking times (never a Chabad house: founder's answer (2)), "המארח לא
+ *   עונה בשבת" (src/lib/trip/server.ts);
  * - the house rules; the itemized total (Booking.priceLines) and how to pay on arrival;
  * - the free-cancellation deadline with the cancel button; the safety note and emergency numbers;
  * - "Turned away?" (round 3, brief 8.2) and help.
@@ -140,6 +143,8 @@ export default async function TripPage({ params, searchParams }: Props) {
     confirmed && reveal ? tripGoogleCalendarUrl(trip, locale) : Promise.resolve(null),
   ]);
   if (!extras) return <TripNotFound />;
+  // SECURITY_REPORT 14.3.c: the host changed the listing's contact details in the last 7 days.
+  const contactChanged = confirmed ? await contactChangedNoticeFor(user.id, trip.id).catch(() => false) : false;
 
   // "Turned away?" (round 3, brief 8.2): the guest can report the host from every trip; after a
   // host cancellation it is a card of its own. ?report=1 (the cancellation email) opens the form.
@@ -409,7 +414,14 @@ export default async function TripPage({ params, searchParams }: Props) {
         {trip.status === "COMPLETED" ? <p className="text-small">{t("trip.completedNote", { brand })}</p> : null}
       </Card>
 
-      {!cancelled ? <TripSafety locale={locale} emergencyNumber={extras.emergencyNumber} /> : null}
+      {!cancelled ? (
+        <TripSafety
+          locale={locale}
+          emergencyNumber={extras.emergencyNumber}
+          reportHref={scamReportHref({ listing: trip.listing.publicId, booking: trip.code })}
+          contactChanged={contactChanged}
+        />
+      ) : null}
 
       {trip.status === "CANCELLED_BY_HOST" && !reportedAt ? (
         <Card as="section" aria-labelledby="trip-report" className="grid gap-3">

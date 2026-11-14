@@ -1,6 +1,8 @@
+import { randomBytes } from "node:crypto";
 import { expect, type APIRequestContext, type Locator, type Page } from "@playwright/test";
-import { sql } from "./db";
+import { sql, TEST_EMAIL_DOMAIN } from "./db";
 import { BASE_URL } from "./env";
+import { answerTermsStep, TERMS_BOX_NAME } from "./terms";
 
 /** Demo logins (docs/DEMO-DATA.md). */
 export const DEMO = {
@@ -103,6 +105,14 @@ export async function loginByEmail(page: Page, email: string, opts: { firstName?
   if (opts.firstName) {
     const { sql } = await import("./db");
     await sql(`UPDATE "User" SET "firstName" = $1 WHERE email = $2`, [opts.firstName, email.toLowerCase()]);
+    // The sign-up's "18 or older + Terms" step (SECURITY_REPORT 15.11.b/c), as the login form logs it.
+    const { TERMS_VERSION } = await import("../../../src/lib/legal/terms");
+    await sql(
+      `INSERT INTO "TermsAcceptance" (id, "userId", version, "ageConfirmed", "acceptedAt")
+       SELECT md5(random()::text || clock_timestamp()::text), id, $1, true, now() FROM "User" WHERE email = $2
+         AND NOT EXISTS (SELECT 1 FROM "TermsAcceptance" t WHERE t."userId" = "User".id)`,
+      [TERMS_VERSION, email.toLowerCase()],
+    );
   }
 }
 
@@ -133,9 +143,35 @@ async function sendCodeWaitingOutLimit(scope: Page | Locator, button: Locator) {
   }
 }
 
-/** A brand-new account answers the first-name step that follows its first sign-in. */
+/**
+ * Founder's answer (5), 9 Nov 2026: every account has an email. A NEW phone sign-up (phone login
+ * exists only in development and staging) is asked for one before anything else: a test address
+ * (removed by the clean-up), confirmed with the code test mode shows on screen. An email sign-up
+ * goes straight to the terms step.
+ */
+async function answerAccountEmailStep(scope: Page | Locator) {
+  const title = scope.getByText(/^(Add your email address|הוסיפו כתובת אימייל)$/);
+  const terms = scope.getByRole("checkbox", { name: TERMS_BOX_NAME });
+  await expect(title.or(terms).first()).toBeVisible({ timeout: 30_000 });
+  if (!(await title.isVisible())) return;
+  await scope.getByRole("textbox", { name: /^(Email address|כתובת אימייל)$/ }).fill(`e2e-${randomBytes(5).toString("hex")}@${TEST_EMAIL_DOMAIN}`);
+  await scope.getByRole("button", { name: /^(Send code|שליחת קוד)$/ }).click();
+  const shown = scope.getByText(/^(Your code:|הקוד שלך:)/);
+  await expect(shown).toBeVisible({ timeout: 30_000 });
+  const code = ((await shown.textContent()) ?? "").match(/\d{6}/)?.[0] ?? "";
+  await scope.getByLabel(/^(6-digit code|קוד בן 6 ספרות)$/).fill(code);
+  await scope.getByRole("button", { name: /^(Confirm|אישור)$/ }).click();
+  await expect(title).toBeHidden({ timeout: 30_000 });
+}
+
+/**
+ * A brand-new account answers the "18 or older + Terms" step (SECURITY_REPORT 15.11.b/c) and then
+ * the first-name step that follow its first sign-in.
+ */
 async function answerFirstName(scope: Page | Locator, firstName: string | undefined) {
   if (!firstName) return;
+  await answerAccountEmailStep(scope);
+  await answerTermsStep(scope);
   const field = scope.getByRole("textbox", { name: "First name" });
   await expect(field).toBeVisible({ timeout: 30_000 });
   await field.fill(firstName);

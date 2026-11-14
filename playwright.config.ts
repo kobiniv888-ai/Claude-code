@@ -44,7 +44,7 @@ export default defineConfig({
   projects: [
     {
       name: "desktop",
-      testIgnore: /mobile\.spec\.ts/,
+      testIgnore: [/mobile\.spec\.ts/, /maintenance\.spec\.ts/],
       use: {
         ...devices["Desktop Chrome"],
         userAgent: `${devices["Desktop Chrome"].userAgent} ${E2E_USER_AGENT_TAG}`,
@@ -59,6 +59,18 @@ export default defineConfig({
         ...devices["Pixel 7"],
         userAgent: `${devices["Pixel 7"].userAgent} ${E2E_USER_AGENT_TAG}`,
         viewport: { width: 360, height: 780 },
+      },
+    },
+    {
+      // Maintenance mode closes the whole site for every test: this file runs alone, AFTER every
+      // other project (tests/e2e/maintenance.spec.ts turns the switch off again at the end).
+      name: "maintenance",
+      testMatch: /maintenance\.spec\.ts/,
+      dependencies: ["desktop", "mobile"],
+      use: {
+        ...devices["Desktop Chrome"],
+        userAgent: `${devices["Desktop Chrome"].userAgent} ${E2E_USER_AGENT_TAG}`,
+        viewport: { width: 1280, height: 900 },
       },
     },
   ],

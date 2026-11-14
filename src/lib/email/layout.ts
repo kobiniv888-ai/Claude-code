@@ -32,6 +32,33 @@ export function keepCodesTogether(html: string): string {
   return html.replace(BOOKING_CODE, (code) => `<span style="white-space:nowrap;">${code}</span>`);
 }
 
+/**
+ * SECURITY_REPORT 13.4.b: an email links only to our own site. A link to any other host is
+ * dropped (its label stays as text), whatever a template passes in.
+ */
+export function ownSiteHref(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    const target = new URL(url);
+    const own = new URL(siteUrl());
+    return target.protocol === own.protocol && target.host === own.host ? target.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * User-written text (quotes) can hold a web or email address that mail apps would turn into a
+ * link. Its dots and "@" become look-alike characters (one dot leader, full-width at) so the text
+ * stays readable but is never a link (SECURITY_REPORT 13.4.b).
+ */
+const ADDRESS_LIKE = /(?:[a-z][a-z0-9+.-]*:\/\/)?[\p{L}\p{N}_%+-]+(?:[.@][\p{L}\p{N}_%+-]+)+(?:\/[^\s]*)?/giu;
+export function defuseLinks(text: string): string {
+  return text.replace(ADDRESS_LIKE, (match) =>
+    /[.@]\p{L}{2,}/u.test(match) ? match.replace(/:\/\//g, ":\u2215\u2215").replace(/\./g, "\u2024").replace(/@/g, "\uff20") : match,
+  );
+}
+
 function multiline(value: string): string {
   return keepCodesTogether(escapeHtml(value)).replace(/\r?\n/g, "<br>");
 }
@@ -83,8 +110,9 @@ function renderBlock(block: EmailBlock, align: "left" | "right"): string {
     case "paragraph":
       return `<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:${colors.text};">${multiline(block.text)}</p>`;
     case "notice": {
-      const link = block.link
-        ? `<br><a href="${escapeHtml(block.link.url)}" target="_blank" style="color:${colors.primary};font-weight:600;text-decoration:underline;">${escapeHtml(block.link.label)}</a>`
+      const href = ownSiteHref(block.link?.url);
+      const link = block.link && href
+        ? `<br><a href="${escapeHtml(href)}" target="_blank" style="color:${colors.primary};font-weight:600;text-decoration:underline;">${escapeHtml(block.link.label)}</a>`
         : "";
       return `<p style="margin:0 0 16px;padding:12px 16px;font-size:14px;line-height:1.55;color:${colors.text};background:${colors.primaryTint};border:1px solid ${colors.primaryTintBorder};border-radius:12px;">${multiline(block.text)}${link}</p>`;
     }
@@ -92,7 +120,7 @@ function renderBlock(block: EmailBlock, align: "left" | "right"): string {
       const label = block.label
         ? `<p style="margin:0 0 6px;font-size:13px;font-weight:600;color:${colors.muted};">${escapeHtml(block.label)}</p>`
         : "";
-      return `${label}<div dir="auto" style="margin:0 0 16px;padding:14px 16px;font-size:15px;line-height:1.6;color:${colors.text};background:${colors.panel};border-radius:12px;text-align:start;">${multiline(block.text)}</div>`;
+      return `${label}<div dir="auto" style="margin:0 0 16px;padding:14px 16px;font-size:15px;line-height:1.6;color:${colors.text};background:${colors.panel};border-radius:12px;text-align:start;">${multiline(defuseLinks(block.text))}</div>`;
     }
     case "code":
       return `<p style="margin:0 0 6px;font-size:13px;font-weight:600;color:${colors.muted};">${escapeHtml(block.label)}</p>` +
@@ -118,15 +146,16 @@ export function renderEmailHtml(content: EmailContent, ctx: LayoutContext): stri
   const { t, brand, page } = ctx;
 
   const greeting = content.greetingName
-    ? t("common.greeting", { name: isolate(content.greetingName) })
+    ? t("common.greeting", { name: isolate(defuseLinks(content.greetingName)) })
     : t("common.greetingNoName");
 
-  const cta = content.cta
+  const ctaHref = ownSiteHref(content.cta?.url);
+  const cta = content.cta && ctaHref
     ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 24px;">
 <tr><td style="border-radius:14px;background:${colors.primary};">
-<a href="${escapeHtml(content.cta.url)}" target="_blank" style="display:inline-block;padding:14px 28px;font-family:${FONT};font-size:16px;line-height:20px;font-weight:600;color:#FFFFFF;text-decoration:none;border-radius:14px;">${escapeHtml(content.cta.label)}</a>
+<a href="${escapeHtml(ctaHref)}" target="_blank" style="display:inline-block;padding:14px 28px;font-family:${FONT};font-size:16px;line-height:20px;font-weight:600;color:#FFFFFF;text-decoration:none;border-radius:14px;">${escapeHtml(content.cta.label)}</a>
 </td></tr></table>
-<p style="margin:0 0 24px;font-size:13px;line-height:1.5;color:${colors.muted};">${escapeHtml(t("common.buttonFallback"))}<br><a href="${escapeHtml(content.cta.url)}" dir="ltr" style="color:${colors.primary};word-break:break-all;">${escapeHtml(content.cta.url)}</a></p>`
+<p style="margin:0 0 24px;font-size:13px;line-height:1.5;color:${colors.muted};">${escapeHtml(t("common.buttonFallback"))}<br><a href="${escapeHtml(ctaHref)}" dir="ltr" style="color:${colors.primary};word-break:break-all;">${escapeHtml(ctaHref)}</a></p>`
     : "";
 
   const footerReason = t(content.audience === "account" ? "common.footerAccount" : "common.footerGuest", { brand });
@@ -184,26 +213,28 @@ export function renderEmailText(content: EmailContent, ctx: LayoutContext): stri
   const lines: string[] = [];
   lines.push(content.heading, "");
   lines.push(
-    content.greetingName ? t("common.greeting", { name: isolate(content.greetingName) }) : t("common.greetingNoName"),
+    content.greetingName ? t("common.greeting", { name: isolate(defuseLinks(content.greetingName)) }) : t("common.greetingNoName"),
     "",
   );
   for (const block of content.blocks) {
     if (block.type === "paragraph") lines.push(block.text, "");
     else if (block.type === "notice") {
       lines.push(block.text);
-      if (block.link) lines.push(`${block.link.label}: ${block.link.url}`);
+      const href = ownSiteHref(block.link?.url);
+      if (block.link && href) lines.push(`${block.link.label}: ${href}`);
       lines.push("");
     }
     else if (block.type === "quote") {
       if (block.label) lines.push(`${block.label}:`);
-      lines.push(...block.text.split(/\r?\n/).map((line) => `> ${line}`), "");
+      lines.push(...defuseLinks(block.text).split(/\r?\n/).map((line) => `> ${line}`), "");
     } else if (block.type === "details") {
       lines.push(...block.rows.map((row) => `${row.label}: ${row.value}`), "");
     } else if (block.type === "code") {
       lines.push(`${block.label}:`, block.code, "");
     }
   }
-  if (content.cta) lines.push(`${content.cta.label}: ${content.cta.url}`, "");
+  const ctaText = ownSiteHref(content.cta?.url);
+  if (content.cta && ctaText) lines.push(`${content.cta.label}: ${ctaText}`, "");
   lines.push(t("common.signoff"), t("common.team", { brand }), "", "—", t("common.safety", { brand }));
   lines.push(t(content.audience === "account" ? "common.footerAccount" : "common.footerGuest", { brand }));
   lines.push(`${t("common.help")}: ${page("/help")}`);

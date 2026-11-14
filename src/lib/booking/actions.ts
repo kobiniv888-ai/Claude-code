@@ -15,6 +15,8 @@ import { assertNotShabbatMode } from "@/lib/settings";
 import { tripPath } from "./constants";
 import { afterBookingConfirmed, alertEnvironment, notifyCancellation } from "./alerts";
 import { createBookingSchema, guestCancelSchema, hostAskedAnswerSchema, hostCancelSchema, noShowSchema, quoteInputSchema } from "./schemas";
+import { refusePaymentFields } from "@/lib/risk/text-guard";
+import { requireTermsFor } from "@/lib/legal/terms-server";
 import {
   answerHostAsked,
   createBooking,
@@ -85,6 +87,12 @@ export async function createBookingAction(input: unknown): Promise<ActionResult<
       return fail("invalid_input", fieldErrors);
     }
     const data = parsed.data;
+    // SECURITY_REPORT 14.2.a: no payment details in what the host reads (src/lib/risk/text-guard.ts).
+    const paymentErrors = await refusePaymentFields({ surface: "booking_message", userId: user.id, fields: { messageToHost: data.messageToHost } });
+    if (paymentErrors) return fail("payment_in_text", paymentErrors);
+    // SECURITY_REPORT 15.11.b/c: the first booking, and the next one after the Terms changed, needs
+    // the ticked "18 or older + Terms" box in this request (logged in TermsAcceptance).
+    await requireTermsFor(user.id, "booking", input);
     const locale = localeOr((input as { locale?: unknown }).locale, user.locale);
     const requestHeaders = await headers();
     const alerts = alertEnvironment(requestHeaders);
@@ -116,6 +124,8 @@ export async function cancelBookingAsGuestAction(input: unknown): Promise<Action
     await assertRateLimit(`booking:cancel:${user.id}`, { limit: 20, windowSeconds: 3600 });
     const parsed = guestCancelSchema.safeParse(input);
     if (!parsed.success) return fail("invalid_input", flattenError(parsed.error).fieldErrors);
+    const guestReason = await refusePaymentFields({ surface: "booking_cancel_reason", userId: user.id, fields: { reasonText: parsed.data.reasonText } });
+    if (guestReason) return fail("payment_in_text", guestReason);
     const result = await guestCancel({ ...parsed.data, guestUserId: user.id, notify: false });
     const alerts = alertEnvironment(await headers());
     after(() => notifyCancellation(parsed.data.bookingId, alerts));
@@ -130,6 +140,8 @@ export async function cancelBookingAsHostAction(input: unknown): Promise<ActionR
     await assertRateLimit(`booking:cancel:${user.id}`, { limit: 20, windowSeconds: 3600 });
     const parsed = hostCancelSchema.safeParse(input);
     if (!parsed.success) return fail("invalid_input", flattenError(parsed.error).fieldErrors);
+    const hostReason = await refusePaymentFields({ surface: "booking_cancel_reason", userId: user.id, fields: { reasonText: parsed.data.reasonText } });
+    if (hostReason) return fail("payment_in_text", hostReason);
     const result = await hostCancel({ ...parsed.data, hostUserId: user.id, notify: false });
     after(() => notifyCancellation(parsed.data.bookingId));
     return ok({ code: result.code });

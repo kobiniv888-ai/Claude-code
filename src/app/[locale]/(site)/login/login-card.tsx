@@ -22,7 +22,7 @@ export function LoginCard({
   config: LoginConfig;
   next: string;
   initialError: AuthErrorKey | null;
-  initialStage?: "start" | "name" | "email";
+  initialStage?: "start" | "name" | "email" | "terms";
   title: string;
   description: string;
 }) {

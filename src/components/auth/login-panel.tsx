@@ -13,6 +13,7 @@ import { safeNextPath } from "@/lib/auth/next-path";
 import { EmailCodeForm } from "./email-code-form";
 import { FirstNameForm } from "./first-name-form";
 import { AccountEmailStep } from "./account-email-step";
+import { TermsStep } from "@/components/legal/terms-step";
 import { PhoneCodeForm } from "./phone-code-form";
 import { AppleIcon, GoogleIcon } from "./provider-icons";
 import { TestModeStrip } from "./test-mode-strip";
@@ -25,7 +26,7 @@ type Provider = "google" | "apple";
  * Where the visitor is in the login: the first screen, the 6-digit code, the 2-step code, the
  * first name (new accounts), or done.
  */
-export type LoginStage = "start" | "code" | "two-factor" | "email" | "name" | "done";
+export type LoginStage = "start" | "code" | "two-factor" | "email" | "terms" | "name" | "done";
 
 /**
  * The login UI (founder request, round 2), in this order: Google (and Apple) when configured, a code
@@ -51,8 +52,8 @@ export function LoginPanel({
   next?: string;
   variant?: "page" | "dialog";
   initialError?: AuthErrorKey | null;
-  /** "name" / "email": already signed in, the first name or a real email is still missing (the /login page). */
-  initialStage?: "start" | "name" | "email";
+  /** "name" / "email" / "terms": already signed in, the first name, a real email or the Terms acceptance is still missing (the /login page). */
+  initialStage?: "start" | "name" | "email" | "terms";
   onSuccess?: () => void | Promise<void>;
   /** Lets the sheet or page shrink its welcome block while a code is being entered. */
   onStageChange?: (stage: LoginStage) => void;
@@ -65,8 +66,8 @@ export function LoginPanel({
   const errorMessage = useAuthErrorMessage();
   const target = safeNextPath(next);
 
-  const [step, setStepState] = useState<"start" | "two-factor" | "email" | "name" | "done">(initialStage);
-  const setStep = (next: "start" | "two-factor" | "email" | "name" | "done") => {
+  const [step, setStepState] = useState<"start" | "two-factor" | "email" | "terms" | "name" | "done">(initialStage);
+  const setStep = (next: "start" | "two-factor" | "email" | "terms" | "name" | "done") => {
     setStepState(next);
     onStageChange?.(next);
   };
@@ -96,6 +97,11 @@ export function LoginPanel({
     }
     if (state?.needsAccountEmail) {
       setStep("email");
+      return;
+    }
+    // SECURITY_REPORT 15.11.b/c: a new account says it is 18 or older and accepts the Terms (logged).
+    if (state?.needsTerms) {
+      setStep("terms");
       return;
     }
     if (state?.needsFirstName) {
@@ -156,6 +162,10 @@ export function LoginPanel({
 
   if (step === "email") {
     return <AccountEmailStep onDone={afterSignIn} />;
+  }
+
+  if (step === "terms") {
+    return <TermsStep onDone={afterSignIn} />;
   }
 
   if (step === "name") {

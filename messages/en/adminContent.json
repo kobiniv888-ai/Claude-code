@@ -674,6 +674,12 @@
       "typeToConfirm": "Type {phrase}",
       "confirmButton": "Delete permanently",
       "deleted": "Deleted — listings: {listings}, users: {users}, places: {places}, alerts: {alerts}"
+    },
+    "support": {
+      "title": "Support",
+      "description": "The reply-time promise shown on the help, contact and ticket pages.",
+      "replyPromise": "Reply time",
+      "replyPromiseHint": "A language left empty shows the standard text: “Replies within one business day, Sunday to Thursday…”."
     }
   },
   "roles": {

@@ -3,6 +3,7 @@ import { expect, openAs, openAsTestUser, settle, test } from "./fixtures";
 import { createTestListing, createTestUser, listingByPublicId, sql } from "./helpers/db";
 import { sealAddress } from "./helpers/field-crypto";
 import { TEST_ADMIN_PHONE } from "./helpers/staff";
+import { acceptTermsBoxIfShown } from "./helpers/terms";
 
 /** The exact address as the site stores it: encrypted (SECURITY_REPORT 12.3.c). */
 const E2E_ADDRESS = "E2E Street 7, apartment 5";
@@ -118,6 +119,7 @@ test.describe("mistake check before publishing (brief 6.1)", () => {
     // The exact address disappears after the panel was loaded: only the server can notice.
     await sql(`UPDATE "Listing" SET "addressEnc" = NULL WHERE id = $1`, [draft.id]);
     await owner.page.locator("#rules-checkbox").check();
+    await acceptTermsBoxIfShown(owner.page); // the "18 or older + Terms" box (SECURITY_REPORT 15.11.b/c)
     await owner.page.getByRole("button", { name: "פרסום", exact: true }).click();
     await expect(panel.getByRole("heading", { name: "יש לתקן לפני פרסום" })).toBeVisible({ timeout: 30_000 });
     await expect(panel.locator('[data-mistake="address_missing"]')).toBeVisible();

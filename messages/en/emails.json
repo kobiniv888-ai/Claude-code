@@ -5,7 +5,7 @@
     "signoff": "Warm regards,",
     "team": "The {brand} team",
     "buttonFallback": "If the button doesn't work, copy this link into your browser:",
-    "safety": "{brand} will never ask you for a password, a code or a payment by email or message.",
+    "safety": "{brand} will never ask you for a payment by link, credit card details or a login code.",
     "footerAccount": "You're receiving this email because you have an account on {brand}.",
     "footerGuest": "You're receiving this email because you contacted {brand}.",
     "help": "Help center",
@@ -732,6 +732,13 @@
         "support_overdue": "{count, plural, one {1 support ticket has} other {{count} support tickets have}} waited longer than the reply promise (one business day, Sunday to Thursday): {tickets}.",
         "field_decrypt_failed": "Encrypted addresses or phone numbers could not be opened ({count}): check FIELD_ENCRYPTION_KEY at the hosting."
       }
+    },
+    "host_contact_changed_guest": {
+      "subject": "The host's contact details changed — {title}",
+      "preheader": "Watch out for payment requests",
+      "heading": "The host's contact details changed recently",
+      "body": "The host of {title} (booking {code}) recently changed their contact details. If anyone now asks you to pay by link, by transfer or to verify a card — it's a scam. You'll find the current contact details on the trip page.",
+      "cta": "Open the trip page"
     }
   },
   "ticketStatus": {
@@ -818,5 +825,6 @@
     },
     "priceFrom": "from {price}",
     "untitled": "Listing {id}"
-  }
+  },
+  "scamReport": "Report a scam"
 }

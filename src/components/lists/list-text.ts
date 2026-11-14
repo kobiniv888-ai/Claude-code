@@ -9,6 +9,7 @@ export const LIST_ERROR_CODES = [
   "name_too_long",
   "name_taken",
   "name_has_contact",
+  "name_has_payment",
   "too_many_lists",
   "too_many_saved",
   "default_list",

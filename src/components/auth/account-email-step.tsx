@@ -7,21 +7,31 @@ import { Ltr } from "@/components/common/ltr";
 import { Turnstile, type TurnstileHandle } from "@/components/common/turnstile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useRouter } from "@/i18n/navigation";
 import { confirmAccountEmail, sendAccountEmailCode } from "@/lib/auth/account-email-actions";
+import { ScreenCode } from "./code-step";
 
 /**
  * "Add your email" (founder's answer (5)): a phone-only account adds a real email, verified by a
- * 6-digit code, before it continues (the login panel shows this right after sign-in). The server
- * decides everything (src/lib/auth/account-email-actions.ts); this is the form.
+ * 6-digit code, before it continues (the login panel shows this right after sign-in, and the
+ * account settings show it until the address is added). The server decides everything
+ * (src/lib/auth/account-email-actions.ts); this is the form. Without `onDone` the page reloads its
+ * data once the address is saved.
  */
-export function AccountEmailStep({ onDone }: { onDone: () => void | Promise<void> }) {
+export function AccountEmailStep({ onDone }: { onDone?: () => void | Promise<void> }) {
+  const router = useRouter();
   const t = useTranslations("auth.accountEmail");
   const te = useTranslations("auth.errors");
   const id = useId();
   const captcha = useRef<TurnstileHandle>(null);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [email, setEmail] = useState("");
+  // What the screen shows (the server masks it: "da***@example.com") and the address the code is
+  // bound to (the one typed): confirming must send the typed address, never the masked one.
   const [sentTo, setSentTo] = useState<string | null>(null);
+  const [target, setTarget] = useState<string | null>(null);
+  /** Test mode only (development / staging): the code shown on screen, like the other code forms. */
+  const [screenCode, setScreenCode] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [pending, setPending] = useState<"send" | "confirm" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -48,19 +58,22 @@ export function AccountEmailStep({ onDone }: { onDone: () => void | Promise<void
     setCaptchaToken(null);
     setPending(null);
     if (!result.ok) return setError(message(result.error));
+    setTarget(email.trim().toLowerCase());
+    setScreenCode(result.data.screenCode ?? null);
     setSentTo(result.data.sentTo || email.trim().toLowerCase());
     setWait(result.data.retryAfterSeconds ?? 60);
   }
 
   async function confirm(event: FormEvent) {
     event.preventDefault();
-    if (!sentTo) return;
+    if (!target) return;
     setPending("confirm");
     setError(null);
-    const result = await confirmAccountEmail({ email: sentTo, code });
+    const result = await confirmAccountEmail({ email: target, code });
     setPending(null);
     if (!result.ok) return setError(message(result.error));
-    await onDone();
+    if (onDone) await onDone();
+    else router.refresh();
   }
 
   return (
@@ -111,12 +124,13 @@ export function AccountEmailStep({ onDone }: { onDone: () => void | Promise<void
             aria-invalid={error ? true : undefined}
             aria-describedby={error ? `${id}-error` : undefined}
           />
+          {screenCode ? <ScreenCode code={screenCode} onUse={setCode} /> : null}
           <Button type="submit" disabled={pending !== null || code.length !== 6}>
             {pending === "confirm" ? <LoaderCircleIcon className="size-4 animate-spin" aria-hidden /> : null}
             {t("confirm")}
           </Button>
           <div className="flex flex-wrap justify-between gap-2">
-            <Button type="button" variant="link" className="h-auto px-0" onClick={() => (setSentTo(null), setCode(""), setError(null))}>
+            <Button type="button" variant="link" className="h-auto px-0" onClick={() => (setSentTo(null), setTarget(null), setScreenCode(null), setCode(""), setError(null))}>
               {t("change")}
             </Button>
             <Button type="button" variant="link" className="h-auto px-0" disabled={wait > 0 || pending !== null} onClick={() => void send()}>

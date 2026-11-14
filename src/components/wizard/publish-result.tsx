@@ -37,6 +37,10 @@ const REASON_STEPS: Record<string, WizardStepKey | null> = {
   voip_phone: null,
   first_listing: null,
   phone_not_verified: null,
+  payment_details: "text",
+  exclusionary_text: "text",
+  copied_description: "text",
+  price_below_guide: "price",
 };
 
 /** "Your listing is live" / "We're checking your listing" / "Needs changes" / "Changes saved". */

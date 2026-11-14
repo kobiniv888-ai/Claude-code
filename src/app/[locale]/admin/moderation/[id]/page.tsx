@@ -28,6 +28,8 @@ import { listingPath } from "@/lib/listing/urls";
 import { safeTourUrl } from "@/lib/listing-page/media";
 import { photoUrl, reverseImageSearchLinks } from "@/lib/media";
 import { getSettings } from "@/lib/settings";
+import { getReviewWarnings } from "@/lib/risk/review-warnings";
+import { ADDRESS_PIN_TOLERANCE_M, textSearchUrl } from "@/lib/risk/review-checks";
 import type { CurrencyCode } from "@/config/site";
 import { cn } from "@/lib/utils";
 
@@ -64,6 +66,18 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
       return null;
     }),
   ]);
+  // SECURITY_REPORT 14.1.c/d/f: address vs pin, price vs the price guide, copied description (live, staff only).
+  const warnings = await getReviewWarnings({
+    id: listing.id,
+    ownerId: listing.ownerId,
+    cityId: null,
+    isDemo: listing.isDemo,
+    description: listing.description,
+    address: listing.address,
+    cityName: cityName(listing.city, locale),
+    pin: listing.lat != null && listing.lng != null ? { lat: listing.lat, lng: listing.lng } : null,
+    locale,
+  });
   const precheck = precheckItems(data.reasons, listing.riskScore !== null);
   const mistakes = precheckMistakes(mistakeResult);
   const precheckCounts = precheckSummary(precheck);
@@ -368,6 +382,83 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
               )}
             </div>
             <p className="mt-3 text-xs text-muted-foreground">{t("precheck.footnote")}</p>
+          </AdminSection>
+
+          <AdminSection
+            id="review-warnings"
+            title={
+              <span className="inline-flex items-center gap-1.5">
+                <AlertTriangle aria-hidden className="size-4 text-muted-foreground" />
+                {t("reviewWarnings.title")}
+              </span>
+            }
+            description={t("reviewWarnings.description")}
+          >
+            <ul className="grid gap-2" data-testid="review-warnings">
+              <li className="flex items-start gap-2 rounded-lg border bg-background px-2.5 py-2 text-sm" data-warning={`address-${warnings.addressPin.status}`}>
+                <PrecheckIcon status={warnings.addressPin.status === "mismatch" ? "found" : warnings.addressPin.status === "match" ? "ok" : "unchecked"} />
+                <span className="min-w-0 flex-1">
+                  <span className="block font-medium">{t("reviewWarnings.address.title")}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {warnings.addressPin.status === "match" || warnings.addressPin.status === "mismatch"
+                      ? t(`reviewWarnings.address.${warnings.addressPin.status}`, {
+                          distance: isolateLtr(formatNumber(warnings.addressPin.distanceM, locale)),
+                          tolerance: isolateLtr(formatNumber(ADDRESS_PIN_TOLERANCE_M, locale)),
+                        })
+                      : t(`reviewWarnings.address.${warnings.addressPin.status}`)}
+                  </span>
+                </span>
+              </li>
+              <li className="flex items-start gap-2 rounded-lg border bg-background px-2.5 py-2 text-sm" data-warning={`price-${warnings.priceGuide.status}`}>
+                <PrecheckIcon status={warnings.priceGuide.status === "far_below" ? "found" : warnings.priceGuide.status === "ok" ? "ok" : "unchecked"} />
+                <span className="min-w-0 flex-1">
+                  <span className="block font-medium">{t("reviewWarnings.price.title")}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {(warnings.priceGuide.status === "far_below" || warnings.priceGuide.status === "ok") && "currency" in warnings.priceGuide && warnings.priceGuide.currency
+                      ? t(`reviewWarnings.price.${warnings.priceGuide.status}`, {
+                          price: isolateLtr(formatMoney(warnings.priceGuide.price, warnings.priceGuide.currency, locale)),
+                          low: isolateLtr(formatMoney(warnings.priceGuide.low, warnings.priceGuide.currency, locale)),
+                          source: t(`reviewWarnings.price.sources.${warnings.priceGuide.source}`),
+                        })
+                      : t(`reviewWarnings.price.${warnings.priceGuide.status === "unavailable" ? "unavailable" : "noData"}`)}
+                  </span>
+                </span>
+              </li>
+              <li className="flex items-start gap-2 rounded-lg border bg-background px-2.5 py-2 text-sm" data-warning={`copies-${warnings.copies === null ? "unavailable" : warnings.copies.length}`}>
+                <PrecheckIcon status={warnings.copies === null ? "unchecked" : warnings.copies.length ? "found" : "ok"} />
+                <span className="min-w-0 flex-1">
+                  <span className="block font-medium">{t("reviewWarnings.copies.title")}</span>
+                  {warnings.copies === null ? (
+                    <span className="block text-xs text-muted-foreground">{t("reviewWarnings.copies.unavailable")}</span>
+                  ) : warnings.copies.length === 0 ? (
+                    <span className="block text-xs text-muted-foreground">{t("reviewWarnings.copies.none")}</span>
+                  ) : (
+                    <ul className="mt-1 grid gap-1 text-xs">
+                      {warnings.copies.map((copy) => (
+                        <li key={copy.listingId}>
+                          <Link href={`/admin/moderation/${copy.listingId}`} className="text-primary hover:underline">
+                            <PublicId id={copy.publicId} /> <span dir="auto">{copy.title}</span>
+                          </Link>{" "}
+                          <span className="text-muted-foreground">{t("reviewWarnings.copies.percent", { percent: isolateLtr(`${formatNumber(copy.percent, locale)}%`) })}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {warnings.snippet ? (
+                    <a
+                      href={textSearchUrl(warnings.snippet)}
+                      target="_blank"
+                      rel="noopener noreferrer nofollow"
+                      referrerPolicy="no-referrer"
+                      className="mt-1 inline-flex min-h-9 items-center gap-1 text-xs font-medium text-primary hover:underline"
+                    >
+                      <ExternalLink aria-hidden className="size-3.5" />
+                      {t("reviewWarnings.copies.search")}
+                    </a>
+                  ) : null}
+                </span>
+              </li>
+            </ul>
           </AdminSection>
 
           <AdminSection

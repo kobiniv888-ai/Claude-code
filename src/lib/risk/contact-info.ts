@@ -39,11 +39,12 @@ const INVISIBLE = /[­​-‏‪-‮⁠-⁩﻿]/g;
 const AT_WORDS = ["at", "את", "собака", "ат", "ات", "ეთ"];
 const DOT_WORDS = ["dot", "נקודה", "точка", "نقطة", "نقطه", "წერტილი"];
 
-function bracketed(words: string[]): RegExp {
-  return new RegExp(`\\s*[(\\[{<]\\s*(?:${words.join("|")}|@|\\.)\\s*[)\\]}>]\\s*`, "giu");
+/** "(at)", "[@]", "{ at }" → the symbol; "(dot)", "[.]" → "." (each bracket form only to its own symbol). */
+function bracketed(words: string[], symbol: string): RegExp {
+  return new RegExp(`\\s*[(\\[{<]\\s*(?:${words.join("|")}|${symbol})\\s*[)\\]}>]\\s*`, "giu");
 }
-const BRACKETED_AT = bracketed(AT_WORDS);
-const BRACKETED_DOT = bracketed(DOT_WORDS);
+const BRACKETED_AT = bracketed(AT_WORDS, "@");
+const BRACKETED_DOT = bracketed(DOT_WORDS, "\\.");
 
 export function normalizeForContactScan(text: string): string {
   return (

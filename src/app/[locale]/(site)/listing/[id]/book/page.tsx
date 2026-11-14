@@ -28,6 +28,7 @@ import { resolveListing } from "@/lib/listing-page/resolve";
 import { listingPath, listingSlugParam } from "@/lib/listing/urls";
 import { absoluteUrl, localizedPath } from "@/lib/seo";
 import { isShabbatModeActive } from "@/lib/settings";
+import { termsNeededFor } from "@/lib/legal/terms-server";
 
 type Props = {
   params: Promise<{ locale: string; id: string }>;
@@ -106,12 +107,14 @@ export default async function BookPage({ params, searchParams }: Props) {
   if (!isStay) redirect({ href: `${path}${withBookParams("", { checkIn: request.checkIn, checkOut: request.checkOut })}`, locale });
 
   const isOwner = user?.id === ownerId;
-  const [terms, t, loginConfig, shabbat, blocked] = await Promise.all([
+  const [terms, t, loginConfig, shabbat, blocked, termsNeeded] = await Promise.all([
     headers().then((h) => getGuestBookingTerms(data.id, { alerts: alertEnvironment(h) })),
     getTranslations({ locale, namespace: "booking" }),
     getLoginConfig(locale),
     isShabbatModeActive(),
     user && !isOwner ? isBlockedBetween(user.id, ownerId) : Promise.resolve(false),
+    // SECURITY_REPORT 15.11.b/c: the "18 or older + Terms" box (the server checks again; an error shows it).
+    user ? termsNeededFor(user.id, "booking").catch(() => true) : Promise.resolve(false),
   ]);
   if (!terms) notFound();
 
@@ -189,7 +192,11 @@ export default async function BookPage({ params, searchParams }: Props) {
             today={tbilisiToday()}
             user={
               user
-                ? { name: (user.isDemo ? personName(user) : firstNameOf(user)) ?? "", verifiedPhone: user.phoneNumberVerified && user.phoneNumber ? user.phoneNumber : null }
+                ? {
+                    name: (user.isDemo ? personName(user) : firstNameOf(user)) ?? "",
+                    verifiedPhone: user.phoneNumberVerified && user.phoneNumber ? user.phoneNumber : null,
+                    termsNeeded,
+                  }
                 : null
             }
             phoneConfig={loginConfig.phone}

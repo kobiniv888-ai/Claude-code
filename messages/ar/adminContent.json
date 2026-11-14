@@ -674,6 +674,12 @@
       "typeToConfirm": "اكتب {phrase}",
       "confirmButton": "حذف نهائي",
       "deleted": "تم الحذف — الإعلانات: {listings}، المستخدمون: {users}، الأماكن: {places}، التنبيهات: {alerts}"
+    },
+    "support": {
+      "title": "الدعم",
+      "description": "وعد وقت الرد المعروض في صفحات المساعدة والتواصل والطلبات.",
+      "replyPromise": "وقت الرد",
+      "replyPromiseHint": "اللغة الفارغة تعرض النص الافتراضي: «نرد خلال يوم عمل واحد…»."
     }
   },
   "roles": {

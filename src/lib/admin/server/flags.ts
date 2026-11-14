@@ -12,6 +12,7 @@ import { pageInfo } from "../params";
 import type { StaffViewer } from "../staff-visibility";
 import { countLongStays, guestFlagRows, listLongStays, type GuestFlagRow, type LongStayRow } from "./guest-flags";
 import { withholdTurnedAwayGuests } from "./shared";
+import { listDeviceFlags, type DeviceFlagRow } from "@/lib/security/signup-guard";
 
 /**
  * Admin → Flags lists (server-only; the rules are in src/lib/listing/host-flags.ts and the shared
@@ -30,7 +31,8 @@ export {
   type HostFlagSummary,
 } from "@/lib/listing/host-flags-server";
 
-export const FLAG_VIEWS = ["cancellations", "noShows", "longStays", "guests", "hosts"] as const;
+// "devices": more than 3 accounts made on one device in 30 days (SECURITY_REPORT 3.8.b, src/lib/security/signup-guard.ts).
+export const FLAG_VIEWS = ["cancellations", "noShows", "longStays", "guests", "hosts", "devices"] as const;
 export type FlagView = (typeof FLAG_VIEWS)[number];
 export const FLAGS_PAGE_SIZE = 25;
 
@@ -97,22 +99,27 @@ export async function listFlags(
   hosts: FlagHostRow[];
   longStays: (Omit<LongStayRow, "guest"> & { guest: LongStayRow["guest"] | null; guestIsViewer: boolean })[];
   guests: GuestFlagRow[];
+  devices: DeviceFlagRow[];
 }> {
-  const [cancellations, noShows, hosts, longStays, guestRows] = await Promise.all([
+  const [cancellations, noShows, hosts, longStays, guestRows, deviceFlags] = await Promise.all([
     db.booking.count({ where: bookingWhere("cancellations", state) }),
     db.booking.count({ where: bookingWhere("noShows", state) }),
     countHostFlags(now, state),
     countLongStays(state, now),
     // The guest list is short and computed whole (the pure rule decides each guest), then paged.
     guestFlagRows(now, { state }),
+    listDeviceFlags(state),
   ]);
-  const counts = { cancellations, noShows, hosts, longStays, guests: guestRows.length };
+  const counts = { cancellations, noShows, hosts, longStays, guests: guestRows.length, devices: deviceFlags.total };
   const info = pageInfo(counts[view], requestedPage, FLAGS_PAGE_SIZE);
-  const empty = { bookings: [] as FlagBookingRow[], hosts: [] as FlagHostRow[], longStays: [] as (Omit<LongStayRow, "guest"> & { guest: LongStayRow["guest"] | null; guestIsViewer: boolean })[], guests: [] as GuestFlagRow[] };
+  const empty = { bookings: [] as FlagBookingRow[], hosts: [] as FlagHostRow[], longStays: [] as (Omit<LongStayRow, "guest"> & { guest: LongStayRow["guest"] | null; guestIsViewer: boolean })[], guests: [] as GuestFlagRow[], devices: [] as DeviceFlagRow[] };
 
   if (view === "longStays") {
     const result = await listLongStays(state, { limit: FLAGS_PAGE_SIZE, offset: info.skip }, locale, now);
     return { ...empty, counts, total: counts.longStays, page: info.page, longStays: (await withholdTurnedAwayGuests(viewer, result.rows)).map((r) => ({ ...r, guestCreatedAt: r.guest ? r.guestCreatedAt : null })) };
+  }
+  if (view === "devices") {
+    return { ...empty, counts, total: counts.devices, page: info.page, devices: deviceFlags.rows.slice(info.skip, info.skip + FLAGS_PAGE_SIZE) };
   }
   if (view === "guests") {
     return { ...empty, counts, total: counts.guests, page: info.page, guests: guestRows.slice(info.skip, info.skip + FLAGS_PAGE_SIZE) };

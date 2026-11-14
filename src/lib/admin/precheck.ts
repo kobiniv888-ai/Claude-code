@@ -18,6 +18,11 @@ export const PRECHECK_IDS = [
   "velocity",
   "shared_device",
   "voip",
+  // SECURITY_REPORT 14.2.a, 14.5.e, 14.1.f, 14.1.d.
+  "payment",
+  "exclusion",
+  "copied_text",
+  "price_guide",
 ] as const;
 export type PrecheckId = (typeof PRECHECK_IDS)[number];
 
@@ -32,10 +37,14 @@ const CODES: Record<PrecheckId, readonly RiskReasonCode[]> = {
   velocity: ["new_account_velocity"],
   shared_device: ["shared_device"],
   voip: ["voip_phone"],
+  payment: ["payment_details"],
+  exclusion: ["exclusionary_text"],
+  copied_text: ["copied_description"],
+  price_guide: ["price_below_guide"],
 };
 
 /** Reasons that stop publishing outright. */
-const BLOCKING: ReadonlySet<RiskReasonCode> = new Set(["phone_not_verified", "blocked_phrase"]);
+const BLOCKING: ReadonlySet<RiskReasonCode> = new Set(["phone_not_verified", "blocked_phrase", "payment_details"]);
 
 /**
  * - ok: the check ran and found nothing;

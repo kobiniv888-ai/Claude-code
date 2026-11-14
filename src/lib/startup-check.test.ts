@@ -52,6 +52,9 @@ const PROD: StartupEnv = {
   CLIENT_IP_HEADER: "cf-connecting-ip",
   // security.txt, Sentry (EU), the encrypted off-site backup (src/lib/ops-startup.ts; fake values).
   SECURITY_CONTACT_EMAIL: "security@bayit.example.com",
+  // The accessibility coordinator (src/lib/legal/accessibility.ts; fake values).
+  ACCESSIBILITY_COORDINATOR_NAME: "Example Coordinator",
+  ACCESSIBILITY_COORDINATOR_EMAIL: "access@bayit.example.com",
   SENTRY_DSN: "https://0123456789abcdef@o1.ingest.de.sentry.io/1",
   BACKUP_ENCRYPTION_KEY: "Zq3vT8yLp1xR6mWc9nBs4kHf2jDg7aEu0oQi5tYwVrM=",
   OFFSITE_S3_ENDPOINT: "https://s3.eu-central-003.backblazeb2.example.com",

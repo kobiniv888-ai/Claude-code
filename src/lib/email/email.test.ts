@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createTranslator } from "use-intl/core";
 import { locales } from "@/config/site";
+import { siteUrl } from "@/lib/site-url";
 
 vi.mock("server-only", () => ({}));
 
@@ -266,6 +267,14 @@ const samples: { [K in keyof Data]: Data[K] } = {
     tripUrl: "/account/trips/BT-7K3Q9",
     contactUrl: "/contact",
   },
+  // "The host's contact details changed" (SECURITY_REPORT 14.3.c): src/lib/contact/email-templates.ts
+  host_contact_changed_guest: {
+    name: "Dana",
+    listingTitle: "Sunny flat in Vake",
+    code: "BT-7K3Q9",
+    tripUrl: "/account/trips/BT-7K3Q9",
+    reportUrl: "/help/report-scam?listing=1234&booking=BT-7K3Q9",
+  },
   // Account security (SECURITY_REPORT 3.6, 3.7): src/lib/auth/security-email-templates.ts
   security_code: { code: "482913", minutes: 10, purpose: "confirm", name: "Dana" },
   security_change: { kind: "recovery_code_used", left: 3, at: "2026-11-08T12:05:00Z", name: "Dana" },
@@ -290,6 +299,10 @@ describe("renderEmail", () => {
         expect(email.html).toContain(`lang="${locale}"`);
         expect(email.html).toContain(`dir="${locale === "he" || locale === "ar" ? "rtl" : "ltr"}"`);
         expect(email.text.length).toBeGreaterThan(50);
+        // SECURITY_REPORT 13.4.b: every link of every email goes to our own site.
+        for (const [, href] of email.html.matchAll(/href="([^"]+)"/g)) {
+          expect(href.replace(/&amp;/g, "&").startsWith(siteUrl()), `${template}: ${href}`).toBe(true);
+        }
       }
       expect(translationErrors).toEqual([]);
     });
@@ -521,5 +534,29 @@ describe("placeholder addresses", () => {
       "dana@example.com",
     );
     expect(notificationEmailFor({ email: "dana@example.com", contactEmail: null })).toBe("dana@example.com");
+  });
+});
+
+describe("trust lines (SECURITY_REPORT 13.4.b/c, 14.2.b/c)", () => {
+  it("ends every email with the founder's exact footer sentence", async () => {
+    const email = await renderEmail("welcome", "he", { name: "Dana" });
+    expect(email.html).toContain("בית לעולם לא יבקש מכם תשלום בקישור, פרטי כרטיס אשראי או קוד כניסה.");
+  });
+
+  it("puts the exact pay warning and the one-tap scam report in the booking emails", async () => {
+    const email = await renderEmail("booking_confirmed_guest", "he", samples.booking_confirmed_guest);
+    expect(email.html).toContain("לעולם אל תשלמו מראש בקישור או בהעברה. משלמים למארח כשמגיעים.");
+    expect(email.html).toContain("דיווח על הונאה");
+    expect(email.html).toMatch(/href="[^"]*\/help\/report-scam\?booking=BT-7K3Q9"/);
+  });
+
+  it("drops a link to another host and defuses addresses in user text", async () => {
+    const email = await renderEmail("booking_new_host", "en", {
+      ...samples.booking_new_host,
+      messageToHost: "Pay the deposit at paypal.me/scammer or https://evil.example/pay",
+    } as never);
+    expect(email.html).not.toMatch(/href="https?:\/\/(?!localhost|127\.0\.0\.1)[^"]*evil/);
+    expect(email.html).not.toContain("paypal.me");
+    expect(email.text).not.toContain("https://evil.example");
   });
 });

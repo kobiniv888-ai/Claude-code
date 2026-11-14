@@ -7,6 +7,7 @@ import { AuthRequiredError } from "@/lib/errors";
 import { rateLimit } from "@/lib/rate-limit";
 import { needsFirstName } from "./first-name";
 import { needsAccountEmail } from "./account-email";
+import { termsNeededFor } from "@/lib/legal/terms-server";
 import { consumeFreshProof, markFreshProof, requireFreshProof } from "./fresh-proof";
 import { createRecoveryCodes, recoveryCodesLeft, useRecoveryCode } from "./recovery-codes";
 import { normalizeRecoveryCode } from "./recovery-code-format";
@@ -202,6 +203,8 @@ export type LoginState = {
   needsFirstName: boolean;
   /** A phone-only account: add a real email (verified by a code) before continuing (answer (5)). */
   needsAccountEmail: boolean;
+  /** Never accepted the Terms (+ 18 or older): the "terms" step (SECURITY_REPORT 15.11.b/c). */
+  needsTerms: boolean;
 };
 
 /** Where the login UI stands after a sign-in (used to show the 2-step check in place). */
@@ -213,5 +216,9 @@ export async function getLoginState(): Promise<LoginState> {
     phoneVerified: !!user?.phoneNumberVerified,
     needsFirstName: !!user && needsFirstName(user),
     needsAccountEmail: !!user && user.twoFactorVerified && needsAccountEmail(user),
+    // Demo accounts are never asked (like the first name); a lookup error asks (the booking and
+    // publish actions check again on the server).
+    needsTerms:
+      !!user && user.twoFactorVerified && !user.isDemo && (await termsNeededFor(user.id, "signup").catch(() => true)),
   };
 }

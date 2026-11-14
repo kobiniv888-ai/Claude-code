@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
 import { getDeviceHash, getIpHash, getUserAgent } from "@/lib/request";
 import { recordSecurityEvent } from "@/lib/security/events";
+import { checkSignupDevice } from "@/lib/security/signup-guard";
 import { describeDevice } from "./device-label";
 import { markFreshProof } from "./fresh-proof";
 import { isStaffRole } from "./permissions";
@@ -53,6 +54,17 @@ export async function linkDevice(userId: string): Promise<DeviceLinkResult> {
     console.error("[auth] could not link device", error);
     return { status: "error" };
   }
+}
+
+/**
+ * After a sign-up (Better Auth `user.create.after`): the device link, then the fake sign-up check
+ * of SECURITY_REPORT 3.8.b (more than 3 accounts made on one device in 30 days → a flag for the
+ * admin and a security event; never a block: src/lib/security/signup-guard.ts).
+ */
+export async function afterSignUpDevice(userId: string): Promise<DeviceLinkResult> {
+  const link = await linkDevice(userId);
+  if (link.status === "linked") await checkSignupDevice(userId);
+  return link;
 }
 
 /** Login endpoints that prove the person holds a code right now (a fresh proof, ./fresh-proof-rules.ts). */

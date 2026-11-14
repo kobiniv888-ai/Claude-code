@@ -134,7 +134,8 @@
     "already_reported": "You have already reported this review. We are looking into it.",
     "details_required": "Tell us in a few words what is wrong.",
     "already_hidden": "The review is already hidden.",
-    "not_hidden": "The review is already on the site."
+    "not_hidden": "The review is already on the site.",
+    "payment_in_text": "Please leave out payment details: payment links, bank accounts (IBAN), card numbers or crypto. Guests pay the host on arrival, never in advance."
   },
   "account": {
     "title": "Reviews",

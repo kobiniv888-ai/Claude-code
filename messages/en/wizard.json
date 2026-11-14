@@ -126,7 +126,8 @@
     "pledge_outdated": "The pledge wording was updated. Reload the page and read the new wording.",
     "listing_mistakes": "Some things need fixing before you publish. They are listed under “Check before publishing”.",
     "photos_min": "A listing on the site keeps at least {min} photos that guests see. Add another photo first, then delete this one.",
-    "contact_in_text": "No phone number, email, link or @username in the text — guests contact you with the buttons."
+    "contact_in_text": "No phone number, email, link or @username in the text — guests contact you with the buttons.",
+    "payment_in_text": "Please leave out payment details: payment links, bank accounts (IBAN), card numbers or crypto. Guests pay the host on arrival, never in advance."
   },
   "uploadErrors": {
     "file_too_large": "This photo is too large. Please choose a smaller one (up to 15 MB).",
@@ -183,7 +184,8 @@
     "monthlyBelowWeekly": "The monthly discount can't be smaller than the weekly one.",
     "discountTooLarge": "The discount can be up to 60%.",
     "addressRequired": "A short stay or a hotel needs the exact address. Guests get it only after they book.",
-    "datePricesExist": "You have holiday prices in the current currency. Change or delete them in the calendar first, then switch the currency."
+    "datePricesExist": "You have holiday prices in the current currency. Change or delete them in the calendar first, then switch the currency.",
+    "paymentInText": "Please leave out payment details: payment links, bank accounts (IBAN), card numbers or crypto. Guests pay the host on arrival, never in advance."
   },
   "options": {
     "dealType": {
@@ -940,6 +942,22 @@
       "other": {
         "title": "Something needs checking",
         "fix": "Please review your listing. If you're not sure what to change, contact support."
+      },
+      "payment_details": {
+        "title": "The text contains payment details",
+        "fix": "Remove payment links, account, card or crypto wallet numbers. Guests pay you on arrival."
+      },
+      "exclusionary_text": {
+        "title": "The text turns guests away",
+        "fix": "Guests can't be refused for their religion, nationality or origin (the Terms, fair housing). A person from our team will check the listing."
+      },
+      "copied_description": {
+        "title": "The description is very close to another listing",
+        "fix": "Write your own description of the place. If someone copied yours, contact support."
+      },
+      "price_below_guide": {
+        "title": "The price is far below the price guide",
+        "fix": "Check the price and the currency. A very low price is a common scam sign."
       }
     },
     "viewPreview": "View the listing",

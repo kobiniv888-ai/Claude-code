@@ -302,7 +302,9 @@ describe("automatic checks", () => {
 
   it("flags scam phrases and contact details; the phone number alone stops publishing (mistake check)", async () => {
     const listing = await createListing(ownerA, {
-      description: "Nice flat. I am abroad, payment by Western Union only. Call +995 555 12 34 56.",
+      // A plain mention, not a payment ask: "payment by Western Union" is payment details, which
+      // block publishing (SECURITY_REPORT 14.2.a, src/lib/risk/payment-info.ts).
+      description: "Nice flat. I am abroad, I only use Western Union. Call +995 555 12 34 56.",
     });
     const assessment = await assessListing(listing.id);
     const codes = assessment.reasons.map((r) => r.code);
@@ -317,7 +319,7 @@ describe("automatic checks", () => {
     expect((await db.listing.findUniqueOrThrow({ where: { id: listing.id } })).status).toBe("DRAFT");
 
     // Without the number, the scam phrases send it to review.
-    await db.listing.update({ where: { id: listing.id }, data: { description: "Nice flat. I am abroad, payment by Western Union only." } });
+    await db.listing.update({ where: { id: listing.id }, data: { description: "Nice flat. I am abroad, I only use Western Union." } });
     const result = await lifecycle.submitForPublication(listing.id, ownerA);
     expect(result.status).toBe("IN_REVIEW");
     expect(result.reasons.map((r) => r.code)).toContain("scam_phrase");

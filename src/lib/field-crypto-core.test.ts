@@ -37,7 +37,10 @@ describe("seal and open", () => {
     const address = "רחוב הדוגמה 12, דירה 4 (fake)";
     const sealed = sealField(ring, "listing.address", address);
     expect(sealed).toMatch(/^fe1:[0-9a-f]{8}:[A-Za-z0-9_-]+$/);
-    expect(sealed).not.toContain("12");
+    // Neither the text nor a plain encoding of it shows through. (Not a check for a short piece such
+    // as "12": random base64url ciphertext contains any given 2 characters now and then.)
+    expect(sealed).not.toContain(address);
+    expect(sealed).not.toContain(Buffer.from(address, "utf8").toString("base64url").slice(0, 16));
     expect(openField(ring, "listing.address", sealed)).toBe(address);
     const pin = { lat: 41.715138, lng: 44.827096 };
     expect(decodePin(openField(ring, "listing.pin", sealField(ring, "listing.pin", encodePin(pin))))).toEqual(pin);

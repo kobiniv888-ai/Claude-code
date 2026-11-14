@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { mapTiles } from "@/config/map";
 import { locales, type AppLocale } from "@/config/site";
 import { routing } from "@/i18n/routing";
+import { DEVICE_COOKIE_MAX_AGE_SECONDS } from "@/lib/legal/cookies";
 import { maintenanceGate } from "@/lib/maintenance/proxy-gate";
 import { cspHeaders, tileOriginsFrom } from "@/lib/security/csp";
 import { NOINDEX_HEADER_VALUE, robotsHeaderFor } from "@/lib/seo";
@@ -150,7 +151,8 @@ export default async function proxy(request: NextRequest) {
       sameSite: "lax",
       secure: !isDev,
       path: "/",
-      maxAge: 60 * 60 * 24 * 365 * 2,
+      // One year, as the cookie policy says (src/lib/legal/cookies.ts, SECURITY_REPORT 15.10.a).
+      maxAge: DEVICE_COOKIE_MAX_AGE_SECONDS,
     });
   }
 

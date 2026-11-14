@@ -42,7 +42,8 @@
     "confirmation_mismatch": "The word you typed doesn't match. Please type it exactly as shown.",
     "staff_account": "Staff accounts can't be deleted here. Please ask an administrator.",
     "documents_paused": "We're not accepting verification documents right now. A verified phone number is enough.",
-    "listing_mistakes": "A few things in the listing need fixing first (for example the exact address or enough photos). They are listed in “Check before publishing” in the edit form."
+    "listing_mistakes": "A few things in the listing need fixing first (for example the exact address or enough photos). They are listed in “Check before publishing” in the edit form.",
+    "payment_in_text": "Please leave out payment details: payment links, bank accounts (IBAN), card numbers or crypto. Guests pay the host on arrival, never in advance."
   },
   "badgeState": {
     "verified": "Verified",
@@ -330,7 +331,7 @@
       "title": "Your documents are safe",
       "encrypted": "Files are encrypted and kept in private storage — never on the public site.",
       "staffOnly": "Only our verification team can open them.",
-      "deleted": "They are deleted right after the review. We keep only “verified on [date]”."
+      "deleted": "They are deleted right after the review. We keep only the date of the verification."
     },
     "phone": {
       "title": "Phone verified",
@@ -431,7 +432,8 @@
       "invalid": "Please check this field.",
       "required": "This field is required.",
       "invalid_email": "Please enter a valid email address.",
-      "not_a_name": "Enter a name, not a phone number or email."
+      "not_a_name": "Enter a name, not a phone number or email.",
+      "paymentInText": "Please leave out payment details: payment links, bank accounts (IBAN), card numbers or crypto. Guests pay the host on arrival, never in advance."
     },
     "profile": {
       "title": "Profile",
@@ -565,7 +567,17 @@
       "cancel": "Keep my account",
       "confirm": "Delete forever",
       "deleting": "Deleting…",
-      "staff": "Staff accounts can't be deleted from here. Please ask an administrator to remove your staff role first."
+      "staff": "Staff accounts can't be deleted from here. Please ask an administrator to remove your staff role first.",
+      "keptTitle": "What we keep, and for how long",
+      "kept": {
+        "a": "past bookings, as anonymous facts (dates, nights, price) for statistics;",
+        "b": "reviews you wrote, shown as “Guest”;",
+        "c": "the log of staff actions for {auditDays} days, and the security log for {securityDays} days, no longer linked to you;",
+        "d": "support tickets and reports, until their texts are erased {caseDays} days after the case is closed;",
+        "e": "encrypted backups, until they are deleted after {backupDays} days.",
+        "f": "emails we already sent you, such as a booking confirmation with an address, stay in your mailbox: we can't delete them."
+      },
+      "keptMore": "The full details are in our <privacy>privacy policy</privacy>."
     },
     "logoutAll": {
       "title": "Log out of all devices",

@@ -83,7 +83,7 @@
   },
   "payAtCheckIn": "You pay the host on arrival, {currency}.",
   "estimateNote": "The amount {currency} is an estimate.",
-  "noPrepayment": "{brand} never takes payment. Never pay in advance through a link someone sends you.",
+  "noPrepayment": "{brand} takes no payment. Never pay in advance by link or transfer. You pay the host when you arrive.",
   "codeLabel": "Booking number",
   "errors": {
     "dates_invalid": "These dates aren't valid. Please choose an arrival and a departure date.",
@@ -117,7 +117,8 @@
     "rooms_unavailable": "There aren't enough free rooms of this type on these dates. Choose fewer rooms or another room type.",
     "too_many_upcoming": "{count, plural, one {This phone number already has {count} upcoming booking, the most allowed.} other {This phone number already has {count} upcoming bookings, the most allowed.}} You can book again once one of them ends or is cancelled.",
     "request_reused": "Something went wrong sending the booking. Please reload the page and try again.",
-    "booking_in_progress": "Your booking is still being confirmed with the host. Check “My trips” in a moment, or try again."
+    "booking_in_progress": "Your booking is still being confirmed with the host. Check “My trips” in a moment, or try again.",
+    "payment_in_text": "Please leave out payment details: payment links, bank accounts (IBAN), card numbers or crypto. Guests pay the host on arrival, never in advance."
   },
   "ics": {
     "summary": "{title} · {code}",

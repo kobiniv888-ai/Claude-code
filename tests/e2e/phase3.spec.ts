@@ -6,6 +6,7 @@ import { createReport, createTestListing, createTestUser, listingByPublicId, new
 import { sealGuestPhone } from "./helpers/field-crypto";
 import { makePhotos } from "./helpers/photos";
 import { answerStaffProof, createTestStaff, TEST_ADMIN_PHONE, verifyTwoFactor } from "./helpers/staff";
+import { acceptTermsBox } from "./helpers/terms";
 
 /**
  * Round 3, phase 3 together, in production mode: the admin panel (brief 9), turned-away reports
@@ -77,6 +78,7 @@ test.describe("listing review (brief 9, test 13.4)", () => {
     await expect(owner.page.getByRole("heading", { level: 1, name: "Preview and publish" })).toBeVisible();
     await expect(owner.page.getByRole("region", { name: "Before you can publish" })).toHaveCount(0);
     await owner.page.getByRole("checkbox", { name: /I accept the listing rules/ }).check();
+    await acceptTermsBox(owner.page); // the "18 or older + Terms" box (SECURITY_REPORT 15.11.b/c)
     await owner.page.getByRole("button", { name: "Publish", exact: true }).click();
     await expect(owner.page.getByRole("heading", { name: "We're checking your listing" })).toBeVisible({ timeout: 60_000 });
     const waiting = await listingByPublicId(draft.publicId);

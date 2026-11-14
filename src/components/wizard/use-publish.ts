@@ -7,6 +7,7 @@ import { MISTAKE_CHECK_REFRESH, MISTAKE_CHECK_TITLE_ID } from "@/components/list
 import { scrollBehavior } from "@/lib/motion";
 import { toast } from "@/lib/toast";
 import { acceptRulesAndPublish } from "@/lib/wizard/actions";
+import { useTermsConsent } from "@/components/legal/terms-consent";
 import type { PublishOutcome } from "@/lib/wizard/types";
 import type { PublishController } from "./step-props";
 
@@ -46,6 +47,8 @@ export function usePublish({
   const [accepted, setAcceptedState] = useState(initiallyAccepted);
   const [rulesError, setRulesError] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  // SECURITY_REPORT 15.11.b/c: the server asks for the box at the account's first publish and after a Terms change.
+  const terms = useTermsConsent("publish", { id: "terms-checkbox" });
   const captcha = useRef<TurnstileHandle | null>(null);
   const captchaRef = useCallback((handle: TurnstileHandle | null) => {
     captcha.current = handle;
@@ -107,6 +110,11 @@ export function usePublish({
       revealAndFocus("rules-checkbox");
       return;
     }
+    if (!terms.validate()) {
+      // The box may only now appear (its status was not known yet): focus it once it is drawn.
+      requestAnimationFrame(() => revealAndFocus(terms.id));
+      return;
+    }
     running.current = true;
     setPublishing(true);
     try {
@@ -118,13 +126,18 @@ export function usePublish({
       const captchaToken = await waitForToken();
       // Turnstile tokens are single-use.
       token.current = null;
-      const result = await track(acceptRulesAndPublish(listingId, { rulesAccepted: true, turnstileToken: captchaToken })).catch(() => null);
+      const result = await track(acceptRulesAndPublish(listingId, { rulesAccepted: true, turnstileToken: captchaToken, ...terms.payload() })).catch(() => null);
       if (result?.ok) {
         onPublished(result.data);
         return;
       }
       captcha.current?.reset();
       const code = result ? result.error : "server_error";
+      if (code === "terms_required") {
+        terms.require();
+        requestAnimationFrame(() => revealAndFocus(terms.id));
+        return;
+      }
       if (code === "listing_mistakes") {
         // Something changed since the check ran: run it again and show what blocks publishing.
         window.dispatchEvent(new Event(MISTAKE_CHECK_REFRESH));
@@ -138,5 +151,5 @@ export function usePublish({
     }
   };
 
-  return { accepted, setAccepted, rulesError, publishing, captchaRef, onToken, onExpire, publish, setMistakeErrors };
+  return { accepted, setAccepted, rulesError, publishing, captchaRef, onToken, onExpire, publish, setMistakeErrors, terms };
 }

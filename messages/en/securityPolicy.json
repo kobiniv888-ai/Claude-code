@@ -4,6 +4,16 @@
   "eyebrow": "Security",
   "title": "Report a security problem",
   "lead": "Found a weakness in {siteName}? Please tell us first. We read every report, we reply, and we fix what is real.",
+  "onlyDomain": {
+    "title": "Our only website",
+    "body": "The only website of {siteName} is <site>{domain}</site>. Our emails link only to it.",
+    "never": {
+      "link": "We never ask you to pay by link or bank transfer.",
+      "card": "We never ask for your card details.",
+      "code": "We never ask for a login code — not by email, SMS or WhatsApp."
+    },
+    "fake": "Seen a copy of {siteName} at another address, or got a message like that? <report>Report it to us</report>."
+  },
   "report": {
     "title": "What to report",
     "lead": "A problem in the site itself that could hurt the people who use it, for example:",

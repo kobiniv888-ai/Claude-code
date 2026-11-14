@@ -674,6 +674,12 @@
       "typeToConfirm": "הקלידו {phrase}",
       "confirmButton": "מחיקה לצמיתות",
       "deleted": "נמחקו — מודעות: {listings}, משתמשים: {users}, מקומות: {places}, התראות: {alerts}"
+    },
+    "support": {
+      "title": "תמיכה",
+      "description": "ההבטחה על זמן המענה שמופיעה בעמודי העזרה, יצירת הקשר והפניות.",
+      "replyPromise": "זמן מענה",
+      "replyPromiseHint": "שפה שנשארת ריקה מציגה את הנוסח הקבוע: „עונים תוך יום עסקים אחד, ראשון עד חמישי…”."
     }
   },
   "roles": {

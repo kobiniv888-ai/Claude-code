@@ -19,6 +19,7 @@ import { publicListingWhere } from "@/lib/listing/where";
 import { photoUrl } from "@/lib/media";
 import { randomToken } from "@/lib/crypto";
 import { detectContactInfo, hasContactInfo } from "@/lib/risk/contact-info";
+import { refusePaymentDetails } from "@/lib/risk/text-guard";
 import { getSettings } from "@/lib/settings";
 import { ALERT_PRICE_SELECT, headlineAlertPrice } from "./alert-price";
 import {
@@ -94,9 +95,13 @@ export async function reservedListNames(): Promise<string[]> {
   return [DEFAULT_LIST_STORED_NAME, ...names.filter((name): name is string => !!name)];
 }
 
-/** checkedName, and not one of the default list's names. */
-async function checkedNewName(raw: unknown): Promise<string> {
+/**
+ * checkedName, no payment details (SECURITY_REPORT 14.2.a: a shared list's name is public; the
+ * account is flagged, src/lib/risk/text-guard.ts), and not one of the default list's names.
+ */
+async function checkedNewName(raw: unknown, userId: string): Promise<string> {
   const name = checkedName(raw);
+  if (await refusePaymentDetails({ surface: "list_name", userId, texts: [name] })) throw new ListError("name_has_payment");
   if (reservedNameKeys(await reservedListNames()).has(listNameKey(name))) throw new ListError("name_taken");
   return name;
 }
@@ -245,7 +250,7 @@ async function createIn(tx: Tx, userId: string, name: string): Promise<{ lists: 
 
 /** A new named list (unique name, not the default list's, no contact details, at most MAX_LISTS lists). */
 export async function createList(userId: string, rawName: unknown): Promise<ListSummary> {
-  const name = await checkedNewName(rawName);
+  const name = await checkedNewName(rawName, userId);
   return transaction(userId, async (tx) => summary((await createIn(tx, userId, name)).created, 0));
 }
 
@@ -255,7 +260,7 @@ export async function createList(userId: string, rawName: unknown): Promise<List
  * a retry with the same name works.
  */
 export async function createListAndSave(user: { id: string; isStaff?: boolean }, rawName: unknown, listingId: string): Promise<SaveResult> {
-  const name = await checkedNewName(rawName);
+  const name = await checkedNewName(rawName, user.id);
   const result = await transaction(user.id, async (tx) => {
     const { lists, created } = await createIn(tx, user.id, name);
     return saveInto(tx, user.id, listingId, lists, created);
@@ -266,7 +271,7 @@ export async function createListAndSave(user: { id: string; isStaff?: boolean },
 
 /** Renames a named list (the default list keeps its name). */
 export async function renameList(userId: string, listId: string, rawName: unknown): Promise<ListSummary> {
-  const name = await checkedNewName(rawName);
+  const name = await checkedNewName(rawName, userId);
   return transaction(userId, async (tx) => {
     const { lists, fallback } = await listsWithDefault(tx, userId);
     const list = lists.find((l) => l.id === listId);

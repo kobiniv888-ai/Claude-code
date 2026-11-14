@@ -20,6 +20,7 @@ import { setEmailSwitch } from "@/lib/alerts/unsubscribe-server";
 import { requireUserForAction } from "@/lib/auth/session";
 import { assertRateLimit } from "@/lib/rate-limit";
 import { notifyFounderOfReport } from "@/lib/reports/notify";
+import { checkReviewBurst } from "./burst-server";
 import { notifyGuestOfReply, notifyHostOfReview } from "./notify";
 import { createReviewSchema, quickRatingColumns, replySchema, reportReviewSchema } from "./schemas";
 import { createReviewForBooking, postHostReply, reportReview as reportReviewOf } from "./service";
@@ -50,6 +51,8 @@ export async function createReview(input: unknown): Promise<ActionResult<{ id: s
       pageLocale: locale,
     });
     after(async () => {
+      // SECURITY_REPORT 14.5.b: many reviews of one listing in a day → a report for staff.
+      await checkReviewBurst(review.listingId);
       await translateReview(review.id);
       await notifyHostOfReview(review.id);
     });

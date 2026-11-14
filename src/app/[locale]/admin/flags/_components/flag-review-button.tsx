@@ -10,6 +10,7 @@ import {
   markGuestFlagReviewedAction,
   markHostFlagReviewedAction,
   markLongStayReviewedAction,
+  markDeviceFlagReviewedAction,
 } from "@/lib/admin/actions/flags";
 import { FLAG_NOTE_MAX } from "@/lib/admin/flags";
 
@@ -19,10 +20,13 @@ type Target =
   /** A long stay (decision 7): the "reviewed" marker is an audit entry only. */
   | { longStayId: string }
   /** A guest with repeated cancellations or no-shows (decision 7): an audit entry only. */
-  | { guestId: string; seenLatest: string | null };
+  | { guestId: string; seenLatest: string | null }
+  /** An account over the accounts-per-device cap (SECURITY_REPORT 3.8.b): an audit entry only. */
+  | { deviceUserId: string; seenLatest: string | null };
 
-function kindOf(target: Target): "booking" | "host" | "longStay" | "guest" {
+function kindOf(target: Target): "booking" | "host" | "longStay" | "guest" | "device" {
   if ("bookingId" in target) return "booking";
+  if ("deviceUserId" in target) return "device";
   if ("longStayId" in target) return "longStay";
   if ("guestId" in target) return "guest";
   return "host";
@@ -32,6 +36,7 @@ function send(target: Target, note: string) {
   if ("bookingId" in target) return markBookingFlagReviewedAction({ bookingId: target.bookingId, note });
   if ("longStayId" in target) return markLongStayReviewedAction({ bookingId: target.longStayId, note });
   if ("guestId" in target) return markGuestFlagReviewedAction({ userId: target.guestId, note, seenLatest: target.seenLatest });
+  if ("deviceUserId" in target) return markDeviceFlagReviewedAction({ userId: target.deviceUserId, note, seenLatest: target.seenLatest });
   return markHostFlagReviewedAction({ userId: target.userId, note, seenLatest: target.seenLatest });
 }
 

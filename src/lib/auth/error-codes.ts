@@ -40,7 +40,6 @@ export type AuthErrorKey =
   | "phone_login_disabled"
   | "country_not_supported"
   | "rate_limited"
-  | "phone_taken"
   | "captcha_failed"
   | "account_suspended"
   | "account_banned"
@@ -83,7 +82,9 @@ const BY_CODE: Record<string, AuthErrorKey> = {
   OTP_NOT_FOUND: "code_expired",
   TOO_MANY_ATTEMPTS: "too_many_attempts",
   INVALID_PHONE_NUMBER: "invalid_phone",
-  PHONE_NUMBER_EXIST: "phone_taken",
+  // Founder's answer (5): never "this number belongs to another account" — the same answer as a
+  // wrong code (the library's phone-change endpoint is blocked anyway: ./server.ts).
+  PHONE_NUMBER_EXIST: "invalid_code",
   VERIFICATION_FAILED: "captcha_failed",
   MISSING_RESPONSE: "captcha_failed",
   [AUTH_HOOK_ERRORS.RATE_LIMITED]: "rate_limited",

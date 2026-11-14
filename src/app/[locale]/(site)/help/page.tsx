@@ -3,6 +3,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Container } from "@/components/common/container";
 import { ContactOptions } from "@/components/help/contact-options";
 import { HelpCenter } from "@/components/help/help-center";
+import { SupportReplyPromise } from "@/components/help/support-reply-promise";
 import { getPublishedFaq } from "@/lib/help/faq";
 import { absoluteUrl, localizedPath, pageMetadata, siteName } from "@/lib/seo";
 
@@ -29,7 +30,7 @@ export default async function HelpPage({ params }: Props) {
     <div className="pb-16">
       <HelpCenter items={items} pageUrl={pageUrl} />
       <Container size="default" className="max-w-6xl pt-12">
-        <ContactOptions />
+        <ContactOptions replyPromise={<SupportReplyPromise className="text-small text-pretty text-muted-foreground" />} />
       </Container>
     </div>
   );

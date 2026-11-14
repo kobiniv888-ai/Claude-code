@@ -8,7 +8,8 @@ describe("authErrorKey", () => {
     expect(authErrorKey({ code: "OTP_NOT_FOUND", status: 400 })).toBe("code_expired");
     expect(authErrorKey({ code: "TOO_MANY_ATTEMPTS", status: 403 })).toBe("too_many_attempts");
     expect(authErrorKey({ code: "INVALID_PHONE_NUMBER", status: 400 })).toBe("invalid_phone");
-    expect(authErrorKey({ code: "PHONE_NUMBER_EXIST", status: 400 })).toBe("phone_taken");
+    // Founder's answer (5): never "number already used".
+    expect(authErrorKey({ code: "PHONE_NUMBER_EXIST", status: 400 })).toBe("invalid_code");
   });
 
   it("maps our hook codes and CAPTCHA failures", () => {
@@ -73,6 +74,6 @@ describe("code limits with a wait (SECURITY_REPORT 3.1.c)", () => {
     expect(timedActionError("code_wait", 119.2)).toBe("code_wait:120");
     expect(parseActionFailure("code_wait:120")).toEqual({ key: "code_wait", retryAfter: 120 });
     expect(parseActionFailure("code_daily_cap:3600")).toEqual({ key: "code_daily_cap", retryAfter: 3600 });
-    expect(parseActionFailure("phone_taken")).toEqual({ key: "phone_taken", retryAfter: null });
+    expect(parseActionFailure("invalid_code")).toEqual({ key: "invalid_code", retryAfter: null });
   });
 });

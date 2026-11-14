@@ -7,10 +7,12 @@ import { buttonStyles } from "@/components/ds/button";
 import { IconCircle } from "@/components/ds/icon-circle";
 import { Ltr } from "@/components/common/ltr";
 import { ContactForm } from "@/components/help/contact-form";
+import { SupportReplyPromise } from "@/components/help/support-reply-promise";
 import { ShabbatPauseNotice } from "@/components/tickets/shabbat-pause-notice";
 import { siteConfig } from "@/config/site";
 import { Link } from "@/i18n/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
+import { SCAM_REPORT_PATH } from "@/lib/reports/scam";
 import { pageMetadata, siteName } from "@/lib/seo";
 import { isShabbatModeActive } from "@/lib/settings";
 
@@ -68,7 +70,7 @@ export default async function ContactPage({ params }: Props) {
               {t.rich("aside.scam", {
                 link: (chunks) => (
                   <Link
-                    href="/help/new-ticket?category=SCAM_REPORT"
+                    href={SCAM_REPORT_PATH}
                     className="font-semibold text-primary-text underline underline-offset-4 hover:no-underline"
                   >
                     {chunks}
@@ -97,6 +99,10 @@ export default async function ContactPage({ params }: Props) {
         </div>
 
         <aside className="grid content-start gap-4" aria-label={t("aside.label")}>
+          <section className="rounded-card border bg-card p-5">
+            <h2 className="text-body font-semibold">{t("aside.replyTitle")}</h2>
+            <SupportReplyPromise className="mt-1.5 text-small text-pretty text-muted-foreground" />
+          </section>
           {viewer ? (
             <section className="rounded-card bg-primary-tint p-5 text-foreground">
               <h2 className="flex items-center gap-2.5 text-body font-semibold">

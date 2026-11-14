@@ -1,27 +1,35 @@
 import {
   ArrowRightLeft,
   Ban,
+  BadgeCheck,
+  Bot,
   Banknote,
   BellRing,
   Camera,
   Flag,
   Gift,
+  Globe,
   Hand,
+  HandCoins,
+  HeartHandshake,
   IdCard,
   ImageOff,
   Landmark,
   LifeBuoy,
   Link2,
   Lock,
+  MessageSquareQuote,
   Plane,
   Receipt,
   ScanSearch,
   ShieldCheck,
   Siren,
   Smartphone,
+  SquareTerminal,
   Timer,
   TrendingDown,
   UserRoundCheck,
+  Users,
   Video,
 } from "lucide-react";
 import type { Metadata } from "next";
@@ -42,11 +50,22 @@ import type { AppLocale } from "@/config/site";
 import { documentChecksOn } from "@/config/verification";
 import { Link } from "@/i18n/navigation";
 import { formatNumber } from "@/lib/format";
+import { SCAM_REPORT_PATH } from "@/lib/reports/scam";
+import { siteUrl } from "@/lib/site-url";
 import { cn } from "@/lib/utils";
+
+/** The one domain the site lives on (SECURITY_REPORT 14.4.b, 19.j): from SITE_URL, never hard-coded. */
+function siteDomain(): string {
+  try {
+    return new URL(siteUrl()).host;
+  } catch {
+    return "";
+  }
+}
 
 type Props = { params: Promise<{ locale: string }> };
 
-const SCAM_TICKET = "/help/new-ticket?category=SCAM_REPORT";
+const SCAM_TICKET = SCAM_REPORT_PATH;
 
 /** Sections sit under the sticky header and the "on this page" chips. */
 const anchorOffset = "scroll-mt-[calc(var(--header-height)+4.5rem)]";
@@ -117,6 +136,21 @@ export default async function SafetyPage({ params }: Props) {
     { key: "overpayment", icon: Receipt },
     { key: "screenshots", icon: ImageOff },
     { key: "codes", icon: Lock },
+    // SECURITY_REPORT 14.3.e: the Booking.com lesson (malware, fake CAPTCHA pages, shared accounts).
+    { key: "commands", icon: SquareTerminal },
+    { key: "captcha", icon: Bot },
+    { key: "sharing", icon: Users },
+  ] as const;
+
+  // SECURITY_REPORT 19.j: what the trust & safety promise is, in one place.
+  const trustItems = [
+    { key: "pledge", icon: HeartHandshake },
+    { key: "payOnArrival", icon: HandCoins },
+    { key: "reportButtons", icon: Flag },
+    { key: "verifiedPhones", icon: BadgeCheck },
+    { key: "realReviews", icon: MessageSquareQuote },
+    { key: "privacy", icon: Lock },
+    { key: "onlyDomain", icon: Globe },
   ] as const;
 
   const checks = ["photos", "price", "phrases", "contacts", "accounts", "firstListing"] as const;
@@ -136,6 +170,7 @@ export default async function SafetyPage({ params }: Props) {
     { id: "spot", label: t("jump.spot") },
     { id: "guests", label: t("jump.guests") },
     { id: "owners", label: t("jump.owners") },
+    { id: "trust", label: t("jump.trust") },
     { id: "verification", label: t("jump.verification") },
     { id: "if-scammed", label: t("jump.help") },
   ];
@@ -270,6 +305,19 @@ export default async function SafetyPage({ params }: Props) {
             icon: <IconCircle icon={icon} tone="amber" size="sm" />,
             title: t(`owners.${key}.title`),
             body: t(`owners.${key}.body`, values),
+          }))}
+        />
+      </Section>
+
+      {/* Our promises (SECURITY_REPORT 19.j) */}
+      <Section id="trust" title={t("trust.title")} lead={t("trust.lead")}>
+        <IconAccordion
+          className="lg:grid-cols-3"
+          items={trustItems.map(({ key, icon }) => ({
+            id: `trust-${key}`,
+            icon: <IconCircle icon={icon} tone="green" size="sm" />,
+            title: t(`trust.${key}.title`),
+            body: t(`trust.${key}.body`, { ...values, domain: siteDomain() }),
           }))}
         />
       </Section>

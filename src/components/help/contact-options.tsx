@@ -1,8 +1,10 @@
-import { Bug, Mail, MessageSquarePlus, ShieldAlert, ShieldCheck, type LucideIcon } from "lucide-react";
+import { Bug, Clock, Mail, MessageSquarePlus, ShieldAlert, ShieldCheck, type LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { ChevronEnd } from "@/components/common/directional-icon";
 import { IconCircle, type IconCircleProps } from "@/components/ds/icon-circle";
 import { Link } from "@/i18n/navigation";
+import { SCAM_REPORT_PATH } from "@/lib/reports/scam";
 import { cn } from "@/lib/utils";
 
 type Option = {
@@ -13,7 +15,7 @@ type Option = {
 };
 
 const OPTIONS: Option[] = [
-  { key: "scam", href: "/help/new-ticket?category=SCAM_REPORT", icon: ShieldAlert, tone: "coral-solid" },
+  { key: "scam", href: SCAM_REPORT_PATH, icon: ShieldAlert, tone: "coral-solid" },
   { key: "ticket", href: "/help/new-ticket", icon: MessageSquarePlus, tone: "navy" },
   { key: "contact", href: "/contact", icon: Mail, tone: "navy" },
   { key: "safety", href: "/safety", icon: ShieldCheck, tone: "green" },
@@ -24,7 +26,7 @@ const OPTIONS: Option[] = [
  * contact form and the Safety Center. Below them, one line for security researchers: how to report
  * a security problem in the site itself (SECURITY_REPORT 18.2, the /security page).
  */
-export function ContactOptions({ className }: { className?: string }) {
+export function ContactOptions({ className, replyPromise }: { className?: string; replyPromise?: ReactNode }) {
   const t = useTranslations("help.contactOptions");
   return (
     <section aria-labelledby="help-contact-title" className={className}>
@@ -32,6 +34,16 @@ export function ContactOptions({ className }: { className?: string }) {
         {t("title")}
       </h2>
       <p className="mt-1.5 max-w-2xl text-body text-pretty text-muted-foreground">{t("lead")}</p>
+      {replyPromise ? (
+        // SECURITY_REPORT 19.b: the honest reply time, from Admin → Settings (founder's answer 9).
+        <div className="mt-3 flex max-w-2xl items-start gap-2 rounded-input bg-muted/60 p-3">
+          <Clock aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
+          <div className="min-w-0">
+            <span className="block text-small font-semibold">{t("replyTitle")}</span>
+            {replyPromise}
+          </div>
+        </div>
+      ) : null}
       <ul className="mt-5 grid gap-3 sm:grid-cols-2">
         {OPTIONS.map(({ key, href, icon, tone }) => (
           <li key={key} className="flex">

@@ -2,7 +2,7 @@ import "server-only";
 import { cache as requestCache } from "react";
 import { z } from "zod";
 import type { Prisma } from "@/generated/prisma/client";
-import { currencyCodes, siteConfig, type CurrencyCode } from "@/config/site";
+import { currencyCodes, locales, siteConfig, type AppLocale, type CurrencyCode } from "@/config/site";
 import { audit } from "@/lib/audit";
 import { isEnabledCurrency } from "@/lib/currency/convert";
 import { db } from "@/lib/db";
@@ -62,6 +62,12 @@ export type SiteSettings = {
    * badge until they accept again (1 … siteConfig.pledge.currentVersion).
    */
   pledgeRequiredVersion: number;
+  /**
+   * The support reply promise shown on the help, contact and ticket pages (SECURITY_REPORT 19.b,
+   * founder's answer 9), per language. Empty for a language = the default text in
+   * messages/<locale>/help.json `replyTime.promise` (the founder's exact wording).
+   */
+  supportReplyPromise: Partial<Record<AppLocale, string>>;
 };
 
 export const DEFAULT_SETTINGS: SiteSettings = {
@@ -78,6 +84,7 @@ export const DEFAULT_SETTINGS: SiteSettings = {
     PAID_FEATURE_KEYS.map((key) => [key, siteConfig.paidFeatures[key].priceUsd]),
   ) as Record<PaidFeatureKey, number>,
   pledgeRequiredVersion: siteConfig.pledge.currentVersion,
+  supportReplyPromise: {},
 };
 
 // ─── Validation ───────────────────────────────────────────────
@@ -105,6 +112,11 @@ export const settingSchemas = {
     >,
   ),
   pledgeRequiredVersion: z.number().int().min(1).max(siteConfig.pledge.currentVersion),
+  supportReplyPromise: z
+    .object(Object.fromEntries(locales.map((locale) => [locale, z.string().trim().max(300)])) as Record<AppLocale, z.ZodString>)
+    .partial()
+    .strict()
+    .transform((value) => Object.fromEntries(Object.entries(value).filter(([, text]) => !!text)) as Partial<Record<AppLocale, string>>),
 } satisfies { [K in keyof SiteSettings]: z.ZodType };
 
 export const settingsPatchSchema = z.object(settingSchemas).partial().strict();

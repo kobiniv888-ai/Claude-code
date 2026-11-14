@@ -37,6 +37,7 @@ import { useOptionLabel } from "../labels";
 import { displayPrice, PreviewCard } from "../preview-card";
 import type { StepProps } from "../step-props";
 import { revealAndFocus } from "../use-publish";
+import { TermsConsentField } from "@/components/legal/terms-consent";
 
 function MissingList({
   missing,
@@ -462,6 +463,7 @@ export function PublishStep(props: StepProps) {
                 </p>
               )}
             </div>
+            {controller.terms ? <TermsConsentField consent={controller.terms} /> : null}
             <p className="text-sm text-muted-foreground">{t("reviewNote")}</p>
             <PublishCaptcha controller={controller} />
             {missing.length > 0 ? (
