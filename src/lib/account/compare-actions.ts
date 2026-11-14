@@ -48,7 +48,6 @@ export type CompareItem = {
     kitchenKosher: KitchenKosher | null;
     kosherCertName: string | null;
     synagogueWalkMin: number | null;
-    chabadWalkMin: number | null;
     features: string[];
   };
   amenities: string[];
@@ -111,7 +110,6 @@ export async function getCompareItems(publicIds: unknown): Promise<ActionResult<
         kitchenKosher: true,
         kosherCertName: true,
         synagogueWalkMin: true,
-        chabadWalkMin: true,
         seaWalkMinutes: true,
         liftWalkMinutes: true,
         nearby: true,
@@ -175,10 +173,9 @@ export async function getCompareItems(publicIds: unknown): Promise<ActionResult<
             shabbatFriendly: row.isShabbatFriendly,
             kitchenKosher: row.kitchenKosher,
             kosherCertName: row.kosherCertName?.trim() || null,
-            // Security checklist 6.d: rounded up to 5 minutes, at most two walking times from the
-            // pin per listing, the same as the listing page (src/lib/geo/public-walk.ts).
+            // Security checklist 6.d, answers (2)/(3): rounded up to 5 minutes, the same walks as
+            // the listing page (at most 3, never a Chabad house; src/lib/geo/public-walk.ts).
             synagogueWalkMin: walks.synagogueWalkMin,
-            chabadWalkMin: walks.chabadWalkMin,
             features: [...row.shabbatFeatures.map((f) => `shabbat:${f}`), ...row.jewishFeatures.map((f) => `jewish:${f}`), ...row.hotelJewishFeatures.map((f) => `hotel:${f}`)],
           },
           // Brief 7.3: with a pin, the computed walk replaces the host's "Near the sea" tick.

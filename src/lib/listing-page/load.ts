@@ -155,7 +155,6 @@ function listingSelect(locale: AppLocale, today: Date, until: Date) {
     hotelJewishFeatures: true,
     sharedRoomFor: true,
     synagogueWalkMin: true,
-    chabadWalkMin: true,
     seaWalkMinutes: true,
     liftWalkMinutes: true,
     nearby: true,
@@ -382,9 +381,9 @@ async function load(publicId: number, locale: AppLocale): Promise<LoadedListing 
     kosherCertName: row.kosherCertName?.trim() || null,
     hotelJewishFeatures: row.hotelJewishFeatures,
     sharedRoomFor: row.sharedRoomFor,
-    // Security checklist 6.d: every walking time is computed from the exact pin, so the page gets
-    // it rounded up to 5 minutes, without meters, at most two of them, and the supermarket and
-    // stop picked around the public map point (src/lib/geo/public-walk.ts).
+    // Security checklist 6.d, founder's answers (2)/(3): the page gets every walking time rounded
+    // up to 5 minutes, without meters, at most 3 of them, never a Chabad house, and the supermarket
+    // and stop picked around the public map point (src/lib/geo/public-walk.ts).
     ...publicWalkTimes({ ...row, nearby: parseNearby(row.nearby) }),
     deposit: num(row.deposit),
     cleaningFee: num(row.cleaningFee),

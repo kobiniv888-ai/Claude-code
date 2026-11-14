@@ -1,8 +1,12 @@
 import {
   anonymizeOldContactClicks,
+  eraseClosedCaseTexts,
   eraseOldGuestContacts,
   purgeOldAuditLogs,
   purgeOldEmailOutbox,
+  purgeDeadPushSubscriptions,
+  purgeExpiredSessions,
+  purgeOldPhoneLookups,
   purgeStaleDeviceLinks,
 } from "@/lib/admin/maintenance/retention";
 import { db } from "@/lib/db";
@@ -104,6 +108,12 @@ export async function GET(request: Request) {
       emailOutbox: () => purgeOldEmailOutbox(now),
       contactClicks: () => anonymizeOldContactClicks(now),
       deviceLinks: () => purgeStaleDeviceLinks(now),
+      // Founder's answer 7 (9 November 2026): expired sessions 30 days, phone-line checks and dead
+      // notification subscriptions 90 days, closed cases' texts 180 days (one clock, interim).
+      expiredSessions: () => purgeExpiredSessions(now),
+      phoneLookups: () => purgeOldPhoneLookups(now),
+      deadPushSubscriptions: () => purgeDeadPushSubscriptions(now),
+      caseTexts: () => eraseClosedCaseTexts(now),
     });
   });
 }

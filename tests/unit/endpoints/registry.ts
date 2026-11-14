@@ -205,6 +205,11 @@ export const SERVER_ACTIONS: Record<string, Record<string, Access>> = {
     regenerateRecoveryCodes: USER,
     getLoginState: pending2fa("tells the login dialog what the session still needs", "read-only state of the caller's own session"),
   },
+  // Founder's answer (5): a phone-only account adds a real (login) email, verified by a code.
+  "src/lib/auth/account-email-actions.ts": {
+    sendAccountEmailCode: USER,
+    confirmAccountEmail: USER,
+  },
   "src/lib/auth/contact-email-actions.ts": {
     sendContactEmailCode: USER,
     confirmContactEmailChange: USER,
@@ -238,6 +243,8 @@ export const SERVER_ACTIONS: Record<string, Record<string, Access>> = {
     createBookingAction: USER,
     cancelBookingAsGuestAction: USER,
     cancelBookingAsHostAction: USER,
+    // Founder's answer (4): the host confirms or denies "the host asked me to cancel" (own booking only).
+    answerHostAskedAction: USER,
     reportNoShowAction: USER,
   },
   "src/lib/booking/alert-actions.ts": {

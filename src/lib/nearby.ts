@@ -12,8 +12,11 @@ import { haversineMeters, walkingMinutes, type LatLng } from "@/lib/geo";
  *   await computeListingProximity(listing.id);              // on publish / location change
  *   await recomputeProximityNear(place.lat, place.lng);     // after an admin adds/edits a place
  *
- * Sets Listing.synagogueWalkMin (nearest synagogue or Chabad house), Listing.chabadWalkMin,
- * Listing.nearby (NearbyInfo JSON) and nearbyUpdatedAt.
+ * Sets Listing.synagogueWalkMin (the nearest place of type SYNAGOGUE), Listing.nearby (NearbyInfo
+ * JSON) and nearbyUpdatedAt. Chabad houses are never a walking time on a listing (founder's answer
+ * (2), 9 Nov 2026): they appear on the community map only, so they are not looked at here and
+ * Listing.chabadWalkMin is always written as null (the column stays for old rows until a release
+ * drops it).
  * - Jewish places: active JewishPlace rows within 5 km. A real listing uses ONLY verified, non-demo
  *   places (JewishPlace.verifiedAt set, brief 5.9); a demo listing may also use demo places (the
  *   demo shows them labeled "(דמו)" and its cards never get a walking-time tag).
@@ -39,7 +42,9 @@ export type TransportKind = "metro" | "train" | "tram" | "bus";
 export type NearbyTransport = NearbyPoi & { kind: TransportKind };
 
 export type NearbyInfo = {
+  /** The nearest SYNAGOGUE (never a Chabad house, founder's answer (2)). */
   synagogue?: NearbyPlace;
+  /** Legacy rows only (computed before 9 Nov 2026): never written now, never read by a page. */
   chabad?: NearbyPlace;
   kosherFood?: NearbyPlace;
   mikveh?: NearbyPlace;
@@ -314,12 +319,11 @@ export async function computeListingProximity(
   const osm = elements ? pickOsmForListing(point, publicPoint, elements) : null;
 
   const nearby: NearbyInfo = {};
-  const synagogue = nearestOf(point, places, ["SYNAGOGUE", "CHABAD_HOUSE"]);
-  const chabad = nearestOf(point, places, ["CHABAD_HOUSE"]);
+  // Answer (2): the nearest synagogue is a SYNAGOGUE; a Chabad house is never a listing's walk.
+  const synagogue = nearestOf(point, places, ["SYNAGOGUE"]);
   const kosherFood = nearestOf(point, places, ["KOSHER_RESTAURANT", "KOSHER_SHOP"]);
   const mikveh = nearestOf(point, places, ["MIKVEH"]);
   if (synagogue) nearby.synagogue = synagogue;
-  if (chabad) nearby.chabad = chabad;
   if (kosherFood) nearby.kosherFood = kosherFood;
   if (mikveh) nearby.mikveh = mikveh;
 
@@ -345,7 +349,7 @@ export async function computeListingProximity(
     where: { id: listingId },
     data: {
       synagogueWalkMin: synagogue?.minutes ?? null,
-      chabadWalkMin: chabad?.minutes ?? null,
+      chabadWalkMin: null,
       nearby: nearby as Prisma.InputJsonObject,
       nearbyUpdatedAt: new Date(),
     },

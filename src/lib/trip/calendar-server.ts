@@ -1,6 +1,8 @@
 import "server-only";
 import { getTranslations } from "next-intl/server";
 import { siteConfig, type AppLocale } from "@/config/site";
+import { pickLocalized } from "@/i18n/locale";
+import { db } from "@/lib/db";
 import { DEFAULT_CHECK_IN_TIME } from "@/lib/booking/dates";
 import { formatBookingMoney } from "@/lib/booking/price-lines";
 import type { GuestTrip } from "@/lib/booking/queries";
@@ -13,6 +15,12 @@ import { buildTripIcs, googleCalendarUrl, type TripCalendarInput } from "./ics";
  * "הוספה ליומן" texts for one trip (server): the event of the downloaded file and of the Google
  * Calendar link, in the guest's language (messages "booking.ics"). Only for the guest of a
  * confirmed booking with the address revealed (callers check `trip.reveal`).
+ *
+ * Founder's answer (10), 9 Nov 2026: the EXACT ADDRESS and the pin never go into a calendar: a
+ * calendar copy outlives the 7-day window of the trip page (6.f) and syncs to other devices and
+ * accounts. The event's location is the listing's city (public on the listing page), the title
+ * names the place, and the description links to the trip page, where the address is shown inside
+ * its window ("booking.ics.addressNote").
  */
 export async function tripCalendarInput(trip: GuestTrip, locale: AppLocale): Promise<{ file: TripCalendarInput; google: TripCalendarInput }> {
   const t = await getTranslations({ locale, namespace: "booking" });
@@ -32,6 +40,7 @@ export async function tripCalendarInput(trip: GuestTrip, locale: AppLocale): Pro
     : trip.checkOutUntil
       ? t("ics.checkOut", { date: day(trip.checkOut), time: clockLabel(trip.checkOutUntil, locale) })
       : "";
+  const city = await listingCityName(trip.listing.id, locale);
   const base = {
     code: trip.code,
     checkIn: trip.checkIn,
@@ -39,7 +48,8 @@ export async function tripCalendarInput(trip: GuestTrip, locale: AppLocale): Pro
     checkInTime,
     checkOutTime,
     summary: t("ics.summary", { title: trip.listing.title, code: trip.code }),
-    location: reveal?.address ?? null,
+    // Never the exact address (answer (10)): the city only.
+    location: city,
     url,
   };
   const file: TripCalendarInput = {
@@ -51,14 +61,28 @@ export async function tripCalendarInput(trip: GuestTrip, locale: AppLocale): Pro
       reveal?.hostName ? t("ics.host", { name: reveal.hostName }) : "",
       phone ? t("ics.phone", { phone }) : "",
       t("ics.pay", { amount: formatBookingMoney(trip.total, trip.currency, locale) }),
+      t("ics.addressNote"),
       t("ics.details", { url }),
     ],
-    lat: reveal?.lat ?? null,
-    lng: reveal?.lng ?? null,
+    // No GEO line: the pin is the exact address (answer (10)).
+    lat: null,
+    lng: null,
   };
   // Google keeps the link in its address bar and history: no host name or phone in it.
-  const google: TripCalendarInput = { ...base, description: [t("ics.booking", { code: trip.code, brand }), arrival, departure, t("ics.details", { url })] };
+  const google: TripCalendarInput = {
+    ...base,
+    description: [t("ics.booking", { code: trip.code, brand }), arrival, departure, t("ics.addressNote"), t("ics.details", { url })],
+  };
   return { file, google };
+}
+
+/** The listing's city in the guest's language (public on the listing page), or null. */
+async function listingCityName(listingId: string, locale: AppLocale): Promise<string | null> {
+  const row = await db.listing
+    .findUnique({ where: { id: listingId }, select: { city: { select: { names: true } } } })
+    .catch(() => null);
+  const name = row?.city ? pickLocalized(row.city.names, locale) : "";
+  return name || null;
 }
 
 /** The host name of every event UID ("bayit.example" when SITE_URL is not a URL). */

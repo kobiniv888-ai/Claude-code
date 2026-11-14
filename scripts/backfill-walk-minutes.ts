@@ -7,12 +7,15 @@
  *   npx tsx --require ./scripts/server-script.cjs scripts/backfill-walk-minutes.ts           # dry run: lists the changes
  *   npx tsx --require ./scripts/server-script.cjs scripts/backfill-walk-minutes.ts --apply   # writes them
  *
- * Only these two derived columns change; nothing is deleted.
+ * Only these two derived columns change; nothing is deleted. The same run also recomputes the
+ * nearest-synagogue walks (founder's answer (2), 9 Nov 2026: a Chabad house is never a listing's
+ * walk; rows computed before it may still hold one): the dry run counts the stale rows, --apply
+ * recomputes the community-place distances of every listing (no OpenStreetMap call).
  */
 import "../prisma/seed/esm-interop";
 import "dotenv/config";
 import { db } from "@/lib/db";
-import { backfillWalkMinutes } from "@/lib/geo/walk-minutes-server";
+import { backfillSynagogueWalks, backfillWalkMinutes } from "@/lib/geo/walk-minutes-server";
 
 const show = (minutes: number | null) => (minutes === null ? "–" : `${minutes} min`);
 
@@ -27,7 +30,12 @@ async function main() {
     );
   }
   console.log(`${result.checked} listings checked, ${result.changed.length} ${apply ? "updated" : "would change"}.`);
-  if (!apply && result.changed.length > 0) console.log("Nothing was written. Run again with --apply to save.");
+  const synagogues = await backfillSynagogueWalks({ apply });
+  console.log(
+    `${synagogues.checked} listings checked for Chabad walks: ${synagogues.stale} stale` +
+      (apply ? `, ${synagogues.recomputed} recomputed.` : "."),
+  );
+  if (!apply && (result.changed.length > 0 || synagogues.stale > 0)) console.log("Nothing was written. Run again with --apply to save.");
 }
 
 main()

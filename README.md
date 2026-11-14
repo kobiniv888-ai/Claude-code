@@ -246,8 +246,11 @@ no "quick preview" on a public address any more: test mode and demo accounts nev
    development or staging server on those names then refuses to start, and no login code is
    ever shown on screen for them.
 4. **Create the tables** in the production database once (by hand: with `SITE_ENV=production`
-   the build refuses `DB_PUSH_ON_BUILD` / `SEED_ON_BUILD`): `DATABASE_URL=<prod url> npx prisma db push`
-   (or `npx prisma migrate deploy` if you use migrations). Then
+   the build refuses `DB_PUSH_ON_BUILD` / `SEED_ON_BUILD`). First make the two database roles
+   ([docs/DATABASE_ROLES.md](docs/DATABASE_ROLES.md): `bayit_app` for the site, `bayit_migrate`
+   for table changes), then `MIGRATION_DATABASE_URL=<bayit_migrate url> npx prisma db push`
+   (or `npx prisma migrate deploy` if you use migrations), with the address given for that one
+   command and never saved into a `.env` file. Then
    `SITE_ENV=production DATABASE_URL=<prod url> npm run db:seed` to load cities, FAQ and banned
    words. With `SITE_ENV=production` the seed adds no demo users, staff, listings or scam alert;
    neither does a `SITE_ENV=development` that comes only from `.env` when the database is not on
@@ -337,8 +340,15 @@ Codespaces address); `DATABASE_URL` with `sslmode=require`; `CRON_SECRET` (32+ c
 `NEXT_PUBLIC_MEDIA_BASE_URL` = `S3_PUBLIC_URL` (https); `VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` (a
 new pair per site). Staging with `AUTH_TEST_MODE=true` may leave out the email and SMS keys.
 **Production only:** `SITE_URL` (the same https origin; only its host is indexed by Google), no
-`AUTH_TEST_MODE`, no `EXTRA_ALLOWED_ORIGINS`, no Cloudflare test keys. **Never on staging or
-production:** `DEV_SKIP_STAFF_2FA`, `NEXT_PUBLIC_SHOW_DEV_UI`.
+`AUTH_TEST_MODE`, no `EXTRA_ALLOWED_ORIGINS`, no Cloudflare test keys; `SECURITY_CONTACT_EMAIL`
+(private: the address in `/.well-known/security.txt`); `SENTRY_DSN` (EU region); the weekly
+encrypted off-site backup: `BACKUP_ENCRYPTION_KEY` + `OFFSITE_S3_ENDPOINT`, `OFFSITE_S3_REGION`,
+`OFFSITE_S3_BUCKET`, `OFFSITE_S3_ACCESS_KEY_ID`, `OFFSITE_S3_SECRET_ACCESS_KEY`
+([docs/BACKUPS.md](docs/BACKUPS.md)); `DATABASE_URL` as the least-privilege role `bayit_app`, never
+the owner ([docs/DATABASE_ROLES.md](docs/DATABASE_ROLES.md)). **Never on staging or
+production:** `DEV_SKIP_STAFF_2FA`, `NEXT_PUBLIC_SHOW_DEV_UI`, or any secret from a codespace (the
+codespace marks its own keys with `bayit-dev-` / `BAYITDEV`, and staging and production refuse to
+start with a marked key).
 
 | Variable | Meaning |
 |---|---|
@@ -368,7 +378,11 @@ production:** `DEV_SKIP_STAFF_2FA`, `NEXT_PUBLIC_SHOW_DEV_UI`.
 | `CRON_SECRET` | Protects the scheduled jobs (`/api/cron/*`); required (32+ characters) on staging and production | Jobs refuse to run |
 | `CLIENT_IP_HEADER` | Trusted header with the visitor IP: `cf-connecting-ip` whenever Cloudflare proxies the site (on Vercel too), `x-nf-client-connection-ip` on Netlify. Required off Vercel on staging/production (the server refuses to start) | Vercel's own header (Vercel only, nothing in front) |
 | `MALWARE_SCAN_URL`, `MALWARE_SCAN_TOKEN` | External malware scanner for uploads | Built-in checks only |
-| `SENTRY_DSN` (+ optional `SENTRY_ENVIRONMENT`, `SENTRY_RELEASE`) | Error monitoring: server crashes, failed actions and failed scheduled jobs go to Sentry (no SDK; path without query, no user data) | Errors only in the server log |
+| `SENTRY_DSN` (+ optional `SENTRY_RELEASE`) | Error monitoring: server crashes, failed actions and failed scheduled jobs go to Sentry (no SDK; path without query, no user data, messages scrubbed; environment = `SITE_ENV`). **Required on the real site**, in Sentry's EU region | Errors only in the server log |
+| `MIGRATION_DATABASE_URL` | Only for changing the tables (`prisma db push`, `npm run db:encrypt-fields`): the role `bayit_migrate` ([docs/DATABASE_ROLES.md](docs/DATABASE_ROLES.md)). Never set on the running site | `DATABASE_URL` does both (development) |
+| `MAINTENANCE_MODE` | `on`: every public page answers a calm "back soon" page (503) in 5 languages; only an admin with 2-step login gets through (Admin → Maintenance has the same switch). See `INCIDENT_PLAN.md` | Off |
+| `ADMIN_ALERT_TELEGRAM_CHAT_ID` | PRIVATE: the Telegram chat for the hourly security alerts | The admins who connected the bot |
+| `OFFSITE_RETENTION_DAYS` | How long each off-site backup copy stays locked | 60 |
 | `DEV_SKIP_STAFF_2FA` | Skip 2-step login for the demo staff accounts (a development server of a development site only; never for a real account) | Off; ignored by production builds; staging/production refuse to start with it |
 | `BAYIT_ADMIN_EMAIL`, `BAYIT_ADMIN_PHONE` | PRIVATE: the account `npm run admin:grant -- --from-env` makes admin (also at every codespace start); Codespaces secrets of the same names | Nobody is made admin |
 | `ADMIN_ALERT_EMAIL` | PRIVATE: where admin alerts and the daily summary go (a Codespaces secret of the same name) | The real admins' email addresses, else the outbox |

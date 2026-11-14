@@ -104,4 +104,10 @@ export const hostCancelSchema = bookingRef
   });
 export type HostCancelInput = z.input<typeof hostCancelSchema>;
 
+/** The host's answer to "the host asked me to cancel" (founder's answer (4), ./host-asked.ts). */
+export const hostAskedAnswerSchema = z.object({
+  bookingId: z.string().trim().min(1).max(64),
+  answer: z.enum(["confirm", "deny"]),
+});
+
 export const noShowSchema = bookingRef;

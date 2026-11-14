@@ -17,7 +17,8 @@ import { openAddress, openPin, sealAddress, sealGuestPhone, sealPin } from "./he
  *   contact values;
  * - never an exact walking time: every walking time in the page data is a multiple of 5 minutes,
  *   no "meters" travel with it, and every text says "עד N דק׳" / "up to N min", never "≈ N"
- *   (founder's answer (b));
+ *   (founder's answers (b) and (3)); never a Chabad house walk (answer (2): no "chabadWalkMin",
+ *   no "chabad" entry with minutes); at most 3 walking times for the test listing (answer (3));
  * - never the supermarket or stop picked around the pin (walk-trilat-1): only the ones picked
  *   around the public point;
  * - pages: listing pages and their share images, search (list and map), city and owner pages, the
@@ -118,6 +119,9 @@ function leaksIn(body: string, secrets: Leak[]): string[] {
  */
 function exactWalks(body: string): string[] {
   const problems: string[] = [];
+  // Founder's answer (2): a Chabad house is never a listing's walking time (the community map has them).
+  if (/\\?"chabadWalkMin\\?"/.test(body)) problems.push("a chabadWalkMin field");
+  if (/\\?"chabad\\?":\s*\{[^{}]*?\\?"minutes\\?"/.test(body)) problems.push("a Chabad walk");
   const key = /\\?"(synagogueWalkMin|chabadWalkMin|seaWalkMinutes|liftWalkMinutes)\\?":\s*(\d+)/g;
   for (const match of body.matchAll(key)) if (Number(match[2]) % 5 !== 0) problems.push(`${match[1]}=${match[2]}`);
   const kindMinutes = /\\?"kind\\?":\s*\\?"(sea|lift|synagogue|chabad)\\?",\s*\\?"(?:name\\?":[^}]*?,\s*\\?")?minutes\\?":\s*(\d+)/g;
@@ -187,7 +191,12 @@ function day(offset: number): string {
   return date.toISOString().slice(0, 10);
 }
 
-/** A test listing in Mestia with known private values and exact walking times (7 and 3 minutes). */
+/**
+ * A test listing in Mestia (a ski town) with known private values and exact walking times: the
+ * lifts 12, the synagogue 7, a Chabad house 4 (never shown, answer (2)), the stop 8 and the shop 3
+ * around the public point. At most 3 walks reach the page (answer (3)): lifts → "עד 15", synagogue
+ * → 10, stop → 10; the shop (last in the order) is left out.
+ */
 async function exposureListing() {
   const host = await createTestUser({ name: "E2E Exposure Host" });
   const listing = await createTestListing({ ownerId: host.id, title: "E2E data exposure flat" });
@@ -197,7 +206,7 @@ async function exposureListing() {
   const address = `E2E ${randomBytes(3).toString("hex")} Exposure Lane 17, Mestia`;
   await sql(
     `UPDATE "Listing" SET "pinEnc" = $2, "addressEnc" = $3, "approxLat" = $4, "approxLng" = $5,
-       "contactMethods" = $6::jsonb, "synagogueWalkMin" = 7, "chabadWalkMin" = 13, "seaWalkMinutes" = NULL, "liftWalkMinutes" = NULL,
+       "contactMethods" = $6::jsonb, "synagogueWalkMin" = 7, "chabadWalkMin" = 13, "seaWalkMinutes" = NULL, "liftWalkMinutes" = 12,
        nearby = $7::jsonb WHERE id = $1`,
     [
       listing.id,
@@ -208,6 +217,8 @@ async function exposureListing() {
       city.lng,
       JSON.stringify([{ channel: "WHATSAPP", value: hostContact, order: 0 }]),
       JSON.stringify({
+        // A Chabad house is never a listing's walk (answer (2)), even in an old row.
+        chabad: { id: "e2e-chabad-house", name: { he: "E2E Chabad House", en: "E2E Chabad House" }, minutes: 4, meters: 260 },
         // Picked around the pin: staff only (walk-trilat-1), never on a page.
         supermarket: { minutes: 1, meters: 60, name: "E2E Pin Market" },
         transport: { kind: "tram", minutes: 2, meters: 110, name: "E2E Pin Stop" },
@@ -228,6 +239,8 @@ async function exposureListing() {
     ...phoneForms("test host phone", host.phone),
     { label: "supermarket picked around the pin", value: "E2E Pin Market" },
     { label: "stop picked around the pin", value: "E2E Pin Stop" },
+    { label: "a Chabad house walk (answer (2))", value: "E2E Chabad House" },
+    { label: "a fourth walk (answer (3): the shop is left out)", value: "E2E Market" },
   ];
   return { host, listing, address, exact, hostContact, secrets };
 }
@@ -299,14 +312,20 @@ test.describe("data exposure (SECURITY_REPORT 5.c)", () => {
     expect(leaks, "private values in public responses").toEqual([]);
     expect(walks, "exact walking times in public responses").toEqual([]);
 
-    // The test listing's walks reach the page rounded and as "up to": supermarket 3 → "עד 5 דק׳",
-    // bus stop 8 → "עד 10 דק׳" — the ones picked around the public point, never the pin's.
+    // The test listing's walks reach the page rounded and as "up to", at most 3 of them (answer
+    // (3)): the lifts 12 → "עד 15", the bus stop 8 → "עד 10 דק׳" (picked around the public point,
+    // never the pin's); the shop (the 4th) and the Chabad house never.
     const page = await request.get(`/he/listing/${own.listing.publicId}`);
     const text = (await page.text()).replace(/[\u2066-\u2069\u200e\u200f]/g, "");
-    expect(text).toContain("עד 5 דק׳ הליכה");
+    expect(text).toContain("עד 15 דקות הליכה למעליות הסקי");
     expect(text).toContain("עד 10 דק׳ הליכה");
-    expect(text).toContain("E2E Market");
+    expect(text).toContain("E2E Stop");
+    expect(text).not.toContain("E2E Market");
+    expect(text).not.toContain("E2E Chabad House");
     expect(text).not.toMatch(/≈ \d+ דק׳/);
+    const listingRsc = (await fetchBoth(request, `/he/listing/${own.listing.publicId}`)).rsc;
+    expect(listingRsc).not.toMatch(/\\?"liftWalkMinutes\\?":\s*12\b/);
+    expect(listingRsc).not.toMatch(/E2E Market|E2E Chabad House|chabadWalkMin/);
     // The card data carries the rounded synagogue walk (7 → 10), never the exact 7.
     const searchRsc = (await fetchBoth(request, "/he/search?city=mestia")).rsc;
     expect(searchRsc).toMatch(/\\?"synagogueWalkMin\\?":\s*10\b/);

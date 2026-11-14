@@ -863,7 +863,9 @@ const builders: { [K in EmailTemplate]: Builder<K> } = {
       greetingName: clean(data.guestName) || null,
       blocks: [
         { type: "paragraph", text: t("templates.booking_reminder_guest.body1", { title, count: data.daysLeft }) },
-        { type: "details", rows: [...stayRows(data, ctx), ...arrivalRows(data, ctx)] },
+        // Never the exact address in a reminder (founder's answer (10)): the trip page has it.
+        { type: "details", rows: [...stayRows(data, ctx), ...arrivalRows({ ...data, address: null }, ctx)] },
+        { type: "paragraph", text: t("templates.booking_reminder_guest.addressOnTrip") },
         { type: "paragraph", text: payLine(data, ctx) },
         { type: "notice", text: tb("noPrepayment", { brand }) },
       ],
@@ -909,13 +911,20 @@ const builders: { [K in EmailTemplate]: Builder<K> } = {
       { type: "paragraph", text: t("templates.booking_cancelled_by_guest.body2") },
     ];
     if (data.late) blocks.push({ type: "notice", text: t("templates.booking_cancelled_by_guest.late") });
+    // Founder's answer (4): "the host asked me to cancel" asks the host to confirm it within 72
+    // hours on the booking page (src/lib/booking/host-asked.ts).
+    const askHost = data.reasonCode === "HOST_ASKED";
+    if (askHost) blocks.push({ type: "notice", text: t("templates.booking_cancelled_by_guest.hostAsked", { hours: 72 }) });
     return {
       subject: t("templates.booking_cancelled_by_guest.subject", { code: data.code, title }),
       preheader: t("templates.booking_cancelled_by_guest.preheader", { guest, dates: datesOf(data, ctx) }),
       heading: t("templates.booking_cancelled_by_guest.heading"),
       greetingName: clean(data.hostName) || null,
       blocks,
-      cta: { label: t("templates.booking_cancelled_by_guest.cta"), url: url(data.bookingUrl) ?? ctx.page("/account") },
+      cta: {
+        label: t(askHost ? "templates.booking_cancelled_by_guest.hostAskedCta" : "templates.booking_cancelled_by_guest.cta"),
+        url: url(data.bookingUrl) ?? ctx.page("/account"),
+      },
       audience: "account",
     };
   },

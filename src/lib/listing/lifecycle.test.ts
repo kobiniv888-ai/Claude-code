@@ -218,9 +218,13 @@ describe("publishing", () => {
     expect(saved.translations[0]).toMatchObject({ locale: "en", isOriginal: true });
     expect(saved.searchText).toContain("עיר בדיקה");
     expect(saved.searchText).toContain("bright two room flat");
-    expect(saved.chabadWalkMin).toBeGreaterThan(0);
-    expect(saved.synagogueWalkMin).toBe(saved.chabadWalkMin);
-    expect(saved.nearby).toMatchObject({ chabad: { name: { en: "Test Chabad House" } }, airport: { code: "TBS" } });
+    // Founder's answer (2), 9 Nov 2026: a Chabad house is never a listing's walking time (the
+    // test place nearby is one), so no synagogue walk and no Chabad entry are stored.
+    expect(saved.chabadWalkMin).toBeNull();
+    expect(saved.synagogueWalkMin).toBeNull();
+    expect(saved.nearby).toMatchObject({ airport: { code: "TBS" } });
+    expect(saved.nearby).not.toHaveProperty("chabad");
+    expect(saved.nearby).not.toHaveProperty("synagogue");
 
     expect(emailsFor("listing_in_review")).toHaveLength(1);
     expect(emailsFor("listing_in_review")[0].locale).toBe("he");

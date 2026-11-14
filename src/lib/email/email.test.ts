@@ -271,6 +271,7 @@ const samples: { [K in keyof Data]: Data[K] } = {
   security_change: { kind: "recovery_code_used", left: 3, at: "2026-11-08T12:05:00Z", name: "Dana" },
   security_new_device: { device: "Chrome · Android", at: "2026-11-08T12:05:00Z", name: "Dana" },
   security_staff_alert: { kind: "new_device", staffName: "Dana", role: "MODERATOR", device: "Safari · iPhone", at: "2026-11-08T12:05:00Z" },
+  security_alert: { alerts: [{ kind: "staff_new_device", count: 1 }, { kind: "login_failures", count: 61, threshold: 50 }], windowMinutes: 60, at: "2026-11-08T12:00:00Z" },
 };
 
 afterEach(() => {

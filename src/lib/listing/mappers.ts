@@ -10,7 +10,7 @@ import type { Locale } from "@/generated/prisma/enums";
 import { pickLocalized } from "@/i18n/locale";
 import { hasVisitedBadge } from "@/lib/listing/visited";
 import { photoUrl } from "@/lib/media";
-import { publicWalkMinutes } from "@/lib/geo/public-walk";
+import { publicWalkTimes } from "@/lib/geo/public-walk";
 import type { ListingCardBadges, ListingCardData, ListingMapPoint } from "@/lib/listing/types";
 import { listingPath } from "@/lib/listing/urls";
 import { HEADLINE_ROOM_ORDER, HEADLINE_ROOM_WHERE } from "@/lib/lists/alert-price";
@@ -63,7 +63,7 @@ export function listingCardSelect(locale: AppLocale) {
     isShabbatFriendly: true,
     kitchenKosher: true,
     synagogueWalkMin: true,
-    // "≈ 5 דק׳ הליכה לים" / "למעליות" (brief 7.3): minutes only, never the pin.
+    // "עד 5 דק׳ הליכה לים" / "למעליות" (brief 7.3): minutes only (rounded in toListingCard), never the pin.
     seaWalkMinutes: true,
     liftWalkMinutes: true,
     jewishFeatures: true,
@@ -200,6 +200,7 @@ export function jewishBadges(
 }
 
 export function toListingCard(row: ListingCardRow, ctx: CardMapContext): ListingCardData {
+  const walks = publicWalkTimes({ synagogueWalkMin: row.synagogueWalkMin, seaWalkMinutes: row.seaWalkMinutes, liftWalkMinutes: row.liftWalkMinutes });
   const now = ctx.now ?? new Date();
   const { title, isAuto } = localizedTitle(row, ctx.locale);
   const price = cardPrice(row);
@@ -241,15 +242,17 @@ export function toListingCard(row: ListingCardRow, ctx: CardMapContext): Listing
       business: row.owner.accountType === "BUSINESS",
       shabbatFriendly: row.isShabbatFriendly,
       kosherKitchen: row.kitchenKosher === "KOSHER",
-      // Security checklist 6.d: walking times leave the server rounded up to 5 minutes (the exact
-      // values, computed from the real pin, stay in the database for the filters).
-      synagogueWalkMin: publicWalkMinutes(row.synagogueWalkMin),
+      // Security checklist 6.d, founder's answer (3): walking times leave the server rounded up to
+      // 5 minutes, by the same rule as the listing page (at most 3 walks, sea/lift first, then the
+      // synagogue; src/lib/geo/public-walk.ts). The exact values, computed from the real pin, stay
+      // in the database for the filters.
+      synagogueWalkMin: walks.synagogueWalkMin,
       // Proximity of a real listing is computed from verified, non-demo community places only
       // (proximityPlaceWhere in src/lib/nearby.ts); a demo listing may use demo places, so it
       // never gets the tag.
       synagogueVerified: !row.isDemo && row.synagogueWalkMin != null,
-      seaWalkMinutes: publicWalkMinutes(row.seaWalkMinutes),
-      liftWalkMinutes: publicWalkMinutes(row.liftWalkMinutes),
+      seaWalkMinutes: walks.seaWalkMinutes,
+      liftWalkMinutes: walks.liftWalkMinutes,
       isNew: within(row.publishedAt, newLabelDays, now),
       priceDropped: within(row.priceDroppedAt, priceDropLabelDays, now),
       promoted: isPromoted(row, ctx.featuredIds, now),

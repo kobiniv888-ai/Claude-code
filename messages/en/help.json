@@ -75,6 +75,10 @@
     "scam": {
       "title": "Report a scam — urgent",
       "body": "Asked to pay up front? Tell us now — scam reports are handled first."
+    },
+    "security": {
+      "lead": "Found a security problem in the site itself?",
+      "link": "How to report it"
     }
   }
 }

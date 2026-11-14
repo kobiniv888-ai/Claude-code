@@ -42,6 +42,15 @@ for (const [locale, heading] of Object.entries(HEADINGS)) {
   });
 }
 
+test("the help page links to the security page (18.2)", async ({ browser }) => {
+  const { context, page } = await openAs(browser, null);
+  for (const locale of ["he", "en"]) {
+    await page.goto(`/${locale}/help`);
+    await expect(page.locator(`main a[href="/${locale}/security"]`).first()).toBeVisible();
+  }
+  await context.close();
+});
+
 test("security.txt follows RFC 9116 (or is absent without a contact address)", async ({ request }) => {
   const response = await request.get("/.well-known/security.txt");
   if (response.status() === 404) {

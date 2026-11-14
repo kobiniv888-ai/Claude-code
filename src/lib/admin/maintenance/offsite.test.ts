@@ -127,6 +127,18 @@ describe("backup encryption (AES-256-GCM, chunked)", () => {
     expect(["damaged", "truncated"]).toContain((await decryptError(Buffer.concat([file, Buffer.from("x")]))).code);
   });
 
+  it("refuses chunks in another order, or one left out (each chunk's number is in its nonce)", async () => {
+    const file = await encrypt(randomBytes(100)); // 16-byte chunks: six full ones and a short last one
+    const header = readBackupHeader(file)!.bytes.length;
+    const sealed = 16 + 16;
+    const chunk = (i: number) => file.subarray(header + i * sealed, header + (i + 1) * sealed);
+    const rest = file.subarray(header + 2 * sealed);
+    const swapped = Buffer.concat([file.subarray(0, header), chunk(1), chunk(0), rest]);
+    expect((await decryptError(swapped)).code).toBe("damaged");
+    const dropped = Buffer.concat([file.subarray(0, header), chunk(1), rest]);
+    expect((await decryptError(dropped)).code).toBe("damaged");
+  });
+
   it("refuses files that are not backups, and keys that are not 32 bytes", async () => {
     expect((await decryptError(Buffer.from("PK\u0003\u0004 not ours at all"))).code).toBe("not_a_backup");
     expect(() => parseBackupKey("")).toThrow(/not set/);

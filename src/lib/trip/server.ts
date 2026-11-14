@@ -30,22 +30,23 @@ import {
  * What the trip page shows beyond getGuestTrip() (src/lib/booking/queries.ts): the house rules,
  * every contact method the host chose, and — only when the stay includes a Friday night or a
  * night of Yom Tov (./observance.ts) — candle-lighting and Havdalah times for the city, the nearest
- * VERIFIED synagogue, Chabad house and kosher place with walking times, and whether the host
- * answers on Shabbat.
+ * VERIFIED synagogue and kosher place with walking times ("up to N", rounded up to 5 minutes), and
+ * whether the host answers on Shabbat. Never a Chabad house walk (founder's answer (2), 9 Nov 2026:
+ * Chabad houses appear on the community map only).
  *
  * Call it only for a trip getGuestTrip() returned for this guest; it checks the guest again. The
  * host's contact methods and the walking times from the exact pin need `revealed` (the guest of a
  * confirmed or completed booking, src/lib/booking/policy.ts canRevealHostContact).
  */
 
-export type TripPlaceKind = "synagogue" | "chabad" | "kosher";
+export type TripPlaceKind = "synagogue" | "kosher";
 
 export type TripPlace = {
   kind: TripPlaceKind;
   /** In the guest's language (render with dir="auto"). */
   name: string;
   address: string | null;
-  /** ≈ walking minutes from the exact pin (straight line × detour factor, rounded to 50 m). */
+  /** "Up to N" walking minutes from the exact pin, rounded UP to 5 (never the exact value). */
   minutes: number;
   /** Google Maps walking directions from the place. */
   directions: string | null;
@@ -92,7 +93,6 @@ const ROUND_TO_M = 50;
 
 const PLACE_TYPES: Record<TripPlaceKind, JewishPlaceType[]> = {
   synagogue: ["SYNAGOGUE"],
-  chabad: ["CHABAD_HOUSE"],
   kosher: ["KOSHER_RESTAURANT", "KOSHER_SHOP"],
 };
 

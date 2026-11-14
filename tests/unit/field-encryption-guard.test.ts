@@ -4,8 +4,8 @@
  * fields legacyAddress / legacyLat / legacyLng / legacyGuestPhone) are NEVER read or written again.
  *
  * 1. Source tripwire: no site, script, seed or end-to-end code names the legacy Prisma fields (except the export
- *    selecting them `false` and the seed's type that leaves them out), and no raw SQL writes the
- *    plain columns (only the migration that empties them, src/lib/field-crypto-migrate.ts).
+ *    selecting them `false` and the seed's type that leaves them out), and no raw SQL reads or
+ *    writes the plain columns (only the migration that empties them, src/lib/field-crypto-migrate.ts).
  * 2. The database itself refuses them (CHECK constraints added by scripts/encrypt-fields.ts once no
  *    plain value is left): a plain write fails through Prisma and through raw SQL, inside a
  *    transaction that is always rolled back (the shared development database is never changed), and
@@ -53,6 +53,26 @@ const LEGACY_ALLOWED: Record<string, RegExp> = {
 
 /** A raw INSERT / UPDATE of Listing or Booking, up to the end of its statement or string. */
 const RAW_WRITE = /(?:UPDATE|INSERT\s+INTO)\s+"?(Listing|Booking)"?\b[^;`]*/gi;
+/** A backtick SQL string (raw queries here use template literals). */
+const SQL_STRING = /`[^`]*`/g;
+const SQL_KEYWORD = /\b(?:SELECT|UPDATE|INSERT|DELETE|WHERE|RETURNING)\b/;
+/** Other tables with a lat/lng or address of their own (a query joining them names theirs, behind an alias). */
+const OTHER_GEO_TABLE = /"(?:City|Neighborhood|JewishPlace)"/;
+
+/**
+ * Does this SQL read (or name) a plain column? `"lat"`, `lat`, `l."address"` in a query on Listing;
+ * `"guestPhone"` in a query on Booking (never addressEnc, approxLat, guestPhoneEnc…). When the query
+ * also joins a table that has a lat/lng or address of its own, an alias-qualified column may be
+ * that table's, so only bare names count there.
+ */
+function readsPlainColumn(sql: string): boolean {
+  if (/"Booking"/.test(sql) && /(?<![A-Za-z_])"?guestPhone"?(?![A-Za-z_])/.test(sql)) return true;
+  if (!/"Listing"/.test(sql)) return false;
+  const bare = /(?<![A-Za-z_."])"?(?:address|lat|lng)"?(?![A-Za-z_"])/;
+  const qualified = /\b[A-Za-z_]\w*\."?(?:address|lat|lng)"?(?![A-Za-z_"])/;
+  return bare.test(sql) || (!OTHER_GEO_TABLE.test(sql) && qualified.test(sql));
+}
+
 /** A plain column being written: `address =`, `"lat",`, `"guestPhone")`… (not addressEnc, approxLat…). */
 const PLAIN_COLUMN: Record<string, RegExp> = {
   Listing: /(?<![A-Za-z_."])"?(?:address|lat|lng)"?(?![A-Za-z_])\s*(?:=|,|\))/,
@@ -62,11 +82,15 @@ const PLAIN_COLUMN: Record<string, RegExp> = {
 describe("no code names the plain columns (source tripwire)", () => {
   const files = sourceFiles();
 
+  // Reading ~1,400 files takes well under a second, but a busy machine (several test runs at once)
+  // can stretch it: a generous timeout, so the tripwire never fails for being slow.
+  const SCAN_TIMEOUT = 60_000;
+
   it("scans the site, scripts and seed", () => {
     expect(files.length).toBeGreaterThan(200);
     expect(files).toContain("src/lib/field-crypto.ts");
     expect(files).toContain("prisma/seed/bookings.ts");
-  });
+  }, SCAN_TIMEOUT);
 
   it("the legacy Prisma fields appear only where they are switched off", () => {
     const offenders: string[] = [];
@@ -84,7 +108,7 @@ describe("no code names the plain columns (source tripwire)", () => {
       LEGACY_FIELD.lastIndex = 0;
     }
     expect(offenders).toEqual([]);
-  });
+  }, SCAN_TIMEOUT);
 
   it("no raw SQL writes a plain address, pin or guest phone", () => {
     const offenders: string[] = [];
@@ -98,7 +122,20 @@ describe("no code names the plain columns (source tripwire)", () => {
       }
     }
     expect(offenders).toEqual([]);
-  });
+  }, SCAN_TIMEOUT);
+
+  it("no raw SQL reads a plain address, pin or guest phone either", () => {
+    const offenders: string[] = [];
+    for (const file of files) {
+      if (file === MIGRATION) continue;
+      const text = fs.readFileSync(path.join(ROOT, file), "utf8");
+      const blocks = file.endsWith(".sql") ? [text] : [...text.matchAll(SQL_STRING)].map((m) => m[0]);
+      for (const sql of blocks) {
+        if (SQL_KEYWORD.test(sql) && readsPlainColumn(sql)) offenders.push(`${file}: ${sql.replace(/\s+/g, " ").slice(0, 120)}`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  }, SCAN_TIMEOUT);
 
   it("the tripwire itself catches the patterns it is meant to (self-check)", () => {
     const writes = [
@@ -117,6 +154,22 @@ describe("no code names the plain columns (source tripwire)", () => {
     }
     expect("  legacyAddress: false,").toMatch(LEGACY_ALLOWED["src/lib/account/export.ts"]!);
     expect("  legacyAddress: true,").not.toMatch(LEGACY_ALLOWED["src/lib/account/export.ts"]!);
+    const reads = [
+      `SELECT "id", "lat", "lng" FROM "Listing" WHERE id = $1`,
+      `SELECT address FROM "Listing"`,
+      `SELECT l."address" FROM "Listing" l WHERE l.id = $1`,
+      `SELECT b."guestPhone" FROM "Booking" b`,
+      `SELECT l."lat" FROM "Listing" l JOIN "City" c ON c.id = l."cityId" WHERE "lng" > 40`,
+    ];
+    for (const sql of reads) expect(readsPlainColumn(sql), sql).toBe(true);
+    const fineReads = [
+      `SELECT "addressEnc", "pinEnc", "approxLat", "approxLng" FROM "Listing" WHERE id = $1`,
+      `SELECT "guestPhoneEnc", "guestPhoneLookup" FROM "Booking"`,
+      // A join with a table that has its own lat/lng: its alias-qualified columns are its own.
+      `SELECT l.id, c."lat", c."lng" FROM "Listing" l JOIN "City" c ON c.id = l."cityId"`,
+      `SELECT lat, lng FROM "City" WHERE slug = 'mestia'`,
+    ];
+    for (const sql of fineReads) expect(readsPlainColumn(sql), sql).toBe(false);
   });
 });
 

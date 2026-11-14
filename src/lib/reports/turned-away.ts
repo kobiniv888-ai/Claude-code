@@ -10,6 +10,7 @@
  */
 import { z } from "zod";
 import type { ReportReason } from "@/generated/prisma/enums";
+import { CASE_TEXT_RETENTION_DAYS } from "@/lib/retention-times";
 import { firstNameOf } from "@/lib/auth/first-name";
 import { isOwnPrivateUpload } from "@/lib/media";
 import { isValidStorageKey } from "@/lib/storage/keys";
@@ -195,8 +196,11 @@ export function canRevealReporter(role: string | null | undefined): boolean {
 
 // ─── Keeping screenshots ──────────────────────────────────────
 
-/** Report screenshots are deleted this many days after the report was decided. */
-export const REPORT_SCREENSHOT_RETENTION_DAYS = 180;
+/**
+ * Report screenshots are deleted this many days after the report was decided: the same ONE clock
+ * as the texts of closed cases (founder's answer 7, src/lib/retention-times.ts).
+ */
+export const REPORT_SCREENSHOT_RETENTION_DAYS = CASE_TEXT_RETENTION_DAYS;
 
 /** When a decided report's screenshots are deleted (null while the report is open). */
 export function screenshotsDeleteAt(report: { status: string; handledAt: Date | null }): Date | null {

@@ -8,13 +8,24 @@ import { isAppLocale } from "@/i18n/locale";
 import { fail, ok, runAction, type ActionResult } from "@/lib/action";
 import { codeDisplayForHeaders } from "@/lib/auth/code-display";
 import { requireUserForAction } from "@/lib/auth/session";
+import { requireAccountEmail } from "@/lib/auth/account-email-guard";
 import { getDisplayCurrency } from "@/lib/currency";
 import { assertRateLimit, assertRateLimitByIp } from "@/lib/rate-limit";
 import { assertNotShabbatMode } from "@/lib/settings";
 import { tripPath } from "./constants";
 import { afterBookingConfirmed, alertEnvironment, notifyCancellation } from "./alerts";
-import { createBookingSchema, guestCancelSchema, hostCancelSchema, noShowSchema, quoteInputSchema } from "./schemas";
-import { createBooking, getBookingQuote, getStayAvailability, guestCancel, hostCancel, markNoShow, type BookingQuote, type StayAvailability } from "./service";
+import { createBookingSchema, guestCancelSchema, hostAskedAnswerSchema, hostCancelSchema, noShowSchema, quoteInputSchema } from "./schemas";
+import {
+  answerHostAsked,
+  createBooking,
+  getBookingQuote,
+  getStayAvailability,
+  guestCancel,
+  hostCancel,
+  markNoShow,
+  type BookingQuote,
+  type StayAvailability,
+} from "./service";
 
 /**
  * Booking server actions. Every one checks the session (and the service checks that the user
@@ -62,6 +73,9 @@ export async function quoteBookingAction(
 export async function createBookingAction(input: unknown): Promise<ActionResult<{ id: string; code: string; path: string }>> {
   return runAction(async () => {
     const user = await requireUserForAction();
+    // Founder's answer (5): every account has an email before it books (the booking emails, and a
+    // way to sign in when texts are capped).
+    requireAccountEmail(user);
     await assertNotShabbatMode();
     await assertRateLimitByIp("booking:create", { limit: 20, windowSeconds: 3600 });
     const parsed = createBookingSchema.safeParse(input);
@@ -119,6 +133,21 @@ export async function cancelBookingAsHostAction(input: unknown): Promise<ActionR
     const result = await hostCancel({ ...parsed.data, hostUserId: user.id, notify: false });
     after(() => notifyCancellation(parsed.data.bookingId));
     return ok({ code: result.code });
+  });
+}
+
+/**
+ * The host answers "the guest says you asked them to cancel" (founder's answer (4)): "confirm" or
+ * "deny". Only the booking's host (service checks the host id), only while it waits for the answer
+ * (72 hours); validated, rate-limited, logged (./service.ts answerHostAsked).
+ */
+export async function answerHostAskedAction(input: unknown): Promise<ActionResult<{ code: string; state: "confirmed" | "denied" }>> {
+  return runAction(async () => {
+    const user = await requireUserForAction();
+    await assertRateLimit(`booking:host-asked:${user.id}`, { limit: 20, windowSeconds: 3600 });
+    const parsed = hostAskedAnswerSchema.safeParse(input);
+    if (!parsed.success) return fail("invalid_input", flattenError(parsed.error).fieldErrors);
+    return ok(await answerHostAsked({ ...parsed.data, hostUserId: user.id }));
   });
 }
 

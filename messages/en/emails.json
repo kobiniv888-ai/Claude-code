@@ -205,6 +205,7 @@
       "cta": "See the booking"
     },
     "booking_reminder_guest": {
+      "addressOnTrip": "The exact address and arrival details are on your booking page.",
       "subject": "Reminder: your stay at {title} starts {count, plural, =0 {today} =1 {tomorrow} other {in {count} days}}",
       "preheader": "{dates}. The address, check-in time and the host's details.",
       "heading": "{count, plural, =0 {Your trip starts today} =1 {Your trip starts tomorrow} other {Your trip starts in {count} days}}",
@@ -220,6 +221,8 @@
       "cta": "See the booking"
     },
     "booking_cancelled_by_guest": {
+      "hostAsked": "The guest says you asked them to cancel. Please confirm it, or tell us you didn't, on the booking page within {hours} hours. If you confirm, the cancellation does not count against the guest. If you don't answer, the Bayit team will review it.",
+      "hostAskedCta": "Confirm or decline",
       "subject": "Booking {code} was cancelled: {title}",
       "preheader": "{guest}'s booking for {dates} was cancelled.",
       "heading": "A booking was cancelled",
@@ -699,6 +702,7 @@
       "cta": "Open the audit log",
       "kinds": {
         "staff_new_device": "A staff account logged in from a device it never used before ({count}).",
+        "staff_security_change": "A staff account changed its 2-step login, recovery codes, email or login methods ({count}).",
         "totp_locked": "A staff account was locked after 20 wrong 2-step codes ({count}).",
         "totp_unlock_email": "An email code was asked for to unlock 2-step login ({count}).",
         "recovery_code_used": "A 2-step recovery code was used to log in ({count}).",
@@ -725,7 +729,8 @@
         "offsite_backup_failed": "The weekly off-site backup failed ({count}).",
         "offsite_backup_missing": "No off-site backup has succeeded for {days} days.",
         "certificate_expiry": "The site’s HTTPS certificate ends in {days} days.",
-        "support_overdue": "{count, plural, one {1 support ticket has} other {{count} support tickets have}} waited longer than the reply promise (one business day, Sunday to Thursday): {tickets}."
+        "support_overdue": "{count, plural, one {1 support ticket has} other {{count} support tickets have}} waited longer than the reply promise (one business day, Sunday to Thursday): {tickets}.",
+        "field_decrypt_failed": "Encrypted addresses or phone numbers could not be opened ({count}): check FIELD_ENCRYPTION_KEY at the hosting."
       }
     }
   },

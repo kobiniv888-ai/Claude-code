@@ -4,6 +4,13 @@ import { VISIT_SET_ACTION } from "@/lib/admin/badges/server";
 import { LONG_STAY_REVIEWED_ACTION } from "@/lib/admin/server/guest-flags";
 import { dayToDate, isDay, tbilisiToday } from "@/lib/booking/dates";
 import { db } from "@/lib/db";
+import {
+  CASE_TEXT_RETENTION_DAYS,
+  DEAD_PUSH_RETENTION_DAYS,
+  ERASED_TEXT,
+  EXPIRED_SESSION_RETENTION_DAYS,
+  PHONE_LOOKUP_RETENTION_DAYS,
+} from "@/lib/retention-times";
 
 /**
  * Automatic deletion of personal data that is no longer needed (security checklist 15.9,
@@ -26,8 +33,14 @@ import { db } from "@/lib/db";
  * | Who tapped "show contact" (ContactClick.user) | 90 days, then anonymous        | anonymizeOldContactClicks   |
  * | Device ↔ account links (DeviceLink)           | 1 year after last seen         | purgeStaleDeviceLinks       |
  * | Security events                               | 90 days (src/lib/security)     | purgeOldSecurityEvents      |
- * | Login and verification codes                  | until they expire              | cleanup route               |
+ * | Login and verification codes                  | until they expire (≤ 24 hours) | cleanup route               |
+ * | Expired login sessions (IP, browser)          | 30 days after they expired     | purgeExpiredSessions        |
+ * | Support-ticket texts (subject, messages,      | 180 days after closing (ONE    | eraseClosedCaseTexts        |
+ * | rating comment, a guest's name and email)     | clock, @/lib/retention-times)  |                             |
+ * | Report texts (details, staff notes)           | 180 days after the decision    | eraseClosedCaseTexts        |
  * | Report screenshots                            | 180 days after the decision    | src/lib/reports/retention   |
+ * | Phone-line checks (PhoneLookup)               | 90 days                        | purgeOldPhoneLookups        |
+ * | Notification subscriptions that keep failing  | 90 days without a success      | purgeDeadPushSubscriptions  |
  * | ID documents                                  | 7 days after the decision      | cleanup route               |
  *
  * Not automatic yet: inactive accounts (3 years, after a warning email) — the first ones could
@@ -155,4 +168,82 @@ export async function purgeStaleDeviceLinks(now: Date = new Date(), scope: Prism
   const cutoff = new Date(now.getTime() - DEVICE_LINK_RETENTION_DAYS * DAY_MS);
   const { count } = await db.deviceLink.deleteMany({ where: { ...scope, lastSeenAt: { lt: cutoff } } });
   return count;
+}
+
+/** Login sessions that expired more than 30 days ago (they keep the IP address and the browser). */
+export async function purgeExpiredSessions(now: Date = new Date(), scope: Prisma.SessionWhereInput = {}): Promise<number> {
+  const cutoff = new Date(now.getTime() - EXPIRED_SESSION_RETENTION_DAYS * DAY_MS);
+  const { count } = await db.session.deleteMany({ where: { ...scope, expiresAt: { lt: cutoff } } });
+  return count;
+}
+
+/** Phone-line checks older than 90 days (a later check looks the number up again). */
+export async function purgeOldPhoneLookups(now: Date = new Date(), scope: Prisma.PhoneLookupWhereInput = {}): Promise<number> {
+  const cutoff = new Date(now.getTime() - PHONE_LOOKUP_RETENTION_DAYS * DAY_MS);
+  const { count } = await db.phoneLookup.deleteMany({ where: { ...scope, checkedAt: { lt: cutoff } } });
+  return count;
+}
+
+/**
+ * Browser notification subscriptions that are failing now and have not worked for 90 days (since
+ * their last success, or since they were made when they never worked). A success clears failedAt,
+ * and a "gone" answer already deletes the subscription at once (src/lib/alerts/push.ts).
+ */
+export async function purgeDeadPushSubscriptions(now: Date = new Date(), scope: Prisma.PushSubscriptionWhereInput = {}): Promise<number> {
+  const cutoff = new Date(now.getTime() - DEAD_PUSH_RETENTION_DAYS * DAY_MS);
+  const { count } = await db.pushSubscription.deleteMany({
+    where: {
+      ...scope,
+      failedAt: { not: null },
+      OR: [{ lastOkAt: null, createdAt: { lt: cutoff } }, { lastOkAt: { lt: cutoff } }],
+    },
+  });
+  return count;
+}
+
+/**
+ * The texts of closed cases, CASE_TEXT_RETENTION_DAYS (180, interim) after the case closed:
+ *   - support tickets CLOSED (closedAt) or RESOLVED with no change since: the subject and the
+ *     guest's name and email become "—" / empty, every message body "—", the rating comment goes;
+ *     the ticket's number, category, status and dates stay for the counts;
+ *   - reports RESOLVED or DISMISSED (handledAt): the reporter's details and the staff notes go;
+ *     the reason, the kind, the decision and the action taken stay.
+ * The report screenshots use the same clock (src/lib/reports/retention.ts). Idempotent.
+ */
+export async function eraseClosedCaseTexts(
+  now: Date = new Date(),
+  scope: { ticket?: Prisma.TicketWhereInput; report?: Prisma.ReportWhereInput } = {},
+): Promise<{ tickets: number; messages: number; reports: number }> {
+  const cutoff = new Date(now.getTime() - CASE_TEXT_RETENTION_DAYS * DAY_MS);
+  const closedTickets: Prisma.TicketWhereInput = {
+    ...scope.ticket,
+    OR: [
+      { status: "CLOSED", closedAt: { lt: cutoff } },
+      { status: "RESOLVED", updatedAt: { lt: cutoff }, lastMessageAt: { lt: cutoff } },
+    ],
+  };
+  const due = await db.ticket.findMany({
+    where: { AND: [closedTickets, { OR: [{ subject: { not: ERASED_TEXT } }, { guestEmail: { not: null } }, { guestName: { not: null } }, { ratingComment: { not: null } }] }] },
+    select: { id: true },
+    take: 500,
+  });
+  const ids = due.map((ticket) => ticket.id);
+  let messages = 0;
+  if (ids.length) {
+    const [erased] = await db.$transaction([
+      db.ticketMessage.updateMany({ where: { ticketId: { in: ids }, body: { not: ERASED_TEXT } }, data: { body: ERASED_TEXT } }),
+      db.ticket.updateMany({ where: { id: { in: ids } }, data: { subject: ERASED_TEXT, guestName: null, guestEmail: null, ratingComment: null } }),
+    ]);
+    messages = erased.count;
+  }
+  const reports = await db.report.updateMany({
+    where: {
+      ...scope.report,
+      status: { in: ["RESOLVED", "DISMISSED"] },
+      handledAt: { lt: cutoff },
+      OR: [{ details: { not: null } }, { adminNote: { not: null } }, { resolution: { not: null } }],
+    },
+    data: { details: null, adminNote: null, resolution: null },
+  });
+  return { tickets: ids.length, messages, reports: reports.count };
 }

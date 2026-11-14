@@ -142,14 +142,19 @@ function stayFor(booking: LoadedBooking, locale: AppLocale, bookingUrl: string):
   };
 }
 
-function arrivalFor(booking: LoadedBooking): BookingEmailArrival {
+/**
+ * The arrival details of a guest email. Founder's answer (10), 9 Nov 2026: the EXACT ADDRESS goes
+ * only into the booking confirmation email body (`withAddress: true`); reminders and every other
+ * message link to the trip page instead, where it shows inside its window.
+ */
+function arrivalFor(booking: LoadedBooking, opts: { withAddress?: boolean } = {}): BookingEmailArrival {
   const contact = hostContactFor(booking.listing.contactMethods, verifiedPhoneOf(booking.host));
   return {
     checkInFrom: booking.listing.checkInFrom,
     checkOutUntil: booking.listing.checkOutUntil,
     checkInFlexible: booking.listing.checkInFlexible,
     checkOutFlexible: booking.listing.checkOutFlexible,
-    address: booking.listing.address,
+    address: opts.withAddress ? booking.listing.address : null,
     hostName: personName(booking.host),
     hostPhone: contact.phone,
     hostWhatsapp: contact.whatsapp,
@@ -307,7 +312,8 @@ export async function notifyBookingConfirmed(bookingId: string, now: Date = new 
           tags: { booking: booking.code },
           data: {
             ...stayFor(booking, guest.locale, guest.path),
-            ...arrivalFor(booking),
+            // The one message that carries the exact address (answer (10)).
+            ...arrivalFor(booking, { withAddress: true }),
             guestName: booking.guestName,
             cancellationPolicy: booking.cancellationPolicy,
             freeCancellationUntil: deadline.getTime() > now.getTime() ? deadline : null,
@@ -431,6 +437,7 @@ export async function notifyBookingReminder(bookingId: string, now: Date = new D
           to: guest.email,
           locale: guest.locale,
           template: "booking_reminder_guest",
+          // No exact address in the reminder (answer (10)): it links to the trip page.
           data: { ...stayFor(booking, guest.locale, guest.path), ...arrivalFor(booking), guestName: booking.guestName, daysLeft },
         }),
       host.email &&

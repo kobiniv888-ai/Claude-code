@@ -111,10 +111,10 @@ describe("maintenance mode switch", () => {
     const upsert = fake.calls.find((c) => c.op === "siteSetting.upsert")!.args as { where: { key: string }; create: { value: unknown } };
     expect(upsert.where.key).toBe("maintenanceMode");
     expect(upsert.create.value).toEqual(value);
-    expect((await maintenanceState({})).on).toBe(true);
+    expect((await maintenanceState({} as NodeJS.ProcessEnv)).on).toBe(true);
     expect(fake.events).toEqual([{ type: "maintenance_mode_changed", userId: "admin-1", meta: { on: true } }]);
     await switchMaintenance("admin-1", false, at);
-    expect((await maintenanceState({})).on).toBe(false);
+    expect((await maintenanceState({} as NodeJS.ProcessEnv)).on).toBe(false);
   });
 
   it("is not switched when the audit row cannot be written", async () => {
@@ -126,8 +126,8 @@ describe("maintenance mode switch", () => {
 
   it("MAINTENANCE_MODE at the hosting wins over the stored switch (and an unknown value counts as on)", async () => {
     await switchMaintenance("admin-1", false);
-    expect(await maintenanceState({ MAINTENANCE_MODE: "on" })).toMatchObject({ on: true, source: "env" });
-    expect(await maintenanceState({ MAINTENANCE_MODE: "maybe" })).toMatchObject({ on: true, source: "env" });
-    expect(await maintenanceState({ MAINTENANCE_MODE: "off" })).toMatchObject({ on: false });
+    expect(await maintenanceState({ MAINTENANCE_MODE: "on" } as unknown as NodeJS.ProcessEnv)).toMatchObject({ on: true, source: "env" });
+    expect(await maintenanceState({ MAINTENANCE_MODE: "maybe" } as unknown as NodeJS.ProcessEnv)).toMatchObject({ on: true, source: "env" });
+    expect(await maintenanceState({ MAINTENANCE_MODE: "off" } as unknown as NodeJS.ProcessEnv)).toMatchObject({ on: false });
   });
 });

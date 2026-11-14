@@ -486,7 +486,12 @@
       "verification_documents_left": "Documents not deleted after a decision",
       "demo_remove_start": "Demo data removal started",
       "maintenance_cleanup_started": "Clean-up started",
-      "maintenance_dry_run": "Clean-up dry run (nothing changed)"
+      "maintenance_dry_run": "Clean-up dry run (nothing changed)",
+      "maintenance_offsite_backup": "Off-site backup made and checked",
+      "maintenance_restore_test": "Restore test run",
+      "maintenance_mode_on": "Maintenance mode switched on",
+      "maintenance_mode_off": "Maintenance mode switched off",
+      "sessions_end_all": "Everyone signed out"
     }
   },
   "moderation": {

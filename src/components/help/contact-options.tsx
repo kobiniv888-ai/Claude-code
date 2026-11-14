@@ -1,4 +1,4 @@
-import { Mail, MessageSquarePlus, ShieldAlert, ShieldCheck, type LucideIcon } from "lucide-react";
+import { Bug, Mail, MessageSquarePlus, ShieldAlert, ShieldCheck, type LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { ChevronEnd } from "@/components/common/directional-icon";
 import { IconCircle, type IconCircleProps } from "@/components/ds/icon-circle";
@@ -21,7 +21,8 @@ const OPTIONS: Option[] = [
 
 /**
  * "Still need help?" as four icon cards: the urgent scam report first (coral), then a ticket, the
- * contact form and the Safety Center.
+ * contact form and the Safety Center. Below them, one line for security researchers: how to report
+ * a security problem in the site itself (SECURITY_REPORT 18.2, the /security page).
  */
 export function ContactOptions({ className }: { className?: string }) {
   const t = useTranslations("help.contactOptions");
@@ -54,6 +55,16 @@ export function ContactOptions({ className }: { className?: string }) {
           </li>
         ))}
       </ul>
+      <p className="mt-4 flex flex-wrap items-center gap-x-1.5 text-small text-pretty text-muted-foreground">
+        <Bug aria-hidden="true" className="size-4 shrink-0" />
+        <span>{t("security.lead")}</span>
+        <Link
+          href="/security"
+          className="inline-flex min-h-11 items-center rounded-md font-medium text-primary-text underline underline-offset-4 outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          {t("security.link")}
+        </Link>
+      </p>
     </section>
   );
 }

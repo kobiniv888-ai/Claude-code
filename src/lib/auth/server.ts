@@ -33,6 +33,7 @@ import {
 } from "./login-rate-limit";
 import { checkLoginPhoneNumber, placeholderEmailForPhone } from "./phone";
 import { checkPhoneCode, hashPhoneCodeRow } from "./phone-code";
+import { isNeutralPhoneSend, neutralSendDelay } from "./phone-neutral";
 import { getIpLimitHash } from "@/lib/rate-limit";
 import { getDeviceHash } from "@/lib/request";
 import { verifyTurnstile } from "@/lib/turnstile";
@@ -449,6 +450,13 @@ export const auth = betterAuth({
       allowedAttempts: OTP_ALLOWED_ATTEMPTS,
       phoneNumberValidator: (value) => checkLoginPhoneNumber(value).ok,
       sendOTP: async ({ phoneNumber: to, code }, ctx) => {
+        // Founder's answer (5): a phone check for a number another account has stores its code and
+        // charges every limit (above), but sends nothing, after a wait like a real send's
+        // (./phone-neutral.ts). The answer is the same "sent".
+        if (isNeutralPhoneSend()) {
+          await neutralSendDelay();
+          return;
+        }
         const route = await phoneCodeRoute(to, ctx?.headers);
         try {
           await sendLoginCode({

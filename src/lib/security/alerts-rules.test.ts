@@ -25,6 +25,7 @@ function quiet(over: Partial<SecuritySignals> = {}): SecuritySignals {
     events: {},
     perIpMax: {},
     staffNewDevices: 0,
+    staffSecurityChanges: 0,
     maintenanceOn: 0,
     maintenanceOff: 0,
     roleChanges: 0,
@@ -51,14 +52,36 @@ describe("evaluateSecurityAlerts", () => {
       kinds(
         quiet({
           staffNewDevices: 1,
+          staffSecurityChanges: 1,
           roleChanges: 1,
           maintenanceOn: 1,
           maintenanceOff: 1,
-          events: { totp_locked: 1, totp_unlock_email: 1, recovery_code_used: 1, all_sessions_ended: 1, offsite_backup_failed: 1, sms_budget_reached: 1 },
+          events: {
+            totp_locked: 1,
+            totp_unlock_email: 1,
+            recovery_code_used: 1,
+            all_sessions_ended: 1,
+            offsite_backup_failed: 1,
+            sms_budget_reached: 1,
+            field_decrypt_failed: 1,
+          },
         }),
       ).sort(),
     ).toEqual(
-      ["maintenance_off", "maintenance_on", "offsite_backup_failed", "recovery_code_used", "role_changed", "sessions_ended", "sms_paused", "staff_new_device", "totp_locked", "totp_unlock_email"].sort(),
+      [
+        "field_decrypt_failed",
+        "maintenance_off",
+        "maintenance_on",
+        "offsite_backup_failed",
+        "recovery_code_used",
+        "role_changed",
+        "sessions_ended",
+        "sms_paused",
+        "staff_new_device",
+        "staff_security_change",
+        "totp_locked",
+        "totp_unlock_email",
+      ].sort(),
     );
     expect(kinds(quiet({ events: { sms_ratio_low: 1 } }))).toEqual(["sms_paused"]);
   });

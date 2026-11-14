@@ -486,7 +486,12 @@
       "verification_documents_left": "مستندات لم تُحذف بعد القرار",
       "demo_remove_start": "بدء حذف البيانات التجريبية",
       "maintenance_cleanup_started": "بدأ التنظيف",
-      "maintenance_dry_run": "تجربة تنظيف (دون تغيير)"
+      "maintenance_dry_run": "تجربة تنظيف (دون تغيير)",
+      "maintenance_offsite_backup": "أُنشئت نسخة احتياطية خارج الموقع وتم التحقق منها",
+      "maintenance_restore_test": "اختبار استعادة",
+      "maintenance_mode_on": "شُغّل وضع الصيانة",
+      "maintenance_mode_off": "أُوقف وضع الصيانة",
+      "sessions_end_all": "سُجّل خروج الجميع"
     }
   },
   "moderation": {

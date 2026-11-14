@@ -152,15 +152,15 @@ export type ListingPageData = {
   kosherCertName: string | null;
   hotelJewishFeatures: string[];
   sharedRoomFor: SharedRoomFor | null;
+  /** The nearest SYNAGOGUE's walk, rounded up to 5 (never a Chabad house, founder's answer (2)). */
   synagogueWalkMin: number | null;
-  chabadWalkMin: number | null;
   /**
    * Round 3 (brief 7.3): minutes on foot from the pin to the nearest beach / ski lift (sea and ski
    * towns only, ≤ 30). Missing = none.
    */
   seaWalkMinutes?: number | null;
   liftWalkMinutes?: number | null;
-  /** Listing.nearby reduced by publicNearby (walks rounded up to 5 minutes, no meters). */
+  /** Listing.nearby reduced by publicWalkTimes (walks rounded up to 5 minutes, no meters, at most 3 walks). */
   nearby: PublicNearbyInfo;
 
   deposit: number | null;

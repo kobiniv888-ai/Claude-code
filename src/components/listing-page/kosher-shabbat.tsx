@@ -95,7 +95,7 @@ export function KosherShabbatSection({ data, synagogue }: { data: ListingPageDat
           <p className="flex items-start gap-2.5">
             <SpriteIcon name="map-pin" className="mt-0.5 size-5 shrink-0 text-primary-text" />
             <span>
-              {t(synagogue.kind === "chabad" ? "nearestChabad" : "nearestSynagogue")}: <span dir="auto" className="font-medium">{synagogue.name}</span>
+              {t("nearestSynagogue")}: <span dir="auto" className="font-medium">{synagogue.name}</span>
               <span aria-hidden="true" className="px-1.5 text-muted-foreground">·</span>
               {t("walk", { count: synagogue.minutes })}
             </span>

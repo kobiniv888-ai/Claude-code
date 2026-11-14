@@ -486,7 +486,12 @@
       "verification_documents_left": "Документы не удалены после решения",
       "demo_remove_start": "Начато удаление демо-данных",
       "maintenance_cleanup_started": "Очистка начата",
-      "maintenance_dry_run": "Пробный запуск очистки (без изменений)"
+      "maintenance_dry_run": "Пробный запуск очистки (без изменений)",
+      "maintenance_offsite_backup": "Внешняя резервная копия создана и проверена",
+      "maintenance_restore_test": "Проверка восстановления",
+      "maintenance_mode_on": "Режим обслуживания включён",
+      "maintenance_mode_off": "Режим обслуживания выключен",
+      "sessions_end_all": "Все пользователи вышли из системы"
     }
   },
   "moderation": {

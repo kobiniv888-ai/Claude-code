@@ -20,6 +20,8 @@ export const BOOKING_ERROR_CODES = [
   "name_required",
   "too_long",
   "not_cancellable",
+  /** "The host asked me to cancel": already answered, or past the 72 hours (./host-asked.ts). */
+  "not_answerable",
   "reason_required",
   "reason_text_required",
   "no_show_not_allowed",

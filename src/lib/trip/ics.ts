@@ -10,8 +10,10 @@
  * there on the check-out morning too); an all-day DTEND is exclusive, so it is check-out + 1.
  *
  * RFC 5545: CRLF line endings, lines folded at 75 octets (never inside a UTF-8 character), TEXT
- * values escaped (backslash, semicolon, comma, newline). The file holds the exact address and the
- * host's phone: it is served only to the signed-in guest of a confirmed booking, never cached.
+ * values escaped (backslash, semicolon, comma, newline). The file never holds the exact address or
+ * the pin (founder's answer (10), 9 Nov 2026: the location is the city, the description links to
+ * the trip page); it holds the host's phone, so it is served only to the signed-in guest of a
+ * confirmed booking, never cached.
  */
 import { addDays, checkInMoment, cleanTime } from "@/lib/booking/dates";
 
@@ -31,7 +33,7 @@ export type TripCalendarInput = {
   summary: string;
   /** Lines of the description (booking number, arrival, host, phone, amount, link). */
   description: string[];
-  /** The exact address (only the guest of the booking gets this file). */
+  /** The listing's CITY (never the exact address: founder's answer (10)). */
   location?: string | null;
   lat?: number | null;
   lng?: number | null;

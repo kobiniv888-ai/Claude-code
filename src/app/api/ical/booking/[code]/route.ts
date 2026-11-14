@@ -8,10 +8,10 @@ import { tripIcsFile } from "@/lib/trip/calendar-server";
 
 /**
  * GET /api/ical/booking/<code>(.ics)?lang=he — "הוספה ליומן" on the trip page (round 3, brief 7.1).
- * Only for the signed-in guest of a CONFIRMED booking: the file holds the exact address and the
- * host's phone. One event for the stay: from the check-in time to the check-out time, Georgia
- * time (or all-day when "גמיש"), with the address, the booking number and the trip page
- * (src/lib/trip/ics.ts). Texts in `lang` (else the account's language). Never cached.
+ * Only for the signed-in guest of a CONFIRMED booking: the file holds the host's phone. One event
+ * for the stay: from the check-in time to the check-out time, Georgia time (or all-day when
+ * "גמיש"), with the city (never the exact address or pin: founder's answer (10)), the booking
+ * number and the trip page, where the address is (src/lib/trip/ics.ts). Texts in `lang` (else the account's language). Never cached.
  *
  * The same session rules as the trip page (SECURITY_REPORT 4.2.a, 4.3.b): signed in AND the
  * 2-step code entered in this session when the account has 2-step login (requireUserForAction);

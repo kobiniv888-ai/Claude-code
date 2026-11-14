@@ -5,7 +5,18 @@ import { haversineMeters, walkingMinutes, type LatLng } from "@/lib/geo";
 import { NEAR_WALK_MINUTES, isNearWalk } from "@/lib/geo/walk-towns";
 import { SYNAGOGUE_WALK_OPTIONS } from "@/lib/listing/search-params";
 import type { NearbyInfo } from "@/lib/nearby";
-import { WALK_STEP_MINUTES, chabadWalkIsPublic, isFirstWalkStep, publicKm, publicNearby, publicWalkMinutes, publicWalkTimes } from "./public-walk";
+import {
+  MAX_PUBLIC_WALKS,
+  PUBLIC_WALK_ORDER,
+  WALK_STEP_MINUTES,
+  countPublicWalks,
+  isFirstWalkStep,
+  keptWalkKinds,
+  publicKm,
+  publicNearby,
+  publicWalkMinutes,
+  publicWalkTimes,
+} from "./public-walk";
 
 describe("publicWalkMinutes (security checklist 6.d, founder's decision 2)", () => {
   it("rounds every walk UP to the next 5 minutes", () => {
@@ -76,15 +87,14 @@ describe("publicNearby", () => {
     exactPin: { lat: 41.6, lng: 41.6 },
   } as unknown as NearbyInfo;
 
-  it("rounds every walking time, drops the meters, unshown entries and unknown keys; airport in whole km", () => {
-    expect(publicNearby(stored, { chabad: true })).toEqual({
+  it("rounds every walking time, drops the meters, the Chabad house, unshown entries and unknown keys; airport in whole km", () => {
+    expect(publicNearby(stored)).toEqual({
       synagogue: { id: "p1", name: stored.synagogue!.name, minutes: 10 },
-      chabad: { id: "p2", name: stored.chabad!.name, minutes: 5 },
       supermarket: { minutes: 10, name: "Market", names: { en: "Market" } },
       transport: { kind: "tram", minutes: 5, name: "Tram stop" },
       airport: { code: "BUS", km: 4 },
     });
-    expect(JSON.stringify(publicNearby(stored, { chabad: true }))).not.toMatch(/meters|exactPin|kosherFood|Pin Market|Pin Stop|450|650/);
+    expect(JSON.stringify(publicNearby(stored))).not.toMatch(/meters|exactPin|kosherFood|chabad|Chabad|p2|Pin Market|Pin Stop|450|650/);
   });
 
   it("never shows the supermarket or stop picked around the pin, even when no public one is stored", () => {
@@ -95,36 +105,58 @@ describe("publicNearby", () => {
     expect(out.transport).toBeUndefined();
   });
 
-  it("keeps the Chabad house only when it may be a walking time of its own (at most two per listing)", () => {
-    // Without opts: only when it is the nearest synagogue itself (fail closed).
-    expect(publicNearby(stored).chabad).toBeUndefined();
-    const same = { ...stored, synagogue: stored.chabad } as NearbyInfo;
-    expect(publicNearby(same).chabad).toEqual({ id: "p2", name: stored.chabad!.name, minutes: 5 });
-    expect(chabadWalkIsPublic(stored, false)).toBe(true);
-    expect(chabadWalkIsPublic(stored, true)).toBe(false);
-    expect(chabadWalkIsPublic(same, true)).toBe(true);
-    expect(chabadWalkIsPublic(null, true)).toBe(false);
+  it("answer (2): a Chabad house is never a listing's walking time, wherever the listing is", () => {
+    for (const town of [{}, { seaWalkMinutes: 12 }, { liftWalkMinutes: 4 }]) {
+      // Even a legacy row where the Chabad house was stored as the nearest "synagogue" keeps only
+      // the synagogue entry by id; the Chabad entry and chabadWalkMin are gone.
+      const out = publicWalkTimes({ synagogueWalkMin: 7, chabadWalkMin: 3, nearby: stored, ...town } as never);
+      expect(out).not.toHaveProperty("chabadWalkMin");
+      expect(out.nearby).not.toHaveProperty("chabad");
+      expect(JSON.stringify(out)).not.toMatch(/chabad|Chabad|"p2"/);
+      expect(out.synagogueWalkMin).toBe(10);
+    }
   });
 
-  it("publicWalkTimes: synagogue + sea is two walking times, so a different Chabad house is left out", () => {
-    const row = { synagogueWalkMin: 7, chabadWalkMin: 9, seaWalkMinutes: 12, liftWalkMinutes: null, nearby: stored };
-    expect(publicWalkTimes(row)).toMatchObject({ synagogueWalkMin: 10, chabadWalkMin: null, seaWalkMinutes: 15, liftWalkMinutes: null });
-    expect(publicWalkTimes(row).nearby.chabad).toBeUndefined();
-    // Without a sea/lift walk the Chabad house is the second one.
-    const inland = { ...row, seaWalkMinutes: null };
-    expect(publicWalkTimes(inland)).toMatchObject({ synagogueWalkMin: 10, chabadWalkMin: 10 });
-    expect(publicWalkTimes(inland).nearby.chabad).toMatchObject({ id: "p2", minutes: 5 });
-    for (const r of [row, inland]) {
-      const out = publicWalkTimes(r);
-      const venues = new Set([out.nearby.synagogue?.id, out.nearby.chabad?.id].filter(Boolean));
-      expect(venues.size + (out.seaWalkMinutes !== null || out.liftWalkMinutes !== null ? 1 : 0)).toBeLessThanOrEqual(2);
+  it("answer (3): at most 3 walking times per listing, kept in the documented order", () => {
+    expect(MAX_PUBLIC_WALKS).toBe(3);
+    expect(PUBLIC_WALK_ORDER).toEqual(["sea", "lift", "synagogue", "transport", "supermarket"]);
+    // Sea + synagogue + stop + shop: the shop (last in the order) is left out.
+    const sea = publicWalkTimes({ synagogueWalkMin: 7, seaWalkMinutes: 12, liftWalkMinutes: null, nearby: stored });
+    expect(sea).toMatchObject({ seaWalkMinutes: 15, synagogueWalkMin: 10, liftWalkMinutes: null });
+    expect(sea.nearby.transport).toMatchObject({ kind: "tram", minutes: 5 });
+    expect(sea.nearby.supermarket).toBeUndefined();
+    expect(countPublicWalks(sea)).toBe(3);
+    // Inland: synagogue, stop and shop all fit.
+    const inland = publicWalkTimes({ synagogueWalkMin: 7, seaWalkMinutes: null, liftWalkMinutes: null, nearby: stored });
+    expect(inland.nearby.supermarket).toMatchObject({ minutes: 10 });
+    expect(countPublicWalks(inland)).toBe(3);
+    // A broken row with both a sea and a lift walk: sea, lift, synagogue; no stop or shop.
+    const both = publicWalkTimes({ synagogueWalkMin: 7, seaWalkMinutes: 3, liftWalkMinutes: 4, nearby: stored });
+    expect(both).toMatchObject({ seaWalkMinutes: 5, liftWalkMinutes: 5, synagogueWalkMin: 10 });
+    expect(both.nearby.transport).toBeUndefined();
+    expect(both.nearby.supermarket).toBeUndefined();
+    expect(both.nearby.synagogue).toMatchObject({ id: "p1" });
+    // Every combination stays within the cap, and the airport (a distance, not a walk) stays.
+    const values = [null, 3, 12];
+    for (const s of values) for (const l of values) for (const g of values) {
+      const out = publicWalkTimes({ synagogueWalkMin: g, seaWalkMinutes: s, liftWalkMinutes: l, nearby: stored });
+      expect(countPublicWalks(out)).toBeLessThanOrEqual(MAX_PUBLIC_WALKS);
+      expect(out.nearby.airport).toEqual({ code: "BUS", km: 4 });
     }
+    expect([...keptWalkKinds({ supermarket: true, transport: true, synagogue: true, sea: true })]).toEqual(["sea", "synagogue", "transport"]);
+  });
+
+  it("the synagogue counts once whether it comes from the column or the JSON", () => {
+    const noColumn = publicWalkTimes({ synagogueWalkMin: null, seaWalkMinutes: 12, nearby: stored });
+    expect(noColumn.synagogueWalkMin).toBe(10);
+    expect(countPublicWalks(noColumn)).toBe(3);
   });
 
   it("tolerates empty or broken values", () => {
     expect(publicNearby(null)).toEqual({});
     expect(publicNearby({ synagogue: { id: "x", minutes: "7" } } as unknown as NearbyInfo)).toEqual({});
     expect(publicNearby({ public: "nope" } as unknown as NearbyInfo)).toEqual({});
+    expect(publicWalkTimes({})).toEqual({ synagogueWalkMin: null, seaWalkMinutes: null, liftWalkMinutes: null, nearby: {} });
   });
 });
 
@@ -141,7 +173,6 @@ describe("walking-time texts: 'up to N' for every value, never '≈' (founder's 
     ["listing", "highlights.liftWalk", "count"],
     ["listing", "kosher.walk", "count"],
     ["listingFields", "facts.synagogueWalk", "count"],
-    ["listingFields", "facts.chabadWalk", "count"],
     ["listingFields", "filter.synagogueMaxWalk", "count"],
     ["trips", "shabbat.walk", "count"],
   ] as const;
@@ -204,7 +235,9 @@ describe("walking-time texts: 'up to N' for every value, never '≈' (founder's 
  * models the page as it is built:
  * - the supermarket and the stop, with their NAMES and walking times, picked around the public
  *   map point (pickOsmForListing in @/lib/nearby; Poisson point sets of 10–40 stops per km²);
- * - at most two walking times measured from the pin (publicWalkTimes), rounded up to 5 minutes.
+ * - at most two walking times measured from the pin (publicWalkTimes: the sea/lift walk and the
+ *   synagogue; the third of the at most 3 walks is the stop or shop around the public point),
+ *   rounded up to 5 minutes.
  * The names and walks of the supermarket and stop must add nothing at all (the region is exactly
  * the one of the walking times alone), and the same names taken from the pin, as before the fix,
  * would have shrunk it to about a building.
@@ -255,7 +288,7 @@ describe("trilateration from everything a listing page shows", () => {
         Array.from({ length: Math.round(perKm2 * 9) }, () => move(home, 1_500 * Math.sqrt(rand()), 2 * Math.PI * rand()));
       const shops = scatter(density * 0.7);
       const stops = scatter(density);
-      // Two walking times from the pin (the most a page shows): the synagogue and the sea/Chabad.
+      // Two walking times from the pin (the most a page shows): the synagogue and the sea/lift.
       const venues = Array.from({ length: 1 + (scenario % 2) }, () => move(home, 150 + rand() * 1_350, 2 * Math.PI * rand()));
       const page = {
         walks: venues.map((v) => shown(home, v)),

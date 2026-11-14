@@ -486,7 +486,12 @@
       "verification_documents_left": "מסמכים שלא נמחקו אחרי החלטה",
       "demo_remove_start": "התחלת מחיקת נתוני הדמו",
       "maintenance_cleanup_started": "התחיל ניקוי",
-      "maintenance_dry_run": "בדיקה לפני ניקוי (בלי שינוי)"
+      "maintenance_dry_run": "בדיקה לפני ניקוי (בלי שינוי)",
+      "maintenance_offsite_backup": "גיבוי מחוץ לאתר נוצר ונבדק",
+      "maintenance_restore_test": "בוצעה בדיקת שחזור",
+      "maintenance_mode_on": "מצב תחזוקה הופעל",
+      "maintenance_mode_off": "מצב תחזוקה כובה",
+      "sessions_end_all": "כל המשתמשים נותקו"
     }
   },
   "moderation": {

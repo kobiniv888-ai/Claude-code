@@ -73,6 +73,17 @@ describe("who gets through while it is on", () => {
     }
   });
 
+  it("no SMS code goes out while it is on: the login library's text-message endpoints are closed", () => {
+    for (const path of ["/api/auth/phone-number/send-otp", "/api/auth/phone-number/verify", "/api/auth/sign-in/phone-number"]) {
+      expect(maintenanceArea(path), path).toBe("closed");
+      for (const viewer of [ANON, USER, MODERATOR, ADMIN_PENDING]) expect(maintenanceAllows(action(path), viewer), `${path} ${viewer?.role}`).toBe(false);
+    }
+    // The email code and Google stay open, so an ADMIN can still log in.
+    for (const path of ["/api/auth/email-otp/send-verification-otp", "/api/auth/sign-in/email-otp", "/api/auth/sign-in/social", "/api/auth/callback/google"]) {
+      expect(maintenanceArea(path), path).toBe("open");
+    }
+  });
+
   it("every public page and API is closed to visitors, users and non-admin staff", () => {
     for (const path of ["/", "/he", "/en/search", "/he/listing/12-flat", "/he/listing/12-x.y", "/ru/account/trips/BT-12345", "/api/geocode", "/api/csp-report", "/robots.txt", "/sitemap.xml", "/he/safety"]) {
       expect(maintenanceArea(path), path).toBe("closed");

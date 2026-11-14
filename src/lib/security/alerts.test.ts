@@ -21,6 +21,7 @@ function signals(over: Partial<Signals> = {}): Signals {
     events: {},
     perIpMax: {},
     staffNewDevices: 0,
+    staffSecurityChanges: 0,
     maintenanceOn: 0,
     maintenanceOff: 0,
     roleChanges: 0,
@@ -37,7 +38,7 @@ function signals(over: Partial<Signals> = {}): Signals {
 
 function harness(opts: { state?: State; signals?: Partial<Signals>; delivered?: boolean; tickets?: { id: string; number: number; waitingSince: Date }[] } = {}) {
   let state: State = opts.state ?? {};
-  const deliver = vi.fn(async () => ({ email: opts.delivered ?? true, telegram: 0 }));
+  const deliver = vi.fn<NonNullable<Deps["deliver"]>>(async () => ({ email: opts.delivered ?? true, telegram: 0 }));
   const collect = vi.fn(async (_since: Date, _now: Date, extra: { certificateDaysLeft?: number | null }) =>
     signals({ ...opts.signals, certificateDaysLeft: extra.certificateDaysLeft ?? null }),
   );

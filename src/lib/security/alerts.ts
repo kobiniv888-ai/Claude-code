@@ -7,6 +7,7 @@ import { isAppLocale } from "@/i18n/locale";
 import { readOffsiteConfig } from "@/lib/admin/maintenance/offsite-config";
 import { sendFounderEmail } from "@/lib/alerts/founder-admin";
 import { sendTelegramMessage } from "@/lib/alerts/telegram";
+import { STAFF_ROLES } from "@/lib/auth/permissions";
 import { db } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
 import { isProductionSite } from "@/lib/site-env";
@@ -88,7 +89,7 @@ export function windowStart(now: Date, lastRunAt: string | undefined): Date {
 /** Everything the rules look at, for the window [since, now]. */
 export async function collectSecuritySignals(since: Date, now: Date, opts: { certificateDaysLeft?: number | null } = {}): Promise<SecuritySignals> {
   const window = { gte: since, lte: now };
-  const [byType, perIp, staffNewDevices, maintenanceOn, maintenanceOff, roleChanges, signupsSite, signupsPerIp, listingsCreated, bookingsCreated, lastOk] =
+  const [byType, perIp, staffNewDevices, staffSecurityChanges, maintenanceOn, maintenanceOff, roleChanges, signupsSite, signupsPerIp, listingsCreated, bookingsCreated, lastOk] =
     await Promise.all([
       db.securityEvent.groupBy({ by: ["type"], where: { createdAt: window }, _count: { _all: true } }),
       db.$queryRaw<{ type: string; max: number }[]>`
@@ -98,6 +99,15 @@ export async function collectSecuritySignals(since: Date, now: Date, opts: { cer
           GROUP BY type, "ipHash"
         ) per_ip GROUP BY type`,
       db.securityEvent.count({ where: { type: "new_device_login", createdAt: window, meta: { path: ["staff"], equals: true } } }),
+      // A staff account's own security changes; a listing's contact details are not one.
+      db.securityEvent.count({
+        where: {
+          type: "sensitive_change",
+          createdAt: window,
+          user: { role: { in: [...STAFF_ROLES] } },
+          NOT: { meta: { path: ["kind"], equals: "listing_contact" } },
+        },
+      }),
       db.securityEvent.count({ where: { type: "maintenance_mode_changed", createdAt: window, meta: { path: ["on"], equals: true } } }),
       db.securityEvent.count({ where: { type: "maintenance_mode_changed", createdAt: window, meta: { path: ["on"], equals: false } } }),
       db.auditLog.count({ where: { action: "user.role_change", createdAt: window } }),
@@ -119,6 +129,7 @@ export async function collectSecuritySignals(since: Date, now: Date, opts: { cer
     events: Object.fromEntries(byType.map((row) => [row.type, row._count._all])),
     perIpMax: Object.fromEntries(perIp.map((row) => [row.type, Number(row.max)])),
     staffNewDevices,
+    staffSecurityChanges,
     maintenanceOn,
     maintenanceOff,
     roleChanges,

@@ -443,4 +443,14 @@ export default async function TripPage({ params, searchParams }: Props) {
   );
 }
 
-const GUEST_REASON_KEYS = { CHANGE_OF_PLANS: 1, FOUND_OTHER_STAY: 1, TRAVEL_PROBLEM: 1, HOST_ASKED: 1, OTHER: 1 } as const;
+// HOST_ASKED_*: the host's answer to "the host asked me to cancel" (founder's answer (4)).
+const GUEST_REASON_KEYS = {
+  CHANGE_OF_PLANS: 1,
+  FOUND_OTHER_STAY: 1,
+  TRAVEL_PROBLEM: 1,
+  HOST_ASKED: 1,
+  HOST_ASKED_CONFIRMED: 1,
+  HOST_ASKED_DENIED: 1,
+  HOST_ASKED_EXPIRED: 1,
+  OTHER: 1,
+} as const;

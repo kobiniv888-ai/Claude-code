@@ -201,7 +201,6 @@ export function CompareView() {
         { label: t("rows.kitchen"), cell: (i) => (i.jewish.kitchenKosher ? tf(`kitchenKosher.${i.jewish.kitchenKosher}`) : <Dash />) },
         { label: t("rows.kosherCert"), cell: (i) => (i.jewish.kosherCertName ? <span dir="auto">{i.jewish.kosherCertName}</span> : <Dash />) },
         { label: t("rows.synagogue"), cell: (i) => minutes(i.jewish.synagogueWalkMin) },
-        { label: t("rows.chabad"), cell: (i) => minutes(i.jewish.chabadWalkMin) },
         { label: t("rows.jewishFeatures"), cell: (i) => <List items={i.jewish.features.map(featureLabel)} /> },
       ],
     },

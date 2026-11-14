@@ -30,6 +30,8 @@ import { requireUserForAction } from "./session";
 import { requireFreshProof } from "./fresh-proof";
 import { isPhoneReplacement } from "./fresh-proof-rules";
 import { afterPhoneChanged } from "./phone-change";
+import { withNeutralPhoneSend } from "./phone-neutral";
+import { requireAccountEmail } from "./account-email-guard";
 import { forgetScreenCode, phoneCodeKey, phoneCodeRoute, readScreenCode } from "./sms";
 import { requestSmsSource, withSmsSource } from "./sms-guard";
 
@@ -150,6 +152,8 @@ async function sessionBinding(user: { id: string; sessionId: string }, phoneNumb
 export async function sendPhoneCheckCode(input: unknown): Promise<ActionResult<PhoneCodeSent>> {
   return runAction<PhoneCodeSent>(async () => {
     const user = await requireUserForAction();
+    // Every account has an email first (founder's answer (5)): the email route never depends on texts.
+    requireAccountEmail(user);
     const parsed = sendSchema.safeParse(input);
     if (!parsed.success) return fail("invalid_phone");
     // "+972 053…" or "+9720…" → "+97253…" before the strict check (brief 2.5).
@@ -166,9 +170,9 @@ export async function sendPhoneCheckCode(input: unknown): Promise<ActionResult<P
     // Replacing a verified number is a sensitive change: a fresh code first (SECURITY_REPORT 3.6.a).
     if (isPhoneReplacement(user, phoneNumber)) await requireFreshProof(user);
 
-    // "phone_taken" tells whether some account has this number: charge the limits and check the
-    // CAPTCHA before looking, so the action cannot be used to test numbers in bulk (hardening A1).
-    // The answer comes before any SMS is sent (founder's answer Q5 A: no SMS wasted on it).
+    // Founder's answer (5), 9 Nov 2026: the answer is the same whether or not another account has
+    // this number (no "number already used"; ./phone-neutral.ts). The limits and the CAPTCHA come
+    // first as before (hardening A1).
     if (!(await limitPhoneCheckRequests(user.id))) return fail("rate_limited");
     if (place.newHost && !(await limitNewHostPhoneChecks(user.id))) return fail("rate_limited");
     if (!(await verifyTurnstile(parsed.data.captchaToken, { expectedAction: "login" }))) return fail("captcha_failed");
@@ -179,7 +183,7 @@ export async function sendPhoneCheckCode(input: unknown): Promise<ActionResult<P
     });
     const step = phoneCheckStep(user, phoneNumber, { usedByAnotherAccount: !!other });
     if (step === "already_verified") return ok({ status: "already_verified", phoneNumber });
-    if (step === "phone_taken") return fail("phone_taken");
+    const neutral = step === "send_neutral";
 
     const requestHeaders = await headers();
     if ((await phoneCodeRoute(phoneNumber, requestHeaders)) === "unavailable") return fail("phone_check_unavailable");
@@ -188,14 +192,17 @@ export async function sendPhoneCheckCode(input: unknown): Promise<ActionResult<P
       // Runs the same hooks as the login form: number rules, resend waits, daily caps, SMS budget.
       // The source (this account, its IP block, trusted or not) drives the SMS brakes (./sms-guard.ts).
       const source = await requestSmsSource(user.id);
-      await withSmsSource(source, () => auth.api.sendPhoneNumberOTP({ body: { phoneNumber }, headers: requestHeaders }));
+      // A number another account has: the same send, limits and stored code, but no text (answer (5)).
+      await withNeutralPhoneSend(neutral, () =>
+        withSmsSource(source, () => auth.api.sendPhoneNumberOTP({ body: { phoneNumber }, headers: requestHeaders })),
+      );
     } catch (error) {
       return apiFailure(error);
     }
     // This session (and only this one) may confirm the code. "replace": the fresh proof was checked
     // above for replacing a verified number.
     await bindCodeToSession(user, phoneNumber, isPhoneReplacement(user, phoneNumber) ? "replace" : "first");
-    const screenCode = readScreenCode(phoneCodeKey(phoneNumber), codeDisplayForHeaders(requestHeaders));
+    const screenCode = neutral ? null : readScreenCode(phoneCodeKey(phoneNumber), codeDisplayForHeaders(requestHeaders));
     return ok({ status: "sent", phoneNumber, screenCode });
   });
 }
@@ -203,6 +210,7 @@ export async function sendPhoneCheckCode(input: unknown): Promise<ActionResult<P
 export async function confirmPhoneCheckCode(input: unknown): Promise<ActionResult<{ phoneNumber: string }>> {
   return runAction(async () => {
     const user = await requireUserForAction();
+    requireAccountEmail(user);
     const parsed = confirmSchema.safeParse(input);
     if (!parsed.success) return fail("invalid_code");
     // "+972 053…" or "+9720…" → "+97253…" before the strict check (brief 2.5).
@@ -229,8 +237,9 @@ export async function confirmPhoneCheckCode(input: unknown): Promise<ActionResul
     try {
       await db.user.update({ where: { id: user.id }, data: { phoneNumber, phoneNumberVerified: true } });
     } catch (error) {
-      // Another account took the number in the meantime (phoneNumber is unique).
-      if ((error as { code?: string }).code === "P2002") return fail("phone_taken");
+      // Another account has the number (phoneNumber is unique): the same answer as a wrong code,
+      // never "taken" (founder's answer (5)).
+      if ((error as { code?: string }).code === "P2002") return fail("invalid_code");
       throw error;
     }
     forgetScreenCode(phoneCodeKey(phoneNumber));

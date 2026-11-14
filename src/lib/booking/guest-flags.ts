@@ -16,10 +16,15 @@
  *       REPEAT_NO_SHOW_WINDOW_DAYS days.
  * - NEVER counted (decision 7): a cancellation with the reason "my flight was cancelled"
  *   (FLIGHT_CANCELLED_REASON) or one inside a travel-disruption window
- *   (isTravelDisruptionCancellation). Both arrive with the next brief: the reason is not offered to
+ *   (isTravelDisruptionCancellation). Founder's answer (4), 9 Nov 2026: "the host asked me to
+ *   cancel" counts against the guest only once the host said no or did not answer within 72 hours
+ *   (./host-asked.ts); while the host may still answer, and once the host confirmed, it does not
+ *   (a confirmed one counts against the HOST, src/lib/listing/host-flags.ts). Both arrive with the next brief: the reason is not offered to
  *   guests yet, and the hook says "no window" until the windows exist. Every counting rule goes
  *   through countsAsGuestCancellation, so adding them later changes no query.
  */
+import { effectiveHostAskedState, hostAskedCountsAgainstGuest } from "./host-asked";
+
 export const MAX_UPCOMING_BOOKINGS_PER_PHONE = 2;
 
 export const LONG_STAY_FLAG_NIGHTS = 14;
@@ -61,10 +66,14 @@ export type CountableCancellation = DisruptionCheckBooking & {
   cancelReasonCode: string | null;
 };
 
-/** Does this booking count as a guest cancellation for the repeat flag? */
-export function countsAsGuestCancellation(booking: CountableCancellation): boolean {
+/**
+ * Does this booking count as a guest cancellation for the repeat flag? `now` decides whether a
+ * "host asked me" cancellation still waits for the host's answer (./host-asked.ts).
+ */
+export function countsAsGuestCancellation(booking: CountableCancellation, now: Date = new Date()): boolean {
   if (booking.status !== "CANCELLED_BY_GUEST" || !booking.cancelledAt) return false;
   if (booking.cancelReasonCode === FLIGHT_CANCELLED_REASON) return false;
+  if (!hostAskedCountsAgainstGuest(effectiveHostAskedState(booking, now))) return false;
   return !isTravelDisruptionCancellation(booking);
 }
 
@@ -130,7 +139,7 @@ export function summarizeGuestFlag(bookings: readonly GuestFlagBooking[], review
   const cancelTimes: Date[] = [];
   const noShowTimes: Date[] = [];
   for (const booking of bookings) {
-    if (countsAsGuestCancellation(booking) && booking.cancelledAt && booking.cancelledAt >= cancelSince && booking.cancelledAt <= now) {
+    if (countsAsGuestCancellation(booking, now) && booking.cancelledAt && booking.cancelledAt >= cancelSince && booking.cancelledAt <= now) {
       cancelTimes.push(booking.cancelledAt);
     }
     if (booking.status === "NO_SHOW" && booking.noShowReportedAt && booking.noShowReportedAt >= noShowSince && booking.noShowReportedAt <= now) {

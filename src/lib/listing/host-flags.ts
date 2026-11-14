@@ -19,7 +19,15 @@
  *
  * A FLAGGED HOST (an open report flag, or an open host-cancellation flag on one of their bookings)
  * has every NEW listing wait for review (./review-rule.ts).
+ *
+ * Founder's answer (4), 9 Nov 2026: a host's OWN cancellations count against the host — those the
+ * host made (CANCELLED_BY_HOST) and the guest cancellations the host CONFIRMED as "I asked the
+ * guest to cancel" (src/lib/booking/host-asked.ts). HOST_REPEAT_CANCEL_FLAG_MIN of them within
+ * HOST_REPEAT_CANCEL_WINDOW_DAYS days are shown on the host's admin pages (hostFlagSummary
+ * `repeatCancellations`), review only: nothing automatic follows from the count (decision 7).
  */
+
+import { effectiveHostAskedState, hostAskedCountsAgainstHost } from "@/lib/booking/host-asked";
 
 export const HOST_REPORT_FLAG_MIN = 2;
 export const HOST_REPORT_WINDOW_DAYS = 365;
@@ -100,4 +108,34 @@ export function hoursFromBookingToCancel(createdAt: Date, cancelledAt: Date | nu
  */
 export function hostCancelHours(booking: { status: string; createdAt: Date; cancelledAt: Date | null }): number | null {
   return booking.status === "CANCELLED_BY_HOST" ? hoursFromBookingToCancel(booking.createdAt, booking.cancelledAt) : null;
+}
+
+// ─── The host's own cancellations (founder's answer (4)) ──────────────────────
+
+export const HOST_REPEAT_CANCEL_FLAG_MIN = 3;
+export const HOST_REPEAT_CANCEL_WINDOW_DAYS = 90;
+
+/** The first moment a host cancellation still counts toward the repeat rule. */
+export function hostRepeatCancelWindowStart(now: Date): Date {
+  return new Date(now.getTime() - HOST_REPEAT_CANCEL_WINDOW_DAYS * DAY_MS);
+}
+
+export type HostCancellation = { status: string; cancelReasonCode: string | null; cancelledAt: Date | null };
+
+/**
+ * Does this booking count against its HOST? A cancellation the host made, or a guest's "the host
+ * asked me to cancel" that the host confirmed. A denied or unanswered one goes to staff instead
+ * (Admin → Flags), and a pending one counts against nobody yet.
+ */
+export function countsAsHostCancellation(booking: HostCancellation, now: Date = new Date()): boolean {
+  if (!booking.cancelledAt) return false;
+  if (booking.status === "CANCELLED_BY_HOST") return true;
+  return booking.status === "CANCELLED_BY_GUEST" && hostAskedCountsAgainstHost(effectiveHostAskedState(booking, now));
+}
+
+/** How many of these count against the host in the 90-day window, and whether the rule is met. */
+export function summarizeHostCancellations(bookings: readonly HostCancellation[], now: Date): { count: number; repeat: boolean } {
+  const since = hostRepeatCancelWindowStart(now);
+  const count = bookings.filter((b) => countsAsHostCancellation(b, now) && b.cancelledAt! >= since && b.cancelledAt! <= now).length;
+  return { count, repeat: count >= HOST_REPEAT_CANCEL_FLAG_MIN };
 }

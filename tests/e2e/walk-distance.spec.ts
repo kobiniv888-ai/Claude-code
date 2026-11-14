@@ -73,3 +73,23 @@ test("the credits page names OpenStreetMap and its licence", async ({ browser })
   await expect(data.getByRole("link", { name: "OpenStreetMap copyright" })).toHaveAttribute("href", "https://www.openstreetmap.org/copyright");
   await context.close();
 });
+
+/**
+ * Founder's answers (2) and (3), 9 Nov 2026: a listing page shows at most 3 walking times (sea or
+ * lifts first, then the synagogue, the stop, the supermarket) and never a Chabad house walk (the
+ * community map shows Chabad houses). Checked in the page's text, folded sections included.
+ */
+test("a listing page shows at most 3 walking times and never a Chabad house walk", async ({ browser }) => {
+  const { context, page, consoleErrors } = await openAs(browser, null);
+  for (const publicId of [104, 107]) {
+    await page.goto(`/en/listing/${publicId}`);
+    await settle(page);
+    const text = ((await page.locator("main").textContent()) ?? "").replace(/[⁦-⁩‎‏]/g, "");
+    const walks = text.match(/up to \d+ min(?:utes'?)? walk/gi) ?? [];
+    expect(walks.length, `walking times on #${publicId}: ${walks.join(" | ")}`).toBeLessThanOrEqual(3);
+    expect(text).not.toContain("Nearest Chabad house");
+    expect(text).not.toMatch(/≈\s*\d+/);
+  }
+  expect(consoleErrors).toEqual([]);
+  await context.close();
+});

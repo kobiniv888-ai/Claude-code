@@ -12,6 +12,7 @@ import { authErrorKey, type AuthErrorKey } from "@/lib/auth/error-codes";
 import { safeNextPath } from "@/lib/auth/next-path";
 import { EmailCodeForm } from "./email-code-form";
 import { FirstNameForm } from "./first-name-form";
+import { AccountEmailStep } from "./account-email-step";
 import { PhoneCodeForm } from "./phone-code-form";
 import { AppleIcon, GoogleIcon } from "./provider-icons";
 import { TestModeStrip } from "./test-mode-strip";
@@ -24,13 +25,14 @@ type Provider = "google" | "apple";
  * Where the visitor is in the login: the first screen, the 6-digit code, the 2-step code, the
  * first name (new accounts), or done.
  */
-export type LoginStage = "start" | "code" | "two-factor" | "name" | "done";
+export type LoginStage = "start" | "code" | "two-factor" | "email" | "name" | "done";
 
 /**
  * The login UI (founder request, round 2), in this order: Google (and Apple) when configured, a code
  * by email (always), and — in development / test mode only — a code by phone, so testers can sign
- * in as the demo accounts. Then, in place: the 2-step check when the account has it on, and the
- * first-name step for a new account. Used by the /login page and the login dialog.
+ * in as the demo accounts. Then, in place: the 2-step check when the account has it on, the "add
+ * your email" step for an account without a real email (founder's answer (5): phone sign-ups and
+ * existing phone-only accounts, before continuing), and the first-name step for a new account. Used by the /login page and the login dialog.
  *
  * Without `onSuccess`, it navigates to `next` after logging in.
  */
@@ -49,8 +51,8 @@ export function LoginPanel({
   next?: string;
   variant?: "page" | "dialog";
   initialError?: AuthErrorKey | null;
-  /** "name": already signed in, the first name is still missing (the /login page). */
-  initialStage?: "start" | "name";
+  /** "name" / "email": already signed in, the first name or a real email is still missing (the /login page). */
+  initialStage?: "start" | "name" | "email";
   onSuccess?: () => void | Promise<void>;
   /** Lets the sheet or page shrink its welcome block while a code is being entered. */
   onStageChange?: (stage: LoginStage) => void;
@@ -63,8 +65,8 @@ export function LoginPanel({
   const errorMessage = useAuthErrorMessage();
   const target = safeNextPath(next);
 
-  const [step, setStepState] = useState<"start" | "two-factor" | "name" | "done">(initialStage);
-  const setStep = (next: "start" | "two-factor" | "name" | "done") => {
+  const [step, setStepState] = useState<"start" | "two-factor" | "email" | "name" | "done">(initialStage);
+  const setStep = (next: "start" | "two-factor" | "email" | "name" | "done") => {
     setStepState(next);
     onStageChange?.(next);
   };
@@ -90,6 +92,10 @@ export function LoginPanel({
     const state = await getLoginState().catch(() => null);
     if (state?.twoFactorRequired) {
       setStep("two-factor");
+      return;
+    }
+    if (state?.needsAccountEmail) {
+      setStep("email");
       return;
     }
     if (state?.needsFirstName) {
@@ -146,6 +152,10 @@ export function LoginPanel({
         ) : null}
       </div>
     );
+  }
+
+  if (step === "email") {
+    return <AccountEmailStep onDone={afterSignIn} />;
   }
 
   if (step === "name") {

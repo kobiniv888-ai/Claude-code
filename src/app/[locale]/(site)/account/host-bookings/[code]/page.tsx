@@ -18,6 +18,7 @@ import { Ltr } from "@/components/common/ltr";
 import { PageHeader } from "@/components/common/page-header";
 import { BackToListing } from "@/components/listing-form/back-to-listing";
 import { HostBookingActions } from "@/components/host-bookings/booking-actions";
+import { HostAskedAnswer } from "@/components/host-bookings/host-asked-answer";
 import { BookingStatusTag } from "@/components/host-bookings/booking-row";
 import { hostCalendarPath } from "@/components/host-calendar/paths";
 import type { AppLocale } from "@/config/site";
@@ -25,6 +26,7 @@ import { Link } from "@/i18n/navigation";
 import { formatPhoneInternational } from "@/lib/auth/phone";
 import { requireUser } from "@/lib/auth/session";
 import { HOST_BOOKINGS_PATH, hostBookingPath, isPaymentMethod } from "@/lib/booking/constants";
+import { canAnswerHostAsked, hostAskedDeadline } from "@/lib/booking/host-asked";
 import { getHostBooking } from "@/lib/booking/queries";
 import { whatsappUrl } from "@/lib/booking/reveal";
 import { telHref } from "@/lib/phone";
@@ -251,6 +253,16 @@ export default async function HostBookingPage({ params, searchParams }: Props) {
               )}
             </Card>
           )}
+
+          {/* Founder's answer (4): the host confirms or denies "the host asked me to cancel". */}
+          {canAnswerHostAsked(booking, new Date()) && hostAskedDeadline(booking.cancelledAt) ? (
+            <Card as="section" padding="lg" aria-labelledby="host-asked-title" className="border-primary">
+              <HostAskedAnswer
+                bookingId={booking.id}
+                deadline={`${formatDate(hostAskedDeadline(booking.cancelledAt)!, locale, { dateStyle: "medium" })} ${formatTime(hostAskedDeadline(booking.cancelledAt)!, locale)}`}
+              />
+            </Card>
+          ) : null}
 
           {(booking.canCancel || booking.canReportNoShow) && (
             <Card as="section" padding="lg" aria-labelledby="actions-title" className="grid gap-3">

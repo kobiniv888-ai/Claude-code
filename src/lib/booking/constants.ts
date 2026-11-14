@@ -71,8 +71,9 @@ export const HOST_CANCEL_REASONS = ["DOUBLE_BOOKING", "PROPERTY_ISSUE", "OTHER"]
 export type HostCancelReason = (typeof HOST_CANCEL_REASONS)[number];
 
 /**
- * A guest's reason. HOST_ASKED ("the host asked me to cancel") flags the booking for review, like
- * an early host cancellation: it is how a host could get around the pledge.
+ * A guest's reason. HOST_ASKED ("the host asked me to cancel"): the host is asked to confirm it
+ * (founder's answer (4), ./host-asked.ts). Confirmed, it counts against the host, not the guest;
+ * denied or unanswered for 72 hours, it goes to the admin review queue.
  */
 export const GUEST_CANCEL_REASONS = ["CHANGE_OF_PLANS", "FOUND_OTHER_STAY", "TRAVEL_PROBLEM", "HOST_ASKED", "OTHER"] as const;
 export type GuestCancelReason = (typeof GUEST_CANCEL_REASONS)[number];

@@ -239,6 +239,13 @@ order. The detailed steps and prices are in "Login & messages" below.
       arrive" report from a host and a cancellation after the free period are only recorded (and
       host cancellations within 48 hours of a booking are flagged for review). Tell us if you want
       consequences (warnings, limits on booking) and how they should read in the Terms.
+- [ ] **Ask the lawyer: "the shortest safe time" to keep the texts of closed cases** (your answer
+      7 of 9 November 2026). Support-ticket texts, report texts and report screenshots are erased
+      on ONE clock, today **180 days after the ticket was closed or the report decided** (an
+      interim value; `CASE_TEXT_RETENTION_DAYS` in `src/lib/retention-times.ts`,
+      one number to change). The other times are in place: expired logins 30 days after they
+      expired, login codes at most 24 hours, phone-line checks and notification subscriptions that
+      keep failing 90 days.
 
 ## Security round S1 (8 November 2026): what only you can do
 
@@ -271,11 +278,19 @@ order. The detailed steps and prices are in "Login & messages" below.
          about 60 days**, so nobody — not even a stolen key, and not you — can delete or
          overwrite a backup during that time.
       4. Create an **application key limited to that one bucket**, allowed to list, read and
-         write files only (no delete, no other buckets), named e.g. `bayit-backup-job`. Give it
-         only to the backup job (the developer adds it as hosting secrets). Never use the account's
-         master key there. Old backups go by a **lifecycle rule** on the bucket (e.g. after 90
-         days), not by the key.
+         write files and their locks only (no delete, no other buckets), named e.g.
+         `bayit-backup-job`. The web page's "Read and Write" key includes delete, so make it with
+         Backblaze's command-line tool, with the developer (the exact command is in
+         `docs/BACKUPS.md`, "Set up the off-site copy", step 3). Give it only to the backup job
+         (hosting settings `OFFSITE_S3_*`). Never use the account's master key there. Old backups
+         go by a **lifecycle rule** on the bucket (hide after 90 days), not by the key.
       5. Keep the account's recovery codes offline, like your other 2-step codes.
+      6. **The backup encryption key** (`BACKUP_ENCRYPTION_KEY`): make it with
+         `openssl rand -base64 32`, save it in your password manager **and on paper in a safe
+         place**, and put it in the hosting's settings. Without it no off-site copy can ever be
+         read again. The job runs every Sunday night, checks each copy by downloading it again, and
+         alerts you if it fails or if no copy succeeded for 8 days. The rest of the steps (the
+         hosting settings, the first run): `docs/BACKUPS.md`.
 - [ ] **At deploy:** the login cookie got a new name, so everyone is logged out once and staff are
       asked for their 2-step code again.
 - [ ] **Launch day — the real domain in the code.** Add the real domain(s) (e.g. `bayit.ge` and
@@ -299,6 +314,70 @@ order. The detailed steps and prices are in "Login & messages" below.
       accounts keep getting their codes during a pause.
 - [ ] **Make "supply-chain tests" a required check** on `main` once branch protection is on
       (GitHub → Settings → Branches; the workflow is `.github/workflows/checks.yml`).
+
+## Security round S2 (9 November 2026): operations and incidents
+
+- [ ] **Read `INCIDENT_PLAN.md` once, then practise it** with the developer on the staging site
+      before launch (its section 7, about an hour): maintenance mode, "sign everyone out", one key
+      change, the queries, a message template, the restore test, the short report. Fill in its
+      "Facts to fill in" (your Neon plan's restore window) and keep the contacts (names, phones,
+      account numbers) in your password manager, never in the repository.
+- [ ] **`SECURITY_CONTACT_EMAIL`** at the hosting (a private setting, never in a file): the address
+      security researchers write to (`/.well-known/security.txt` and the new "Report a security
+      problem" page, linked from the footer and the help page). The real site does not start
+      without it. A separate mailbox or alias you read every few days (e.g. `security@` your
+      domain). **Once a year** (around each November): check that it still receives mail; the file
+      renews its own expiry date.
+- [ ] **Sentry (free), EU region.** sentry.io → create the organisation with **data storage
+      location: EU (Frankfurt)** (it cannot be moved later) → a Node.js project → Settings →
+      Security & Privacy: turn on **Data Scrubber**, **Use Default Scrubbers** and **Prevent
+      Storing of IP Addresses** →
+      Client Keys → copy the DSN (its host ends in `.ingest.de.sentry.io`) into `SENTRY_DSN` at
+      the hosting. The real site does not start without it, and warns when it is not the EU
+      region. Then Alerts → a rule "a new issue / more than 20 events in an hour → email me"
+      (error spikes).
+- [ ] **A free uptime monitor** (UptimeRobot or Better Stack): check `https://<domain>/he` and
+      `https://<domain>/api/health` every 5 minutes, alert by email and the phone app.
+- [ ] **Telegram for security alerts.** The hourly security alerts go by email (`ADMIN_ALERT_EMAIL`)
+      and by Telegram: connect the bot in your own account's alert settings, or set
+      `ADMIN_ALERT_TELEGRAM_CHAT_ID` (private) at the hosting. They carry counts only, never a
+      name, address or phone. Thresholds (defaults you can change, in
+      `src/lib/security/alerts-rules.ts`): more than 20 sign-ups an hour or more than 5 from one
+      connection (alert only, nobody is blocked, at most one sign-up alert an hour), staff logins
+      from a new device and staff security changes, 2-step locks, recovery codes, more than 50
+      wrong login codes an hour (15 from one connection), SMS pauses, more than 40 booking/trip/
+      list/ticket links that match nothing (15 from one connection), booking-cap and show-contact
+      spikes, role changes, maintenance mode, "sign everyone out", off-site backup failures,
+      unreadable encrypted fields, the HTTPS certificate (21 days), and support tickets waiting
+      longer than the reply promise (one business day, Sunday to Thursday, Israel time; Friday and
+      Saturday messages are due by the end of Sunday). Each kind at most once an hour. **Your
+      decision:** whether Jewish holidays on a weekday should also pause the support clock (today
+      they count as business days).
+- [ ] **Database roles** (before launch): make the two roles `bayit_app` (the site, rows only)
+      and `bayit_migrate` (table changes, kept in your password manager) with
+      `scripts/sql/roles.sql`: the steps are in `docs/DATABASE_ROLES.md` (about 15 minutes). The
+      real site refuses to start when `DATABASE_URL` is the owner role.
+- [ ] **Restore test: before launch, then on the first Sunday of every month** (about 20
+      minutes): `docs/BACKUPS.md` → "Restore test" (a Neon branch, `npm run db:restore-test --
+      --latest-offsite`, a note of the result, delete the branch).
+- [ ] **Every Monday: the advisory check (SECURITY_REPORT 16.6).** GitHub → Actions → "Checks" →
+      the Monday run → the job **"security check (audit, floor, package age)"** (`npm run
+      security:check`, it also runs on every
+      push; Dependabot opens its own pull requests). Green: nothing to do. Red: open it and forward
+      the "high" or "critical" lines, and any Next.js or React security advisory it links, to the
+      developer the same day. A red result because a package is "too new" is not urgent (it turns
+      green by itself after 14 days).
+- [ ] **Twilio SMS Pumping Protection (founder's answer 8).** You decided to turn it on: Twilio
+      Console → Messaging → Settings → General → **SMS Pumping Protection** (if Twilio moved it,
+      search the Console for "SMS Pumping"), for the account the site uses. The **Basic** tier is
+      free and usually on already; the **Advanced** tier costs extra per message: take the current
+      price from the separate price check before you choose it. Keep **Geo permissions** to Israel
+      and Georgia only: the site also refuses every other country itself, so this stays true even
+      if the console setting changes.
+- [ ] **Never copy keys from the codespace.** The codespace now marks every key it makes for
+      itself (`bayit-dev-…` or a hidden `BAYITDEV` inside 32-byte keys); a staging or real site
+      refuses to start with a marked key. Keys made before this change carry no mark: they are
+      still development keys, never use them anywhere else.
 
 ## Login & messages (the details)
 How people log in: **Google** (when set up), a **6-digit code by email** (always), and — only on

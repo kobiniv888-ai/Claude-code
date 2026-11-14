@@ -12,8 +12,10 @@
  * Retry-After (./page.ts) and every public API a 503 JSON. What stays reachable:
  *   - always: the health check (/api/health), scheduled jobs (/api/cron/*, CRON_SECRET: backups
  *     and the founder's security alerts keep running), signed provider webhooks (/api/webhooks/*),
- *     the login library (/api/auth/*, with its own limits) and /.well-known/security.txt, public
- *     photos (/api/media, /_next/image) and static files;
+ *     the login library (/api/auth/*, with its own limits; an ADMIN logs in by email code or
+ *     Google) and /.well-known/security.txt, public photos (/api/media, /_next/image) and static
+ *     files. NOT its text-message part (/api/auth/phone-number/*): no SMS code goes out while the
+ *     site is closed (SMS pumping is one of the incidents this switch is for);
  *   - the staff entry pages (/<locale>/login, /<locale>/two-factor…): anyone may LOAD them; their
  *     actions only for an ADMIN account's session;
  *   - the admin panel (/<locale>/admin…, /api/admin/…): only an ADMIN account's session (the panel
@@ -57,6 +59,8 @@ export function parseStoredMaintenance(value: unknown): StoredMaintenance {
 export type MaintenanceArea = "open" | "staff-entry" | "admin" | "closed";
 
 const LOCALE = `(?:${locales.join("|")})`;
+/** The login library's SMS endpoints: closed like a public page (no texts while the site is offline). */
+const SMS_AUTH_PATHS = /^\/api\/auth\/(?:phone-number|sign-in\/phone-number)(?:\/|$)/;
 const OPEN_PATHS = [
   /^\/api\/health\/?$/,
   /^\/api\/cron\//,
@@ -79,6 +83,7 @@ const STAFF_ENTRY = new RegExp(`^(?:/${LOCALE})?/(?:login|two-factor)(?:/|$)`);
 const ADMIN_AREA = new RegExp(`^(?:/${LOCALE}/admin(?:/|$)|/api/admin/)`);
 
 export function maintenanceArea(pathname: string): MaintenanceArea {
+  if (SMS_AUTH_PATHS.test(pathname)) return "closed";
   if (OPEN_PATHS.some((pattern) => pattern.test(pathname))) return "open";
   if (CLOSED_FILES.test(pathname)) return "closed";
   if (STATIC_FILE.test(pathname) && !LOCALE_PREFIX.test(pathname)) return "open";

@@ -13,6 +13,7 @@ import { SECURITY_CODE_PATTERN, maskEmail } from "./fresh-proof-rules";
 import { sendSecurityCodeWithLimits, type CodeSent } from "./security-code-send";
 import { notifySecurityChange } from "./security-notices";
 import { requireUserForAction } from "./session";
+import { requireAccountEmail } from "./account-email-guard";
 
 /**
  * The contact email (Settings → email), which receives every notification instead of the login
@@ -46,6 +47,8 @@ const captchaSchema = z.object({ captchaToken: z.string().max(2048).nullish() })
 export async function sendContactEmailCode(input: unknown): Promise<ActionResult<CodeSent>> {
   return runAction<CodeSent>(async () => {
     const user = await requireUserForAction();
+    // An account without a real email adds one as its LOGIN email first (founder's answer (5)).
+    requireAccountEmail(user);
     const parsed = contactEmailSchema.safeParse(input);
     if (!parsed.success || !parsed.data.contactEmail) return fail("invalid_input", { contactEmail: ["invalid_email"] });
     const address = parsed.data.contactEmail;
@@ -63,6 +66,7 @@ export async function sendContactEmailCode(input: unknown): Promise<ActionResult
 export async function confirmContactEmailChange(input: unknown): Promise<ActionResult<{ contactEmail: string; sessionsEnded: number }>> {
   return runAction<{ contactEmail: string; sessionsEnded: number }>(async () => {
     const user = await requireUserForAction();
+    requireAccountEmail(user);
     const parsed = confirmSchema.safeParse(input);
     const address = parsed.success ? contactEmailSchema.safeParse({ contactEmail: parsed.data.contactEmail }) : null;
     if (!parsed.success || !address?.success || !address.data.contactEmail) return fail("invalid_code");

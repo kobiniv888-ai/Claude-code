@@ -39,6 +39,7 @@ export const RESERVED_CITY_SLUGS: ReadonlySet<string> = new Set([
   "safety",
   "saved",
   "search",
+  "security",
   "two-factor",
   "unsubscribe",
   "verify-phone",

@@ -113,9 +113,15 @@ export function isHostCancellationFlagged(createdAt: Date, cancelledAt: Date = n
   return cancelledAt.getTime() - createdAt.getTime() <= HOST_CANCEL_FLAG_HOURS * 3600 * 1000;
 }
 
-/** A guest saying "the host asked me to cancel" is flagged too. */
+/**
+ * Is a guest's cancellation flagged for review at the moment it is made? Never (founder's answer
+ * (4), 9 Nov 2026): "the host asked me to cancel" first asks the host to confirm; the host's "no"
+ * or 72 hours without an answer send it to review, a "yes" counts it against the host
+ * (./host-asked.ts, ./service.ts answerHostAsked / expireHostAskedAnswers).
+ */
 export function isGuestCancellationFlagged(reason: GuestCancelReason): boolean {
-  return reason === "HOST_ASKED";
+  void reason;
+  return false;
 }
 
 export function isHostCancelReason(value: unknown): value is HostCancelReason {

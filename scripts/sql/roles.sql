@@ -48,7 +48,11 @@ GRANT bayit_migrate TO CURRENT_USER;
 
 -- Who may create things in the schema: only the migration role.
 SELECT current_database() AS dbname \gset
-GRANT CONNECT, TEMPORARY ON DATABASE :"dbname" TO bayit_app, bayit_migrate;
+-- The app may connect, nothing more: no temporary tables either (PostgreSQL gives every role
+-- TEMPORARY by default, through PUBLIC).
+REVOKE TEMPORARY ON DATABASE :"dbname" FROM PUBLIC;
+GRANT CONNECT ON DATABASE :"dbname" TO bayit_app;
+GRANT CONNECT, TEMPORARY ON DATABASE :"dbname" TO bayit_migrate;
 REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 GRANT USAGE, CREATE ON SCHEMA public TO bayit_migrate;
 GRANT USAGE ON SCHEMA public TO bayit_app;
@@ -106,6 +110,9 @@ BEGIN
   END IF;
   IF has_schema_privilege('bayit_app', 'public', 'CREATE') THEN
     RAISE EXCEPTION 'bayit_app may still create objects in the schema public';
+  END IF;
+  IF has_database_privilege('bayit_app', current_database(), 'CREATE') OR has_database_privilege('bayit_app', current_database(), 'TEMPORARY') THEN
+    RAISE EXCEPTION 'bayit_app may still create schemas or temporary tables in this database';
   END IF;
 END
 $check$;

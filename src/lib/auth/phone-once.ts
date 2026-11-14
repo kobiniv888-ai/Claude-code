@@ -19,12 +19,15 @@ export function isPhoneAlreadyVerified(account: PhoneAccount, phoneNumber: strin
   return verifiedPhoneOf(account) === phoneNumber;
 }
 
-export type PhoneCheckStep = "already_verified" | "phone_taken" | "send";
+export type PhoneCheckStep = "already_verified" | "send" | "send_neutral";
 
 /**
  * What to do when an account asks for a code to `phoneNumber`:
- * - "already_verified": it is this account's verified number. Send nothing.
- * - "phone_taken": another account has it. Send nothing (an SMS would be wasted).
+ * - "already_verified": it is this account's verified number (only this account's own state is
+ *   revealed). Send nothing.
+ * - "send_neutral": another account has it. Founder's answer (5): the SAME answer as "send" — the
+ *   code is stored and every limit charged, but no text goes out (./phone-neutral.ts), so the
+ *   check fails like a wrong code. Never "number already used".
  * - "send": send a code.
  */
 export function phoneCheckStep(
@@ -33,6 +36,6 @@ export function phoneCheckStep(
   { usedByAnotherAccount }: { usedByAnotherAccount: boolean },
 ): PhoneCheckStep {
   if (isPhoneAlreadyVerified(account, phoneNumber)) return "already_verified";
-  if (usedByAnotherAccount) return "phone_taken";
+  if (usedByAnotherAccount) return "send_neutral";
   return "send";
 }

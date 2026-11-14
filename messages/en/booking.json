@@ -50,6 +50,9 @@
     "FOUND_OTHER_STAY": "I found another place",
     "TRAVEL_PROBLEM": "A flight or travel problem",
     "HOST_ASKED": "The host asked me to cancel",
+    "HOST_ASKED_CONFIRMED": "The host asked me to cancel (the host confirmed)",
+    "HOST_ASKED_DENIED": "The host asked me to cancel (the host said no; our team is reviewing it)",
+    "HOST_ASKED_EXPIRED": "The host asked me to cancel (the host did not answer; our team is reviewing it)",
     "OTHER": "Other"
   },
   "nights": "{count, plural, one {{count} night} other {{count} nights}}",
@@ -102,6 +105,7 @@
     "name_required": "Please write a name (not a phone number or email).",
     "too_long": "The text is too long.",
     "not_cancellable": "This booking can't be cancelled: it was already cancelled or the stay has started.",
+    "not_answerable": "You can't answer this anymore: you already answered, or 72 hours have passed and our team is reviewing it.",
     "reason_required": "Please choose a reason.",
     "reason_text_required": "Please write a few words about the reason.",
     "no_show_not_allowed": "You can report that a guest didn't arrive from the day after the arrival date until a week after departure.",
@@ -125,7 +129,8 @@
     "host": "Host: {name}",
     "phone": "Phone: {phone}",
     "pay": "Pay the host on arrival: {amount}",
-    "details": "Booking details: {url}"
+    "details": "Booking details: {url}",
+    "addressNote": "The exact address is on your booking page."
   },
   "sheet": {
     "title": "Dates and guests",

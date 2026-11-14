@@ -6,6 +6,7 @@ import { audit } from "@/lib/audit";
 import { AuthRequiredError } from "@/lib/errors";
 import { rateLimit } from "@/lib/rate-limit";
 import { needsFirstName } from "./first-name";
+import { needsAccountEmail } from "./account-email";
 import { consumeFreshProof, markFreshProof, requireFreshProof } from "./fresh-proof";
 import { createRecoveryCodes, recoveryCodesLeft, useRecoveryCode } from "./recovery-codes";
 import { normalizeRecoveryCode } from "./recovery-code-format";
@@ -199,6 +200,8 @@ export type LoginState = {
   phoneVerified: boolean;
   /** A new account (or one named after its phone): ask for the first name now. */
   needsFirstName: boolean;
+  /** A phone-only account: add a real email (verified by a code) before continuing (answer (5)). */
+  needsAccountEmail: boolean;
 };
 
 /** Where the login UI stands after a sign-in (used to show the 2-step check in place). */
@@ -209,5 +212,6 @@ export async function getLoginState(): Promise<LoginState> {
     twoFactorRequired: !!user && !user.twoFactorVerified,
     phoneVerified: !!user?.phoneNumberVerified,
     needsFirstName: !!user && needsFirstName(user),
+    needsAccountEmail: !!user && user.twoFactorVerified && needsAccountEmail(user),
   };
 }

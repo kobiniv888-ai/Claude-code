@@ -486,7 +486,12 @@
       "verification_documents_left": "დოკუმენტები გადაწყვეტილების შემდეგ არ წაიშალა",
       "demo_remove_start": "დემო მონაცემების წაშლა დაიწყო",
       "maintenance_cleanup_started": "გასუფთავება დაიწყო",
-      "maintenance_dry_run": "გასუფთავების საცდელი გაშვება (ცვლილების გარეშე)"
+      "maintenance_dry_run": "გასუფთავების საცდელი გაშვება (ცვლილების გარეშე)",
+      "maintenance_offsite_backup": "გარე სარეზერვო ასლი შეიქმნა და შემოწმდა",
+      "maintenance_restore_test": "აღდგენის ტესტი",
+      "maintenance_mode_on": "ტექნიკური რეჟიმი ჩაირთო",
+      "maintenance_mode_off": "ტექნიკური რეჟიმი გამოირთო",
+      "sessions_end_all": "ყველა გამოვიდა სისტემიდან"
     }
   },
   "moderation": {

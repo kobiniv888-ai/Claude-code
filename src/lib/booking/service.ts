@@ -1,3 +1,11 @@
+import {
+  HOST_ASKED_ANSWER_HOURS,
+  HOST_ASKED_EXPIRED,
+  HOST_ASKED_REASON,
+  answeredCode,
+  canAnswerHostAsked,
+  type HostAskedState,
+} from "./host-asked";
 import "server-only";
 import type { CurrencyCode, AppLocale } from "@/config/site";
 import { Prisma } from "@/generated/prisma/client";
@@ -752,6 +760,8 @@ export async function guestCancel(params: {
   if (!canGuestCancel(stateOf(booking), now)) throw new BookingError("not_cancellable");
 
   const late = isLateCancellation(booking.cancellationPolicy, dateToDay(booking.checkIn), now, booking.listing.checkInFrom);
+  // "The host asked me to cancel" (answer (4)): not flagged yet; the host is asked to confirm it
+  // (notifyCancellation → notifyHostAskedConfirm). Their answer, or 72 hours without one, decides.
   const flagged = isGuestCancellationFlagged(params.reasonCode);
   await cancelInTransaction(booking.id, {
     status: "CANCELLED_BY_GUEST",
@@ -775,6 +785,76 @@ export async function guestCancel(params: {
   });
   if (params.notify !== false) await notifyCancellation(booking.id);
   return { code: booking.code, late, flagged };
+}
+
+// ─── "The host asked me to cancel" (founder's answer (4), ./host-asked.ts) ──────
+
+/**
+ * The host answers a guest's "the host asked me to cancel": "confirm" (they did ask: it does not
+ * count against the guest and counts against the host) or "deny" (it goes to the admin review
+ * queue). Only the booking's host, only while it is pending and within HOST_ASKED_ANSWER_HOURS of
+ * the cancellation; one conditional update, so two answers at once never both win. Either answer
+ * lists the booking under Admin → Flags (flaggedForReview), review only.
+ */
+export async function answerHostAsked(params: {
+  bookingId: string;
+  hostUserId: string;
+  answer: "confirm" | "deny";
+  now?: Date;
+}): Promise<{ code: string; state: Extract<HostAskedState, "confirmed" | "denied"> }> {
+  const now = params.now ?? new Date();
+  const booking = await db.booking.findFirst({
+    where: { id: params.bookingId, hostUserId: params.hostUserId },
+    select: { id: true, code: true, status: true, cancelReasonCode: true, cancelledAt: true },
+  });
+  if (!booking) throw new NotFoundError();
+  if (!canAnswerHostAsked(booking, now)) throw new BookingError("not_answerable");
+  const updated = await db.booking.updateMany({
+    where: {
+      id: booking.id,
+      hostUserId: params.hostUserId,
+      status: "CANCELLED_BY_GUEST",
+      cancelReasonCode: HOST_ASKED_REASON,
+      cancelledAt: { gt: new Date(now.getTime() - HOST_ASKED_ANSWER_HOURS * 3_600_000) },
+    },
+    data: { cancelReasonCode: answeredCode(params.answer), flaggedForReview: true },
+  });
+  if (updated.count !== 1) throw new BookingError("not_answerable");
+  const state = params.answer === "confirm" ? "confirmed" : "denied";
+  await audit({
+    actorId: params.hostUserId,
+    action: state === "confirmed" ? "booking.host_asked_confirmed" : "booking.host_asked_denied",
+    targetType: "Booking",
+    targetId: booking.id,
+    details: { code: booking.code },
+  });
+  return { code: booking.code, state };
+}
+
+/**
+ * The timeout job (daily /api/cron/complete-bookings): every "host asked me" cancellation the host
+ * did not answer within HOST_ASKED_ANSWER_HOURS becomes HOST_ASKED_EXPIRED and goes to the admin
+ * review queue (flaggedForReview). The flag rules already treat it as expired from the deadline on
+ * (effectiveHostAskedState); this writes it down so Admin → Flags lists it. Idempotent.
+ */
+export async function expireHostAskedAnswers(now: Date = new Date()): Promise<{ expired: number }> {
+  const deadline = new Date(now.getTime() - HOST_ASKED_ANSWER_HOURS * 3_600_000);
+  const due = await db.booking.findMany({
+    where: { status: "CANCELLED_BY_GUEST", cancelReasonCode: HOST_ASKED_REASON, OR: [{ cancelledAt: { lte: deadline } }, { cancelledAt: null }] },
+    select: { id: true, code: true },
+    take: 1000,
+  });
+  let expired = 0;
+  for (const booking of due) {
+    const updated = await db.booking.updateMany({
+      where: { id: booking.id, status: "CANCELLED_BY_GUEST", cancelReasonCode: HOST_ASKED_REASON },
+      data: { cancelReasonCode: HOST_ASKED_EXPIRED, flaggedForReview: true },
+    });
+    if (updated.count !== 1) continue;
+    expired++;
+    await audit({ actorId: null, action: "booking.host_asked_expired", targetType: "Booking", targetId: booking.id, details: { code: booking.code } });
+  }
+  return { expired };
 }
 
 /**

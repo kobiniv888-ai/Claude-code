@@ -1,7 +1,15 @@
 import "server-only";
 import { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
-import { HOST_REPORT_FLAG_MIN, hostReportFlagOpen, hostReportWindowStart, isFlaggedHost } from "./host-flags";
+import { HOST_ASKED_CONFIRMED } from "@/lib/booking/host-asked";
+import {
+  HOST_REPORT_FLAG_MIN,
+  hostRepeatCancelWindowStart,
+  hostReportFlagOpen,
+  hostReportWindowStart,
+  isFlaggedHost,
+  summarizeHostCancellations,
+} from "./host-flags";
 
 /**
  * Host flag queries (server-only; the rules are in ./host-flags.ts). Used by the review rule
@@ -141,13 +149,24 @@ export async function isHostFlagged(userId: string, now: Date = new Date()): Pro
 /** The flag state of one host for the user page and the review page. Never throws. */
 export async function hostFlagSummary(userId: string, now: Date = new Date()) {
   try {
-    const [rows, openCancellations, openNoShows, reviewedAt, sanctioned] = await Promise.all([
+    const [rows, openCancellations, openNoShows, reviewedAt, sanctioned, ownCancellations] = await Promise.all([
       hostFlagRows(now, { state: "any", userId, limit: 1 }),
       db.booking.count({ where: { ...OPEN_CANCELLATION, hostUserId: userId } }),
       db.booking.count({ where: { ...OPEN_NO_SHOW, hostUserId: userId } }),
       db.user.findUnique({ where: { id: userId }, select: { hostFlagReviewedAt: true } }),
       isHostSanctioned(userId, now),
+      // Answer (4): the host's own cancellations (made by the host, or "the host asked me" confirmed).
+      db.booking.findMany({
+        where: {
+          hostUserId: userId,
+          cancelledAt: { gte: hostRepeatCancelWindowStart(now), lte: now },
+          OR: [{ status: "CANCELLED_BY_HOST" }, { status: "CANCELLED_BY_GUEST", cancelReasonCode: HOST_ASKED_CONFIRMED }],
+        },
+        select: { status: true, cancelReasonCode: true, cancelledAt: true },
+        take: 500,
+      }),
     ]);
+    const own = summarizeHostCancellations(ownCancellations, now);
     const row = rows[0] ?? null;
     const reportFlagOpen = row ? hostReportFlagOpen({ reportCount: row.reports, latestReportAt: row.latest, reviewedAt: row.reviewedAt }) : false;
     return {
@@ -161,6 +180,9 @@ export async function hostFlagSummary(userId: string, now: Date = new Date()) {
       turnedAway: row?.turnedAway ?? 0,
       openCancellations,
       openNoShows,
+      /** Answer (4): the host's own cancellations in 90 days, and whether that is 3 or more (review only). */
+      hostCancellations: own.count,
+      repeatCancellations: own.repeat,
       reviewedAt: reviewedAt?.hostFlagReviewedAt ?? null,
     };
   } catch (error) {

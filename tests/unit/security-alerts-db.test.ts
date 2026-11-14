@@ -38,6 +38,13 @@ beforeAll(async () => {
   await events("id_not_found", 4, { ipHash: `${prefix}-ip-c`, meta: { kind: "trip" } });
   await events("new_device_login", 1, { userId: `${prefix}-u0`, meta: { staff: true, host: false } });
   await events("new_device_login", 2, { userId: `${prefix}-u1`, meta: { staff: false, host: true } });
+  // A staff account (made before the window: not a sign-up) changes its authenticator; its listing's
+  // contact change and an ordinary user's change are not staff security changes.
+  await db.user.create({ data: { id: `${prefix}-staff`, name: "Test staff", email: `${prefix}-staff@example.com`, role: "SUPPORT", createdAt: new Date("2001-03-01T08:00:00Z") } });
+  await events("sensitive_change", 1, { userId: `${prefix}-staff`, meta: { kind: "authenticator_changed" } });
+  await events("sensitive_change", 1, { userId: `${prefix}-staff`, meta: { kind: "listing_contact" } });
+  await events("sensitive_change", 1, { userId: `${prefix}-u3`, meta: { kind: "phone" } });
+  await events("field_decrypt_failed", 2, { meta: { field: "address", reason: "auth", where: "trip" } });
   await events("maintenance_mode_changed", 1, { meta: { on: true } });
   await events("totp_locked", 1);
   // Outside the window: not counted.
@@ -82,6 +89,8 @@ describe("collectSecuritySignals", () => {
     expect(s.perIpMax.login_failed).toBe(16);
     expect(s.perIpMax.id_not_found).toBe(4);
     expect(s.staffNewDevices).toBe(1);
+    expect(s.staffSecurityChanges).toBe(1);
+    expect(s.events.field_decrypt_failed).toBe(2);
     expect(s.maintenanceOn).toBe(1);
     expect(s.maintenanceOff).toBe(0);
     expect(s.roleChanges).toBe(1);
@@ -92,6 +101,8 @@ describe("collectSecuritySignals", () => {
     expect(kinds).toContain("login_failures_ip");
     expect(kinds).toContain("staff_new_device");
     expect(kinds).toContain("role_changed");
+    expect(kinds).toContain("staff_security_change");
+    expect(kinds).toContain("field_decrypt_failed");
     // Five from one connection is the threshold, not above it: no sign-up alert yet.
     expect(kinds).not.toContain("signup_burst");
   });

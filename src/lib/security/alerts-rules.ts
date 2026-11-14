@@ -3,6 +3,12 @@
  * hour become an alert, and how often the same alert may repeat. Pure (no server imports): the hourly job
  * (./alerts.ts, /api/cron/security-alerts) collects the numbers, these rules decide.
  *
+ * "A new staff device" is both a staff login from a device the account never used
+ * (staff_new_device) and a staff account's own security change: a new authenticator, 2-step login
+ * turned off, new recovery codes, a changed email or login method (staff_security_change). An
+ * encrypted address or phone that cannot be opened (field_decrypt_failed: a wrong or missing
+ * FIELD_ENCRYPTION_KEY, or a changed value) alerts from the first one too.
+ *
  * The thresholds are founder choices with defaults (one line each, below). A "burst" threshold is
  * "more than N in the hour"; events that matter one by one (a staff login from a new device, a
  * 2-step lock, a recovery code, a role change, maintenance mode, "sign everyone out", a failed
@@ -60,6 +66,7 @@ export const SECURITY_ALERT_THRESHOLDS = {
 
 export const SECURITY_ALERT_KINDS = [
   "staff_new_device",
+  "staff_security_change",
   "totp_locked",
   "totp_unlock_email",
   "recovery_code_used",
@@ -87,6 +94,7 @@ export const SECURITY_ALERT_KINDS = [
   "offsite_backup_missing",
   "certificate_expiry",
   "support_overdue",
+  "field_decrypt_failed",
 ] as const;
 export type SecurityAlertKind = (typeof SECURITY_ALERT_KINDS)[number];
 
@@ -103,6 +111,8 @@ export type SecuritySignals = {
   perIpMax: Partial<Record<string, number>>;
   /** new_device_login events of staff accounts. */
   staffNewDevices: number;
+  /** sensitive_change events of staff accounts (2-step login, recovery codes, email, login methods). */
+  staffSecurityChanges: number;
   /** maintenance_mode_changed events, on and off. */
   maintenanceOn: number;
   maintenanceOff: number;
@@ -149,6 +159,7 @@ export function evaluateSecurityAlerts(s: SecuritySignals): SecurityAlert[] {
   };
 
   each("staff_new_device", s.staffNewDevices);
+  each("staff_security_change", s.staffSecurityChanges);
   each("totp_locked", n("totp_locked"));
   each("totp_unlock_email", n("totp_unlock_email"));
   each("recovery_code_used", n("recovery_code_used"));
@@ -178,6 +189,7 @@ export function evaluateSecurityAlerts(s: SecuritySignals): SecurityAlert[] {
   each("maintenance_off", s.maintenanceOff);
   each("sessions_ended", n("all_sessions_ended"));
   each("offsite_backup_failed", n("offsite_backup_failed"));
+  each("field_decrypt_failed", n("field_decrypt_failed"));
   if (s.offsite?.configured) {
     const days = s.offsite.lastOkAt ? Math.floor((s.now.getTime() - s.offsite.lastOkAt.getTime()) / 86_400_000) : null;
     if (days === null || days >= T.offsiteMissingDays) out.push({ kind: "offsite_backup_missing", count: 1, days: days ?? T.offsiteMissingDays });

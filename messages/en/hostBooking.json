@@ -303,5 +303,14 @@
     "reason": "Reason: {reason}",
     "noShowAt": "Reported as no-show: {date}",
     "listingId": "ID"
+  },
+  "hostAsked": {
+    "title": "The guest says you asked them to cancel",
+    "body": "Did you ask the guest to cancel this booking? If you did, the cancellation does not count against the guest. If you don't answer by {deadline}, the Bayit team will review it.",
+    "confirm": "Yes, I asked them to cancel",
+    "deny": "No, I didn't",
+    "confirmed": "Thank you. We noted that you asked them to cancel.",
+    "denied": "Thank you. The Bayit team will review the cancellation.",
+    "note": "Your answer is saved and shown only to the Bayit team."
   }
 }

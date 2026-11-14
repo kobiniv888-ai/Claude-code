@@ -9,15 +9,15 @@ import type { TripPlaceKind, TripShabbat } from "@/lib/trip/server";
 
 const PLACE_ICONS: Record<TripPlaceKind, SpriteIconName> = {
   synagogue: "book-open",
-  chabad: "house",
   kosher: "utensils",
 };
 
 /**
  * Shabbat and Yom Tov on the trip page (round 3, brief 7.1) — rendered ONLY when the stay
  * includes a Friday night or a night of a holiday (src/lib/trip/observance.ts): candle-lighting
- * and Havdalah times for the city on those dates, the nearest VERIFIED synagogue, Chabad house and
- * kosher place with walking times, and "המארח לא עונה בשבת" when the host turned it on.
+ * and Havdalah times for the city on those dates, the nearest VERIFIED synagogue and kosher place
+ * with walking times ("up to N"), and "המארח לא עונה בשבת" when the host turned it on. No Chabad
+ * house walk: they appear on the community map only (founder's answer (2), 9 Nov 2026).
  */
 export async function TripShabbat({ locale, shabbat }: { locale: AppLocale; shabbat: TripShabbat }) {
   const t = await getTranslations({ locale, namespace: "trips.shabbat" });
