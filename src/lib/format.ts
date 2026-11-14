@@ -5,6 +5,7 @@
  */
 import { siteConfig, type AppLocale, type CurrencyCode } from "@/config/site";
 import { intlLocale } from "@/i18n/locale";
+import { COUNTRIES, DEFAULT_COUNTRY } from "@/config/countries";
 import {
   GEORGIAN_DATE_BASE,
   GEORGIAN_NUMBER_BASE,
@@ -18,8 +19,8 @@ import {
 type Locale = AppLocale | string;
 export type DateInput = Date | string | number;
 
-/** The site's home time zone (also next-intl's default in src/i18n/request.ts). */
-export const DEFAULT_TIME_ZONE = "Asia/Tbilisi";
+/** The site's home time zone (also next-intl's default in src/i18n/request.ts): src/config/countries.ts. */
+export const DEFAULT_TIME_ZONE = COUNTRIES[DEFAULT_COUNTRY].timezone;
 
 const CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -93,6 +94,8 @@ export function currencySymbol(currency: CurrencyCode): string {
 export type FormatMoneyOptions = {
   /** Default: 0 for amounts ≥ 100 or whole numbers, otherwise 2. */
   maximumFractionDigits?: number;
+  /** With maximumFractionDigits: at least this many (default 0), e.g. 2 for exact cents ("$519.50"). */
+  minimumFractionDigits?: number;
   /** Short form for big numbers: "$1.3M", "₪450K". */
   compact?: boolean;
 };
@@ -114,7 +117,7 @@ export function formatMoney(
   let minimumFractionDigits: number;
   if (options.maximumFractionDigits !== undefined) {
     maximumFractionDigits = Math.max(0, Math.min(20, Math.trunc(options.maximumFractionDigits)));
-    minimumFractionDigits = 0;
+    minimumFractionDigits = Math.max(0, Math.min(maximumFractionDigits, Math.trunc(options.minimumFractionDigits ?? 0)));
   } else if (compact) {
     maximumFractionDigits = 1;
     minimumFractionDigits = 0;
@@ -132,7 +135,27 @@ export function formatMoney(
     maximumFractionDigits,
     ...(compact ? { notation: "compact" as const } : {}),
   });
-  return joinNumberParts(formatter.formatToParts(amount), locale, currencySymbol(currency));
+  const parts = formatter.formatToParts(amount);
+  const base = String(locale).split("-")[0];
+  if (base === "he" || (base === "ar" && !compact)) return symbolFirst(parts, currencySymbol(currency));
+  return joinNumberParts(parts, locale, currencySymbol(currency));
+}
+
+const BIDI_MARKS_AND_SPACES = /[\u200e\u200f\u061c\u2066-\u2069\s]/g;
+
+/**
+ * Hebrew and Arabic money as "₪290" / "$1,250": the symbol right before the number, with no
+ * direction marks. Intl's "‏290 ‏$" reads "290$" inside a left-to-right island but "$ 290" in
+ * running right-to-left text; this form reads the same everywhere (one style on the whole site).
+ */
+function symbolFirst(parts: Intl.NumberFormatPart[], symbol: string): string {
+  const number = parts
+    .filter((part) => part.type !== "currency" && part.type !== "minusSign")
+    .map((part) => part.value)
+    .join("")
+    .replace(BIDI_MARKS_AND_SPACES, "");
+  const negative = parts.some((part) => part.type === "minusSign");
+  return `${negative ? "-" : ""}${symbol}${number}`;
 }
 
 /** Unit label for square meters in each language. */
@@ -243,5 +266,24 @@ export function formatRelativeTime(date: DateInput, locale: Locale, now: Date = 
   if (isGeorgianLocale(locale)) return georgianRelativeTime(value, unit, (n) => formatNumber(n, locale));
   const tag = intlLocale(locale);
   const formatter = cached("r", tag, {}, () => new Intl.RelativeTimeFormat(tag, { numeric: "auto" }));
-  return formatter.format(value, unit);
+  const text = formatter.format(value, unit);
+  // Newer CLDR data (ICU 78) writes the Hebrew one/two forms with the count in brackets:
+  // "לפני שעתיים (2)". The word already says the number; an older ICU (a browser) has no brackets,
+  // so server and browser text match.
+  return locale === "he" ? text.replace(/\s*\(\d+\)$/u, "") : text;
+}
+
+/**
+ * A name or other user text inside a translated sentence, isolated from it (FSI … PDI), so a Latin
+ * or Georgian name in a Hebrew sentence keeps its punctuation and doesn't pull a following number
+ * ("Demo Admin, 4 בנוב׳") into its own direction. For a plain string argument; in JSX use
+ * <bdi dir="auto">.
+ */
+export function isolate(text: string): string {
+  return `\u2068${text}\u2069`;
+}
+
+/** Left-to-right text inside a sentence (LRI … PDI): signed numbers such as "+15" in RTL text. */
+export function isolateLtr(text: string): string {
+  return `\u2066${text}\u2069`;
 }

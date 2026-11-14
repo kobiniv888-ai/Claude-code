@@ -1,16 +1,17 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { SettingsForm } from "@/components/admin/content/settings-form";
 import { AdminPageHeader } from "@/components/admin/page-header";
+import { LoginMethodsBanner } from "@/components/auth/login-methods-banner";
 import { siteConfig } from "@/config/site";
 import { toLocalizedForm } from "@/lib/admin/content/localized";
 import { adminContentMetadata } from "@/lib/admin/content/server/metadata";
+import { storedEmergencyContacts } from "@/lib/admin/content/server/queries";
 import { requireStaff } from "@/lib/auth/session";
 import { enabledCurrencies } from "@/lib/currency/convert";
-import { db } from "@/lib/db";
 import { countDemoData } from "@/lib/demo";
 import { isShabbatOrHolidayNow } from "@/lib/hebcal";
-import { EMERGENCY_CONTACTS_SETTING_KEY } from "@/lib/jewish-life/emergency";
 import { getSettings } from "@/lib/settings";
+import { demoAllowed } from "@/lib/site-env";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/admin/settings">) {
   return adminContentMetadata(params, "settings");
@@ -37,7 +38,7 @@ export default async function SettingsPage({ params }: PageProps<"/[locale]/admi
     getTranslations("adminContent.settings"),
     getSettings(),
     countDemoData(),
-    db.siteSetting.findUnique({ where: { key: EMERGENCY_CONTACTS_SETTING_KEY }, select: { value: true } }),
+    storedEmergencyContacts(),
   ]);
   let shabbatNow: ReturnType<typeof isShabbatOrHolidayNow> | null = null;
   try {
@@ -50,6 +51,7 @@ export default async function SettingsPage({ params }: PageProps<"/[locale]/admi
     <>
       <AdminPageHeader title={t("title")} description={t("description")} />
       <div className="max-w-3xl">
+        <LoginMethodsBanner />
         <SettingsForm
           settings={{
             listingExpiryDays: settings.listingExpiryDays,
@@ -60,6 +62,7 @@ export default async function SettingsPage({ params }: PageProps<"/[locale]/admi
             scamBannerEnabled: settings.scamBannerEnabled,
             demoDataVisible: settings.demoDataVisible,
             paidFeaturePrices: settings.paidFeaturePrices,
+            supportReplyPromise: settings.supportReplyPromise,
           }}
           currencies={[...enabledCurrencies]}
           paidFeatureKeys={Object.keys(siteConfig.paidFeatures)}
@@ -70,7 +73,8 @@ export default async function SettingsPage({ params }: PageProps<"/[locale]/admi
             endsAt: shabbatNow?.endsAt?.toISOString() ?? null,
           }}
           demoCounts={demoCounts}
-          emergency={emergencyRows(emergency?.value)}
+          demoLocked={!demoAllowed()}
+          emergency={emergencyRows(emergency)}
         />
       </div>
     </>

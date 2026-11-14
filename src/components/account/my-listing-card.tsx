@@ -5,6 +5,8 @@ import Image from "next/image";
 import { useLocale, useTranslations } from "next-intl";
 import {
   BarChart3Icon,
+  CalendarCheckIcon,
+  CalendarDaysIcon,
   CheckCircle2Icon,
   EllipsisVerticalIcon,
   ExternalLinkIcon,
@@ -47,7 +49,9 @@ import { runListingAction } from "@/lib/account/actions";
 import { daysUntil, ownerActionsFor, type MutatingListingAction, type OwnerListingAction } from "@/lib/account/listing-status";
 import type { MyListing } from "@/lib/account/queries";
 import { formatDate, formatNumber } from "@/lib/format";
+import { CARD_STATS_DAYS, isBookableDeal, type StatsTotals } from "@/lib/listing/stats-math";
 import { cn } from "@/lib/utils";
+import { hostCalendarPath } from "@/components/host-calendar/paths";
 import { ListingStatusBadge } from "./listing-status-badge";
 import { useActionError } from "./use-action-error";
 
@@ -75,8 +79,13 @@ function primaryAction(actions: OwnerListingAction[], status: MyListing["status"
   return actions.includes("edit") ? "edit" : null;
 }
 
-export function MyListingCard({ listing }: { listing: MyListing }) {
+/**
+ * `stats`: the last CARD_STATS_DAYS days (round 3, brief 6.2: views, saves, contact taps and, for
+ * short stays and hotels, bookings). Without it the card shows the all-time counters.
+ */
+export function MyListingCard({ listing, stats }: { listing: MyListing; stats?: StatsTotals }) {
   const t = useTranslations("account.listings");
+  const tCalendar = useTranslations("hostBooking.listingCard");
   const tm = useTranslations("moderation");
   const locale = useLocale();
   const router = useRouter();
@@ -86,7 +95,11 @@ export function MyListingCard({ listing }: { listing: MyListing }) {
 
   const actions = ownerActionsFor(listing, { bumpEnabled: siteConfig.features.bump });
   const primary = primaryAction(actions, listing.status);
-  const secondary: OwnerListingAction | null = actions.includes("stats") && primary !== "stats" ? "stats" : null;
+  // Stays and rentals get their calendar (block dates, bookings, iCal) next to the main action;
+  // statistics then move into the "more" menu.
+  const calendarHref =
+    listing.status !== "DRAFT" && listing.status !== "DELETED" && listing.dealType !== "SALE" ? hostCalendarPath(listing.id) : null;
+  const secondary: OwnerListingAction | null = !calendarHref && actions.includes("stats") && primary !== "stats" ? "stats" : null;
   const menu = actions.filter((a) => a !== primary && a !== secondary);
   const title = listing.title || t("untitled");
   const titleId = `my-listing-${listing.id}`;
@@ -114,7 +127,12 @@ export function MyListingCard({ listing }: { listing: MyListing }) {
       const result = await runListingAction({ listingId: listing.id, action });
       setConfirming(null);
       if (!result.ok) {
-        toast.error(errorText(result.error));
+        // Unpause / renew refused for what the post form must fix first (round 3, brief 6.1: the
+        // mistake check's errors, or a requirement such as the photos): open the form's last step.
+        const fixable = result.error === "listing_mistakes" || result.error === "missing_requirements";
+        toast.error(errorText(result.error), {
+          ...(fixable ? { action: { label: t("fixInForm"), onClick: () => router.push(`/account/listings/${listing.id}/edit?step=publish`) } } : {}),
+        });
         return;
       }
       if (action === "bump" && !result.data.changed) toast(t("toast.bumpLater"));
@@ -151,7 +169,7 @@ export function MyListingCard({ listing }: { listing: MyListing }) {
         <div className="flex flex-wrap items-center gap-2">
           <ListingStatusBadge status={listing.status} />
           {listing.ownerVerified ? (
-            <span className="inline-flex h-7 items-center gap-1 rounded-full bg-verified-soft px-2.5 text-xs font-semibold text-verified">
+            <span className="inline-flex h-7 items-center gap-1 rounded-full bg-primary-tint px-2.5 text-xs font-semibold text-success">
               <CheckCircle2Icon className="size-3.5" aria-hidden="true" />
               {t("ownerVerified")}
             </span>
@@ -170,13 +188,13 @@ export function MyListingCard({ listing }: { listing: MyListing }) {
         </div>
 
         {showsReason ? (
-          <div className="rounded-xl border border-warning/30 bg-warning-soft p-3 text-sm">
+          <div className="rounded-xl border border-border-strong/30 bg-surface-muted p-3 text-sm">
             <p className="font-semibold">{reasonKey ? tm(`reasons.${reasonKey}.label`) : tm(`statuses.${listing.status}.label`)}</p>
             <p className="mt-1 text-muted-foreground">
               {reasonKey ? tm(`reasons.${reasonKey}.explanation`) : tm(`statuses.${listing.status}.description`)}
             </p>
             {listing.moderationNote ? (
-              <p className="mt-2 border-s-2 border-warning/50 ps-3">
+              <p className="mt-2 border-s-2 border-border-strong/50 ps-3">
                 <span className="block text-xs font-semibold text-muted-foreground">{t("moderatorNote")}</span>
                 <span dir="auto" className="whitespace-pre-line">
                   {listing.moderationNote}
@@ -193,25 +211,35 @@ export function MyListingCard({ listing }: { listing: MyListing }) {
             <span>{t("draftStep", { step: formatNumber(listing.wizardStep, locale) })}</span>
           ) : (
             <>
-              <span className="inline-flex items-center gap-1" title={t("counters.views")}>
+              {stats ? (
+                <span className="text-xs">{t("counters.period", { count: CARD_STATS_DAYS, countText: formatNumber(CARD_STATS_DAYS, locale) })}</span>
+              ) : null}
+              <span className="inline-flex items-center gap-1" title={t("counters.views")} data-stat="views">
                 <EyeIcon className="size-4" aria-hidden="true" />
                 <span className="sr-only">{t("counters.views")}</span>
-                {formatNumber(listing.views, locale)}
+                {formatNumber(stats?.views ?? listing.views, locale)}
               </span>
-              <span className="inline-flex items-center gap-1" title={t("counters.contacts")}>
-                <MousePointerClickIcon className="size-4" aria-hidden="true" />
-                <span className="sr-only">{t("counters.contacts")}</span>
-                {formatNumber(listing.contacts, locale)}
-              </span>
-              <span className="inline-flex items-center gap-1" title={t("counters.saves")}>
+              <span className="inline-flex items-center gap-1" title={t("counters.saves")} data-stat="saves">
                 <HeartIcon className="size-4" aria-hidden="true" />
                 <span className="sr-only">{t("counters.saves")}</span>
-                {formatNumber(listing.saves, locale)}
+                {formatNumber(stats?.saves ?? listing.saves, locale)}
               </span>
+              <span className="inline-flex items-center gap-1" title={t("counters.contacts")} data-stat="contacts">
+                <MousePointerClickIcon className="size-4" aria-hidden="true" />
+                <span className="sr-only">{t("counters.contacts")}</span>
+                {formatNumber(stats?.contacts ?? listing.contacts, locale)}
+              </span>
+              {stats && isBookableDeal(listing.dealType) ? (
+                <span className="inline-flex items-center gap-1" title={t("counters.bookings")} data-stat="bookings">
+                  <CalendarCheckIcon className="size-4" aria-hidden="true" />
+                  <span className="sr-only">{t("counters.bookings")}</span>
+                  {formatNumber(stats.bookings, locale)}
+                </span>
+              ) : null}
             </>
           )}
           {(listing.status === "LIVE" || listing.status === "PAUSED") && left !== null ? (
-            <span className={cn(left <= 7 && "font-medium text-warning")}>
+            <span className={cn(left <= 7 && "font-medium text-foreground")}>
               {left === 0 ? t("expiresToday") : t("expiresIn", { count: left, countText: formatNumber(left, locale) })}
             </span>
           ) : null}
@@ -240,6 +268,14 @@ export function MyListingCard({ listing }: { listing: MyListing }) {
               </Button>
             );
           })}
+          {calendarHref ? (
+            <Button asChild variant="outline" className="h-10 rounded-xl px-4">
+              <Link href={calendarHref}>
+                <CalendarDaysIcon aria-hidden="true" />
+                {tCalendar("calendar")}
+              </Link>
+            </Button>
+          ) : null}
           {menu.length > 0 ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

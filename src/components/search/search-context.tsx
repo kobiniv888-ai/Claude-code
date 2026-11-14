@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, useOptimistic, useTransition, type ReactNode } from "react";
+import { wakeDeferredIslands } from "@/components/ds/deferred-island";
 import { useRouter } from "@/i18n/navigation";
 import type { SearchFilters } from "@/lib/listing/search-params";
 import { searchPath } from "@/lib/listing/urls";
@@ -42,6 +43,9 @@ export function SearchProvider({
 
   const navigate = useCallback(
     (next: SearchFilters, options: { replace?: boolean } = {}) => {
+      // The navigation waits for the lazily hydrated islands above it (header tools, footer): load
+      // them now, whatever started it — a tap, or a map moved with a finger (hardening C2).
+      wakeDeferredIslands();
       startTransition(() => {
         setOptimistic(next);
         const href = searchPath(next);

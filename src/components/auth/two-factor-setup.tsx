@@ -15,7 +15,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useRouter } from "@/i18n/navigation";
 import { confirmTotpEnrollment, startTotpEnrollment } from "@/lib/auth/actions";
 import { CodeInput } from "./code-input";
+import { RecoveryCodesView } from "./recovery-codes-view";
 import { useAuthErrorMessage } from "./use-auth-messages";
+import { useFreshProof } from "./use-fresh-proof";
 
 type Enrollment = { otpauthUrl: string; qrDataUrl: string; secret: string };
 
@@ -24,8 +26,12 @@ function groupKey(secret: string): string {
   return secret.replace(/(.{4})/g, "$1 ").trim();
 }
 
-/** Turn on 2-step login: QR code + manual key, then the first code from the app. */
-export function TwoFactorSetup({ next }: { next: string }) {
+/**
+ * Turn on 2-step login: QR code + manual key, then the first code from the app, then the 10
+ * recovery codes (shown once). `replace`: move 2-step login to a new phone (the old app stops
+ * working). Both need a fresh code first (SECURITY_REPORT 3.6): asked here when the server says so.
+ */
+export function TwoFactorSetup({ next, replace = false }: { next: string; replace?: boolean }) {
   const t = useTranslations("auth.setup");
   const errorMessage = useAuthErrorMessage();
   const router = useRouter();
@@ -39,12 +45,19 @@ export function TwoFactorSetup({ next }: { next: string }) {
   const [pending, setPending] = useState(false);
   const [copied, setCopied] = useState(false);
   const [enabled, setEnabled] = useState(false);
+  const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
   const started = useRef(false);
+  const proof = useFreshProof();
+  const { ask } = proof;
 
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
-    const result = await startTotpEnrollment().catch(() => null);
+    let result = await startTotpEnrollment({ replace }).catch(() => null);
+    // A fresh code first (the email-code login counts for 5 minutes).
+    if (result && !result.ok && result.error === "fresh_proof_required" && (await ask())) {
+      result = await startTotpEnrollment({ replace }).catch(() => null);
+    }
     setLoading(false);
     if (!result) {
       setLoadError("network");
@@ -60,7 +73,7 @@ export function TwoFactorSetup({ next }: { next: string }) {
     }
     setEnrollment(result.data);
     setCode("");
-  }, []);
+  }, [ask, replace]);
 
   useEffect(() => {
     // Once per mount (React strict mode runs effects twice in development).
@@ -86,7 +99,7 @@ export function TwoFactorSetup({ next }: { next: string }) {
       if (result.error === "totp_setup_expired") void load();
       return;
     }
-    setEnabled(true);
+    setRecoveryCodes(result.data.recoveryCodes);
   }
 
   async function copyKey() {
@@ -105,10 +118,31 @@ export function TwoFactorSetup({ next }: { next: string }) {
     void confirm(code);
   }
 
+  if (recoveryCodes) {
+    return (
+      <div role="status" className="grid gap-4">
+        <div className="flex items-center gap-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-tint text-success">
+            <CircleCheckBigIcon className="size-5" aria-hidden />
+          </span>
+          <p className="font-semibold">{replace ? t("replacedTitle") : t("enabledTitle")}</p>
+        </div>
+        <RecoveryCodesView
+          codes={recoveryCodes}
+          doneLabel={t("continue")}
+          onDone={() => {
+            setRecoveryCodes(null);
+            setEnabled(true);
+          }}
+        />
+      </div>
+    );
+  }
+
   if (enabled) {
     return (
       <div role="status" className="flex flex-col items-center gap-4 py-4 text-center">
-        <span className="flex size-14 items-center justify-center rounded-full bg-verified-soft text-verified">
+        <span className="flex size-14 items-center justify-center rounded-full bg-primary-tint text-success">
           <CircleCheckBigIcon className="size-7" aria-hidden />
         </span>
         <div className="grid gap-1">
@@ -143,6 +177,7 @@ export function TwoFactorSetup({ next }: { next: string }) {
           <RefreshCwIcon aria-hidden />
           {t("retry")}
         </Button>
+        {proof.dialog}
       </div>
     );
   }
@@ -192,7 +227,7 @@ export function TwoFactorSetup({ next }: { next: string }) {
                 disabled={!enrollment}
                 aria-label={copied ? t("copied") : t("copy")}
               >
-                {copied ? <CheckIcon className="text-verified" aria-hidden /> : <CopyIcon aria-hidden />}
+                {copied ? <CheckIcon className="text-success" aria-hidden /> : <CopyIcon aria-hidden />}
               </Button>
             </div>
             <span className="sr-only" aria-live="polite">
@@ -233,8 +268,9 @@ export function TwoFactorSetup({ next }: { next: string }) {
         aria-busy={pending || undefined}
       >
         {pending && <LoaderCircleIcon className="size-5 animate-spin" aria-hidden />}
-        {pending ? t("confirming") : t("confirm")}
+        {pending ? t("confirming") : replace ? t("confirmReplace") : t("confirm")}
       </Button>
+      {proof.dialog}
     </form>
   );
 }

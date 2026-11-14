@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { fail, ok, type ActionResult } from "@/lib/action";
-import { audit } from "@/lib/audit";
+import { audit, auditOrThrow } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { clearBannedWordsCache, scanText, type ScanHit } from "@/lib/risk";
 import { updateSettings } from "@/lib/settings";
@@ -91,17 +91,23 @@ export async function deleteBannedWord(input: unknown): Promise<ActionResult> {
     if (!parsed.success) return fail("invalid_input");
     const word = await db.bannedWord.findUnique({ where: { id: parsed.data.id } });
     if (!word) throw new ContentActionError("item_not_found", 404);
-    await db.bannedWord.delete({ where: { id: word.id } });
-    clearBannedWordsCache();
-    await audit({
-      actorId: staff.id,
-      action: "banned_word.delete",
-      targetType: "BannedWord",
-      targetId: word.id,
-      details: { phrase: word.phrase, locale: word.locale, action: word.action },
+    // Q13: the delete and its audit row commit together, or not at all.
+    await db.$transaction(async (tx) => {
+      await tx.bannedWord.delete({ where: { id: word.id } });
+      await auditOrThrow(
+        {
+          actorId: staff.id,
+          action: "banned_word.delete",
+          targetType: "BannedWord",
+          targetId: word.id,
+          details: { phrase: word.phrase, locale: word.locale, action: word.action },
+        },
+        tx,
+      );
     });
+    clearBannedWordsCache();
     return ok();
-  });
+  }, { freshProof: "window" });
 }
 
 export type BannedWordTestHit = ScanHit & { source: "builtin" | "banned_word"; wordId: string | null };

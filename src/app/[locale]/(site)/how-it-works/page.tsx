@@ -31,6 +31,7 @@ import { ContentSection, SectionHeading } from "@/components/content/section-hea
 import { ChipList, StepCard } from "@/components/content/step-card";
 import { TrackTabs } from "@/components/content/track-tabs";
 import { VerificationBadgeGrid } from "@/components/content/verification-badges";
+import { documentChecksOn } from "@/config/verification";
 import { Link } from "@/i18n/navigation";
 
 type Props = { params: Promise<{ locale: string }> };
@@ -144,8 +145,13 @@ export default async function HowItWorksPage({ params }: Props) {
             className="mt-8"
             items={[
               { icon: Smartphone, label: t("badges.phone.label"), body: t("badges.phone.body"), tag: t("badges.phone.tag") },
-              { icon: IdCard, label: t("badges.id.label"), body: t("badges.id.body"), tag: t("badges.id.tag") },
-              { icon: UserRoundCheck, label: t("badges.owner.label"), body: t("badges.owner.body"), tag: t("badges.owner.tag") },
+              // No ID or ownership documents for now (src/config/verification.ts).
+              ...(documentChecksOn()
+                ? [
+                    { icon: IdCard, label: t("badges.id.label"), body: t("badges.id.body"), tag: t("badges.id.tag") },
+                    { icon: UserRoundCheck, label: t("badges.owner.label"), body: t("badges.owner.body"), tag: t("badges.owner.tag") },
+                  ]
+                : []),
               {
                 icon: Video,
                 label: t("badges.property.label"),
@@ -214,8 +220,8 @@ function Track({
   return (
     <div>
       <div className="text-center">
-        <h2 className="text-2xl font-bold tracking-tight text-balance sm:text-3xl">{title}</h2>
-        <p className="mx-auto mt-2 max-w-xl text-muted-foreground sm:text-lg">{lead}</p>
+        <h2 className="text-h2 text-balance">{title}</h2>
+        <p className="mx-auto mt-2 max-w-xl text-body text-muted-foreground">{lead}</p>
       </div>
       <ol className="mt-8 grid gap-4 md:grid-cols-3">{children}</ol>
       <div className="mt-8 flex justify-center">{cta}</div>

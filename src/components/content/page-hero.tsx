@@ -5,7 +5,10 @@ import { ContentContainer } from "./content-container";
 import { IconCircle } from "./icon-circle";
 import type { Tone } from "./tones";
 
-/** The calm, airy band at the top of every content page (contains the page's h1). */
+/**
+ * The calm title band at the top of content pages (legal, how it works): the round-2 type scale
+ * (text-h1 / text-body), a plain background with a hairline under it, no gradient and no shadow.
+ */
 export function PageHero({
   icon,
   tone = "primary",
@@ -27,29 +30,14 @@ export function PageHero({
   className?: string;
 }) {
   return (
-    <section
-      className={cn(
-        "relative isolate overflow-hidden border-b bg-linear-to-b from-secondary/80 via-secondary/30 to-background",
-        className,
-      )}
-    >
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -top-24 -end-24 -z-10 size-72 rounded-full bg-terracotta/10 blur-3xl sm:size-96"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -bottom-32 -start-16 -z-10 size-64 rounded-full bg-primary/10 blur-3xl"
-      />
-      <ContentContainer className={size === "compact" ? "py-10 sm:py-12" : "py-12 sm:py-16 lg:py-20"}>
+    <section className={cn("border-b border-border bg-background", className)}>
+      <ContentContainer className={size === "compact" ? "pt-8 pb-6 sm:pt-12 sm:pb-8" : "pt-8 pb-8 sm:pt-14 sm:pb-10"}>
         <div className="max-w-3xl">
-          {icon ? <IconCircle icon={icon} tone={tone} size="lg" className="mb-5 bg-card shadow-card" /> : null}
-          {eyebrow ? <p className="mb-2 text-sm font-semibold text-accent-foreground">{eyebrow}</p> : null}
-          <h1 className="text-3xl font-bold tracking-tight text-balance sm:text-4xl lg:text-5xl">{title}</h1>
-          {lead ? (
-            <p className="mt-4 text-base leading-relaxed text-pretty text-muted-foreground sm:text-lg">{lead}</p>
-          ) : null}
-          {children ? <div className="mt-6">{children}</div> : null}
+          {icon ? <IconCircle icon={icon} tone={tone} size="md" className="mb-4" /> : null}
+          {eyebrow ? <p className="mb-1.5 text-small font-medium text-primary-text">{eyebrow}</p> : null}
+          <h1 className="text-h1 text-balance text-foreground">{title}</h1>
+          {lead ? <p className="mt-2 text-body text-pretty text-muted-foreground">{lead}</p> : null}
+          {children ? <div className="mt-5">{children}</div> : null}
         </div>
       </ContentContainer>
     </section>

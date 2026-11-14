@@ -7,11 +7,18 @@ import type { AccountType, Currency, Locale, UserRole, UserStatus } from "@/gene
 import { redirect } from "@/i18n/navigation";
 import { db } from "@/lib/db";
 import { AppError, AuthRequiredError, ForbiddenError } from "@/lib/errors";
+import { demoAllowed } from "@/lib/site-env";
 import { isAccountBlocked } from "./account-status";
 import { safeNextPath, withNext } from "./next-path";
+import { needsFirstName } from "./first-name";
+import { requestHostsOf } from "./code-display";
 import { can, isStaffRole, type Permission } from "./permissions";
 import { isPlaceholderEmail } from "./phone";
+import { recordSecurityEvent } from "@/lib/security/events";
+import { taintObject, taintValue } from "@/lib/security/taint";
 import { auth } from "./server";
+import { checkStaffSessionIdle, hasStaffCookie } from "./staff-session";
+import { canSkipStaffTwoFactor, demoStaffAllowed, staffAccess, type StaffAccess, type StaffAccessEnv } from "./staff-access";
 
 /**
  * The signed-in user for Server Components, server actions and route handlers.
@@ -20,7 +27,10 @@ import { auth } from "./server";
 
 export type CurrentUser = {
   id: string;
+  /** Full name; may be empty or (older phone sign-ups) a phone number — show `personName()` instead. */
   name: string;
+  /** From the first-name step or Google; null until given (see ./first-name.ts). */
+  firstName: string | null;
   email: string;
   /** True for phone-only accounts ("<digits>@phone.bayit.invalid"): never show or email it. */
   emailIsPlaceholder: boolean;
@@ -28,6 +38,8 @@ export type CurrentUser = {
   phoneNumber: string | null;
   phoneNumberVerified: boolean;
   role: UserRole;
+  /** A seeded demo account ("Demo Owner — Yossi"): never addressed as a real person. */
+  isDemo: boolean;
   status: UserStatus;
   accountType: AccountType;
   businessName: string | null;
@@ -40,13 +52,27 @@ export type CurrentUser = {
   idVerifiedAt: Date | null;
   isStaff: boolean;
   sessionId: string;
-  /** True when 2-step login is off, or the code was entered in this session. */
+  /**
+   * True when 2-step login is off, or the code was entered in this session. For staff also: the
+   * session was used within the last 12 hours (./staff-session-rules.ts); after 12 idle hours the
+   * code is asked again.
+   */
   twoFactorVerified: boolean;
+  /** Staff with 2-step login: this request carries the session's SameSite=Strict staff cookie. */
+  staffCookieOk: boolean;
 };
 
 /** Better Auth session (cookie checked, expiry refreshed). Null when signed out. */
 export const getSession = cache(async () => {
-  return auth.api.getSession({ headers: await headers() });
+  const session = await auth.api.getSession({ headers: await headers() });
+  // Never to the browser: the session token, and the raw session and user objects (5.k).
+  if (session) {
+    taintValue("session token", session.session, session.session.token);
+    taintObject("Better Auth session", session);
+    taintObject("Better Auth session row", session.session);
+    taintObject("Better Auth user row", session.user);
+  }
+  return session;
 });
 
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
@@ -61,11 +87,13 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
         select: {
           id: true,
           name: true,
+          firstName: true,
           email: true,
           image: true,
           phoneNumber: true,
           phoneNumberVerified: true,
           role: true,
+          isDemo: true,
           status: true,
           suspendedUntil: true,
           accountType: true,
@@ -83,18 +111,31 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   });
   if (!row) return null;
   const { user } = row;
-  // Banned, deleted or currently suspended accounts are treated as signed out.
+  // Banned, deleted or currently suspended accounts are treated as signed out; so is a demo
+  // account on the real site (SITE_ENV=production; its sign-in is refused too: ./server.ts).
   if (isAccountBlocked(user)) return null;
+  if (user.isDemo && !demoAllowed()) return null;
 
-  return {
+  const isStaff = isStaffRole(user.role);
+  let twoFactorVerified = !user.twoFactorEnabled || row.twoFactorVerifiedAt !== null;
+  let staffCookieOk = false;
+  // Staff: 12 idle hours end the 2-step check; the staff cookie proves the request is same-site.
+  if (isStaff && user.twoFactorEnabled && twoFactorVerified) {
+    if ((await checkStaffSessionIdle({ userId: user.id, sessionId: session.session.id })) === "idle") twoFactorVerified = false;
+    else staffCookieOk = await hasStaffCookie(session.session.id);
+  }
+
+  const current: CurrentUser = {
     id: user.id,
     name: user.name,
+    firstName: user.firstName,
     email: user.email,
     emailIsPlaceholder: isPlaceholderEmail(user.email),
     image: user.image,
     phoneNumber: user.phoneNumber,
     phoneNumberVerified: !!user.phoneNumber && user.phoneNumberVerified === true,
     role: user.role,
+    isDemo: user.isDemo,
     status: user.status,
     accountType: user.accountType,
     businessName: user.businessName,
@@ -105,15 +146,40 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     showHebrewDates: user.showHebrewDates,
     twoFactorEnabled: user.twoFactorEnabled,
     idVerifiedAt: user.idVerifiedAt,
-    isStaff: isStaffRole(user.role),
+    isStaff,
     sessionId: session.session.id,
-    twoFactorVerified: !user.twoFactorEnabled || row.twoFactorVerifiedAt !== null,
+    twoFactorVerified,
+    staffCookieOk,
   };
+  // The account row with its email and phone: components get the fields they need, never all of it.
+  taintObject("current user (email, phone)", current);
+  taintObject("account row", user);
+  return current;
 });
 
-/** Staff may skip 2-step login in local development only (DEV_SKIP_STAFF_2FA=true). */
-export function isStaffTwoFactorSkipped(): boolean {
-  return process.env.NODE_ENV !== "production" && process.env.DEV_SKIP_STAFF_2FA === "true";
+/**
+ * The development shortcut (DEV_SKIP_STAFF_2FA=true, never in production) skips 2-step login for
+ * DEMO staff accounts only. A real staff account always needs its authenticator code
+ * (founder's answer 1, round 3; the rule is in ./staff-access.ts).
+ */
+export function isStaffTwoFactorSkipped(user: Pick<CurrentUser, "isDemo">): boolean {
+  return canSkipStaffTwoFactor(process.env as StaffAccessEnv, user);
+}
+
+/** The admin-panel rule for this request (configured address + Host / X-Forwarded-Host). */
+async function staffAccessForRequest(user: CurrentUser): Promise<StaffAccess> {
+  return staffAccess(process.env as StaffAccessEnv, requestHostsOf(await headers()), { ...user, strictCookie: user.staffCookieOk });
+}
+
+/**
+ * Staff rights outside the panel (previewing a hidden listing, a ticket attachment), where no
+ * redirect is possible: staff with 2-step login done, and demo staff only on a test address.
+ */
+export function hasStaffRights(user: CurrentUser): boolean {
+  if (!user.isStaff) return false;
+  if (user.isDemo && !demoStaffAllowed(process.env as StaffAccessEnv, null)) return false;
+  if (user.twoFactorEnabled) return user.twoFactorVerified && user.staffCookieOk;
+  return isStaffTwoFactorSkipped(user);
 }
 
 // ── Page helpers (redirect) ──
@@ -135,7 +201,8 @@ async function redirectWithNext(pathname: string, next: string | undefined): Pro
 
 /**
  * For pages that need a signed-in user. Redirects to /login, /two-factor or /verify-phone
- * (with ?next=) when needed, otherwise returns the user.
+ * (with ?next=) when needed, otherwise returns the user. An account without a first name is sent
+ * to /login, which asks for it (one short step) and then continues to `next`.
  *
  *   const user = await requireUser({ next: "/account/listings" });
  *   const owner = await requireUser({ phoneVerified: true, next: "/post" });
@@ -146,6 +213,7 @@ export async function requireUser(
   const user = await getCurrentUser();
   if (!user) return redirectWithNext("/login", await resolveNext(opts.next));
   if (!user.twoFactorVerified) return redirectWithNext("/two-factor", await resolveNext(opts.next));
+  if (needsFirstName(user)) return redirectWithNext("/login", await resolveNext(opts.next));
   if (opts.phoneVerified && !user.phoneNumberVerified) {
     return redirectWithNext("/verify-phone", await resolveNext(opts.next));
   }
@@ -153,8 +221,10 @@ export async function requireUser(
 }
 
 /**
- * For admin pages. Non-staff get a 404 (the admin panel does not reveal itself); staff must
- * have 2-step login enabled and verified in this session; a missing permission is a 404 too.
+ * For admin pages. Non-staff get a 404 (the admin panel does not reveal itself), and so do demo
+ * staff accounts on the permanent address; staff must have 2-step login enabled and verified in
+ * this session within the last 12 idle hours, and the request must carry the SameSite=Strict staff
+ * cookie (only demo accounts may skip 2-step login, in development); a missing permission is a 404 too.
  */
 export async function requireStaff(
   permission?: Permission,
@@ -162,19 +232,28 @@ export async function requireStaff(
 ): Promise<CurrentUser> {
   const user = await getCurrentUser();
   if (!user) return redirectWithNext("/login", await resolveNext(opts.next, "/admin"));
-  if (!user.isStaff) notFound();
-  if (!isStaffTwoFactorSkipped()) {
-    if (!user.twoFactorEnabled) {
-      return redirectWithNext("/two-factor/setup", await resolveNext(opts.next, "/admin"));
-    }
-    if (!user.twoFactorVerified) {
-      return redirectWithNext("/two-factor", await resolveNext(opts.next, "/admin"));
-    }
-  } else if (user.twoFactorEnabled && !user.twoFactorVerified) {
+  const access = await staffAccessForRequest(user);
+  if (access === "not_staff" || access === "demo_blocked") {
+    await recordPermissionDenied(user, access, permission);
+    notFound();
+  }
+  if (access === "needs_setup") return redirectWithNext("/two-factor/setup", await resolveNext(opts.next, "/admin"));
+  if (access === "needs_code" || access === "needs_strict_cookie") {
     return redirectWithNext("/two-factor", await resolveNext(opts.next, "/admin"));
   }
-  if (permission && !can(user.role, permission)) notFound();
+  if (permission && !can(user.role, permission)) {
+    await recordPermissionDenied(user, "missing_permission", permission);
+    notFound();
+  }
   return user;
+}
+
+/**
+ * A signed-in account refused a staff page or action: a security event (SECURITY_REPORT 16.2; the
+ * "many permission denials" alert reads them). Never throws.
+ */
+async function recordPermissionDenied(user: Pick<CurrentUser, "id">, access: string, permission: Permission | undefined): Promise<void> {
+  await recordSecurityEvent({ type: "permission_denied", userId: user.id, meta: { access, ...(permission ? { permission } : {}) } });
 }
 
 // ── Server action / route handler helpers (throw) ──
@@ -200,13 +279,23 @@ export async function requireUserForAction(
   return user;
 }
 
-/** Like requireStaff, but throws (ForbiddenError) — for admin server actions. */
+/** Like requireStaff, but throws (ForbiddenError) — for admin server actions and routes. */
 export async function requireStaffForAction(permission: Permission): Promise<CurrentUser> {
   const user = await requireUserForAction();
-  if (!user.isStaff) throw new ForbiddenError();
-  if (!isStaffTwoFactorSkipped() && !user.twoFactorEnabled) {
+  const access = await staffAccessForRequest(user);
+  if (access === "not_staff" || access === "demo_blocked") {
+    await recordPermissionDenied(user, access, permission);
+    throw new ForbiddenError();
+  }
+  if (access === "needs_setup") {
+    // Every "forbidden" from a staff action is logged; "sign in again" (needs_code) is not.
+    await recordPermissionDenied(user, access, permission);
     throw new ForbiddenError("2-step login must be enabled for staff");
   }
-  if (!can(user.role, permission)) throw new ForbiddenError();
+  if (access === "needs_code" || access === "needs_strict_cookie") throw new AuthRequiredError("2-step login required");
+  if (!can(user.role, permission)) {
+    await recordPermissionDenied(user, "missing_permission", permission);
+    throw new ForbiddenError();
+  }
   return user;
 }

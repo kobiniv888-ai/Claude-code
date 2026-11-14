@@ -83,7 +83,7 @@ export function TicketReplyBox({
       }}
       className={cn(
         "flex flex-col gap-3 rounded-xl border p-3 shadow-xs",
-        internal ? "border-warning/60 bg-warning-soft" : "bg-card",
+        internal ? "border-border-strong/60 bg-surface-muted" : "bg-card",
       )}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">

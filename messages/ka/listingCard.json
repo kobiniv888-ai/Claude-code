@@ -11,7 +11,7 @@
     "business": "ბიზნესი",
     "shabbatFriendly": "შაბათისთვის შესაფერისი",
     "kosherKitchen": "კოშერული სამზარეულო",
-    "synagogueWalk": "{count} წთ ფეხით სინაგოგამდე"
+    "synagogueWalk": "არაუმეტეს {count} წთ ფეხით სინაგოგამდე"
   },
   "price": {
     "per": {
@@ -23,7 +23,13 @@
     "onRequest": "ფასი მოთხოვნით",
     "original": "{price} ორიგინალი",
     "approx": "≈ {price}",
-    "approxHint": "მიახლოებით, დღევანდელი კურსით. მესაკუთრის ფასია {price}."
+    "approxHint": "მიახლოებით, დღევანდელი კურსით. მესაკუთრის ფასია {price}.",
+    "total": "სულ {price}"
+  },
+  "deal": {
+    "MONTHLY_RENT": "თვიურად",
+    "SALE": "იყიდება",
+    "HOTEL_ROOM": "სასტუმრო"
   },
   "favorite": {
     "save": "შენახვა: {title}",
@@ -64,5 +70,18 @@
   "empty": {
     "title": "განცხადებები არ არის",
     "description": "სცადეთ სხვა ქალაქი, სხვა თარიღები ან ნაკლები ფილტრი."
-  }
+  },
+  "facts": {
+    "groundFloor": "პირველი სართული"
+  },
+  "tags": {
+    "visited": "ადგილზე ვიყავით",
+    "kosherKitchen": "კოშერული სამზარეულო",
+    "shabbatFriendly": "შაბათისთვის",
+    "sea": "არაუმეტეს {count} წთ ფეხით ზღვამდე",
+    "lift": "არაუმეტეს {count} წთ ფეხით საბაგირომდე",
+    "synagogue": "არაუმეტეს {count} წთ სინაგოგამდე",
+    "hebrew": "ებრაულად საუბრობს"
+  },
+  "rating": "შეფასება {average} 5-დან, {count, plural, one {{count} შეფასება} other {{count} შეფასება}}"
 }

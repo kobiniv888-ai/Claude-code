@@ -8,13 +8,19 @@ import { headers } from "next/headers";
 import { getLocale, getTranslations } from "next-intl/server";
 import { z } from "zod";
 import { siteConfig } from "@/config/site";
+import { documentChecksOn } from "@/config/verification";
 import type { Prisma } from "@/generated/prisma/client";
 import { isAppLocale } from "@/i18n/locale";
 import { fail, ok, runAction, type ActionResult } from "@/lib/action";
 import { audit } from "@/lib/audit";
+import { recordSecurityEvent } from "@/lib/security/events";
 import { requireUserForAction } from "@/lib/auth/session";
 import { auth } from "@/lib/auth/server";
-import { setDisplayCurrency } from "@/lib/currency/actions";
+import { removeContactEmail } from "@/lib/auth/contact-email-actions";
+import { consumeFreshProof, requireFreshProof } from "@/lib/auth/fresh-proof";
+import { notifySecurityChange } from "@/lib/auth/security-notices";
+import { clearDisplayCurrency, setDisplayCurrency } from "@/lib/currency/actions";
+import { alertsPart } from "@/lib/booking/alert-rules";
 import { db } from "@/lib/db";
 import { notificationEmailFor, sendEmail } from "@/lib/email";
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
@@ -35,11 +41,13 @@ import { deletePublic } from "@/lib/storage";
 import { deleteAccountData } from "./delete-account";
 import { MUTATING_ACTIONS } from "./listing-status";
 import { getAccountSettings } from "./queries";
+import { refusePaymentFields } from "@/lib/risk/text-guard";
 import {
   confirmationMatches,
   contactEmailSchema,
   notificationsSchema,
   ownAvatarKey,
+  parseNotificationPrefs,
   preferencesSchema,
   profileSchema,
   remainingSignInMethods,
@@ -146,6 +154,8 @@ const VERIFICATION_LIMIT = { limit: 10, windowSeconds: 3600 };
 export async function submitIdVerification(input: unknown): Promise<ActionResult<{ id: string }>> {
   return runAction<{ id: string }>(async () => {
     const user = await requireUserForAction();
+    // No document checks for now (founder's answer 5, round 3; src/config/verification.ts).
+    if (!documentChecksOn()) return fail("documents_paused");
     const parsed = idVerificationSchema.safeParse(input);
     if (!parsed.success) return fail("invalid_input", z.flattenError(parsed.error).fieldErrors);
     await assertRateLimit(`account:verification:${user.id}`, VERIFICATION_LIMIT);
@@ -171,6 +181,8 @@ export async function submitIdVerification(input: unknown): Promise<ActionResult
 export async function submitOwnershipVerification(input: unknown): Promise<ActionResult<{ id: string }>> {
   return runAction<{ id: string }>(async () => {
     const user = await requireUserForAction();
+    // No document checks for now (founder's answer 5, round 3; src/config/verification.ts).
+    if (!documentChecksOn()) return fail("documents_paused");
     const parsed = ownershipVerificationSchema.safeParse(input);
     if (!parsed.success) return fail("invalid_input", z.flattenError(parsed.error).fieldErrors);
     await assertRateLimit(`account:verification:${user.id}`, VERIFICATION_LIMIT);
@@ -205,6 +217,8 @@ export async function submitOwnershipVerification(input: unknown): Promise<Actio
 export async function submitBusinessVerification(input: unknown): Promise<ActionResult<{ id: string }>> {
   return runAction<{ id: string }>(async () => {
     const user = await requireUserForAction();
+    // No document checks for now (founder's answer 5, round 3; src/config/verification.ts).
+    if (!documentChecksOn()) return fail("documents_paused");
     const parsed = businessVerificationSchema.safeParse(input);
     if (!parsed.success) return fail("invalid_input", z.flattenError(parsed.error).fieldErrors);
     await assertRateLimit(`account:verification:${user.id}`, VERIFICATION_LIMIT);
@@ -235,10 +249,18 @@ export async function updateProfile(input: unknown): Promise<ActionResult> {
     if (!parsed.success) return fail("invalid_input", z.flattenError(parsed.error).fieldErrors);
     await assertRateLimit(`account:settings:${user.id}`, SETTINGS_LIMIT);
     const data = parsed.data;
+    // SECURITY_REPORT 14.2.a: the public profile (owner page, listing host box) holds no payment details.
+    const paymentErrors = await refusePaymentFields({
+      surface: "profile",
+      userId: user.id,
+      fields: { name: data.name, firstName: data.firstName, bio: data.bio, businessName: data.accountType === "BUSINESS" ? data.businessName : null },
+    });
+    if (paymentErrors) return fail("payment_in_text", paymentErrors);
     await db.user.update({
       where: { id: user.id },
       data: {
         name: data.name,
+        firstName: data.firstName,
         bio: data.bio,
         spokenLanguages: data.spokenLanguages,
         keepsShabbat: data.keepsShabbat,
@@ -261,14 +283,20 @@ export async function removeAvatar(): Promise<ActionResult> {
   });
 }
 
+/**
+ * The contact email is a sensitive change (SECURITY_REPORT 3.6.a): a NEW address is saved only by
+ * src/lib/auth/contact-email-actions.ts (a fresh code, then a code to the new address). Here only
+ * removing it, which also needs the fresh code (and tells the old address).
+ */
 export async function updateContactEmail(input: unknown): Promise<ActionResult<{ contactEmail: string | null }>> {
   return runAction<{ contactEmail: string | null }>(async () => {
     const user = await requireUserForAction();
     const parsed = contactEmailSchema.safeParse(input);
     if (!parsed.success) return fail("invalid_input", { contactEmail: ["invalid_email"] });
     await assertRateLimit(`account:contact-email:${user.id}`, { limit: 10, windowSeconds: 3600 });
-    await db.user.update({ where: { id: user.id }, data: { contactEmail: parsed.data.contactEmail } });
-    return ok({ contactEmail: parsed.data.contactEmail });
+    if (parsed.data.contactEmail !== null) return fail("contact_email_needs_code");
+    const removed = await removeContactEmail();
+    return removed.ok ? ok({ contactEmail: null }) : removed;
   });
 }
 
@@ -280,12 +308,17 @@ export async function updatePreferences(input: unknown): Promise<ActionResult<{ 
     if (!parsed.success) return fail("invalid_input", z.flattenError(parsed.error).fieldErrors);
     await assertRateLimit(`account:settings:${user.id}`, SETTINGS_LIMIT);
     const { locale, currency, showHebrewDates } = parsed.data;
+    const currencyUpdate =
+      currency === undefined ? {} : { currency: currency === "auto" ? null : (currency as Prisma.UserUpdateInput["currency"]) };
     await db.user.update({
       where: { id: user.id },
-      data: { locale, currency: currency as Prisma.UserUpdateInput["currency"], showHebrewDates },
+      data: { locale, showHebrewDates, ...currencyUpdate },
     });
-    const cookie = await setDisplayCurrency(currency);
-    if (!cookie.ok) console.warn("[account] display currency cookie not set:", cookie.error);
+    // The cookie wins over the account setting, so it follows the change (or goes, for "auto").
+    if (currency !== undefined) {
+      const cookie = currency === "auto" ? await clearDisplayCurrency() : await setDisplayCurrency(currency);
+      if (!cookie.ok) console.warn("[account] display currency cookie not updated:", cookie.error);
+    }
     return ok({ locale });
   });
 }
@@ -296,11 +329,23 @@ export async function updateNotifications(input: unknown): Promise<ActionResult>
     const parsed = notificationsSchema.safeParse(input);
     if (!parsed.success) return fail("invalid_input");
     await assertRateLimit(`account:settings:${user.id}`, SETTINGS_LIMIT);
+    // Keep the booking-alert channel states (a paused email address, src/lib/booking/alert-rules.ts).
+    const current = await db.user.findUnique({ where: { id: user.id }, select: { notificationPrefs: true } });
+    const alerts = alertsPart(current?.notificationPrefs);
+    // The saved-search and price-drop switches live on /account/alerts (round 3, brief 7.4): kept when not sent.
+    const was = parseNotificationPrefs(current?.notificationPrefs).email;
     const prefs = {
-      email: parsed.data.email,
+      email: {
+        ...parsed.data.email,
+        savedSearches: parsed.data.email.savedSearches ?? was.savedSearches,
+        priceDrops: parsed.data.email.priceDrops ?? was.priceDrops,
+        // The review-request switch (round 3, brief 8.1) lives on /account/reviews: kept when not sent.
+        reviewRequests: parsed.data.email.reviewRequests ?? was.reviewRequests,
+      },
       whatsapp: siteConfig.features.whatsappNotifications ? parsed.data.whatsapp : false,
+      ...(alerts ? { alerts } : {}),
     };
-    await db.user.update({ where: { id: user.id }, data: { notificationPrefs: prefs } });
+    await db.user.update({ where: { id: user.id }, data: { notificationPrefs: prefs as Prisma.InputJsonValue } });
     return ok();
   });
 }
@@ -317,7 +362,12 @@ export async function unlinkSocialAccount(provider: unknown): Promise<ActionResu
     const settings = await getAccountSettings(user.id);
     if (!settings.linked.includes(parsed.data)) return fail("not_found");
     if (remainingSignInMethods(settings, parsed.data) < 1) return fail("last_sign_in_method");
+    // A login method is a sensitive change: a fresh code first, the account is told (SECURITY_REPORT 3.6).
+    await requireFreshProof(user);
     await db.account.deleteMany({ where: { userId: user.id, providerId: parsed.data } });
+    // One code, one change (./fresh-proof.ts consumeFreshProof): a second login-method change needs a new code.
+    await consumeFreshProof(user.sessionId);
+    await notifySecurityChange({ userId: user.id, kind: "login_method_removed", provider: parsed.data });
     return ok();
   });
 }
@@ -347,6 +397,8 @@ export async function deleteMyAccount(input: unknown): Promise<ActionResult> {
     await assertRateLimit(`account:delete:${user.id}`, { limit: 5, windowSeconds: 3600 });
     if (!confirmationMatches(parsed.data.confirmation, await confirmationWords())) return fail("confirmation_mismatch");
     if (user.isStaff) return fail("staff_account");
+    // A fresh code before deleting the account (SECURITY_REPORT 3.6.b).
+    await requireFreshProof(user);
 
     const row = await db.user.findUniqueOrThrow({
       where: { id: user.id },
@@ -360,6 +412,9 @@ export async function deleteMyAccount(input: unknown): Promise<ActionResult> {
     } catch (error) {
       console.warn("[account] sign-out before deletion failed:", error);
     }
+    // The security event log too (SECURITY_REPORT 16.2), before the account's rows go (its events
+    // keep no user id afterwards).
+    await recordSecurityEvent({ type: "account_deleted", userId: user.id });
     await deleteAccountData(user.id);
     await audit({ actorId: user.id, action: "account.delete", targetType: "User", targetId: user.id });
     return ok();

@@ -1,5 +1,6 @@
 import { getRequestConfig } from "next-intl/server";
 import { hasLocale } from "next-intl";
+import { COUNTRIES, DEFAULT_COUNTRY } from "@/config/countries";
 import { routing } from "./routing";
 import { getMessages } from "./messages";
 
@@ -11,6 +12,6 @@ export default getRequestConfig(async ({ requestLocale }) => {
     locale,
     messages: await getMessages(locale),
     // Georgia time by default; components that show the owner's local time pass their own zone.
-    timeZone: "Asia/Tbilisi",
+    timeZone: COUNTRIES[DEFAULT_COUNTRY].timezone,
   };
 });

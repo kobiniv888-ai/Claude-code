@@ -2,6 +2,8 @@ import "server-only";
 import { locales, siteConfig, type Localized } from "@/config/site";
 import { Prisma, type JewishPlaceType } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
+import { openPin } from "@/lib/field-crypto";
+import { siteUrl } from "@/lib/site-url";
 import { haversineMeters, walkingMinutes, type LatLng } from "@/lib/geo";
 
 /**
@@ -10,15 +12,28 @@ import { haversineMeters, walkingMinutes, type LatLng } from "@/lib/geo";
  *   await computeListingProximity(listing.id);              // on publish / location change
  *   await recomputeProximityNear(place.lat, place.lng);     // after an admin adds/edits a place
  *
- * Sets Listing.synagogueWalkMin (nearest synagogue or Chabad house), Listing.chabadWalkMin,
- * Listing.nearby (NearbyInfo JSON) and nearbyUpdatedAt.
- * - Jewish places: active JewishPlace rows within 5 km (demo places only for demo listings).
+ * Sets Listing.synagogueWalkMin (the nearest place of type SYNAGOGUE), Listing.nearby (NearbyInfo
+ * JSON) and nearbyUpdatedAt. Chabad houses are never a walking time on a listing (founder's answer
+ * (2), 9 Nov 2026): they appear on the community map only, so they are not looked at here and
+ * Listing.chabadWalkMin is always written as null (the column stays for old rows until a release
+ * drops it).
+ * - Jewish places: active JewishPlace rows within 5 km. A real listing uses ONLY verified, non-demo
+ *   places (JewishPlace.verifiedAt set, brief 5.9); a demo listing may also use demo places (the
+ *   demo shows them labeled "(דמו)" and its cards never get a walking-time tag).
  * - Supermarket and public transport: OpenStreetMap through the Overpass API, 1.2 km around the
  *   listing, 8 s timeout. Fail-safe: when Overpass is slow or down, the previous values are kept.
  *   OVERPASS_ENABLED="false" switches it off; OVERPASS_URL points to another instance.
  * - Airport: straight-line distance to the city's airport (City.airportCode/Lat/Lng).
- * Walking minutes are estimates (straight line × detour factor, see @/lib/geo). Distances are
- * rounded to 50 m so several of them cannot pinpoint the private address.
+ * Walking minutes are estimates (straight line × detour factor, see @/lib/geo), computed from the
+ * EXACT pin and stored exactly (the search filters use them). They never leave the server as
+ * stored: pages, RSC data and APIs get them through @/lib/geo/public-walk (publicWalkMinutes,
+ * publicNearby: rounded up to 5 minutes, no meters, whole km), because a few exact walking times
+ * pinpoint the home (security checklist 6.d).
+ * - The supermarket and the stop a PAGE shows (NearbyInfo.public) are picked around the listing's
+ *   public map point (approxLat/approxLng), never around the pin: naming "the nearest stop is X"
+ *   from the pin puts the home inside X's Voronoi cell, and with the shop's cell that is about one
+ *   building (SECURITY_REPORT 6.d, walk-trilat-1). The pin's own supermarket and transport stay in
+ *   NearbyInfo for staff only; publicNearby never reads them.
  */
 
 export type NearbyPlace = { id: string; name: Localized; minutes: number; meters: number };
@@ -27,7 +42,9 @@ export type TransportKind = "metro" | "train" | "tram" | "bus";
 export type NearbyTransport = NearbyPoi & { kind: TransportKind };
 
 export type NearbyInfo = {
+  /** The nearest SYNAGOGUE (never a Chabad house, founder's answer (2)). */
   synagogue?: NearbyPlace;
+  /** Legacy rows only (computed before 9 Nov 2026): never written now, never read by a page. */
   chabad?: NearbyPlace;
   kosherFood?: NearbyPlace;
   mikveh?: NearbyPlace;
@@ -35,10 +52,23 @@ export type NearbyInfo = {
   /** The nearest metro entrance when there is one within 1.2 km, else the nearest train/tram/bus stop. */
   transport?: NearbyTransport;
   airport?: { code: string; km: number };
+  /**
+   * The supermarket and transport around the PUBLIC map point (names and minutes), the only ones a
+   * page may show (publicNearby). They depend on public data alone, so they add nothing to what
+   * the map circle already tells. Missing on rows computed before this field existed: pages then
+   * show no supermarket or stop until the next recompute (fail closed).
+   */
+  public?: Pick<NearbyInfo, "supermarket" | "transport">;
 };
 
 const JEWISH_RADIUS_M = 5_000;
 const OVERPASS_RADIUS_M = 1_200;
+/**
+ * The public point is at most this far from the pin (siteConfig.listings.approximateLocationMeters),
+ * so every OSM element within OVERPASS_RADIUS_M - this of the public point is in the answer of a
+ * query around the pin: the public pick is then a function of the public point alone.
+ */
+const PUBLIC_PICK_RADIUS_M = OVERPASS_RADIUS_M - siteConfig.listings.approximateLocationMeters;
 const OVERPASS_TIMEOUT_MS = 8_000;
 const DEFAULT_OVERPASS_URL = "https://overpass-api.de/api/interpreter";
 const ROUND_TO_M = 50;
@@ -85,12 +115,21 @@ function nearestOf(point: LatLng, places: PlaceRow[], types: JewishPlaceType[]):
   return { id: best.place.id, name: toLocalized(best.place.names), ...distanceEntry(best.meters) };
 }
 
-async function jewishPlacesNear(point: LatLng, includeDemo: boolean): Promise<PlaceRow[]> {
+/**
+ * Which community places may give a listing its walking times (brief 5.9): never invented ones.
+ * Real listings: active, non-demo places with a verification date. Demo listings: those, plus
+ * active demo places. Exported for tests.
+ */
+export function proximityPlaceWhere(listingIsDemo: boolean): Prisma.JewishPlaceWhereInput {
+  const verifiedReal: Prisma.JewishPlaceWhereInput = { isDemo: false, verifiedAt: { not: null } };
+  return listingIsDemo ? { active: true, OR: [verifiedReal, { isDemo: true }] } : { active: true, ...verifiedReal };
+}
+
+async function jewishPlacesNear(point: LatLng, listingIsDemo: boolean): Promise<PlaceRow[]> {
   const box = boundingBox(point, JEWISH_RADIUS_M);
   return db.jewishPlace.findMany({
     where: {
-      active: true,
-      ...(includeDemo ? {} : { isDemo: false }),
+      ...proximityPlaceWhere(listingIsDemo),
       lat: { gte: box.minLat, lte: box.maxLat },
       lng: { gte: box.minLng, lte: box.maxLng },
     },
@@ -150,15 +189,22 @@ function transportKind(tags: Record<string, string> = {}): TransportKind | null 
   return null;
 }
 
-/** Nearest supermarket and transport from Overpass elements (exported for tests). */
-export function pickOsmNearby(point: LatLng, elements: OverpassElement[]): Pick<NearbyInfo, "supermarket" | "transport"> {
+/**
+ * Nearest supermarket and transport from Overpass elements, within `radius` of `point` (exported
+ * for tests).
+ */
+export function pickOsmNearby(
+  point: LatLng,
+  elements: OverpassElement[],
+  radius: number = OVERPASS_RADIUS_M,
+): Pick<NearbyInfo, "supermarket" | "transport"> {
   let supermarket: { element: OverpassElement; meters: number } | null = null;
   const nearestByKind = new Map<TransportKind, { element: OverpassElement; meters: number }>();
   for (const element of elements) {
     const at = elementPoint(element);
     if (!at) continue;
     const meters = haversineMeters(point, at);
-    if (meters > OVERPASS_RADIUS_M) continue;
+    if (meters > radius) continue;
     if (element.tags?.shop === "supermarket") {
       if (!supermarket || meters < supermarket.meters) supermarket = { element, meters };
       continue;
@@ -187,7 +233,22 @@ export function pickOsmNearby(point: LatLng, elements: OverpassElement[]): Pick<
   return result;
 }
 
-async function fetchOsmNearby(point: LatLng): Promise<Pick<NearbyInfo, "supermarket" | "transport"> | null> {
+/**
+ * The supermarket and transport around the pin (staff only) and around the public map point (what
+ * pages show), from one Overpass query around the pin (exported for tests).
+ */
+export function pickOsmForListing(
+  pin: LatLng,
+  publicPoint: LatLng | null,
+  elements: OverpassElement[],
+): { exact: Pick<NearbyInfo, "supermarket" | "transport">; public: Pick<NearbyInfo, "supermarket" | "transport"> } {
+  return {
+    exact: pickOsmNearby(pin, elements),
+    public: publicPoint ? pickOsmNearby(publicPoint, elements, PUBLIC_PICK_RADIUS_M) : {},
+  };
+}
+
+async function fetchOsmElements(point: LatLng): Promise<OverpassElement[] | null> {
   if (!isOverpassEnabled()) return null;
   const url = process.env.OVERPASS_URL?.trim() || DEFAULT_OVERPASS_URL;
   try {
@@ -196,7 +257,7 @@ async function fetchOsmNearby(point: LatLng): Promise<Pick<NearbyInfo, "supermar
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
         Accept: "application/json",
-        "User-Agent": `${siteConfig.name}/1.0 (+${siteConfig.url})`,
+        "User-Agent": `${siteConfig.name}/1.0 (+${siteUrl()})`,
       },
       body: new URLSearchParams({ data: overpassQuery(point) }),
       signal: AbortSignal.timeout(OVERPASS_TIMEOUT_MS),
@@ -204,7 +265,7 @@ async function fetchOsmNearby(point: LatLng): Promise<Pick<NearbyInfo, "supermar
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = (await res.json()) as { elements?: OverpassElement[] };
-    return pickOsmNearby(point, Array.isArray(data.elements) ? data.elements : []);
+    return Array.isArray(data.elements) ? data.elements : [];
   } catch (error) {
     console.warn("[nearby] Overpass request failed, keeping the previous values:", (error as Error)?.message ?? error);
     return null;
@@ -226,8 +287,9 @@ export async function computeListingProximity(
   const listing = await db.listing.findUnique({
     where: { id: listingId },
     select: {
-      lat: true,
-      lng: true,
+      pinEnc: true,
+      approxLat: true,
+      approxLng: true,
       isDemo: true,
       nearby: true,
       city: { select: { airportCode: true, airportLat: true, airportLng: true } },
@@ -235,34 +297,47 @@ export async function computeListingProximity(
   });
   if (!listing) throw new Error(`computeListingProximity: listing ${listingId} not found`);
 
-  if (listing.lat === null || listing.lng === null) {
+  // The exact pin is decrypted here, on the server, for the distances only (12.3.c). One that cannot
+  // be opened changes nothing (the saved values stay; never cleared or computed from a wrong point).
+  const pin = openPin(listing.pinEnc, "nearby");
+  if (pin.failed) return null;
+  if (!pin.value) {
     await db.listing.update({
       where: { id: listingId },
       data: { synagogueWalkMin: null, chabadWalkMin: null, nearby: Prisma.DbNull, nearbyUpdatedAt: new Date() },
     });
     return null;
   }
-  const point = { lat: listing.lat, lng: listing.lng };
+  const point = pin.value;
+  const publicPoint = listing.approxLat !== null && listing.approxLng !== null ? { lat: listing.approxLat, lng: listing.approxLng } : null;
   const previous = parseNearby(listing.nearby);
 
-  const [places, osm] = await Promise.all([
+  const [places, elements] = await Promise.all([
     jewishPlacesNear(point, listing.isDemo),
-    opts.useOverpass === false ? Promise.resolve(null) : fetchOsmNearby(point),
+    opts.useOverpass === false ? Promise.resolve(null) : fetchOsmElements(point),
   ]);
+  const osm = elements ? pickOsmForListing(point, publicPoint, elements) : null;
 
   const nearby: NearbyInfo = {};
-  const synagogue = nearestOf(point, places, ["SYNAGOGUE", "CHABAD_HOUSE"]);
-  const chabad = nearestOf(point, places, ["CHABAD_HOUSE"]);
+  // Answer (2): the nearest synagogue is a SYNAGOGUE; a Chabad house is never a listing's walk.
+  const synagogue = nearestOf(point, places, ["SYNAGOGUE"]);
   const kosherFood = nearestOf(point, places, ["KOSHER_RESTAURANT", "KOSHER_SHOP"]);
   const mikveh = nearestOf(point, places, ["MIKVEH"]);
   if (synagogue) nearby.synagogue = synagogue;
-  if (chabad) nearby.chabad = chabad;
   if (kosherFood) nearby.kosherFood = kosherFood;
   if (mikveh) nearby.mikveh = mikveh;
 
-  const osmValues = osm ?? { supermarket: previous.supermarket, transport: previous.transport };
+  const osmValues = osm?.exact ?? { supermarket: previous.supermarket, transport: previous.transport };
   if (osmValues.supermarket) nearby.supermarket = osmValues.supermarket;
   if (osmValues.transport) nearby.transport = osmValues.transport;
+  // Without a public point there is nothing a page may show (a listing without one has no map).
+  const publicOsm = publicPoint ? (osm?.public ?? previous.public) : undefined;
+  if (publicOsm && (publicOsm.supermarket || publicOsm.transport)) {
+    nearby.public = {
+      ...(publicOsm.supermarket ? { supermarket: publicOsm.supermarket } : {}),
+      ...(publicOsm.transport ? { transport: publicOsm.transport } : {}),
+    };
+  }
 
   const { airportCode, airportLat, airportLng } = listing.city ?? {};
   if (airportCode && typeof airportLat === "number" && typeof airportLng === "number") {
@@ -274,7 +349,7 @@ export async function computeListingProximity(
     where: { id: listingId },
     data: {
       synagogueWalkMin: synagogue?.minutes ?? null,
-      chabadWalkMin: chabad?.minutes ?? null,
+      chabadWalkMin: null,
       nearby: nearby as Prisma.InputJsonObject,
       nearbyUpdatedAt: new Date(),
     },
@@ -290,16 +365,22 @@ export async function computeListingProximity(
 export async function recomputeProximityNear(lat: number, lng: number, radiusKm = 5): Promise<number> {
   const center = { lat, lng };
   const meters = radiusKm * 1000;
-  const box = boundingBox(center, meters);
+  // The exact pins are encrypted (12.3.c): candidates by the public point, which is at most
+  // approximateLocationMeters from the pin (box widened by that), then the exact distance from the
+  // decrypted pin.
+  const box = boundingBox(center, meters + siteConfig.listings.approximateLocationMeters + 50);
   const listings = await db.listing.findMany({
     where: {
       status: { not: "DELETED" },
-      lat: { gte: box.minLat, lte: box.maxLat },
-      lng: { gte: box.minLng, lte: box.maxLng },
+      approxLat: { gte: box.minLat, lte: box.maxLat },
+      approxLng: { gte: box.minLng, lte: box.maxLng },
     },
-    select: { id: true, lat: true, lng: true },
+    select: { id: true, pinEnc: true },
   });
-  const inRange = listings.filter((l) => l.lat !== null && l.lng !== null && haversineMeters(center, { lat: l.lat, lng: l.lng }) <= meters);
+  const inRange = listings.filter((l) => {
+    const exact = openPin(l.pinEnc, "nearby_recompute").value;
+    return exact !== null && haversineMeters(center, exact) <= meters;
+  });
 
   let updated = 0;
   const queue = [...inRange];

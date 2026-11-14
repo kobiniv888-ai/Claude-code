@@ -48,3 +48,7 @@ next-env.d.ts
 /playwright-report/
 !.env.example
 /.devcontainer/.setup-done
+/.devcontainer/.demo-data-version
+
+# Database backups (npm run db:backup, Admin → Maintenance): personal data, never commit
+/backups/

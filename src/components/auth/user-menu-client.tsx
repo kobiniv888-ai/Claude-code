@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   HeartIcon,
   HouseIcon,
@@ -24,11 +24,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Link, useRouter } from "@/i18n/navigation";
+import { getPathname, Link } from "@/i18n/navigation";
+import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
 export type UserMenuUser = {
   name: string;
+  /** One letter for the avatar (`avatarInitial`), or null for a person icon. */
+  initial: string | null;
   image: string | null;
   /** A real email or the phone number (already formatted by the server) — shown under the name. */
   contact: string | null;
@@ -36,20 +39,8 @@ export type UserMenuUser = {
   isStaff: boolean;
 };
 
-/** Up to two initials; null when the name is a phone number (shows a person icon instead). */
-function initials(name: string): string | null {
-  const trimmed = name.trim();
-  if (!trimmed || /^[+\d\s()-]+$/.test(trimmed)) return null;
-  const letters = trimmed
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((word) => Array.from(word)[0] ?? "")
-    .join("");
-  return letters.toLocaleUpperCase() || null;
-}
-
-export function UserAvatar({ user, className }: { user: Pick<UserMenuUser, "name" | "image">; className?: string }) {
-  const letters = initials(user.name);
+export function UserAvatar({ user, className }: { user: Pick<UserMenuUser, "initial" | "image">; className?: string }) {
+  const letters = user.initial;
   return (
     <Avatar className={cn("size-8", className)}>
       {user.image && <AvatarImage src={user.image} alt="" referrerPolicy="no-referrer" />}
@@ -69,19 +60,18 @@ const LINKS = [
 
 export function UserMenuClient({ user }: { user: UserMenuUser }) {
   const t = useTranslations("auth.menu");
-  const router = useRouter();
+  const locale = useLocale();
   const [signingOut, setSigningOut] = useState(false);
 
+  // The shared logout (round 3, bug 2.9): signs out, clears this device's private data and opens
+  // the home page with "התנתקתם". Loaded on demand: not needed to show the menu.
   async function logOut() {
     setSigningOut(true);
-    try {
-      // Loaded on demand: Better Auth's client is not needed to show the menu.
-      const { signOut } = await import("@/lib/auth/client");
-      await signOut();
-      router.replace("/");
-      router.refresh();
-    } finally {
+    const { logOut: run } = await import("@/lib/auth/logout");
+    const result = await run({ homeHref: getPathname({ href: "/", locale }) });
+    if (!result.ok) {
       setSigningOut(false);
+      toast.error(t("logoutError"));
     }
   }
 
@@ -90,7 +80,7 @@ export function UserMenuClient({ user }: { user: UserMenuUser }) {
       <DropdownMenuTrigger
         className="flex h-10 items-center gap-2 rounded-full border border-border bg-card ps-3 pe-1 shadow-xs transition-shadow outline-none hover:shadow-card focus-visible:ring-3 focus-visible:ring-ring/50 aria-expanded:shadow-card"
         // The visible initials are part of the name (WCAG 2.5.3 label in name).
-        aria-label={[t("openMenu"), initials(user.name)].filter(Boolean).join(" · ")}
+        aria-label={[t("openMenu"), user.name].filter(Boolean).join(" · ")}
       >
         <MenuIcon className="size-4 text-muted-foreground" aria-hidden />
         <UserAvatar user={user} />
@@ -100,7 +90,7 @@ export function UserMenuClient({ user }: { user: UserMenuUser }) {
           <UserAvatar user={user} className="size-10" />
           <span className="grid min-w-0">
             <span dir="auto" className="truncate text-sm font-semibold text-foreground">
-              {user.name}
+              {user.name || t("account")}
             </span>
             {user.contact && (
               <span className="truncate text-xs text-muted-foreground">

@@ -16,30 +16,31 @@ const CITY_NAMES: Record<CityKey, Localized> = {
 };
 
 const TYPE_NAMES: Record<JewishPlaceType, Localized> = {
-  SYNAGOGUE: L("בית כנסת לדוגמה", "Demo synagogue", "Демо-синагога", "كنيس تجريبي", "სადემონსტრაციო სინაგოგა"),
-  CHABAD_HOUSE: L("בית חב״ד לדוגמה", "Demo Chabad house", "Демо-дом Хабада", "بيت حاباد تجريبي", "სადემონსტრაციო ხაბადის სახლი"),
-  KOSHER_RESTAURANT: L("מסעדה כשרה לדוגמה", "Demo kosher restaurant", "Демо-кошерный ресторан", "مطعم كوشير تجريبي", "სადემონსტრაციო კოშერული რესტორანი"),
-  KOSHER_SHOP: L("חנות כשרה לדוגמה", "Demo kosher shop", "Демо-кошерный магазин", "متجر كوشير تجريبي", "სადემონსტრაციო კოშერული მაღაზია"),
-  MIKVEH: L("מקווה לדוגמה", "Demo mikveh", "Демо-миква", "مِكفاه تجريبي", "სადემონსტრაციო მიკვე"),
-  HERITAGE_SITE: L("אתר מורשת לדוגמה", "Demo heritage site", "Демо-объект наследия", "موقع تراثي تجريبي", "სადემონსტრაციო მემკვიდრეობის ძეგლი"),
+  SYNAGOGUE: L("בית כנסת לדוגמה", "Sample synagogue", "Пример синагоги", "كنيس نموذجي", "სანიმუშო სინაგოგა"),
+  CHABAD_HOUSE: L("בית חב״ד לדוגמה", "Sample Chabad house", "Пример дома Хабада", "بيت حاباد نموذجي", "სანიმუშო ხაბადის სახლი"),
+  KOSHER_RESTAURANT: L("מסעדה כשרה לדוגמה", "Sample kosher restaurant", "Пример кошерного ресторана", "مطعم كوشير نموذجي", "სანიმუშო კოშერული რესტორანი"),
+  KOSHER_SHOP: L("חנות כשרה לדוגמה", "Sample kosher shop", "Пример кошерного магазина", "متجر كوشير نموذجي", "სანიმუშო კოშერული მაღაზია"),
+  MIKVEH: L("מקווה לדוגמה", "Sample mikveh", "Пример миквы", "مِكفاه نموذجي", "სანიმუშო მიკვე"),
+  HERITAGE_SITE: L("אתר מורשת לדוגמה", "Sample heritage site", "Пример объекта наследия", "موقع تراثي نموذجي", "სანიმუშო მემკვიდრეობის ძეგლი"),
 };
 
-const SAMPLE_POINT = L("נקודת הדגמה", "sample point", "пример", "نقطة نموذجية", "ნიმუში");
+/** The same demo label as the listing badges and the banner ("דמו" in Hebrew). */
+const DEMO_LABEL = L("דמו", "demo", "демо", "تجريبي", "დემო");
 
 const DESCRIPTION = L(
-  "זו נקודת הדגמה לבדיקת המפה ומרחקי ההליכה – לא מקום אמיתי. בדקו מקורות מקומיים לפני שאתם יוצאים.",
-  "This is a sample point for trying the map and walking times – not a real place. Check local sources before you go.",
-  "Это пример точки для проверки карты и времени пешком – не настоящее место. Перед визитом уточните в местных источниках.",
-  "هذه نقطة نموذجية لتجربة الخريطة وأوقات المشي – وليست مكانًا حقيقيًا. تحقّق من المصادر المحلية قبل أن تذهب.",
-  "ეს არის სადემონსტრაციო წერტილი რუკისა და ფეხით სავალი დროის შესამოწმებლად – არა რეალური ადგილი. წასვლამდე გადაამოწმეთ ადგილობრივ წყაროებში.",
+  "זו נקודת דמו לבדיקת המפה ומרחקי ההליכה — לא מקום אמיתי. בדקו מקורות מקומיים לפני שאתם יוצאים.",
+  "This is a demo point for trying the map and walking times — not a real place. Check local sources before you go.",
+  "Это демо-точка для проверки карты и времени пешком — не настоящее место. Перед визитом уточните в местных источниках.",
+  "هذه نقطة تجريبية لتجربة الخريطة وأوقات المشي — وليست مكانًا حقيقيًا. تحقّق من المصادر المحلية قبل أن تذهب.",
+  "ეს არის დემო წერტილი რუკისა და ფეხით სავალი დროის შესამოწმებლად — არა რეალური ადგილი. წასვლამდე გადაამოწმეთ ადგილობრივ წყაროებში.",
 );
 
-/** "Demo synagogue — Tbilisi (sample point)" in every language. */
+/** "בית כנסת לדוגמה — טביליסי (דמו)" / "Sample synagogue — Tbilisi (demo)" in every language. */
 export function demoPlaceName(type: JewishPlaceType, city: CityKey): Localized {
   return Object.fromEntries(
     (Object.keys(TYPE_NAMES[type]) as (keyof Localized)[]).map((locale) => [
       locale,
-      `${TYPE_NAMES[type][locale]} — ${CITY_NAMES[city][locale]} (${SAMPLE_POINT[locale]})`,
+      `${TYPE_NAMES[type][locale]} — ${CITY_NAMES[city][locale]} (${DEMO_LABEL[locale]})`,
     ]),
   ) as Localized;
 }

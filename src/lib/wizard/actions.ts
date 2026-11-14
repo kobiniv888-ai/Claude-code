@@ -1,47 +1,62 @@
 "use server";
 
+import { after } from "next/server";
 import { getLocale } from "next-intl/server";
 import { z } from "zod";
 import type { Prisma } from "@/generated/prisma/client";
-import { locales, siteConfig, type AppLocale, type CurrencyCode, type Localized } from "@/config/site";
+import { locales, siteConfig, type AppLocale, type Localized } from "@/config/site";
 import { isAppLocale } from "@/i18n/locale";
+import { absoluteUrl } from "@/lib/site-url";
 import { fail, ok, toActionError, type ActionResult } from "@/lib/action";
+import { consumeFreshProof, requireFreshProof } from "@/lib/auth/fresh-proof";
+import { requireAccountEmail } from "@/lib/auth/account-email-guard";
+import { notifySecurityChange } from "@/lib/auth/security-notices";
 import { requireUserForAction, type CurrentUser } from "@/lib/auth/session";
 import { getRates } from "@/lib/currency";
 import { toUsd } from "@/lib/currency/convert";
 import { db } from "@/lib/db";
+import { sealAddress, sealPin } from "@/lib/field-crypto";
 import { NotFoundError } from "@/lib/errors";
 import { removeListingPhotoFiles } from "@/lib/images";
+import { computeShabbatFriendly } from "@/lib/listing/fields";
+import { ListingMistakesError, listingMistakeErrors } from "@/lib/listing/mistake-check-server";
 import {
-  BUSINESS_PROPERTY_TYPES,
-  DEFAULT_PRICE_PERIOD,
-  PROPERTY_TYPES_BY_DEAL,
-  computeShabbatFriendly,
-} from "@/lib/listing/fields";
-import {
+  holdLiveListingForReview,
   prepareListingDerivedFields,
   publicMapPoint,
+  recheckLiveListingAfterEdit,
   recheckLiveListingAfterPriceChange,
   recordPriceChange,
   submitForPublication,
 } from "@/lib/listing/lifecycle";
-import { isOwnPrivateUpload } from "@/lib/media";
 import { getCityById, getNeighborhoods } from "@/lib/places";
+import { walkMinutesFor } from "@/lib/geo/walk-targets";
 import { assertRateLimit } from "@/lib/rate-limit";
 import { detectContactInfo, hasContactInfo } from "@/lib/risk/contact-info";
+import { refusePaymentFields } from "@/lib/risk/text-guard";
+import { notifyGuestsOfContactChange } from "@/lib/contact/changed-server";
 import { scanText } from "@/lib/risk/scan";
 import { assertNotShabbatMode } from "@/lib/settings";
-import { isTranslationEnabled, translateListing } from "@/lib/translate";
+import { stripTitleEmoji } from "@/lib/text/emoji";
+import { isTranslationEnabled, scheduleListingTranslation, translateListing } from "@/lib/translate";
 import { assertTurnstile } from "@/lib/turnstile";
+import { requireTermsFor } from "@/lib/legal/terms-server";
 import { normalizeRanges } from "./availability";
+import { getPledgeStatus, hasCurrentPledge } from "@/lib/pledge/server";
+import { getHostCalendar, HOST_CALENDAR_MONTHS, type HostCalendarData } from "@/lib/booking/host-calendar";
+import { newIcalToken } from "@/lib/listing/ical-token";
 import { missingRequirements } from "./requirements";
+import { liveEditFieldErrors } from "./live-edit";
+import { deactivationLeavesTooFewPhotos, deletePhotoLocked, deleteRoomTypeLocked, lockListing } from "./photo-guard-server";
+import { scheduleRoomTypeNameTranslation } from "./room-type-names";
+import { presentStepKeys } from "./patch";
+import { buildStepUpdate, type StepUpdate, type StepUpdateDeps } from "./step-update";
+import { contactChangeNeedsProof, maskedContactSummary } from "./contact-proof";
 import {
   availabilitySchema,
-  contactValueProblem,
-  isInGeorgia,
   photoAltSchema,
   photoIdsSchema,
-  PRICE_PERIODS_BY_DEAL,
+  photoRoomSchema,
   roomTypeSchema,
   stepSaveSchemas,
   translationSchema,
@@ -49,6 +64,7 @@ import {
 } from "./schemas";
 import {
   dayString,
+  loadWizardAnswers,
   nonApplicableResets,
   parseContactMethods,
   publicPathFor,
@@ -59,7 +75,7 @@ import {
   type ListingRow,
 } from "./server";
 import { isBusinessListing, isSavableStep, stepsFor, type ListingKind, type SavableStepKey } from "./steps";
-import type { DayRange, PublishOutcome, WizardRoomType, WizardTranslation } from "./types";
+import type { DayRange, PublishOutcome, WizardRoomType, WizardSnapshot, WizardTranslation } from "./types";
 
 /*
  * Server actions of the post-a-listing wizard. Every action: signed-in user with a verified
@@ -72,6 +88,9 @@ const SAVE_LIMIT = { limit: 120, windowSeconds: 600 };
 const CREATE_LIMIT = { limit: 10, windowSeconds: 3600 };
 const PUBLISH_LIMIT = { limit: 20, windowSeconds: 3600 };
 const TRANSLATE_LIMIT = { limit: 15, windowSeconds: 3600 };
+/** Reads: every mount of the form and every opening of the calendar sheet. */
+const LOAD_LIMIT = { limit: 300, windowSeconds: 600 };
+const CALENDAR_LIMIT = { limit: 60, windowSeconds: 600 };
 
 const listingIdSchema = z.string().trim().min(1).max(64);
 
@@ -85,8 +104,6 @@ async function ownerForMutation(rateKey: string, limit = SAVE_LIMIT): Promise<Cu
 function kindOf(listing: Pick<ListingRow, "dealType" | "propertyType">): ListingKind {
   return { dealType: listing.dealType, propertyType: listing.propertyType };
 }
-
-const orNull = (value: string) => (value.trim() === "" ? null : value.trim());
 
 /*
  * No revalidatePath() here: every page that shows an owner's listing is rendered per request,
@@ -108,6 +125,7 @@ export async function createDraft(): Promise<ActionResult<{ id: string }>> {
         ownerId: user.id,
         status: "DRAFT",
         wizardStep: 1,
+        icalToken: newIcalToken(),
         originalLocale: isAppLocale(locale) ? locale : siteConfig.i18n.primaryLocale,
         currency: user.currency && user.currency !== "GBP" && user.currency !== "AED" ? user.currency : "USD",
         noReplyOnShabbat: user.keepsShabbat,
@@ -139,234 +157,69 @@ export async function deleteDraft(listingId: string): Promise<ActionResult> {
 
 // ─── Save one step ────────────────────────────────────────────
 
-type StepUpdate = {
-  data: Prisma.ListingUpdateInput;
-  /** Content the public sees changed (re-check on "Save changes"). */
-  contentChanged: boolean;
-  /** The original title/description/language changed: machine translations are stale. */
-  textChanged: boolean;
-  userUpdate?: Prisma.UserUpdateInput;
-  fieldErrors?: Record<string, string[]>;
-  priceChange?: { oldPrice: number; newPrice: number; currency: CurrencyCode };
+/** Database lookups for buildStepUpdate (./step-update.ts, pure and unit-tested). */
+const stepUpdateDeps: StepUpdateDeps = {
+  getCity: (id) => getCityById(id),
+  getNeighborhoodIds: async (cityId) => (await getNeighborhoods(cityId)).map((n) => n.id),
+  getRates: () => getRates(),
+  mapPoint: (point, listingId) => publicMapPoint(point, listingId),
+  sealAddress: (address) => sealAddress(address),
+  sealPin: (pin) => sealPin(pin),
+  walkMinutes: async (cityId, lat, lng) => walkMinutesFor(cityId ? (await getCityById(cityId))?.slug : null, lat, lng),
+  parseContactMethods,
+  countFutureDatePrices: (listingId) => countFutureDatePrices(listingId, null),
 };
 
-const same = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
-
-async function buildStepUpdate<S extends SavableStepKey>(
-  step: S,
-  input: ParsedStep<S>,
-  listing: ListingRow,
-  user: CurrentUser,
-): Promise<StepUpdate> {
-  const kind = kindOf(listing);
-  switch (step) {
-    case "deal": {
-      const { dealType } = input as ParsedStep<"deal">;
-      const allowed = PROPERTY_TYPES_BY_DEAL[dealType];
-      const propertyType = allowed.includes(listing.propertyType) ? listing.propertyType : allowed[0];
-      const pricePeriod = PRICE_PERIODS_BY_DEAL[dealType].includes(listing.pricePeriod)
-        ? listing.pricePeriod
-        : DEFAULT_PRICE_PERIOD[dealType];
-      return {
-        data: { dealType, propertyType, pricePeriod },
-        contentChanged: dealType !== listing.dealType,
-        textChanged: false,
-      };
-    }
-    case "property": {
-      const { propertyType, businessName } = input as ParsedStep<"property">;
-      if (!PROPERTY_TYPES_BY_DEAL[listing.dealType].includes(propertyType)) {
-        return { data: {}, contentChanged: false, textChanged: false, fieldErrors: { propertyType: ["pickOne"] } };
-      }
-      const isBusiness = BUSINESS_PROPERTY_TYPES.includes(propertyType);
-      const userUpdate: Prisma.UserUpdateInput | undefined =
-        isBusiness && businessName && businessName !== (user.businessName ?? "") ? { businessName } : undefined;
-      return { data: { propertyType }, contentChanged: propertyType !== listing.propertyType, textChanged: false, userUpdate };
-    }
-    case "location": {
-      const v = input as ParsedStep<"location">;
-      let cityId: string | null = null;
-      let neighborhoodId: string | null = null;
-      if (v.cityId) {
-        const city = await getCityById(v.cityId);
-        if (!city) return { data: {}, contentChanged: false, textChanged: false, fieldErrors: { cityId: ["cityRequired"] } };
-        cityId = city.id;
-        if (v.neighborhoodId) {
-          const neighborhoods = await getNeighborhoods(city.id);
-          neighborhoodId = neighborhoods.some((n) => n.id === v.neighborhoodId) ? v.neighborhoodId : null;
-        }
-      }
-      const hasPin = v.lat !== null && v.lng !== null;
-      if (hasPin && !isInGeorgia(v.lat!, v.lng!)) {
-        return { data: {}, contentChanged: false, textChanged: false, fieldErrors: { lat: ["outsideGeorgia"] } };
-      }
-      const lat = hasPin ? Number(v.lat!.toFixed(6)) : null;
-      const lng = hasPin ? Number(v.lng!.toFixed(6)) : null;
-      const approx = hasPin ? publicMapPoint({ lat: lat!, lng: lng! }, listing.id) : null;
-      const data: Prisma.ListingUpdateInput = {
-        city: cityId ? { connect: { id: cityId } } : { disconnect: true },
-        neighborhood: neighborhoodId ? { connect: { id: neighborhoodId } } : { disconnect: true },
-        address: orNull(v.address),
-        lat,
-        lng,
-        approxLat: approx?.lat ?? null,
-        approxLng: approx?.lng ?? null,
-      };
-      const changed =
-        cityId !== listing.cityId || neighborhoodId !== listing.neighborhoodId || lat !== listing.lat || lng !== listing.lng;
-      return { data, contentChanged: changed, textChanged: false };
-    }
-    case "details": {
-      const v = input as ParsedStep<"details">;
-      const data: Prisma.ListingUpdateInput = {
-        rooms: v.rooms,
-        bedrooms: v.bedrooms,
-        bathrooms: v.bathrooms,
-        bedsSingle: v.bedsSingle,
-        bedsDouble: v.bedsDouble,
-        bedsSofa: v.bedsSofa,
-        maxGuests: v.maxGuests,
-        sizeSqm: v.sizeSqm,
-        floor: v.floor,
-        totalFloors: v.totalFloors,
-        elevator: v.elevator,
-        yearBuilt: v.yearBuilt,
-        buildingAge: v.buildingAge,
-        furnished: v.furnished,
-        condition: v.condition,
-        heating: v.heating,
-        views: v.views,
-        cadastralCode: orNull(v.cadastralCode),
-        sharedRoomFor: kind.propertyType === "ROOM" ? v.sharedRoomFor : null,
-        originalLocale: v.originalLocale,
-        title: v.title.trim(),
-        description: v.description.trim(),
-        videoUrl: orNull(v.videoUrl),
-        tour360Url: orNull(v.tour360Url),
-      };
-      const textChanged =
-        v.title.trim() !== listing.title ||
-        v.description.trim() !== listing.description ||
-        v.originalLocale !== listing.originalLocale;
-      const before: Record<string, unknown> = listing;
-      const contentChanged = Object.entries(data).some(([key, value]) => !same(value, before[key]));
-      return { data, contentChanged, textChanged };
-    }
-    case "amenities": {
-      const v = input as ParsedStep<"amenities">;
-      const data: Prisma.ListingUpdateInput = {
-        amenities: v.amenities,
-        petsAllowed: v.petsAllowed,
-        smokingAllowed: v.smokingAllowed,
-        partiesAllowed: v.partiesAllowed,
-        checkInFrom: orNull(v.checkInFrom),
-        checkOutUntil: orNull(v.checkOutUntil),
-        quietHoursFrom: orNull(v.quietHoursFrom),
-        quietHoursTo: orNull(v.quietHoursTo),
-      };
-      const before: Record<string, unknown> = listing;
-      return { data, contentChanged: Object.entries(data).some(([k, val]) => !same(val, before[k])), textChanged: false };
-    }
-    case "jewish": {
-      const v = input as ParsedStep<"jewish">;
-      let kosherCertPhotoKey = v.kosherCertPhotoKey;
-      if (kosherCertPhotoKey && kosherCertPhotoKey !== listing.kosherCertPhotoKey) {
-        if (!isOwnPrivateUpload(kosherCertPhotoKey, user.id, "verification")) {
-          return { data: {}, contentChanged: false, textChanged: false, fieldErrors: { kosherCertPhotoKey: ["invalid"] } };
-        }
-      }
-      if (!isBusinessListing(kind)) kosherCertPhotoKey = null;
-      const data: Prisma.ListingUpdateInput = {
-        kitchenKosher: v.kitchenKosher,
-        shabbatFeatures: v.shabbatFeatures,
-        isShabbatFriendly: computeShabbatFriendly(v.shabbatFeatures),
-        jewishFeatures: v.jewishFeatures,
-        hotelJewishFeatures: isBusinessListing(kind) ? v.hotelJewishFeatures : [],
-        kosherCertName: isBusinessListing(kind) ? orNull(v.kosherCertName) : null,
-        kosherCertPhotoKey,
-      };
-      const before: Record<string, unknown> = listing;
-      return { data, contentChanged: Object.entries(data).some(([k, val]) => !same(val, before[k])), textChanged: false };
-    }
-    case "price": {
-      const v = input as ParsedStep<"price">;
-      const pricePeriod = PRICE_PERIODS_BY_DEAL[kind.dealType].includes(v.pricePeriod)
-        ? v.pricePeriod
-        : DEFAULT_PRICE_PERIOD[kind.dealType];
-      const rates = await getRates();
-      const priceUsd = v.price !== null && v.price > 0 ? Math.round(toUsd(v.price, v.currency, rates) * 100) / 100 : null;
-      const data: Prisma.ListingUpdateInput = {
-        price: v.price,
-        currency: v.currency,
-        pricePeriod,
-        priceUsd,
-        deposit: v.deposit,
-        cleaningFee: v.cleaningFee,
-        utilitiesIncluded: v.utilitiesIncluded,
-        utilitiesEstimate: v.utilitiesIncluded ? null : v.utilitiesEstimate,
-        minStayNights: v.minStayNights,
-        weeklyDiscountPct: v.weeklyDiscountPct,
-        monthlyDiscountPct: v.monthlyDiscountPct,
-        icalImportUrls: v.icalImportUrls,
-      };
-      const oldPrice = listing.price === null ? null : Number(listing.price);
-      const priceChanged = oldPrice !== v.price || listing.currency !== v.currency;
-      const priceChange =
-        listing.status !== "DRAFT" && oldPrice !== null && v.price !== null && v.price > 0 && priceChanged
-          ? { oldPrice, newPrice: v.price, currency: v.currency }
-          : undefined;
-      const contentChanged =
-        priceChanged ||
-        !same(v.deposit, listing.deposit === null ? null : Number(listing.deposit)) ||
-        !same(v.cleaningFee, listing.cleaningFee === null ? null : Number(listing.cleaningFee)) ||
-        pricePeriod !== listing.pricePeriod;
-      return { data, contentChanged, textChanged: false, priceChange };
-    }
-    case "contact": {
-      const v = input as ParsedStep<"contact">;
-      // Live listings only ever store contact values that work; drafts may hold half-typed ones.
-      if (listing.status !== "DRAFT") {
-        const fieldErrors: Record<string, string[]> = {};
-        for (const method of v.contactMethods) {
-          const problem = contactValueProblem(method.channel, method.value);
-          if (problem) fieldErrors[`contact.${method.channel}`] = [problem];
-        }
-        if (Object.keys(fieldErrors).length > 0) return { data: {}, contentChanged: false, textChanged: false, fieldErrors };
-      }
-      const data: Prisma.ListingUpdateInput = {
-        contactMethods: v.contactMethods as unknown as Prisma.InputJsonValue,
-        contactHoursFrom: orNull(v.contactHoursFrom),
-        contactHoursTo: orNull(v.contactHoursTo),
-        noReplyOnShabbat: v.noReplyOnShabbat,
-      };
-      const contentChanged = !same(v.contactMethods, parseContactMethods(listing.contactMethods));
-      return { data, contentChanged, textChanged: false };
-    }
-  }
-  return { data: {}, contentChanged: false, textChanged: false };
+/** Holiday prices still to come (ending after today) of the whole listing (null) or of one room type. */
+function countFutureDatePrices(listingId: string, roomTypeId: string | null): Promise<number> {
+  return db.datePrice.count({ where: { listingId, roomTypeId, endDate: { gt: new Date(`${dayString(new Date())}T00:00:00Z`) } } });
 }
 
 /**
- * Auto-save: validates only this step's fields (types and limits — required fields are
- * checked on Next in the browser and on publish here) and stores them.
+ * Auto-save (bug 2.2: patch saves). `data` holds only the answers the person changed since the
+ * last save (see ./patch.ts); keys that are not sent are never written. They are validated with
+ * the step's schema picked to those keys (types and limits — required fields are checked on Next in
+ * the browser and on publish here). `data` may be empty: then only the step the owner is on is
+ * remembered (`options.wizardStep`, drafts only).
  */
 export async function updateDraft(
   listingId: string,
   step: string,
   data: unknown,
   options: { wizardStep?: number } = {},
-): Promise<ActionResult<{ savedAt: string }>> {
+): Promise<ActionResult<{ savedAt: string; updatedAt: string }>> {
   try {
     const user = await ownerForMutation("save");
     const id = listingIdSchema.parse(listingId);
     if (!isSavableStep(step)) return fail("invalid_input");
-    const schema: z.ZodType<unknown> = stepSaveSchemas[step];
-    const parsed = schema.safeParse(data);
+    if (data !== undefined && data !== null && (typeof data !== "object" || Array.isArray(data))) return fail("invalid_input");
+    const keys = presentStepKeys(step, data);
+    const mask = Object.fromEntries(keys.map((key) => [key, true])) as Record<string, true>;
+    const schema = (stepSaveSchemas[step] as z.ZodObject<z.ZodRawShape>).pick(mask);
+    const parsed = schema.safeParse(Object.fromEntries(keys.map((key) => [key, (data as Record<string, unknown>)[key]])));
     if (!parsed.success) return fail("invalid_input", z.flattenError(parsed.error).fieldErrors as Record<string, string[]>);
 
     const listing = await requireOwnedListing(id, user.id);
-    const update = await buildStepUpdate(step, parsed.data as ParsedStep<typeof step>, listing, user);
+    // SECURITY_REPORT 14.2.a: payment details in text guests read (a payment link, an IBAN, a card,
+    // a wallet, a transfer ask) are refused in every state, drafts too (src/lib/risk/text-guard.ts).
+    const paymentErrors = await refusePaymentFields({
+      surface: step === "property" ? "listing_business_name" : step === "jewish" ? "listing_kosher_cert" : "listing_text",
+      userId: user.id,
+      listingId: listing.id,
+      fields: publicTextFields(step, parsed.data as Record<string, unknown>),
+    });
+    if (paymentErrors) return fail("payment_in_text", paymentErrors);
+    const update = await buildStepUpdate(step, parsed.data as Partial<ParsedStep<typeof step>>, listing, user, stepUpdateDeps);
     if (update.fieldErrors) return fail("invalid_input", update.fieldErrors);
+    // A live listing shows the edit at once: an edit that adds a mistake-check error (contact
+    // details in the text, no exact address) is refused, not saved (round 3, brief 6.1).
+    const liveErrors = liveEditFieldErrors(step, parsed.data as Record<string, unknown>, listing);
+    if (liveErrors && listing.status === "LIVE") return fail("invalid_input", liveErrors);
+    // SECURITY_REPORT 3.6.a / 14.3.b: the guest-facing contact details of a listing that was ever
+    // published change only after a fresh code in this session (a stolen session must not point
+    // guests to another number). Refused, not saved: the form keeps the value and asks for the code.
+    const contactChange = contactChangeNeedsProof(step, listing.status, update.contentChanged);
+    if (contactChange) await requireFreshProof(user);
 
     const wizardStep = z.number().int().min(1).max(20).optional().safeParse(options.wizardStep);
     const now = new Date();
@@ -374,22 +227,47 @@ export async function updateDraft(
       ...update.data,
       ...(wizardStep.success && wizardStep.data !== undefined && listing.status === "DRAFT" ? { wizardStep: wizardStep.data } : {}),
       ...(update.contentChanged ? { contentUpdatedAt: now } : {}),
+      ...(contactChange ? { contactChangedAt: now } : {}),
     };
+    if (Object.keys(listingData).length === 0 && !update.userUpdate) {
+      return ok({ savedAt: now.toISOString(), updatedAt: listing.updatedAt.toISOString() });
+    }
 
-    await db.$transaction(async (tx) => {
-      await tx.listing.update({ where: { id: listing.id, ownerId: user.id }, data: listingData });
+    const saved = await db.$transaction(async (tx) => {
+      // Such an edit of a listing that went live since it was read (publish, approval) is refused
+      // too: checked under the row lock that those status changes take.
+      if (liveErrors && (await lockListing(tx, listing.id)) === "LIVE") return null;
+      const row = await tx.listing.update({ where: { id: listing.id, ownerId: user.id }, data: listingData, select: { updatedAt: true } });
       if (update.textChanged) {
         // The original changed: machine translations are out of date (owner-edited ones stay).
         await tx.listingTranslation.deleteMany({ where: { listingId: listing.id, isAuto: true, editedByOwner: false } });
       }
       if (update.userUpdate) await tx.user.update({ where: { id: user.id }, data: update.userUpdate });
+      return row;
     });
+    if (!saved) return fail("invalid_input", liveErrors ?? {});
+    if (contactChange) {
+      // One code, one change; and the host hears of it ("if this wasn't you…", never throws).
+      await consumeFreshProof(user.sessionId);
+      await notifySecurityChange({
+        userId: user.id,
+        kind: "listing_contact",
+        masked: maskedContactSummary((parsed.data as Partial<ParsedStep<"contact">>).contactMethods ?? []),
+      });
+      // SECURITY_REPORT 14.3.c: guests with upcoming bookings are told too (once, after the response).
+      after(() => notifyGuestsOfContactChange(listing.id));
+    }
 
+    if (update.textChanged && listing.status === "LIVE") {
+      // Brief 2.4: an autosaved edit of a live listing is public at once, so its translations are
+      // redone too (after the response, once the typing has settled).
+      scheduleListingTranslation(listing.id, update.contentChanged ? now : null);
+    }
     if (update.priceChange) {
       const { oldPrice, newPrice, currency } = update.priceChange;
       await recordPriceChange(listing.id, oldPrice, newPrice, currency);
     }
-    if (listing.status === "LIVE" && (await needsImmediateRecheck(step, update, parsed.data))) {
+    if (listing.status === "LIVE" && (await needsImmediateRecheck(step, update, parsed.data, listing))) {
       // A live listing shows each auto-saved edit at once. New contact methods, or text with scam
       // phrases or hidden contact details, go through the automatic checks now (as "Save changes"
       // would), so they cannot stay public just because the owner never pressed that button.
@@ -398,19 +276,25 @@ export async function updateDraft(
       // A new price is public at once too: the risk checks run again now (e.g. "far below the area").
       await recheckLivePrice(listing.id, user.id);
     }
-    return ok({ savedAt: now.toISOString() });
+    return ok({ savedAt: now.toISOString(), updatedAt: saved.updatedAt.toISOString() });
   } catch (error) {
     return toActionError(error);
   }
 }
 
+/** The fields of a step that guests read as written (SECURITY_REPORT 14.2.a: checked for payment details). */
+function publicTextFields(step: SavableStepKey, data: Record<string, unknown>): Record<string, string | undefined> {
+  const keys = step === "text" ? ["title", "description"] : step === "property" ? ["businessName"] : step === "jewish" ? ["kosherCertName"] : [];
+  return Object.fromEntries(keys.map((key) => [key, typeof data[key] === "string" ? data[key] : undefined]));
+}
+
 /** True when an auto-saved edit of a live listing must be checked right away (see updateDraft). */
-async function needsImmediateRecheck(step: SavableStepKey, update: StepUpdate, input: unknown): Promise<boolean> {
+async function needsImmediateRecheck(step: SavableStepKey, update: StepUpdate, input: unknown, listing: ListingRow): Promise<boolean> {
   if (!update.contentChanged) return false;
   if (step === "contact") return true;
-  if (step !== "details" || !update.textChanged) return false;
-  const { title, description } = input as ParsedStep<"details">;
-  return textNeedsRecheck(`${title}\n${description}`);
+  if (step !== "text" || !update.textChanged) return false;
+  const { title, description } = input as Partial<ParsedStep<"text">>;
+  return textNeedsRecheck(`${title ?? listing.title}\n${description ?? listing.description}`);
 }
 
 /** Text with hidden contact details or scam phrases: a live listing must be checked again now. */
@@ -419,21 +303,27 @@ async function textNeedsRecheck(text: string): Promise<boolean> {
   return (await scanText(text)).hits.length > 0;
 }
 
-/** Runs the automatic checks on a live listing right away (see updateDraft); never throws. */
+/**
+ * Runs the automatic checks on a live listing right away (see updateDraft), without the
+ * publishing requirements (a cleared price must not switch the check off). Never throws, and
+ * FAILS CLOSED: when the checks can't run, the listing waits for a person.
+ */
 async function recheckLiveListing(listingId: string, ownerId: string): Promise<void> {
   try {
-    await submitForPublication(listingId, ownerId);
+    await recheckLiveListingAfterEdit(listingId, ownerId);
   } catch (error) {
-    console.error(`[wizard] re-check of live listing ${listingId} failed:`, error);
+    console.error(`[wizard] re-check of live listing ${listingId} failed, it waits for review:`, error);
+    await holdLiveListingForReview(listingId, ownerId);
   }
 }
 
-/** Re-runs the risk checks after a price change of a live listing (see updateDraft); never throws. */
+/** Re-runs the risk checks after a price change of a live listing (see updateDraft); never throws, fails closed. */
 async function recheckLivePrice(listingId: string, ownerId: string): Promise<void> {
   try {
     await recheckLiveListingAfterPriceChange(listingId, ownerId);
   } catch (error) {
-    console.error(`[wizard] price re-check of live listing ${listingId} failed:`, error);
+    console.error(`[wizard] price re-check of live listing ${listingId} failed, it waits for review:`, error);
+    await holdLiveListingForReview(listingId, ownerId);
   }
 }
 
@@ -446,6 +336,44 @@ export async function saveWizardStep(listingId: string, wizardStep: number): Pro
     const step = z.number().int().min(1).max(20).parse(wizardStep);
     await db.listing.updateMany({ where: { id, ownerId: user.id, status: "DRAFT" }, data: { wizardStep: step } });
     return ok();
+  } catch (error) {
+    return toActionError(error);
+  }
+}
+
+/**
+ * The saved answers of one of the user's listings, as the form edits them (bug 2.2). The form calls
+ * this on every mount, after the browser restores the page from its cache, and when the tab comes
+ * back into view; until it answers the step is read-only and Next is disabled.
+ */
+export async function loadWizardSnapshot(listingId: string): Promise<ActionResult<WizardSnapshot>> {
+  try {
+    const user = await requireUserForAction({ phoneVerified: true });
+    await assertRateLimit(`wizard:load:${user.id}`, LOAD_LIMIT);
+    const listing = await requireOwnedListing(listingIdSchema.parse(listingId), user.id);
+    const [answers, pledge] = await Promise.all([loadWizardAnswers(listing, user.businessName), getPledgeStatus(user.id)]);
+    return ok({
+      ...answers,
+      user: { phoneVerified: user.phoneNumberVerified, pledge },
+      serverNow: new Date().toISOString(),
+    });
+  } catch (error) {
+    return toActionError(error);
+  }
+}
+
+/**
+ * The place calendar inside the form (bug 2.10: a full-screen sheet instead of another page): the
+ * same data as /account/listings/<id>/calendar, for the listing's owner only.
+ */
+export async function loadListingCalendar(listingId: string): Promise<ActionResult<HostCalendarData & { monthCount: number }>> {
+  try {
+    const user = await requireUserForAction();
+    await assertRateLimit(`wizard:calendar:${user.id}`, CALENDAR_LIMIT);
+    const locale = await getLocale();
+    const data = await getHostCalendar(user.id, listingIdSchema.parse(listingId), isAppLocale(locale) ? locale : siteConfig.i18n.primaryLocale);
+    if (!data || data.listing.dealType === "SALE") throw new NotFoundError();
+    return ok({ ...data, monthCount: HOST_CALENDAR_MONTHS });
   } catch (error) {
     return toActionError(error);
   }
@@ -532,12 +460,11 @@ export async function deletePhoto(listingId: string, photoId: string): Promise<A
   try {
     const user = await ownerForMutation("save");
     const listing = await requireOwnedListing(listingIdSchema.parse(listingId), user.id);
-    const photo = await db.listingPhoto.findFirst({
-      where: { id: listingIdSchema.parse(photoId), listingId: listing.id },
-      select: { id: true, storageKey: true, roomTypeId: true },
-    });
-    if (!photo) throw new NotFoundError();
-    await db.listingPhoto.delete({ where: { id: photo.id } });
+    // Under the listing's lock: a LIVE listing keeps the minimum of photos guests see (round 3,
+    // brief 6.1; for a hotel the photos of the room types it offers count too).
+    const deleted = await deletePhotoLocked(listing.id, listingIdSchema.parse(photoId), listing.dealType === "HOTEL_ROOM");
+    if (!deleted.ok) return fail(deleted.error);
+    const { photo } = deleted;
     await removeListingPhotoFiles(photo);
     const rest = await photosInScope(listing.id, photo.roomTypeId);
     if (rest.length > 0) await writePhotoOrder(listing.id, rest.map((p) => p.id), photo.roomTypeId === null);
@@ -554,9 +481,35 @@ export async function updatePhotoAlt(listingId: string, photoId: string, alt: st
     const user = await ownerForMutation("save");
     const listing = await requireOwnedListing(listingIdSchema.parse(listingId), user.id);
     const text = photoAltSchema.parse(alt);
+    // Shown to guests (screen readers, the gallery): no contact details, like the title.
+    if (hasContactInfo(detectContactInfo(text))) return fail("contact_in_text", { alt: ["contactInText"] });
+    if (await refusePaymentFields({ surface: "photo_alt", userId: user.id, listingId: listing.id, fields: { alt: text } })) {
+      return fail("payment_in_text", { alt: ["paymentInText"] });
+    }
     const { count } = await db.listingPhoto.updateMany({
       where: { id: listingIdSchema.parse(photoId), listingId: listing.id },
       data: { alt: text || null },
+    });
+    if (count === 0) throw new NotFoundError();
+    return ok();
+  } catch (error) {
+    return toActionError(error);
+  }
+}
+
+/**
+ * Optional room label of a photo (round 3, brief 6.1: bedroom, kitchen, bathroom…; null clears
+ * it). The mistake check and the listing page's gallery (grouped by room) read it.
+ */
+export async function updatePhotoRoom(listingId: string, photoId: string, room: unknown): Promise<ActionResult> {
+  try {
+    const user = await ownerForMutation("save");
+    const listing = await requireOwnedListing(listingIdSchema.parse(listingId), user.id);
+    const parsed = photoRoomSchema.safeParse(room);
+    if (!parsed.success) return fail("invalid_input");
+    const { count } = await db.listingPhoto.updateMany({
+      where: { id: listingIdSchema.parse(photoId), listingId: listing.id },
+      data: { room: parsed.data },
     });
     if (count === 0) throw new NotFoundError();
     return ok();
@@ -571,7 +524,11 @@ function sameNameInEveryLanguage(name: string): Localized {
   return Object.fromEntries(locales.map((l) => [l, name])) as Localized;
 }
 
-/** Creates or updates a room type. The name is copied into all 5 languages until translated. */
+/**
+ * Creates or updates a room type (round 3: weekend price, sofa beds, the room's amenities, "כמה
+ * חדרים כאלה להציע בבית" and the on/off switch). The name is copied into all 5 languages until
+ * translated (./room-type-names).
+ */
 export async function saveRoomType(listingId: string, input: unknown): Promise<ActionResult<{ roomType: WizardRoomType }>> {
   try {
     const user = await ownerForMutation("save");
@@ -580,6 +537,10 @@ export async function saveRoomType(listingId: string, input: unknown): Promise<A
     const parsed = roomTypeSchema.safeParse(input);
     if (!parsed.success) return fail("invalid_input", z.flattenError(parsed.error).fieldErrors);
     const v = parsed.data;
+    // The room type's name is public text, like the title: contact details only through "show contact".
+    if (hasContactInfo(detectContactInfo(v.name))) return fail("invalid_input", { name: ["contactInText"] });
+    const roomPayment = await refusePaymentFields({ surface: "room_type", userId: user.id, listingId: listing.id, fields: { name: v.name } });
+    if (roomPayment) return fail("payment_in_text", roomPayment);
     const rates = await getRates();
     const priceUsd = Math.round(toUsd(v.price, v.currency, rates) * 100) / 100;
     const fields = {
@@ -587,22 +548,45 @@ export async function saveRoomType(listingId: string, input: unknown): Promise<A
       currency: v.currency,
       pricePeriod: v.pricePeriod,
       priceUsd,
+      weekendPrice: v.weekendPrice,
       maxGuests: v.maxGuests,
       bedsSingle: v.bedsSingle,
       bedsDouble: v.bedsDouble,
+      bedsSofa: v.bedsSofa,
       sizeSqm: v.sizeSqm,
-      quantity: v.quantity,
+      amenities: v.amenities,
+      // Required since round 3, phase 4 ("כמה חדרים כאלה להציע בבית"): left empty means 1.
+      quantity: v.quantity ?? 1,
+      active: v.active,
     };
 
     let roomId: string;
+    let nameChanged = false;
     if (v.id) {
       const existing = await db.roomType.findFirst({ where: { id: v.id, listingId: listing.id } });
       if (!existing) throw new NotFoundError();
+      // The room type's holiday prices are amounts in its currency (price-2): change them first.
+      if (v.currency !== existing.currency && (await countFutureDatePrices(listing.id, existing.id)) > 0) {
+        return fail("invalid_input", { currency: ["datePricesExist"] });
+      }
       const original = (existing.names as Partial<Localized> | null)?.[listing.originalLocale as AppLocale];
-      await db.roomType.update({
-        where: { id: existing.id },
-        data: { ...fields, ...(original !== v.name ? { names: sameNameInEveryLanguage(v.name) } : {}) },
+      // The quantity and the switch are checked under the room type's lock, like a booking
+      // (src/lib/booking/service.ts): a booking in progress finishes with the old values first.
+      const refused = await db.$transaction(async (tx) => {
+        // Switching a room type off takes its photos off the listing: a LIVE hotel keeps the
+        // minimum of photos guests see (locks the Listing first, as a booking does).
+        if (existing.active && !v.active && (await deactivationLeavesTooFewPhotos(tx, listing.id, existing.id, listing.dealType === "HOTEL_ROOM"))) {
+          return true;
+        }
+        await tx.$queryRaw`SELECT "id" FROM "RoomType" WHERE "id" = ${existing.id} FOR UPDATE`;
+        await tx.roomType.update({
+          where: { id: existing.id },
+          data: { ...fields, ...(original !== v.name ? { names: sameNameInEveryLanguage(v.name) } : {}) },
+        });
+        return false;
       });
+      if (refused) return fail("photos_min");
+      nameChanged = original !== v.name;
       roomId = existing.id;
     } else {
       const count = await db.roomType.count({ where: { listingId: listing.id } });
@@ -611,8 +595,11 @@ export async function saveRoomType(listingId: string, input: unknown): Promise<A
         data: { ...fields, listingId: listing.id, names: sameNameInEveryLanguage(v.name), sortOrder: count },
       });
       roomId = created.id;
+      nameChanged = true;
     }
     await touchContent(listing);
+    // The host writes the name once; the other languages are translated like the listing's text.
+    if (nameChanged) scheduleRoomTypeNameTranslation(roomId, v.name, listing.originalLocale);
 
     const room = await db.roomType.findUniqueOrThrow({
       where: { id: roomId },
@@ -625,11 +612,15 @@ export async function saveRoomType(listingId: string, input: unknown): Promise<A
         price: Number(room.price),
         currency: v.currency,
         pricePeriod: room.pricePeriod,
+        weekendPrice: room.weekendPrice === null ? null : Number(room.weekendPrice),
         maxGuests: room.maxGuests,
         bedsSingle: room.bedsSingle,
         bedsDouble: room.bedsDouble,
+        bedsSofa: room.bedsSofa,
         sizeSqm: room.sizeSqm,
+        amenities: room.amenities,
         quantity: room.quantity,
+        active: room.active,
         photos: room.photos.map(toWizardPhoto),
       },
     });
@@ -638,21 +629,19 @@ export async function saveRoomType(listingId: string, input: unknown): Promise<A
   }
 }
 
-/** Deletes a room type and its photos (files included). */
+/**
+ * Deletes a room type and its photos (files included). A room type with upcoming bookings can't
+ * be deleted ("room_type_has_bookings": its rooms are held by them); the host switches it off instead.
+ */
 export async function deleteRoomType(listingId: string, roomTypeId: string): Promise<ActionResult> {
   try {
     const user = await ownerForMutation("save");
     const listing = await requireOwnedListing(listingIdSchema.parse(listingId), user.id);
-    const room = await db.roomType.findFirst({
-      where: { id: listingIdSchema.parse(roomTypeId), listingId: listing.id },
-      include: { photos: { select: { id: true, storageKey: true } } },
-    });
-    if (!room) throw new NotFoundError();
-    await db.$transaction([
-      db.listingPhoto.deleteMany({ where: { roomTypeId: room.id, listingId: listing.id } }),
-      db.roomType.delete({ where: { id: room.id } }),
-    ]);
-    await Promise.all(room.photos.map((photo) => removeListingPhotoFiles(photo)));
+    // One transaction, locked like a booking (the Listing, then the RoomType): a booking being
+    // committed for this room type is counted, never left without its rooms.
+    const deleted = await deleteRoomTypeLocked(listing.id, listingIdSchema.parse(roomTypeId), listing.dealType === "HOTEL_ROOM");
+    if (!deleted.ok) return fail(deleted.error);
+    await Promise.all(deleted.photos.map((photo) => removeListingPhotoFiles(photo)));
     await touchContent(listing);
     return ok();
   } catch (error) {
@@ -720,10 +709,27 @@ export async function saveTranslations(
   try {
     const user = await ownerForMutation("save");
     const listing = await requireOwnedListing(listingIdSchema.parse(listingId), user.id);
-    const parsed = translationSchema.safeParse({ locale, ...input });
+    // Brief 2.4: titles are saved without emoji, in every language (descriptions keep theirs).
+    const title = typeof input?.title === "string" ? stripTitleEmoji(input.title) : input?.title;
+    const parsed = translationSchema.safeParse({ locale, ...input, title });
     if (!parsed.success) return fail("invalid_input", z.flattenError(parsed.error).fieldErrors);
     const v = parsed.data;
     if (v.locale === listing.originalLocale) return fail("edit_original_in_details");
+    // A hand-written version is shown as written: no contact details, like the original's text.
+    const contact = { title: hasContactInfo(detectContactInfo(v.title)), description: hasContactInfo(detectContactInfo(v.description)) };
+    const translationPayment = await refusePaymentFields({
+      surface: "listing_translation",
+      userId: user.id,
+      listingId: listing.id,
+      fields: { title: v.title, description: v.description },
+    });
+    if (translationPayment) return fail("payment_in_text", translationPayment);
+    if (contact.title || contact.description) {
+      return fail("contact_in_text", {
+        ...(contact.title ? { title: ["contactInText"] } : {}),
+        ...(contact.description ? { description: ["contactInText"] } : {}),
+      });
+    }
     const row = await db.listingTranslation.upsert({
       where: { listingId_locale: { listingId: listing.id, locale: v.locale } },
       create: {
@@ -791,10 +797,12 @@ export async function deleteTranslation(listingId: string, locale: string): Prom
 // ─── Publish ──────────────────────────────────────────────────
 
 async function checkRequirements(listing: ListingRow, user: CurrentUser): Promise<ActionResult<never> | null> {
-  const [photoCount, roomPhotoCount, pricedRoomTypes] = await Promise.all([
+  const [photoCount, roomPhotoCount, pricedRoomTypes, pledgeAccepted] = await Promise.all([
     db.listingPhoto.count({ where: { listingId: listing.id, roomTypeId: null } }),
-    db.listingPhoto.count({ where: { listingId: listing.id, roomTypeId: { not: null } } }),
+    // Only the room types the hotel offers: guests never see a switched-off one's photos.
+    db.listingPhoto.count({ where: { listingId: listing.id, roomTypeId: { not: null }, roomType: { active: true } } }),
     db.roomType.count({ where: { listingId: listing.id, price: { gt: 0 } } }),
+    hasCurrentPledge(user.id),
   ]);
   const missing = missingRequirements({
     values: toWizardValues(listing, user.businessName),
@@ -802,9 +810,27 @@ async function checkRequirements(listing: ListingRow, user: CurrentUser): Promis
     roomPhotoCount,
     pricedRoomTypes,
     phoneVerified: user.phoneNumberVerified,
+    pledgeAccepted,
   });
   if (missing.length === 0) return null;
   return fail("missing_requirements", { requirements: missing.map((m) => m.key) });
+}
+
+/**
+ * The mistake check's errors (round 3, brief 6.1: no exact address for a short stay or hotel,
+ * fewer than 5 photos, contact details in the title or description) stop publishing on the
+ * server, whatever the browser shows. Its warnings never do.
+ */
+async function mistakeRefusal(listingId: string): Promise<ActionResult<never> | null> {
+  // Errors only: they never depend on the price guide, so it isn't loaded here.
+  const errors = await listingMistakeErrors(listingId);
+  if (errors.length === 0) return null;
+  return fail("listing_mistakes", { mistakes: errors.map((e) => e.code) });
+}
+
+/** The answer for a status change the mistake check refused under the lock (lifecycle.ts). */
+function mistakesFailure(error: unknown): ActionResult<never> | null {
+  return error instanceof ListingMistakesError ? fail("listing_mistakes", { mistakes: error.mistakes }) : null;
 }
 
 /**
@@ -844,11 +870,13 @@ function outcome(
   const reasons = (result.reasons ?? [])
     .map((r) => (typeof r === "string" ? r : r && typeof r === "object" && "code" in r ? String((r as { code: unknown }).code) : ""))
     .filter(Boolean);
+  const publicPath = result.status === "BLOCKED" ? null : publicPathFor({ ...listing, status: "LIVE" });
   return {
     status: result.status,
     reasons,
     publicId: listing.publicId,
-    publicPath: result.status === "BLOCKED" ? null : publicPathFor({ ...listing, status: "LIVE" }),
+    publicPath,
+    publicUrl: publicPath ? absoluteUrl(publicPath) : null,
   };
 }
 
@@ -861,23 +889,32 @@ const turnstileTokenSchema = z.string().max(2048).nullish();
  */
 export async function acceptRulesAndPublish(
   listingId: string,
-  input: { rulesAccepted: boolean; turnstileToken?: string | null },
+  input: { rulesAccepted: boolean; turnstileToken?: string | null; termsAccepted?: boolean; ageConfirmed?: boolean },
 ): Promise<ActionResult<PublishOutcome>> {
   try {
     const user = await ownerForMutation("publish", PUBLISH_LIMIT);
+    // Founder's answer (5): a host has a real email (the review notices, a way to sign in when texts are capped).
+    requireAccountEmail(user);
     const listing = await requireOwnedListing(listingIdSchema.parse(listingId), user.id);
     if (input?.rulesAccepted !== true) return fail("rules_not_accepted", { rulesAccepted: ["required"] });
     if (listing.status !== "DRAFT") return fail("already_published");
     const missing = await checkRequirements(listing, user);
     if (missing) return missing;
+    const mistakes = await mistakeRefusal(listing.id);
+    if (mistakes) return mistakes;
     await assertTurnstile(turnstileTokenSchema.parse(input?.turnstileToken), { expectedAction: "publish" });
+    // SECURITY_REPORT 15.11.b/c: the account's first publish, and the next one after the Terms
+    // changed, needs the ticked "18 or older + Terms" box in this request (logged in TermsAcceptance).
+    await requireTermsFor(user.id, "publish", input);
 
     await finalizeListing(listing, user, { rulesAcceptedAt: new Date(), wizardStep: stepsFor(kindOf(listing)).length });
+    // submitForPublication checks the errors again under the row lock, with the status change:
+    // an edit saved in another tab since the check above can't be published unchecked.
     const result = await submitForPublication(listing.id, user.id);
     const fresh = await requireOwnedListing(listing.id, user.id);
     return ok(outcome(fresh, result));
   } catch (error) {
-    return toActionError(error);
+    return mistakesFailure(error) ?? toActionError(error);
   }
 }
 
@@ -897,7 +934,12 @@ export async function saveChanges(
     const listing = await requireOwnedListing(listingIdSchema.parse(listingId), user.id);
     if (listing.status === "DRAFT") return fail("not_published_yet");
     const missing = await checkRequirements(listing, user);
-    if (missing) return missing;
+    if (missing) {
+      // A live listing's auto-saved edits are on the site already: the refusal must not skip the
+      // automatic checks that "Save changes" runs on them (fails closed, see recheckLiveListing).
+      if (listing.status === "LIVE") await recheckLiveListing(listing.id, user.id);
+      return missing;
+    }
 
     // A forged or expired token counts as "changed", so the checks always run when in doubt.
     const openedAt = verifyEditToken(listing.id, editToken);
@@ -905,6 +947,26 @@ export async function saveChanges(
       ? await db.listingPhoto.count({ where: { listingId: listing.id, createdAt: { gt: openedAt } } })
       : 0;
     const changed = !openedAt || listing.contentUpdatedAt > openedAt || newPhotos > 0;
+
+    if (RESUBMIT_STATUSES.has(listing.status)) {
+      // Saving would publish the listing again: the mistake check's errors stop it. Checked even
+      // when nothing "changed" (clearing only the address doesn't move contentUpdatedAt).
+      let mistakes: ActionResult<never> | null;
+      try {
+        mistakes = await mistakeRefusal(listing.id);
+      } catch (error) {
+        // The check couldn't run: a live listing's auto-saved edits still get the automatic
+        // checks (which hold it for review when they can't run either).
+        if (listing.status === "LIVE") await recheckLiveListing(listing.id, user.id);
+        throw error;
+      }
+      if (mistakes) {
+        // A live listing with errors (however they got there) must not stay on the site: it
+        // waits for the host's fix and a person (fails closed).
+        if (listing.status === "LIVE") await holdLiveListingForReview(listing.id, user.id);
+        return mistakes;
+      }
+    }
 
     await finalizeListing(listing, user, listing.rulesAcceptedAt ? {} : { rulesAcceptedAt: new Date() });
     let result: PublishOutcome | null = null;
@@ -917,6 +979,6 @@ export async function saveChanges(
     }
     return ok({ resubmitted: result !== null, outcome: result });
   } catch (error) {
-    return toActionError(error);
+    return mistakesFailure(error) ?? toActionError(error);
   }
 }

@@ -219,7 +219,7 @@ function TestBox() {
   if (result) {
     summary =
       result.hits.length === 0 ? (
-        <p className="text-sm text-verified">{t("testClean")}</p>
+        <p className="text-sm text-success">{t("testClean")}</p>
       ) : (
         <p className="text-sm font-medium">
           {result.blocked ? t("testBlocked") : t("testFlagged", { points: result.points })}
@@ -257,7 +257,7 @@ function TestBox() {
           <ul className="flex flex-col gap-1.5">
             {result.hits.map((hit, i) => (
               <li key={`${hit.rule}-${i}`} className="flex flex-wrap items-center gap-1.5 text-sm">
-                <span className="rounded bg-warning-soft px-1.5 font-medium" dir="auto">
+                <span className="rounded bg-surface-muted px-1.5 font-medium" dir="auto">
                   {hit.phrase}
                 </span>
                 <Pill tone={hit.action === "BLOCK" ? "danger" : "warning"}>{t(`actions.${hit.action}`)}</Pill>

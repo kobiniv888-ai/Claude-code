@@ -1,0 +1,16 @@
+@import "tailwindcss" source(none);
+@import "tw-animate-css";
+@import "./styles/shadcn-tailwind.css";
+@import "./styles/bayit.css";
+
+/*
+ * The complete stylesheet for the sections the public one leaves out (src/app/globals.css): the
+ * admin panel, the account dashboard, the post-a-listing wizard and the dev pages. Their layouts
+ * import it on top of globals.css.
+ *
+ * It scans all of src/, so it is a superset of globals.css: every utility is declared again here, in
+ * Tailwind's order and after globals.css, so the cascade on these pages is exactly that of a single
+ * stylesheet (a file with only the missing utilities could reorder e.g. "p-4" after "px-6").
+ */
+@source "../";
+@source not "../generated";

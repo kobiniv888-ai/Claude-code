@@ -1,10 +1,12 @@
 "use server";
 
 import { z } from "zod";
+import { documentChecksOn } from "@/config/verification";
 import { fail, ok, type ActionResult } from "@/lib/action";
 import { isStaffRole } from "@/lib/auth/permissions";
-import { audit } from "@/lib/audit";
+import { audit, auditOrThrow } from "@/lib/audit";
 import { db } from "@/lib/db";
+import { demoAllowed } from "@/lib/site-env";
 import { ADMIN_TEXT_LIMITS, USER_ACTION_REASONS } from "../reasons";
 import { AdminActionError, assertCanManage, runStaffAction } from "../server/common";
 import { USER_ROLES } from "../server/users";
@@ -30,7 +32,7 @@ const MAX_SUSPENSION_DAYS = 3650;
 async function loadUser(id: string) {
   const user = await db.user.findUnique({
     where: { id },
-    select: { id: true, role: true, status: true, idVerifiedAt: true, twoFactorEnabled: true },
+    select: { id: true, role: true, status: true, idVerifiedAt: true, twoFactorEnabled: true, isDemo: true },
   });
   if (!user) throw new AdminActionError("user_not_found", 404);
   return user;
@@ -38,22 +40,30 @@ async function loadUser(id: string) {
 
 export async function setIdVerified(input: unknown): Promise<ActionResult<{ verified: boolean }>> {
   return runStaffAction("users.manage", "user.verify_id", async (staff) => {
+    // No document checks for now (founder's answer 5, round 3): old decisions are read-only.
+    if (!documentChecksOn()) throw new AdminActionError("documents_paused", 409);
     const parsed = z.object({ userId, verified: z.boolean() }).safeParse(input);
     if (!parsed.success) return fail("invalid_input");
     const user = await loadUser(parsed.data.userId);
     assertCanManage(staff, user);
     const verified = parsed.data.verified;
     if (verified === !!user.idVerifiedAt) return ok({ verified });
-    await db.user.update({
-      where: { id: user.id },
-      data: verified ? { idVerifiedAt: new Date(), idVerifiedById: staff.id } : { idVerifiedAt: null, idVerifiedById: null },
-    });
-    await audit({
-      actorId: staff.id,
-      action: verified ? "user.verify_id" : "user.unverify_id",
-      targetType: "User",
-      targetId: user.id,
-      details: verified ? { manual: true } : { previouslyVerifiedAt: user.idVerifiedAt },
+    // Removing a verification is destructive (Q13): the change and its audit row commit together.
+    await db.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: user.id },
+        data: verified ? { idVerifiedAt: new Date(), idVerifiedById: staff.id } : { idVerifiedAt: null, idVerifiedById: null },
+      });
+      await auditOrThrow(
+        {
+          actorId: staff.id,
+          action: verified ? "user.verify_id" : "user.unverify_id",
+          targetType: "User",
+          targetId: user.id,
+          details: verified ? { manual: true } : { previouslyVerifiedAt: user.idVerifiedAt },
+        },
+        tx,
+      );
     });
     return ok({ verified });
   });
@@ -82,7 +92,7 @@ export async function suspendUserAction(input: unknown): Promise<ActionResult<{ 
     }
     const result = await suspendUser(staff, parsed.data.userId, parsed.data.reason, parsed.data.note, until);
     return ok(result);
-  });
+  }, { freshProof: "consume" });
 }
 
 export async function banUserAction(input: unknown): Promise<ActionResult<{ sessionsRevoked: number; listingsPaused: number }>> {
@@ -90,7 +100,7 @@ export async function banUserAction(input: unknown): Promise<ActionResult<{ sess
     const parsed = reasonSchema.safeParse(input);
     if (!parsed.success) return fail("invalid_input", z.flattenError(parsed.error).fieldErrors);
     return ok(await banUser(staff, parsed.data.userId, parsed.data.reason, parsed.data.note));
-  });
+  }, { freshProof: "consume" });
 }
 
 export async function reactivateUserAction(input: unknown): Promise<ActionResult> {
@@ -116,18 +126,27 @@ export async function changeRole(input: unknown): Promise<ActionResult<{ needsTw
     if (user.status === "BANNED" || user.status === "DELETED") throw new AdminActionError("account_blocked");
     const role = parsed.data.role;
     if (user.role === role) throw new AdminActionError("role_unchanged");
-    await db.user.update({ where: { id: user.id }, data: { role } });
-    const demoted = isStaffRole(user.role);
-    const sessionsRevoked = demoted ? await revokeSessions(user.id) : 0;
-    await audit({
-      actorId: staff.id,
-      action: "user.role_change",
-      targetType: "User",
-      targetId: user.id,
-      details: { from: user.role, to: role, sessionsRevoked },
+    // Demo accounts are never staff on the real site (SECURITY_REPORT 3.4.c, decision 1).
+    if (user.isDemo && isStaffRole(role) && !demoAllowed()) throw new AdminActionError("demo_staff_refused", 403);
+    // Every role change ends the account's sessions, promotions too (SECURITY_REPORT 3.5.b, 3.7.a):
+    // an old session never gains staff rights; the new staff member signs in again with 2-step login.
+    // The change and its audit row commit together, or not at all (Q13).
+    await db.$transaction(async (tx) => {
+      await tx.user.update({ where: { id: user.id }, data: { role } });
+      const sessionsRevoked = await revokeSessions(user.id, tx);
+      await auditOrThrow(
+        {
+          actorId: staff.id,
+          action: "user.role_change",
+          targetType: "User",
+          targetId: user.id,
+          details: { from: user.role, to: role, sessionsRevoked },
+        },
+        tx,
+      );
     });
     return ok({ needsTwoFactor: isStaffRole(role) && !user.twoFactorEnabled });
-  });
+  }, { freshProof: "consume" });
 }
 
 /** Internal staff note about an account (never shown to the user). Support may add notes too. */

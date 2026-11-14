@@ -11,7 +11,7 @@ import { dismissAlert } from "./dismissed-alerts";
 
 const styles: Record<AlertSeverity, { bar: string; icon: typeof Info; iconClass: string }> = {
   INFO: { bar: "border-primary/15 bg-secondary text-secondary-foreground", icon: Info, iconClass: "text-primary" },
-  WARNING: { bar: "border-warning/30 bg-warning-soft text-foreground", icon: TriangleAlert, iconClass: "text-warning" },
+  WARNING: { bar: "border-border-strong/30 bg-surface-muted text-foreground", icon: TriangleAlert, iconClass: "text-foreground" },
   CRITICAL: {
     bar: "border-destructive/30 bg-destructive/10 text-foreground",
     icon: OctagonAlert,

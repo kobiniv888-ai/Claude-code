@@ -37,11 +37,26 @@ const flags = { chat: false, savedSearchAlerts: false, reviews: false };
 describe("account nav", () => {
   it("hides Phase 2 sections until their flag is on", () => {
     const keys = accountNavItems(flags).map((i) => i.key);
-    expect(keys).toEqual(["overview", "listings", "favorites", "compare", "tickets", "verification", "settings"]);
+    // The tabs first (brief 5.8), then the secondary pages.
+    // "ביקורות" (round 3, brief 8.1) is live for everyone.
+    expect(keys).toEqual(["overview", "trips", "listings", "favorites", "verification", "settings", "compare", "reviews", "tickets"]);
+    expect(accountNavItems(flags, { host: true }).map((i) => i.key)).toContain("hostBookings");
     const withChat = accountNavItems({ ...flags, chat: true, reviews: true }).map((i) => i.key);
     expect(withChat).toContain("messages");
     expect(withChat).toContain("reviews");
     expect(withChat).not.toContain("savedSearches");
+  });
+
+  it("has the brief's seven tabs (hostBookings only for hosts); compare and support stay as secondary pages", () => {
+    const tabs = (host: boolean) => accountNavItems(flags, { host }).filter((i) => i.tab).map((i) => i.key);
+    expect(tabs(true)).toEqual(["overview", "trips", "listings", "hostBookings", "favorites", "verification", "settings"]);
+    expect(tabs(false)).not.toContain("hostBookings");
+    const secondary = accountNavItems(flags).filter((i) => !i.tab);
+    expect(secondary.map((i) => [i.key, i.href])).toEqual([
+      ["compare", "/account/compare"],
+      ["reviews", "/account/reviews"],
+      ["tickets", "/account/tickets"],
+    ]);
   });
 
   it("finds the active section by the longest prefix", () => {
@@ -143,19 +158,32 @@ describe("verification rules", () => {
       hasListings: false,
       ownerVerifiedListings: 0,
       ownershipLatest: null,
+      documentChecks: true,
     });
     expect(progress).toEqual({ phone: "verified", id: "pending", owner: null, done: 1, total: 2 });
+    // Founder's answer 5 (round 3): no document checks → only the phone row.
+    expect(
+      verificationProgress({ phoneVerified: true, idVerified: true, idLatest: null, hasListings: true, ownerVerifiedListings: 1, ownershipLatest: null }),
+    ).toEqual({ phone: "verified", id: null, owner: null, done: 1, total: 1 });
   });
 });
 
 describe("settings rules", () => {
   it("requires a business name for business accounts", () => {
-    const base = { name: "Dana", spokenLanguages: ["he", "he", "en"], keepsShabbat: true, accountType: "PRIVATE" as const };
+    const base = { name: "Dana", firstName: "Dana", spokenLanguages: ["he", "he", "en"], keepsShabbat: true, accountType: "PRIVATE" as const };
     const parsed = profileSchema.safeParse(base);
     expect(parsed.success && parsed.data.spokenLanguages).toEqual(["he", "en"]);
     expect(profileSchema.safeParse({ ...base, accountType: "BUSINESS" }).success).toBe(false);
     expect(profileSchema.safeParse({ ...base, accountType: "BUSINESS", businessName: "Hotel" }).success).toBe(true);
     expect(profileSchema.safeParse({ ...base, name: " " }).success).toBe(false);
+  });
+
+  it("requires a first name that is not a phone number or an email (bug 8.2)", () => {
+    const base = { name: "Dana Levi", spokenLanguages: [], keepsShabbat: false, accountType: "PRIVATE" as const };
+    expect(profileSchema.safeParse({ ...base, firstName: "  דנה " }).data?.firstName).toBe("דנה");
+    expect(profileSchema.safeParse({ ...base, firstName: "" }).success).toBe(false);
+    expect(profileSchema.safeParse({ ...base, firstName: "+972 50 123 4567" }).success).toBe(false);
+    expect(profileSchema.safeParse({ ...base, firstName: "dana@example.com" }).success).toBe(false);
   });
 
   it("accepts an empty or valid contact email", () => {
@@ -171,7 +199,16 @@ describe("settings rules", () => {
       tickets: true,
       messages: true,
       marketing: true,
+      weeklyStats: true,
+      // Saved-search and price-drop emails (round 3, brief 7.4): on unless turned off.
+      savedSearches: true,
+      priceDrops: true,
+      // The review request after a stay (round 3, brief 8.1): on unless turned off.
+      reviewRequests: true,
     });
+    expect(parseNotificationPrefs({ email: { reviewRequests: false } }).email.reviewRequests).toBe(false);
+    // The hosts' weekly stats email (round 3): on unless turned off.
+    expect(parseNotificationPrefs({ email: { weeklyStats: false } }).email.weeklyStats).toBe(false);
     expect(parseNotificationPrefs([1, 2]).email.marketing).toBe(false);
   });
 

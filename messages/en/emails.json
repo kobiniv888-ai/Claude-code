@@ -5,7 +5,7 @@
     "signoff": "Warm regards,",
     "team": "The {brand} team",
     "buttonFallback": "If the button doesn't work, copy this link into your browser:",
-    "safety": "{brand} will never ask you for a password, a code or a payment by email or message.",
+    "safety": "{brand} will never ask you for a payment by link, credit card details or a login code.",
     "footerAccount": "You're receiving this email because you have an account on {brand}.",
     "footerGuest": "You're receiving this email because you contacted {brand}.",
     "help": "Help center",
@@ -14,6 +14,15 @@
     "tagline": "Homes in Georgia for Jewish travelers, families and investors"
   },
   "templates": {
+    "login_code": {
+      "subject": "{code} is your {brand} login code",
+      "preheader": "The code works for {minutes, plural, one {{minutes} minute} other {{minutes} minutes}}.",
+      "heading": "Your login code",
+      "body1": "Enter this code to log in to {brand}:",
+      "codeLabel": "Login code",
+      "body2": "The code works for {minutes, plural, one {{minutes} minute} other {{minutes} minutes}}. If you didn’t ask for it, you can simply ignore this email.",
+      "body3": "Never share this code. {brand} will never ask you for it."
+    },
     "welcome": {
       "subject": "Welcome to {brand}",
       "preheader": "Find a home in Georgia, or list yours in a few minutes.",
@@ -38,7 +47,7 @@
       "heading": "Your listing is being reviewed",
       "body1": "Thank you for posting “{title}”. Before it goes live, a member of our team checks it. We do this for every new account, and whenever our automatic safety checks ask for a second look.",
       "body2": "This usually takes less than a day. We'll email you as soon as it's done.",
-      "cta": "My listings"
+      "cta": "My places"
     },
     "listing_approved": {
       "subject": "Approved: “{title}” is live",
@@ -90,7 +99,7 @@
       "heading": "Your listing is temporarily hidden",
       "body1": "Several people reported “{title}”, so we've hidden it until a moderator checks it. This is an automatic safety step and doesn't mean you did anything wrong.",
       "body2": "We usually finish within a day. If something needs to change, we'll tell you exactly what.",
-      "cta": "My listings"
+      "cta": "My places"
     },
     "ticket_created": {
       "subject": "We got your request (#{number}): {subject}",
@@ -177,6 +186,559 @@
       "body2": "Thank you for being part of {brand}. You're welcome back any time.",
       "body3": "Didn't ask for this? Contact us right away.",
       "cta": "Contact us"
+    },
+    "booking_confirmed_guest": {
+      "subject": "Booking confirmed: {title} ({code})",
+      "preheader": "{dates}. The address and the host's details are inside.",
+      "heading": "Your booking is confirmed",
+      "body1": "Booking {code} at {title} is confirmed, and the dates are yours.",
+      "body2": "On the booking page you can see every detail, add the trip to your calendar and cancel under the cancellation policy.",
+      "cta": "See the booking"
+    },
+    "booking_new_host": {
+      "subject": "New booking: {title}, {dates}",
+      "preheader": "A new booking from {guest}.",
+      "heading": "You have a new booking",
+      "body1": "{guest} booked {title} for {dates}. The booking is confirmed, and the dates are blocked in your calendar on the site.",
+      "body2": "If the place is also listed on Airbnb or Booking.com, make sure the calendars are synced to avoid a double booking. The guest pays you on arrival.",
+      "pledge": "As you promised on {brand}, every guest is welcome. A booking may be cancelled only for a real reason, and every cancellation is reviewed.",
+      "cta": "See the booking"
+    },
+    "booking_reminder_guest": {
+      "addressOnTrip": "The exact address and arrival details are on your booking page.",
+      "subject": "Reminder: your stay at {title} starts {count, plural, =0 {today} =1 {tomorrow} other {in {count} days}}",
+      "preheader": "{dates}. The address, check-in time and the host's details.",
+      "heading": "{count, plural, =0 {Your trip starts today} =1 {Your trip starts tomorrow} other {Your trip starts in {count} days}}",
+      "body1": "A short reminder before you arrive at {title}. Here is everything you need:",
+      "cta": "See the booking"
+    },
+    "booking_reminder_host": {
+      "subject": "Reminder: {guest} arrives {count, plural, =0 {today} =1 {tomorrow} other {in {count} days}}",
+      "preheader": "{title}, {dates}.",
+      "heading": "{count, plural, =0 {A guest arrives today} =1 {A guest arrives tomorrow} other {A guest arrives in {count} days}}",
+      "body1": "Reminder: {guest} arrives at {title} {count, plural, =0 {today} =1 {tomorrow} other {in {count} days}}.",
+      "body2": "Send the guest a short message with directions, and make sure the place is ready.",
+      "cta": "See the booking"
+    },
+    "booking_cancelled_by_guest": {
+      "hostAsked": "The guest says you asked them to cancel. Please confirm it, or tell us you didn't, on the booking page within {hours} hours. If you confirm, the cancellation does not count against the guest. If you don't answer, the Bayit team will review it.",
+      "hostAskedCta": "Confirm or decline",
+      "subject": "Booking {code} was cancelled: {title}",
+      "preheader": "{guest}'s booking for {dates} was cancelled.",
+      "heading": "A booking was cancelled",
+      "body1": "{guest} cancelled booking {code} at {title} ({dates}).",
+      "body2": "The dates are open for booking again on the site. You don't need to do anything.",
+      "late": "The cancellation came after the free cancellation period of your policy. Guests pay on arrival, so nothing was charged, but we recorded it as a late cancellation.",
+      "cta": "See your bookings"
+    },
+    "booking_cancelled_by_host": {
+      "subject": "The host cancelled booking {code}",
+      "preheader": "{dates}. You were not charged anything.",
+      "heading": "The host cancelled your booking",
+      "body1": "We're sorry: the host of {title} cancelled booking {code} for {dates}.",
+      "body2": "You haven't paid anything, because on {brand} you pay only on arrival. You can look for another place for the same dates.",
+      "report": "We review every host cancellation. If you have reason to think the booking was cancelled because of who the guest is, please tell us. The host won't know who reported.",
+      "cta": "Find another place",
+      "reportLink": "Host cancelled? Tell us"
+    },
+    "booking_completed": {
+      "subject": "Thank you for staying at {title}",
+      "preheader": "Your stay has ended. We'd love to see you again on {brand}.",
+      "heading": "Your stay has ended",
+      "body1": "Your stay at {title} ({dates}) has ended. We hope you enjoyed it.",
+      "body2": "The booking stays in your trips on {brand}, with all its details.",
+      "cta": "My trips"
+    },
+    "booking_host_unreached_guest": {
+      "subject": "{brand}: please make sure the host expects you (booking {code})",
+      "preheader": "Our message about your booking didn't reach the host.",
+      "heading": "Please contact the host",
+      "body1": "We sent the host a message about booking {code} at {title}, but it didn't reach them.",
+      "body2": "Your booking stands. To make sure the host expects you, please contact them directly:",
+      "body3": "We've told the {brand} team, and we're trying to reach the host too. {brand} never asks you to pay in advance.",
+      "cta": "Booking details"
+    },
+    "host_alert_test": {
+      "subject": "{brand}: a test booking alert",
+      "preheader": "This is how we'll tell you about new bookings.",
+      "heading": "Your booking alerts work",
+      "body1": "This is a test alert from {brand}. This is how we'll tell you about new bookings and cancellations.",
+      "body2": "Nothing else to do. You can change your alert channels at any time in your settings.",
+      "cta": "Booking alert settings"
+    },
+    "host_alerts_paused": {
+      "subject": {
+        "email": "{brand}: email alerts are paused",
+        "telegram": "{brand}: Telegram alerts are paused"
+      },
+      "heading": "An alert channel is paused",
+      "body": {
+        "email": "Our emails to you bounce, so we paused email alerts.",
+        "telegram": "Telegram doesn't accept our messages (maybe the {brand} bot was blocked), so we paused Telegram alerts."
+      },
+      "stillInstant": "Instant bookings continue: we alert you about every booking on your other channels.",
+      "contactOnly": "Until email or Telegram works again, guests ask you directly instead of booking instantly.",
+      "fix": {
+        "email": "Change your email address in the settings, or connect Telegram.",
+        "telegram": "Open the bot in Telegram and tap Start, or connect it again in the settings."
+      },
+      "cta": "Booking alert settings"
+    },
+    "admin_alert": {
+      "host_unreachable": {
+        "subject": "Booking not saved: the host got no alert ({code})",
+        "heading": "A booking was not saved",
+        "body": "A guest tried to book {title}, but none of the host's alert channels accepted the message ({reason}). The booking was undone right away, and the guest was offered to ask the host instead.",
+        "next": "Check the host's email address, their Telegram connection and the site's email service."
+      },
+      "host_alert_bounced": {
+        "subject": "The host's alert for booking {code} bounced",
+        "heading": "The host's alert didn't arrive",
+        "body": "The new-booking message for {title} didn't reach the host ({reason}). The booking stands, and the guest was asked to contact the host directly.",
+        "next": "Email alerts to this host are paused until an email to them arrives again or they change the address. While Telegram works, their instant bookings continue; otherwise their listings show \"Ask the host\"."
+      },
+      "email_bounced": {
+        "subject": "An email from the site bounced: {address}",
+        "heading": "An email from the site didn't arrive",
+        "body": "An email from the site didn't reach its recipient ({reason}).",
+        "next": "If this is a host, their email alerts are paused until an email to them arrives again. While Telegram works, their instant bookings continue."
+      },
+      "host_channel_paused": {
+        "subject": "A host's alert channel was paused",
+        "heading": "A host's alert channel was paused",
+        "body": "One of the host's booking alert channels stopped working ({reason}) and was paused.",
+        "next": "If the host has no other channel that confirms delivery, their listings show \"Ask the host\" until it works again. Consider contacting them."
+      },
+      "sms_budget_warning": {
+        "subject": "SMS: 80% of today's code budget is used",
+        "heading": "Most of today's SMS budget is used",
+        "body": "80% of the code texts that today's budget allows have already been sent.",
+        "next": "If that doesn't match the traffic on the site, someone may be abusing the SMS codes. Check the security log. When the budget runs out, SMS codes stop until the 24-hour window ends."
+      },
+      "sms_budget_reached": {
+        "subject": "SMS: today's code budget is used up",
+        "heading": "SMS codes have stopped",
+        "body": "Every code text that today's budget allows has been sent. No more SMS codes go out until the 24-hour window ends.",
+        "next": "Guests and hosts who need to verify a phone now see that sending is paused. If the traffic looks suspicious, check the security log and the Twilio console."
+      },
+      "sms_country_paused": {
+        "subject": "SMS: codes to a country are paused",
+        "heading": "SMS codes to a country are paused",
+        "body": "In the last hour only a few of the codes texted to this country were confirmed. That is a common sign of SMS abuse, so code texts to this country are paused for an hour.",
+        "next": "If this is normal traffic, there is nothing to do: sending resumes by itself. If not, check the security log and the Twilio console."
+      },
+      "reason": {
+        "email_not_configured": "the email service (Resend) is not connected yet",
+        "no_email": "the host has no email address",
+        "email_failing": "emails to the host's address bounce",
+        "no_channel": "the host has no working alert channel",
+        "failed": "the email service didn't accept the message",
+        "bounced": "the recipient's mail server rejected the email",
+        "complained": "the recipient marked the email as spam",
+        "telegram_failing": "Telegram doesn't accept messages to the host",
+        "blocked": "the host blocked the Telegram bot",
+        "sms_budget": "Today's SMS code budget",
+        "sms_ratio": "Too few codes confirmed for the number sent"
+      },
+      "addressLabel": "Email address",
+      "templateLabel": "Email type",
+      "reasonLabel": "What happened",
+      "cta": "Open the admin panel",
+      "channelLabel": "Channel",
+      "channel": {
+        "email": "Email",
+        "telegram": "Telegram"
+      },
+      "instantLabel": "Instant booking",
+      "instantOn": "continues through another channel",
+      "instantOff": "off until a channel works again",
+      "countryLabel": "Country",
+      "detailLabel": "Numbers"
+    },
+    "report_received": {
+      "subject": "We received your report",
+      "preheader": "Our team will look at it soon. The host doesn't know who reported.",
+      "heading": "Thank you for telling us",
+      "body1": "We received your report about the host. We treat reports like this as urgent, and a person on our team will look at it.",
+      "whenLabel": "When it happened",
+      "body2": "The host doesn't know who reported. If we need more details, we'll write to you.",
+      "body3": "Every host on {brand} has promised to welcome Israeli and Jewish guests. If your booking was cancelled, you can look for another place for the same dates.",
+      "cta": "My trips"
+    },
+    "report_admin": {
+      "urgent": {
+        "subject": "Urgent: a guest says a host turned them away · {host}",
+        "heading": "Urgent report: a guest was turned away",
+        "body": "A guest reports that a host cancelled, refused or questioned them because of who they are. The report is waiting at the top of the queue."
+      },
+      "general": {
+        "subject": "New report: {reason}",
+        "heading": "New report",
+        "body": "A visitor reported a listing or an account."
+      },
+      "reasonLabel": "What was reported",
+      "targetLabel": "About",
+      "target": {
+        "LISTING": "Listing",
+        "USER": "Host or account",
+        "REVIEW": "Review",
+        "MESSAGE": "Message"
+      },
+      "screenshotsLabel": "Screenshots",
+      "screenshots": "{count, plural, one {{count} screenshot} other {{count} screenshots}}",
+      "next": "In the admin panel you can dismiss the report, warn the host, hide their listings or remove them. Each action needs a reason and is logged.",
+      "privacy": "The host doesn't know who reported. The reporter's name and details are only in the admin panel.",
+      "cta": "Open the report"
+    },
+    "report_host_listings_hidden": {
+      "subject": "Your listings on {brand} are hidden",
+      "preheader": "They don't show on the site until our team decides otherwise.",
+      "heading": "We hid your listings",
+      "body1": "{count, plural, one {Your listing was taken off the site} other {All {count} of your listings were taken off the site}} after we looked into a guest's report.",
+      "reasonLabel": "Reason",
+      "body2": "Every host on {brand} promises to welcome Israeli and Jewish guests. Your listings stay hidden until our team decides otherwise. Existing bookings were not cancelled. If you think this is a mistake, please contact support.",
+      "cta": "Contact support"
+    },
+    "report_reporter_revealed": {
+      "subject": "About a report we received on {brand}",
+      "preheader": "We decided to tell you who sent it.",
+      "heading": "Who sent the report",
+      "body1": "We looked into a guest's report about you, and we decided to tell you who sent it.",
+      "reporterLabel": "Reported by",
+      "reasonLabel": "What was reported",
+      "noteLabel": "A message from our team",
+      "body2": "Please don't contact the guest about this. If you'd like to add something, write to us through the {brand} help center.",
+      "cta": "Contact support"
+    },
+    "report_reasons": {
+      "FAKE_LISTING": "Fake listing",
+      "ALREADY_RENTED": "Already rented or sold",
+      "WRONG_PRICE": "Wrong price",
+      "ASKED_MONEY_UPFRONT": "Asked for money up front",
+      "OFFENSIVE": "Offensive",
+      "OTHER": "Other",
+      "CANCELLED_FOR_IDENTITY": "The host cancelled because of who the guest is",
+      "ASKED_RELIGION_OR_ORIGIN": "The host asked about the guest's religion or origin",
+      "REFUSED_OR_IGNORED": "The host refused or ignored the guest"
+    },
+    "admin_review_needed": {
+      "subject": "Listing {id} is waiting for review",
+      "subjectUrgent": "Urgent: listing {id} is waiting for review",
+      "heading": "A listing is waiting for review",
+      "body": "The listing {title} is waiting for review before it goes live.",
+      "whyLabel": "Why",
+      "why": {
+        "first_listing": "The host's first listing",
+        "flagged_host": "The host has an open flag",
+        "risk": "The automatic checks found a risk",
+        "back_to_review": "The host made changes you asked for",
+        "blocked": "The checks blocked publishing",
+        "recheck": "A change to a live listing"
+      },
+      "riskLabel": "Risk score",
+      "riskValue": "{score} ({count, plural, =0 {no findings} one {1 finding} other {{count} findings}})",
+      "next": "You can approve it, ask for changes or reject it in the admin panel. The host is told about your decision.",
+      "cta": "Review the listing"
+    },
+    "admin_daily_summary": {
+      "subject": "Daily summary · {date}",
+      "subjectUrgent": "Urgent: turned-away report · Daily summary · {date}",
+      "heading": "Daily summary",
+      "range": "{from} to {to}",
+      "waitingIntro": "{count, plural, one {1 thing is waiting:} other {{count} things are waiting:}}",
+      "nothingWaiting": "Nothing is waiting right now.",
+      "waiting": {
+        "turnedAwayReports": "Turned-away reports",
+        "inReview": "Listings waiting for review",
+        "otherReports": "Other open reports",
+        "flagCancellations": "Host cancellations within 48 hours",
+        "flagHosts": "Hosts with several reports",
+        "flagNoShows": "Guest no-shows",
+        "failedEmails": "Emails that failed (7 days)"
+      },
+      "periodIntro": "What happened on {range}:",
+      "period": {
+        "bookings": "New bookings",
+        "cancelledByGuest": "Cancelled by guests",
+        "cancelledByHost": "Cancelled by hosts",
+        "flaggedCancellations": "Cancellations flagged for review",
+        "noShows": "Guest no-shows",
+        "reports": "New reports",
+        "turnedAwayReports": "of them turned-away reports",
+        "hostUnreachable": "Bookings not saved (the host got no alert)"
+      },
+      "urgentNotice": "{count, plural, one {There is an open turned-away report. Please check it today.} other {There are {count} open turned-away reports. Please check them today.}}",
+      "cta": "Open the admin panel"
+    },
+    "weekly_host_stats": {
+      "subject": "This week: {summary}",
+      "preheader": "Your listings' summary for {dates}",
+      "heading": "Your listings this week",
+      "summary": "This week: {summary}.",
+      "period": "The numbers for {dates}, Sunday to Saturday.",
+      "counts": {
+        "views": "{count, plural, one {1 view} other {{countText} views}}",
+        "saves": "{count, plural, one {1 save} other {{countText} saves}}",
+        "contacts": "{count, plural, one {1 contact click} other {{countText} contact clicks}}",
+        "bookings": "{count, plural, one {1 booking} other {{countText} bookings}}"
+      },
+      "untitled": "Listing {id}",
+      "listingLink": "See this listing's stats",
+      "more": "{count, plural, one {And 1 more listing, in My places.} other {And {countText} more listings, in My places.}}",
+      "howCounted": "Each visitor counts once a day. Your own views, the site team's and bots' don't count, and neither do cancelled bookings.",
+      "unsubscribeText": "Don't want the weekly summary? You can stop it with one tap, and turn it back on in your account settings.",
+      "unsubscribe": "Stop the weekly summary",
+      "cta": "Go to My places"
+    },
+    "saved_search_matches": {
+      "subjectOne": "{count, plural, one {1 new place} other {{countText} new places}}: {name}",
+      "subjectMany": "{count, plural, one {1 new place for your saved searches} other {{countText} new places for your saved searches}}",
+      "preheader": "Places just listed on {brand} that match your saved searches",
+      "heading": "New places for your searches",
+      "intro": "New places on {brand} match the searches you saved:",
+      "searchCount": "{count, plural, one {1 new place} other {{countText} new places}}",
+      "openSearch": "See all results",
+      "openPlace": "View place",
+      "more": "{count, plural, one {And 1 more new place in this search.} other {And {countText} more new places in this search.}}",
+      "moreSearches": "{count, plural, one {Another saved search has new places too. We'll send them in the next email.} other {{countText} more saved searches have new places too. We'll send them in the next email.}}",
+      "unsubscribeText": "You get this email because you saved a search on {brand}. You can pause any search in your account, or stop these emails with one tap.",
+      "unsubscribe": "Stop saved-search emails",
+      "cta": "Go to my saved searches"
+    },
+    "price_drop": {
+      "subject": "Price down {pct}%: {title}",
+      "preheader": "Now {price}",
+      "heading": "A place you saved is cheaper",
+      "intro": "The price of {title} has gone down since you saved it.",
+      "before": "Before",
+      "now": "Now",
+      "drop": "Down by",
+      "dropValue": "{pct}%",
+      "where": "Where",
+      "list": "In your list",
+      "note": "Prices can change. Before you book, check the full price for your dates on the place's page.",
+      "unsubscribeText": "You get this email because this place is in one of your saved lists on {brand}. You can stop price-drop emails with one tap.",
+      "unsubscribe": "Stop price-drop emails",
+      "cta": "View place"
+    },
+    "review_request": {
+      "subject": "How was your stay at {title}?",
+      "preheader": "You can write a short review until {date}. It helps the next guests.",
+      "heading": "Thank you for staying!",
+      "body1": "Your stay at {title} ({dates}) is over. We hope you enjoyed it.",
+      "body2": "A short review helps the next guests choose. On {brand}, only guests who stayed can write reviews.",
+      "final": "You can write a review until {date}. Once posted it can't be edited or deleted, and it shows with your first name and the month.",
+      "tripText": "All the booking details stay on the booking page.",
+      "tripLink": "Go to the booking",
+      "unsubscribeText": "Don't want review requests by email from {brand}?",
+      "unsubscribe": "Stop review requests",
+      "cta": "Write a review"
+    },
+    "review_posted_host": {
+      "subject": "New review of {title}",
+      "preheader": "A guest gave {stars} stars out of 5.",
+      "heading": "A guest wrote a review",
+      "body": "A new review of {title}: {stars} stars out of 5.",
+      "bodyNamed": "{guest} wrote a review of {title}: {stars} stars out of 5.",
+      "quoteLabel": "The review",
+      "reply": "You can reply once, publicly, under the review. If it breaks the rules, you can report it to the {brand} team.",
+      "final": "Reviews and replies are final: they can't be edited or deleted.",
+      "cta": "See the review"
+    },
+    "review_reply_guest": {
+      "subject": "The host replied to your review of {title}",
+      "preheader": "The reply shows under your review.",
+      "heading": "The host replied",
+      "body": "The host of {title} replied to your review. The reply shows under your review on the listing.",
+      "quoteLabel": "The host's reply",
+      "cta": "See it on the listing"
+    },
+    "review_hidden": {
+      "subject": {
+        "guest": "Your review of {title} was hidden",
+        "host": "A review of {title} was hidden"
+      },
+      "heading": "A review was hidden",
+      "body": {
+        "guest": "The {brand} team hid your review of {title} because it doesn't follow the review rules. It no longer shows on the site or counts in the rating.",
+        "host": "The {brand} team hid a review of {title} because it doesn't follow the review rules. It no longer shows on the site or counts in the rating."
+      },
+      "reasonLabel": "Reason",
+      "reasons": {
+        "offensive": "Offensive content",
+        "discrimination": "Discrimination or hate",
+        "personal_info": "Personal or contact details",
+        "not_about_stay": "Not about the stay",
+        "not_genuine": "Not a genuine review",
+        "other": "Breaks the review rules"
+      },
+      "final": "Reviews are never edited: a review can only be hidden or shown again.",
+      "help": "Think this is a mistake? Write to us through the {brand} help page.",
+      "cta": "My reviews"
+    },
+    "review_shown": {
+      "subject": {
+        "guest": "Your review of {title} is back on the site",
+        "host": "A review of {title} is back on the site"
+      },
+      "heading": "A review is back on the site",
+      "body": {
+        "guest": "The {brand} team looked at your review of {title} again and put it back on the site. It shows on the listing and counts in the rating again.",
+        "host": "The {brand} team looked at a review of {title} again and put it back on the site. It shows on the listing and counts in the rating again."
+      },
+      "cta": "See the reviews"
+    },
+    "review_no_show_guest": {
+      "subject": "Your host reported that you didn't arrive · {code}",
+      "preheader": "{title}: your host reported that you didn't arrive.",
+      "heading": "Your host reported that you didn't arrive",
+      "body1": "The host of {title} reported that you didn't arrive for your stay ({dates}, booking {code}).",
+      "body2": "A stay marked \"didn't arrive\" can't be reviewed.",
+      "wrong": "Did you arrive and stay there? Write to us through the {brand} contact page and we'll look into it. If the report is wrong, we'll remove it and you'll be able to write a review.",
+      "tripLink": "Booking details",
+      "cta": "Contact {brand}"
+    },
+    "security_code": {
+      "subject": {
+        "confirm": "Your code to confirm a change on {brand}",
+        "unlock": "Your code to reset the lock on {brand}",
+        "contact": "Confirm your email address on {brand}"
+      },
+      "preheader": "The code works for {minutes, plural, one {{minutes} minute} other {{minutes} minutes}}.",
+      "heading": {
+        "confirm": "Confirm it’s you",
+        "unlock": "Reset the wrong-code count",
+        "contact": "Confirm your email address"
+      },
+      "body": {
+        "confirm": "You asked to change something sensitive on your {brand} account. Enter this code to confirm:",
+        "unlock": "Too many wrong 2-step login codes were entered on your account today. This code only resets the count – to log in you still need the code from your app or a recovery code.",
+        "contact": "You asked to get {brand} notifications at this address. Enter this code to confirm it:"
+      },
+      "codeLabel": "Confirmation code",
+      "valid": "The code works for {minutes, plural, one {{minutes} minute} other {{minutes} minutes}}, once.",
+      "neverShare": "Never share this code. {brand} will never ask you for it.",
+      "notYou": "Didn’t ask for this code? Don’t enter it anywhere, and check your account settings."
+    },
+    "security_change": {
+      "subject": {
+        "contact_email": "Your {brand} notification email was changed",
+        "contact_email_removed": "Your {brand} notification email was removed",
+        "phone": "Your {brand} phone number was changed",
+        "login_method_added": "A login method was added to your {brand} account",
+        "login_method_removed": "A login method was removed from your {brand} account",
+        "two_factor_on": "2-step login was turned on for your {brand} account",
+        "two_factor_off": "2-step login was turned off for your {brand} account",
+        "authenticator_changed": "Your {brand} authenticator app was replaced",
+        "recovery_codes_new": "New recovery codes were made for your {brand} account",
+        "recovery_code_used": "A recovery code was used to log in to {brand}",
+        "totp_locked": "Logging in to your {brand} account is locked until tomorrow",
+        "listing_contact": "The contact details of your {brand} listing were changed"
+      },
+      "preheader": "If this wasn’t you, secure your account now.",
+      "heading": "A change on your account",
+      "kinds": {
+        "contact_email": "The email address that gets your {brand} notifications was changed. This email goes to the previous address.",
+        "contact_email_removed": "Your notification email was removed. From now on notifications go to your login address.",
+        "phone": "The verified phone number on your account was changed. We logged you out on all other devices.",
+        "login_method_added": "A {provider} account was connected to your {brand} account as a way to log in.",
+        "login_method_removed": "A {provider} account was disconnected from your {brand} account.",
+        "two_factor_on": "2-step login was turned on. From now on we ask for a code from your authenticator app at each login.",
+        "two_factor_off": "2-step login was turned off. Logging in no longer needs a code from an app.",
+        "authenticator_changed": "2-step login was moved to an app on a new phone. The previous app no longer works.",
+        "recovery_codes_new": "New recovery codes were made. The previous codes no longer work.",
+        "recovery_code_used": "Someone logged in with a recovery code instead of the code from the app. {left, plural, one {{left} recovery code is left} other {{left} recovery codes are left}}.",
+        "totp_locked": "20 wrong 2-step login codes were entered today, so logging in is locked until tomorrow.",
+        "listing_contact": "The contact details guests see on your listing were changed (WhatsApp, phone or another channel). If you did not change them, guests may be reaching someone else."
+      },
+      "providers": {
+        "google": "Google",
+        "apple": "Apple",
+        "other": "external"
+      },
+      "whenLabel": "When",
+      "newValueLabel": "New value",
+      "ifYou": "If this was you, there’s nothing to do.",
+      "notYou": "Not you? Log in, choose “Log out of all devices” and write to us right away. {brand} will never ask you for a code by phone or chat.",
+      "contactLink": "Write to us",
+      "cta": "Secure my account"
+    },
+    "security_new_device": {
+      "subject": "New login to your {brand} account",
+      "preheader": "Your account was used on a new device.",
+      "heading": "Login from a new device",
+      "body": "Someone logged in to your {brand} account from a device or browser you haven’t used before.",
+      "deviceLabel": "Device",
+      "unknownDevice": "Unknown device",
+      "whenLabel": "When",
+      "ifYou": "If this was you, there’s nothing to do.",
+      "notYou": "Not you? Log in, choose “Log out of all devices” and write to us right away.",
+      "contactLink": "Write to us",
+      "cta": "Secure my account"
+    },
+    "security_staff_alert": {
+      "subject": {
+        "new_device": "Security: a staff account logged in from a new device",
+        "totp_locked": "Security: a staff account was locked after 20 wrong codes",
+        "recovery_code_used": "Security: a staff account logged in with a recovery code"
+      },
+      "heading": "Security alert – staff account",
+      "body": {
+        "new_device": "A staff account logged in from a device it hasn’t used before.",
+        "totp_locked": "20 wrong 2-step login codes were entered on a staff account today. Logging in is locked until tomorrow.",
+        "recovery_code_used": "A staff account logged in with a recovery code instead of the authenticator app."
+      },
+      "staffLabel": "Account",
+      "deviceLabel": "Device",
+      "whenLabel": "When",
+      "final": "Don’t recognise it? Check with the staff member and, if needed, remove the role in the admin panel.",
+      "cta": "Open staff roles"
+    },
+    "security_alert": {
+      "subject": "Security alert: {count, plural, one {1 thing} other {{count} things}} to look at",
+      "heading": "Security alert",
+      "intro": "In the last {minutes} minutes the site noticed:",
+      "final": "Was it you or your team? Then there is nothing to do. If not, open the admin panel, and follow INCIDENT_PLAN.md if it looks like an attack.",
+      "cta": "Open the audit log",
+      "kinds": {
+        "staff_new_device": "A staff account logged in from a device it never used before ({count}).",
+        "staff_security_change": "A staff account changed its 2-step login, recovery codes, email or login methods ({count}).",
+        "totp_locked": "A staff account was locked after 20 wrong 2-step codes ({count}).",
+        "totp_unlock_email": "An email code was asked for to unlock 2-step login ({count}).",
+        "recovery_code_used": "A 2-step recovery code was used to log in ({count}).",
+        "login_failures": "{count} wrong login codes (alert above {threshold}).",
+        "login_failures_ip": "{count} wrong login codes from one connection (alert above {threshold}).",
+        "login_codes_locked": "{count} login codes were stopped after 5 wrong tries (alert above {threshold}).",
+        "code_sends": "{count} login codes were sent (alert above {threshold}).",
+        "sms_paused": "Codes by SMS were paused: the daily budget ran out, or too few codes were confirmed ({count}).",
+        "permission_denials": "{count} attempts to open staff pages or actions without the right (alert above {threshold}).",
+        "permission_denials_ip": "{count} such attempts from one connection (alert above {threshold}).",
+        "id_guessing": "{count} booking, trip, list or ticket links that matched nothing (alert above {threshold}): someone may be guessing links.",
+        "id_guessing_ip": "{count} links that matched nothing, from one connection (alert above {threshold}).",
+        "rate_limited": "{count} requests were stopped by the speed limits (alert above {threshold}).",
+        "csp_reports": "{count} reports of blocked content from browsers (alert above {threshold}).",
+        "booking_cap": "{count} bookings were refused by the limit of 2 upcoming bookings per phone (alert above {threshold}).",
+        "show_contact_cap": "{count} visitors reached the daily “show contact” limit (alert above {threshold}).",
+        "signup_burst": "{count} new accounts in the hour, up to {perIp} from one connection (alert above {threshold} in all or {perIpThreshold} from one connection). Alert only: nobody was blocked.",
+        "listing_burst": "{count} new listings (alert above {threshold}).",
+        "booking_burst": "{count} new bookings (alert above {threshold}).",
+        "role_changed": "A staff role was given or removed ({count}).",
+        "maintenance_on": "Maintenance mode was switched on.",
+        "maintenance_off": "Maintenance mode was switched off.",
+        "sessions_ended": "Everyone was signed out (“sign everyone out”).",
+        "offsite_backup_failed": "The weekly off-site backup failed ({count}).",
+        "offsite_backup_missing": "No off-site backup has succeeded for {days} days.",
+        "certificate_expiry": "The site’s HTTPS certificate ends in {days} days.",
+        "support_overdue": "{count, plural, one {1 support ticket has} other {{count} support tickets have}} waited longer than the reply promise (one business day, Sunday to Thursday): {tickets}.",
+        "field_decrypt_failed": "Encrypted addresses or phone numbers could not be opened ({count}): check FIELD_ENCRYPTION_KEY at the hosting."
+      }
+    },
+    "host_contact_changed_guest": {
+      "subject": "The host's contact details changed — {title}",
+      "preheader": "Watch out for payment requests",
+      "heading": "The host's contact details changed recently",
+      "body": "The host of {title} (booking {code}) recently changed their contact details. If anyone now asks you to pay by link, by transfer or to verify a card — it's a scam. You'll find the current contact details on the trip page.",
+      "cta": "Open the trip page"
     }
   },
   "ticketStatus": {
@@ -198,5 +760,71 @@
     "OWNERSHIP": "proof of ownership",
     "BUSINESS": "business registration",
     "PROPERTY": "property check"
-  }
+  },
+  "booking": {
+    "codeLabel": "Booking number",
+    "placeLabel": "Place",
+    "roomLabel": "Room type",
+    "checkInLabel": "Arrival",
+    "checkOutLabel": "Departure",
+    "nightsLabel": "Nights",
+    "guestsLabel": "Guests",
+    "totalLabel": "Total, paid on arrival",
+    "arrivalLabel": "Check-in time",
+    "departureLabel": "Check-out time",
+    "fromTime": "from {time}",
+    "untilTime": "until {time}",
+    "checkInFlexible": "Flexible check-in",
+    "checkOutFlexible": "Flexible check-out",
+    "addressLabel": "Address",
+    "hostLabel": "Host",
+    "hostPhoneLabel": "Host's phone",
+    "hostWhatsappLabel": "WhatsApp",
+    "guestLabel": "Guest",
+    "guestPhoneLabel": "Guest's phone",
+    "messageLabel": "Message from the guest",
+    "reasonLabel": "Reason for cancelling",
+    "policyLabel": "Cancellation policy",
+    "payLine": "You pay the host {amount} on arrival, {currency}.",
+    "payLineMethods": "You pay the host {amount} on arrival, {currency}. Accepted: {methods}.",
+    "estimateLine": "Estimate in your currency: {amount}.",
+    "listSeparator": ", "
+  },
+  "sms": {
+    "booking_confirmed_guest": "{brand}: booking {code} is confirmed. {title}, {dates}. Address and host details: {url}",
+    "booking_new_host": "{brand}: new booking {code}. Details: {url}",
+    "booking_reminder_guest": "{brand}: your stay at {title} starts {count, plural, =0 {today} =1 {tomorrow} other {in {count} days}}. Address and host details: {url}",
+    "booking_reminder_host": "{brand}: reminder for booking {code}, arriving {count, plural, =0 {today} =1 {tomorrow} other {in {count} days}}. Details: {url}",
+    "booking_cancelled_by_guest": "{brand}: booking {code} ({dates}) was cancelled by the guest. The dates are free again. {url}",
+    "booking_cancelled_by_host": "{brand}: the host cancelled booking {code} ({dates}). You were not charged anything. {url}",
+    "booking_host_unreached_guest": "{brand}: our message about booking {code} didn't reach the host. Please contact them to make sure they expect you: {url}"
+  },
+  "hostChannel": {
+    "approved": {
+      "text": "{brand}: your listing {title} was approved and is live. {url}",
+      "title": "Listing approved",
+      "body": "{title} is live."
+    },
+    "needs_changes": {
+      "text": "{brand}: your listing {title} needs a few changes before it goes live. Details in \"My listings\": {url}",
+      "title": "Your listing needs changes",
+      "body": "{title}: details in \"My listings\"."
+    },
+    "rejected": {
+      "text": "{brand}: your listing {title} was not approved. The reason is in \"My listings\": {url}",
+      "title": "Listing not approved",
+      "body": "{title}: the reason is in \"My listings\"."
+    }
+  },
+  "savedAlerts": {
+    "price": {
+      "NIGHT": "{price} a night",
+      "WEEK": "{price} a week",
+      "MONTH": "{price} a month",
+      "TOTAL": "{price}"
+    },
+    "priceFrom": "from {price}",
+    "untitled": "Listing {id}"
+  },
+  "scamReport": "Report a scam"
 }

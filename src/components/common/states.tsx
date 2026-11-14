@@ -29,7 +29,7 @@ const toneStyles: Record<Tone, string> = {
   primary: "bg-secondary text-primary ring-primary/10",
   muted: "bg-muted text-muted-foreground ring-foreground/5",
   danger: "bg-destructive/10 text-destructive ring-destructive/15",
-  warning: "bg-warning-soft text-warning ring-warning/20",
+  warning: "bg-surface-muted text-foreground ring-border-strong/20",
 };
 
 export type StateProps = {

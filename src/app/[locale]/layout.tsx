@@ -1,27 +1,32 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
+import Script from "next/script";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { getMessages, getTranslations, setRequestLocale } from "next-intl/server";
 import { LoginDialogProvider } from "@/components/auth/login-dialog-provider";
 import { InlineScript } from "@/components/common/inline-script";
+import { IconSprite } from "@/components/ds/icon-sprite";
 import { DISMISSED_ALERTS_SCRIPT } from "@/components/layout/dismissed-alerts";
-import { fontStyle } from "@/components/layout/fonts";
+import { fontStyle, scriptFontUrl } from "@/components/layout/fonts";
 import { SkipLink } from "@/components/layout/skip-link";
 import { CurrencyProvider } from "@/components/providers/currency-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { AppToaster } from "@/components/providers/toaster";
 import { RegisterServiceWorker } from "@/components/pwa/register-sw";
+import { PrivateCacheGuard } from "@/components/trip/private-cache-guard";
 import { DirectionProvider } from "@/components/ui/direction";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { siteConfig } from "@/config/site";
-import { publicClientMessages } from "@/i18n/client-messages";
+import { SHELL_MESSAGES, pickMessages } from "@/i18n/client-messages";
 import { dirFor } from "@/i18n/locale";
 import { routing } from "@/i18n/routing";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getDisplayCurrency, getRates } from "@/lib/currency";
-import { DEFAULT_OG_IMAGE, absoluteUrl, ogLocale, siteName } from "@/lib/seo";
+import { getDisplayCurrencyState, getRates } from "@/lib/currency";
+import { absoluteUrl, defaultOgImage, ogLocale, siteName, siteOrigin } from "@/lib/seo";
+import { offlineOwnerKeyFor } from "@/lib/trip/offline-server";
 import { ZOD_JITLESS_SCRIPT } from "@/lib/zod-jitless";
+import { DemoDataBanner } from "@/components/dev/demo-data-banner";
+import { DevServerStrip } from "@/components/dev/dev-server-strip";
 import "../globals.css";
 
 export function generateStaticParams() {
@@ -34,7 +39,7 @@ export async function generateMetadata({ params }: LayoutProps<"/[locale]">): Pr
   const name = siteName(locale);
   const description = t("meta.description");
   return {
-    metadataBase: new URL(siteConfig.url),
+    metadataBase: new URL(siteOrigin()),
     applicationName: siteConfig.name,
     title: { default: `${name} · ${t("siteTagline")}`, template: `%s · ${name}` },
     description,
@@ -44,13 +49,17 @@ export async function generateMetadata({ params }: LayoutProps<"/[locale]">): Pr
       locale: ogLocale(locale),
       title: name,
       description,
-      images: [{ ...DEFAULT_OG_IMAGE, url: absoluteUrl(DEFAULT_OG_IMAGE.url), alt: name }],
+      images: [{ ...defaultOgImage(locale), url: absoluteUrl(defaultOgImage(locale).url), alt: name }],
     },
     twitter: { card: "summary_large_image" },
     robots: { index: true, follow: true },
     appleWebApp: { capable: true, title: siteConfig.name, statusBarStyle: "default" },
     // Phone numbers are shown on purpose (contact buttons); don't let iOS turn every number into a link.
     formatDetection: { telephone: false, address: false, email: false },
+    // No <link rel="manifest"> in the HTML (src/app/manifest.ts would add one): browsers fetch it at
+    // once, a request competing with the first screen. RegisterServiceWorker adds the link after
+    // the page has loaded, which is all installing the app needs.
+    manifest: null,
   };
 }
 
@@ -59,9 +68,10 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   colorScheme: "light dark",
+  // The header's color: purple in light mode, near-black in dark mode.
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: siteConfig.colors.background },
-    { media: "(prefers-color-scheme: dark)", color: "#0F1420" },
+    { media: "(prefers-color-scheme: light)", color: siteConfig.colors.primary },
+    { media: "(prefers-color-scheme: dark)", color: siteConfig.colors.backgroundDark },
   ],
 };
 
@@ -70,39 +80,57 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
   if (!hasLocale(routing.locales, locale)) notFound();
   setRequestLocale(locale);
   const dir = dirFor(locale);
+  // Hebrew, Russian and Arabic pages: the script's Rubik face is needed for the first paint
+  // (headline, menus), so fetch it with the HTML instead of after the stylesheet
+  // (src/components/layout/fonts.ts). Latin is preloaded by next/font on every page. A <link> in
+  // <head> rather than preload(): the layout awaits data first, and a later hint only reaches the
+  // browser in the streamed payload.
+  const scriptFont = scriptFontUrl(locale);
 
+  // `undefined` = the account couldn't be checked (an error): treated as signed out on the page,
+  // but saved trip copies are kept (PrivateCacheGuard).
   const [nonce, user, rates, messages] = await Promise.all([
     headers().then((h) => h.get("x-nonce") ?? undefined),
-    getCurrentUser().catch(() => null),
+    getCurrentUser().catch(() => undefined),
     getRates(),
     getMessages(),
   ]);
-  const currency = await getDisplayCurrency(user?.currency);
+  const { currency, chosen: currencyChosen } = await getDisplayCurrencyState(user?.currency);
 
   return (
     <html lang={locale} dir={dir} style={fontStyle} suppressHydrationWarning>
       <head>
+        {scriptFont ? <link rel="preload" href={scriptFont} as="font" type="font/woff2" crossOrigin="anonymous" /> : null}
         <InlineScript nonce={nonce} html={DISMISSED_ALERTS_SCRIPT} />
-        <InlineScript nonce={nonce} html={ZOD_JITLESS_SCRIPT} />
+        {/* Run by Next.js before any app module loads (src/lib/zod-jitless.ts). As a
+            "beforeInteractive" script it also makes Next.js start hydrating in a task of its own
+            instead of inside the evaluation of its main script, which splits one long task in two
+            (less blocking time on phones). */}
+        <Script id="zod-jitless" strategy="beforeInteractive" nonce={nonce}>
+          {ZOD_JITLESS_SCRIPT}
+        </Script>
       </head>
       <body>
+        <IconSprite />
         <ThemeProvider nonce={nonce}>
           <DirectionProvider dir={dir}>
-            {/* Public pages only ship the namespaces their client components read (see client-messages). */}
-            <NextIntlClientProvider messages={publicClientMessages(messages)}>
-              <TooltipProvider delayDuration={400}>
-                <CurrencyProvider currency={currency} rates={rates}>
-                  <LoginDialogProvider signedIn={!!user}>
-                    <SkipLink />
-                    {children}
-                    <AppToaster dir={dir} />
-                  </LoginDialogProvider>
-                </CurrencyProvider>
-              </TooltipProvider>
+            {/* Only the shell's interface text; routes add theirs (src/i18n/client-messages.ts). */}
+            <NextIntlClientProvider messages={pickMessages(messages, SHELL_MESSAGES)}>
+              <CurrencyProvider currency={currency} chosen={currencyChosen} rates={rates}>
+                <LoginDialogProvider signedIn={!!user}>
+                  <SkipLink />
+                  <DevServerStrip />
+                  <DemoDataBanner />
+                  {children}
+                  <AppToaster dir={dir} />
+                </LoginDialogProvider>
+              </CurrencyProvider>
             </NextIntlClientProvider>
           </DirectionProvider>
         </ThemeProvider>
         <RegisterServiceWorker />
+        {/* Trip pages saved for offline use belong to the account signed in (round 3, brief 7.1). */}
+        <PrivateCacheGuard owner={offlineOwnerKeyFor(user)} />
       </body>
     </html>
   );

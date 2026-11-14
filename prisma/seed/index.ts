@@ -1,5 +1,5 @@
 /**
- * Bayit seed — `npm run db:seed` (tsx --conditions=react-server prisma/seed/index.ts).
+ * Bayit seed — `npm run db:seed` (tsx --require ./scripts/server-script.cjs prisma/seed/index.ts).
  *
  * Idempotent: every row has a stable id or unique key and is upserted, and child rows (photos,
  * room types, stats, ticket messages…) are rebuilt, so running it again never duplicates
@@ -10,11 +10,17 @@
  * Demo content (isDemo / "Demo:"): users, Jewish places, listings, activity, one scam alert.
  */
 import "./esm-interop";
+// Before .env is loaded: SITE_ENV / SEED_DEMO as the command line gave them (seed-demo-into-prod).
+import { SEED_DEMO_BEFORE_DOTENV, SITE_ENV_BEFORE_DOTENV } from "./site-env-before-dotenv";
 import "dotenv/config";
 import { db } from "@/lib/db";
 import { clearPlacesCache } from "@/lib/places";
 import { clearSettingsCache } from "@/lib/settings";
+import { readSiteEnv } from "@/lib/site-env";
+import { readSiteMarker, siteMarkerDecision } from "@/lib/site-env-marker";
 import { seedActivity } from "./activity";
+import { seedBookings } from "./bookings";
+import { seedDemoDecision } from "./demo-decision";
 import { seedBannedWords, seedDemoScamAlert, seedSavedReplies, seedSettings } from "./content";
 import { seedFaq } from "./faq";
 import { seedJewishPlaces } from "./jewish-places";
@@ -37,6 +43,13 @@ function defaultDetail(result: unknown): string {
 
 async function main() {
   if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is not set (copy .env.example to .env).");
+  // Never into the real site's database from anything but the real site (SECURITY_REPORT 12.1.b:
+  // the marker the real site writes at start; src/lib/site-env-marker.ts).
+  const site = readSiteEnv();
+  if (site && site !== "production") {
+    const decision = siteMarkerDecision(site, await readSiteMarker(db), { failClosed: true });
+    if (decision.action === "refuse") throw new Error(decision.problem);
+  }
   const now = new Date();
   console.log("Seeding Bayit…");
 
@@ -49,15 +62,33 @@ async function main() {
   await step("banned words", () => seedBannedWords(db));
   await step("FAQ", () => seedFaq(db));
   await step("saved replies", () => seedSavedReplies(db));
-  await step("demo scam alert", () => seedDemoScamAlert(db));
-  await step("demo users", () => seedUsers(db, now));
-  await step("demo Jewish places", () => seedJewishPlaces(db, places.cities));
-  await step("demo listings", () => seedListings(db, places, now));
-  await step("demo activity", () => seedActivity(db, now));
+  // Demo accounts, places, listings and bookings never go into the real site's database (founder's
+  // decision 1): only when SITE_ENV=development/staging is set on the command line, or comes from
+  // .env with a database on this machine, or SEED_DEMO=yes is given (./demo-decision.ts).
+  const decision = seedDemoDecision({
+    siteEnvBeforeDotenv: SITE_ENV_BEFORE_DOTENV,
+    siteEnv: process.env.SITE_ENV,
+    databaseUrl: process.env.DATABASE_URL,
+    seedDemo: SEED_DEMO_BEFORE_DOTENV,
+  });
+  const withDemo = decision.demo;
+  if (withDemo) {
+    await step("demo scam alert", () => seedDemoScamAlert(db));
+    await step("demo users", () => seedUsers(db, now));
+    await step("demo Jewish places", () => seedJewishPlaces(db, places.cities));
+    await step("demo listings", () => seedListings(db, places, now));
+    await step("demo activity", () => seedActivity(db, now));
+    await step("demo bookings", () => seedBookings(db, now));
+  } else {
+    console.log(
+      `  – demo data skipped (${decision.reason}): it is seeded only with SITE_ENV=development or staging on the command line, ` +
+        "or from .env with a local database, or with SEED_DEMO=yes.",
+    );
+  }
 
   clearPlacesCache();
   clearSettingsCache();
-  console.log("Done. Demo logins: see docs/DEMO-DATA.md");
+  console.log(withDemo ? "Done. Demo logins: see docs/DEMO-DATA.md" : "Done (no demo data).");
 }
 
 main()

@@ -5,16 +5,19 @@ import { errorMessageKey } from "@/lib/errors";
 
 /**
  * Turns a server action error code into a sentence: the account namespace's own codes first,
- * then the listing lifecycle codes (moderation.errors), upload codes, then the shared errors.
+ * then the account-security codes (security.errors: fresh codes, contact email), the listing
+ * lifecycle codes (moderation.errors), upload codes, then the shared errors.
  */
 export function useActionError(): (code: string | null | undefined) => string {
   const own = useTranslations("account.errors");
+  const security = useTranslations("security.errors");
   const lifecycle = useTranslations("moderation.errors");
   const uploads = useTranslations("uploads.errors");
   const shared = useTranslations("errors");
   return (code) => {
     const key = code ?? "server_error";
     if (own.has(key)) return own(key);
+    if (security.has(key)) return security(key);
     if (lifecycle.has(key)) return lifecycle(key);
     if (uploads.has(key)) return uploads(key);
     return shared(errorMessageKey(key));

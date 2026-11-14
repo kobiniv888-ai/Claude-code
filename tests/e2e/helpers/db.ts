@@ -11,6 +11,8 @@ import fs from "node:fs";
 import path from "node:path";
 import pg from "pg";
 import { E2E_USER_AGENT_TAG } from "./env";
+import { sealPin } from "./field-crypto";
+import { TERMS_VERSION } from "../../../src/lib/legal/terms";
 
 export const TEST_PHONE_PREFIX = "+99555599";
 export const TEST_EMAIL_DOMAIN = "e2e.bayit.invalid";
@@ -34,6 +36,18 @@ function getPool(): pg.Pool {
 export async function sql<T extends pg.QueryResultRow = Record<string, unknown>>(text: string, params: unknown[] = []): Promise<T[]> {
   const result = await getPool().query<T>(text, params);
   return result.rows;
+}
+
+/** Runs `fn` while holding a Postgres advisory lock: one worker at a time (e.g. the admin's 2-step login). */
+export async function withAdvisoryLock<T>(key: number, fn: () => Promise<T>): Promise<T> {
+  const client = await getPool().connect();
+  try {
+    await client.query("SELECT pg_advisory_lock($1)", [key]);
+    return await fn();
+  } finally {
+    await client.query("SELECT pg_advisory_unlock($1)", [key]).catch(() => undefined);
+    client.release();
+  }
 }
 
 export async function closeDb() {
@@ -71,6 +85,13 @@ export async function createTestUser(opts: { name?: string; role?: string } = {}
      VALUES ($1, $2, $3, false, $4, true, $5::"UserRole", 'en', now())`,
     [id, name, `${phone.slice(1)}@${TEST_EMAIL_DOMAIN}`, phone, opts.role ?? "USER"],
   );
+  // Like an account that accepted the Terms (+ 18 or older) at sign-up (SECURITY_REPORT 15.11.b/c),
+  // so a login skips the "terms" step. Its first booking and first publish still show the box
+  // (acceptTermsBox in ./terms.ts). Deleted with the user.
+  await sql(
+    `INSERT INTO "TermsAcceptance" (id, "userId", version, "ageConfirmed", "acceptedAt") VALUES ($1, $2, $3, true, now())`,
+    [newId(), id, TERMS_VERSION],
+  );
   return { id, phone, name };
 }
 
@@ -107,8 +128,12 @@ export async function createTestListing(opts: TestListingOptions): Promise<{ id:
     searchText: "lower($4)",
     cityId: "$6",
     neighborhoodId: "NULL",
-    lat: "$7",
-    lng: "$8",
+    // The exact pin is stored encrypted (SECURITY_REPORT 12.3.c): the city centre, sealed like the
+    // server seals it; the plain columns stay empty (the database refuses values there).
+    lat: "NULL",
+    lng: "NULL",
+    address: "NULL",
+    pinEnc: "$11",
     approxLat: "$7",
     approxLng: "$8",
     originalLocale: `'en'`,
@@ -146,13 +171,14 @@ export async function createTestListing(opts: TestListingOptions): Promise<{ id:
   await sql(
     `INSERT INTO "Listing" (${names.map((n) => `"${n}"`).join(", ")})
      SELECT ${select.join(", ")} FROM "Listing" WHERE id = $10`,
-    [id, ownerId, status, title, description, city.id, city.lat, city.lng, newId(), source.id],
+    // icalToken: 256-bit and URL-safe like newIcalToken() (src/lib/listing/ical-token.ts).
+    [id, ownerId, status, title, description, city.id, city.lat, city.lng, randomBytes(32).toString("base64url"), source.id, sealPin({ lat: city.lat, lng: city.lng })],
   );
   for (let i = 0; i < photos; i += 1) {
     await sql(
       `INSERT INTO "ListingPhoto" (id, "listingId", url, width, height, "sortOrder", "isCover", alt)
        VALUES ($1, $2, $3, 1200, 800, $4, $5, $6)`,
-      [newId(), id, `/images/cities/${citySlug}.webp`, i, i === 0, `E2E photo ${i + 1}`],
+      [newId(), id, `/photos/cities/${citySlug}.webp`, i, i === 0, `E2E photo ${i + 1}`],
     );
   }
   const [row] = await sql<{ publicId: number }>(`SELECT "publicId" FROM "Listing" WHERE id = $1`, [id]);
@@ -178,7 +204,8 @@ export async function listingByPublicId(publicId: number) {
 
 type CounterRow = { id: string; viewCount: number; contactCount: number; saveCount: number; reportCount: number };
 type StatRow = { listingId: string; date: string; views: number; contacts: number; saves: number; contactsByChannel: unknown };
-export type CounterSnapshot = { listings: CounterRow[]; stats: StatRow[]; startedAt: Date };
+type ViewRow = { userId: string; listingId: string; viewedAt: Date };
+export type CounterSnapshot = { listings: CounterRow[]; stats: StatRow[]; contactTaps: string[]; demoViews: ViewRow[]; startedAt: Date };
 
 export async function snapshotCounters(): Promise<CounterSnapshot> {
   const listings = await sql<CounterRow>(`SELECT id, "viewCount", "contactCount", "saveCount", "reportCount" FROM "Listing"`);
@@ -186,15 +213,35 @@ export async function snapshotCounters(): Promise<CounterSnapshot> {
     `SELECT "listingId", to_char(date, 'YYYY-MM-DD') AS date, views, contacts, saves, "contactsByChannel" FROM "ListingStatDaily"
      WHERE date >= current_date - 2`,
   );
-  return { listings, stats, startedAt: new Date() };
+  // Contact taps no longer name who tapped (round 3), so the run's taps on demo listings are found
+  // as the anonymous rows that were not there before it.
+  const taps = await sql<{ id: string }>(`SELECT id FROM "ContactClick" WHERE "userId" IS NULL`);
+  // The demo users' "Recently viewed" in their accounts (round 3): a test that signs in as the demo
+  // guest and opens a listing writes a row there; the teardown puts the list back as it was.
+  const demoViews = await sql<ViewRow>(
+    `SELECT "userId", "listingId", "viewedAt" FROM "RecentlyViewed" WHERE "userId" IN (SELECT id FROM "User" WHERE "isDemo")`,
+  );
+  return { listings, stats, contactTaps: taps.map((t) => t.id), demoViews, startedAt: new Date() };
 }
 
 export async function restoreCounters(snapshot: CounterSnapshot) {
+  await sql(
+    `DELETE FROM "ContactClick" WHERE "userId" IS NULL AND id <> ALL($1::text[]) AND "listingId" IN (SELECT id FROM "Listing" WHERE "isDemo")`,
+    [snapshot.contactTaps],
+  );
   for (const row of snapshot.listings) {
     await sql(
       `UPDATE "Listing" SET "viewCount" = $2, "contactCount" = $3, "saveCount" = $4, "reportCount" = $5
        WHERE id = $1 AND ("viewCount", "contactCount", "saveCount", "reportCount") IS DISTINCT FROM ($2, $3, $4, $5)`,
       [row.id, row.viewCount, row.contactCount, row.saveCount, row.reportCount],
+    );
+  }
+  await sql(`DELETE FROM "RecentlyViewed" WHERE "userId" IN (SELECT id FROM "User" WHERE "isDemo")`);
+  for (const row of snapshot.demoViews) {
+    await sql(
+      `INSERT INTO "RecentlyViewed" (id, "userId", "listingId", "viewedAt") VALUES ($1, $2, $3, $4)
+       ON CONFLICT ("userId", "listingId") DO UPDATE SET "viewedAt" = EXCLUDED."viewedAt"`,
+      [newId(), row.userId, row.listingId, row.viewedAt],
     );
   }
   const known = new Set(snapshot.listings.map((l) => l.id));
@@ -221,9 +268,13 @@ export async function restoreCounters(snapshot: CounterSnapshot) {
 
 /** Deletes every row the tests created (test users and everything that belongs to them). */
 export async function cleanupTestData(opts: { since?: Date } = {}) {
+  // A test account deleted by a test lost its phone and email: deletion rewrites the email to
+  // "deleted-<id>@deleted.bayit.invalid" (src/lib/account/settings-schema.ts deletedEmailFor). Its id
+  // still says it was made here (newId(): "e2e" + base36 time + 12 hex, lowercase, ~23 characters;
+  // Better Auth's own ids are 32 mixed-case characters), so it is removed too.
   const users = await sql<{ id: string; email: string }>(
-    `SELECT id, email FROM "User" WHERE "phoneNumber" LIKE $1 OR email LIKE $2`,
-    [`${TEST_PHONE_PREFIX}%`, `%@${TEST_EMAIL_DOMAIN}`],
+    `SELECT id, email FROM "User" WHERE "phoneNumber" LIKE $1 OR email LIKE $2 OR email ~ $3`,
+    [`${TEST_PHONE_PREFIX}%`, `%@${TEST_EMAIL_DOMAIN}`, "^deleted-e2e[0-9a-z]{10,25}@deleted\\.bayit\\.invalid$"],
   );
   const userIds = users.map((u) => u.id);
   const listings = await sql<{ id: string }>(`SELECT id FROM "Listing" WHERE "ownerId" = ANY($1) OR title LIKE 'E2E %'`, [userIds]);
@@ -233,18 +284,61 @@ export async function cleanupTestData(opts: { since?: Date } = {}) {
     [userIds, `%@${TEST_EMAIL_DOMAIN}`],
   );
   const ticketIds = tickets.map((t) => t.id);
-  const reports = await sql<{ id: string }>(`SELECT id FROM "Report" WHERE "reporterId" = ANY($1) OR "listingId" = ANY($2)`, [
+  // Bookings the tests made (the demo guest's included: their message to the host starts with "E2E ").
+  const bookings = await sql<{ id: string; code: string }>(
+    `SELECT id, code FROM "Booking" WHERE "guestUserId" = ANY($1) OR "listingId" = ANY($2) OR "messageToHost" LIKE 'E2E %'`,
+    [userIds, listingIds],
+  );
+  const bookingIds = bookings.map((b) => b.id);
+  // Reviews of test stays (they go with their booking, listing or user; their reports and the
+  // staff's hide/show audit rows are removed here too).
+  const reviews = await sql<{ id: string; listingId: string }>(
+    `SELECT id, "listingId" FROM "Review" WHERE "bookingId" = ANY($1) OR "listingId" = ANY($2) OR "guestUserId" = ANY($3) OR "hostUserId" = ANY($3)`,
+    [bookingIds, listingIds, userIds],
+  );
+  const reviewIds = reviews.map((r) => r.id);
+  const reports = await sql<{ id: string }>(`SELECT id FROM "Report" WHERE "reporterId" = ANY($1) OR "listingId" = ANY($2) OR "reviewId" = ANY($3)`, [
     userIds,
     listingIds,
+    reviewIds,
   ]);
-  const targetIds = [...userIds, ...listingIds, ...ticketIds, ...reports.map((r) => r.id)];
+  const targetIds = [...userIds, ...listingIds, ...ticketIds, ...reports.map((r) => r.id), ...bookingIds, ...reviewIds];
 
   await sql(`DELETE FROM "AuditLog" WHERE "targetId" = ANY($1) OR "actorId" = ANY($2)`, [targetIds, userIds]);
+  if (bookings.length > 0) {
+    // Their emails (confirmation, new booking, cancellation) name the booking code.
+    await sql(`DELETE FROM "EmailOutbox" WHERE template LIKE 'booking_%' AND EXISTS (SELECT 1 FROM unnest($1::text[]) c WHERE html LIKE '%' || c || '%')`, [
+      bookings.map((b) => b.code),
+    ]);
+    await sql(`DELETE FROM "AvailabilityBlock" WHERE "bookingId" = ANY($1)`, [bookingIds]);
+    await sql(`DELETE FROM "Booking" WHERE id = ANY($1)`, [bookingIds]);
+  }
   await sql(`DELETE FROM "Ticket" WHERE id = ANY($1)`, [ticketIds]);
   await sql(`DELETE FROM "Report" WHERE id = ANY($1)`, [reports.map((r) => r.id)]);
+  await sql(`DELETE FROM "Review" WHERE id = ANY($1)`, [reviewIds]);
+  // A test review on a listing that stays (a demo one): its counters again match its visible reviews.
+  const kept = [...new Set(reviews.map((r) => r.listingId))].filter((id) => !listingIds.includes(id));
+  if (kept.length > 0) {
+    await sql(
+      `UPDATE "Listing" l SET "reviewCount" = (SELECT count(*) FROM "Review" r WHERE r."listingId" = l.id AND NOT r.hidden),
+         "ratingSum" = (SELECT coalesce(sum(r.rating), 0) FROM "Review" r WHERE r."listingId" = l.id AND NOT r.hidden) WHERE l.id = ANY($1)`,
+      [kept],
+    );
+  }
+  // Reference prices the test admin added (round 3; the table holds no real data in development).
+  await sql(`DELETE FROM "ReferencePrice" WHERE "createdById" = ANY($1) OR "sourceName" LIKE 'E2E %'`, [userIds]);
+  // Private uploads of test users (report screenshots, ticket images): the rows and the files.
+  await sql(`DELETE FROM "PrivateUpload" WHERE "userId" = ANY($1)`, [userIds]);
   await sql(`DELETE FROM "ContactClick" WHERE "userId" = ANY($1)`, [userIds]);
   await sql(`DELETE FROM "EmailOutbox" WHERE "to" = ANY($1) OR "to" LIKE $2`, [users.map((u) => u.email), `%@${TEST_EMAIL_DOMAIN}`]);
-  await sql(`DELETE FROM "Verification" WHERE identifier LIKE $1`, [`${TEST_PHONE_PREFIX}%`]);
+  // Phone codes are stored as "phone-number-otp-<phone>" since better-auth 1.7.16 (plain "<phone>" before).
+  await sql(`DELETE FROM "Verification" WHERE identifier LIKE $1 OR identifier LIKE $2 OR identifier LIKE $3`, [
+    `${TEST_PHONE_PREFIX}%`,
+    `phone-number-otp-${TEST_PHONE_PREFIX}%`,
+    `%@${TEST_EMAIL_DOMAIN}`,
+  ]);
+  // 2-step login rows of test accounts (the test admin's last accepted code, a pending set-up).
+  await sql(`DELETE FROM "Verification" WHERE identifier = ANY($1)`, [userIds.flatMap((id) => [`totp-last:${id}`, `totp-enroll:${id}`])]);
   await sql(`DELETE FROM "Listing" WHERE id = ANY($1)`, [listingIds]);
   await sql(`DELETE FROM "User" WHERE id = ANY($1)`, [userIds]);
   // Sessions the tests opened for demo users (admin, guest…), recognised by the user agent.
@@ -257,15 +351,25 @@ export async function cleanupTestData(opts: { since?: Date } = {}) {
   }
   // Rate-limit windows the tests filled (login codes, contact form, staff actions, per-user keys).
   await sql(
-    `DELETE FROM "RateLimit" WHERE key LIKE 'auth:otp-%' OR key LIKE 'ticket:contact%' OR key LIKE 'admin:%'
-       OR key LIKE 'contact-reveal:listing:%' OR key LIKE 'auth:totp:%' OR EXISTS (SELECT 1 FROM unnest($1::text[]) u WHERE key LIKE '%' || u || '%')`,
-    [userIds],
+    `DELETE FROM "RateLimit" WHERE key LIKE 'auth:otp-%' OR key LIKE 'auth:email-otp-%' OR key LIKE 'ticket:contact%' OR key LIKE 'admin:%' OR key LIKE 'booking:%'
+       OR key LIKE 'contact-reveal:listing:%' OR key LIKE 'auth:totp:%' OR key LIKE 'report:%'
+       OR EXISTS (SELECT 1 FROM unnest($1::text[]) u WHERE key LIKE '%' || u || '%')`,
+    // ('report:%': the scam and turned-away report forms count per IP, 5 an hour, and every test
+    // runs from 127.0.0.1: two runs within an hour would otherwise meet the limit.)
+    // (Test listings' keys too, e.g. the founder's "listing waits for review" email window.)
+    [[...userIds, ...listingIds]],
   );
   // Uploaded photos of test listings (local storage driver).
   const root = process.env.STORAGE_LOCAL_DIR ?? path.join(process.cwd(), "storage");
   for (const id of listingIds) {
     for (const visibility of ["public", "private"]) {
       fs.rmSync(path.join(root, visibility, "listings", id), { recursive: true, force: true });
+    }
+  }
+  // Private files of test users: private/<purpose>/<userId>/… (src/app/api/uploads/private).
+  for (const id of userIds) {
+    for (const purpose of ["report", "ticket", "verification"]) {
+      fs.rmSync(path.join(root, "private", "private", purpose, id), { recursive: true, force: true });
     }
   }
   return { users: userIds.length, listings: listingIds.length, tickets: ticketIds.length };

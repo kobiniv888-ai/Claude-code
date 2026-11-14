@@ -45,7 +45,7 @@
       "title": "Posting a listing"
     },
     "CONTACTING_OWNERS": {
-      "title": "Contacting owners"
+      "title": "Booking and contacting hosts"
     },
     "SAFETY": {
       "title": "Safety"
@@ -75,6 +75,87 @@
     "scam": {
       "title": "Report a scam — urgent",
       "body": "Asked to pay up front? Tell us now — scam reports are handled first."
-    }
+    },
+    "security": {
+      "lead": "Found a security problem in the site itself?",
+      "link": "How to report it"
+    },
+    "replyTitle": "Reply time"
+  },
+  "replyTime": {
+    "promise": "Replies within one business day, Sunday to Thursday. Messages sent Friday or Saturday are answered on Sunday."
+  },
+  "scamReport": {
+    "metaTitle": "Report a scam",
+    "crumbHelp": "Help",
+    "crumb": "Report a scam",
+    "title": "Report a scam",
+    "lead": "Asked to pay in advance, to send card details or a code, or saw a site pretending to be Bayit? Tell us — scam reports are handled before anything else.",
+    "urgent": "Don't pay and don't send any code until we get back to you. If you already paid, contact your bank or card company right away too.",
+    "about": "About listing <ltr>#{id}</ltr>:",
+    "kindLabel": "What happened?",
+    "kinds": {
+      "asked_to_pay": {
+        "label": "I was asked to pay in advance",
+        "hint": "By link, transfer, gift card or crypto."
+      },
+      "card_or_code": {
+        "label": "I was asked for card details or a code",
+        "hint": "For example a “card verification”, the CVV or a code you got by SMS."
+      },
+      "fake_site": {
+        "label": "A site or email pretending to be Bayit",
+        "hint": "An address other than our site, or a message asking for payment in our name."
+      },
+      "other": {
+        "label": "Something else that looks like a scam",
+        "hint": "Tell us in your own words."
+      }
+    },
+    "siteLabel": "The fake site's address",
+    "sitePlaceholder": "bayit-booking.example",
+    "siteHint": "Don't open it again. We keep the address as text only.",
+    "bookingLabel": "Booking",
+    "detailsLabel": "What happened, in a few words",
+    "detailsPlaceholder": "Who contacted you, how, and what they asked for",
+    "detailsHint": "You can paste the link or account number they sent you: only our team sees it.",
+    "nameLabel": "Name",
+    "emailLabel": "Email",
+    "emailHint": "We'll reply here.",
+    "honeypot": "Leave this field empty",
+    "submit": "Send the report",
+    "sending": "Sending…",
+    "sent": {
+      "title": "We got your report",
+      "bodyAccount": "It's at the top of our queue. We'll update you in your account and by email.",
+      "bodyEmail": "It's at the top of our queue. We'll reply by email.",
+      "meanwhile": "Meanwhile: don't pay, don't send codes and don't open links they sent you.",
+      "safety": "To the Safety Center"
+    },
+    "errors": {
+      "already_reported": "You already reported this listing. We're on it."
+    },
+    "fieldErrors": {
+      "invalid": "Please check this field.",
+      "kind_required": "Choose what happened.",
+      "details_short": "Write a few words (at least 10 characters).",
+      "details_long": "The text is too long.",
+      "site_required": "Write the fake site's address.",
+      "site_long": "The address is too long.",
+      "name_required": "Write your name.",
+      "name_long": "The name is too long.",
+      "email_invalid": "Please check the email address.",
+      "email_required": "Write an email so we can reply."
+    },
+    "asideLabel": "Tips and information",
+    "tipsTitle": "How to spot a scam",
+    "tips": {
+      "neverPay": "Never pay in advance by link or transfer. You pay the host when you arrive.",
+      "noLinks": "Bayit never sends payment links or asks for card details.",
+      "noCodes": "Never give anyone a code you got by SMS or email.",
+      "keepProof": "Keep screenshots of the messages — they help us stop the scammer."
+    },
+    "safetyLink": "More in the Safety Center",
+    "replyTitle": "Reply time"
   }
 }

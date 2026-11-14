@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowRight, Copy, ExternalLink, MapPin, MonitorSmartphone, StickyNote } from "lucide-react";
+import { AlertTriangle, ArrowRight, Ban, CheckCircle2, CircleDashed, Copy, ExternalLink, Flag, Info, ListChecks, MapPin, MonitorSmartphone, ScanSearch, StickyNote } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
@@ -8,20 +8,28 @@ import { ExactLocationMapLoader } from "@/components/admin/exact-location-map-lo
 import { AdminPrice, ListingThumb, PublicId, WhenText } from "@/components/admin/listing-bits";
 import { ModerationActions } from "@/components/admin/moderation-actions";
 import { AdminPageHeader, AdminSection, FactList } from "@/components/admin/page-header";
+import { StaffPhoneValue } from "@/components/admin/staff-phone";
 import { Ltr } from "@/components/common/ltr";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { siteConfig } from "@/config/site";
 import { Link } from "@/i18n/navigation";
 import { pickLocalized } from "@/i18n/locale";
+import { precheckItems, precheckMistakes, precheckSummary, type PrecheckStatus } from "@/lib/admin/precheck";
+import { mistakeMessage } from "@/components/listing/mistake-text";
+import { getListingMistakes } from "@/lib/listing/mistake-check-server";
 import { riskLevel } from "@/lib/admin/risk";
+import { hostFlagSummary } from "@/lib/admin/server/flags";
 import { getListingForReview, nextInReview } from "@/lib/admin/server/moderation";
 import { cityName, coverUrl, realEmail } from "@/lib/admin/server/shared";
 import { requireStaff } from "@/lib/auth/session";
-import { formatArea, formatDate, formatMoney, formatNumber, formatRelativeTime } from "@/lib/format";
+import { formatArea, formatDate, formatMoney, formatNumber, formatRelativeTime, isolate, isolateLtr } from "@/lib/format";
 import { listingPath } from "@/lib/listing/urls";
-import { photoUrl } from "@/lib/media";
+import { safeTourUrl } from "@/lib/listing-page/media";
+import { photoUrl, reverseImageSearchLinks } from "@/lib/media";
 import { getSettings } from "@/lib/settings";
+import { getReviewWarnings } from "@/lib/risk/review-warnings";
+import { ADDRESS_PIN_TOLERANCE_M, textSearchUrl } from "@/lib/risk/review-checks";
 import type { CurrencyCode } from "@/config/site";
 import { cn } from "@/lib/utils";
 
@@ -34,21 +42,46 @@ export async function generateMetadata({ params }: PageProps<"/[locale]/admin/mo
 export default async function ModerationDetailPage({ params }: PageProps<"/[locale]/admin/moderation/[id]">) {
   const { locale, id } = await params;
   setRequestLocale(locale);
-  await requireStaff("moderation");
-  const data = await getListingForReview(id);
+  const staff = await requireStaff("moderation");
+  const data = await getListingForReview(id, staff);
   if (!data) notFound();
   const { listing } = data;
 
-  const [t, tf, tFields, tMod, tRisk, tAdmin, settings, next] = await Promise.all([
+  const [t, tf, tFields, tMod, tRisk, tAdmin, tTimes, settings, next, hostFlags, tMistakes, tSteps, mistakeResult] = await Promise.all([
     getTranslations("admin.moderation"),
     getTranslations("admin.moderation.fields"),
     getTranslations("listingFields"),
     getTranslations("moderation"),
     getTranslations("moderation.risk"),
     getTranslations("admin"),
+    getTranslations("wizard.times"),
     getSettings(),
     listing.status === "IN_REVIEW" ? nextInReview(listing.id) : Promise.resolve(null),
+    hostFlagSummary(listing.ownerId),
+    // The host's own mistake check (round 3, brief 6.1), run now on the saved listing.
+    getTranslations("wizard.mistakes"),
+    getTranslations("wizard.steps"),
+    getListingMistakes(listing.id).catch((error) => {
+      console.error(`[admin] mistake check of ${listing.id} failed:`, error);
+      return null;
+    }),
   ]);
+  // SECURITY_REPORT 14.1.c/d/f: address vs pin, price vs the price guide, copied description (live, staff only).
+  const warnings = await getReviewWarnings({
+    id: listing.id,
+    ownerId: listing.ownerId,
+    cityId: null,
+    isDemo: listing.isDemo,
+    description: listing.description,
+    address: listing.address,
+    cityName: cityName(listing.city, locale),
+    pin: listing.lat != null && listing.lng != null ? { lat: listing.lat, lng: listing.lng } : null,
+    locale,
+  });
+  const precheck = precheckItems(data.reasons, listing.riskScore !== null);
+  const mistakes = precheckMistakes(mistakeResult);
+  const precheckCounts = precheckSummary(precheck);
+  const firstListing = data.reasons.some((r) => r.code === "first_listing");
   const n = (v: number) => formatNumber(v, locale);
   const yesNo = (v: boolean | null | undefined) => (v == null ? "—" : v ? tAdmin("common.yes") : tAdmin("common.no"));
   const money = (v: { toString(): string } | null) =>
@@ -61,6 +94,8 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
   const level = riskLevel(listing.riskScore, settings.reviewRiskThreshold);
   const ownerEmail = realEmail(owner.email);
   const ownerLanguage = siteConfig.i18n.nativeNames[owner.locale as keyof typeof siteConfig.i18n.nativeNames] ?? owner.locale;
+  // A tour link only when it is on the tour allow-list (SECURITY_REPORT 7.f); anything else as text.
+  const tourHref = safeTourUrl(listing.tour360Url);
 
   const facts: { label: ReactNode; value: ReactNode }[] = [
     { label: tf("dealType"), value: tFields(`dealType.${listing.dealType}`) },
@@ -114,7 +149,11 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
     },
     {
       label: tf("checkInOut"),
-      value: listing.checkInFrom || listing.checkOutUntil ? <Ltr>{`${listing.checkInFrom ?? "—"} / ${listing.checkOutUntil ?? "—"}`}</Ltr> : null,
+      // "גמיש" (round 3) in words, from the post form's own label.
+      value:
+        listing.checkInFrom || listing.checkOutUntil || listing.checkInFlexible || listing.checkOutFlexible ? (
+          <Ltr>{`${listing.checkInFlexible ? tTimes("flexible") : (listing.checkInFrom ?? "—")} / ${listing.checkOutFlexible ? tTimes("flexible") : (listing.checkOutUntil ?? "—")}`}</Ltr>
+        ) : null,
     },
     {
       label: tf("rules"),
@@ -139,9 +178,13 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
     {
       label: tf("tour360"),
       value: listing.tour360Url ? (
-        <a href={listing.tour360Url} target="_blank" rel="noopener noreferrer nofollow" className="text-primary hover:underline">
+        tourHref ? (
+          <a href={tourHref} target="_blank" rel="noopener noreferrer nofollow" className="text-primary hover:underline">
+            <Ltr className="break-all">{listing.tour360Url}</Ltr>
+          </a>
+        ) : (
           <Ltr className="break-all">{listing.tour360Url}</Ltr>
-        </a>
+        )
       ) : null,
     },
     { label: tf("originalLocale"), value: siteConfig.i18n.nativeNames[listing.originalLocale as keyof typeof siteConfig.i18n.nativeNames] ?? listing.originalLocale },
@@ -170,7 +213,7 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
             {listing.isDemo ? <span className="rounded-full bg-muted px-2 py-0.5 text-xs">{tAdmin("markers.demo")}</span> : null}
             {listing.reviewedAt ? (
               <span className="text-xs">
-                {t("lastReview", { name: listing.reviewedBy?.name ?? "—", date: formatDate(listing.reviewedAt, locale) })}
+                {t("lastReview", { name: isolate(listing.reviewedBy?.name ?? "—"), date: formatDate(listing.reviewedAt, locale) })}
               </span>
             ) : null}
           </>
@@ -199,7 +242,15 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
 
       <div className="sticky top-14 z-20 -mx-4 mb-5 border-y bg-background/95 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-xl sm:border">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <ModerationActions listingId={listing.id} status={listing.status} title={listing.title} ownerLocaleLabel={ownerLanguage} />
+          <ModerationActions
+            listingId={listing.id}
+            status={listing.status}
+            title={listing.title}
+            ownerLocaleLabel={ownerLanguage}
+            contentUpdatedAt={listing.contentUpdatedAt.toISOString()}
+            own={staff.role !== "ADMIN" && listing.ownerId === staff.id}
+            mistakesBlocked={mistakes.status === "blocked"}
+          />
           <p className="hidden text-xs text-muted-foreground lg:block">{t("shortcutsHint")}</p>
         </div>
         {listing.moderationReason && (listing.status === "NEEDS_CHANGES" || listing.status === "REJECTED") ? (
@@ -216,8 +267,200 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
         ) : null}
       </div>
 
+      {firstListing || hostFlags?.flagged ? (
+        <ul className="mb-4 flex flex-wrap gap-2" aria-label={t("gate.label")}>
+          {firstListing ? (
+            <li className="inline-flex items-center gap-1.5 rounded-full border bg-card px-3 py-1 text-sm">
+              <Info aria-hidden className="size-4 text-primary" />
+              {t("gate.firstListing")}
+            </li>
+          ) : null}
+          {hostFlags?.flagged ? (
+            <li>
+              <Link
+                href={`/admin/users/${listing.ownerId}#flags`}
+                className="inline-flex items-center gap-1.5 rounded-full border border-destructive/40 bg-destructive/5 px-3 py-1 text-sm text-destructive hover:underline"
+              >
+                <Flag aria-hidden className="size-4" />
+                {t("gate.flaggedHost")}
+              </Link>
+            </li>
+          ) : null}
+        </ul>
+      ) : null}
+
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="flex min-w-0 flex-col gap-4">
+          <AdminSection
+            id="precheck"
+            title={
+              <span className="inline-flex items-center gap-1.5">
+                <ListChecks aria-hidden className="size-4 text-muted-foreground" />
+                {t("precheck.title")}
+              </span>
+            }
+            description={
+              listing.riskScore === null
+                ? t("precheck.notRun")
+                : t("precheck.summary", { found: precheckCounts.found + precheckCounts.blocked, ok: precheckCounts.ok })
+            }
+          >
+            {data.checksStale ? (
+              <p role="status" className="mb-3 flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-2.5 text-sm text-destructive">
+                <AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0" />
+                {t("precheck.stale")}
+              </p>
+            ) : null}
+            <ul className="grid gap-1.5 sm:grid-cols-2">
+              {precheck.map((item) => (
+                <li key={item.id} className="flex items-start gap-2 rounded-lg border bg-background px-2.5 py-2 text-sm">
+                  <PrecheckIcon status={item.status} />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1 font-medium">
+                      {t(`precheck.checks.${item.id}`)}
+                      {item.status === "blocked" && item.findings.length ? (
+                        <span className="rounded-full bg-destructive px-2 py-0.5 text-[11px] font-semibold text-destructive-foreground">
+                          {t("precheck.status.blocked")}
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="block text-xs text-muted-foreground">
+                      {item.findings.length ? (
+                        <>
+                          {item.status !== "blocked" ? <span className="sr-only">{t(`precheck.status.${item.status}`)}: </span> : null}
+                          {item.findings.map((f) => (tRisk.has(f.code) ? tRisk(f.code) : f.code)).join(" · ")}
+                        </>
+                      ) : (
+                        t(`precheck.status.${item.status}`)
+                      )}
+                    </span>
+                  </span>
+                  {item.points > 0 ? (
+                    <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-semibold tabular-nums">{t("points", { points: isolateLtr(`+${n(item.points)}`) })}</span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-4 grid gap-2 border-t pt-3" data-testid="admin-mistake-check">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <h3 className="inline-flex items-center gap-1.5 text-sm font-semibold">
+                  <PrecheckIcon status={mistakes.status} />
+                  {t("precheck.mistakes.title")}
+                </h3>
+                {mistakes.status !== "unchecked" ? (
+                  <span className="text-xs text-muted-foreground">
+                    {t("precheck.mistakes.summary", { errors: mistakes.errors, warnings: mistakes.warnings })}
+                  </span>
+                ) : null}
+              </div>
+              {mistakes.status === "unchecked" ? (
+                <p className="text-sm text-muted-foreground">{t("precheck.mistakes.failed")}</p>
+              ) : mistakes.issues.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{t("precheck.mistakes.none")}</p>
+              ) : (
+                <ul className="grid gap-1.5">
+                  {mistakes.issues.map((issue, i) => (
+                    <li key={`${issue.code}-${i}`} className="flex items-start gap-2 rounded-lg border bg-background px-2.5 py-2 text-sm" data-mistake={issue.code}>
+                      <PrecheckIcon status={issue.severity === "error" ? "blocked" : "found"} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-pretty">{mistakeMessage(issue, tMistakes, locale)}</span>
+                        {issue.step && tSteps.has(issue.step) ? (
+                          <span className="block text-xs text-muted-foreground">{t("precheck.mistakes.step", { name: tSteps(issue.step) })}</span>
+                        ) : null}
+                      </span>
+                      <span
+                        className={cn(
+                          "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                          issue.severity === "error" ? "bg-destructive text-destructive-foreground" : "bg-muted text-foreground",
+                        )}
+                      >
+                        {issue.severity === "error" ? t("precheck.mistakes.error") : t("precheck.mistakes.warning")}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">{t("precheck.footnote")}</p>
+          </AdminSection>
+
+          <AdminSection
+            id="review-warnings"
+            title={
+              <span className="inline-flex items-center gap-1.5">
+                <AlertTriangle aria-hidden className="size-4 text-muted-foreground" />
+                {t("reviewWarnings.title")}
+              </span>
+            }
+            description={t("reviewWarnings.description")}
+          >
+            <ul className="grid gap-2" data-testid="review-warnings">
+              <li className="flex items-start gap-2 rounded-lg border bg-background px-2.5 py-2 text-sm" data-warning={`address-${warnings.addressPin.status}`}>
+                <PrecheckIcon status={warnings.addressPin.status === "mismatch" ? "found" : warnings.addressPin.status === "match" ? "ok" : "unchecked"} />
+                <span className="min-w-0 flex-1">
+                  <span className="block font-medium">{t("reviewWarnings.address.title")}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {warnings.addressPin.status === "match" || warnings.addressPin.status === "mismatch"
+                      ? t(`reviewWarnings.address.${warnings.addressPin.status}`, {
+                          distance: isolateLtr(formatNumber(warnings.addressPin.distanceM, locale)),
+                          tolerance: isolateLtr(formatNumber(ADDRESS_PIN_TOLERANCE_M, locale)),
+                        })
+                      : t(`reviewWarnings.address.${warnings.addressPin.status}`)}
+                  </span>
+                </span>
+              </li>
+              <li className="flex items-start gap-2 rounded-lg border bg-background px-2.5 py-2 text-sm" data-warning={`price-${warnings.priceGuide.status}`}>
+                <PrecheckIcon status={warnings.priceGuide.status === "far_below" ? "found" : warnings.priceGuide.status === "ok" ? "ok" : "unchecked"} />
+                <span className="min-w-0 flex-1">
+                  <span className="block font-medium">{t("reviewWarnings.price.title")}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {(warnings.priceGuide.status === "far_below" || warnings.priceGuide.status === "ok") && "currency" in warnings.priceGuide && warnings.priceGuide.currency
+                      ? t(`reviewWarnings.price.${warnings.priceGuide.status}`, {
+                          price: isolateLtr(formatMoney(warnings.priceGuide.price, warnings.priceGuide.currency, locale)),
+                          low: isolateLtr(formatMoney(warnings.priceGuide.low, warnings.priceGuide.currency, locale)),
+                          source: t(`reviewWarnings.price.sources.${warnings.priceGuide.source}`),
+                        })
+                      : t(`reviewWarnings.price.${warnings.priceGuide.status === "unavailable" ? "unavailable" : "noData"}`)}
+                  </span>
+                </span>
+              </li>
+              <li className="flex items-start gap-2 rounded-lg border bg-background px-2.5 py-2 text-sm" data-warning={`copies-${warnings.copies === null ? "unavailable" : warnings.copies.length}`}>
+                <PrecheckIcon status={warnings.copies === null ? "unchecked" : warnings.copies.length ? "found" : "ok"} />
+                <span className="min-w-0 flex-1">
+                  <span className="block font-medium">{t("reviewWarnings.copies.title")}</span>
+                  {warnings.copies === null ? (
+                    <span className="block text-xs text-muted-foreground">{t("reviewWarnings.copies.unavailable")}</span>
+                  ) : warnings.copies.length === 0 ? (
+                    <span className="block text-xs text-muted-foreground">{t("reviewWarnings.copies.none")}</span>
+                  ) : (
+                    <ul className="mt-1 grid gap-1 text-xs">
+                      {warnings.copies.map((copy) => (
+                        <li key={copy.listingId}>
+                          <Link href={`/admin/moderation/${copy.listingId}`} className="text-primary hover:underline">
+                            <PublicId id={copy.publicId} /> <span dir="auto">{copy.title}</span>
+                          </Link>{" "}
+                          <span className="text-muted-foreground">{t("reviewWarnings.copies.percent", { percent: isolateLtr(`${formatNumber(copy.percent, locale)}%`) })}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {warnings.snippet ? (
+                    <a
+                      href={textSearchUrl(warnings.snippet)}
+                      target="_blank"
+                      rel="noopener noreferrer nofollow"
+                      referrerPolicy="no-referrer"
+                      className="mt-1 inline-flex min-h-9 items-center gap-1 text-xs font-medium text-primary hover:underline"
+                    >
+                      <ExternalLink aria-hidden className="size-3.5" />
+                      {t("reviewWarnings.copies.search")}
+                    </a>
+                  ) : null}
+                </span>
+              </li>
+            </ul>
+          </AdminSection>
+
           <AdminSection
             id="risk"
             title={t("riskTitle")}
@@ -247,7 +490,7 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
                           level === "high" ? "bg-destructive/10 text-destructive" : "bg-muted",
                         )}
                       >
-                        {t("points", { points: `+${n(r.points)}` })}
+                        {t("points", { points: isolateLtr(`+${n(r.points)}`) })}
                       </span>
                     </li>
                   ))}
@@ -255,32 +498,68 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
             )}
           </AdminSection>
 
-          <AdminSection id="photos" title={t("photosTitle", { count: listing.photos.length })}>
+          <AdminSection
+            id="photos"
+            title={t("photosTitle", { count: listing.photos.length })}
+            description={listing.photos.length ? t("photosReverseHint") : undefined}
+          >
             {listing.photos.length === 0 ? (
               <p className="text-sm text-muted-foreground">{t("noPhotos")}</p>
             ) : (
               <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {listing.photos.map((photo, i) => (
-                  <li key={photo.id} className="relative">
-                    <a
-                      href={photoUrl(photo, "lg")}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block overflow-hidden rounded-lg border bg-muted outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={photoUrl(photo, "md")}
-                        alt={photo.alt || t("photoAlt", { number: n(i + 1) })}
-                        loading={i < 2 ? "eager" : "lazy"}
-                        className="aspect-[4/3] w-full object-cover"
-                      />
-                    </a>
-                    {photo.isCover ? (
-                      <span className="absolute start-2 top-2 rounded-full bg-background/90 px-2 py-0.5 text-xs font-medium">{t("cover")}</span>
-                    ) : null}
-                  </li>
-                ))}
+                {listing.photos.map((photo, i) => {
+                  // "Search this photo online" (SECURITY_REPORT 9.m): Google Lens and TinEye by the
+                  // photo's public address, in a new tab without a referrer. We upload nothing; the search
+                  // site downloads the photo itself (the hint says so; TinEye first).
+                  const reverse = reverseImageSearchLinks(photoUrl(photo, "lg"));
+                  return (
+                    <li key={photo.id} className="relative">
+                      <a
+                        href={photoUrl(photo, "lg")}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block overflow-hidden rounded-lg border bg-muted outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={photoUrl(photo, "md")}
+                          alt={photo.alt || t("photoAlt", { number: n(i + 1) })}
+                          loading={i < 2 ? "eager" : "lazy"}
+                          className="aspect-[4/3] w-full object-cover"
+                        />
+                      </a>
+                      {photo.isCover ? (
+                        <span className="absolute start-2 top-2 rounded-full bg-background/90 px-2 py-0.5 text-xs font-medium">{t("cover")}</span>
+                      ) : null}
+                      {reverse ? (
+                        <div className="mt-1 flex flex-wrap items-center gap-x-1 text-xs" data-testid="reverse-image-search">
+                          <ScanSearch aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
+                          <span className="text-muted-foreground">{t("reverseSearch")}</span>
+                          {(
+                            [
+                              // TinEye first: it does not tie the search to a Google account (9.m).
+                              ["TinEye", reverse.tinEye],
+                              ["Google Lens", reverse.googleLens],
+                            ] as const
+                          ).map(([site, href]) => (
+                            <a
+                              key={site}
+                              href={href}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              referrerPolicy="no-referrer"
+                              aria-label={t("reverseSearchOn", { number: n(i + 1), site })}
+                              className="inline-flex min-h-9 items-center gap-1 rounded-md px-1.5 font-medium text-primary outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+                            >
+                              <Ltr>{site}</Ltr>
+                              <ExternalLink aria-hidden className="size-3 rtl:-scale-x-100" />
+                            </a>
+                          ))}
+                        </div>
+                      ) : null}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </AdminSection>
@@ -393,7 +672,7 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
                       </Link>
                       <ReportStatusBadge status={r.status} className="h-5" />
                       <span className="text-xs text-muted-foreground">
-                        {r.reporter ? <span dir="auto">{r.reporter.name}</span> : tAdmin("common.guest")} · <WhenText date={r.createdAt} />
+                        {r.reporter ? <span dir="auto">{r.reporter.name}</span> : data.reporterWithheld ? tAdmin("reports.reporterWithheld") : tAdmin("common.guest")} · <WhenText date={r.createdAt} />
                       </span>
                     </div>
                     {r.details ? (
@@ -428,7 +707,7 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
             ) : null}
             {listing.lat != null && listing.lng != null ? (
               <>
-                <div className="h-56 overflow-hidden rounded-lg border">
+                <div className="relative isolate h-56 overflow-hidden rounded-lg border">
                   <ExactLocationMapLoader
                     lat={listing.lat}
                     lng={listing.lng}
@@ -441,7 +720,9 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
                 </p>
               </>
             ) : (
-              <p className="text-sm text-muted-foreground">{t("noLocation")}</p>
+              <p role={listing.locationUnreadable ? "status" : undefined} className="text-sm text-muted-foreground">
+                {listing.locationUnreadable ? t("locationUnreadable") : t("noLocation")}
+              </p>
             )}
           </AdminSection>
 
@@ -450,9 +731,10 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
               <p className="text-sm text-muted-foreground">{t("noContacts")}</p>
             ) : (
               <ul className="flex flex-col gap-1.5 text-sm">
-                {data.contacts.map((c) => (
-                  <li key={`${c.channel}-${c.value}`} className="flex items-center justify-between gap-2">
+                {data.contacts.map((c, i) => (
+                  <li key={`${c.channel}-${i}`} className="flex items-center justify-between gap-2">
                     <span className="text-muted-foreground">{tFields(`contactChannel.${c.channel}`)}</span>
+                    {/* Phone numbers: the last 2 digits only for staff other than an ADMIN (Q12, (c)). */}
                     <Ltr className="truncate font-mono text-xs">{c.value}</Ltr>
                   </li>
                 ))}
@@ -490,7 +772,7 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
                 className="sm:grid-cols-1"
                 items={[
                   { label: tAdmin("common.joined"), value: `${formatDate(owner.createdAt, locale)} · ${formatRelativeTime(owner.createdAt, locale)}` },
-                  { label: tAdmin("common.phone"), value: owner.phoneNumber ? <Ltr>{owner.phoneNumber}</Ltr> : "—" },
+                  { label: tAdmin("common.phone"), value: <StaffPhoneValue phone={data.ownerPhone} withheldNote={tAdmin("users.phoneLast2Only")} /> },
                   { label: tAdmin("common.email"), value: ownerEmail ? <Ltr className="break-all">{ownerEmail}</Ltr> : "—" },
                   { label: tAdmin("common.language"), value: ownerLanguage },
                   {
@@ -512,7 +794,7 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
                 ]}
               />
               {data.devices.length > 0 ? (
-                <div className="rounded-lg border border-warning/50 bg-warning-soft p-2.5 text-xs">
+                <div className="rounded-lg border border-border-strong/50 bg-surface-muted p-2.5 text-xs">
                   <p className="flex items-center gap-1.5 font-medium">
                     <MonitorSmartphone aria-hidden className="size-4" />
                     {t("sharedDevices", { count: data.devices.length })}
@@ -560,7 +842,7 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
               ) : (
                 <ul className="flex flex-col gap-2">
                   {data.notes.map((note) => (
-                    <li key={note.id} className="rounded-lg bg-warning-soft p-2 text-xs">
+                    <li key={note.id} className="rounded-lg bg-surface-muted p-2 text-xs">
                       <p className="whitespace-pre-wrap" dir="auto">
                         {note.body}
                       </p>
@@ -575,7 +857,7 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
           </AdminSection>
 
           {listing.status === "HIDDEN" ? (
-            <p className="flex items-start gap-2 rounded-xl border border-warning/50 bg-warning-soft p-3 text-xs">
+            <p className="flex items-start gap-2 rounded-xl border border-border-strong/50 bg-surface-muted p-3 text-xs">
               <AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0" />
               {t("hiddenHint")}
             </p>
@@ -584,4 +866,13 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
       </div>
     </>
   );
+}
+
+function PrecheckIcon({ status }: { status: PrecheckStatus }) {
+  const className = "mt-0.5 size-4 shrink-0";
+  if (status === "ok") return <CheckCircle2 aria-hidden className={cn(className, "text-success")} />;
+  if (status === "blocked") return <Ban aria-hidden className={cn(className, "text-destructive")} />;
+  if (status === "found") return <AlertTriangle aria-hidden className={cn(className, "text-destructive")} />;
+  if (status === "info") return <Info aria-hidden className={cn(className, "text-primary")} />;
+  return <CircleDashed aria-hidden className={cn(className, "text-muted-foreground")} />;
 }

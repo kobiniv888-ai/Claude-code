@@ -1,0 +1,73 @@
+{
+  "metaTitle": "Report a security problem",
+  "metaDescription": "Found a weakness in {siteName}? Tell us. How to report it, what happens next, and our promise to people who research in good faith.",
+  "eyebrow": "Security",
+  "title": "Report a security problem",
+  "lead": "Found a weakness in {siteName}? Please tell us first. We read every report, we reply, and we fix what is real.",
+  "onlyDomain": {
+    "title": "Our only website",
+    "body": "The only website of {siteName} is <site>{domain}</site>. Our emails link only to it.",
+    "never": {
+      "link": "We never ask you to pay by link or bank transfer.",
+      "card": "We never ask for your card details.",
+      "code": "We never ask for a login code — not by email, SMS or WhatsApp."
+    },
+    "fake": "Seen a copy of {siteName} at another address, or got a message like that? <report>Report it to us</report>."
+  },
+  "report": {
+    "title": "What to report",
+    "lead": "A problem in the site itself that could hurt the people who use it, for example:",
+    "items": {
+      "data": "A way to see or change someone else's details: bookings, trips, exact addresses, phone numbers or messages.",
+      "accounts": "A way into someone else's account, or into the admin panel.",
+      "limits": "A way around a protection: login codes, two-step login, the booking limit or the \"show contact\" limit.",
+      "code": "Code that runs on our pages (XSS), or a way to make our server fetch other addresses (SSRF).",
+      "secrets": "A key, password or file of ours that anyone can reach."
+    },
+    "notTitle": "Not for this page",
+    "not": {
+      "scams": "A suspicious listing, host or guest: use \"Report\" on the listing, or see the <safety>Safety Center</safety>.",
+      "account": "Trouble with your own account or a booking: <help>Help & support</help>.",
+      "scanners": "Results of an automated scanner, or a missing setting, without a real way to cause harm."
+    }
+  },
+  "how": {
+    "title": "How to report",
+    "email": "Write to <email>{address}</email>.",
+    "noEmail": "Open a <ticket>support request</ticket> with the topic \"Technical problem\" and write \"Security\" in the subject. We will reply with a private address to continue.",
+    "include": "Please include:",
+    "items": {
+      "what": "What you found, and where (the page or the address).",
+      "steps": "The steps that show it again.",
+      "impact": "What someone could do with it.",
+      "contact": "How we can reach you."
+    },
+    "languages": "Hebrew or English is best. We read the other languages of the site too.",
+    "privacy": "Please don't send other people's personal details. A screenshot from your own test account is enough."
+  },
+  "next": {
+    "title": "What happens next",
+    "items": {
+      "confirm": "We confirm that your report arrived, and we reply to you.",
+      "check": "We check it and tell you whether we can see the problem too.",
+      "fix": "We fix real problems as fast as we can and tell you when it's done.",
+      "reward": "We don't pay rewards at the moment, but we are grateful for every report."
+    }
+  },
+  "safeHarbour": {
+    "title": "Our promise to good-faith researchers",
+    "body": "If you look for problems in good faith and follow the rules on this page, we will not take legal action against you or file a complaint about it, and we treat your research as allowed.",
+    "note": "Draft: our lawyer reviews this promise before launch."
+  },
+  "dont": {
+    "title": "Please don't",
+    "items": {
+      "data": "Open, copy, change or delete other people's data. Use only your own accounts, and stop and tell us as soon as you see someone else's details.",
+      "disrupt": "Slow the site down or flood it: no denial-of-service tests, no mass automated scans, no spam.",
+      "people": "Trick our team, hosts or guests (fake emails, phone calls), or try anything physical.",
+      "real": "Make real bookings, contact hosts, or send login codes to numbers that are not yours.",
+      "public": "Tell others before we have fixed it. Give us 90 days, or agree on a date with us."
+    }
+  },
+  "machine": "For tools: our <file>security.txt</file> file has the same contact."
+}

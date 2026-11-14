@@ -1,4 +1,4 @@
-import { FlaskConical, MapPin, Plus } from "lucide-react";
+import { BadgeCheck, FlaskConical, MapPin, Plus } from "lucide-react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Pill } from "@/components/admin/content/pill";
 import { AdminFilterBar } from "@/components/admin/filter-bar";
@@ -12,12 +12,13 @@ import { JEWISH_PLACE_TYPES } from "@/lib/admin/content/schemas";
 import { cityOptions, listPlaces } from "@/lib/admin/content/server/queries";
 import { adminContentMetadata } from "@/lib/admin/content/server/metadata";
 import { requireStaff } from "@/lib/auth/session";
+import { formatDate } from "@/lib/format";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/admin/content/places">) {
   return adminContentMetadata(params, "places");
 }
 
-const SHOW = ["active", "hidden", "demo", "real"] as const;
+const SHOW = ["active", "hidden", "demo", "real", "verified", "unverified"] as const;
 
 export default async function PlacesPage({ params, searchParams }: PageProps<"/[locale]/admin/content/places">) {
   const { locale } = await params;
@@ -89,7 +90,7 @@ export default async function PlacesPage({ params, searchParams }: PageProps<"/[
                   <MapPin aria-hidden className="size-5" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{place.name}</p>
+                  <p className="line-clamp-2 font-medium break-words">{place.name}</p>
                   <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
                     <span>{t(`types.${place.type}`)}</span>
                     {place.cityName ? <span>{place.cityName}</span> : null}
@@ -102,7 +103,13 @@ export default async function PlacesPage({ params, searchParams }: PageProps<"/[
                     <Pill tone="demo" icon={FlaskConical}>
                       {t("demoLabel")}
                     </Pill>
-                  ) : null}
+                  ) : place.verifiedAt ? (
+                    <Pill tone="success" icon={BadgeCheck}>
+                      {t("verification.verifiedOn", { date: formatDate(place.verifiedAt.toISOString().slice(0, 10), locale, { dateStyle: "medium" }) })}
+                    </Pill>
+                  ) : (
+                    <Pill tone="warning">{t("verification.notVerified")}</Pill>
+                  )}
                   {place.active ? <Pill tone="success">{t("visible")}</Pill> : <Pill tone="muted">{t("hidden")}</Pill>}
                 </div>
               </Link>

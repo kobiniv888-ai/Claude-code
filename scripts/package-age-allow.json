@@ -1,0 +1,89 @@
+{
+  "$comment": "Lockfile versions younger than 14 days that we take on purpose (SECURITY_REPORT 2.3.f; checked by npm run security:check). Only security upgrades belong here, each with its reason; remove a line once the version is 14 days old (the check lists those as stale).",
+  "allow": {
+    "@better-auth/core@1.7.18": {
+      "reason": "Better Auth 1.7.18 security fixes (1.7.16+: concurrent code guesses past the try limit, phone codes in their own namespace, stricter emailVerified on linking; SECURITY_REPORT 2.1.a): taken on purpose.",
+      "since": "2026-11-08"
+    },
+    "@better-auth/drizzle-adapter@1.7.18": {
+      "reason": "Better Auth 1.7.18 security fixes (1.7.16+: concurrent code guesses past the try limit, phone codes in their own namespace, stricter emailVerified on linking; SECURITY_REPORT 2.1.a): taken on purpose.",
+      "since": "2026-11-08"
+    },
+    "@better-auth/kysely-adapter@1.7.18": {
+      "reason": "Better Auth 1.7.18 security fixes (1.7.16+: concurrent code guesses past the try limit, phone codes in their own namespace, stricter emailVerified on linking; SECURITY_REPORT 2.1.a): taken on purpose.",
+      "since": "2026-11-08"
+    },
+    "@better-auth/memory-adapter@1.7.18": {
+      "reason": "Better Auth 1.7.18 security fixes (1.7.16+: concurrent code guesses past the try limit, phone codes in their own namespace, stricter emailVerified on linking; SECURITY_REPORT 2.1.a): taken on purpose.",
+      "since": "2026-11-08"
+    },
+    "@better-auth/mongo-adapter@1.7.18": {
+      "reason": "Better Auth 1.7.18 security fixes (1.7.16+: concurrent code guesses past the try limit, phone codes in their own namespace, stricter emailVerified on linking; SECURITY_REPORT 2.1.a): taken on purpose.",
+      "since": "2026-11-08"
+    },
+    "@better-auth/prisma-adapter@1.7.18": {
+      "reason": "Better Auth 1.7.18 security fixes (1.7.16+: concurrent code guesses past the try limit, phone codes in their own namespace, stricter emailVerified on linking; SECURITY_REPORT 2.1.a): taken on purpose.",
+      "since": "2026-11-08"
+    },
+    "@better-auth/telemetry@1.7.18": {
+      "reason": "Better Auth 1.7.18 security fixes (1.7.16+: concurrent code guesses past the try limit, phone codes in their own namespace, stricter emailVerified on linking; SECURITY_REPORT 2.1.a): taken on purpose.",
+      "since": "2026-11-08"
+    },
+    "@next/env@16.4.5": {
+      "reason": "Next.js 16.4.5 security release (the November 2026 Next.js/React advisories; SECURITY_REPORT 2.1.a): taken on purpose.",
+      "since": "2026-11-08"
+    },
+    "@next/eslint-plugin-next@16.4.5": {
+      "reason": "Next.js 16.4.5 security release (the November 2026 Next.js/React advisories; SECURITY_REPORT 2.1.a): taken on purpose.",
+      "since": "2026-11-08"
+    },
+    "@next/swc-darwin-arm64@16.4.5": {
+      "reason": "Next.js 16.4.5 security release (the November 2026 Next.js/React advisories; SECURITY_REPORT 2.1.a): taken on purpose.",
+      "since": "2026-11-08"
+    },
+    "@next/swc-darwin-x64@16.4.5": {
+      "reason": "Next.js 16.4.5 security release (the November 2026 Next.js/React advisories; SECURITY_REPORT 2.1.a): taken on purpose.",
+      "since": "2026-11-08"
+    },
+    "@next/swc-linux-arm64-gnu@16.4.5": {
+      "reason": "Next.js 16.4.5 security release (the November 2026 Next.js/React advisories; SECURITY_REPORT 2.1.a): taken on purpose.",
+      "since": "2026-11-08"
+    },
+    "@next/swc-linux-arm64-musl@16.4.5": {
+      "reason": "Next.js 16.4.5 security release (the November 2026 Next.js/React advisories; SECURITY_REPORT 2.1.a): taken on purpose.",
+      "since": "2026-11-08"
+    },
+    "@next/swc-linux-x64-gnu@16.4.5": {
+      "reason": "Next.js 16.4.5 security release (the November 2026 Next.js/React advisories; SECURITY_REPORT 2.1.a): taken on purpose.",
+      "since": "2026-11-08"
+    },
+    "@next/swc-linux-x64-musl@16.4.5": {
+      "reason": "Next.js 16.4.5 security release (the November 2026 Next.js/React advisories; SECURITY_REPORT 2.1.a): taken on purpose.",
+      "since": "2026-11-08"
+    },
+    "@next/swc-win32-arm64-msvc@16.4.5": {
+      "reason": "Next.js 16.4.5 security release (the November 2026 Next.js/React advisories; SECURITY_REPORT 2.1.a): taken on purpose.",
+      "since": "2026-11-08"
+    },
+    "@next/swc-win32-x64-msvc@16.4.5": {
+      "reason": "Next.js 16.4.5 security release (the November 2026 Next.js/React advisories; SECURITY_REPORT 2.1.a): taken on purpose.",
+      "since": "2026-11-08"
+    },
+    "better-auth@1.7.18": {
+      "reason": "Better Auth 1.7.18 security fixes (1.7.16+: concurrent code guesses past the try limit, phone codes in their own namespace, stricter emailVerified on linking; SECURITY_REPORT 2.1.a): taken on purpose.",
+      "since": "2026-11-08"
+    },
+    "better-call@1.4.5": {
+      "reason": "Better Auth's own request library, released with Better Auth 1.7.18 (the same security upgrade).",
+      "since": "2026-11-08"
+    },
+    "eslint-config-next@16.4.5": {
+      "reason": "Next.js 16.4.5 security release (the November 2026 Next.js/React advisories; SECURITY_REPORT 2.1.a): taken on purpose.",
+      "since": "2026-11-08"
+    },
+    "next@16.4.5": {
+      "reason": "Next.js 16.4.5 security release (the November 2026 Next.js/React advisories; SECURITY_REPORT 2.1.a): taken on purpose.",
+      "since": "2026-11-08"
+    }
+  }
+}

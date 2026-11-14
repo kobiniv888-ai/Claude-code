@@ -5,6 +5,7 @@ import { ListingStatusBadge, RiskChip, UserStatusBadge } from "@/components/admi
 import { AdminPrice, ListingThumb, PublicId, WhenText } from "@/components/admin/listing-bits";
 import { AdminPageHeader, AdminSection, FactList } from "@/components/admin/page-header";
 import { TicketControls, TicketReplyBox } from "@/components/admin/ticket-reply-box";
+import { StaffPhoneValue } from "@/components/admin/staff-phone";
 import { Ltr } from "@/components/common/ltr";
 import { TicketCategoryLabel, TicketMessageList, TicketPriorityBadge, TicketStatusBadge } from "@/components/tickets";
 import { siteConfig } from "@/config/site";
@@ -32,7 +33,7 @@ export default async function TicketDetailPage({ params }: PageProps<"/[locale]/
     getTranslations("admin.tickets"),
     getTranslations("admin"),
     getTranslations("listingFields"),
-    ticketContext(ticket, locale),
+    ticketContext(ticket, locale, staff),
     savedRepliesFor(locale),
     ticketStaffMembers(),
   ]);
@@ -117,7 +118,11 @@ export default async function TicketDetailPage({ params }: PageProps<"/[locale]/
                 <FactList
                   className="sm:grid-cols-1"
                   items={[
-                    { label: tAdmin("common.phone"), value: requester.phoneNumber ? <Ltr>{requester.phoneNumber}</Ltr> : "—" },
+                    {
+                      label: tAdmin("common.phone"),
+                      // ADMIN only (Q12): other staff get the last 2 digits from the query, never the number (c).
+                      value: <StaffPhoneValue phone={requester} withheldNote={tAdmin("users.phoneLast2Only")} />,
+                    },
                     { label: tAdmin("common.email"), value: requester.email ? <Ltr className="break-all">{requester.email}</Ltr> : "—" },
                     { label: tAdmin("common.language"), value: language },
                     { label: tAdmin("common.joined"), value: formatRelativeTime(requester.createdAt, locale) },

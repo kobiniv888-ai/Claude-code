@@ -23,14 +23,6 @@
     "help": "Visit the Help center",
     "suggestions": "Popular pages"
   },
-  "global": {
-    "notFoundTitle": "Page not found",
-    "notFoundDescription": "This address doesn't exist. Choose your language to continue:",
-    "errorTitle": "Something went wrong",
-    "errorDescription": "Please reload the page. If it keeps happening, try again a little later.",
-    "reload": "Reload the page",
-    "home": "Home page"
-  },
   "safetyTip": {
     "title": "Stay safe",
     "text": "Never pay before you've checked the owner and seen the place, in person or on a live video call. {name} will never send you a payment link.",

@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { listingAccess, previewReason, type ListingAccessInput } from "./access";
 import { buildMonth, buildMonths, georgiaToday, isBlockedDay, weekStartFor } from "./calendar";
-import { clockDate, languageName, needsShowMore, priceChangePercent, pricePerSqm, replyTimeBucket } from "./helpers";
-import { schemaTypeFor } from "./jsonld";
-import { parseVideoUrl, safeExternalUrl } from "./media";
+import { clockDate, contactLayout, languageName, needsShowMore, placesNear, priceChangePercent, pricePerSqm, replyTimeBucket } from "./helpers";
+import { parseVideoUrl, safeExternalUrl, safeTourUrl } from "./media";
 
 const now = new Date("2026-10-31T12:00:00Z");
 const live: ListingAccessInput = {
@@ -130,18 +129,34 @@ describe("video and tour links", () => {
     expect(parseVideoUrl(null)).toBeNull();
   });
 
-  it("only opens https tours", () => {
+  it("only opens https links", () => {
     expect(safeExternalUrl("https://kuula.co/share/abc")).toBe("https://kuula.co/share/abc");
     expect(safeExternalUrl("http://insecure.example")).toBeNull();
     expect(safeExternalUrl("javascript:alert(1)")).toBeNull();
   });
-});
 
-describe("structured data type", () => {
-  it("maps property types to schema.org types", () => {
-    expect(schemaTypeFor("PENTHOUSE")).toBe("Apartment");
-    expect(schemaTypeFor("VILLA")).toBe("House");
-    expect(schemaTypeFor("HOTEL")).toBe("Hotel");
+  // SECURITY_REPORT 7.f: checked on every render too, so an old or hand-written link never shows.
+  it("shows a 360° tour only from Matterport, Kuula, Momento360 or Roundme", () => {
+    expect(safeTourUrl("https://my.matterport.com/show/?m=abc123")).toBe("https://my.matterport.com/show/?m=abc123");
+    expect(safeTourUrl("https://kuula.co/share/abc")).toBe("https://kuula.co/share/abc");
+    expect(safeTourUrl("https://momento360.com/e/u/abc")).toBe("https://momento360.com/e/u/abc");
+    expect(safeTourUrl("https://roundme.com/tour/1/view/2")).toBe("https://roundme.com/tour/1/view/2");
+    for (const bad of [
+      "https://evil.example/fake-tour",
+      "https://kuula.co.evil.example/share/abc",
+      "https://evilkuula.co/share/abc",
+      "https://user:pass@kuula.co/share/abc",
+      "https://kuula.co:8443/share/abc",
+      "http://kuula.co/share/abc",
+      "kuula.co/share/abc",
+      "javascript:alert(1)",
+      "data:text/html,hi",
+      "",
+      null,
+      undefined,
+    ]) {
+      expect(safeTourUrl(bad), String(bad)).toBeNull();
+    }
   });
 });
 
@@ -150,5 +165,45 @@ describe("languageName", () => {
     expect(languageName("he", "en")).toBe("Hebrew");
     expect(languageName("ru", "ru")).toBe("Русский");
     expect(languageName("xx-invalid-@@", "en")).toBe("xx-invalid-@@");
+  });
+});
+
+describe("placesNear", () => {
+  const center = { lat: 41.69, lng: 44.8 };
+  // ~111 m per 0.001° of latitude.
+  const places = [
+    { id: "far", lat: 41.72, lng: 44.8 },
+    { id: "near", lat: 41.691, lng: 44.8 },
+    { id: "mid", lat: 41.7, lng: 44.8 },
+  ];
+
+  it("keeps the places inside the radius, nearest first, with meters and walking minutes", () => {
+    const result = placesNear(places, center, { radiusMeters: 2000 });
+    expect(result.map((p) => p.id)).toEqual(["near", "mid"]);
+    expect(result[0].meters).toBeGreaterThan(100);
+    expect(result[0].meters).toBeLessThan(120);
+    expect(result[0].minutes).toBeGreaterThan(0);
+  });
+
+  it("limits the count", () => {
+    expect(placesNear(places, center, { radiusMeters: 10_000, limit: 1 }).map((p) => p.id)).toEqual(["near"]);
+  });
+});
+
+describe("contactLayout", () => {
+  it("puts WhatsApp first, the phone in 'Show phone', the rest in the menu", () => {
+    expect(contactLayout(["TELEGRAM", "PHONE", "WHATSAPP", "VIBER"])).toEqual({ primary: "WHATSAPP", phone: true, more: ["TELEGRAM", "VIBER"] });
+  });
+
+  it("uses the owner's first channel without WhatsApp", () => {
+    expect(contactLayout(["TELEGRAM", "EMAIL"])).toEqual({ primary: "TELEGRAM", phone: false, more: ["EMAIL"] });
+  });
+
+  it("does not repeat the phone when calling is the main channel", () => {
+    expect(contactLayout(["PHONE", "SMS"])).toEqual({ primary: "PHONE", phone: false, more: ["SMS"] });
+  });
+
+  it("handles no channels", () => {
+    expect(contactLayout([])).toEqual({ primary: null, phone: false, more: [] });
   });
 });

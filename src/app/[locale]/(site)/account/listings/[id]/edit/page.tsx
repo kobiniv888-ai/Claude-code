@@ -42,9 +42,11 @@ export default async function EditListingPage({ params, searchParams }: Props) {
 
   const data = await loadWizard(id, user, "edit", locale);
   if (!data) notFound();
-  // A draft that was never published continues in the post wizard (with "Publish").
+  // A draft that was never published continues in the post wizard (with "Publish"), on the step
+  // asked for (bug 2.2) or the one the owner was on.
   if (data.listing.status === "DRAFT") {
-    return redirect({ href: `/post/${data.listing.id}?step=${data.listing.wizardStep}`, locale });
+    const asked = typeof query.step === "string" && /^(\d{1,2}|[a-z]{3,12})$/.test(query.step) ? query.step : String(data.listing.wizardStep);
+    return redirect({ href: `/post/${data.listing.id}?step=${asked}`, locale });
   }
 
   const { values } = data.listing;

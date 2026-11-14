@@ -1,18 +1,21 @@
-import { BadgeCheck, Flag, Home, Inbox, LifeBuoy, MousePointerClick, UserPlus } from "lucide-react";
+import { BadgeCheck, Home, LifeBuoy, MousePointerClick, UserPlus } from "lucide-react";
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { AuditList } from "@/components/admin/audit-list";
+import { LoginMethodsBanner } from "@/components/auth/login-methods-banner";
 import { ClicksByChannelChart } from "@/components/admin/clicks-chart";
 import { KpiCard } from "@/components/admin/kpi-card";
 import { AdminPageHeader, AdminSection } from "@/components/admin/page-header";
 import { RankedList } from "@/components/admin/ranked-list";
 import { Link } from "@/i18n/navigation";
+import { getAttentionCounts } from "@/lib/admin/server/attention";
 import { getAdminCounts } from "@/lib/admin/server/counts";
 import { getOverviewStats } from "@/lib/admin/server/overview";
 import { recentAuditEntries } from "@/lib/admin/server/audit";
 import { can } from "@/lib/auth/permissions";
 import { requireStaff } from "@/lib/auth/session";
 import { formatNumber } from "@/lib/format";
+import { AttentionBlock } from "./_components/attention-block";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/admin">): Promise<Metadata> {
   const { locale } = await params;
@@ -25,11 +28,12 @@ export default async function AdminOverviewPage({ params }: PageProps<"/[locale]
   setRequestLocale(locale);
   const staff = await requireStaff();
   const seesAudit = can(staff.role, "audit");
-  const [t, tFields, stats, counts, recent] = await Promise.all([
+  const [t, tFields, stats, counts, attention, recent] = await Promise.all([
     getTranslations("admin.overview"),
     getTranslations("listingFields"),
     getOverviewStats(locale),
     getAdminCounts(),
+    getAttentionCounts().catch(() => null),
     recentAuditEntries(8, seesAudit ? {} : { actorId: staff.id }),
   ]);
   const n = (value: number) => formatNumber(value, locale);
@@ -38,12 +42,14 @@ export default async function AdminOverviewPage({ params }: PageProps<"/[locale]
   return (
     <>
       <AdminPageHeader title={t("title")} description={t("greeting", { name: staff.name })} />
+      <LoginMethodsBanner />
+      <AttentionBlock counts={attention} role={staff.role} locale={locale} />
 
       <section aria-labelledby="kpis" className="mb-6">
         <h2 id="kpis" className="sr-only">
           {t("kpisTitle")}
         </h2>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
           <KpiCard
             label={t("kpi.newUsers")}
             value={n(stats.newUsers7)}
@@ -58,22 +64,6 @@ export default async function AdminOverviewPage({ params }: PageProps<"/[locale]
             icon={Home}
           />
           <KpiCard label={t("kpi.liveListings")} value={n(stats.liveListings)} hint={t("kpi.liveHint")} icon={Home} />
-          <KpiCard
-            label={t("kpi.inReview")}
-            value={n(counts.inReview)}
-            hint={t("kpi.inReviewHint")}
-            icon={Inbox}
-            tone={counts.inReview > 0 ? "attention" : "default"}
-            href={link("moderation", "/admin/moderation")}
-          />
-          <KpiCard
-            label={t("kpi.openReports")}
-            value={n(counts.openReports)}
-            hint={t("kpi.openReportsHint")}
-            icon={Flag}
-            tone={counts.openReports > 0 ? "attention" : "default"}
-            href={link("reports.view", "/admin/reports")}
-          />
           <KpiCard
             label={t("kpi.openTickets")}
             value={n(counts.activeTickets)}

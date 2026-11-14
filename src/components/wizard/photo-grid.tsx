@@ -16,7 +16,8 @@ import {
 } from "@dnd-kit/core";
 import { arrayMove, rectSortingStrategy, SortableContext, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVerticalIcon, PencilIcon, StarIcon, Trash2Icon } from "lucide-react";
+import { ChevronDownIcon, GripVerticalIcon, PencilIcon, StarIcon, TagIcon, Trash2Icon } from "lucide-react";
+import type { PhotoRoom } from "@/generated/prisma/enums";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,6 +33,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatNumber } from "@/lib/format";
+import { PHOTO_ROOMS } from "@/lib/listing/fields";
 import { cn } from "@/lib/utils";
 import { LIMITS } from "@/lib/wizard/schemas";
 import type { WizardPhoto } from "@/lib/wizard/types";
@@ -41,7 +43,48 @@ type GridActions = {
   onSetCover?: (id: string) => void;
   onDelete: (id: string) => void;
   onAlt: (id: string, alt: string) => Promise<boolean>;
+  /** The photo's room label (round 3, brief 6.1); without it the grid shows no label picker. */
+  onRoom?: (id: string, room: PhotoRoom | null) => void;
 };
+
+/**
+ * "What does this photo show?" under a photo: bedroom, kitchen, bathroom… (optional). A native
+ * select: the phone's own picker, 44px tall, labelled with the photo's number for screen readers.
+ */
+function RoomSelect({ photo, label, onChange }: { photo: WizardPhoto; label: string; onChange: (room: PhotoRoom | null) => void }) {
+  const t = useTranslations("wizard.photos");
+  const id = useId();
+  const value = photo.room ?? "";
+  return (
+    <div className="relative border-t border-border bg-card">
+      <label htmlFor={id} className="sr-only">
+        {t("roomLabel", { label })}
+      </label>
+      <TagIcon
+        className={cn("pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2", value ? "text-primary-text" : "text-muted-foreground")}
+        aria-hidden
+      />
+      <select
+        id={id}
+        value={value}
+        onChange={(e) => onChange(e.target.value ? (e.target.value as PhotoRoom) : null)}
+        className={cn(
+          "h-11 w-full min-w-0 cursor-pointer appearance-none truncate bg-transparent ps-9 pe-8 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset",
+          value ? "font-medium text-foreground" : "text-muted-foreground",
+        )}
+        data-photo-room={photo.id}
+      >
+        <option value="">{t("roomNone")}</option>
+        {PHOTO_ROOMS.map((room) => (
+          <option key={room} value={room}>
+            {t(`rooms.${room}`)}
+          </option>
+        ))}
+      </select>
+      <ChevronDownIcon className="pointer-events-none absolute end-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+    </div>
+  );
+}
 
 /**
  * Arrow keys for a wrapping grid: Left/Right stay on the same row, Up/Down in the same column.
@@ -88,7 +131,7 @@ function AltEditor({ photo, onSave, label }: { photo: WizardPhoto; onSave: (alt:
       }}
     >
       <PopoverTrigger asChild>
-        <Button type="button" size="icon-sm" variant="secondary" aria-label={t("altEdit", { label })} className="bg-card/90 shadow-sm">
+        <Button type="button" size="icon-sm" variant="secondary" aria-label={t("altEdit", { label })} className="size-10 rounded-full bg-card/90 shadow-sm">
           <PencilIcon aria-hidden />
         </Button>
       </PopoverTrigger>
@@ -158,33 +201,35 @@ function SortablePhoto({
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        "group relative overflow-hidden rounded-xl bg-muted shadow-card ring-1 ring-foreground/5",
-        isDragging && "z-10 scale-[1.02] opacity-90 shadow-card-hover ring-2 ring-primary",
-        isCover && "ring-2 ring-primary",
+        "group relative overflow-hidden rounded-card bg-muted shadow-card ring-1 ring-foreground/5",
+        isDragging && "z-10 scale-[1.03] opacity-90 shadow-raised ring-2 ring-primary",
+        isCover && "ring-3 ring-primary",
       )}
     >
-      <div className="relative aspect-[4/3] touch-manipulation" {...listeners}>
-        {/* eslint-disable-next-line @next/next/no-img-element -- already resized WebP thumbnails */}
-        <img
-          src={photo.thumbUrl}
-          alt={photo.alt || label}
-          className="size-full object-cover select-none"
-          draggable={false}
-          loading="lazy"
-        />
-      </div>
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-1 p-1.5">
-        <span className="rounded-md bg-black/60 px-1.5 py-0.5 text-xs font-semibold text-white tabular-nums">
-          {formatNumber(index + 1, locale)}
-        </span>
-        {isCover && (
-          <span className="flex items-center gap-1 rounded-md bg-primary px-2 py-0.5 text-xs font-semibold text-primary-foreground">
-            <StarIcon className="size-3 fill-current" aria-hidden />
-            {t("cover")}
-          </span>
-        )}
-      </div>
-      <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-gradient-to-t from-black/55 to-transparent p-1.5 pt-6">
+      <div className="relative">
+        <div className="relative aspect-[4/3] touch-manipulation" {...listeners}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- already resized WebP thumbnails */}
+          <img
+            src={photo.thumbUrl}
+            alt={photo.alt || label}
+            className="size-full object-cover select-none"
+            draggable={false}
+            loading="lazy"
+          />
+        </div>
+        <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-1 p-2">
+          {isCover ? (
+            <span className="flex h-7 items-center gap-1 rounded-full bg-primary px-2.5 text-caption font-bold text-primary-foreground shadow-sm">
+              <StarIcon className="size-3.5 fill-current" aria-hidden />
+              {t("cover")}
+            </span>
+          ) : (
+            <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-black/60 px-2 text-caption font-bold text-white tabular-nums">
+              {formatNumber(index + 1, locale)}
+            </span>
+          )}
+        </div>
+        {/* Drag handle: top corner (mouse, touch or keyboard). */}
         <button
           type="button"
           ref={setActivatorNodeRef}
@@ -193,54 +238,57 @@ function SortablePhoto({
           disabled={disabled}
           aria-label={t("dragHandle", { label })}
           aria-roledescription={t("sortable")}
-          className="flex size-8 cursor-grab touch-none items-center justify-center rounded-md bg-card/90 text-foreground shadow-sm outline-none focus-visible:ring-3 focus-visible:ring-ring active:cursor-grabbing disabled:opacity-50"
+          className="absolute end-1.5 top-1.5 flex size-10 cursor-grab touch-none items-center justify-center rounded-full bg-card/90 text-foreground shadow-sm outline-none focus-visible:ring-3 focus-visible:ring-ring active:cursor-grabbing disabled:opacity-50"
         >
-          <GripVerticalIcon className="size-4" aria-hidden />
+          <GripVerticalIcon className="size-4.5" aria-hidden />
         </button>
-        <div className="flex items-center gap-1">
-          {showCover && actions.onSetCover && (
-            <Button
-              type="button"
-              size="icon-sm"
-              variant="secondary"
-              onClick={() => actions.onSetCover?.(photo.id)}
-              disabled={isCover || disabled}
-              aria-label={isCover ? t("isCover") : t("setCover", { label })}
-              aria-pressed={isCover}
-              className="bg-card/90 shadow-sm"
-            >
-              <StarIcon className={cn(isCover && "fill-primary text-primary")} aria-hidden />
-            </Button>
-          )}
-          <AltEditor photo={photo} label={label} onSave={(alt) => actions.onAlt(photo.id, alt)} />
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
+        <div className="absolute inset-x-0 bottom-0 flex items-center justify-end gap-1.5 bg-gradient-to-t from-black/60 to-transparent p-1.5 pt-8">
+          <div className="flex items-center gap-1.5">
+            {showCover && actions.onSetCover && !isCover && (
               <Button
                 type="button"
                 size="icon-sm"
                 variant="secondary"
+                onClick={() => actions.onSetCover?.(photo.id)}
                 disabled={disabled}
-                aria-label={t("delete", { label })}
-                className="bg-card/90 text-destructive shadow-sm"
+                aria-label={t("setCover", { label })}
+                aria-pressed={false}
+                className="size-10 rounded-full bg-card/90 shadow-sm"
               >
-                <Trash2Icon aria-hidden />
+                <StarIcon aria-hidden />
               </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>{t("deleteTitle")}</AlertDialogTitle>
-                <AlertDialogDescription>{t("deleteDescription")}</AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
-                <AlertDialogAction variant="destructive" onClick={() => actions.onDelete(photo.id)}>
-                  {t("deleteConfirm")}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+            )}
+            <AltEditor photo={photo} label={label} onSave={(alt) => actions.onAlt(photo.id, alt)} />
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant="secondary"
+                  disabled={disabled}
+                  aria-label={t("delete", { label })}
+                  className="size-10 rounded-full bg-card/90 text-destructive shadow-sm"
+                >
+                  <Trash2Icon aria-hidden />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{t("deleteTitle")}</AlertDialogTitle>
+                  <AlertDialogDescription>{t("deleteDescription")}</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
+                  <AlertDialogAction variant="destructive" onClick={() => actions.onDelete(photo.id)}>
+                    {t("deleteConfirm")}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
       </div>
+      {actions.onRoom ? <RoomSelect photo={photo} label={label} onChange={(room) => actions.onRoom?.(photo.id, room)} /> : null}
     </li>
   );
 }

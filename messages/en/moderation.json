@@ -64,7 +64,11 @@
     "shared_device": "Device shared with other accounts",
     "voip_phone": "Virtual (VoIP) phone number",
     "first_listing": "First listing of the account",
-    "phone_not_verified": "Phone not verified"
+    "phone_not_verified": "Phone not verified",
+    "payment_details": "Payment details in the text",
+    "exclusionary_text": "Exclusionary text",
+    "copied_description": "Description copied from another account's listing",
+    "price_below_guide": "Price far below the price guide"
   },
   "statuses": {
     "DRAFT": {
@@ -73,7 +77,7 @@
     },
     "IN_REVIEW": {
       "label": "In review",
-      "description": "We're checking your listing — usually within a few hours."
+      "description": "We're checking your listing — usually within a day."
     },
     "NEEDS_CHANGES": {
       "label": "Needs changes",
@@ -114,7 +118,7 @@
   },
   "inReview": {
     "title": "We're checking your listing",
-    "message": "We're checking your listing — usually within a few hours."
+    "message": "We're checking your listing — usually within a day."
   },
   "errors": {
     "invalid_status": "This can't be done while the listing is in its current status. Please refresh the page and try again.",

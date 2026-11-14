@@ -1,0 +1,1102 @@
+import {
+  HOST_ASKED_ANSWER_HOURS,
+  HOST_ASKED_EXPIRED,
+  HOST_ASKED_REASON,
+  answeredCode,
+  canAnswerHostAsked,
+  type HostAskedState,
+} from "./host-asked";
+import "server-only";
+import type { CurrencyCode, AppLocale } from "@/config/site";
+import { Prisma } from "@/generated/prisma/client";
+import { isAccountInGoodStanding } from "@/lib/auth/account-status";
+import { verifiedPhoneOf } from "@/lib/auth/phone-once";
+import { audit } from "@/lib/audit";
+import { getRates } from "@/lib/currency";
+import { db } from "@/lib/db";
+import { guestPhoneLookups, sealGuestPhone } from "@/lib/field-crypto";
+import { NotFoundError } from "@/lib/errors";
+import { previewReason } from "@/lib/listing-page/access";
+import { assertRateLimit } from "@/lib/rate-limit";
+import { recordSecurityEvent } from "@/lib/security/events";
+import { generateBookingCode } from "./code";
+import { cleanPaymentMethods, REMINDER_DAYS_BEFORE, type GuestCancelReason, type HostCancelReason } from "./constants";
+import { addDays, dateToDay, dayToDate, daysBetween, isDay, tbilisiToday } from "./dates";
+import { BookingError } from "./errors";
+import { MAX_UPCOMING_BOOKINGS_PER_PHONE } from "./guest-flags";
+import { findBlockingRange, freeRoomsOfType, getRoomBlocks, isRangeFree } from "./availability";
+import { notifyBookingCompleted, notifyBookingReminder } from "./notify";
+import { notifyGuestOfNoShow, sendReviewRequest } from "@/lib/reviews/notify";
+import { afterBookingConfirmed, alertEnvironment, confirmWithHostAlert, hostInstantGate, notifyCancellation, reportHostUnreachable } from "./alerts";
+import type { AlertEnvironment } from "@/lib/alerts/rules";
+import {
+  canGuestCancel,
+  canHostCancel,
+  canReportNoShow,
+  isGuestCancellationFlagged,
+  isHostCancellationFlagged,
+  isLateCancellation,
+} from "./policy";
+import { quoteStay, type MinStayDatePrice, type Quote, type QuoteResult } from "./pricing";
+import { bookableRoomTypes, isInstantBookable, resolveTerms, roomsFor, toNumber, type BookableListing, type BookableRoomType } from "./terms";
+import { freeRoomsForStay } from "./room-availability";
+import { publicPriceLabel } from "./price-label";
+import { usesRoomInventory } from "./constants";
+import { normalizePhone } from "@/lib/phone";
+
+/**
+ * The booking engine (server-only). No session checks here — callers (./actions.ts, cron routes,
+ * tests) pass the acting user's id, and every function checks that this user may act on the
+ * booking. Bayit takes no payments: guests pay the host at check-in.
+ *
+ * The no-overlap rule: createBooking runs in ONE transaction that locks the listing row
+ * (SELECT … FOR UPDATE), re-reads the listing, checks every block (OWNER, ICAL, BOOKING) and then
+ * creates the booking and its BOOKING block. A second booking for the same nights waits for the
+ * lock, then sees the first one's block and fails with "dates_unavailable".
+ *
+ * Hotels (round 3, founder's answer 3) are booked by room type: the transaction also locks the
+ * room type's row (SELECT … FOR UPDATE) before counting, and the booking stands only when every
+ * night still has `rooms` free rooms of that type (quantity − booked − blocked rooms; a block
+ * without a room type closes the whole hotel, ./room-availability). Its BOOKING block carries the
+ * room type and the number of rooms, so other room types (and the other rooms of this one) stay
+ * free. Otherwise "rooms_unavailable" (count = the rooms still free) or "dates_unavailable" (none).
+ *
+ * Double taps (SECURITY_REPORT 4.5.c, D2): the review page sends an idempotency key per booking
+ * attempt. The same key from the same guest gives back the booking already made (Booking has a
+ * unique (guestUserId, idempotencyKey)), never a second one, also when both taps arrive at the
+ * same moment: the transaction first takes the guest's own lock and looks for the key again.
+ *
+ * At most MAX_UPCOMING_BOOKINGS_PER_PHONE (2) upcoming bookings per verified phone number, across
+ * every account that used it, and per account (founder's decision 8, ./guest-flags.ts): counted in
+ * the same transaction, under locks on the guest and the number, so two bookings at once from the
+ * same number cannot both pass. Otherwise "too_many_upcoming" (count = the limit).
+ */
+
+const listingSelect = {
+  id: true,
+  publicId: true,
+  title: true,
+  ownerId: true,
+  status: true,
+  deletedAt: true,
+  dealType: true,
+  bookingMode: true,
+  price: true,
+  pricePeriod: true,
+  currency: true,
+  weekendPrice: true,
+  cleaningFee: true,
+  minStayNights: true,
+  maxGuests: true,
+  cancellationPolicy: true,
+  paymentMethodsAtCheckIn: true,
+  checkInFrom: true,
+  isDemo: true,
+  expiresAt: true,
+  owner: { select: { status: true, deletedAt: true } },
+  // Long-stay discounts (round 3, brief 6.3): % off the nights for 7+ / 28+ nights.
+  weeklyDiscountPct: true,
+  monthlyDiscountPct: true,
+  roomTypes: {
+    select: {
+      id: true,
+      names: true,
+      price: true,
+      currency: true,
+      pricePeriod: true,
+      maxGuests: true,
+      weekendPrice: true,
+      quantity: true,
+      active: true,
+    },
+    orderBy: { sortOrder: "asc" },
+  },
+} satisfies Prisma.ListingSelect;
+
+const datePriceSelect = {
+  roomTypeId: true,
+  startDate: true,
+  endDate: true,
+  price: true,
+  minNights: true,
+  label: true,
+} satisfies Prisma.DatePriceSelect;
+
+/** More than enough for one stay (date prices of one listing never overlap: ./date-prices). */
+const STAY_DATE_PRICES = 120;
+
+type Client = Prisma.TransactionClient | typeof db;
+
+/**
+ * The listing with its booking terms, and the date prices ("holiday prices") that have a night in
+ * the stay [checkIn, checkOut): every night of the stay is priced from these, so the quote and the
+ * booking transaction read the same rows.
+ */
+async function loadListing(listingId: string, stay: { checkIn: string; checkOut: string } | null, client: Client = db) {
+  const range = stay && isDay(stay.checkIn) && isDay(stay.checkOut) && stay.checkIn < stay.checkOut ? stay : null;
+  return client.listing.findUnique({
+    where: { id: listingId },
+    select: {
+      ...listingSelect,
+      datePrices: {
+        where: range ? { startDate: { lt: dayToDate(range.checkOut) }, endDate: { gt: dayToDate(range.checkIn) } } : { id: { in: [] } },
+        orderBy: [{ startDate: "asc" }, { createdAt: "asc" }],
+        take: range ? STAY_DATE_PRICES : 0,
+        select: datePriceSelect,
+      },
+    },
+  });
+}
+
+type LoadedListing = NonNullable<Awaited<ReturnType<typeof loadListing>>>;
+
+/** The loaded listing as the pure pricing rules read it (dates as "YYYY-MM-DD"). */
+function bookableListing(listing: LoadedListing): BookableListing {
+  return {
+    ...listing,
+    datePrices: listing.datePrices.map((p) => ({
+      roomTypeId: p.roomTypeId,
+      start: dateToDay(p.startDate),
+      end: dateToDay(p.endDate),
+      price: p.price,
+      minNights: p.minNights,
+      // The guest's quote, the booking's price lines and its emails never carry contact details.
+      label: publicPriceLabel(p.label),
+    })),
+  };
+}
+
+// ─── Quote ────────────────────────────────────────────────────
+
+export type StayParams = {
+  listingId: string;
+  checkIn: string;
+  checkOut: string;
+  adults: number;
+  children?: number;
+  infants?: number;
+  roomTypeId?: string | null;
+  /** Hotels: rooms of the room type (default 1). */
+  rooms?: number | null;
+};
+
+/** The chosen hotel room type, as plain values (safe to send to the browser). */
+export type QuotedRoomType = { id: string; names: unknown; price: number; currency: CurrencyCode; maxGuests: number | null };
+
+export type BookingQuote = {
+  quote: Quote;
+  roomType: QuotedRoomType | null;
+  cancellationPolicy: LoadedListing["cancellationPolicy"];
+  paymentMethods: string[];
+};
+
+export type BookingQuoteResult =
+  | ({ ok: true } & BookingQuote)
+  | {
+      ok: false;
+      error: Exclude<QuoteResult, { ok: true }>["error"] | "not_bookable" | "room_type_required" | "not_found";
+      minNights?: number;
+      maxNights?: number;
+      maxGuests?: number;
+      /** min_stay because of a date price's own minimum (the dates sheet explains it). */
+      datePrice?: MinStayDatePrice;
+    };
+
+function plainRoomType(room: BookableRoomType | null): QuotedRoomType | null {
+  if (!room) return null;
+  return { id: room.id, names: room.names, price: toNumber(room.price) ?? 0, currency: room.currency, maxGuests: room.maxGuests };
+}
+
+function quoteFor(
+  listing: LoadedListing,
+  stay: StayParams,
+  options: {
+    displayCurrency?: CurrencyCode | null;
+    rates?: Awaited<ReturnType<typeof getRates>> | null;
+    now?: Date;
+  },
+): BookingQuoteResult {
+  if (!isInstantBookable(listing)) return { ok: false, error: "not_bookable" };
+  // The same rule as the listing page (expiry date, owner's account): a hidden listing is not
+  // bookable, even from a review page opened before it was hidden (hardening B1). The demo rule is
+  // applied by createBooking itself.
+  if (previewReason(listing, { demoVisible: true, now: options.now }) !== null) return { ok: false, error: "not_bookable" };
+  const resolved = resolveTerms(bookableListing(listing), stay.roomTypeId, stay.rooms);
+  if (!resolved.ok)
+    return {
+      ok: false,
+      error: resolved.error === "room_type_required" ? "room_type_required" : "no_price",
+    };
+  const result = quoteStay(resolved.terms, stay, {
+    today: tbilisiToday(options.now),
+    displayCurrency: options.displayCurrency ?? null,
+    rates: options.rates ?? null,
+  });
+  if (!result.ok) return result;
+  return {
+    ok: true,
+    quote: result.quote,
+    roomType: plainRoomType(resolved.roomType),
+    cancellationPolicy: listing.cancellationPolicy,
+    paymentMethods: cleanPaymentMethods(listing.paymentMethodsAtCheckIn),
+  };
+}
+
+/**
+ * The price of a stay for the review page (does not check availability: call isRangeFree or
+ * getUnavailableDates for that). `displayCurrency` adds an estimate in the guest's currency.
+ */
+export async function getBookingQuote(
+  stay: StayParams,
+  options: { displayCurrency?: CurrencyCode | null; now?: Date } = {},
+): Promise<BookingQuoteResult> {
+  const listing = await loadListing(stay.listingId, stay);
+  if (!listing) return { ok: false, error: "not_found" };
+  const rates = options.displayCurrency ? await getRates() : null;
+  return quoteFor(listing, stay, { ...options, rates });
+}
+
+// ─── Create ───────────────────────────────────────────────────
+
+export type CreateBookingParams = StayParams & {
+  guestUserId: string;
+  guestName: string;
+  /** Must be the guest account's verified number (E.164) when given; the verified number is used. */
+  guestPhone?: string | null;
+  messageToHost?: string | null;
+  rulesAccepted: boolean;
+  /** The guest's language for messages about this booking. */
+  locale: AppLocale;
+  displayCurrency?: CurrencyCode | null;
+  /**
+   * Demo listings are made up: they can be booked only in development / test mode (or by demo
+   * accounts), never by a real guest on the real site.
+   */
+  allowDemoListing?: boolean;
+  /**
+   * false: the caller sends the guest's confirmation and the host's browser notification itself
+   * (afterBookingConfirmed, e.g. with after()). The host's alert on the confirming channels is
+   * ALWAYS sent here: the booking stands only when one of them accepted it.
+   */
+  notify?: boolean;
+  /** Where the code runs, for the host alert rules (alertEnvironment(await headers())). */
+  alerts?: AlertEnvironment;
+  now?: Date;
+  /**
+   * One booking attempt from the review page (a random key it makes per stay, 16-64 URL-safe
+   * characters). The same key again from the same guest returns the booking already made.
+   */
+  idempotencyKey?: string | null;
+  /**
+   * What the review page showed the guest. When given and the listing's terms have changed since,
+   * the booking is refused with "terms_changed" so the guest sees the new terms first.
+   */
+  expectedTotal?: number | null;
+  expectedCurrency?: CurrencyCode | null;
+  expectedPolicy?: LoadedListing["cancellationPolicy"] | null;
+};
+
+export type CreatedBooking = {
+  id: string;
+  code: string;
+  listingId: string;
+  checkIn: string;
+  checkOut: string;
+  nights: number;
+  total: number;
+  currency: CurrencyCode;
+  /**
+   * True when this was a repeat of an attempt that had already made the booking (the same
+   * idempotency key): nothing new was created, and no alert or confirmation is sent again.
+   */
+  repeated?: boolean;
+};
+
+/**
+ * The booking an earlier attempt with this key made, as createBooking returns it (or null).
+ * It counts as made only once the host was told (hostNotifiedAt): while the first attempt is still
+ * alerting the host the booking may yet be undone, so a repeat answers "booking_in_progress" (the
+ * browser asks again in a moment) instead of a "booked" that could turn out false; a booking
+ * cancelled since is no repeat either ("request_reused"). idempotency-unalerted-1.
+ */
+async function bookingForAttempt(client: Client, guestUserId: string, idempotencyKey: string, params: StayParams): Promise<CreatedBooking | null> {
+  const row = await client.booking.findUnique({
+    where: { guestUserId_idempotencyKey: { guestUserId, idempotencyKey } },
+    select: {
+      id: true,
+      code: true,
+      listingId: true,
+      checkIn: true,
+      checkOut: true,
+      nights: true,
+      total: true,
+      currency: true,
+      roomTypeId: true,
+      rooms: true,
+      status: true,
+      hostNotifiedAt: true,
+    },
+  });
+  if (!row) return null;
+  // The same key for another stay is not a repeat: a broken or replayed request.
+  const sameStay =
+    row.listingId === params.listingId &&
+    dateToDay(row.checkIn) === params.checkIn &&
+    dateToDay(row.checkOut) === params.checkOut &&
+    (row.roomTypeId ?? null) === (params.roomTypeId ?? null) &&
+    (!row.roomTypeId || row.rooms === Math.max(1, params.rooms ?? 1));
+  if (!sameStay) throw new BookingError("request_reused");
+  if (row.status === "CONFIRMED" && !row.hostNotifiedAt) throw new BookingError("booking_in_progress");
+  if (row.status !== "CONFIRMED" && row.status !== "COMPLETED") throw new BookingError("request_reused");
+  return {
+    id: row.id,
+    code: row.code,
+    listingId: row.listingId,
+    checkIn: dateToDay(row.checkIn),
+    checkOut: dateToDay(row.checkOut),
+    nights: row.nights,
+    total: toNumber(row.total) ?? 0,
+    currency: row.currency,
+    repeated: true,
+  };
+}
+
+/**
+ * The guest's upcoming bookings: confirmed and not checked out yet, made with this verified number
+ * (by any account) or by this account (founder's decision 8). The number is matched through its
+ * HMAC lookup (Booking.guestPhoneLookup, under the current and any previous field key): it is
+ * never stored or compared in plain text (SECURITY_REPORT 12.3.c).
+ */
+export async function countUpcomingBookings(
+  client: Client,
+  guestUserId: string,
+  verifiedPhone: string | readonly string[],
+  now: Date = new Date(),
+): Promise<number> {
+  // Every spelling the number was saved in (bookings made before round 3 may keep a national 0).
+  const phones = [...new Set((typeof verifiedPhone === "string" ? [verifiedPhone] : verifiedPhone).filter((p) => !!p))];
+  return client.booking.count({
+    where: {
+      status: "CONFIRMED",
+      checkOut: { gt: dayToDate(tbilisiToday(now)) },
+      OR: [...(phones.length ? [{ guestPhoneLookup: { in: guestPhoneLookups(phones) } }] : []), { guestUserId }],
+    },
+  });
+}
+
+const CREATE_LIMIT = { limit: 8, windowSeconds: 3600 };
+const CODE_ATTEMPTS = 5;
+const TRANSACTION_ATTEMPTS = 3;
+
+function isUniqueViolation(error: unknown, field?: string): boolean {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") return false;
+  if (!field) return true;
+  return JSON.stringify(error.meta ?? {}).includes(field);
+}
+
+/** Two bookings drew the same code at the same moment (after the check in freshCode): try again. */
+async function retryOnCodeCollision<T>(run: () => Promise<T>): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await run();
+    } catch (error) {
+      if (attempt < TRANSACTION_ATTEMPTS && isUniqueViolation(error, "code")) continue;
+      throw error;
+    }
+  }
+}
+
+async function freshCode(tx: Prisma.TransactionClient): Promise<string> {
+  for (let i = 0; i < CODE_ATTEMPTS; i++) {
+    const code = generateBookingCode();
+    const taken = await tx.booking.findUnique({
+      where: { code },
+      select: { id: true },
+    });
+    if (!taken) return code;
+  }
+  throw new Error("Could not find a free booking code");
+}
+
+/** The price or cancellation policy differs from what the review page showed (hardening B2). */
+function termsChanged(params: CreateBookingParams, quote: Quote, policy: LoadedListing["cancellationPolicy"]): boolean {
+  if (params.expectedCurrency && params.expectedCurrency !== quote.currency) return true;
+  if (params.expectedTotal != null && Math.abs(params.expectedTotal - quote.total) > 0.005) return true;
+  return !!params.expectedPolicy && params.expectedPolicy !== policy;
+}
+
+function failQuote(result: Exclude<BookingQuoteResult, { ok: true }>): never {
+  if (result.error === "not_found") throw new BookingError("not_bookable");
+  const details: Record<string, number> = {};
+  if (result.minNights) details.count = result.minNights;
+  if (result.maxNights) details.count = result.maxNights;
+  if (result.maxGuests) details.count = result.maxGuests;
+  throw new BookingError(result.error, Object.keys(details).length ? details : undefined);
+}
+
+/** A stay's availability for the review page and the dates sheet. */
+export type StayAvailability = {
+  /** Every night is free (hotels: the chosen room type has the rooms asked for on every night). */
+  available: boolean;
+  /** Hotels: rooms free on every night of the stay, per bookable room type (in the host's order). */
+  rooms?: { id: string; free: number }[];
+};
+
+/**
+ * Is the stay still free? Listings booked as a whole: no block on any night. Hotels: the free
+ * rooms of each active room type for the stay, and whether the chosen one has `rooms` of them.
+ * (createBooking checks again inside its locked transaction.)
+ */
+export async function getStayAvailability(stay: StayParams): Promise<StayAvailability> {
+  const listing = await db.listing.findUnique({
+    where: { id: stay.listingId },
+    select: { id: true, dealType: true, roomTypes: { select: { id: true, quantity: true, active: true, price: true, pricePeriod: true }, orderBy: { sortOrder: "asc" } } },
+  });
+  if (!listing || !isDay(stay.checkIn) || !isDay(stay.checkOut) || stay.checkIn >= stay.checkOut) return { available: false };
+  if (!usesRoomInventory(listing.dealType)) return { available: await isRangeFree(listing.id, stay.checkIn, stay.checkOut) };
+  const offered = bookableRoomTypes(listing);
+  const blocks = await getRoomBlocks(listing.id, { from: stay.checkIn, to: stay.checkOut });
+  const rooms = offered.map((room) => ({ id: room.id, free: freeRoomsForStay(room, blocks, stay.checkIn, stay.checkOut) }));
+  const chosen = rooms.find((room) => room.id === stay.roomTypeId);
+  return { available: !!chosen && chosen.free >= roomsFor(listing.dealType, stay.rooms), rooms };
+}
+
+/**
+ * Books a stay (instant booking). Throws BookingError (a code from BOOKING_ERROR_CODES),
+ * RateLimitError or NotFoundError. Requires: listing LIVE with bookingMode INSTANT, a guest
+ * account that is active and has a verified phone, accepted house rules, not the guest's own
+ * listing, no block between guest and host, free dates, and a host who can be alerted (round 3):
+ * right after the transaction the host's alert goes out; when no alert channel accepted it, the
+ * booking is undone and "host_unreachable" is thrown (src/lib/booking/alerts.ts).
+ */
+export async function createBooking(params: CreateBookingParams): Promise<CreatedBooking> {
+  const now = params.now ?? new Date();
+  if (!params.rulesAccepted) throw new BookingError("rules_not_accepted");
+
+  const guest = await db.user.findUnique({
+    where: { id: params.guestUserId },
+    select: {
+      id: true,
+      status: true,
+      isDemo: true,
+      phoneNumber: true,
+      phoneNumberVerified: true,
+      deletedAt: true,
+    },
+  });
+  if (!guest || guest.deletedAt) throw new NotFoundError();
+  // WARNED accounts book like active ones (the same rule as for hosts' listings); SUSPENDED stays
+  // refused until staff lift it, even after suspendedUntil (hardening B5).
+  if (!isAccountInGoodStanding(guest.status)) throw new BookingError("not_allowed");
+  // Stored and compared in E.164 without a national 0 (src/lib/phone.ts, brief 2.5).
+  const accountPhone = verifiedPhoneOf(guest);
+  const verifiedPhone = accountPhone ? (normalizePhone(accountPhone) ?? accountPhone) : null;
+  if (!verifiedPhone || (params.guestPhone && (normalizePhone(params.guestPhone) ?? params.guestPhone) !== verifiedPhone)) {
+    throw new BookingError("phone_not_verified");
+  }
+
+  // A repeat of an attempt that already made its booking (a double tap, a retry after a lost
+  // answer): the same booking, before any limit or alert counts it again.
+  const attemptKey = params.idempotencyKey?.trim() || null;
+  if (attemptKey) {
+    const earlier = await bookingForAttempt(db, guest.id, attemptKey, params);
+    if (earlier) return earlier;
+  }
+
+  const listing = await loadListing(params.listingId, params);
+  if (!listing || listing.deletedAt) throw new BookingError("not_bookable");
+  if (listing.ownerId === guest.id) throw new BookingError("own_listing");
+  if (listing.isDemo && !params.allowDemoListing && !guest.isDemo) throw new BookingError("not_bookable");
+  const block = await db.userBlock.findFirst({
+    where: {
+      OR: [
+        { blockerId: guest.id, blockedId: listing.ownerId },
+        { blockerId: listing.ownerId, blockedId: guest.id },
+      ],
+    },
+    select: { blockerId: true },
+  });
+  if (block) {
+    // Hosts may not choose their guests (the pledge): staff can see refusals caused by a block.
+    await audit({
+      actorId: guest.id,
+      action: "booking.refused_blocked",
+      targetType: "Listing",
+      targetId: listing.id,
+      details: { blockedByHost: block.blockerId === listing.ownerId },
+    });
+    throw new BookingError("not_allowed");
+  }
+
+  const rates = params.displayCurrency ? await getRates() : null;
+  const first = quoteFor(listing, params, {
+    displayCurrency: params.displayCurrency,
+    rates,
+    now,
+  });
+  if (!first.ok) failQuote(first);
+
+  // The host must be reachable before any nights are taken (the listing then shows "Ask the host").
+  const alerts = params.alerts ?? alertEnvironment();
+  const gate = await hostInstantGate(listing.ownerId, alerts);
+  if (!gate.ok) {
+    await reportHostUnreachable({
+      guestUserId: guest.id,
+      hostUserId: listing.ownerId,
+      listingId: listing.id,
+      listingTitle: listing.title,
+      listingPublicId: listing.publicId,
+      bookingCode: null,
+      reason: gate.reason,
+      stage: "before",
+    });
+    throw new BookingError("host_unreachable");
+  }
+
+
+  await assertRateLimit(`booking:create:${guest.id}`, CREATE_LIMIT);
+
+  const checkInDay = params.checkIn;
+  const remindNow = daysBetween(tbilisiToday(now), checkInDay) <= REMINDER_DAYS_BEFORE;
+
+  const created = await retryOnCodeCollision(() =>
+    db.$transaction(
+      async (tx): Promise<CreatedBooking> => {
+        // Serialises this guest's bookings and every booking with this number (any listing), in
+        // this order, before the listing: the repeat check and the upcoming-bookings cap below see
+        // every booking committed before them (founder's decision 8; SECURITY_REPORT 4.5.c).
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`booking:guest:${guest.id}`}))`;
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`booking:phone:${verifiedPhone}`}))`;
+        if (attemptKey) {
+          const earlier = await bookingForAttempt(tx, guest.id, attemptKey, params);
+          if (earlier) return earlier;
+        }
+        // Serialises bookings of this listing: a concurrent booking waits here until we commit.
+        await tx.$queryRaw`SELECT "id" FROM "Listing" WHERE "id" = ${listing.id} FOR UPDATE`;
+        // Hotels: the room type's row too, before its rooms are counted (founder's answer 3).
+        if (params.roomTypeId) {
+          await tx.$queryRaw`SELECT "id" FROM "RoomType" WHERE "id" = ${params.roomTypeId} AND "listingId" = ${listing.id} FOR UPDATE`;
+        }
+        const locked = await loadListing(listing.id, params, tx);
+        if (!locked) throw new BookingError("not_bookable");
+        const priced = quoteFor(locked, params, {
+          displayCurrency: params.displayCurrency,
+          rates,
+          now,
+        });
+        if (!priced.ok) failQuote(priced);
+        const { quote, roomType } = priced;
+        if (termsChanged(params, quote, locked.cancellationPolicy)) throw new BookingError("terms_changed");
+
+        // Hotels count rooms of the room type; every other listing is booked as a whole.
+        const inventory = usesRoomInventory(locked.dealType) && roomType !== null;
+        const room = inventory ? locked.roomTypes.find((r) => r.id === roomType.id) : undefined;
+        if (inventory) {
+          if (!room) throw new BookingError("room_type_required");
+          const free = await freeRoomsOfType(locked.id, room, quote.checkIn, quote.checkOut, tx);
+          if (free < quote.rooms) throw new BookingError(free === 0 ? "dates_unavailable" : "rooms_unavailable", { count: free });
+        } else if (await findBlockingRange(locked.id, quote.checkIn, quote.checkOut, tx)) {
+          throw new BookingError("dates_unavailable");
+        }
+        // The cap (founder's decision 8) after the availability check, still under the phone lock
+        // taken above: nights someone else just took answer "dates taken", the more useful reason.
+        if ((await countUpcomingBookings(tx, guest.id, [verifiedPhone, accountPhone ?? verifiedPhone], now)) >= MAX_UPCOMING_BOOKINGS_PER_PHONE) {
+          throw new BookingError("too_many_upcoming", { count: MAX_UPCOMING_BOOKINGS_PER_PHONE });
+        }
+
+        const booking = await tx.booking.create({
+          data: {
+            code: await freshCode(tx),
+            idempotencyKey: attemptKey,
+            listingId: locked.id,
+            guestUserId: guest.id,
+            hostUserId: locked.ownerId,
+            roomTypeId: roomType?.id ?? null,
+            roomTypeName: roomType ? (roomType.names as Prisma.InputJsonValue) : Prisma.DbNull,
+            rooms: quote.rooms,
+            checkIn: dayToDate(quote.checkIn),
+            checkOut: dayToDate(quote.checkOut),
+            nights: quote.nights,
+            adults: quote.adults,
+            children: quote.children,
+            infants: quote.infants,
+            nightlyPrice: quote.nightlyPrice,
+            weekendPrice: quote.weekendPrice,
+            subtotal: quote.subtotal,
+            cleaningFee: quote.cleaningFee,
+            // The long-stay discount (positive, already off the total) and the itemized lines the
+            // guest saw before confirming (round 3, brief 6.3): what every later page shows.
+            discount: quote.discount?.amount ?? null,
+            total: quote.total,
+            currency: quote.currency,
+            priceLines: quote.lines as unknown as Prisma.InputJsonValue,
+            displayCurrency: quote.display?.currency ?? null,
+            displayTotal: quote.display?.total ?? null,
+            cancellationPolicy: locked.cancellationPolicy,
+            paymentMethods: cleanPaymentMethods(locked.paymentMethodsAtCheckIn),
+            status: "CONFIRMED",
+            messageToHost: params.messageToHost?.trim() || null,
+            guestName: params.guestName.trim(),
+            // Encrypted, with its lookup for the per-phone cap (never in plain text: 12.3.c).
+            ...sealGuestPhone(verifiedPhone),
+            locale: params.locale,
+            rulesAcceptedAt: now,
+            // Booked 3 days or less before arrival: the confirmation is the reminder.
+            reminderSentAt: remindNow ? now : null,
+          },
+          select: { id: true, code: true },
+        });
+        await tx.availabilityBlock.create({
+          data: {
+            listingId: locked.id,
+            startDate: dayToDate(quote.checkIn),
+            endDate: dayToDate(quote.checkOut),
+            source: "BOOKING",
+            bookingId: booking.id,
+            sourceRef: booking.id,
+            // Hotels: only these rooms of this room type are taken (null = the whole listing).
+            roomTypeId: inventory ? roomType.id : null,
+            rooms: inventory ? quote.rooms : null,
+          },
+        });
+        return {
+          id: booking.id,
+          code: booking.code,
+          listingId: locked.id,
+          checkIn: quote.checkIn,
+          checkOut: quote.checkOut,
+          nights: quote.nights,
+          total: quote.total,
+          currency: quote.currency,
+        };
+      },
+      { maxWait: 10_000, timeout: 15_000 },
+    ),
+  ).catch(async (error: unknown) => {
+    // The upcoming-bookings cap (decision 8): in the security log for the alerts (no number in it).
+    if (error instanceof BookingError && error.code === "too_many_upcoming") {
+      await recordSecurityEvent({ type: "booking_cap_hit", userId: guest.id, meta: { limit: MAX_UPCOMING_BOOKINGS_PER_PHONE } });
+    }
+    throw error;
+  });
+
+  // A repeat that met the first attempt's booking inside the lock: that attempt alerts the host.
+  if (created.repeated) return created;
+
+  // The host first: the booking stands only once one of their alert channels accepted the alert.
+  await confirmWithHostAlert(created, {
+    guestUserId: guest.id,
+    hostUserId: listing.ownerId,
+    listingId: listing.id,
+    listingTitle: listing.title,
+    listingPublicId: listing.publicId,
+    env: alerts,
+    now,
+  });
+  if (params.notify !== false) await afterBookingConfirmed(created.id, now, alerts);
+  return created;
+}
+
+// ─── Cancel, no-show, complete ────────────────────────────────
+
+const bookingStateSelect = {
+  id: true,
+  code: true,
+  status: true,
+  checkIn: true,
+  checkOut: true,
+  createdAt: true,
+  guestUserId: true,
+  hostUserId: true,
+  listingId: true,
+  cancellationPolicy: true,
+  listing: { select: { checkInFrom: true } },
+} satisfies Prisma.BookingSelect;
+
+type BookingState = Prisma.BookingGetPayload<{
+  select: typeof bookingStateSelect;
+}>;
+
+function stateOf(booking: BookingState) {
+  return {
+    status: booking.status,
+    checkIn: dateToDay(booking.checkIn),
+    checkOut: dateToDay(booking.checkOut),
+  };
+}
+
+/** Sets the cancelled status (only if still CONFIRMED) and frees the nights, in one transaction. */
+async function cancelInTransaction(bookingId: string, data: Prisma.BookingUncheckedUpdateManyInput): Promise<void> {
+  await db.$transaction(async (tx) => {
+    const updated = await tx.booking.updateMany({
+      where: { id: bookingId, status: "CONFIRMED" },
+      data,
+    });
+    if (updated.count !== 1) throw new BookingError("not_cancellable");
+    await tx.availabilityBlock.deleteMany({ where: { bookingId } });
+  });
+}
+
+export type CancelResult = { code: string; late: boolean; flagged: boolean };
+
+/**
+ * The guest cancels (any time until the check-in day; after the free period it is recorded as
+ * late — nothing is charged). Frees the nights and tells the host.
+ */
+export async function guestCancel(params: {
+  bookingId: string;
+  guestUserId: string;
+  reasonCode: GuestCancelReason;
+  reasonText?: string | null;
+  notify?: boolean;
+  now?: Date;
+}): Promise<CancelResult> {
+  const now = params.now ?? new Date();
+  const booking = await db.booking.findFirst({
+    where: { id: params.bookingId, guestUserId: params.guestUserId },
+    select: bookingStateSelect,
+  });
+  if (!booking) throw new NotFoundError();
+  if (!canGuestCancel(stateOf(booking), now)) throw new BookingError("not_cancellable");
+
+  const late = isLateCancellation(booking.cancellationPolicy, dateToDay(booking.checkIn), now, booking.listing.checkInFrom);
+  // "The host asked me to cancel" (answer (4)): not flagged yet; the host is asked to confirm it
+  // (notifyCancellation → notifyHostAskedConfirm). Their answer, or 72 hours without one, decides.
+  const flagged = isGuestCancellationFlagged(params.reasonCode);
+  await cancelInTransaction(booking.id, {
+    status: "CANCELLED_BY_GUEST",
+    cancelReasonCode: params.reasonCode,
+    cancelReason: params.reasonText?.trim() || null,
+    cancelledAt: now,
+    cancelledById: params.guestUserId,
+    ...(flagged ? { flaggedForReview: true } : {}),
+  });
+  await audit({
+    actorId: params.guestUserId,
+    action: "booking.cancel_by_guest",
+    targetType: "Booking",
+    targetId: booking.id,
+    details: {
+      code: booking.code,
+      reasonCode: params.reasonCode,
+      late,
+      flagged,
+    },
+  });
+  if (params.notify !== false) await notifyCancellation(booking.id);
+  return { code: booking.code, late, flagged };
+}
+
+// ─── "The host asked me to cancel" (founder's answer (4), ./host-asked.ts) ──────
+
+/**
+ * The host answers a guest's "the host asked me to cancel": "confirm" (they did ask: it does not
+ * count against the guest and counts against the host) or "deny" (it goes to the admin review
+ * queue). Only the booking's host, only while it is pending and within HOST_ASKED_ANSWER_HOURS of
+ * the cancellation; one conditional update, so two answers at once never both win. Either answer
+ * lists the booking under Admin → Flags (flaggedForReview), review only.
+ */
+export async function answerHostAsked(params: {
+  bookingId: string;
+  hostUserId: string;
+  answer: "confirm" | "deny";
+  now?: Date;
+}): Promise<{ code: string; state: Extract<HostAskedState, "confirmed" | "denied"> }> {
+  const now = params.now ?? new Date();
+  const booking = await db.booking.findFirst({
+    where: { id: params.bookingId, hostUserId: params.hostUserId },
+    select: { id: true, code: true, status: true, cancelReasonCode: true, cancelledAt: true },
+  });
+  if (!booking) throw new NotFoundError();
+  if (!canAnswerHostAsked(booking, now)) throw new BookingError("not_answerable");
+  const updated = await db.booking.updateMany({
+    where: {
+      id: booking.id,
+      hostUserId: params.hostUserId,
+      status: "CANCELLED_BY_GUEST",
+      cancelReasonCode: HOST_ASKED_REASON,
+      cancelledAt: { gt: new Date(now.getTime() - HOST_ASKED_ANSWER_HOURS * 3_600_000) },
+    },
+    data: { cancelReasonCode: answeredCode(params.answer), flaggedForReview: true },
+  });
+  if (updated.count !== 1) throw new BookingError("not_answerable");
+  const state = params.answer === "confirm" ? "confirmed" : "denied";
+  await audit({
+    actorId: params.hostUserId,
+    action: state === "confirmed" ? "booking.host_asked_confirmed" : "booking.host_asked_denied",
+    targetType: "Booking",
+    targetId: booking.id,
+    details: { code: booking.code },
+  });
+  return { code: booking.code, state };
+}
+
+/**
+ * The timeout job (daily /api/cron/complete-bookings): every "host asked me" cancellation the host
+ * did not answer within HOST_ASKED_ANSWER_HOURS becomes HOST_ASKED_EXPIRED and goes to the admin
+ * review queue (flaggedForReview). The flag rules already treat it as expired from the deadline on
+ * (effectiveHostAskedState); this writes it down so Admin → Flags lists it. Idempotent.
+ */
+export async function expireHostAskedAnswers(now: Date = new Date()): Promise<{ expired: number }> {
+  const deadline = new Date(now.getTime() - HOST_ASKED_ANSWER_HOURS * 3_600_000);
+  const due = await db.booking.findMany({
+    where: { status: "CANCELLED_BY_GUEST", cancelReasonCode: HOST_ASKED_REASON, OR: [{ cancelledAt: { lte: deadline } }, { cancelledAt: null }] },
+    select: { id: true, code: true },
+    take: 1000,
+  });
+  let expired = 0;
+  for (const booking of due) {
+    const updated = await db.booking.updateMany({
+      where: { id: booking.id, status: "CANCELLED_BY_GUEST", cancelReasonCode: HOST_ASKED_REASON },
+      data: { cancelReasonCode: HOST_ASKED_EXPIRED, flaggedForReview: true },
+    });
+    if (updated.count !== 1) continue;
+    expired++;
+    await audit({ actorId: null, action: "booking.host_asked_expired", targetType: "Booking", targetId: booking.id, details: { code: booking.code } });
+  }
+  return { expired };
+}
+
+/**
+ * The host cancels, only with a reason (DOUBLE_BOOKING | PROPERTY_ISSUE | OTHER + text). Logged;
+ * cancellations within 48 hours of the booking are flagged for review. Frees the nights and tells
+ * the guest.
+ */
+export async function hostCancel(params: {
+  bookingId: string;
+  hostUserId: string;
+  reasonCode: HostCancelReason;
+  reasonText?: string | null;
+  notify?: boolean;
+  now?: Date;
+}): Promise<CancelResult> {
+  const now = params.now ?? new Date();
+  const booking = await db.booking.findFirst({
+    where: { id: params.bookingId, hostUserId: params.hostUserId },
+    select: bookingStateSelect,
+  });
+  if (!booking) throw new NotFoundError();
+  if (!canHostCancel(stateOf(booking), now)) throw new BookingError("not_cancellable");
+
+  const flagged = isHostCancellationFlagged(booking.createdAt, now);
+  const late = isLateCancellation(booking.cancellationPolicy, dateToDay(booking.checkIn), now, booking.listing.checkInFrom);
+  await cancelInTransaction(booking.id, {
+    status: "CANCELLED_BY_HOST",
+    cancelReasonCode: params.reasonCode,
+    cancelReason: params.reasonText?.trim() || null,
+    cancelledAt: now,
+    cancelledById: params.hostUserId,
+    flaggedForReview: flagged,
+  });
+  await audit({
+    actorId: params.hostUserId,
+    action: "booking.cancel_by_host",
+    targetType: "Booking",
+    targetId: booking.id,
+    details: {
+      code: booking.code,
+      reasonCode: params.reasonCode,
+      reasonText: params.reasonText?.trim() || null,
+      flagged,
+      hoursSinceBooking: Math.round((now.getTime() - booking.createdAt.getTime()) / 3_600_000),
+      daysBeforeCheckIn: daysBetween(tbilisiToday(now), dateToDay(booking.checkIn)),
+    },
+  });
+  if (params.notify !== false) await notifyCancellation(booking.id);
+  return { code: booking.code, late, flagged };
+}
+
+/**
+ * "Didn't arrive" (host): from the day after check-in until a week after check-out. Logged; the
+ * guest gets an email (with a way to contact Bayit if it is wrong), and staff can clear it
+ * (clearNoShow). Never once the guest has reviewed the stay: a no-show never counts toward the
+ * reviews, so a report after the review would leave a counted review on a stay that "didn't
+ * happen" — and a host could use it against a bad review. In one transaction that locks the
+ * booking row (FOR UPDATE), the same lock createReviewForBooking takes (src/lib/reviews/service.ts):
+ * a review and a no-show at the same moment never both succeed.
+ */
+export async function markNoShow(params: { bookingId: string; hostUserId: string; now?: Date }): Promise<{ code: string }> {
+  const now = params.now ?? new Date();
+  const booking = await db.$transaction(async (tx) => {
+    const rows = await tx.$queryRaw<{ id: string }[]>`SELECT "id" FROM "Booking" WHERE "id" = ${params.bookingId} AND "hostUserId" = ${params.hostUserId} FOR UPDATE`;
+    if (rows.length === 0) throw new NotFoundError();
+    const fresh = await tx.booking.findUnique({
+      where: { id: params.bookingId },
+      select: { ...bookingStateSelect, review: { select: { id: true } } },
+    });
+    if (!fresh) throw new NotFoundError();
+    if (fresh.review) throw new BookingError("no_show_reviewed");
+    if (!canReportNoShow(stateOf(fresh), now)) throw new BookingError("no_show_not_allowed");
+    const updated = await tx.booking.updateMany({
+      where: { id: fresh.id, status: { in: ["CONFIRMED", "COMPLETED"] } },
+      data: { status: "NO_SHOW", noShowReportedAt: now },
+    });
+    if (updated.count !== 1) throw new BookingError("no_show_not_allowed");
+    return fresh;
+  });
+  console.info(`[booking] no-show reported for ${booking.code} by the host`);
+  await audit({
+    actorId: params.hostUserId,
+    action: "booking.no_show",
+    targetType: "Booking",
+    targetId: booking.id,
+    details: {
+      code: booking.code,
+      checkIn: dateToDay(booking.checkIn),
+      previousStatus: booking.status,
+    },
+  });
+  await notifyGuestOfNoShow(booking.id);
+  return { code: booking.code };
+}
+
+/**
+ * Staff clear a "didn't arrive" report that was wrong (the guest stayed): the booking is CONFIRMED
+ * again before its check-out day has passed, else COMPLETED, and the report's date is removed, so
+ * the guest can review the stay within the usual window. The booking flag counts as reviewed by
+ * this staff member. The caller checks the permission and logs it (booking.no_show_cleared).
+ */
+export async function clearNoShow(params: {
+  bookingId: string;
+  staffId: string;
+  now?: Date;
+  /**
+   * Runs inside the same transaction once the booking changed (the staff action's audit row,
+   * founder's decision Q13): when it throws, the change is rolled back.
+   */
+  inTransaction?: (tx: Prisma.TransactionClient, result: { code: string; status: "CONFIRMED" | "COMPLETED"; reportedAt: Date | null }) => Promise<void>;
+}): Promise<{ code: string; status: "CONFIRMED" | "COMPLETED"; reportedAt: Date | null }> {
+  const now = params.now ?? new Date();
+  return db.$transaction(async (tx) => {
+    const rows = await tx.$queryRaw<{ id: string }[]>`SELECT "id" FROM "Booking" WHERE "id" = ${params.bookingId} FOR UPDATE`;
+    if (rows.length === 0) throw new NotFoundError();
+    const booking = await tx.booking.findUnique({ where: { id: params.bookingId }, select: { code: true, status: true, checkOut: true, noShowReportedAt: true } });
+    if (!booking) throw new NotFoundError();
+    if (booking.status !== "NO_SHOW") throw new BookingError("no_show_not_reported");
+    const status = tbilisiToday(now) > dateToDay(booking.checkOut) ? "COMPLETED" : "CONFIRMED";
+    await tx.booking.update({
+      where: { id: params.bookingId },
+      data: { status, noShowReportedAt: null, flagReviewedAt: now, flagReviewedById: params.staffId },
+    });
+    const result: { code: string; status: "CONFIRMED" | "COMPLETED"; reportedAt: Date | null } = { code: booking.code, status, reportedAt: booking.noShowReportedAt };
+    if (params.inTransaction) await params.inTransaction(tx, result);
+    return result;
+  });
+}
+
+const JOB_BATCH = 500;
+
+/** Cron: CONFIRMED bookings whose check-out day has passed become COMPLETED (and the guest gets a thank-you, or the review request). */
+export async function completeFinishedBookings(
+  now: Date = new Date(),
+  scope: { listingId?: string } = {},
+): Promise<{ completed: number }> {
+  const today = tbilisiToday(now);
+  const due = await db.booking.findMany({
+    where: { status: "CONFIRMED", checkOut: { lt: dayToDate(today) }, ...(scope.listingId ? { listingId: scope.listingId } : {}) },
+    select: { id: true },
+    orderBy: { checkOut: "asc" },
+    take: JOB_BATCH,
+  });
+  let completed = 0;
+  for (const { id } of due) {
+    const updated = await db.booking.updateMany({
+      where: { id, status: "CONFIRMED" },
+      data: { status: "COMPLETED" },
+    });
+    if (updated.count !== 1) continue;
+    completed++;
+    // Reviews (round 3, brief 8.1): a stay that can be reviewed gets "how was it?" with the review
+    // form INSTEAD of the plain thank-you (one email after a stay); otherwise the thank-you.
+    if (!(await sendReviewRequest(id, now))) await notifyBookingCompleted(id);
+  }
+  return { completed };
+}
+
+/**
+ * Cron: the reminder 3 days before arrival (also catches up on days the job missed). Each booking
+ * is claimed by setting reminderSentAt before sending, so a reminder goes out at most once.
+ */
+export async function sendBookingReminders(
+  now: Date = new Date(),
+  scope: { listingId?: string } = {},
+): Promise<{ reminded: number }> {
+  const today = tbilisiToday(now);
+  const due = await db.booking.findMany({
+    where: {
+      ...(scope.listingId ? { listingId: scope.listingId } : {}),
+      status: "CONFIRMED",
+      reminderSentAt: null,
+      checkIn: {
+        gte: dayToDate(today),
+        lte: dayToDate(addDays(today, REMINDER_DAYS_BEFORE)),
+      },
+    },
+    select: { id: true },
+    orderBy: { checkIn: "asc" },
+    take: JOB_BATCH,
+  });
+  let reminded = 0;
+  for (const { id } of due) {
+    const claimed = await db.booking.updateMany({
+      where: { id, reminderSentAt: null, status: "CONFIRMED" },
+      data: { reminderSentAt: now },
+    });
+    if (claimed.count !== 1) continue;
+    reminded++;
+    await notifyBookingReminder(id, now);
+  }
+  return { reminded };
+}
+
+/**
+ * For "Delete my account" (call it before the user row is anonymized): the account's upcoming
+ * bookings are cancelled — as the guest's own cancellation, or as the host's for bookings of their
+ * listings — and the other side is told; the guest's name, phone and message are then removed
+ * from all of the account's bookings as a guest, with the reason text of the guest's own
+ * cancellations. The account's listings stop taking instant bookings first.
+ */
+export async function releaseBookingsOfDeletedAccount(userId: string, now: Date = new Date()): Promise<{ cancelled: number }> {
+  // First, no new bookings of the account's listings: one made while the others are being cancelled
+  // (each cancellation sends an email and a text) would never be cancelled (hardening B4). The
+  // UPDATE waits for a booking that holds a listing's lock, so that booking is in the list below;
+  // a later one sees "CONTACT" in its locked re-read and is refused.
+  await db.listing.updateMany({ where: { ownerId: userId, bookingMode: "INSTANT" }, data: { bookingMode: "CONTACT" } });
+  const upcoming = await db.booking.findMany({
+    where: { status: "CONFIRMED", checkOut: { gt: dayToDate(tbilisiToday(now)) }, OR: [{ guestUserId: userId }, { hostUserId: userId }] },
+    select: { id: true, code: true, guestUserId: true },
+    take: JOB_BATCH,
+  });
+  let cancelled = 0;
+  for (const booking of upcoming) {
+    const asGuest = booking.guestUserId === userId;
+    try {
+      await cancelInTransaction(booking.id, {
+        status: asGuest ? "CANCELLED_BY_GUEST" : "CANCELLED_BY_HOST",
+        cancelReasonCode: "OTHER",
+        cancelledAt: now,
+        cancelledById: userId,
+      });
+    } catch (error) {
+      if (error instanceof BookingError) continue;
+      throw error;
+    }
+    cancelled++;
+    await audit({
+      actorId: userId,
+      action: "booking.cancel_account_deleted",
+      targetType: "Booking",
+      targetId: booking.id,
+      details: { code: booking.code, side: asGuest ? "guest" : "host" },
+    });
+    await notifyCancellation(booking.id);
+  }
+  await db.booking.updateMany({ where: { guestUserId: userId }, data: { guestName: "—", guestPhoneEnc: null, guestPhoneLookup: null, messageToHost: null } });
+  // The guest's own words when they cancelled (hosts' reasons stay for staff review; the reason
+  // code stays too).
+  await db.booking.updateMany({
+    where: { guestUserId: userId, cancelledById: userId, status: "CANCELLED_BY_GUEST" },
+    data: { cancelReason: null },
+  });
+  return { cancelled };
+}

@@ -2,10 +2,14 @@ import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
 import type { ListingStatus } from "@/generated/prisma/enums";
 import { db } from "@/lib/db";
+import { taintObject } from "@/lib/security/taint";
+import { openListingLocation } from "@/lib/field-crypto";
 import type { ContactMethod } from "@/lib/listing/fields";
 import { CONTACT_CHANNELS } from "@/lib/listing/fields";
+import { contentChangedSinceCheck } from "@/lib/listing/lifecycle";
 import { DUPLICATE_PHOTO_MAX_DISTANCE, parseRiskReasons } from "@/lib/risk";
-import { coverPhotoSelect, ownerBadgeSelect, sharedDeviceAccounts, staffNames } from "./shared";
+import { canSeePhone, canSeeReporter, staffContactValue, type StaffViewer } from "../staff-visibility";
+import { accountPhoneFor, coverPhotoSelect, ownerBadgeSelect, sharedDeviceAccounts, staffNames } from "./shared";
 
 /** The moderation queue and the listing review page (server-only). */
 
@@ -177,9 +181,9 @@ const reviewSelect = {
   dealType: true,
   propertyType: true,
   countryCode: true,
-  address: true,
-  lat: true,
-  lng: true,
+  // Encrypted (12.3.c): decrypted below for the review page (staff check the address and the pin).
+  addressEnc: true,
+  pinEnc: true,
   approxLat: true,
   approxLng: true,
   originalLocale: true,
@@ -226,6 +230,8 @@ const reviewSelect = {
   monthlyDiscountPct: true,
   checkInFrom: true,
   checkOutUntil: true,
+  checkInFlexible: true,
+  checkOutFlexible: true,
   smokingAllowed: true,
   petsAllowed: true,
   partiesAllowed: true,
@@ -251,6 +257,7 @@ const reviewSelect = {
   publishedAt: true,
   expiresAt: true,
   contentUpdatedAt: true,
+  lastCheckedAt: true,
   isDemo: true,
   createdAt: true,
   updatedAt: true,
@@ -284,13 +291,29 @@ const reviewSelect = {
 
 export type ReviewListing = Prisma.ListingGetPayload<{ select: typeof reviewSelect }>;
 
-export async function getListingForReview(id: string) {
-  const listing = await db.listing.findUnique({ where: { id }, select: reviewSelect });
-  if (!listing) return null;
+/**
+ * The listing review page. Who sent each report about it is ADMIN only (Q12, ../staff-visibility.ts),
+ * and so are phone numbers (founder's answer (c)): the owner's account phone (`ownerPhone`) and the
+ * phone numbers among the listing's contact channels (`contacts`) reach other staff as their last
+ * 2 digits only; the raw `contactMethods` value is left out of `listing` for them.
+ */
+export async function getListingForReview(id: string, viewer: StaffViewer) {
+  const row = await db.listing.findUnique({ where: { id }, select: reviewSelect });
+  if (!row) return null;
+  // The raw row (exact address and pin, the host's contact values) only through the copy below,
+  // which drops the contact values for staff who may not see phones (React taint, 5.k).
+  taintObject("raw listing row under review", row);
+  // The exact address and pin, decrypted for the reviewer; "not available" when they cannot be.
+  const { addressEnc, pinEnc, ...plainRow } = row;
+  const location = openListingLocation({ addressEnc, pinEnc }, "admin_review");
+  const located = { ...plainRow, address: location.address, lat: location.pin?.lat ?? null, lng: location.pin?.lng ?? null, locationUnreadable: location.failed };
+  const listing = canSeePhone(viewer) ? located : { ...located, contactMethods: null };
 
   const ownerId = listing.ownerId;
-  const [duplicates, otherListings, reports, ownerReportsAgainst, ownerListingReports, devices, notes, staff, idRequest] =
+  const [checksStale, duplicates, otherListings, reports, ownerReportsAgainst, ownerListingReports, devices, notes, staff, idRequest, ownerPhone] =
     await Promise.all([
+      // The host saved a change after the automatic checks ran: the precheck box may be out of date.
+      listing.riskScore === null ? Promise.resolve(false) : contentChangedSinceCheck(row).catch(() => true),
       findDuplicatePhotos(listing.id),
       db.listing.findMany({
         where: { ownerId, id: { not: listing.id } },
@@ -310,7 +333,7 @@ export async function getListingForReview(id: string) {
           resolution: true,
           createdAt: true,
           handledAt: true,
-          reporter: { select: { id: true, name: true } },
+          reporterId: true,
           handledBy: { select: { name: true } },
         },
       }),
@@ -328,15 +351,26 @@ export async function getListingForReview(id: string) {
         where: { userId: ownerId, OR: [{ listingId: listing.id }, { type: "ID" }], status: "PENDING" },
         select: { id: true, type: true },
       }),
+      accountPhoneFor(viewer, ownerId),
     ]);
+
+  const senderIds = [...new Set(reports.map((r) => r.reporterId).filter((v): v is string => !!v))];
+  const senders =
+    canSeeReporter(viewer) && senderIds.length
+      ? new Map((await db.user.findMany({ where: { id: { in: senderIds } }, select: { id: true, name: true } })).map((u) => [u.id, u]))
+      : new Map<string, { id: string; name: string }>();
 
   return {
     listing,
+    checksStale,
     reasons: parseRiskReasons(listing.riskReasons),
-    contacts: parseContactMethods(listing.contactMethods),
+    /** Phone numbers among them: "••• ••• ••45" for staff other than an ADMIN (`withheld`). */
+    contacts: parseContactMethods(row.contactMethods).map((c) => ({ ...c, ...staffContactValue(viewer, c.channel, c.value) })),
+    ownerPhone,
     duplicates,
     otherListings,
-    reports,
+    reports: reports.map(({ reporterId, ...r }) => ({ ...r, reporter: reporterId ? (senders.get(reporterId) ?? null) : null })),
+    reporterWithheld: !canSeeReporter(viewer),
     ownerReportsAgainst,
     ownerListingReports,
     devices,

@@ -28,3 +28,28 @@ describe("accountBlock", () => {
     expect(isAccountBlocked({ status: "ACTIVE" }, now)).toBe(false);
   });
 });
+
+describe("sessionCreateBlock (the session.create.before hook, SECURITY_REPORT 3.4.c)", async () => {
+  const { sessionCreateBlock } = await import("./account-status");
+  const demo = { status: "ACTIVE", suspendedUntil: null, isDemo: true };
+  const real = { status: "ACTIVE", suspendedUntil: null, isDemo: false };
+
+  it("a demo account gets no session on the real site, nor when SITE_ENV is missing or wrong (fail closed)", () => {
+    expect(sessionCreateBlock(demo, { SITE_ENV: "production" })).toBe("demo_disabled");
+    expect(sessionCreateBlock(demo, {})).toBe("demo_disabled");
+    expect(sessionCreateBlock(demo, { SITE_ENV: "prod" })).toBe("demo_disabled");
+  });
+
+  it("demo accounts may sign in on development and staging sites", () => {
+    expect(sessionCreateBlock(demo, { SITE_ENV: "development" })).toBeNull();
+    expect(sessionCreateBlock(demo, { SITE_ENV: "staging" })).toBeNull();
+  });
+
+  it("a real account signs in everywhere; blocked or missing accounts nowhere", () => {
+    expect(sessionCreateBlock(real, { SITE_ENV: "production" })).toBeNull();
+    expect(sessionCreateBlock({ ...real, status: "BANNED" }, { SITE_ENV: "development" })).toBe("banned");
+    expect(sessionCreateBlock({ ...real, status: "DELETED" }, { SITE_ENV: "development" })).toBe("deleted");
+    expect(sessionCreateBlock({ ...real, status: "SUSPENDED" }, { SITE_ENV: "production" })).toBe("suspended");
+    expect(sessionCreateBlock(null, { SITE_ENV: "development" })).toBe("deleted");
+  });
+});

@@ -18,6 +18,8 @@ import { parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js/
 
 export type ContactInfoFindings = {
   phones: string[];
+  /** Each phone number as the text writes it (after normalization), in the order of `phones`. */
+  phoneTexts: string[];
   urls: string[];
   emails: string[];
   handles: string[];
@@ -37,11 +39,12 @@ const INVISIBLE = /[­​-‏‪-‮⁠-⁩﻿]/g;
 const AT_WORDS = ["at", "את", "собака", "ат", "ات", "ეთ"];
 const DOT_WORDS = ["dot", "נקודה", "точка", "نقطة", "نقطه", "წერტილი"];
 
-function bracketed(words: string[]): RegExp {
-  return new RegExp(`\\s*[(\\[{<]\\s*(?:${words.join("|")}|@|\\.)\\s*[)\\]}>]\\s*`, "giu");
+/** "(at)", "[@]", "{ at }" → the symbol; "(dot)", "[.]" → "." (each bracket form only to its own symbol). */
+function bracketed(words: string[], symbol: string): RegExp {
+  return new RegExp(`\\s*[(\\[{<]\\s*(?:${words.join("|")}|${symbol})\\s*[)\\]}>]\\s*`, "giu");
 }
-const BRACKETED_AT = bracketed(AT_WORDS);
-const BRACKETED_DOT = bracketed(DOT_WORDS);
+const BRACKETED_AT = bracketed(AT_WORDS, "@");
+const BRACKETED_DOT = bracketed(DOT_WORDS, "\\.");
 
 export function normalizeForContactScan(text: string): string {
   return (
@@ -103,23 +106,38 @@ const UNIT_AFTER =
   /^\s{0,2}(?:m2|m\^2|sq\.?\s?m|sqm|sq\.?\s?ft|кв\.?\s?м|м2|мкв|מ"ר|מ״ר|מטר|م2|متر|მ2|კვ\.?\s?მ|km|км|ק"מ|ק״מ|كم|კმ|ha|га|דונם|соток)/iu;
 
 const DATE_RUN = /^\d{1,4}[./-]\d{1,2}[./-]\d{1,4}(?:\s*[-–—]\s*\d{1,4}[./-]\d{1,2}[./-]\d{1,4})?$/;
+/** "15.06-15.09.2026", "10.6-20.6", "15/06 - 15/09/2026": a range of day.month dates (the year once or twice). */
+const DAY_MONTH = String.raw`(?:0?[1-9]|[12]\d|3[01])[./](?:0?[1-9]|1[0-2])(?:[./](?:\d{2}|\d{4}))?`;
+const DATE_RANGE_RUN = new RegExp(`^${DAY_MONTH}\\s*[-–—]\\s*${DAY_MONTH}$`);
 /** Georgian cadastral code, e.g. 01.14.14.009.033 or 01.14.14.009.033.01.500 */
 const CADASTRAL_RUN = /^\d{2}\.\d{2}\.\d{2}\.\d{3}\.\d{3}(?:\.\d{2}\.\d{3})?$/;
 const YEAR = /^(?:19|20)\d{2}$/;
 
 /**
- * Georgians write mobiles without a trunk 0 ("555 12 34 56"), Israelis with one ("054-1234567"),
- * so a leading 0 is tried as Israeli first.
+ * Without + or 00, which countries a run of digits is tried for. Georgians write mobiles without a
+ * trunk 0 ("555 12 34 56"); Israeli and Ukrainian numbers (and Georgian landlines, "032…") start
+ * with the trunk 0, Russian ones with 8 (or a bare 9xx mobile). Any other first digit is tried as
+ * Georgian only: in the metadata a 10–12-digit run starting with 1 or 3 is a "valid" Israeli
+ * service number, which is what dates, bus lines and room numbers look like.
  */
-const PHONE_COUNTRIES: CountryCode[] = ["GE", "IL", "RU", "UA"];
-const PHONE_COUNTRIES_TRUNK_ZERO: CountryCode[] = ["IL", "GE", "RU", "UA"];
+function phoneCountries(digits: string): CountryCode[] {
+  if (digits.startsWith("0")) return ["IL", "GE", "RU", "UA"];
+  if (digits.startsWith("8")) return ["RU", "GE"];
+  if (digits.startsWith("9")) return ["GE", "RU"];
+  return ["GE"];
+}
 
 function validPhone(digits: string, international: boolean): string | null {
   if (international) {
     const parsed = parsePhoneNumberFromString(`+${digits}`);
     return parsed && parsed.isValid() ? parsed.number : null;
   }
-  for (const country of digits.startsWith("0") ? PHONE_COUNTRIES_TRUNK_ZERO : PHONE_COUNTRIES) {
+  // A number written with its country code but no + ("972 54…", "995 555…", "380…").
+  if (/^(?:995|972|380)/.test(digits)) {
+    const parsed = parsePhoneNumberFromString(`+${digits}`);
+    if (parsed && parsed.isValid()) return parsed.number;
+  }
+  for (const country of phoneCountries(digits)) {
     const parsed = parsePhoneNumberFromString(digits, country);
     if (parsed && parsed.isValid()) return parsed.number;
   }
@@ -131,14 +149,16 @@ function isSpelledOut(groups: string[]): boolean {
   return groups.filter((g) => g.length === 1).length >= 6;
 }
 
-function evaluateRun(run: string, before: string, after: string): string | null {
+type PhoneMatch = { phone: string; text: string };
+
+function evaluateRun(run: string, before: string, after: string): PhoneMatch | null {
   const international = run.startsWith("+") || run.startsWith("00");
   const body = run.startsWith("00") ? run.slice(2) : run;
   const digits = body.replace(/\D/g, "");
   if (digits.length < 9) return null;
 
   const core = run.replace(/^\+/, "").trim();
-  if (DATE_RUN.test(core) || CADASTRAL_RUN.test(core)) return null;
+  if (DATE_RUN.test(core) || DATE_RANGE_RUN.test(core) || CADASTRAL_RUN.test(core)) return null;
   const groups = core.split(/\D+/).filter(Boolean);
   if (groups.length > 1 && groups.every((g) => YEAR.test(g))) return null;
   if (!international && (CURRENCY_AFTER.test(after) || CURRENCY_BEFORE.test(before) || UNIT_AFTER.test(after))) {
@@ -154,18 +174,18 @@ function evaluateRun(run: string, before: string, after: string): string | null 
         if (found) return found;
       }
     }
-    return isSpelledOut(groups) ? digits : null;
+    return isSpelledOut(groups) ? { phone: digits, text: run.trim() } : null;
   }
 
   const phone = validPhone(digits, international);
-  if (phone) return phone;
-  return isSpelledOut(groups) ? (international ? `+${digits}` : digits) : null;
+  if (phone) return { phone, text: run.trim() };
+  return isSpelledOut(groups) ? { phone: international ? `+${digits}` : digits, text: run.trim() } : null;
 }
 
 // ─── Public API ───────────────────────────────────────────────
 
 export function detectContactInfo(text: string | null | undefined): ContactInfoFindings {
-  const findings: ContactInfoFindings = { phones: [], urls: [], emails: [], handles: [] };
+  const findings: ContactInfoFindings = { phones: [], phoneTexts: [], urls: [], emails: [], handles: [] };
   if (!text) return findings;
   const value = normalizeForContactScan(text);
   const taken: Span[] = [];
@@ -185,6 +205,9 @@ export function detectContactInfo(text: string | null | undefined): ContactInfoF
       const url = trimUrl(match[0]);
       const end = start + url.length;
       if (url.length < 4 || overlaps(taken, start, end)) continue;
+      // "beach.Live like a local", "flat.By the sea": a sentence with no space after its full stop
+      // (a Capitalized word after the dot, no path). "SS.ge", "MYFLAT.COM", "site.Com/x" still count.
+      if (pattern === STRONG_DOMAIN_URL && /^[^/?#]*\.[A-Z][a-z]+$/.test(url)) continue;
       taken.push({ start, end });
       add(findings.urls, url);
     }
@@ -195,6 +218,8 @@ export function detectContactInfo(text: string | null | undefined): ContactInfoF
     const end = start + match[0].length;
     const name = match[1];
     if (!/[A-Za-z]/.test(name) || overlaps(taken, start, end)) continue;
+    // "@2pm", "@11am", "@14h": a time; "@home", "@work": a word.
+    if (/^\d{1,2}(?:[:.]\d{2})?(?:am|pm|h)$/i.test(name) || /^(?:home|work|night|noon)$/i.test(name)) continue;
     taken.push({ start, end });
     add(findings.handles, `@${name}`);
   }
@@ -209,10 +234,13 @@ export function detectContactInfo(text: string | null | undefined): ContactInfoF
     if (/[\p{L}_]/u.test(prev) && !run.startsWith("+")) continue;
     const before = value.slice(Math.max(0, start - 12), start);
     if (/(?:\bid|#|№|מס'|מספר מודעה|номер объявления)\s*[:.]?\s*$/iu.test(before)) continue;
-    const phone = evaluateRun(run, before, value.slice(end, end + 12));
-    if (phone) {
+    const found = evaluateRun(run, before, value.slice(end, end + 12));
+    if (found) {
       taken.push({ start, end });
-      add(findings.phones, phone);
+      if (!findings.phones.includes(found.phone)) {
+        findings.phones.push(found.phone);
+        findings.phoneTexts.push(found.text);
+      }
     }
   }
 

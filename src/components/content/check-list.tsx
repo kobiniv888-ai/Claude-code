@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 export function CheckList({
   items,
   icon: Icon = CircleCheck,
-  iconClassName = "text-verified",
+  iconClassName = "text-primary-text",
   className,
 }: {
   items: ReactNode[];

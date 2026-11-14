@@ -11,7 +11,7 @@
     "business": "Компания",
     "shabbatFriendly": "Для Шаббата",
     "kosherKitchen": "Кошерная кухня",
-    "synagogueWalk": "{count} мин пешком до синагоги"
+    "synagogueWalk": "Не больше {count} мин пешком до синагоги"
   },
   "price": {
     "per": {
@@ -23,7 +23,13 @@
     "onRequest": "Цена по запросу",
     "original": "{price} в оригинале",
     "approx": "≈ {price}",
-    "approxHint": "Примерно, по сегодняшнему курсу. Цена владельца — {price}."
+    "approxHint": "Примерно, по сегодняшнему курсу. Цена владельца — {price}.",
+    "total": "{price} всего"
+  },
+  "deal": {
+    "MONTHLY_RENT": "Помесячно",
+    "SALE": "Продажа",
+    "HOTEL_ROOM": "Отель"
   },
   "favorite": {
     "save": "Сохранить: {title}",
@@ -64,5 +70,18 @@
   "empty": {
     "title": "Нет объявлений",
     "description": "Попробуйте другой город, другие даты или меньше фильтров."
-  }
+  },
+  "facts": {
+    "groundFloor": "Первый этаж"
+  },
+  "tags": {
+    "visited": "Мы были на месте",
+    "kosherKitchen": "Кошерная кухня",
+    "shabbatFriendly": "Для Шаббата",
+    "sea": "Не больше {count} мин пешком до моря",
+    "lift": "Не больше {count} мин пешком до подъёмников",
+    "synagogue": "Не больше {count} мин до синагоги",
+    "hebrew": "Говорит на иврите"
+  },
+  "rating": "Оценка {average} из 5, {count, plural, one {{count} отзыв} few {{count} отзыва} many {{count} отзывов} other {{count} отзыва}}"
 }

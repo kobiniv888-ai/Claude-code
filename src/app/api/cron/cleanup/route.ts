@@ -1,17 +1,45 @@
+import {
+  anonymizeOldContactClicks,
+  eraseClosedCaseTexts,
+  eraseOldGuestContacts,
+  purgeOldAuditLogs,
+  purgeOldEmailOutbox,
+  purgeDeadPushSubscriptions,
+  purgeExpiredSessions,
+  purgeOldPhoneLookups,
+  purgeStaleDeviceLinks,
+} from "@/lib/admin/maintenance/retention";
 import { db } from "@/lib/db";
+import { deleteExpiredReportScreenshots } from "@/lib/reports/retention";
+import { reconcileReviewCounters } from "@/lib/reviews/reconcile";
+import { translateMissingReviews } from "@/lib/reviews/translate";
+import { purgeOldSecurityEvents } from "@/lib/security/events";
 import { deletePrivate, isValidStorageKey } from "@/lib/storage";
 import { deletePhotosOfDeletedListings, deleteUnattachedPrivateUploads } from "@/lib/storage/cleanup";
-import { isAuthorizedCron, runCronJob, unauthorized } from "../auth";
+import { isAuthorizedCron, runCronJob, runCronSteps, unauthorized } from "../auth";
 
 /**
  * GET /api/cron/cleanup — daily (vercel.json).
- * - deletes ended rate-limit windows and expired login / verification codes;
+ * - deletes ended rate-limit windows and expired login / verification codes (this includes the
+ *   host stats' once-a-day visitor keys "stats:…", which end with their Georgian day, and the
+ *   weekly host email's claims "weekly-host-stats:…"; src/lib/listing/stats-rules.ts);
  * - deletes the ID and ownership documents of verification requests that were decided
  *   (approved or rejected) more than 7 days ago, and sets documentsDeletedAt — only
  *   "verified on [date] by [staff]" is kept (BRIEF §11);
  * - deletes the photo files of listings deleted more than 30 days ago, and private uploads
  *   never attached to a ticket, verification request or listing after 48 hours
- *   (see @/lib/storage/cleanup).
+ *   (see @/lib/storage/cleanup);
+ * - deletes the screenshots of reports decided more than 180 days ago and sets
+ *   attachmentsDeletedAt (round 3, brief 8.2; see @/lib/reports/retention);
+ * - repairs listings' review counters that drifted from their visible reviews (a hard-deleted
+ *   account cascades its reviews; @/lib/reviews/reconcile);
+ * - deletes security events older than 90 days (@/lib/security/events);
+ * - retention (security checklist 15.9, @/lib/admin/maintenance/retention): blanks the guest's
+ *   contact details on bookings that ended 3 months ago (founder's decision 9), deletes staff
+ *   audit entries after a year, email outbox rows after 90 days and device links not seen for a
+ *   year, and drops the account from "show contact" taps after 90 days (the counts stay).
+ * Each step runs on its own: one that fails is logged, reported and answered as
+ * `{ error: "failed" }` (the job answers 500), and the steps after it still run.
  */
 
 export const runtime = "nodejs";
@@ -59,21 +87,33 @@ async function deleteDecidedDocuments(now: Date): Promise<{ requests: number; fi
 
 export async function GET(request: Request) {
   if (!isAuthorizedCron(request)) return unauthorized();
-  return runCronJob("cleanup", async () => {
+  return runCronJob("cleanup", () => {
     const now = new Date();
-    const [rateLimits, verifications] = await Promise.all([
-      db.rateLimit.deleteMany({ where: { resetAt: { lt: now } } }),
-      db.verification.deleteMany({ where: { expiresAt: { lt: now } } }),
-    ]);
-    const documents = await deleteDecidedDocuments(now);
-    const deletedListingPhotos = await deletePhotosOfDeletedListings(now);
-    const unattachedUploads = await deleteUnattachedPrivateUploads(now);
-    return {
-      rateLimits: rateLimits.count,
-      verificationCodes: verifications.count,
-      documents,
-      deletedListingPhotos,
-      unattachedUploads,
-    };
+    // Each step on its own: one that fails (e.g. a run overlapping another) doesn't skip the
+    // screenshot retention or anything else after it.
+    return runCronSteps("cleanup", {
+      rateLimits: async () => (await db.rateLimit.deleteMany({ where: { resetAt: { lt: now } } })).count,
+      verificationCodes: async () => (await db.verification.deleteMany({ where: { expiresAt: { lt: now } } })).count,
+      documents: () => deleteDecidedDocuments(now),
+      deletedListingPhotos: () => deletePhotosOfDeletedListings(now),
+      unattachedUploads: () => deleteUnattachedPrivateUploads(now),
+      reportScreenshots: () => deleteExpiredReportScreenshots(now),
+      reviewCounters: () => reconcileReviewCounters(),
+      // Reviews and replies whose translation was missed (no key yet, a failed call): retried daily, capped.
+      reviewTranslations: () => translateMissingReviews(),
+      // The security event log keeps 90 days (SECURITY_REPORT 16.2, D6; founder's answer Q20).
+      securityEvents: () => purgeOldSecurityEvents(now),
+      guestContacts: () => eraseOldGuestContacts(now),
+      auditLogs: () => purgeOldAuditLogs(now),
+      emailOutbox: () => purgeOldEmailOutbox(now),
+      contactClicks: () => anonymizeOldContactClicks(now),
+      deviceLinks: () => purgeStaleDeviceLinks(now),
+      // Founder's answer 7 (9 November 2026): expired sessions 30 days, phone-line checks and dead
+      // notification subscriptions 90 days, closed cases' texts 180 days (one clock, interim).
+      expiredSessions: () => purgeExpiredSessions(now),
+      phoneLookups: () => purgeOldPhoneLookups(now),
+      deadPushSubscriptions: () => purgeDeadPushSubscriptions(now),
+      caseTexts: () => eraseClosedCaseTexts(now),
+    });
   });
 }

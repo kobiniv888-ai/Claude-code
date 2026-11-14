@@ -13,6 +13,10 @@
     "body": "Never pay before you've checked the owner and seen the place — in person or on a live video call.",
     "noLinks": "{siteName} will never send you a payment link in a chat."
   },
+  "emergency": {
+    "title": "Emergency and embassy contacts",
+    "lead": "Tap a card to call."
+  },
   "alerts": {
     "title": "Current scam alerts",
     "lead": "Warnings from our team about scams we are seeing right now.",
@@ -93,6 +97,18 @@
     "codes": {
       "title": "Never share codes sent to your phone",
       "body": "No one from {siteName}, from a bank or a guest needs the codes sent to you by SMS or WhatsApp. Anyone who asks is trying to take over your account."
+    },
+    "commands": {
+      "title": "Never run commands or install anything a “guest” sends",
+      "body": "A real guest never needs you to install software, open a file or paste a command. This is how hotel accounts were taken over."
+    },
+    "captcha": {
+      "title": "Fake “I'm not a robot” pages",
+      "body": "A page that asks you to press keys or paste something into “Run” or a terminal to “prove you're human” is a trick. Close it."
+    },
+    "sharing": {
+      "title": "Don't share your account",
+      "body": "Everyone signs in with their own account. Never give anyone your login or your codes, not even a “helper” or a management company."
     }
   },
   "verification": {
@@ -158,5 +174,48 @@
     },
     "cta": "Report a scam now",
     "helpCenter": "Help center"
+  },
+  "jump": {
+    "label": "On this page",
+    "emergency": "Emergency numbers",
+    "alerts": "Alerts",
+    "spot": "Warning signs",
+    "guests": "For guests",
+    "owners": "For owners",
+    "verification": "Verification",
+    "help": "What to do",
+    "trust": "Our promises"
+  },
+  "trust": {
+    "title": "Our promises",
+    "lead": "What we do so you can trust every listing and every host.",
+    "pledge": {
+      "title": "The hosts' pledge",
+      "body": "Hosts with the green badge pledged to welcome everyone with respect, without asking about religion or origin."
+    },
+    "payOnArrival": {
+      "title": "You pay on arrival",
+      "body": "Never pay in advance by link or transfer. You pay the host when you arrive. We take no money."
+    },
+    "reportButtons": {
+      "title": "The “Report a scam” button",
+      "body": "Every listing, the trip page and the booking emails have one button to report. Scam reports are checked before anything else."
+    },
+    "verifiedPhones": {
+      "title": "Verified phones",
+      "body": "Every host verifies their phone number with a code before a listing goes live. What the badges mean is below."
+    },
+    "realReviews": {
+      "title": "Reviews only from real stays",
+      "body": "A review can only be written after a booking on the site has ended. Nobody edits reviews."
+    },
+    "privacy": {
+      "title": "Your privacy",
+      "body": "The exact address is given only to the guest who booked, and hidden again a week after check-out. The map shows only an area."
+    },
+    "onlyDomain": {
+      "title": "Our only website",
+      "body": "Bayit's only website is {domain}. We will never ask for a payment by link, credit card details or a login code — not by email, SMS or WhatsApp. Seen a copy of Bayit on another address? Tell us on the scam report page."
+    }
   }
 }

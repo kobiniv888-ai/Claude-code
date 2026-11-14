@@ -170,8 +170,8 @@ export function NewTicketForm({
                   "group relative flex cursor-pointer items-start gap-3 rounded-2xl border bg-card p-3.5 shadow-card transition-colors hover:border-primary/40",
                   "has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50",
                   checked && "border-primary bg-secondary ring-1 ring-primary",
-                  scam && !checked && "border-terracotta/40",
-                  scam && checked && "border-terracotta bg-accent ring-terracotta",
+                  scam && !checked && "border-primary/40",
+                  scam && checked && "border-primary bg-accent ring-primary",
                 )}
               >
                 <input
@@ -190,7 +190,7 @@ export function NewTicketForm({
                   aria-hidden="true"
                   className={cn(
                     "relative flex size-10 shrink-0 items-center justify-center rounded-xl",
-                    scam ? "bg-terracotta text-terracotta-foreground" : "bg-secondary text-primary",
+                    scam ? "bg-primary text-primary-foreground" : "bg-secondary text-primary",
                     checked && !scam && "bg-primary text-primary-foreground",
                   )}
                 >
@@ -203,7 +203,7 @@ export function NewTicketForm({
                   <span className="flex flex-wrap items-center gap-x-2 gap-y-1 font-semibold">
                     {tCat(`${value}.label`)}
                     {scam ? (
-                      <span className="rounded-full bg-terracotta px-2 py-0.5 text-[0.7rem] font-semibold text-terracotta-foreground">
+                      <span className="rounded-full bg-primary px-2 py-0.5 text-[0.7rem] font-semibold text-primary-foreground">
                         {t("urgentTag")}
                       </span>
                     ) : null}
@@ -222,8 +222,8 @@ export function NewTicketForm({
       </fieldset>
 
       {category === "SCAM_REPORT" ? (
-        <div className="flex gap-3 rounded-2xl border border-terracotta/40 bg-accent p-4 text-accent-foreground">
-          <ShieldAlert aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-terracotta" />
+        <div className="flex gap-3 rounded-2xl border border-primary/40 bg-accent p-4 text-accent-foreground">
+          <ShieldAlert aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-primary-text" />
           <div className="text-sm leading-relaxed">
             <p className="font-semibold">{t("scam.title")}</p>
             <ul className="mt-1.5 list-disc space-y-1 ps-5">
@@ -347,8 +347,8 @@ export function NewTicketForm({
             </p>
           ) : null}
           {listing.kind === "found" ? (
-            <p className="flex items-start gap-2 rounded-xl border border-verified/30 bg-verified-soft px-3 py-2 text-sm">
-              <CircleCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-verified" />
+            <p className="flex items-start gap-2 rounded-xl border border-success/30 bg-primary-tint px-3 py-2 text-sm">
+              <CircleCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-success" />
               <span className="min-w-0">
                 <span className="font-medium">
                   {t.rich("listingFound", {

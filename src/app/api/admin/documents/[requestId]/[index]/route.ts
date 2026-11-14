@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isPdf, isRequestDocumentKey, isViewableImage, parseVerificationDocuments } from "@/lib/admin/documents";
+import { auditFileView } from "@/lib/admin/server/file-views";
 import { requireStaffForAction } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { isAppError } from "@/lib/errors";
@@ -11,7 +12,8 @@ import { isValidStorageKey } from "@/lib/storage/keys";
  * GET /api/admin/documents/<requestId>/<index> — one verification document, decrypted from
  * private storage, for staff with the "verifications" permission only. The key must be listed on
  * that request AND be the requesting user's own verification upload. Never cached; images and
- * PDFs open inline, anything else downloads.
+ * PDFs open inline, anything else downloads. Every opening is written to the audit log
+ * ("verification.document_view", one entry per staff member and document every few minutes).
  */
 
 export const dynamic = "force-dynamic";
@@ -69,6 +71,8 @@ export async function GET(_request: Request, ctx: { params: Promise<{ requestId:
   } catch {
     return plain(404, "Not found");
   }
+
+  await auditFileView({ staffId, action: "verification.document_view", targetType: "VerificationRequest", targetId: requestId, index, details: { kind: doc.kind } });
 
   const contentType = (doc.mime || file.contentType || "application/octet-stream").toLowerCase();
   const pdf = isPdf(contentType);

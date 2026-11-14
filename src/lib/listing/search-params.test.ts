@@ -54,7 +54,8 @@ describe("parseSearchParams", () => {
       synagogueMaxWalk: 10,
       bigFamily: true,
       sharedRoomFor: "WOMEN",
-      verifiedOnly: true,
+      // Ignored while there are no document checks (src/config/verification.ts).
+      verifiedOnly: false,
       ownerType: "private",
       hasPhotos: true,
       hasVideo: true,

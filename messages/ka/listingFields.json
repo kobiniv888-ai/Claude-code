@@ -140,7 +140,10 @@
     "WRONG_PRICE": "არასწორი ფასი",
     "ASKED_MONEY_UPFRONT": "ნახვამდე ფული მოითხოვეს",
     "OFFENSIVE": "შეურაცხმყოფელი შინაარსი",
-    "OTHER": "სხვა მიზეზი"
+    "OTHER": "სხვა მიზეზი",
+    "CANCELLED_FOR_IDENTITY": "მასპინძელმა გააუქმა სტუმრის ვინაობის გამო",
+    "ASKED_RELIGION_OR_ORIGIN": "მასპინძელმა იკითხა რელიგიის ან წარმომავლობის შესახებ",
+    "REFUSED_OR_IGNORED": "მასპინძელმა უარი თქვა ან არ უპასუხა"
   },
   "ownerType": {
     "private": "კერძო მესაკუთრე",
@@ -176,7 +179,7 @@
     "hasVideo": "ვიდეოთი",
     "furnished": "ავეჯით",
     "elevator": "ლიფტი",
-    "synagogueMaxWalk": "სინაგოგა {count} წუთის სავალზე"
+    "synagogueMaxWalk": "სინაგოგა არაუმეტეს {count} წთ ფეხით"
   },
   "facts": {
     "rooms": "{count, plural, one {{count} ოთახი} other {{count} ოთახი}}",
@@ -189,8 +192,8 @@
     "floor": "სართული {floor}",
     "floorOf": "სართული {floor} / {total}",
     "studio": "სტუდიო",
-    "synagogueWalk": "{count} წთ ფეხით სინაგოგამდე",
-    "chabadWalk": "{count} წთ ფეხით ხაბადის სახლამდე",
+    "synagogueWalk": "არაუმეტეს {count} წთ ფეხით სინაგოგამდე",
+    "chabadWalk": "არაუმეტეს {count} წთ ფეხით ხაბადის სახლამდე",
     "minStay": "{count, plural, one {მინიმუმ {count} ღამე} other {მინიმუმ {count} ღამე}}"
   }
 }

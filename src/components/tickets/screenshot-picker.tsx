@@ -1,11 +1,13 @@
 "use client";
 
-import { ImagePlus, RotateCcw, TriangleAlert, X } from "lucide-react";
+import { ImageOff, ImagePlus, RotateCcw, TriangleAlert, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { errorMessageKey } from "@/lib/errors";
 import { formatNumber } from "@/lib/format";
+import { UPLOAD_IMAGE_ACCEPT } from "@/lib/media";
+import { readyForUpload } from "@/lib/media-client";
 import { TICKET_LIMITS } from "@/lib/tickets/constants";
 import type { TicketAttachment } from "@/lib/tickets/attachments";
 import { cn } from "@/lib/utils";
@@ -18,12 +20,14 @@ import { cn } from "@/lib/utils";
  * Pass stable callbacks (state setters or useCallback).
  */
 
-const ACCEPT = "image/jpeg,image/png,image/webp,image/heic,image/heif,image/avif,image/gif";
+/** JPEG, PNG and WebP (SECURITY_REPORT 9.a): an iPhone then sends JPEG on its own. */
+const ACCEPT = UPLOAD_IMAGE_ACCEPT;
 
 type Item = {
   id: string;
   file: File;
-  preview: string;
+  /** Object URL of a picture the browser can show; null for a HEIC this browser cannot read. */
+  preview: string | null;
   state: "uploading" | "done" | "error";
   attachment?: TicketAttachment;
   error?: string;
@@ -59,14 +63,14 @@ export function ScreenshotPicker({
   }, [items, onChange, onBusyChange]);
 
   // Free the object URLs when the picker goes away.
-  useEffect(() => () => itemsRef.current.forEach((i) => URL.revokeObjectURL(i.preview)), []);
+  useEffect(() => () => itemsRef.current.forEach((i) => i.preview && URL.revokeObjectURL(i.preview)), []);
 
   const lastClear = useRef(clearSignal);
   useEffect(() => {
     if (clearSignal === lastClear.current) return;
     lastClear.current = clearSignal;
     setItems((current) => {
-      current.forEach((i) => URL.revokeObjectURL(i.preview));
+      current.forEach((i) => i.preview && URL.revokeObjectURL(i.preview));
       return [];
     });
     setNotice(null);
@@ -97,15 +101,17 @@ export function ScreenshotPicker({
     [tErrors],
   );
 
-  function addFiles(list: FileList | null) {
+  async function addFiles(list: FileList | null) {
     if (!list?.length) return;
     setNotice(null);
     const room = TICKET_LIMITS.maxAttachments - items.length;
     const files = Array.from(list);
     if (files.length > room) setNotice(t("tooMany", { max: String(TICKET_LIMITS.maxAttachments) }));
     const added: Item[] = [];
-    for (const file of files.slice(0, Math.max(0, room))) {
-      if (!file.type.startsWith("image/")) {
+    for (const picked of files.slice(0, Math.max(0, room))) {
+      // HEIC: converted to JPEG where this browser can, else sent as it is (the server converts it).
+      const { file, canPreview } = await readyForUpload(picked);
+      if (!file.type.startsWith("image/") && !/\.(heic|heif)$/i.test(file.name)) {
         setNotice(tErrors("file_type_not_allowed"));
         continue;
       }
@@ -113,7 +119,7 @@ export function ScreenshotPicker({
         setNotice(tErrors("file_too_large"));
         continue;
       }
-      added.push({ id: crypto.randomUUID(), file, preview: URL.createObjectURL(file), state: "uploading" });
+      added.push({ id: crypto.randomUUID(), file, preview: canPreview ? URL.createObjectURL(file) : null, state: "uploading" });
     }
     if (!added.length) return;
     setItems((current) => [...current, ...added]);
@@ -123,7 +129,7 @@ export function ScreenshotPicker({
   function remove(id: string) {
     setItems((current) => {
       const item = current.find((i) => i.id === id);
-      if (item) URL.revokeObjectURL(item.preview);
+      if (item?.preview) URL.revokeObjectURL(item.preview);
       return current.filter((i) => i.id !== id);
     });
     inputRef.current?.focus();
@@ -149,7 +155,7 @@ export function ScreenshotPicker({
           aria-describedby={describedBy}
           className="peer sr-only"
           onChange={(e) => {
-            addFiles(e.target.files);
+            void addFiles(e.target.files);
             e.target.value = "";
           }}
         />
@@ -189,13 +195,19 @@ export function ScreenshotPicker({
                   item.state === "error" && "border-destructive",
                 )}
               >
-                {/* Local preview of the chosen file (blob: URL). */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={item.preview}
-                  alt={t("thumbAlt", { number: String(index + 1) })}
-                  className={cn("size-full object-cover", item.state !== "done" && "opacity-60")}
-                />
+                {/* Local preview of the chosen file (blob: URL); a quiet placeholder when there is none. */}
+                {item.preview ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={item.preview}
+                    alt={t("thumbAlt", { number: String(index + 1) })}
+                    className={cn("size-full object-cover", item.state !== "done" && "opacity-60")}
+                  />
+                ) : (
+                  <span role="img" aria-label={t("thumbAlt", { number: String(index + 1) })} className="flex size-full items-center justify-center text-muted-foreground">
+                    <ImageOff className="size-6" aria-hidden />
+                  </span>
+                )}
                 {item.state === "uploading" ? (
                   <div className="absolute inset-0 flex items-end bg-background/30">
                     <span className="sr-only">{t("uploading")}</span>

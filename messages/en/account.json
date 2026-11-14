@@ -2,7 +2,7 @@
   "loading": "Loading…",
   "meta": {
     "overview": "My account",
-    "listings": "My listings",
+    "listings": "My places",
     "stats": "Listing statistics",
     "favorites": "Saved listings",
     "compare": "Compare listings",
@@ -14,7 +14,9 @@
     "label": "My account",
     "heading": "My account",
     "overview": "Overview",
-    "listings": "My listings",
+    "trips": "My trips",
+    "listings": "My places",
+    "hostBookings": "Bookings of my places",
     "favorites": "Saved",
     "compare": "Compare",
     "messages": "Messages",
@@ -38,7 +40,10 @@
     "not_business": "Business verification is for business accounts. Switch your account type in Settings first.",
     "last_sign_in_method": "This is the only way you can sign in, so it can't be removed. Verify a phone number or connect another account first.",
     "confirmation_mismatch": "The word you typed doesn't match. Please type it exactly as shown.",
-    "staff_account": "Staff accounts can't be deleted here. Please ask an administrator."
+    "staff_account": "Staff accounts can't be deleted here. Please ask an administrator.",
+    "documents_paused": "We're not accepting verification documents right now. A verified phone number is enough.",
+    "listing_mistakes": "A few things in the listing need fixing first (for example the exact address or enough photos). They are listed in “Check before publishing” in the edit form.",
+    "payment_in_text": "Please leave out payment details: payment links, bank accounts (IBAN), card numbers or crypto. Guests pay the host on arrival, never in advance."
   },
   "badgeState": {
     "verified": "Verified",
@@ -48,6 +53,8 @@
   },
   "overview": {
     "greeting": "Hello,",
+    "demoTag": "(demo)",
+    "greetingDemo": "Hello! This is a demo account",
     "lead": "Here's what's happening with your account on {siteName}.",
     "verification": {
       "title": "Your trust badges",
@@ -60,7 +67,7 @@
       }
     },
     "listings": {
-      "title": "My listings",
+      "title": "My places",
       "all": "{count, plural, one {See {countText} listing} other {See all {countText} listings}}"
     },
     "attention": {
@@ -90,10 +97,11 @@
       "favoritesHint": "{count, plural, =0 {Nothing saved yet} one {{countText} saved} other {{countText} saved}}",
       "support": "Help and support",
       "supportHint": "{count, plural, =0 {No open tickets} one {{countText} open ticket} other {{countText} open tickets}}"
-    }
+    },
+    "greetingNoName": "Hello!"
   },
   "listings": {
-    "title": "My listings",
+    "title": "My places",
     "lead": "Manage your listings: edit, pause, renew and see how they're doing.",
     "post": "Post a listing",
     "howItWorks": "How it works",
@@ -126,7 +134,9 @@
     "counters": {
       "views": "Views",
       "contacts": "Contact clicks",
-      "saves": "Saves"
+      "saves": "Saves",
+      "period": "{count, plural, other {Last {countText} days:}}",
+      "bookings": "Bookings"
     },
     "expiresToday": "Expires today",
     "expiresIn": "{count, plural, one {Expires in {countText} day} other {Expires in {countText} days}}",
@@ -134,6 +144,7 @@
     "more": "More",
     "moreFor": "More actions for {title}",
     "working": "Working…",
+    "fixInForm": "Fix it",
     "actions": {
       "continue": "Continue",
       "edit": "Edit",
@@ -182,10 +193,15 @@
     "title": "Statistics",
     "rangeLabel": "Time period",
     "range": "{count, plural, other {Last {countText} days}}",
+    "period": "Period: {dates}.",
+    "periodToToday": "Show up to today",
     "metrics": {
       "views": "Views",
       "contacts": "Contact clicks",
-      "saves": "Saves"
+      "saves": "Saves",
+      "bookings": "Bookings",
+      "bookedNights": "Nights booked",
+      "roomNights": "Room-nights booked"
     },
     "allTime": "{value} since you posted it",
     "channels": {
@@ -197,12 +213,33 @@
     "table": {
       "toggle": "Show the numbers as a table",
       "caption": "Views, contact clicks and saves per day",
-      "date": "Date"
+      "date": "Date",
+      "captionBookable": "Views, saves, contact clicks, bookings and nights per day"
     },
     "notFound": {
       "title": "Listing not found",
       "body": "This listing doesn't exist or isn't yours.",
-      "back": "Back to my listings"
+      "back": "Back to my places"
+    },
+    "bookedNightsHint": "Nights in this period that guests booked",
+    "roomNightsHint": "Rooms × nights that guests booked in this period",
+    "counting": "Each visitor counts once a day. Not counted: you, the site's team, bots and demo listings. Cancelled bookings don't count.",
+    "notLive": "Views, saves and contact clicks are counted only while the listing is live.",
+    "emptyPeriod": "No data for this period yet. Share the link to your listing so guests can find it.",
+    "bookings": {
+      "title": "Bookings and occupancy",
+      "lead": "Bookings made in this period, and the nights guests booked in it. Cancelled bookings don't count.",
+      "leadHotel": "Bookings made in this period, and the rooms booked in it each night. Occupancy is based on the number of rooms you offer on Bayit.",
+      "closedNotOffered": "Nights you closed in the calendar, and nights booked through a synced calendar from another site, are not counted as offered on Bayit.",
+      "occupancy": "Occupancy",
+      "rate": "{value}%",
+      "noRate": "No data",
+      "nightsOf": "{count, plural, one {{booked} of 1 night} other {{booked} of {offered} nights}}",
+      "roomNightsOf": "{count, plural, one {{booked} of 1 room-night} other {{booked} of {offered} room-nights}}",
+      "roomTypesTitle": "By room type",
+      "roomTypeLine": "{count, plural, one {1 room offered} other {{rooms} rooms offered}} · {booked} of {offered} room-nights",
+      "noRoomTypes": "This hotel has no room types yet.",
+      "unnamedRoom": "Unnamed room type"
     }
   },
   "favorites": {
@@ -226,7 +263,8 @@
     "search": "Find a place",
     "unavailable": "No longer available",
     "unavailableBody": "This listing is no longer on the site — it may be rented, paused or removed.",
-    "untitled": "Listing"
+    "untitled": "Listing",
+    "startSearching": "Start searching"
   },
   "compare": {
     "title": "Compare listings",
@@ -246,7 +284,7 @@
     "clear": "Clear all",
     "removeFrom": "Remove {title} from compare",
     "view": "View listing",
-    "walkMinutes": "{count, plural, one {{countText} min walk} other {{countText} min walk}}",
+    "walkMinutes": "Up to {countText} min walk",
     "sections": {
       "basics": "Basics",
       "facts": "Key facts",
@@ -293,13 +331,14 @@
       "title": "Your documents are safe",
       "encrypted": "Files are encrypted and kept in private storage — never on the public site.",
       "staffOnly": "Only our verification team can open them.",
-      "deleted": "They are deleted right after the review. We keep only “verified on [date]”."
+      "deleted": "They are deleted right after the review. We keep only the date of the verification."
     },
     "phone": {
       "title": "Phone verified",
       "verified": "Verified number:",
       "lead": "Confirm your phone number with a one-time code. It's required to post a listing.",
-      "cta": "Verify my phone"
+      "cta": "Verify my phone",
+      "guestLead": "You verify your phone number once, when you book a place on the site."
     },
     "id": {
       "title": "ID verified",
@@ -370,6 +409,17 @@
           "hint": "PDF or a clear photo of the registration document."
         }
       }
+    },
+    "noDocuments": {
+      "lead": "Guests on {siteName} see that your phone number is verified. That's all you need for now.",
+      "title": "No ID or documents needed",
+      "body": "We don't ask for an ID, a selfie or ownership papers. Trust on the site comes from a verified phone number and, later, the “We visited” badge.",
+      "earlier": "Documents you sent before will be deleted from our storage. You don't need to send them again."
+    },
+    "visited": {
+      "title": "We visited",
+      "lead": "The {siteName} team will visit places and mark them with this badge and the month of the visit. You don't need to ask for it.",
+      "soon": "Coming soon"
     }
   },
   "settings": {
@@ -381,7 +431,9 @@
     "fieldErrors": {
       "invalid": "Please check this field.",
       "required": "This field is required.",
-      "invalid_email": "Please enter a valid email address."
+      "invalid_email": "Please enter a valid email address.",
+      "not_a_name": "Enter a name, not a phone number or email.",
+      "paymentInText": "Please leave out payment details: payment links, bank accounts (IBAN), card numbers or crypto. Guests pay the host on arrival, never in advance."
     },
     "profile": {
       "title": "Profile",
@@ -396,6 +448,8 @@
       "photoHint": "A friendly, clear photo of your face builds trust. Hidden data (like location) is removed.",
       "name": "Name",
       "nameHint": "Use your real name — it must match your ID for verification.",
+      "firstName": "First name",
+      "firstNameHint": "How we greet you on the site: “Hello, …”",
       "bio": "About you",
       "bioPlaceholder": "A few words about you and your place, in any language.",
       "languages": "Languages you speak",
@@ -440,7 +494,8 @@
         "AED": "UAE dirham"
       },
       "hebrewDates": "Show Hebrew dates",
-      "hebrewDatesHint": "Adds the Hebrew date next to dates, for example in calendars."
+      "hebrewDatesHint": "Adds the Hebrew date next to dates, for example in calendars.",
+      "currencyAuto": "Automatic (by language)"
     },
     "notifications": {
       "title": "Notifications",
@@ -464,6 +519,10 @@
         "marketing": {
           "label": "Tips and news",
           "hint": "Occasional travel tips, Jewish life in Georgia and new features. Off unless you turn it on."
+        },
+        "weeklyStats": {
+          "label": "Weekly summary of your listings",
+          "hint": "On Sunday morning: last week's views, saves and bookings."
         }
       },
       "whatsappTitle": "WhatsApp",
@@ -508,7 +567,66 @@
       "cancel": "Keep my account",
       "confirm": "Delete forever",
       "deleting": "Deleting…",
-      "staff": "Staff accounts can't be deleted from here. Please ask an administrator to remove your staff role first."
+      "staff": "Staff accounts can't be deleted from here. Please ask an administrator to remove your staff role first.",
+      "keptTitle": "What we keep, and for how long",
+      "kept": {
+        "a": "past bookings, as anonymous facts (dates, nights, price) for statistics;",
+        "b": "reviews you wrote, shown as “Guest”;",
+        "c": "the log of staff actions for {auditDays} days, and the security log for {securityDays} days, no longer linked to you;",
+        "d": "support tickets and reports, until their texts are erased {caseDays} days after the case is closed;",
+        "e": "encrypted backups, until they are deleted after {backupDays} days.",
+        "f": "emails we already sent you, such as a booking confirmation with an address, stay in your mailbox: we can't delete them."
+      },
+      "keptMore": "The full details are in our <privacy>privacy policy</privacy>."
+    },
+    "logoutAll": {
+      "title": "Log out of all devices",
+      "lead": "For when you forgot to log out on someone else's phone or computer.",
+      "what": "Your account is logged out on every phone and computer, this one too. You'll need to log in again.",
+      "button": "Log out of all devices",
+      "dialogTitle": "Log out of all devices?",
+      "dialogBody": "Everyone logged in to this account, on any device, is logged out. You too, here. Your listings, bookings and saved places stay as they are.",
+      "confirm": "Yes, log out everywhere",
+      "cancel": "Cancel",
+      "pending": "Logging out…",
+      "error": "We couldn't log out all devices. Please try again.",
+      "rateLimited": "You've tried several times in a row. Try again in an hour."
     }
+  },
+  "unsubscribe": {
+    "metaTitle": "Weekly summary email",
+    "metaDescription": "Stop or restart the weekly summary of your listings.",
+    "confirm": {
+      "title": "Stop the weekly summary?",
+      "body": "We won't send you the Sunday email with your listings' views, saves and bookings any more. Emails about bookings and your account will still arrive."
+    },
+    "alreadyOff": {
+      "title": "The weekly summary is already off",
+      "body": "You don't get the Sunday email. You can turn it back on here or in your account settings."
+    },
+    "off": {
+      "title": "The weekly summary is off",
+      "body": "We won't send you the weekly summary any more. You can turn it back on at any time, here or in your account settings."
+    },
+    "on": {
+      "title": "The weekly summary is back on",
+      "body": "The next one arrives on Sunday morning."
+    },
+    "invalid": {
+      "title": "This link doesn't work",
+      "body": "The link may have been cut off, or the account was deleted. You can choose which emails you get in your account settings."
+    },
+    "limited": {
+      "title": "Too many tries",
+      "body": "Try again in an hour, or change it in your account settings."
+    },
+    "error": {
+      "title": "Something went wrong",
+      "body": "We couldn't save the change. Please try again in a moment."
+    },
+    "turnOff": "Stop the weekly summary",
+    "turnOn": "Turn the weekly summary back on",
+    "retry": "Try again",
+    "settings": "Go to notification settings"
   }
 }

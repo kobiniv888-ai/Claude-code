@@ -1,0 +1,4 @@
+{
+  "demoDataMissing": "Demo data not loaded — run <code>npm run db:seed</code>",
+  "devServer": "Development version (slow). For the fast version: <code>bash .devcontainer/start-prod.sh</code>"
+}

@@ -36,11 +36,14 @@ type DialogProps = {
   defaultMessage: string;
   stay: StayRequest;
   paused: boolean;
+  /** Who receives the email: "seller" for sale listings, otherwise the host (Hebrew/Arabic wording). */
+  role: "host" | "seller";
 };
 
 export function EmailContactDialog({
   open,
   onOpenChange,
+  role,
   ...form
 }: DialogProps) {
   const t = useTranslations("contact.email");
@@ -48,8 +51,8 @@ export function EmailContactDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-lg">
         <DialogHeader className="text-start">
-          <DialogTitle>{t("title")}</DialogTitle>
-          <DialogDescription>{t("description")}</DialogDescription>
+          <DialogTitle>{t("title", { role })}</DialogTitle>
+          <DialogDescription>{t("description", { role })}</DialogDescription>
         </DialogHeader>
         {/* Mounted on every open, so the fields start from the latest ready message. */}
         <EmailForm {...form} onClose={() => onOpenChange(false)} />
@@ -66,7 +69,7 @@ function EmailForm({
   stay,
   paused,
   onClose,
-}: Omit<DialogProps, "open" | "onOpenChange"> & { onClose: () => void }) {
+}: Omit<DialogProps, "open" | "onOpenChange" | "role"> & { onClose: () => void }) {
   const t = useTranslations("contact.email");
   const tc = useTranslations("contact");
   const te = useTranslations("errors");
@@ -146,7 +149,7 @@ function EmailForm({
       role="status"
       className="flex flex-col items-center gap-3 py-6 text-center"
     >
-      <CheckCircle2Icon className="size-12 text-verified" aria-hidden />
+      <CheckCircle2Icon className="size-12 text-success" aria-hidden />
       <p className="font-semibold">{t("sentTitle")}</p>
       <p className="text-sm text-muted-foreground">{t("sent")}</p>
       <Button
@@ -163,7 +166,7 @@ function EmailForm({
       {paused ? (
         <p
           role="status"
-          className="flex gap-2 rounded-xl bg-warning-soft p-3 text-sm text-warning"
+          className="flex gap-2 rounded-xl bg-surface-muted p-3 text-sm text-foreground"
         >
           <MoonStarIcon className="mt-0.5 size-4 shrink-0" aria-hidden />
           {t("shabbat")}

@@ -12,6 +12,7 @@ import {
 } from "@/lib/admin/actions/moderation";
 import { ADMIN_TEXT_LIMITS } from "@/lib/admin/reasons";
 import { MODERATION_REASONS } from "@/lib/listing/fields";
+import { toast } from "@/lib/toast";
 import { ActionDialog } from "./action-dialog";
 import { useAdminAction } from "./use-admin-action";
 
@@ -21,18 +22,28 @@ const CAN_REJECT: ListingStatus[] = ["IN_REVIEW", "NEEDS_CHANGES", "LIVE", "HIDD
 
 /**
  * Approve / ask for changes / reject / restore for one listing. Keyboard: A, C, R, U (restore).
- * After a decision on a listing in review, the next one in the queue opens.
+ * After a decision on a listing in review, the next one in the queue opens. Approve and restore
+ * send the content version the page showed (`contentUpdatedAt`), so an edit saved meanwhile is
+ * looked at first. Not shown for the staff member's own listing (`own`).
  */
 export function ModerationActions({
   listingId,
   status,
   title,
   ownerLocaleLabel,
+  contentUpdatedAt,
+  own = false,
+  mistakesBlocked = false,
 }: {
   listingId: string;
   status: ListingStatus;
   title: string;
   ownerLocaleLabel: string;
+  /** Listing.contentUpdatedAt as the page showed it (ISO). */
+  contentUpdatedAt: string;
+  own?: boolean;
+  /** The host's mistake check has errors (no exact address…): approving or restoring is refused. */
+  mistakesBlocked?: boolean;
 }) {
   const t = useTranslations("admin.moderation.actions");
   const tReasons = useTranslations("moderation.reasons");
@@ -58,8 +69,22 @@ export function ModerationActions({
     hint: t("noteHint", { language: ownerLocaleLabel }),
   };
 
+  // The host saved a change since this page was opened (or the checks, run again, found something
+  // new): show the fresh page instead of deciding on the old one.
+  const refreshOnChange = (code: string) => {
+    if (code === "content_changed" || code === "listing_has_mistakes") router.refresh();
+  };
+
+  if (own) return <p className="text-sm text-muted-foreground">{t("ownListing")}</p>;
+
+  const blocksPublishing = mistakesBlocked && (CAN_APPROVE.includes(status) || status === "HIDDEN");
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap items-center gap-2">
+      {blocksPublishing ? (
+        <p className="w-full text-sm text-pretty text-destructive" data-testid="moderation-blocked-by-mistakes">
+          {t("blockedByMistakes")}
+        </p>
+      ) : null}
       {CAN_APPROVE.includes(status) ? (
         <ActionDialog
           triggerLabel={t("approve")}
@@ -69,8 +94,13 @@ export function ModerationActions({
           title={t("approveTitle")}
           description={t("approveDescription", { title })}
           confirmLabel={t("approveConfirm")}
+          disabled={mistakesBlocked}
           onConfirm={() =>
-            run(() => approveListingAction({ listingId }), { success: t("approved"), onSuccess: (d) => goNext(d.next) })
+            run(() => approveListingAction({ listingId, contentUpdatedAt }), {
+              success: t("approved"),
+              onSuccess: (d) => goNext(d.next),
+              onError: refreshOnChange,
+            })
           }
         />
       ) : null}
@@ -83,7 +113,14 @@ export function ModerationActions({
           title={t("restoreTitle")}
           description={t("restoreDescription")}
           confirmLabel={t("restoreConfirm")}
-          onConfirm={() => run(() => restoreListingAction({ listingId }), { success: t("restored") })}
+          disabled={mistakesBlocked}
+          onConfirm={() =>
+            run(() => restoreListingAction({ listingId, contentUpdatedAt }), {
+              // Edited while hidden and the checks want a person: it waits for review instead.
+              onSuccess: (d) => toast.success(d.status === "IN_REVIEW" ? t("restoredToReview") : t("restored")),
+              onError: refreshOnChange,
+            })
+          }
         />
       ) : null}
       {CAN_REQUEST_CHANGES.includes(status) ? (

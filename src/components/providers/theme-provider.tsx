@@ -4,7 +4,7 @@ import { useCallback, type ComponentProps } from "react";
 import { ThemeProvider as NextThemesProvider, useTheme } from "next-themes";
 
 /**
- * Light / dark / device theme (class "dark" on <html>). The layout passes the CSP nonce so the
+ * Device (default) / light / dark theme (class "dark" on <html>). The layout passes the CSP nonce so the
  * tiny "apply the saved theme before paint" script is allowed.
  *
  * The script only needs to run in the server-rendered HTML. If React ever creates it in the
@@ -16,6 +16,7 @@ export function ThemeProvider({ nonce, children, ...props }: ComponentProps<type
   return (
     <NextThemesProvider
       attribute="class"
+      // Follows the device by default (round 2, BRIEF 3.2); visitors can still pick light or dark.
       defaultTheme="system"
       enableSystem
       // Not `disableTransitionOnChange`: next-themes also applies the theme on every page load, and

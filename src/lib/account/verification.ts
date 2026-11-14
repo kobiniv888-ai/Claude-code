@@ -5,7 +5,9 @@
  * checks that every key belongs to the signed-in user (isOwnPrivateUpload).
  */
 import { z } from "zod";
+import { documentChecksOn } from "@/config/verification";
 import type { VerificationStatus, VerificationType } from "@/generated/prisma/enums";
+import { accountPhoneRow } from "@/lib/auth/phone-check-policy";
 
 export const ID_DOCUMENT_SLOTS = ["ID_FRONT", "ID_BACK", "SELFIE"] as const;
 export const OWNERSHIP_DOCUMENT_SLOTS = ["NAPR_EXTRACT"] as const;
@@ -123,9 +125,14 @@ export function badgeState(verified: boolean, latest: Pick<RequestSummary, "stat
 }
 
 export type VerificationProgress = {
-  phone: BadgeState;
-  id: BadgeState;
-  /** Owner verified on at least one listing (null when the user has no listings to verify). */
+  /**
+   * null: a guest whose phone is not verified. The paid SMS check is offered to hosts only on the
+   * account pages; guests verify inside the booking review (src/lib/auth/phone-check-policy.ts).
+   */
+  phone: BadgeState | null;
+  /** null while there are no document checks (src/config/verification.ts). */
+  id: BadgeState | null;
+  /** Owner verified on at least one listing (null when the user has no listings to verify, or no document checks). */
   owner: BadgeState | null;
   done: number;
   total: number;
@@ -133,15 +140,21 @@ export type VerificationProgress = {
 
 export function verificationProgress(input: {
   phoneVerified: boolean;
+  /** Has a listing, drafts included (isHostAccount). Defaults to true (the round-2 behaviour). */
+  isHost?: boolean;
   idVerified: boolean;
   idLatest: Pick<RequestSummary, "status"> | null;
   hasListings: boolean;
   ownerVerifiedListings: number;
   ownershipLatest: Pick<RequestSummary, "status"> | null;
+  /** ID and ownership rows: only while document checks are on (founder's answer 5, round 3). */
+  documentChecks?: boolean;
 }): VerificationProgress {
-  const phone: BadgeState = input.phoneVerified ? "verified" : "notStarted";
-  const id = badgeState(input.idVerified, input.idLatest);
-  const owner = input.hasListings ? badgeState(input.ownerVerifiedListings > 0, input.ownershipLatest) : null;
-  const states = [phone, id, ...(owner ? [owner] : [])];
+  const documents = input.documentChecks ?? documentChecksOn();
+  const row = accountPhoneRow({ phoneVerified: input.phoneVerified, isHost: input.isHost ?? true });
+  const phone: BadgeState | null = row === "verified" ? "verified" : row === "offer" ? "notStarted" : null;
+  const id = documents ? badgeState(input.idVerified, input.idLatest) : null;
+  const owner = documents && input.hasListings ? badgeState(input.ownerVerifiedListings > 0, input.ownershipLatest) : null;
+  const states = [phone, id, owner].filter((state): state is BadgeState => state !== null);
   return { phone, id, owner, done: states.filter((s) => s === "verified").length, total: states.length };
 }

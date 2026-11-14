@@ -1,6 +1,7 @@
 import "server-only";
+import type { Prisma } from "@/generated/prisma/client";
 import type { CurrentUser } from "@/lib/auth/session";
-import { audit } from "@/lib/audit";
+import { audit, auditOrThrow } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { notificationEmailFor, sendEmail } from "@/lib/email";
 import type { UserActionReason } from "../reasons";
@@ -9,7 +10,9 @@ import { AdminActionError, assertCanManage, localeOf, userReasonText } from "./c
 /**
  * Account enforcement shared by the user page and the reports page (server-only). Callers have
  * already checked the staff permission (runStaffAction). Every change is audited and the user is
- * emailed in THEIR language.
+ * emailed in THEIR language. Suspend and ban are destructive (founder's decision Q13): the change,
+ * the signing out and the audit row commit in ONE transaction (auditOrThrow), so a ban whose audit
+ * row cannot be written does not happen; the email goes out only after it committed.
  */
 
 const targetSelect = {
@@ -31,8 +34,8 @@ async function loadTarget(userId: string) {
 
 type Context = { reportId?: string };
 
-export async function revokeSessions(userId: string): Promise<number> {
-  const { count } = await db.session.deleteMany({ where: { userId } });
+export async function revokeSessions(userId: string, client: Pick<Prisma.TransactionClient, "session"> = db): Promise<number> {
+  const { count } = await client.session.deleteMany({ where: { userId } });
   return count;
 }
 
@@ -49,13 +52,19 @@ export async function warnUser(
 
   const locale = localeOf(user.locale);
   const text = await userReasonText(reason, locale, note);
-  await db.user.update({ where: { id: user.id }, data: { status: "WARNED", statusReason: reason } });
-  await audit({
-    actorId: staff.id,
-    action: "user.warn",
-    targetType: "User",
-    targetId: user.id,
-    details: { from: user.status, reason, note, ...context },
+  // A warning is a sanction (Q13): the change and its audit row commit together, or not at all.
+  await db.$transaction(async (tx) => {
+    await tx.user.update({ where: { id: user.id }, data: { status: "WARNED", statusReason: reason } });
+    await auditOrThrow(
+      {
+        actorId: staff.id,
+        action: "user.warn",
+        targetType: "User",
+        targetId: user.id,
+        details: { from: user.status, reason, note, ...context },
+      },
+      tx,
+    );
   });
   const to = notificationEmailFor(user);
   if (to) {
@@ -81,17 +90,23 @@ export async function suspendUser(
 
   const locale = localeOf(user.locale);
   const text = await userReasonText(reason, locale, note);
-  await db.user.update({
-    where: { id: user.id },
-    data: { status: "SUSPENDED", statusReason: reason, suspendedUntil: until },
-  });
-  const sessionsRevoked = await revokeSessions(user.id);
-  await audit({
-    actorId: staff.id,
-    action: "user.suspend",
-    targetType: "User",
-    targetId: user.id,
-    details: { from: user.status, reason, note, until, sessionsRevoked },
+  const sessionsRevoked = await db.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: user.id },
+      data: { status: "SUSPENDED", statusReason: reason, suspendedUntil: until },
+    });
+    const revoked = await revokeSessions(user.id, tx);
+    await auditOrThrow(
+      {
+        actorId: staff.id,
+        action: "user.suspend",
+        targetType: "User",
+        targetId: user.id,
+        details: { from: user.status, reason, note, until, sessionsRevoked: revoked },
+      },
+      tx,
+    );
+    return revoked;
   });
   const to = notificationEmailFor(user);
   if (to) {
@@ -109,7 +124,11 @@ export async function suspendUser(
   return { sessionsRevoked };
 }
 
-/** Bans the account, signs it out everywhere and takes its live listings off the site (PAUSED). */
+/**
+ * Bans the account, signs it out everywhere and takes its live listings off the site (PAUSED).
+ * HIDDEN listings stay HIDDEN: only a moderator puts those back (a paused one is the owner's to
+ * turn on again after a reactivation; the public site already hides a banned owner's listings).
+ */
 export async function banUser(
   staff: CurrentUser,
   userId: string,
@@ -123,23 +142,27 @@ export async function banUser(
   const locale = localeOf(user.locale);
   const text = await userReasonText(reason, locale, note);
   const live = await db.listing.findMany({
-    where: { ownerId: user.id, status: { in: ["LIVE", "HIDDEN"] } },
+    where: { ownerId: user.id, status: "LIVE" },
     select: { id: true, publicId: true },
   });
-  await db.$transaction([
-    db.user.update({ where: { id: user.id }, data: { status: "BANNED", statusReason: reason, suspendedUntil: null } }),
-    db.listing.updateMany({
-      where: { id: { in: live.map((l) => l.id) }, status: { in: ["LIVE", "HIDDEN"] } },
+  const sessionsRevoked = await db.$transaction(async (tx) => {
+    await tx.user.update({ where: { id: user.id }, data: { status: "BANNED", statusReason: reason, suspendedUntil: null } });
+    await tx.listing.updateMany({
+      where: { id: { in: live.map((l) => l.id) }, status: "LIVE" },
       data: { status: "PAUSED" },
-    }),
-  ]);
-  const sessionsRevoked = await revokeSessions(user.id);
-  await audit({
-    actorId: staff.id,
-    action: "user.ban",
-    targetType: "User",
-    targetId: user.id,
-    details: { from: user.status, reason, note, sessionsRevoked, pausedListings: live.map((l) => l.publicId) },
+    });
+    const revoked = await revokeSessions(user.id, tx);
+    await auditOrThrow(
+      {
+        actorId: staff.id,
+        action: "user.ban",
+        targetType: "User",
+        targetId: user.id,
+        details: { from: user.status, reason, note, sessionsRevoked: revoked, pausedListings: live.map((l) => l.publicId) },
+      },
+      tx,
+    );
+    return revoked;
   });
   const to = notificationEmailFor(user);
   if (to) {
@@ -153,7 +176,11 @@ export async function banUser(
   return { sessionsRevoked, listingsPaused: live.length };
 }
 
-/** Lifts a warning, suspension or ban. Paused listings stay paused: the owner turns them back on. */
+/**
+ * Lifts a warning, suspension or ban. Paused listings stay paused: the owner turns them back on
+ * (after a ban that came from a report they wait for review until staff mark the host reviewed,
+ * src/lib/listing/lifecycle.ts). Hidden listings stay hidden until a moderator restores them.
+ */
 export async function reactivateUser(staff: CurrentUser, userId: string, note: string | null): Promise<void> {
   const user = await loadTarget(userId);
   assertCanManage(staff, user);

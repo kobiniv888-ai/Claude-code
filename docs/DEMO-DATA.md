@@ -15,7 +15,7 @@ Code: `prisma/seed/` (one small file per area, `index.ts` runs them in order),
 
 | What | Details |
 |---|---|
-| Cities | The 10 cities of `src/config/site.ts` with names in 5 languages, search aliases, coordinates, airport, cover photo (`public/images/cities/*.webp`, credits in `public/images/CREDITS.md`) |
+| Cities | The 10 cities of `src/config/site.ts` with names in 5 languages, search aliases, coordinates, airport, cover photo (`public/photos/cities/*.webp`, credits in `public/photos/CREDITS.md`) |
 | Neighborhoods | 26 with names in 5 languages and approximate centers — Tbilisi: Vake, Saburtalo, Old Tbilisi, Sololaki, Vera, Mtatsminda, Vake-Bagebi, Didube, Isani, Avlabari; Batumi: Old Batumi, New Boulevard, Batumi Center, Makhinjauri, Gonio; Kutaisi: Center, Balakhvani; Gudauri: Center, New Gudauri; Bakuriani: Center, Didveli; a Center for Kobuleti, Borjomi, Kazbegi, Sighnaghi, Mestia |
 | FAQ | 24 questions and answers in 5 languages, 4 in each help-center category |
 | Banned words | 48 scam / contact-info / discriminatory phrases in 5 languages (most FLAG with a weight, a few BLOCK) |
@@ -31,8 +31,8 @@ of those rows (rows added by admins are not touched).
 |---|---|
 | Users | 4 staff, 6 owners, 1 guest (table below). E-mails `*@demo.bayit.example`, phones verified. |
 | Jewish places | 13 clearly named sample points in Tbilisi, Batumi and Kutaisi ("Demo synagogue — Tbilisi (sample point)"), every place type. They are not real places. |
-| Listings | 25 across Tbilisi, Batumi/Gonio, Kutaisi, Gudauri and Bakuriani: short stays, monthly rentals, 5 sales (incl. Batumi sea-view new-builds in white and black frame, one with a price-drop history), a hotel and a guesthouse with room types, a room in a shared flat, a villa for 10, ski chalets, sea views. Texts are written in the owner's language with all 5 translations (`isAuto` on the non-original ones, so "Auto-translated · Show original" shows). Photos are Unsplash stock photos (external URLs). Walking times, approximate map points, USD prices and search text are computed by the real site code. |
-| Statuses | 19 LIVE (2 featured for 14 days). Owner Yossi also has one listing in each of IN_REVIEW (risk score 45), NEEDS_CHANGES ("photos_low_quality"), PAUSED, DRAFT (wizard step 4), EXPIRED and RENTED. |
+| Listings | 20 across Tbilisi, Batumi/Gonio, Kutaisi, Kobuleti, Gudauri, Bakuriani, Kazbegi and Sighnaghi: short stays, monthly rentals, 3 sales (incl. a Batumi sea-view new-build in white frame, one with a price-drop history), a hotel and a guesthouse with room types, a room in a shared flat, a villa for 10, ski chalets, sea views. Every demo host accepted the Bayit welcome pledge, so the green badge shows; the Jewish features are mixed so every badge appears somewhere. Texts are written in the owner's language with all 5 translations (`isAuto` on the non-original ones, so "Auto-translated · Show original" shows). Photos are Unsplash stock photos downloaded into `public/photos/listings/` (4–6 per listing, `scripts/photos/fetch-demo-photos.ts`, sizes and blur placeholders in `prisma/seed/listings/photo-manifest.json`). Walking times, approximate map points, USD prices and search text are computed by the real site code. |
+| Statuses | 17 LIVE (2 featured for 14 days). Owner Yossi also has one listing in each of IN_REVIEW (risk score 45), NEEDS_CHANGES ("photos_low_quality") and PAUSED. Listings of earlier seeds that are gone (numbers 7, 8, 9, 10, 22) are deleted by the seed. |
 | Activity | The guest's 5 favorites with notes; 30 days of views/contacts/saves and contact clicks for Yossi's listings; 2 open reports on one Batumi listing; 2 support tickets (an urgent open scam report with messages, a resolved verification question with a rating); 1 pending ID verification request (no files). |
 | Scam alert | One active example, not a banner, titled "Demo: …" in every language. |
 
@@ -48,7 +48,7 @@ is …").
 | Moderator | Demo Moderator | `+995555000002` | Moderation queue, reports, users, verifications |
 | Support | Demo Support | `+995555000003` | Tickets (assigned the two demo tickets) |
 | Editor | Demo Editor | `+995555000004` | Content: cities, places, FAQ, alerts, banned words |
-| Owner #1 | Demo Owner — Yossi | `+995555000011` | Hebrew, keeps Shabbat; 9 listings in every status, dashboard stats |
+| Owner #1 | Demo Owner — Yossi | `+995555000011` | Hebrew, keeps Shabbat; 6 listings (LIVE, IN_REVIEW, NEEDS_CHANGES, PAUSED), dashboard stats |
 | Owner | Demo Owner — Natela | `+995555000012` | Georgian/Russian, ID verified; Kutaisi and Tbilisi |
 | Owner | Demo Owner — Michael | `+995555000013` | English/Hebrew investor in Batumi; pending ID verification |
 | Owner | Demo Owner — Rivka | `+995555000014` | Hebrew, keeps Shabbat; Gudauri and Bakuriani chalets |
@@ -87,8 +87,12 @@ data back on a development database.
 - Seed scripts run as CommonJS under tsx; `prisma/seed/esm-interop.ts` lets them load ES-module
   only packages (such as `@hebcal/core`). Import it first in any new tsx script that uses
   `@/lib/settings` or other server modules.
-- The listing photos were checked by eye and all return HTTP 200. Each photo is used by one
-  listing only; hotel room types reuse their own listing's photos. If Unsplash ever removes one,
-  replace its id in `prisma/seed/listings/photos.ts`.
+- The listing photos were checked by eye and are stored in the repo (no hotlinking). Each photo
+  is used by one listing only; hotel room types reuse their own listing's photos. To change one,
+  edit its id in `prisma/seed/listings/photos.ts` (or a listing's `photos`), then run
+  `npx tsx scripts/photos/fetch-demo-photos.ts` and `npm run db:seed`.
 - `src/lib/demo.test.ts` checks the seed data: 5 languages everywhere, description lengths, no
   contact details or scam phrases in listing texts, valid phone numbers, unique photos.
+- When you change the demo data, raise the number in `prisma/seed/DEMO_DATA_VERSION`. On its next
+  start, a codespace whose database was loaded with an older number reloads the demo data
+  (`.devcontainer/start.sh`; the seed is idempotent).

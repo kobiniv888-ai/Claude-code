@@ -1,5 +1,5 @@
 /**
- * Listing lifecycle, risk checks and stats against the local database (DATABASE_URL in .env).
+ * Listing lifecycle and risk checks against the local database (DATABASE_URL in .env).
  * Creates its own users, city, places and listings with a unique prefix and removes them afterwards.
  * Emails are rendered with the real templates and messages, but not sent.
  */
@@ -9,6 +9,8 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { createTranslator } from "use-intl/core";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { sealPin } from "@/lib/field-crypto";
+import { PLEDGE_CURRENT_VERSION } from "@/lib/pledge";
 
 process.env.OVERPASS_ENABLED = "false";
 process.env.GOOGLE_TRANSLATE_API_KEY = "";
@@ -42,14 +44,13 @@ vi.mock("@/lib/email", async (importOriginal) => {
   };
 });
 
-let deviceHash: string | null = "device-1";
-let userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)";
+const deviceHash: string | null = "device-1";
+const userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)";
 
 const { db } = await import("@/lib/db");
 const lifecycle = await import("./lifecycle");
 const { assessListing, clearBannedWordsCache, isPhotoOfOtherAccount } = await import("@/lib/risk");
 const { approximateLocation, haversineMeters } = await import("@/lib/geo");
-const stats = await import("./stats");
 const { getSettings } = await import("@/lib/settings");
 const { AppError, NotFoundError } = await import("@/lib/errors");
 
@@ -70,7 +71,10 @@ function nearHash(hash: string, bits: number): string {
   return value.map((v) => v.toString(16)).join("");
 }
 
-async function createUser(name: string, opts: { verified?: boolean; createdAt?: Date; locale?: "he" | "en" | "ru" | "ar" | "ka"; role?: "USER" | "MODERATOR" } = {}) {
+async function createUser(
+  name: string,
+  opts: { verified?: boolean; createdAt?: Date; locale?: "he" | "en" | "ru" | "ar" | "ka"; role?: "USER" | "MODERATOR"; pledgeVersion?: number | null } = {},
+) {
   const id = `${prefix}${name}`;
   const digits = String(Math.floor(Math.random() * 1e7)).padStart(7, "0");
   await db.user.create({
@@ -83,6 +87,8 @@ async function createUser(name: string, opts: { verified?: boolean; createdAt?: 
       locale: opts.locale ?? "en",
       role: opts.role ?? "USER",
       createdAt: opts.createdAt ?? new Date(Date.now() - 60 * DAY),
+      welcomePledgeVersion: opts.pledgeVersion === undefined ? PLEDGE_CURRENT_VERSION : opts.pledgeVersion,
+      welcomePledgeAcceptedAt: opts.pledgeVersion === null ? null : new Date(),
     },
   });
   ids.users.push(id);
@@ -101,8 +107,7 @@ async function createListing(
       propertyType: "APARTMENT",
       pricePeriod: overrides.dealType === "SALE" ? "TOTAL" : "MONTH",
       cityId: ids.city,
-      lat: point.lat,
-      lng: point.lng,
+      pinEnc: sealPin({ lat: point.lat, lng: point.lng }),
       originalLocale: "en",
       title: overrides.title ?? "Bright two-room flat near Vake Park",
       description: overrides.description ?? "Renovated flat with a balcony, 75 m², 5th floor of 9, five minutes from the park.",
@@ -122,6 +127,15 @@ async function createListing(
 }
 
 const emailsFor = (template: string) => sent.filter((e) => e.template === template);
+
+/**
+ * Staff "mark reviewed" on a host's report flag (Admin → Flags). Reports against ownerA's listings
+ * (the moderation tests) flag the host, and a flagged host's NEW listings wait for review (round 3,
+ * ./review-rule.ts); tests that expect a direct publish close the flag first, as staff would.
+ */
+async function reviewHostFlag(ownerId: string) {
+  await db.user.update({ where: { id: ownerId }, data: { hostFlagReviewedAt: new Date() } });
+}
 const parseCodes = (reasons: unknown) => (Array.isArray(reasons) ? reasons.map((r) => (r as { code: string }).code) : []);
 
 let ownerA = "";
@@ -149,6 +163,9 @@ beforeAll(async () => {
       cityId: city.id,
       lat: point.lat + 0.004,
       lng: point.lng,
+      // Walking times come only from verified, non-demo places (brief 5.9, src/lib/nearby.ts).
+      verifiedAt: new Date(),
+      source: "lifecycle test",
     },
   });
   ids.place = place.id;
@@ -189,6 +206,8 @@ describe("publishing", () => {
 
     const saved = await db.listing.findUniqueOrThrow({ where: { id: listing.id }, include: { translations: true } });
     expect(saved.status).toBe("IN_REVIEW");
+    expect(saved.welcomePledgeVersion).toBe(PLEDGE_CURRENT_VERSION);
+    expect(saved.welcomePledgeAt).toBeInstanceOf(Date);
     expect(saved.riskScore).toBe(0);
     expect(saved.approxLat).not.toBeNull();
     expect(Math.abs(saved.approxLat! - point.lat)).toBeLessThan(0.01);
@@ -199,9 +218,13 @@ describe("publishing", () => {
     expect(saved.translations[0]).toMatchObject({ locale: "en", isOriginal: true });
     expect(saved.searchText).toContain("עיר בדיקה");
     expect(saved.searchText).toContain("bright two room flat");
-    expect(saved.chabadWalkMin).toBeGreaterThan(0);
-    expect(saved.synagogueWalkMin).toBe(saved.chabadWalkMin);
-    expect(saved.nearby).toMatchObject({ chabad: { name: { en: "Test Chabad House" } }, airport: { code: "TBS" } });
+    // Founder's answer (2), 9 Nov 2026: a Chabad house is never a listing's walking time (the
+    // test place nearby is one), so no synagogue walk and no Chabad entry are stored.
+    expect(saved.chabadWalkMin).toBeNull();
+    expect(saved.synagogueWalkMin).toBeNull();
+    expect(saved.nearby).toMatchObject({ airport: { code: "TBS" } });
+    expect(saved.nearby).not.toHaveProperty("chabad");
+    expect(saved.nearby).not.toHaveProperty("synagogue");
 
     expect(emailsFor("listing_in_review")).toHaveLength(1);
     expect(emailsFor("listing_in_review")[0].locale).toBe("he");
@@ -237,6 +260,13 @@ describe("publishing", () => {
     await expect(lifecycle.submitForPublication(noRules.id, ownerA)).rejects.toMatchObject({ code: "rules_not_accepted" });
     await expect(lifecycle.submitForPublication(noRules.id, ownerB)).rejects.toBeInstanceOf(NotFoundError);
 
+    const noPledge = await createUser("np", { pledgeVersion: null });
+    const noPledgeListing = await createListing(noPledge);
+    await expect(lifecycle.submitForPublication(noPledgeListing.id, noPledge)).rejects.toMatchObject({ code: "pledge_required" });
+    const oldPledge = await createUser("op", { pledgeVersion: PLEDGE_CURRENT_VERSION - 1 });
+    const oldPledgeListing = await createListing(oldPledge);
+    await expect(lifecycle.submitForPublication(oldPledgeListing.id, oldPledge)).rejects.toMatchObject({ code: "pledge_required" });
+
     const unverified = await createUser("c", { verified: false });
     const listing = await createListing(unverified);
     await expect(lifecycle.submitForPublication(listing.id, unverified)).rejects.toMatchObject({ code: "phone_not_verified" });
@@ -270,19 +300,31 @@ describe("automatic checks", () => {
     expect(await isPhotoOfOtherAccount("not-a-hash", copy.id, ownerB)).toBe(false);
   });
 
-  it("flags scam phrases and contact details, and sends the listing to review", async () => {
+  it("flags scam phrases and contact details; the phone number alone stops publishing (mistake check)", async () => {
     const listing = await createListing(ownerA, {
-      description: "Nice flat. I am abroad, payment by Western Union only. Call +995 555 12 34 56.",
+      // A plain mention, not a payment ask: "payment by Western Union" is payment details, which
+      // block publishing (SECURITY_REPORT 14.2.a, src/lib/risk/payment-info.ts).
+      description: "Nice flat. I am abroad, I only use Western Union. Call +995 555 12 34 56.",
     });
-    const result = await lifecycle.submitForPublication(listing.id, ownerA);
-    expect(result.status).toBe("IN_REVIEW");
-    const codes = result.reasons.map((r) => r.code);
+    const assessment = await assessListing(listing.id);
+    const codes = assessment.reasons.map((r) => r.code);
     expect(codes).toContain("scam_phrase");
     expect(codes).toContain("contact_info_in_text");
-    const scam = result.reasons.find((r) => r.code === "scam_phrase")!;
+    const scam = assessment.reasons.find((r) => r.code === "scam_phrase")!;
     expect(scam.points).toBe(60); // western union 30 + abroad 35, capped at 60
+    expect(assessment.score).toBe(75);
+    // Round 3 (brief 6.1): contact details in the text are an error that blocks publishing, checked
+    // again under the row lock with the status change: the listing stays a draft.
+    await expect(lifecycle.submitForPublication(listing.id, ownerA)).rejects.toMatchObject({ code: "listing_mistakes", mistakes: ["contact_in_description"] });
+    expect((await db.listing.findUniqueOrThrow({ where: { id: listing.id } })).status).toBe("DRAFT");
+
+    // Without the number, the scam phrases send it to review.
+    await db.listing.update({ where: { id: listing.id }, data: { description: "Nice flat. I am abroad, I only use Western Union." } });
+    const result = await lifecycle.submitForPublication(listing.id, ownerA);
+    expect(result.status).toBe("IN_REVIEW");
+    expect(result.reasons.map((r) => r.code)).toContain("scam_phrase");
     const saved = await db.listing.findUniqueOrThrow({ where: { id: listing.id } });
-    expect(saved.riskScore).toBe(75);
+    expect(saved.riskScore).toBe(60);
     expect(saved.riskReasons).toEqual(result.reasons);
   });
 
@@ -325,7 +367,7 @@ describe("automatic checks", () => {
 });
 
 describe("moderation", () => {
-  it("asks for changes in the owner's language, then goes live after a fix", async () => {
+  it("asks for changes in the owner's language; the fix comes back to review, then goes live on approval", async () => {
     const listing = await db.listing.findFirstOrThrow({ where: { ownerId: ownerA, status: "LIVE" }, orderBy: { createdAt: "desc" } });
     const result = await lifecycle.requestChanges(listing.id, staff, "price_unrealistic", "Please check the currency.");
     expect(result).toEqual({ status: "NEEDS_CHANGES", changed: true });
@@ -339,8 +381,10 @@ describe("moderation", () => {
     expect(email.text).toContain("Please check the currency.");
     await expect(lifecycle.requestChanges(listing.id, staff, "not_a_reason" as never)).rejects.toMatchObject({ code: "invalid_input" });
 
+    // Round 3 (./review-rule.ts): after "ask for changes" only a person lets it go live.
     const resubmitted = await lifecycle.submitForPublication(listing.id, ownerA);
-    expect(resubmitted.status).toBe("LIVE");
+    expect(resubmitted.status).toBe("IN_REVIEW");
+    expect(await lifecycle.approveListing(listing.id, staff)).toEqual({ status: "LIVE", changed: true });
     const saved = await db.listing.findUniqueOrThrow({ where: { id: listing.id } });
     expect(saved.moderationReason).toBeNull();
   });
@@ -376,6 +420,14 @@ describe("moderation", () => {
     expect(last).toEqual({ hidden: false, openReports: reportsToAutoHide * 2 + 1, countedReports: 1 });
     expect((await db.listing.findUniqueOrThrow({ where: { id: listing.id } })).status).toBe("LIVE");
     expect(emailsFor("listing_hidden_reports")).toHaveLength(0);
+
+    // Round 3: 2+ reports in 12 months flag the host, so their next NEW listing waits for a person,
+    // until staff mark the flag reviewed.
+    const next = await createListing(ownerA);
+    expect(await lifecycle.submitForPublication(next.id, ownerA)).toMatchObject({ status: "IN_REVIEW" });
+    await reviewHostFlag(ownerA);
+    const after = await createListing(ownerA);
+    expect(await lifecycle.submitForPublication(after.id, ownerA)).toMatchObject({ status: "LIVE" });
   });
 
   it("hides a listing after enough reports from distinct trusted accounts and restores it", async () => {
@@ -398,6 +450,8 @@ describe("moderation", () => {
 });
 
 describe("owner actions", () => {
+  beforeEach(() => reviewHostFlag(ownerA));
+
   it("pauses, rents, renews and deletes — idempotently and only for the owner", async () => {
     const listing = await createListing(ownerA);
     await lifecycle.submitForPublication(listing.id, ownerA);
@@ -498,6 +552,8 @@ describe("owner actions", () => {
 });
 
 describe("expiry", () => {
+  beforeEach(() => reviewHostFlag(ownerA));
+
   it("warns before expiry and then expires", async () => {
     const listing = await createListing(ownerA);
     await lifecycle.submitForPublication(listing.id, ownerA);
@@ -536,35 +592,19 @@ describe("prices in USD", () => {
       ], rates),
     ).toEqual({ priceUsd: 80, pricePerSqmUsd: null, roomTypePricesUsd: [80, 80] });
   });
-});
 
-describe("stats", () => {
-  it("counts views once per device per day, contacts per channel and saves", async () => {
-    const listing = await createListing(ownerB, { status: "LIVE" });
-    deviceHash = `${prefix}-viewer`;
-    expect(await stats.recordListingView(listing.id)).toBe(true);
-    expect(await stats.recordListingView(listing.id)).toBe(false);
-    deviceHash = `${prefix}-viewer-2`;
-    expect(await stats.recordListingView(listing.id, { viewerId: ownerB })).toBe(false); // the owner
-    userAgent = "Mozilla/5.0 (compatible; Googlebot/2.1)";
-    expect(await stats.recordListingView(listing.id)).toBe(false);
-    userAgent = "Mozilla/5.0 (X11; Linux x86_64)";
-    expect(await stats.recordListingView(listing.id)).toBe(true);
-
-    expect(await stats.recordContactClick(listing.id, "WHATSAPP", null)).toBe(true);
-    expect(await stats.recordContactClick(listing.id, "WHATSAPP", ownerA)).toBe(true);
-    expect(await stats.recordContactClick(listing.id, "PHONE", null)).toBe(true);
-    expect(await stats.recordContactClick(listing.id, "PHONE", ownerB)).toBe(false);
-    await stats.recordSave(listing.id, 1);
-    await stats.recordSave(listing.id, 1);
-    await stats.recordSave(listing.id, -1);
-
-    const result = await stats.getListingStats(listing.id, 7);
-    expect(result.days).toHaveLength(7);
-    expect(result.days[6].date).toBe(stats.georgiaDay());
-    expect(result.totals).toEqual({ views: 2, contacts: 3, saves: 2 });
-    expect(result.byChannel).toEqual({ WHATSAPP: 2, PHONE: 1 });
-    expect(result.allTime).toEqual({ views: 2, contacts: 3, saves: 1 });
-    expect(await db.contactClick.count({ where: { listingId: listing.id } })).toBe(3);
+  it("a hotel's 'from' price ignores hidden room types, like its card (lists-alerts-7)", () => {
+    const rates = { USD: 1, GEL: 2.5, ILS: 4, EUR: 0.8, GBP: 0.8, AED: 3.67 };
+    expect(
+      lifecycle.computeUsdPrices({ price: null, currency: "USD", dealType: "HOTEL_ROOM", sizeSqm: null }, [
+        { price: 40, currency: "USD", active: false },
+        { price: 150, currency: "GEL", active: true },
+      ], rates),
+    ).toEqual({ priceUsd: 60, pricePerSqmUsd: null, roomTypePricesUsd: [40, 60] });
+    expect(
+      lifecycle.computeUsdPrices({ price: null, currency: "USD", dealType: "HOTEL_ROOM", sizeSqm: null }, [{ price: 40, currency: "USD", active: false }], rates).priceUsd,
+    ).toBeNull();
   });
 });
+
+// Stats (views, saves, contact taps, bookings): src/lib/listing/stats.test.ts.

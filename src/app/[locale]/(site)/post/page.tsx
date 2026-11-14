@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { CalendarClockIcon, CameraIcon, MapPinIcon, MessageCircleIcon, ShieldCheckIcon, WalletIcon } from "lucide-react";
 import { Container } from "@/components/common/container";
-import { DraftCards } from "@/components/wizard/start-listing";
-import { StartListingButton } from "@/components/wizard/start-listing";
+import { IconCircle } from "@/components/ds/icon-circle";
+import { WelcomeHomeIcon } from "@/components/ds/jewish-icons";
+import { PhotoSlot } from "@/components/photos/photo-slot";
+import { ContinueDraftCard, DraftCards, StartListingButton } from "@/components/wizard/start-listing";
 import { ShabbatPaused } from "@/components/wizard/shabbat-paused";
 import { siteConfig, type AppLocale } from "@/config/site";
 import { requireUser } from "@/lib/auth/session";
@@ -51,53 +53,91 @@ export default async function PostPage({ params }: Props) {
     { key: "contact", icon: MessageCircleIcon },
   ] as const;
 
-  return (
-    <Container size="narrow" className="grid gap-8 py-8 sm:py-12">
-      <header className="grid gap-2">
-        <h1 className="text-3xl font-bold tracking-tight text-balance sm:text-4xl">{t("title")}</h1>
-        <p className="max-w-prose text-pretty text-muted-foreground sm:text-lg">{t("subtitle")}</p>
-      </header>
+  const cards = drafts.map((d) => ({ ...d, updatedLabel: t("draftUpdated", { time: formatRelativeTime(d.updatedAt, locale, now) }) }));
+  // Bug 2.7: with an unfinished draft, "המשך מהטיוטה" comes first (the newest one, big), then the
+  // other drafts, then a new listing — which asks first whether they meant to continue the draft.
+  const [newest, ...others] = cards;
 
-      <section className="relative isolate grid gap-5 overflow-hidden rounded-3xl bg-card p-5 shadow-card ring-1 ring-foreground/5 sm:p-8">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -end-24 -top-24 -z-10 size-72 rounded-full bg-[radial-gradient(closest-side,color-mix(in_oklab,var(--primary)_14%,transparent),transparent)]"
-        />
-        <div className="grid gap-1.5">
-          <h2 className="text-xl font-semibold">{t("newTitle")}</h2>
-          <p className="text-pretty text-muted-foreground">{t("newDescription")}</p>
+  return (
+    <Container size="narrow" className="grid gap-8 py-6 sm:py-12">
+      {newest && (
+        <>
+          <header className="grid gap-2">
+            <h1 id="post-title" className="text-h1 text-balance">
+              {t("title")}
+            </h1>
+            <p className="max-w-prose text-body text-pretty text-muted-foreground">{t("subtitle")}</p>
+          </header>
+          <section aria-labelledby="continue-title" className="grid gap-3">
+            <h2 id="continue-title" className="text-h2">
+              {t("continueTitle")}
+            </h2>
+            <ContinueDraftCard draft={newest} />
+          </section>
+          {others.length > 0 && <DraftCards drafts={others} title={t("moreDrafts")} />}
+        </>
+      )}
+
+      <section
+        aria-labelledby={newest ? "new-title" : "post-title"}
+        className="overflow-hidden rounded-card bg-card shadow-card ring-1 ring-foreground/5"
+      >
+        <div className={newest ? "relative aspect-[21/9] sm:aspect-[21/7]" : "relative aspect-[16/9] sm:aspect-[21/9]"}>
+          <PhotoSlot
+            slot="cta.listYourProperty"
+            alt=""
+            sizes="(min-width: 768px) 720px, 100vw"
+            priority={!newest}
+            className="size-full"
+            imageClassName="object-[50%_60%]"
+          />
+          <span aria-hidden className="absolute inset-0 bg-linear-to-t from-black/45 to-transparent" />
         </div>
-        <div>
-          <StartListingButton />
-        </div>
-        <div className="grid gap-3">
-          <h3 className="text-sm font-semibold">{t("howTitle")}</h3>
-          <ul className="grid gap-2.5 sm:grid-cols-2">
-            {needs.map(({ key, icon: Icon }) => (
-              <li key={key} className="flex items-start gap-2.5 text-sm">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
-                  <Icon className="size-4" aria-hidden />
-                </span>
-                <span className="pt-1.5 text-pretty">{t(`how.${key}`, { count: siteConfig.listings.minPhotos })}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div className="grid gap-2 border-t border-border pt-4 text-sm text-muted-foreground sm:grid-cols-2">
-          <p className="flex items-start gap-2">
-            <ShieldCheckIcon className="mt-0.5 size-4 shrink-0 text-verified" aria-hidden />
-            {t("trust")}
+        <div className="grid gap-5 p-5 sm:p-8">
+          {!newest && (
+            <header className="grid gap-2">
+              <h1 id="post-title" className="text-h1 text-balance">
+                {t("title")}
+              </h1>
+              <p className="max-w-prose text-body text-pretty text-muted-foreground">{t("subtitle")}</p>
+            </header>
+          )}
+          <div className="grid gap-1.5">
+            <h2 id="new-title" className="text-h3">
+              {t("newTitle")}
+            </h2>
+            <p className="text-small text-pretty text-muted-foreground">{t("newDescription")}</p>
+          </div>
+          <div>
+            <StartListingButton draft={newest ? { id: newest.id, title: newest.title, wizardStep: newest.wizardStep } : null} />
+          </div>
+          <div className="grid gap-3">
+            <h3 className="text-small font-bold">{t("howTitle")}</h3>
+            <ul className="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-3">
+              {needs.map(({ key, icon }) => (
+                <li key={key} className="flex items-center gap-2.5 text-small">
+                  <IconCircle icon={icon} tone="navy" size="sm" />
+                  <span className="min-w-0 text-pretty break-words">{t(`how.${key}`, { count: siteConfig.listings.minPhotos })}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <p className="flex items-start gap-3 rounded-card bg-primary-tint p-3.5 text-small font-semibold text-pretty ring-1 ring-success/20">
+            <IconCircle icon={WelcomeHomeIcon} tone="green" size="sm" className="bg-card" />
+            <span className="pt-1.5">{t("pledgeNote")}</span>
           </p>
-          <p className="flex items-start gap-2">
-            <CalendarClockIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
-            {t("expiry", { days: settings.listingExpiryDays })}
-          </p>
+          <div className="grid gap-2 border-t border-border pt-4 text-small text-muted-foreground sm:grid-cols-2">
+            <p className="flex items-start gap-2">
+              <ShieldCheckIcon className="mt-0.5 size-4 shrink-0 text-success" aria-hidden />
+              {t("trust")}
+            </p>
+            <p className="flex items-start gap-2">
+              <CalendarClockIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+              {t("expiry", { days: settings.listingExpiryDays })}
+            </p>
+          </div>
         </div>
       </section>
-
-      <DraftCards
-        drafts={drafts.map((d) => ({ ...d, updatedLabel: t("draftUpdated", { time: formatRelativeTime(d.updatedAt, locale, now) }) }))}
-      />
     </Container>
   );
 }

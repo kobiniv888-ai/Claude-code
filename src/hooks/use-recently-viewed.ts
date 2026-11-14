@@ -1,34 +1,30 @@
 "use client";
 
 /**
- * Recently viewed listings (public IDs, newest first, max 12) in localStorage.
+ * Recently viewed listings on this device (round 3: with timestamps, consent-gated, synced to the
+ * account when signed in; see src/lib/recently-viewed).
  *
  *   useEffect(() => addRecentlyViewed(listing.publicId), [listing.publicId]);   // listing page
  *   const ids = useRecentlyViewed();                                            // widgets
  */
-import { createIdListStore, useIdList } from "./local-id-list";
+import { useMemo } from "react";
+import { useHistoryStore } from "@/lib/home/history-store";
+import { RECENTLY_VIEWED_KEEP, viewedIds, type ViewedItem } from "@/lib/recently-viewed/core";
+import { addDeviceView, clearDeviceViews, NO_VIEWS, recentlyViewedStore, removeDeviceView } from "@/lib/recently-viewed/device";
 
-export const RECENTLY_VIEWED_MAX = 12;
-const store = createIdListStore("bayit:recently-viewed", RECENTLY_VIEWED_MAX);
+export const RECENTLY_VIEWED_MAX = RECENTLY_VIEWED_KEEP;
 
-export function addRecentlyViewed(publicId: number): void {
-  if (typeof window === "undefined") return;
-  const current = store.read();
-  if (current[0] === publicId) return;
-  store.write([publicId, ...current.filter((id) => id !== publicId)].slice(0, RECENTLY_VIEWED_MAX));
+export const addRecentlyViewed = (publicId: number): void => addDeviceView(publicId);
+export const removeRecentlyViewed = (publicId: number): void => removeDeviceView(publicId);
+export const clearRecentlyViewed = (): void => clearDeviceViews();
+
+/** The device list with view times, newest first ([] on the server, before hydration and without consent). */
+export function useRecentlyViewedItems(): readonly ViewedItem[] {
+  return useHistoryStore(recentlyViewedStore, NO_VIEWS);
 }
 
-export function removeRecentlyViewed(publicId: number): void {
-  if (typeof window === "undefined") return;
-  store.write(store.read().filter((id) => id !== publicId));
-}
-
-export function clearRecentlyViewed(): void {
-  if (typeof window === "undefined") return;
-  store.write([]);
-}
-
-/** Public IDs, newest first ([] on the server and before hydration). */
+/** Public IDs, newest first ([] on the server, before hydration and without consent). */
 export function useRecentlyViewed(): readonly number[] {
-  return useIdList(store);
+  const items = useRecentlyViewedItems();
+  return useMemo(() => viewedIds(items), [items]);
 }

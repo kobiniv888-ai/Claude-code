@@ -140,7 +140,10 @@
     "WRONG_PRICE": "Wrong price",
     "ASKED_MONEY_UPFRONT": "Asked for money before a viewing",
     "OFFENSIVE": "Offensive content",
-    "OTHER": "Something else"
+    "OTHER": "Something else",
+    "CANCELLED_FOR_IDENTITY": "Host cancelled because of who the guest is",
+    "ASKED_RELIGION_OR_ORIGIN": "Host asked about religion or origin",
+    "REFUSED_OR_IGNORED": "Host refused or ignored the guest"
   },
   "ownerType": {
     "private": "Private owner",
@@ -176,7 +179,7 @@
     "hasVideo": "Has video",
     "furnished": "Furnished",
     "elevator": "Elevator",
-    "synagogueMaxWalk": "Synagogue within {count} min walk"
+    "synagogueMaxWalk": "Synagogue up to {count} min walk"
   },
   "facts": {
     "rooms": "{count, plural, one {{count} room} other {{count} rooms}}",
@@ -189,8 +192,8 @@
     "floor": "Floor {floor}",
     "floorOf": "Floor {floor} of {total}",
     "studio": "Studio",
-    "synagogueWalk": "{count} min walk to synagogue",
-    "chabadWalk": "{count} min walk to Chabad house",
+    "synagogueWalk": "Up to {count} min walk to synagogue",
+    "chabadWalk": "Up to {count} min walk to Chabad house",
     "minStay": "{count, plural, one {Minimum {count} night} other {Minimum {count} nights}}"
   }
 }

@@ -45,7 +45,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title: t("meta.title", { name: owner.name }),
     description: t("meta.description", { name: owner.name, count, formatted: formatNumber(count, locale) }),
     image: owner.image ?? undefined,
-    noIndex: count === 0,
+    // Never indexed (round 3, brief 10, the careful option): a host's name stays out of search
+    // results, and the page only repeats their listing cards. Links are still followed.
+    noIndex: true,
   });
 }
 
@@ -93,7 +95,7 @@ export default async function OwnerPage({ params }: Props) {
                 <UserRoundIcon className="size-4" aria-hidden />
                 {owner.badges.business ? t("businessProfile") : t("ownerProfile")}
               </p>
-              <h1 dir="auto" className="text-2xl font-bold tracking-tight text-balance sm:text-3xl">
+              <h1 dir="auto" className="text-h1 text-balance">
                 {owner.name}
               </h1>
             </div>

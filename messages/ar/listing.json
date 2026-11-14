@@ -2,6 +2,7 @@
   "loading": "جارٍ تحميل الإعلان…",
   "meta": {
     "title": "{title} · {city}",
+    "titleWithId": "{title} · {city} · #{id}",
     "from": "ابتداءً من {price}",
     "per": {
       "NIGHT": "{price} / ليلة",
@@ -16,11 +17,15 @@
   "header": {
     "listingId": "رقم <ltr>{id}</ltr>",
     "updated": "آخر تحديث {date}",
-    "views": "{count, plural, zero {لا مشاهدات} one {مشاهدة واحدة} two {مشاهدتان} few {{formatted} مشاهدات} many {{formatted} مشاهدة} other {{formatted} مشاهدة}}"
+    "posted": "نُشر في {date}",
+    "tag": {
+      "demo": "تجريبي",
+      "promoted": "مُروَّج"
+    }
   },
   "status": {
     "title": "غير منشور: {status}",
-    "manage": "إدارة إعلاناتي",
+    "manage": "إدارة عقاراتي",
     "staffNote": "معاينة للفريق — الزوار لا يرون هذه الصفحة.",
     "labels": {
       "DRAFT": "مسودة",
@@ -57,15 +62,24 @@
   },
   "translation": {
     "auto": "ترجمة آلية",
-    "byOwner": "ترجمة المعلِن",
+    "byOwner": "ترجمة يدوية",
     "showOriginal": "عرض النص الأصلي",
     "showTranslation": "عرض الترجمة",
-    "showingOriginal": "النص الأصلي ({language})"
+    "showingOriginal": "النص الأصلي ({language})",
+    "originalIn": {
+      "he": "النص الأصلي بالعبرية",
+      "en": "النص الأصلي بالإنجليزية",
+      "ru": "النص الأصلي بالروسية",
+      "ar": "النص الأصلي بالعربية",
+      "ka": "النص الأصلي بالجورجية"
+    },
+    "translate": "ترجمة",
+    "translateHint": "(تُفتح في ترجمة Google)"
   },
   "gallery": {
     "label": "صور {title}",
     "open": "فتح الصورة {index} من {total}",
-    "showAll": "{count, plural, one {عرض الصورة} other {عرض كل الصور ({formatted})}}",
+    "showAll": "{count, plural, one {صورة واحدة} other {كل الصور ({formatted})}}",
     "counter": "{index} / {total}",
     "slide": "الصورة {index} من {total}",
     "previous": "الصورة السابقة",
@@ -78,7 +92,21 @@
     "videoTitle": "فيديو {title}",
     "videoHint": "يُعرض الفيديو من YouTube أو Vimeo.",
     "tour": "جولة 360°",
-    "opensNewTab": "(يفتح في علامة تبويب جديدة)"
+    "opensNewTab": "(يفتح في علامة تبويب جديدة)",
+    "back": "رجوع",
+    "allPhotos": "كل الصور",
+    "rooms": {
+      "BEDROOM": "غرفة نوم",
+      "KITCHEN": "مطبخ",
+      "BATHROOM": "حمّام",
+      "LIVING_ROOM": "غرفة معيشة",
+      "VIEW": "إطلالة",
+      "BALCONY": "شرفة",
+      "BUILDING": "المبنى"
+    },
+    "otherPhotos": "صور أخرى",
+    "roomsNav": "الانتقال إلى غرفة",
+    "sectionCount": "{count, plural, one {صورة واحدة} two {صورتان} few {{formatted} صور} many {{formatted} صورة} other {{formatted} صورة}}"
   },
   "share": {
     "button": "مشاركة",
@@ -93,23 +121,16 @@
     }
   },
   "contactBox": {
-    "label": "التواصل مع المعلِن",
-    "hostedBy": "المعلِن",
+    "label": "التواصل",
+    "hostedBy": "المضيف",
     "hostedByBusiness": "منشأة تجارية",
     "languages": "اللغات",
     "memberSince": "عضو منذ",
-    "replyTime": "يرد عادةً",
-    "replyTimes": {
-      "hour": "خلال ساعة",
-      "fewHours": "خلال بضع ساعات",
-      "day": "خلال يوم",
-      "days": "خلال بضعة أيام"
-    },
-    "localTime": "الوقت لدى المعلِن",
+    "localTime": "الوقت المحلي",
     "contactHours": "أفضل وقت للاتصال",
-    "repliesAfterShabbat": "الآن يوم السبت — سيرد المعلِن بعد انتهاء السبت.",
-    "repliesAfterHoliday": "الآن عيد يهودي — سيرد المعلِن بعد انتهاء العيد.",
-    "videoTip": "قبل دفع أي مبلغ، اطلب مكالمة فيديو مباشرة: على المعلِن أن يُريك المكان وورقة عليها تاريخ اليوم ورقم الإعلان (<ltr>{id}</ltr>)."
+    "repliesAfterShabbat": "الآن يوم السبت — سيصلك الرد بعد انتهاء السبت.",
+    "repliesAfterHoliday": "الآن عيد يهودي — سيصلك الرد بعد انتهاء العيد.",
+    "listedBy": "المعلِن"
   },
   "badges": {
     "label": "شارات الثقة",
@@ -128,42 +149,20 @@
       "propertyVerified": "رأى فريقنا العقار في مكالمة فيديو أو زيارة",
       "businessVerified": "راجع فريقنا تسجيل المنشأة",
       "keepsShabbat": "لا يرد أيام السبت والأعياد اليهودية",
-      "demo": "محتوى نموذجي لتجربة الموقع — ليس معلِنًا حقيقيًا"
+      "demo": "محتوى تجريبي لتجربة الموقع — ليس إعلانًا حقيقيًا"
     }
   },
   "description": {
-    "title": "عن هذا المكان",
-    "empty": "لم يكتب المعلِن وصفًا بعد.",
-    "showMore": "عرض المزيد",
-    "showLess": "عرض أقل"
+    "title": "عن المكان",
+    "empty": "لا يوجد وصف لهذا الإعلان بعد.",
+    "showMore": "اقرأ المزيد"
   },
   "amenities": {
-    "title": "المرافق"
-  },
-  "jewish": {
-    "title": "مناسب للضيوف اليهود",
-    "kitchen": "المطبخ",
-    "synagogue": "أقرب كنيس",
-    "chabad": "بيت حاباد",
-    "walk": "{count, plural, one {دقيقة سيرًا} two {دقيقتان سيرًا} few {{count} دقائق سيرًا} other {{count} دقيقة سيرًا}}",
-    "shabbatChecklist": "قائمة السبت",
-    "shabbatFriendly": "مناسب للسبت",
-    "shabbatFriendlyHint": "مناسب للسبت يعني مفتاحًا عاديًا، ولا توجد حساسات حركة عند المدخل، وتوجد صفيحة تسخين أو غلاية ماء.",
-    "has": "متوفر",
-    "hasNot": "غير متوفر",
-    "jewishFeatures": "المزيد للضيوف اليهود",
-    "hotelKosher": "طعام كوشير",
-    "supervision": "إشراف الكشروت"
+    "title": "ما يوفّره المكان",
+    "showAll": "عرض الكل ({count})"
   },
   "rules": {
-    "title": "قواعد المكان",
-    "checkIn": "تسجيل الوصول",
-    "checkOut": "تسجيل المغادرة",
-    "from": "من {time}",
-    "until": "حتى {time}",
     "quietHours": "ساعات الهدوء",
-    "allowed": "مسموح",
-    "notAllowed": "غير مسموح",
     "smoking": {
       "yes": "التدخين مسموح",
       "no": "ممنوع التدخين"
@@ -175,40 +174,31 @@
     "parties": {
       "yes": "الحفلات والمناسبات مسموحة",
       "no": "بدون حفلات أو مناسبات"
-    }
+    },
+    "checkInFrom": "تسجيل الوصول من {time}",
+    "checkOutUntil": "المغادرة حتى {time}",
+    "checkInFlexible": "تسجيل وصول مرن",
+    "checkOutFlexible": "تسجيل مغادرة مرن"
   },
   "costs": {
-    "title": "كل التكاليف",
     "titleSale": "تفاصيل السعر",
     "deposit": "التأمين",
     "cleaningFee": "رسوم التنظيف",
-    "utilities": "الفواتير",
     "utilitiesIncluded": "مشمولة في السعر",
     "utilitiesNotIncluded": "غير مشمولة",
     "utilitiesEstimate": "حوالي {amount} شهريًا، غير مشمولة",
-    "minStay": "الحد الأدنى للإقامة",
-    "nights": "{count, plural, one {ليلة واحدة} two {ليلتان} few {{count} ليالٍ} other {{count} ليلة}}",
-    "weeklyDiscount": "خصم أسبوعي",
-    "monthlyDiscount": "خصم شهري",
-    "percentOff": "خصم {count}%",
     "pricePerSqm": "السعر للمتر المربع",
     "perSqm": "{price} / م²",
-    "priceHistory": "تغيّرات السعر"
+    "priceHistory": "تغيّرات السعر",
+    "minStayText": "{count, plural, zero {الحد الأدنى {count} شهر} one {الحد الأدنى شهر واحد} two {الحد الأدنى شهران} few {الحد الأدنى {count} أشهر} many {الحد الأدنى {count} شهرًا} other {الحد الأدنى {count} شهر}}",
+    "weeklyDiscountText": "خصم أسبوعي: {count}%",
+    "monthlyDiscountText": "خصم شهري: {count}%",
+    "minStayNightsText": "{count, plural, zero {الحد الأدنى {count} ليلة} one {الحد الأدنى ليلة واحدة} two {الحد الأدنى ليلتان} few {الحد الأدنى {count} ليالٍ} many {الحد الأدنى {count} ليلة} other {الحد الأدنى {count} ليلة}}"
   },
   "details": {
     "title": "تفاصيل العقار",
-    "dealType": "نوع الصفقة",
     "propertyType": "نوع العقار",
-    "rooms": "الغرف",
-    "bedrooms": "غرف النوم",
-    "bathrooms": "الحمامات",
-    "beds": "الأسرّة",
-    "bedsDouble": "{count, plural, one {سرير مزدوج} two {سريران مزدوجان} few {{count} أسرّة مزدوجة} other {{count} سريرًا مزدوجًا}}",
-    "bedsSingle": "{count, plural, one {سرير مفرد} two {سريران مفردان} few {{count} أسرّة مفردة} other {{count} سريرًا مفردًا}}",
-    "bedsSofa": "{count, plural, one {كنبة سرير} two {كنبتا سرير} few {{count} كنبات سرير} other {{count} كنبة سرير}}",
-    "maxGuests": "الضيوف (الحد الأقصى)",
     "sharedRoomFor": "غرفة في شقة مشتركة لـ",
-    "size": "المساحة",
     "floor": "الطابق",
     "floorOf": "{floor} من {total}",
     "elevator": "مصعد",
@@ -219,41 +209,53 @@
     "views": "الإطلالة",
     "condition": "الحالة",
     "yes": "نعم",
-    "no": "لا"
+    "no": "لا",
+    "showAll": "{count, plural, one {عرض تفصيل واحد} other {عرض كل التفاصيل ({count})}}"
   },
   "rooms": {
     "title": "الغرف",
     "subtitle": "{count, plural, one {نوع غرفة واحد} two {نوعان من الغرف} few {{count} أنواع غرف} other {{count} نوع غرفة}}",
     "guests": "{count, plural, one {حتى ضيف واحد} two {حتى ضيفين} few {حتى {count} ضيوف} other {حتى {count} ضيفًا}}",
     "bedsDouble": "{count, plural, one {سرير مزدوج} two {سريران مزدوجان} few {{count} أسرّة مزدوجة} other {{count} سريرًا مزدوجًا}}",
-    "bedsSingle": "{count, plural, one {سرير مفرد} two {سريران مفردان} few {{count} أسرّة مفردة} other {{count} سريرًا مفردًا}}"
+    "bedsSingle": "{count, plural, one {سرير مفرد} two {سريران مفردان} few {{count} أسرّة مفردة} other {{count} سريرًا مفردًا}}",
+    "bedsSofa": "{count, plural, zero {لا أرائك سرير} one {أريكة سرير واحدة} two {أريكتا سرير} few {{count} أرائك سرير} many {{count} أريكة سرير} other {{count} أريكة سرير}}",
+    "amenitiesLabel": "في الغرفة",
+    "moreAmenities": "و{count} أخرى"
   },
   "calendar": {
     "title": "التوفر",
-    "subtitle": "هذا الشهر والشهر القادم. يحدّث المعلِن التقويم.",
-    "allFree": "لا توجد تواريخ محجوزة هذا الشهر أو الشهر القادم. اطلب من المعلِن تأكيد تواريخك.",
     "available": "متاح",
     "booked": "محجوز",
     "past": "مضى",
-    "today": "اليوم"
+    "pickIn": "اختر تاريخ الوصول",
+    "pickOut": "الآن اختر تاريخ المغادرة",
+    "range": "{range} · {nights}",
+    "nights": "{count, plural, zero {{count} ليلة} one {ليلة واحدة} two {ليلتان} few {{count} ليالٍ} many {{count} ليلة} other {{count} ليلة}}",
+    "minStay": "{count, plural, zero {الحد الأدنى {count} ليلة} one {الحد الأدنى ليلة واحدة} two {الحد الأدنى ليلتان} few {الحد الأدنى {count} ليالٍ} many {الحد الأدنى {count} ليلة} other {الحد الأدنى {count} ليلة}}",
+    "checkIn": "الوصول",
+    "checkOut": "المغادرة",
+    "previous": "الشهر السابق",
+    "next": "الشهر التالي",
+    "clear": "مسح التواريخ"
   },
   "map": {
     "title": "الموقع",
-    "note": "تُظهر الدائرة المنطقة التقريبية. يشارك المعلِن العنوان الدقيق بعد أن تتواصل معه.",
+    "note": "تُظهر الدائرة المنطقة التقريبية. ستحصل على العنوان الدقيق بعد أن تتواصل.",
     "label": "خريطة المنطقة التقريبية: {place}",
-    "loading": "جارٍ تحميل الخريطة…"
+    "loading": "جارٍ تحميل الخريطة…",
+    "noteBooking": "يُرسَل الموقع الدقيق بعد الحجز"
   },
   "nearby": {
-    "title": "بالقرب من المكان",
     "note": "أوقات المشي تقديرية بحسب الخريطة.",
-    "synagogue": "كنيس",
-    "chabad": "بيت حاباد",
-    "kosherFood": "طعام كوشير",
-    "mikveh": "مِكفاه",
     "supermarket": "سوبرماركت",
     "airport": "المطار",
-    "walk": "{count, plural, one {دقيقة سيرًا} two {دقيقتان سيرًا} few {{count} دقائق سيرًا} other {{count} دقيقة سيرًا}}",
-    "km": "{km} كم ({code})",
+    "airports": {
+      "TBS": "مطار تبليسي",
+      "BUS": "مطار باتومي",
+      "KUT": "مطار كوتايسي"
+    },
+    "walk": "{count, plural, few {حتى {count} دقائق سيرًا} other {حتى {count} دقيقة سيرًا}}",
+    "km": "{km} كم",
     "transport": {
       "metro": "محطة مترو",
       "train": "محطة قطار",
@@ -261,25 +263,138 @@
       "bus": "موقف حافلات"
     }
   },
-  "shabbat": {
-    "label": "السبت والأعياد"
-  },
-  "reviews": {
-    "title": "التقييمات",
-    "empty": "لا توجد تقييمات بعد."
-  },
-  "safety": {
-    "label": "الأمان",
-    "reportHint": "هل هناك مشكلة في هذا الإعلان؟ أخبرنا."
-  },
   "similar": {
-    "title": "أماكن مشابهة",
+    "title": "عقارات مشابهة",
     "viewAll": "المزيد في هذه المدينة"
   },
   "notFound": {
     "title": "هذا الإعلان غير متاح",
-    "description": "ربما تم تأجيره أو بيعه أو حذفه من قِبل المعلِن. هناك أماكن كثيرة أخرى لتراها.",
+    "description": "ربما تم تأجيره أو بيعه أو حُذف الإعلان. هناك أماكن كثيرة أخرى لتراها.",
     "search": "تصفّح الإعلانات",
     "home": "العودة إلى الرئيسية"
+  },
+  "host": {
+    "title": "المضيف",
+    "profile": "الملف الشخصي وكل الإعلانات",
+    "titleSale": "المعلِن"
+  },
+  "hostLine": {
+    "hostedBy": "المضيف: <name></name>",
+    "listedBy": "المعلن: <name></name>",
+    "verified": "موثّق",
+    "pledge": "تعهّد المضيف باستقبال الإسرائيليين بترحاب",
+    "pledgeSale": "تعهّد المعلن باستقبال الإسرائيليين بترحاب",
+    "visited": "زرنا المكان"
+  },
+  "highlights": {
+    "label": "أبرز المزايا",
+    "self_check_in": "تسجيل وصول ذاتي",
+    "sea_view": "إطلالة على البحر",
+    "kosher_kitchen": "مطبخ كوشير",
+    "mountain_view": "إطلالة على الجبال",
+    "pool": "مسبح",
+    "near_sea": "قريب من البحر",
+    "near_ski_lifts": "قرب مصاعد التزلج",
+    "seaWalk": "{count, plural, few {حتى {count} دقائق مشيًا إلى البحر} other {حتى {count} دقيقة مشيًا إلى البحر}}",
+    "liftWalk": "{count, plural, few {حتى {count} دقائق مشيًا إلى مصاعد التزلج} other {حتى {count} دقيقة مشيًا إلى مصاعد التزلج}}",
+    "walkSource": "تقدير حسب خريطة OpenStreetMap",
+    "yard": "فناء",
+    "balcony_terrace": "شرفة أو تراس",
+    "workspace": "مكان مخصص للعمل",
+    "parking": "موقف سيارات",
+    "washing_machine": "غسالة ملابس",
+    "air_conditioning": "تكييف هواء"
+  },
+  "kosher": {
+    "title": "الكوشير والسبت",
+    "yes": "نعم",
+    "kitchen": "المطبخ",
+    "supervision": "إشراف الكوشير",
+    "food": "طعام كوشير",
+    "checklist": "السبت في المكان",
+    "line": {
+      "key": {
+        "ok": "مفتاح عادي (ليس رمزًا ولا قفلًا كهربائيًا)",
+        "no": "لا يوجد مفتاح عادي (رمز أو قفل كهربائي)"
+      },
+      "elevator": {
+        "ok": "درج أو مصعد سبت",
+        "no": "لا يوجد مصعد سبت",
+        "noFloor": "لا يوجد مصعد سبت · الطابق {floor}"
+      },
+      "sensors": {
+        "ok": "لا توجد حساسات حركة عند المدخل",
+        "no": "توجد حساسات حركة عند المدخل"
+      },
+      "hotPlate": {
+        "ok": "صفيحة تسخين للسبت",
+        "no": "لا توجد صفيحة تسخين للسبت"
+      },
+      "urn": {
+        "ok": "سخان ماء للسبت",
+        "no": "لا يوجد سخان ماء"
+      },
+      "timers": {
+        "ok": "مؤقت سبت للإضاءة",
+        "no": "لا يوجد مؤقت سبت للإضاءة"
+      },
+      "sukkah": {
+        "ok": "يوجد مكان لنصب سوكا",
+        "no": "لا يوجد مكان لنصب سوكا"
+      }
+    },
+    "nearestSynagogue": "أقرب كنيس",
+    "nearestChabad": "أقرب بيت حاباد",
+    "walk": "{count, plural, few {حتى {count} دقائق سيرًا} other {حتى {count} دقيقة سيرًا}}",
+    "times": "مواعيد السبت في {city}"
+  },
+  "booking": {
+    "boxLabel": "الحجز",
+    "barLabel": "السعر والحجز",
+    "datesTitle": "اختيار التواريخ",
+    "chooseDates": "اختيار التواريخ",
+    "chooseRoom": "اختيار غرفة",
+    "book": "احجز",
+    "clear": "مسح",
+    "done": "تم",
+    "summary": "{nights} · المجموع {total}",
+    "times": "{price} × {nights}",
+    "cleaningFee": "رسوم التنظيف",
+    "total": "المجموع",
+    "checkIn": "الوصول",
+    "checkOut": "المغادرة",
+    "addDate": "أضف تاريخًا",
+    "more": "خيارات أخرى",
+    "ask": "سؤال للمضيف"
+  },
+  "book": {
+    "title": "الحجز عبر الموقع يُفتح قريبًا",
+    "text": "في هذه الأثناء يمكنك سؤال المضيف عن التواريخ التي اخترتها.",
+    "back": "العودة إلى الإعلان"
+  },
+  "important": {
+    "title": "من المهم معرفته",
+    "times": "الوصول والمغادرة",
+    "costs": "تكاليف أخرى",
+    "rules": "قواعد المنزل",
+    "showAll": "عرض الكل",
+    "cancellation": "الإلغاء",
+    "policy": {
+      "FLEXIBLE": "يمكنك الإلغاء حتى 24 ساعة قبل الوصول.",
+      "MODERATE": "يمكنك الإلغاء حتى 5 أيام قبل الوصول.",
+      "STRICT": "يمكنك الإلغاء حتى 14 يومًا قبل الوصول.",
+      "none": "اتفق مع المضيف على شروط الإلغاء قبل وصولك."
+    },
+    "payment": "الدفع",
+    "paymentText": "تدفع للمضيف عند الوصول. Bayit لا يتقاضى أي مبلغ.",
+    "safety": "قبل أي دفع",
+    "videoTip": "اطلب مكالمة فيديو مباشرة تُظهر لك المكان وورقة عليها تاريخ اليوم ورقم الإعلان (<ltr>{id}</ltr>)."
+  },
+  "headline": {
+    "perSqm": "{price} / م²"
+  },
+  "payWarning": {
+    "text": "لا تدفعوا أبدًا مقدمًا عبر رابط أو تحويل. الدفع للمضيف عند الوصول.",
+    "report": "الإبلاغ عن احتيال"
   }
 }

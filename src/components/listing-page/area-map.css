@@ -1,0 +1,53 @@
+/* The listing page's location map (loaded with the lazy map only). Global CSS with the
+   "bayit-home-" prefix (CSS modules do not work in this project). */
+
+.bayit-home-pin-marker {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  outline: none;
+}
+
+/* A dark teardrop pin with a white house: the middle of the APPROXIMATE area. */
+.bayit-home-pin {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: #4b2a8c;
+  color: #ffffff;
+  box-shadow:
+    0 0 0 3px #ffffff,
+    0 6px 16px rgb(15 23 42 / 0.35);
+  animation: bayit-home-pin-in 420ms var(--ease-pop) backwards;
+}
+.bayit-home-pin svg {
+  width: 22px;
+  height: 22px;
+  transform: rotate(45deg);
+}
+/* Dark maps: the bright purple with the white border, so the pin stays clearly visible (bug 8.11). */
+.dark .bayit-home-pin {
+  background: #7b52e3;
+  color: #ffffff;
+  box-shadow:
+    0 0 0 3px #ffffff,
+    0 6px 16px rgb(0 0 0 / 0.5);
+}
+
+@keyframes bayit-home-pin-in {
+  from {
+    opacity: 0;
+    transform: translateY(-14px) rotate(-45deg) scale(0.6);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bayit-home-pin {
+    animation: none;
+  }
+}

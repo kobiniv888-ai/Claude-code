@@ -2,10 +2,13 @@ import type { Metadata } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { AdminMobileNav, AdminSidebar, SignOutButton, ViewSiteLink } from "@/components/admin/admin-nav";
+import { StaffProofProvider } from "@/components/admin/staff-proof";
 import { LanguageSwitcher } from "@/components/layout/language-switcher";
 import { adminNavFor } from "@/lib/admin/nav";
 import { getAdminCounts } from "@/lib/admin/server/counts";
 import { requireStaff } from "@/lib/auth/session";
+// The admin panel's utilities are not in the public stylesheet (src/app/globals.css).
+import "../../sections.css";
 
 export async function generateMetadata({ params }: LayoutProps<"/[locale]/admin">): Promise<Metadata> {
   const { locale } = await params;
@@ -55,7 +58,10 @@ export default async function AdminLayout({ children, params }: LayoutProps<"/[l
             </div>
           </header>
           <main id="main" tabIndex={-1} className="flex-1 px-4 py-5 outline-none sm:px-6 lg:px-8 lg:py-7">
-            <div className="mx-auto w-full max-w-7xl">{children}</div>
+            {/* Destructive actions ask for a fresh authenticator code (SECURITY_REPORT 3.6.c). */}
+            <StaffProofProvider>
+              <div className="mx-auto w-full max-w-7xl">{children}</div>
+            </StaffProofProvider>
           </main>
         </div>
       </div>

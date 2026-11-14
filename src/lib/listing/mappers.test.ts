@@ -23,14 +23,21 @@ function row(overrides: Partial<ListingCardRow> = {}): ListingCardRow {
     isShabbatFriendly: true,
     kitchenKosher: "KOSHER",
     synagogueWalkMin: 6,
+    seaWalkMinutes: null,
+    liftWalkMinutes: null,
+    jewishFeatures: [],
+    hotelJewishFeatures: [],
     publishedAt: daysAgo(2),
     priceDroppedAt: daysAgo(30),
     featuredUntil: null,
     isDemo: false,
     ownerVerifiedAt: null,
+    visitedAt: null,
+    reviewCount: 0,
+    ratingSum: 0,
     approxLat: 41.71,
     approxLng: 44.76,
-    owner: { accountType: "PRIVATE", idVerifiedAt: daysAgo(100) },
+    owner: { accountType: "PRIVATE", idVerifiedAt: daysAgo(100), welcomePledgeVersion: 1, keepsShabbat: false, spokenLanguages: ["en"] },
     city: { names: { he: "טביליסי", en: "Tbilisi", ru: "Тбилиси", ar: "تبليسي", ka: "თბილისი" } },
     neighborhood: { names: { he: "וואקה", en: "Vake", ru: "Ваке", ar: "فاكي", ka: "ვაკე" } },
     translations: [{ title: "Sunny flat in Vake", isAuto: true, isOriginal: false }],
@@ -38,21 +45,45 @@ function row(overrides: Partial<ListingCardRow> = {}): ListingCardRow {
       { url: "https://images.unsplash.com/photo-1?w=1600", storageKey: null, alt: null, blurDataUrl: null },
       { url: "/api/media/x-lg.webp", storageKey: "listings/lst_1/p2", alt: "Kitchen", blurDataUrl: "data:image/webp;base64,AA" },
     ],
+    _count: { photos: 7 },
+    floor: 3,
+    rooms: 3,
+    bedsSingle: 1,
+    bedsDouble: 1,
+    bedsSofa: null,
     roomTypes: [],
     ...overrides,
   };
 }
 
 describe("listingCardSelect", () => {
+  it("takes a hotel's 'from' price from active, priced room types only (lists-alerts-7)", () => {
+    const rooms = listingCardSelect("en").roomTypes;
+    expect(rooms.where).toEqual({ active: true, price: { gt: 0 } });
+    expect(rooms.orderBy).toEqual([{ priceUsd: { sort: "asc", nulls: "last" } }, { price: "asc" }, { sortOrder: "asc" }]);
+  });
+
   it("never selects private columns", () => {
     const select = listingCardSelect("en") as Record<string, unknown>;
-    for (const key of ["address", "lat", "lng", "cadastralCode", "contactMethods", "description", "icalToken"]) {
+    for (const key of ["addressEnc", "pinEnc", "legacyAddress", "legacyLat", "legacyLng", "address", "lat", "lng", "cadastralCode", "contactMethods", "description", "icalToken"]) {
       expect(select).not.toHaveProperty(key);
     }
   });
 });
 
 describe("toListingCard", () => {
+  it("shows the rating only from 3 visible reviews (round 3, brief 8.1)", () => {
+    expect(toListingCard(row(), { locale: "en", now }).rating).toBeNull();
+    expect(toListingCard(row({ reviewCount: 2, ratingSum: 10 }), { locale: "en", now }).rating).toBeNull();
+    expect(toListingCard(row({ reviewCount: 12, ratingSum: 56 }), { locale: "en", now }).rating).toEqual({ average: 4.7, count: 12 });
+  });
+
+  it("shows no rating once the listing is a monthly rental or a sale (reviews-4)", () => {
+    expect(toListingCard(row({ dealType: "MONTHLY_RENT", pricePeriod: "MONTH", reviewCount: 4, ratingSum: 18 }), { locale: "en", now }).rating).toBeNull();
+    expect(toListingCard(row({ dealType: "SALE", pricePeriod: "TOTAL", reviewCount: 4, ratingSum: 18 }), { locale: "en", now }).rating).toBeNull();
+    expect(toListingCard(row({ dealType: "HOTEL_ROOM", reviewCount: 4, ratingSum: 18 }), { locale: "en", now }).rating).toEqual({ average: 4.5, count: 4 });
+  });
+
   it("uses the translation, localized places and approximate coordinates", () => {
     const card = toListingCard(row(), { locale: "en", now });
     expect(card.title).toBe("Sunny flat in Vake");
@@ -64,6 +95,11 @@ describe("toListingCard", () => {
     expect(card.photos[0]).toEqual({ url: expect.stringContaining("w=800"), alt: "Sunny flat in Vake" });
     expect(card.photos[1]).toEqual({ url: "/api/media/listings/lst_1/p2-md.webp", alt: "Kitchen", blurDataUrl: "data:image/webp;base64,AA" });
     expect(card).toMatchObject({ price: 120, currency: "GEL", priceUsd: 44.44, priceIsFrom: false });
+  });
+
+  it("passes the total photo count and the floor (card v2)", () => {
+    expect(toListingCard(row(), { locale: "en", now })).toMatchObject({ photoCount: 7, floor: 3 });
+    expect(toListingCard(row({ floor: null, _count: { photos: 0 } }), { locale: "en", now })).toMatchObject({ photoCount: 0, floor: null });
   });
 
   it("keeps the original title in the owner's language", () => {
@@ -79,11 +115,23 @@ describe("toListingCard", () => {
   it("computes badges and labels", () => {
     const card = toListingCard(row(), { locale: "en", now, featuredIds: new Set(["lst_1"]), favoriteIds: new Set(["lst_1"]) });
     expect(card.badges).toEqual({
-      verified: true,
+      welcomes: true,
+      speaksHebrew: false,
+      keepsShabbat: false,
+      kosherMeals: false,
+      // No document checks for now (founder's answer 5, round 3): the ID/owner badge is hidden.
+      verified: false,
+      // "ביקרנו במקום" (round 3, brief 8.3): no visit on this row.
+      visited: false,
       business: false,
       shabbatFriendly: true,
       kosherKitchen: true,
-      synagogueWalkMin: 6,
+      // Security checklist 6.d: rounded up to 5 minutes on the server (6 → 10).
+      synagogueWalkMin: 10,
+      synagogueVerified: true,
+      // Brief 7.3: walking minutes to the sea / lifts (none outside those towns).
+      seaWalkMinutes: null,
+      liftWalkMinutes: null,
       isNew: true,
       priceDropped: false,
       promoted: true,
@@ -95,6 +143,24 @@ describe("toListingCard", () => {
       now,
     });
     expect(old.badges).toMatchObject({ isNew: false, priceDropped: true, promoted: true });
+  });
+
+  it("computes the Jewish-life badges and the welcome pledge per settings", () => {
+    const owner = { accountType: "PRIVATE" as const, idVerifiedAt: null, welcomePledgeVersion: 1, keepsShabbat: true, spokenLanguages: ["he", "en"] };
+    const card = toListingCard(row({ owner, hotelJewishFeatures: ["kosher_breakfast"] }), { locale: "en", now });
+    expect(card.badges).toMatchObject({ welcomes: true, speaksHebrew: true, keepsShabbat: true, kosherMeals: true });
+
+    const fromFeatures = toListingCard(
+      row({ jewishFeatures: ["host_speaks_hebrew", "host_keeps_shabbat"], hotelJewishFeatures: ["shabbat_meals"] }),
+      { locale: "en", now },
+    );
+    expect(fromFeatures.badges).toMatchObject({ speaksHebrew: true, keepsShabbat: true, kosherMeals: false });
+
+    // A host who never accepted, or whose version is below the required one, has no green badge.
+    const never = toListingCard(row({ owner: { ...owner, welcomePledgeVersion: null } }), { locale: "en", now });
+    expect(never.badges.welcomes).toBe(false);
+    const outdated = toListingCard(row({ owner: { ...owner, welcomePledgeVersion: 0 } }), { locale: "en", now, pledgeRequiredVersion: 1 });
+    expect(outdated.badges.welcomes).toBe(false);
   });
 
   it("shows hotels 'from' their cheapest room type", () => {
@@ -116,5 +182,20 @@ describe("toListingCard", () => {
       { locale: "en", now },
     );
     expect(card).toMatchObject({ price: 95, currency: "USD", pricePeriod: "NIGHT", priceIsFrom: true, maxGuests: 3 });
+  });
+});
+
+describe("toListingCard (round 2)", () => {
+  it("reads rooms and counts beds for the facts line", () => {
+    const card = toListingCard(row(), { locale: "en", now });
+    expect(card.rooms).toBe(3);
+    expect(card.beds).toBe(2);
+    expect(toListingCard(row({ bedsSingle: null, bedsDouble: null }), { locale: "en", now }).beds).toBeNull();
+  });
+
+  it("marks the synagogue walk as verified only for real listings", () => {
+    expect(toListingCard(row(), { locale: "en", now }).badges.synagogueVerified).toBe(true);
+    expect(toListingCard(row({ isDemo: true }), { locale: "en", now }).badges.synagogueVerified).toBe(false);
+    expect(toListingCard(row({ synagogueWalkMin: null }), { locale: "en", now }).badges.synagogueVerified).toBe(false);
   });
 });

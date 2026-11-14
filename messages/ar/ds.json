@@ -1,0 +1,70 @@
+{
+  "badges": {
+    "welcomes": "يرحّب بالإسرائيليين",
+    "welcomesHint": "تعهّد المضيف بالترحيب بالضيوف الإسرائيليين واليهود",
+    "verified": "موثّق",
+    "verifiedHint": "تحقّق فريقنا من هوية المالك أو من إثبات الملكية",
+    "hebrew": "يتحدث العبرية",
+    "kosherKitchen": "مطبخ كوشر",
+    "kosherMeals": "وجبات كوشر",
+    "shabbatFriendly": "مناسب للسبت",
+    "synagogueWalk": "حتى {minutes} د سيرًا إلى الكنيس",
+    "keepsShabbat": "يحافظ على السبت",
+    "business": "نشاط تجاري",
+    "demo": "تجريبي",
+    "new": "جديد",
+    "priceDropped": "انخفض السعر",
+    "promoted": "مُروَّج",
+    "more": "+{count}",
+    "moreLabel": "{count, plural, one {وشارة أخرى: {list}} two {وشارتان أخريان: {list}} few {و{count} شارات أخرى: {list}} many {و{count} شارة أخرى: {list}} other {و{count} شارة أخرى: {list}}}"
+  },
+  "chip": {
+    "remove": "إزالة {label}"
+  },
+  "sheet": {
+    "close": "إغلاق",
+    "clear": "مسح"
+  },
+  "section": {
+    "seeAll": "عرض الكل"
+  },
+  "carousel": {
+    "previous": "السابق",
+    "next": "التالي",
+    "slide": "الصورة {index} من {total}",
+    "noPhotos": "لا توجد صور بعد",
+    "morePhotos": "{count, plural, one {صورة} two {صورتان} few {صور} many {صورة} other {صورة}}"
+  },
+  "contactBar": {
+    "label": "التواصل مع المضيف"
+  },
+  "devUi": {
+    "title": "نظام التصميم",
+    "intro": "صفحة داخلية للمطورين: كل الألوان وأنماط النص والمكوّنات في مكان واحد.",
+    "showResults": "{count, plural, one {عرض عقار واحد} two {عرض عقارين} few {عرض <n>{count}</n> عقارات} many {عرض <n>{count}</n> عقارًا} other {عرض <n>{count}</n> عقار}}",
+    "emptyTitle": "لم نجد عقارات",
+    "emptyText": "جرّبوا إزالة فلتر أو توسيع المنطقة.",
+    "emptyAction": "ابدأوا البحث",
+    "fixKosher": "إزالة فلتر 'كوشر'",
+    "fixArea": "توسيع المنطقة",
+    "sectionTitle": "عقارات جديدة",
+    "sectionSubtitle": "أُضيفت هذا الأسبوع",
+    "post": "نشر إعلان",
+    "showPhone": "إظهار الهاتف",
+    "sheetBody": "هنا تظهر الفلاتر.",
+    "currentTheme": "المظهر الحالي",
+    "darkTheme": "الوضع الداكن",
+    "accordionTitle": "الكشروت والسبت",
+    "accordionBody": "مطبخ كوشير، وصفيحة تسخين وسخّان ماء. مواعيد السبت حسب المدينة في صفحة الحياة اليهودية.",
+    "accordionTitle2": "معلومات مهمة",
+    "accordionBody2": "تسجيل الوصول من 15:00، والمغادرة حتى 11:00.",
+    "calendarLabel": "التوفر",
+    "booked": "محجوز",
+    "inputLabel": "إلى أين؟",
+    "inputPlaceholder": "مدينة أو حي أو عنوان",
+    "notesLabel": "رسالة إلى المضيف",
+    "tabsShort": "إقامة قصيرة",
+    "tabsMonthly": "شهري",
+    "tabsBuy": "شراء"
+  }
+}

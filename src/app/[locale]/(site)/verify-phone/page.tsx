@@ -3,11 +3,15 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { SmartphoneIcon } from "lucide-react";
 import type { AppLocale } from "@/config/site";
 import { AuthShell } from "@/components/auth/auth-shell";
+import { BackToListing } from "@/components/listing-form/back-to-listing";
+import { formReturnPath } from "@/lib/listing-form/return-path";
 import { authPageMetadata } from "@/components/auth/metadata";
 import { VerifyPhonePanel } from "@/components/auth/verify-phone-panel";
 import { redirect } from "@/i18n/navigation";
 import { getLoginConfig } from "@/lib/auth/config";
 import { safeNextPath, withNext } from "@/lib/auth/next-path";
+import { isPostFormPath } from "@/lib/auth/phone-check-policy";
+import { issuePostPhoneStepToken } from "@/lib/auth/phone-check-token";
 import { getCurrentUser } from "@/lib/auth/session";
 
 type Props = {
@@ -20,7 +24,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return authPageMetadata(locale, "verifyPhone");
 }
 
-/** Add and verify a phone number — required to post a listing. */
+/** Add and verify a phone number — required to post a listing (once per number). */
 export default async function VerifyPhonePage({ params, searchParams }: Props) {
   const { locale } = await params;
   setRequestLocale(locale);
@@ -37,18 +41,34 @@ export default async function VerifyPhonePage({ params, searchParams }: Props) {
   const t = await getTranslations("auth.verifyPhone");
   const verifiedPhone = user.phoneNumberVerified ? user.phoneNumber : null;
 
+  // Sent here from the post form (bug 2.10): a clear way back to the same step without verifying.
+  const fromForm = hasNext && formReturnPath(next) !== null;
   return (
-    <AuthShell
-      locale={locale as AppLocale}
-      title={verifiedPhone ? t("titleVerified") : t("title")}
-      description={verifiedPhone ? undefined : t("subtitle")}
-      icon={
-        <span className="flex size-12 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
-          <SmartphoneIcon className="size-6" aria-hidden />
-        </span>
-      }
-    >
-      <VerifyPhonePanel config={getLoginConfig().phone} next={next} verifiedPhone={verifiedPhone} />
-    </AuthShell>
+    <>
+      {fromForm && (
+        <div className="mx-auto w-full max-w-[26rem] px-4 pt-5">
+          <BackToListing from={next} />
+        </div>
+      )}
+      <AuthShell
+        locale={locale as AppLocale}
+        title={verifiedPhone ? t("titleVerified") : t("title")}
+        description={verifiedPhone ? undefined : t("subtitle")}
+        icon={
+          <span className="flex size-12 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
+            <SmartphoneIcon className="size-6" aria-hidden />
+          </span>
+        }
+      >
+        <VerifyPhonePanel
+          config={(await getLoginConfig(locale)).phone}
+          next={next}
+          verifiedPhone={verifiedPhone}
+          // The post form's phone step: the server sends a text to an account without a listing
+          // only with this signed, 2-hour token (SECURITY_REPORT 3.2.f).
+          postStepToken={hasNext && isPostFormPath(next) ? issuePostPhoneStepToken(user.id) : null}
+        />
+      </AuthShell>
+    </>
   );
 }

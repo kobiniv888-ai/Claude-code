@@ -9,12 +9,11 @@
  * stored in the database (SiteSetting) — the values here are only their defaults.
  */
 
-export const locales = ["he", "en", "ru", "ar", "ka"] as const;
-export type AppLocale = (typeof locales)[number];
+import { COUNTRIES, DEFAULT_COUNTRY, PLANNED_COUNTRIES, enabledCountryCodes } from "./countries";
+import { locales, type AppLocale, type Localized } from "./locales";
 
-export const rtlLocales: readonly AppLocale[] = ["he", "ar"];
-
-export type Localized<T = string> = Record<AppLocale, T>;
+// The languages live in ./locales (light for client code); change them there.
+export { locales, rtlLocales, type AppLocale, type Localized } from "./locales";
 
 export const currencyCodes = ["GEL", "USD", "ILS", "EUR", "GBP", "AED"] as const;
 export type CurrencyCode = (typeof currencyCodes)[number];
@@ -43,12 +42,25 @@ export const siteConfig = {
     ar: "Bayit",
     ka: "Bayit",
   } satisfies Localized,
+  /**
+   * The address the site runs on (NEXT_PUBLIC_SITE_URL; the browser can read it). Links that LEAVE
+   * the site (calendar export, emails, share links, sitemap) use siteUrl() from @/lib/site-url,
+   * which prefers the permanent SITE_URL.
+   */
   url: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
   supportEmail: process.env.SUPPORT_EMAIL ?? "support@bayit.example",
-  /** Logo files in /public/brand. Replace the SVGs to rebrand. */
+  /**
+   * Logo files in /public/brand (docs/redesign-2/BRIEF.md 3.1): the ב mark drawn as a house.
+   * The site draws the mark inline (src/components/brand/logo.tsx); these files are for icons
+   * (scripts/generate-icons.mjs), the offline page and anything outside the app.
+   */
   logo: {
-    mark: "/brand/logo-mark.svg",
-    wordmark: "/brand/logo.svg",
+    /** The mark alone, currentColor, tight box (viewBox 126 109 294 304). */
+    mark: "/brand/bayit-mark.svg",
+    /** White mark on a purple rounded square: favicon and app icons. */
+    appIcon: "/brand/bayit-app-icon.svg",
+    /** Full-bleed square (no rounded corners): maskable app icons. */
+    appIconSquare: "/brand/bayit-app-icon-square.svg",
   },
   social: {
     facebook: "",
@@ -58,17 +70,25 @@ export const siteConfig = {
   },
 
   /**
-   * Brand colors. These are copied into CSS variables in src/app/globals.css
-   * (search for "BRAND COLORS"); keep both in sync when rebranding.
+   * Brand colors (round 2: purple and white, purple and black). The full token set is in
+   * src/app/styles/bayit.css (search for "BRAND COLORS"); keep both in sync when rebranding.
+   * Used where CSS cannot reach: theme-color, the manifest, emails, share images, map markers.
    */
   colors: {
-    primary: "#1E3A6E", // deep, trustworthy blue
-    primaryDark: "#93B4F0", // primary on dark backgrounds
-    accent: "#B4533A", // terracotta — Georgian roofs
-    wine: "#7B2D3B", // Georgian wine
-    background: "#FAF8F5", // off-white
-    verified: "#13763A", // green "Verified" (AA as text on its soft tints)
-    warning: "#B45309", // amber warnings
+    primary: "#4B2A8C", // the brand purple: buttons, header, logo (white text 10.5:1)
+    primaryPressed: "#3B206F", // pressed / hover
+    primaryDark: "#B9A4FF", // purple text, icons and markers on dark backgrounds (lavender)
+    primaryButtonDark: "#7B52E3", // buttons on dark backgrounds (white text 5.1:1)
+    primaryTint: "#F4F0FB", // soft lavender blocks
+    primaryTintBorder: "#E4DAF5",
+    background: "#FFFFFF",
+    backgroundDark: "#0F0D14",
+    surfaceMuted: "#F4F2F7",
+    text: "#18161F",
+    textMuted: "#5E5A6B",
+    border: "#ECEAF1",
+    error: "#B42318",
+    success: "#1E7B4F", // "verified" and "booking confirmed" only
   },
 
   i18n: {
@@ -97,7 +117,7 @@ export const siteConfig = {
       { code: "AED", symbol: "AED", enabled: false },
     ] satisfies { code: CurrencyCode; symbol: string; enabled: boolean }[],
     /** Default display currency by visitor country (ISO 3166-1 alpha-2). */
-    byCountry: { IL: "ILS", GE: "GEL" } as Record<string, CurrencyCode>,
+    byCountry: { IL: "ILS", GE: COUNTRIES.GE.localCurrency } as Record<string, CurrencyCode>,
     fallback: "USD" as CurrencyCode,
     /** Used only if the daily exchange-rate fetch has never succeeded. 1 USD = x. */
     fallbackRatesPerUsd: {
@@ -110,12 +130,13 @@ export const siteConfig = {
     } satisfies Record<CurrencyCode, number>,
   },
 
-  /** Countries where listings can be posted. Phase 3 adds US, GB and AE. */
+  /**
+   * Countries where listings can be posted (Phase 3 adds US, GB and AE). Per-country values (time
+   * zone, map area, currency, phone, emergency number) live in src/config/countries.ts.
+   */
   countries: [
-    { code: "GE", enabled: true },
-    { code: "US", enabled: false },
-    { code: "GB", enabled: false },
-    { code: "AE", enabled: false },
+    ...enabledCountryCodes().map((code) => ({ code, enabled: true })),
+    ...PLANNED_COUNTRIES.map((code) => ({ code, enabled: false })),
   ],
 
   /**
@@ -129,7 +150,7 @@ export const siteConfig = {
       aliases: ["tiflis", "tbilissi", "tblisi"],
       lat: 41.7151,
       lng: 44.8271,
-      timezone: "Asia/Tbilisi",
+      timezone: COUNTRIES.GE.timezone,
       airport: { code: "TBS", lat: 41.6692, lng: 44.9547 },
       popular: true,
     },
@@ -139,7 +160,7 @@ export const siteConfig = {
       aliases: ["batum", "batoumi"],
       lat: 41.6168,
       lng: 41.6367,
-      timezone: "Asia/Tbilisi",
+      timezone: COUNTRIES.GE.timezone,
       airport: { code: "BUS", lat: 41.6103, lng: 41.5997 },
       popular: true,
     },
@@ -149,7 +170,7 @@ export const siteConfig = {
       aliases: ["kutais"],
       lat: 42.2679,
       lng: 42.6946,
-      timezone: "Asia/Tbilisi",
+      timezone: COUNTRIES.GE.timezone,
       airport: { code: "KUT", lat: 42.1766, lng: 42.4826 },
       popular: true,
     },
@@ -159,7 +180,7 @@ export const siteConfig = {
       aliases: [],
       lat: 41.8214,
       lng: 41.7792,
-      timezone: "Asia/Tbilisi",
+      timezone: COUNTRIES.GE.timezone,
       airport: { code: "BUS", lat: 41.6103, lng: 41.5997 },
       popular: true,
     },
@@ -169,7 +190,7 @@ export const siteConfig = {
       aliases: [],
       lat: 42.4773,
       lng: 44.4778,
-      timezone: "Asia/Tbilisi",
+      timezone: COUNTRIES.GE.timezone,
       airport: { code: "TBS", lat: 41.6692, lng: 44.9547 },
       popular: true,
     },
@@ -179,7 +200,7 @@ export const siteConfig = {
       aliases: [],
       lat: 41.7497,
       lng: 43.5328,
-      timezone: "Asia/Tbilisi",
+      timezone: COUNTRIES.GE.timezone,
       airport: { code: "KUT", lat: 42.1766, lng: 42.4826 },
       popular: true,
     },
@@ -189,7 +210,7 @@ export const siteConfig = {
       aliases: [],
       lat: 41.8394,
       lng: 43.3788,
-      timezone: "Asia/Tbilisi",
+      timezone: COUNTRIES.GE.timezone,
       airport: { code: "KUT", lat: 42.1766, lng: 42.4826 },
       popular: true,
     },
@@ -199,7 +220,7 @@ export const siteConfig = {
       aliases: ["stepantsminda", "степанцминда", "სტეფანწმინდა"],
       lat: 42.6574,
       lng: 44.6433,
-      timezone: "Asia/Tbilisi",
+      timezone: COUNTRIES.GE.timezone,
       airport: { code: "TBS", lat: 41.6692, lng: 44.9547 },
       popular: true,
     },
@@ -209,7 +230,7 @@ export const siteConfig = {
       aliases: ["signagi", "sighnagi"],
       lat: 41.6205,
       lng: 45.9222,
-      timezone: "Asia/Tbilisi",
+      timezone: COUNTRIES.GE.timezone,
       airport: { code: "TBS", lat: 41.6692, lng: 44.9547 },
       popular: true,
     },
@@ -219,7 +240,7 @@ export const siteConfig = {
       aliases: ["mestiya"],
       lat: 43.0453,
       lng: 42.7266,
-      timezone: "Asia/Tbilisi",
+      timezone: COUNTRIES.GE.timezone,
       airport: { code: "KUT", lat: 42.1766, lng: 42.4826 },
       popular: true,
     },
@@ -262,11 +283,22 @@ export const siteConfig = {
 
   /** Phone numbers: SMS codes are only sent to these countries (anti SMS-pumping). */
   phone: {
+    /** Generic default (admin forms, admin search). */
     defaultCountry: "GE",
-    smsAllowedCountries: [
-      "GE", "IL", "US", "CA", "GB", "FR", "DE", "NL", "BE", "IT", "ES", "UA",
-      "RU", "BY", "KZ", "AZ", "AM", "TR", "AE", "AU",
-    ],
+    /**
+     * Country code pre-selected for guest login / verify-phone, by interface language: most
+     * guests have Israeli numbers. The visitor's last choice (localStorage) wins over this.
+     */
+    defaultCountryByLocale: { he: "IL", en: "IL", ru: "IL", ar: "IL", ka: "GE" } satisfies Localized,
+    /** The contact phone in "post a listing": most hosts have Georgian numbers. */
+    listingContactDefaultCountry: COUNTRIES[DEFAULT_COUNTRY].defaultPhoneCountry,
+    /**
+     * The ONLY countries that get text messages (SECURITY_REPORT 3.2.a, founder's answer Q4):
+     * Israel (+972) and Georgia (+995). Checked on the server before every SMS
+     * (src/lib/auth/phone.ts, src/lib/sms.ts) and offered alone in the SMS phone picker. Keep the
+     * Twilio geo permissions (OWNER_TODO) to the same list.
+     */
+    smsAllowedCountries: ["IL", "GE"],
   },
 
   /** Shabbat and holiday times (Hebcal). */
@@ -279,17 +311,35 @@ export const siteConfig = {
     homeCities: ["tbilisi", "batumi"],
   },
 
-  /** Map tiles. OpenStreetMap's own tiles are fine for development; use a tile provider in production. */
+  /** Maps. The tile provider and its key live in src/config/map.ts (one place, easy to switch). */
   map: {
-    tileUrl: process.env.NEXT_PUBLIC_MAP_TILE_URL ?? "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-    tileAttribution:
-      process.env.NEXT_PUBLIC_MAP_TILE_ATTRIBUTION ??
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    defaultCenter: { lat: 41.7151, lng: 44.8271 },
+    /**
+     * Georgia's bounding box [[south, west], [north, east]]. With no city chosen and no results,
+     * maps show this; the search map, location picker and places map cannot be dragged far away.
+     */
+    georgiaBounds: COUNTRIES.GE.mapBounds,
+    /** How far (degrees) panning may go past georgiaBounds. */
+    boundsPadding: 1.5,
+    /** Zoomed out further than this, Georgia is a speck. */
+    minZoom: 6,
+    /** Street level. Maps need it set even without tiles (Leaflet cannot fit bounds otherwise). */
+    maxZoom: 19,
+    defaultCenter: COUNTRIES[DEFAULT_COUNTRY].mapCenter,
     defaultZoom: 12,
     /** Walking speed for "x min walk" estimates (meters per minute) and a detour factor for street routes. */
     walkingMetersPerMinute: 80,
     walkingDetourFactor: 1.3,
+  },
+
+  /**
+   * The Bayit welcome pledge every host accepts before publishing. The wording of each version
+   * lives in messages/<locale>/pledge.json under "versions.v<N>". To change the wording: add
+   * "versions.v2" in all five languages and set currentVersion to 2 — hosts are then asked to
+   * accept the new text (they keep the pledge line while their version is at least the admin
+   * setting "pledgeRequiredVersion").
+   */
+  pledge: {
+    currentVersion: 1,
   },
 
   /** Contact channels owners can offer, in default order. */
@@ -310,7 +360,8 @@ export const siteConfig = {
   features: {
     reviews: false,
     chat: false,
-    savedSearchAlerts: false,
+    /** Round 3, brief 7.4: saved searches and price-drop emails (/account/alerts). */
+    savedSearchAlerts: true,
     payments: false,
     bump: false,
     featuredPurchase: false,

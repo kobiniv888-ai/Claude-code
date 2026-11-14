@@ -19,6 +19,7 @@
       "too_short": "This is too short",
       "invalid": "Check this field",
       "invalid_slug": "Use lowercase Latin letters, digits and dashes, e.g. old-tbilisi",
+      "reserved_slug": "The site already uses this name (e.g. search or hotels). Choose another name for the address",
       "invalid_url": "Enter a full web address starting with https://",
       "invalid_number": "Enter a number",
       "out_of_range": "This number is out of the allowed range",
@@ -27,7 +28,14 @@
       "invalid_airport": "Use the 3-letter airport code, e.g. TBS",
       "airport_coords_required": "Add the airport coordinates too",
       "ends_before_start": "The end must be after the start",
-      "date_in_past": "Choose a date in the future"
+      "date_in_past": "Choose a date in the future",
+      "date_in_future": "The date can't be in the future",
+      "demo_not_verifiable": "A demo place can't be verified. Turn off \"Demo place\" or clear the date.",
+      "source_required": "Say where you checked the details",
+      "high_below_low": "The high price is lower than the low price.",
+      "unit_mismatch": "The kind of price doesn't fit the type.",
+      "per_sqm_sale_only": "A price per m² is only for sales.",
+      "neighborhood_mismatch": "The neighborhood is not in the chosen city."
     }
   },
   "errors": {
@@ -56,7 +64,9 @@
     "file_too_large": "The file is too large.",
     "file_type_not_allowed": "Use a JPEG, PNG or WebP photo.",
     "file_rejected": "This file was refused.",
-    "file_scan_failed": "The file could not be checked right now. Try again later."
+    "file_scan_failed": "The file could not be checked right now. Try again later.",
+    "audit_failed": "The action was not carried out: we could not record it in the audit log. Nothing changed. Try again in a moment.",
+    "fresh_proof_required": "Not done: this action needs a new code from your authenticator app."
   },
   "map": {
     "hint": "Click the map to place the pin, then drag it to adjust. You can also type the coordinates.",
@@ -137,43 +147,31 @@
     "sections": {
       "categories": {
         "title": "Categories",
-        "description": "Short stays, monthly rentals, homes for sale and more."
-      },
-      "cities": {
-        "title": "Popular cities",
-        "description": "City cards with photos (cities marked as popular)."
+        "description": "A row of chips: apartments, houses and villas, rooms, hotels, for sale, kosher and Shabbat."
       },
       "featured": {
-        "title": "Featured listings",
-        "description": "The listings you pick under Featured listings."
-      },
-      "newest": {
-        "title": "Newest listings",
-        "description": "The latest live listings."
+        "title": "Recommended places",
+        "description": "The promoted listings you picked, then the newest listings."
       },
       "recentlyViewed": {
         "title": "Recently viewed",
         "description": "Listings the visitor opened before (only on their device)."
       },
-      "whyUs": {
-        "title": "Why us",
-        "description": "What makes the site different."
+      "cities": {
+        "title": "Where to?",
+        "description": "Small city cards with a photo and the number of places."
       },
       "howItWorks": {
         "title": "How it works",
-        "description": "Three simple steps for guests and owners."
+        "description": "One row of three steps for guests."
       },
-      "shabbatTimes": {
-        "title": "Shabbat times",
-        "description": "Candle lighting and Havdalah for the main cities."
-      },
-      "safetyStrip": {
-        "title": "Safety tips",
-        "description": "A short reminder on how to avoid scams."
+      "jewishLife": {
+        "title": "Jewish life in Georgia",
+        "description": "A slim card linking to Shabbat times, synagogues and kosher food."
       },
       "listCta": {
-        "title": "List your property",
-        "description": "An invitation for owners to post a listing."
+        "title": "List your place",
+        "description": "A small card that invites hosts to list for free."
       }
     },
     "moveUp": "Move “{section}” up",
@@ -350,7 +348,24 @@
       "active": "Visible",
       "hidden": "Hidden",
       "demo": "Demo only",
-      "real": "Real only"
+      "real": "Real only",
+      "verified": "Verified",
+      "unverified": "Real, not verified"
+    },
+    "verification": {
+      "title": "Verification",
+      "description": "Only real places that have been checked are used for walking times on listings. A place without a verification date shows on the map, but not as a walking time.",
+      "date": "Date verified",
+      "dateHint": "The day someone on the team checked that the place exists and the address is right.",
+      "today": "Today",
+      "source": "Source",
+      "sourceHint": "How you checked: a phone call, a visit or the community's official site. Staff only.",
+      "sourcePlaceholder": "e.g. Call with the community office, Oct 30",
+      "counts": "This place is verified, so it counts for the walking times of nearby listings.",
+      "notCounted": "This place isn't verified yet, so it doesn't count for walking times.",
+      "demoNever": "A demo place never counts for the walking times of real listings.",
+      "verifiedOn": "Verified {date}",
+      "notVerified": "Not verified"
     }
   },
   "articles": {
@@ -635,7 +650,7 @@
       "entry": "Contact {number}",
       "label": "Label in each language",
       "phone": "Phone",
-      "phoneHint": "As it should be dialed, e.g. +995 32 255 65 00",
+      "phoneHint": "As it should be dialed, e.g. +995 32 2XX XX XX",
       "url": "Website",
       "add": "Add contact",
       "moveUp": "Move contact {number} up",
@@ -649,6 +664,7 @@
       "description": "Sample listings, users, places and an alert that show how the site works before real owners arrive.",
       "visible": "Show demo data",
       "visibleHint": "When off, demo listings are hidden from public pages. Turn off before launch.",
+      "lockedOnRealSite": "On the real site demo data is always hidden, even with the switch on. The switch works only on the development and test sites.",
       "counts": "Demo data now — listings: {listings}, users: {users}, places: {places}, alerts: {alerts}.",
       "dangerTitle": "Danger zone",
       "dangerDescription": "Deleting demo data removes every demo listing, user, place and alert permanently, with their photos, messages and statistics.",
@@ -658,6 +674,12 @@
       "typeToConfirm": "Type {phrase}",
       "confirmButton": "Delete permanently",
       "deleted": "Deleted — listings: {listings}, users: {users}, places: {places}, alerts: {alerts}"
+    },
+    "support": {
+      "title": "Support",
+      "description": "The reply-time promise shown on the help, contact and ticket pages.",
+      "replyPromise": "Reply time",
+      "replyPromiseHint": "A language left empty shows the standard text: “Replies within one business day, Sunday to Thursday…”."
     }
   },
   "roles": {
@@ -732,7 +754,28 @@
     "emptyTitle": "No emails yet",
     "emptyDescription": "Emails appear here when someone signs up, a ticket is answered or a listing changes status.",
     "noMatchTitle": "No emails match",
-    "noMatchDescription": "Change or clear the filters."
+    "noMatchDescription": "Change or clear the filters.",
+    "resend": {
+      "button": "Send again",
+      "title": "Send this email now?",
+      "description": "This email was kept on {when} and not sent, because the email service wasn't connected yet. It will now be sent as it is to {to}.",
+      "confirm": "Send",
+      "sent": "Email sent.",
+      "failed": "The email service didn't accept the email. The error is shown in the details.",
+      "blocked": {
+        "not_configured": "Sending again will be possible once the email service (Resend) is connected.",
+        "not_logged": "Only emails that were kept and not sent can be sent again.",
+        "outbox_only": "A demo account's email: the address is made up, so it is never sent.",
+        "login_code": "A login code is no longer valid, so it is not sent again.",
+        "expired": "A weekly summary is only sent in its own week: later its numbers are out of date, so it is not sent again.",
+        "bad_address": "Email can't be sent to this address.",
+        "demo_or_test": "A demo or test address (such as example.com): it doesn't really exist, so nothing is sent to it.",
+        "reply_to_lost": "This email was first sent with the guest's reply address, which wasn't kept. Sent again, the host's reply wouldn't reach the guest."
+      }
+    },
+    "waitingOnly": "Only emails not really sent yet",
+    "recentOnly": "{days, plural, one {From the last day} other {From the last {days} days}}",
+    "showAll": "Show all"
   },
   "savedReplies": {
     "title": "Saved replies",

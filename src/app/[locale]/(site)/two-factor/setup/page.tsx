@@ -21,7 +21,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return authPageMetadata(locale, "twoFactorSetup");
 }
 
-/** Turn on 2-step login (required for staff before /admin; optional for everyone else). */
+/**
+ * Turn on 2-step login (required for staff before /admin; optional for everyone else), or with
+ * ?replace=1 move it to a new phone (a lost or new phone: the old app stops working). Both need a
+ * fresh code first (SECURITY_REPORT 3.6), asked by the form.
+ */
 export default async function TwoFactorSetupPage({ params, searchParams }: Props) {
   const { locale } = await params;
   setRequestLocale(locale);
@@ -38,13 +42,27 @@ export default async function TwoFactorSetupPage({ params, searchParams }: Props
     <span
       className={
         tone === "verified"
-          ? "flex size-12 items-center justify-center rounded-full bg-verified-soft text-verified"
+          ? "flex size-12 items-center justify-center rounded-full bg-primary-tint text-success"
           : "flex size-12 items-center justify-center rounded-full bg-secondary text-secondary-foreground"
       }
     >
       {icon}
     </span>
   );
+
+  const replace = query.replace === "1";
+  if (user.twoFactorEnabled && replace) {
+    return (
+      <AuthShell
+        locale={locale as AppLocale}
+        title={t("replaceTitle")}
+        description={t("replaceSubtitle")}
+        icon={iconCircle(<KeyRoundIcon className="size-6" aria-hidden />, "primary")}
+      >
+        <TwoFactorSetup next={next} replace />
+      </AuthShell>
+    );
+  }
 
   if (user.twoFactorEnabled) {
     return (
@@ -69,8 +87,8 @@ export default async function TwoFactorSetupPage({ params, searchParams }: Props
       icon={iconCircle(<KeyRoundIcon className="size-6" aria-hidden />, "primary")}
     >
       {user.isStaff && (
-        <p className="mb-5 flex items-start gap-2.5 rounded-xl bg-warning-soft px-3.5 py-3 text-sm text-foreground">
-          <LockKeyholeIcon className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
+        <p className="mb-5 flex items-start gap-2.5 rounded-xl bg-surface-muted px-3.5 py-3 text-sm text-foreground">
+          <LockKeyholeIcon className="mt-0.5 size-4 shrink-0 text-foreground" aria-hidden />
           {t("staffRequired")}
         </p>
       )}

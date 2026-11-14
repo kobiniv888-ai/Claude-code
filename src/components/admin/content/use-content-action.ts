@@ -6,15 +6,18 @@ import { toast } from "@/lib/toast";
 import { useRouter } from "@/i18n/navigation";
 import type { ActionResult } from "@/lib/action";
 import { errorMessageKey, type FieldErrors } from "@/lib/errors";
+import { useStaffProof, withStaffProof } from "../staff-proof";
 
 /**
  * Runs a content / settings / roles server action: toast on success or failure, refresh the
  * page data on success. Error codes: adminContent.errors.<code>, then the shared "errors".
+ * Deleting asks for a fresh authenticator code first (SECURITY_REPORT 3.6.c, ../staff-proof.tsx).
  */
 export function useContentAction() {
   const t = useTranslations("adminContent");
   const tErrors = useTranslations("errors");
   const router = useRouter();
+  const proof = useStaffProof();
   const [pending, startTransition] = useTransition();
 
   const errorText = useCallback(
@@ -35,7 +38,7 @@ export function useContentAction() {
       new Promise<boolean>((resolve) => {
         startTransition(async () => {
           try {
-            const result = await fn();
+            const result = await withStaffProof(proof, fn);
             if (result.ok) {
               const message = typeof opts.success === "function" ? opts.success(result.data) : opts.success;
               if (message) toast.success(message);
@@ -53,7 +56,7 @@ export function useContentAction() {
           }
         });
       }),
-    [errorText, router, t, tErrors],
+    [errorText, proof, router, t, tErrors],
   );
 
   return { run, pending, errorText };

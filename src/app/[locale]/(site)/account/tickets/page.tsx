@@ -69,9 +69,9 @@ export default async function MyTicketsPage({ params, searchParams }: Props) {
           {waiting > 0 ? (
             <p
               role="status"
-              className="mb-4 flex items-center gap-2 rounded-2xl border border-warning/40 bg-warning-soft px-4 py-3 text-sm font-medium"
+              className="mb-4 flex items-center gap-2 rounded-2xl border border-border-strong/40 bg-surface-muted px-4 py-3 text-sm font-medium"
             >
-              <MessageCircleReply aria-hidden="true" className="size-5 shrink-0 text-warning" />
+              <MessageCircleReply aria-hidden="true" className="size-5 shrink-0 text-foreground" />
               {t("waitingNotice", { count: waiting, countText: formatNumber(waiting, locale) })}
             </p>
           ) : null}

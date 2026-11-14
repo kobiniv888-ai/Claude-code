@@ -1,10 +1,12 @@
 import "server-only";
 import { cookies } from "next/headers";
+import { getLocale } from "next-intl/server";
 import { siteConfig, type CurrencyCode } from "@/config/site";
 import { db } from "@/lib/db";
 import { getCountryCode } from "@/lib/request";
 import { getSettings } from "@/lib/settings";
 import { CURRENCY_COOKIE_NAME } from "./cookie";
+import { defaultCurrencyForLocale } from "./defaults";
 import { FALLBACK_RATES, enabledCurrencies, isEnabledCurrency, normalizeRates, type Rates } from "./convert";
 
 /**
@@ -101,18 +103,48 @@ export async function refreshExchangeRates(): Promise<Rates> {
 
 /**
  * The currency prices are shown in for this visitor:
- * their choice (cookie) → their account setting → their country → the admin default → USD.
- * Only enabled currencies are returned. Pass the signed-in user's `User.currency`.
+ * their choice (cookie) → their account setting → the interface language (he/ru/ar → ILS,
+ * en → USD, ka → GEL)
+ * → their country → the admin default → USD.
+ * Only enabled currencies are returned. Pass the signed-in user's `User.currency`; `locale`
+ * defaults to the request's locale (next-intl).
  */
-export async function getDisplayCurrency(userCurrency?: string | null): Promise<CurrencyCode> {
+export async function getDisplayCurrency(userCurrency?: string | null, locale?: string): Promise<CurrencyCode> {
+  return (await getDisplayCurrencyState(userCurrency, locale)).currency;
+}
+
+/**
+ * getDisplayCurrency() plus where it came from: `chosen` when the visitor picked it (cookie or
+ * account setting), false when it is the automatic one (language, country, admin default). The
+ * switcher and the settings form show "Automatic (by language)" as selected when it is false.
+ */
+export async function getDisplayCurrencyState(
+  userCurrency?: string | null,
+  locale?: string,
+): Promise<{ currency: CurrencyCode; chosen: boolean }> {
   try {
     const fromCookie = (await cookies()).get(CURRENCY_COOKIE_NAME)?.value;
-    if (isEnabledCurrency(fromCookie)) return fromCookie;
+    if (isEnabledCurrency(fromCookie)) return { currency: fromCookie, chosen: true };
   } catch {
     // Outside a request (scripts): no cookie.
   }
 
-  if (isEnabledCurrency(userCurrency)) return userCurrency;
+  if (isEnabledCurrency(userCurrency)) return { currency: userCurrency, chosen: true };
+  return { currency: await automaticCurrency(locale), chosen: false };
+}
+
+/** The currency for a visitor who has not chosen one: language → country → admin default → USD. */
+async function automaticCurrency(locale?: string): Promise<CurrencyCode> {
+  let pageLocale = locale;
+  if (!pageLocale) {
+    try {
+      pageLocale = await getLocale();
+    } catch {
+      // Outside a request: no locale.
+    }
+  }
+  const byLocale = defaultCurrencyForLocale(pageLocale);
+  if (isEnabledCurrency(byLocale)) return byLocale;
 
   try {
     const country = await getCountryCode();

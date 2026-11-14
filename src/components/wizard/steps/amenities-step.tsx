@@ -3,8 +3,9 @@
 import { useTranslations } from "next-intl";
 import { ClockIcon, ListChecksIcon, PartyPopperIcon, PawPrintIcon, CigaretteIcon, MoonIcon } from "lucide-react";
 import { AMENITIES } from "@/lib/listing/fields";
-import { applies } from "@/lib/wizard/steps";
-import { CheckCards, Field, Section, TimeInput, YesNo } from "../fields";
+import { displayAmenities } from "@/lib/geo/walk-towns";
+import { applies, usesBookingStep } from "@/lib/wizard/steps";
+import { CheckCards, CheckTimeSelect, Field, Section, TimeInput, YesNo } from "../fields";
 import { AMENITY_ICONS } from "../icons";
 import { useOptionLabel } from "../labels";
 import type { StepProps } from "../step-props";
@@ -22,8 +23,13 @@ export function AmenitiesStep({ values, set, errors, kind }: StepProps) {
           description={t("legendHelp")}
           values={values.amenities}
           onChange={(amenities) => set({ amenities })}
-          columns="grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-3"
-          options={AMENITIES.map((a) => ({ value: a, label: label("amenity", a), icon: AMENITY_ICONS[a] }))}
+          layout="tiles"
+          // Brief 7.3: with a pin, the computed walk to the sea replaces the "Near the sea" tick.
+          options={displayAmenities(AMENITIES, values.lat !== null && values.lng !== null).map((a) => ({
+            value: a,
+            label: label("amenity", a),
+            icon: AMENITY_ICONS[a],
+          }))}
         />
       </Section>
 
@@ -52,16 +58,29 @@ export function AmenitiesStep({ values, set, errors, kind }: StepProps) {
             )}
           </div>
 
-          {applies("checkInOut", kind) && (
+          {/* Short stays and hotels set their check-in/out times in the "הזמנות ומחיר" step. */}
+          {applies("checkInOut", kind) && !usesBookingStep(kind) && (
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label={t("checkIn")} error={errors.checkInFrom} optional>
                 {(props) => (
-                  <TimeInput {...props} value={values.checkInFrom} onChange={(checkInFrom) => set({ checkInFrom })} />
+                  <CheckTimeSelect
+                    {...props}
+                    kind="checkIn"
+                    time={values.checkInFrom}
+                    flexible={values.checkInFlexible}
+                    onChange={(choice) => set({ checkInFrom: choice.time, checkInFlexible: choice.flexible })}
+                  />
                 )}
               </Field>
               <Field label={t("checkOut")} error={errors.checkOutUntil} optional>
                 {(props) => (
-                  <TimeInput {...props} value={values.checkOutUntil} onChange={(checkOutUntil) => set({ checkOutUntil })} />
+                  <CheckTimeSelect
+                    {...props}
+                    kind="checkOut"
+                    time={values.checkOutUntil}
+                    flexible={values.checkOutFlexible}
+                    onChange={(choice) => set({ checkOutUntil: choice.time, checkOutFlexible: choice.flexible })}
+                  />
                 )}
               </Field>
             </div>

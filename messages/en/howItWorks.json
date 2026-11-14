@@ -1,10 +1,10 @@
 {
   "metaTitle": "How it works",
-  "metaDescription": "How {siteName} works for guests and owners: search with Jewish-friendly filters, check the verification badges and contact owners directly, with no booking fees.",
+  "metaDescription": "How {siteName} works for guests and owners: search with Jewish-friendly filters, book short stays on the site and pay the host on arrival, or contact owners directly for monthly rentals and sales. No booking fees.",
   "hero": {
     "eyebrow": "How it works",
     "title": "From search to keys, in three simple steps",
-    "lead": "{siteName} connects guests with owners directly. No booking fees, no middlemen — and checks at every step to keep scammers out."
+    "lead": "{siteName} connects guests with owners: book short stays on the site and pay the host when you arrive, or contact the owner directly for monthly rentals and sales. No booking fees, no middlemen — and checks at every step to keep scammers out."
   },
   "tabs": {
     "label": "Choose your track",
@@ -29,8 +29,8 @@
       "body": "Look through the photos, the details and the house rules. Verification badges show what the owner has proven to us, and the “Last updated” date shows the listing is current."
     },
     "step3": {
-      "title": "Contact the owner directly",
-      "body": "Tap WhatsApp, Telegram, Viber, Messenger, phone or email, and a ready message in your language opens in the app. You agree everything with the owner — no booking fees."
+      "title": "Book or get in touch",
+      "body": "Short stays and hotels: pick your dates, the booking is confirmed right away, and you pay the host when you arrive. Monthly rentals and sales: tap WhatsApp, Telegram, Viber, Messenger, phone or email, and a ready message in your language opens in the app. We take no payments and charge no booking fees."
     },
     "cta": "Start searching"
   },
@@ -39,15 +39,15 @@
     "lead": "Reach Jewish and Israeli guests and buyers — for free.",
     "step1": {
       "title": "Verify your phone and post for free",
-      "body": "Sign up with Google, Apple or your phone, confirm your number with a code and post your listing step by step. Write it once — we translate it into the other four languages."
+      "body": "Sign up with Google or a code sent to your email, confirm your phone number with a code and post your listing step by step. Write it once — we translate it into the other four languages."
     },
     "step2": {
       "title": "Automatic checks and review",
       "body": "Every new or edited listing goes through automatic checks, and your first listing is always reviewed by a person. Most listings go live right away; some wait for a moderator first. We email you either way."
     },
     "step3": {
-      "title": "Guests contact you directly",
-      "body": "Guests reach you in the apps you choose, in the order you choose. Your contact details are shown only to signed-in users, which keeps bots away."
+      "title": "Bookings and messages",
+      "body": "For short stays and hotels, guests book on the site and you get an alert with the booking details. For monthly rentals and sales, they reach you in the apps you choose, in the order you choose. Your contact details are shown only to signed-in users, which keeps bots away."
     },
     "cta": "List your property"
   },
@@ -84,11 +84,11 @@
     },
     "q2": {
       "q": "Can I book or pay through the site?",
-      "a": "Not at the moment. You agree the dates and the payment with the owner yourself. Never pay before you've checked the owner and seen the place, in person or on a live video call."
+      "a": "Short stays and hotel rooms are booked on the site: pick your dates, see the total price, and the booking is confirmed right away. You pay the host when you arrive, not through the site. For monthly rentals and sales you agree the details and the payment with the owner directly. Never pay before you've checked the owner and seen the place, in person or on a live video call."
     },
     "q3": {
       "q": "Why do I have to sign in to see contact details?",
-      "a": "It stops bots from collecting owners' phone numbers. Signing in takes one tap with Google or Apple, or a code sent to your phone."
+      "a": "It stops bots from collecting owners' phone numbers. Signing in takes one tap with Google, or a code sent to your email."
     },
     "q4": {
       "q": "How do I know a listing is real?",

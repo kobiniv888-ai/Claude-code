@@ -4,10 +4,10 @@
   "showContactHint": "Contact details are shown only to signed-in visitors. Logging in takes one tap.",
   "availableChannels": "Ways to contact",
   "contactOwner": "Contact the owner",
-  "allOptions": "Contact",
+  "allOptions": "All ways to contact",
   "sheetDescription": "The owner's contact options",
   "noChannels": "The owner has not added contact options yet.",
-  "manageListings": "Manage my listings",
+  "manageListings": "Manage my places",
   "unavailable": {
     "preview": "The contact buttons work once the listing is live.",
     "own": "This is your listing. Guests see your contact buttons here.",
@@ -34,11 +34,11 @@
   "copied": "Message copied — paste it in {app}",
   "copyFailed": "We couldn't copy the message. Write to the owner in {app}.",
   "message": {
-    "datesGuests": "Hi! I saw your listing ‘{title}’ (ID {id}) on {siteName}. Is it free on {dates} for {guests, plural, one {{guests} guest} other {{guests} guests}}?",
-    "dates": "Hi! I saw your listing ‘{title}’ (ID {id}) on {siteName}. Is it free on {dates}?",
-    "guests": "Hi! I saw your listing ‘{title}’ (ID {id}) on {siteName}. Is it free for {guests, plural, one {{guests} guest} other {{guests} guests}}? Which dates are available?",
-    "plain": "Hi! I saw your listing ‘{title}’ (ID {id}) on {siteName}. Is it still available? I'd like to know more.",
-    "sale": "Hi! I saw your property ‘{title}’ (ID {id}) on {siteName}. Is it still for sale? I'd like to know more and arrange a viewing."
+    "datesGuests": "Hi! I saw your listing ‘{title}’ (ID {id}) on {siteName}. Is it free on {dates} for {guests, plural, one {{guests} guest} other {{guests} guests}}?\n{url}",
+    "dates": "Hi! I saw your listing ‘{title}’ (ID {id}) on {siteName}. Is it free on {dates}?\n{url}",
+    "guests": "Hi! I saw your listing ‘{title}’ (ID {id}) on {siteName}. Is it free for {guests, plural, one {{guests} guest} other {{guests} guests}}? Which dates are available?\n{url}",
+    "plain": "Hi! I saw your listing ‘{title}’ (ID {id}) on {siteName}. Is it still available? I'd like to know more.\n{url}",
+    "sale": "Hi! I saw your property ‘{title}’ (ID {id}) on {siteName}. Is it still for sale? I'd like to know more and arrange a viewing.\n{url}"
   },
   "safety": {
     "title": "Before you contact the owner",
@@ -77,5 +77,8 @@
     "send_failed": "The message could not be sent. Please try again in a few minutes.",
     "unavailable": "This contact option is not available. Please try another one.",
     "not_found": "This listing is no longer available."
-  }
+  },
+  "showPhone": "Show phone",
+  "moreChannels": "More ways to contact",
+  "otherChannels": "Other apps"
 }

@@ -3,11 +3,35 @@
 // For a quick preview deployment you can let the build prepare the database:
 //   DB_PUSH_ON_BUILD=true   → create/update the tables (prisma db push; refuses data-loss changes)
 //   SEED_ON_BUILD=true      → load cities, FAQ, banned words and the demo listings (safe to repeat)
-// For the real launch, leave both off and run migrations deliberately (see README).
+// For the real launch, leave both off and run migrations deliberately (see README): with
+// SITE_ENV=production the settings check below refuses them, and before either one runs the
+// database is checked for the real site's marker (scripts/check-site-marker.ts, SECURITY_REPORT
+// 12.1.b): a preview or staging build never pushes to or seeds the real database.
 import { execSync } from "node:child_process";
 
 const run = (cmd) => execSync(cmd, { stdio: "inherit" });
 
-if (process.env.DB_PUSH_ON_BUILD === "true") run("npx prisma db push");
+// Fail closed before building anything: the same settings check the server runs at every start
+// (src/lib/startup-check.ts; SECURITY_REPORT 2.2.j / 3.4.b). SITE_ENV and every required secret
+// must be set in the hosting's environment settings for this deployment.
+run("npx tsx scripts/check-startup-env.ts");
+
+if (process.env.DB_PUSH_ON_BUILD === "true" || process.env.SEED_ON_BUILD === "true") {
+  run("npx tsx --require ./scripts/server-script.cjs scripts/check-site-marker.ts");
+}
+if (process.env.DB_PUSH_ON_BUILD === "true") {
+  // Lets the push add the booking index without a consent prompt (see the file; idempotent).
+  run("npx prisma db execute --file prisma/sql/before-push.sql");
+  run("npx prisma db push");
+}
 if (process.env.SEED_ON_BUILD === "true") run("npm run db:seed");
+// Field encryption (SECURITY_REPORT 12.3.c): plain addresses, pins and guest phones go into the
+// encrypted columns and the database guard is added. Idempotent; fails the build when something is
+// left that it could not encrypt (scripts/encrypt-fields.ts).
+// It adds a table constraint, so it runs as the migration role when one is set (SECURITY_REPORT
+// 12.3.b: the app's own role, DATABASE_URL, cannot change tables; prisma.config.ts does the same).
+if (process.env.DB_PUSH_ON_BUILD === "true" || process.env.SEED_ON_BUILD === "true") {
+  const migrationUrl = process.env.MIGRATION_DATABASE_URL?.trim();
+  execSync("npm run --silent db:encrypt-fields", { stdio: "inherit", env: migrationUrl ? { ...process.env, DATABASE_URL: migrationUrl } : process.env });
+}
 run("npx next build");

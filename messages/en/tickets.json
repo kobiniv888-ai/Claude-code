@@ -162,7 +162,8 @@
     "updatesTitle": "How we'll update you",
     "updatesEmail": "We'll email you every time we reply. You can also follow everything in “My tickets”.",
     "updatesNoEmail": "Your account has no email address, so you'll find our replies in “My tickets”. Add an email in your settings to get updates by email too.",
-    "myTickets": "Go to my tickets"
+    "myTickets": "Go to my tickets",
+    "replyTitle": "Reply time"
   },
   "listPage": {
     "title": "My support tickets",

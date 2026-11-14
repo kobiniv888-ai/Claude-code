@@ -1,12 +1,15 @@
 import "server-only";
+import { safeDisplayName } from "@/lib/auth/first-name";
+import { settingsFirstName } from "./greeting";
 import type { AppLocale, CurrencyCode } from "@/config/site";
+import { showsDocumentBadge } from "@/config/verification";
 import type { Prisma } from "@/generated/prisma/client";
 import type { AccountType, DealType, ListingStatus, Locale, PricePeriod, VerificationStatus, VerificationType } from "@/generated/prisma/enums";
 import { pickLocalized } from "@/i18n/locale";
 import { authProviders } from "@/lib/auth/config";
 import { db } from "@/lib/db";
 import { isPlaceholderEmail } from "@/lib/email";
-import { listingCardSelect, toListingCard } from "@/lib/listing/mappers";
+import { CARD_OWNER_SELECT, listingCardSelect, toListingCard } from "@/lib/listing/mappers";
 import type { ListingCardData } from "@/lib/listing/types";
 import { listingPath } from "@/lib/listing/urls";
 import { photoUrl } from "@/lib/media";
@@ -20,6 +23,7 @@ import {
 } from "./listing-status";
 import { parseNotificationPrefs, type NotificationPrefs } from "./settings-schema";
 import { latestRequest, verificationProgress, type RequestSummary, type VerificationProgress } from "./verification";
+import { isHostAccount } from "@/lib/auth/phone-check-policy";
 
 /**
  * Read-side of the "My account" dashboard (server-only). Every query is scoped to the signed-in
@@ -153,7 +157,7 @@ function toMyListing(row: MyListingRow, locale: AppLocale): MyListing {
     moderationReason: row.moderationReason,
     moderationNote: row.moderationNote?.trim() || null,
     wizardStep: row.wizardStep,
-    ownerVerified: !!row.ownerVerifiedAt,
+    ownerVerified: showsDocumentBadge(row.ownerVerifiedAt),
   };
 }
 
@@ -268,6 +272,7 @@ export async function getAccountOverview(user: {
     openTickets,
     progress: verificationProgress({
       phoneVerified: user.phoneNumberVerified,
+      isHost: isHostAccount(counts.all),
       idVerified: !!user.idVerifiedAt,
       idLatest: latestRequest(requests, "ID"),
       hasListings: listingsToVerify > 0,
@@ -285,12 +290,20 @@ export type FavoriteItem =
 
 export const FAVORITES_LIMIT = 300;
 
-export async function getFavoriteItems(userId: string, locale: AppLocale): Promise<FavoriteItem[]> {
+/**
+ * Saved places, newest first. `list` (round 3, saved lists): only the places in that list; the
+ * default list also holds the places saved without a list (listId null).
+ */
+export async function getFavoriteItems(
+  userId: string,
+  locale: AppLocale,
+  list?: { id: string; isDefault: boolean },
+): Promise<FavoriteItem[]> {
   const settings = await getSettings();
   const now = new Date();
   const base = listingCardSelect(locale);
   const rows = await db.favorite.findMany({
-    where: { userId },
+    where: list ? { userId, ...(list.isDefault ? { OR: [{ listId: list.id }, { listId: null }] } : { listId: list.id }) } : { userId },
     orderBy: { createdAt: "desc" },
     take: FAVORITES_LIMIT,
     select: {
@@ -302,7 +315,7 @@ export async function getFavoriteItems(userId: string, locale: AppLocale): Promi
           status: true,
           deletedAt: true,
           expiresAt: true,
-          owner: { select: { accountType: true, idVerifiedAt: true, status: true, deletedAt: true } },
+          owner: { select: { ...CARD_OWNER_SELECT, status: true, deletedAt: true } },
         },
       },
     },
@@ -319,7 +332,13 @@ export async function getFavoriteItems(userId: string, locale: AppLocale): Promi
       (l.owner.status === "ACTIVE" || l.owner.status === "WARNED");
     const common = { listingId: l.id, note: row.note, savedAt: row.createdAt.toISOString() };
     if (!visible) return { ...common, available: false, title: l.title.trim(), publicId: l.publicId };
-    const card = toListingCard(l, { locale, now, featuredIds: featured, favoriteIds: new Set([l.id]) });
+    const card = toListingCard(l, {
+      locale,
+      now,
+      featuredIds: featured,
+      favoriteIds: new Set([l.id]),
+      pledgeRequiredVersion: settings.pledgeRequiredVersion,
+    });
     return { ...common, available: true, card };
   });
 }
@@ -349,6 +368,8 @@ export type VerificationRequestView = {
 export type VerificationCenter = {
   phoneNumber: string | null;
   phoneVerified: boolean;
+  /** Has a listing, drafts included: may be offered the SMS phone check here (phone-check-policy). */
+  isHost: boolean;
   idVerifiedAt: string | null;
   businessVerifiedAt: string | null;
   accountType: AccountType;
@@ -357,7 +378,7 @@ export type VerificationCenter = {
 };
 
 export async function getVerificationCenter(userId: string): Promise<VerificationCenter> {
-  const [user, requests, listings] = await Promise.all([
+  const [user, requests, listings, listingCount] = await Promise.all([
     db.user.findUniqueOrThrow({
       where: { id: userId },
       select: { phoneNumber: true, phoneNumberVerified: true, idVerifiedAt: true, businessVerifiedAt: true, accountType: true },
@@ -383,10 +404,12 @@ export async function getVerificationCenter(userId: string): Promise<Verificatio
       take: 100,
       select: { id: true, publicId: true, title: true, status: true, ownerVerifiedAt: true, cadastralCode: true },
     }),
+    db.listing.count({ where: { ownerId: userId, deletedAt: null } }),
   ]);
   return {
     phoneNumber: user.phoneNumber,
     phoneVerified: !!user.phoneNumber && user.phoneNumberVerified === true,
+    isHost: isHostAccount(listingCount),
     idVerifiedAt: user.idVerifiedAt?.toISOString() ?? null,
     businessVerifiedAt: user.businessVerifiedAt?.toISOString() ?? null,
     accountType: user.accountType,
@@ -430,6 +453,8 @@ export type ConnectedProvider = "google" | "apple";
 
 export type AccountSettingsData = {
   name: string;
+  /** Null until the first-name step; the form starts from the first word of a real name. */
+  firstName: string | null;
   image: string | null;
   bio: string | null;
   spokenLanguages: string[];
@@ -461,6 +486,8 @@ export async function getAccountSettings(userId: string): Promise<AccountSetting
     select: {
       name: true,
       image: true,
+      firstName: true,
+      isDemo: true,
       bio: true,
       spokenLanguages: true,
       keepsShabbat: true,
@@ -481,7 +508,9 @@ export async function getAccountSettings(userId: string): Promise<AccountSetting
   const providers = (["google", "apple"] as const).filter((p) => authProviders[p]);
   const linkedIds = new Set(user.accounts.map((a) => a.providerId));
   return {
-    name: user.name,
+    name: safeDisplayName(user.name) ?? "",
+    // Demo accounts: "Noa", never the "Demo" of "Demo Guest — Noa" (settingsFirstName).
+    firstName: settingsFirstName(user),
     image: user.image,
     bio: user.bio,
     spokenLanguages: user.spokenLanguages,

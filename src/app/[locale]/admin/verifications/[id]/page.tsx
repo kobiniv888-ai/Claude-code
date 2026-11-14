@@ -7,7 +7,9 @@ import { DocumentViewer } from "@/components/admin/document-viewer";
 import { ListingThumb, PublicId, WhenText } from "@/components/admin/listing-bits";
 import { AdminPageHeader, AdminSection, FactList } from "@/components/admin/page-header";
 import { VerificationActions } from "@/components/admin/verification-actions";
+import { StaffPhoneValue } from "@/components/admin/staff-phone";
 import { Ltr } from "@/components/common/ltr";
+import { documentChecksOn } from "@/config/verification";
 import { Link } from "@/i18n/navigation";
 import { cityName, coverUrl, realEmail } from "@/lib/admin/server/shared";
 import { getVerificationDetail } from "@/lib/admin/server/verifications";
@@ -25,7 +27,7 @@ export default async function VerificationDetailPage({ params }: PageProps<"/[lo
   const { locale, id } = await params;
   setRequestLocale(locale);
   const staff = await requireStaff("verifications");
-  const data = await getVerificationDetail(id);
+  const data = await getVerificationDetail(id, staff);
   if (!data) notFound();
   const { request, documents } = data;
   const { user, listing } = request;
@@ -50,7 +52,16 @@ export default async function VerificationDetailPage({ params }: PageProps<"/[lo
         }
       />
 
-      {pending ? (
+      {pending && !documentChecksOn() ? (
+        // Founder's answer 5 (round 3): no document checks for now; the request stays as it was.
+        <p className="mb-5 flex items-start gap-2 rounded-xl border border-primary/20 bg-secondary/60 p-3 text-sm">
+          <Info aria-hidden className="mt-0.5 size-4 shrink-0 text-primary" />
+          <span>
+            <span className="block font-medium">{t("paused.title")}</span>
+            <span className="block text-muted-foreground">{t("paused.body")}</span>
+          </span>
+        </p>
+      ) : pending ? (
         <div className="mb-5 rounded-xl border bg-card p-3 shadow-xs">
           <VerificationActions requestId={request.id} typeLabel={typeLabel} name={user.name} canApprove={canApprove} />
           <p className="mt-2 flex items-start gap-1.5 text-xs text-muted-foreground">
@@ -127,7 +138,7 @@ export default async function VerificationDetailPage({ params }: PageProps<"/[lo
                   <div
                     className={cn(
                       "rounded-lg border p-3 text-sm",
-                      data.cadastral === "match" && "border-verified/40 bg-verified-soft",
+                      data.cadastral === "match" && "border-success/40 bg-primary-tint",
                       data.cadastral === "mismatch" && "border-destructive/40 bg-destructive/5",
                     )}
                   >
@@ -135,7 +146,7 @@ export default async function VerificationDetailPage({ params }: PageProps<"/[lo
                       {data.cadastral === "mismatch" ? (
                         <AlertTriangle aria-hidden className="size-4 text-destructive" />
                       ) : data.cadastral === "match" ? (
-                        <CheckCircle2 aria-hidden className="size-4 text-verified" />
+                        <CheckCircle2 aria-hidden className="size-4 text-success" />
                       ) : (
                         <Info aria-hidden className="size-4 text-muted-foreground" />
                       )}
@@ -195,7 +206,7 @@ export default async function VerificationDetailPage({ params }: PageProps<"/[lo
                 items={[
                   ...(user.businessName ? [{ label: t("businessName"), value: <span dir="auto">{user.businessName}</span> }] : []),
                   { label: tAdmin("common.joined"), value: `${formatDate(user.createdAt, locale)} · ${formatRelativeTime(user.createdAt, locale)}` },
-                  { label: tAdmin("common.phone"), value: user.phoneNumber ? <Ltr>{user.phoneNumber}</Ltr> : "—" },
+                  { label: tAdmin("common.phone"), value: <StaffPhoneValue phone={data.userPhone} withheldNote={tAdmin("users.phoneLast2Only")} /> },
                   { label: tAdmin("common.email"), value: realEmail(user.email) ? <Ltr className="break-all">{realEmail(user.email)}</Ltr> : "—" },
                   {
                     label: t("stats"),

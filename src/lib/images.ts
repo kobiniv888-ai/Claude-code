@@ -2,8 +2,9 @@ import "server-only";
 import { inflateSync } from "node:zlib";
 import sharp, { type Sharp, type SharpOptions } from "sharp";
 import { siteConfig } from "@/config/site";
-import { AppError } from "@/lib/errors";
+import { AppError, RateLimitError } from "@/lib/errors";
 import { listingPhotoVariantKeys, OG_IMAGE_SIZE, PHOTO_MAX_SIDE } from "@/lib/media";
+import { assertRateLimit } from "@/lib/rate-limit";
 import { deletePublic } from "@/lib/storage";
 
 /**
@@ -12,6 +13,9 @@ import { deletePublic } from "@/lib/storage";
  * Every uploaded image is decoded and RE-ENCODED: nothing the visitor uploaded is served as-is.
  * Re-encoding drops all metadata (EXIF incl. GPS location, XMP, IPTC, ICC, comments) and any
  * payload hidden after the image data.
+ *
+ *   const upload = await prepareUploadImage(buffer, { userId });  // JPEG/PNG/WebP, or HEIC decoded
+ *   const photo = await processListingPhoto(upload.buffer);
  *
  *   const info = await validateImage(buffer);           // throws ImageValidationError
  *   const photo = await processListingPhoto(buffer);    // lg/md/sm WebP + og JPEG + blur + phash
@@ -25,6 +29,11 @@ import { deletePublic } from "@/lib/storage";
 export const IMAGE_ERROR_CODES = [
   "file_too_large",
   "file_type_not_allowed",
+  /**
+   * An iPhone photo in HEIC that we could not decode (a broken file, or one in a HEIF variant our
+   * decoder does not read): the message says how to send it as JPEG. Readable HEIC is converted.
+   */
+  "heic_not_supported",
   "image_too_small",
   "image_corrupt",
   "file_rejected",
@@ -35,6 +44,7 @@ export type ImageErrorCode = (typeof IMAGE_ERROR_CODES)[number];
 const STATUS: Record<ImageErrorCode, number> = {
   file_too_large: 413,
   file_type_not_allowed: 415,
+  heic_not_supported: 415,
   image_too_small: 422,
   image_corrupt: 422,
   file_rejected: 422,
@@ -57,7 +67,23 @@ export const MIN_PHOTO_SHORT_SIDE = 400;
 /** Decompression-bomb guard: 100 megapixels is far above any phone camera. */
 const MAX_INPUT_PIXELS = 100_000_000;
 
+/** What sniffImageFormat recognises. Only ACCEPTED_IMAGE_FORMATS are ever decoded. */
 export type ImageFormat = "jpeg" | "png" | "webp" | "avif" | "heic" | "gif";
+
+/**
+ * The formats sharp decodes for us (SECURITY_REPORT 9.a, founder's answers L7 and Q2): JPEG, PNG
+ * and WebP. HEIC is not one of them: validateImage refuses raw HEIC ("heic_not_supported"), and
+ * prepareUploadImage converts it first with its own decoder (founder's answer (e), 8 November
+ * 2026; iPhones also send JPEG on their own, because the upload fields offer only these types:
+ * UPLOAD_IMAGE_ACCEPT in @/lib/media). AVIF and GIF are refused with "file_type_not_allowed".
+ * Refused formats never reach a decoder: the check is on the first bytes, before sharp.
+ */
+export const ACCEPTED_IMAGE_FORMATS = ["jpeg", "png", "webp"] as const;
+export type AcceptedImageFormat = (typeof ACCEPTED_IMAGE_FORMATS)[number];
+
+export function isAcceptedImageFormat(format: ImageFormat | null): format is AcceptedImageFormat {
+  return format !== null && (ACCEPTED_IMAGE_FORMATS as readonly string[]).includes(format);
+}
 
 export const IMAGE_MIME_TYPES: Record<ImageFormat, string> = {
   jpeg: "image/jpeg",
@@ -71,7 +97,7 @@ export const IMAGE_MIME_TYPES: Record<ImageFormat, string> = {
 const INPUT_OPTIONS: SharpOptions = {
   failOn: "error",
   limitInputPixels: MAX_INPUT_PIXELS,
-  // GIF / animated WebP: only the first frame.
+  // Animated WebP: only the first frame.
   pages: 1,
 };
 
@@ -100,13 +126,13 @@ export function sniffImageFormat(buffer: Buffer): ImageFormat | null {
   return null;
 }
 
-export type ImageInfo = { format: ImageFormat; width: number; height: number };
+export type ImageInfo = { format: AcceptedImageFormat; width: number; height: number };
 
 /**
- * Checks an uploaded image: allowed type (JPEG, PNG, WebP, AVIF, GIF — first frame — and HEIC
- * when the installed libvips can decode it), size ≤ maxBytes, short side ≥ minShortSide, and that
- * it actually decodes. Width/height are as displayed (EXIF orientation applied).
- * Throws ImageValidationError.
+ * Checks an uploaded image: allowed type (JPEG, PNG or WebP, from its first bytes; HEIC →
+ * "heic_not_supported", AVIF, GIF, SVG and anything else → "file_type_not_allowed"), size ≤
+ * maxBytes, short side ≥ minShortSide, and that it actually decodes as the same type. Width/height
+ * are as displayed (EXIF orientation applied). Throws ImageValidationError.
  */
 export async function validateImage(
   buffer: Buffer,
@@ -119,31 +145,158 @@ export async function validateImage(
   if (buffer.length > maxBytes) throw new ImageValidationError("file_too_large");
 
   const format = sniffImageFormat(buffer);
-  if (!format) throw new ImageValidationError("file_type_not_allowed");
+  if (format === "heic") throw new ImageValidationError("heic_not_supported", "HEIC photos are not accepted");
+  if (!isAcceptedImageFormat(format)) throw new ImageValidationError("file_type_not_allowed", format ? `${format} is not accepted` : undefined);
 
   let width: number;
   let height: number;
   try {
     const meta = await sharp(buffer, INPUT_OPTIONS).metadata();
-    if (meta.format !== "jpeg" && meta.format !== "png" && meta.format !== "webp" && meta.format !== "gif" && meta.format !== "heif") {
-      throw new ImageValidationError("file_type_not_allowed");
-    }
+    // The decoder must agree with the first bytes (a JPEG header on a file libvips reads as
+    // something else is refused).
+    if (meta.format !== format) throw new ImageValidationError("file_type_not_allowed");
     width = meta.autoOrient?.width ?? meta.width;
     height = meta.autoOrient?.height ?? meta.height;
-    // Decode a tiny version: catches truncated files and HEIC without an HEVC decoder.
+    // Decode a tiny version: catches truncated files.
     await sharp(buffer, INPUT_OPTIONS).resize(8, 8, { fit: "inside" }).raw().toBuffer();
   } catch (error) {
     if (error instanceof ImageValidationError) throw error;
     const message = (error as Error)?.message ?? "";
     if (/pixel limit/i.test(message)) throw new ImageValidationError("file_too_large", message);
-    // HEIC (HEVC) needs a libvips build with libde265; the prebuilt sharp binaries cannot decode it.
-    if (format === "heic") throw new ImageValidationError("file_type_not_allowed", "HEIC is not supported here");
     throw new ImageValidationError("image_corrupt", message);
   }
 
   if (!width || !height) throw new ImageValidationError("image_corrupt", "No dimensions");
   if (Math.min(width, height) < minShortSide) throw new ImageValidationError("image_too_small");
   return { format, width, height };
+}
+
+// ─── HEIC (iPhone photos) ─────────────────────────────────────
+
+/**
+ * HEIC is decoded with heic-decode (libheif compiled to WebAssembly; README → "Image uploads"):
+ * the bundled libvips cannot read HEVC. Founder's answer (e), 8 November 2026: iPhone photos must
+ * keep working, with GPS and every other metadata block removed. The browser converts HEIC to
+ * JPEG first wherever it can (src/lib/media-client.ts: saves our CPU); this is for what still
+ * arrives as HEIC (Chrome on Windows, a file shared from elsewhere).
+ *
+ * Limits, because decoding costs CPU and memory: the file's size (the caller's maxBytes) and its
+ * picture size (MAX_HEIC_PIXELS, read from the file before decoding) are checked first; the
+ * decoded pixels must match that size; HEIC_DECODE_LIMIT per user per hour; one decode at a time
+ * on a server, with at most MAX_HEIC_WAITING more waiting (others get "rate_limited").
+ */
+export const MAX_HEIC_PIXELS = 50_000_000;
+/** HEIC decodes per user per hour (decoding a 12 MP photo takes about a second of CPU). */
+export const HEIC_DECODE_LIMIT = { limit: 40, windowSeconds: 3600 } as const;
+const MAX_HEIC_WAITING = 3;
+
+let heicChain: Promise<unknown> = Promise.resolve();
+let heicWaiting = 0;
+
+/** Runs one HEIC decode at a time on this server; refuses when too many are already waiting. */
+async function oneHeicDecodeAtATime<T>(task: () => Promise<T>): Promise<T> {
+  if (heicWaiting > MAX_HEIC_WAITING) throw new RateLimitError(new Date(Date.now() + 5_000), "HEIC decoder busy");
+  heicWaiting++;
+  const run = heicChain.then(task, task);
+  heicChain = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  try {
+    return await run;
+  } finally {
+    heicWaiting--;
+  }
+}
+
+type HeicDecode = (typeof import("heic-decode"))["default"];
+
+/** Loaded only on the HEIC path (the WebAssembly decoder is several megabytes). */
+async function loadHeicDecoder(): Promise<HeicDecode> {
+  const mod = (await import("heic-decode")) as unknown as { default?: HeicDecode } & HeicDecode;
+  return mod.default ?? mod;
+}
+
+/** RGBA pixels of the HEIC's primary picture (no metadata can come along: only pixels). */
+async function decodeHeicPixels(buffer: Buffer): Promise<{ data: Buffer; width: number; height: number }> {
+  const decoder = await loadHeicDecoder();
+  let images: Awaited<ReturnType<HeicDecode["all"]>>;
+  try {
+    images = await decoder.all({ buffer: new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength) });
+  } catch (error) {
+    throw new ImageValidationError("heic_not_supported", (error as Error)?.message);
+  }
+  try {
+    const primary = images[0];
+    const width = primary?.width ?? 0;
+    const height = primary?.height ?? 0;
+    if (!width || !height) throw new ImageValidationError("heic_not_supported", "No picture in the HEIC file");
+    // Before decoding: the picture size the file announces.
+    if (width * height > MAX_HEIC_PIXELS) throw new ImageValidationError("file_too_large", `HEIC picture of ${width}×${height}`);
+    let decoded: { width: number; height: number; data: Uint8ClampedArray };
+    try {
+      decoded = await primary.decode();
+    } catch (error) {
+      throw new ImageValidationError("heic_not_supported", (error as Error)?.message);
+    }
+    // After decoding: exactly the announced size, four bytes (RGBA) per pixel.
+    if (decoded.width !== width || decoded.height !== height || decoded.data.length !== width * height * 4) {
+      throw new ImageValidationError("image_corrupt", "Decoded HEIC does not match its size");
+    }
+    return { data: Buffer.from(decoded.data.buffer, decoded.data.byteOffset, decoded.data.byteLength), width, height };
+  } finally {
+    try {
+      images.dispose();
+    } catch {
+      // Already freed.
+    }
+  }
+}
+
+export type PreparedUploadImage = {
+  /**
+   * What the image pipeline reads: the uploaded file itself (JPEG, PNG, WebP), or for HEIC a
+   * lossless PNG made from the decoded pixels only (no EXIF, GPS, XMP or maker notes).
+   */
+  buffer: Buffer;
+  /** The format and displayed size of `buffer`. */
+  info: ImageInfo;
+  /** What was uploaded ("heic" when converted). The malware scan reads the original bytes. */
+  source: AcceptedImageFormat | "heic";
+};
+
+/**
+ * The one entry point for uploaded images: validateImage for JPEG, PNG and WebP; HEIC/HEIF is
+ * decoded (see "HEIC" above) and handed to the same pipeline as a clean PNG, so every stored image
+ * is re-encoded the same way. `userId` is the uploader (or staff member), for the decode limit.
+ * Throws ImageValidationError (or RateLimitError when too many HEIC photos are decoded).
+ */
+export async function prepareUploadImage(
+  buffer: Buffer,
+  opts: { maxBytes?: number; minShortSide?: number; userId: string },
+): Promise<PreparedUploadImage> {
+  const maxBytes = opts.maxBytes ?? siteConfig.listings.maxPhotoBytes;
+  const minShortSide = opts.minShortSide ?? MIN_PHOTO_SHORT_SIDE;
+  if (!buffer || buffer.length === 0) throw new ImageValidationError("image_corrupt", "Empty file");
+  if (buffer.length > maxBytes) throw new ImageValidationError("file_too_large");
+  if (sniffImageFormat(buffer) !== "heic") {
+    const info = await validateImage(buffer, { maxBytes, minShortSide });
+    return { buffer, info, source: info.format };
+  }
+
+  if (!opts.userId) throw new ImageValidationError("heic_not_supported", "No uploader for the HEIC decode limit");
+  await assertRateLimit(`upload:heic:${opts.userId}`, HEIC_DECODE_LIMIT);
+  const pixels = await oneHeicDecodeAtATime(() => decodeHeicPixels(buffer));
+  if (Math.min(pixels.width, pixels.height) < minShortSide) throw new ImageValidationError("image_too_small");
+  let png: Buffer;
+  try {
+    png = await sharp(pixels.data, { raw: { width: pixels.width, height: pixels.height, channels: 4 }, limitInputPixels: MAX_INPUT_PIXELS })
+      .png({ compressionLevel: 1, adaptiveFiltering: false })
+      .toBuffer();
+  } catch (error) {
+    throw new ImageValidationError("image_corrupt", (error as Error)?.message);
+  }
+  return { buffer: png, info: { format: "png", width: pixels.width, height: pixels.height }, source: "heic" };
 }
 
 // ─── Perceptual hash (dHash) ──────────────────────────────────
@@ -362,6 +515,27 @@ export async function processPrivateImage(
       .jpeg({ quality: 88, mozjpeg: true })
       .toBuffer({ resolveWithObject: true });
     return { body: data, contentType: "image/jpeg", width: info.width, height: info.height };
+  } catch (error) {
+    throw new ImageValidationError("image_corrupt", (error as Error)?.message);
+  }
+}
+
+// ─── City cover photos (admin) ────────────────────────────────
+
+export const CITY_PHOTO_WIDTH = 1600;
+
+/**
+ * A city cover photo (admin content): WebP, at most 1600 px, orientation applied, all metadata
+ * removed (sharp keeps none unless asked: no withMetadata/keepExif here, and the test proves it).
+ */
+export async function processCityPhoto(buffer: Buffer): Promise<Buffer> {
+  try {
+    return await sharp(buffer, INPUT_OPTIONS)
+      .rotate()
+      .resize({ width: CITY_PHOTO_WIDTH, height: CITY_PHOTO_WIDTH, fit: "inside", withoutEnlargement: true })
+      .toColourspace("srgb")
+      .webp({ quality: 80 })
+      .toBuffer();
   } catch (error) {
     throw new ImageValidationError("image_corrupt", (error as Error)?.message);
   }

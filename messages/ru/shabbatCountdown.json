@@ -1,0 +1,19 @@
+{
+  "title": "Ближайший Шаббат",
+  "cities": "Выбор города",
+  "before": "Шаббат начнётся через {time}",
+  "during": "Шаббат шалом · закончится в {time}",
+  "duringNoEnd": "Шаббат шалом",
+  "after": "Шавуа тов — хорошей недели",
+  "unknown": "Время Шаббата скоро появится здесь",
+  "candleLighting": "Зажигание свечей",
+  "havdalah": "Авдала",
+  "localTime": "Местное время",
+  "more": "Всё время Шаббата",
+  "units": {
+    "day": "{count, plural, one {{count} день} few {{count} дня} many {{count} дней} other {{count} дня}}",
+    "hour": "{count, plural, one {{count} час} few {{count} часа} many {{count} часов} other {{count} часа}}",
+    "minute": "{count, plural, one {{count} минуту} few {{count} минуты} many {{count} минут} other {{count} минуты}}"
+  },
+  "pair": "{first} и {second}"
+}

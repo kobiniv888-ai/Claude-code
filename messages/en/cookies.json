@@ -1,6 +1,7 @@
 {
   "title": "Cookies on {name}",
-  "description": "We use necessary cookies to keep the site working and secure. With your permission, we also remember your preferences and measure how the site is used, so we can improve it.",
+  "description": "We use only necessary cookies to keep the site working and secure. With your permission, we also remember the homes you viewed and your last search on this device.",
+  "descriptionShort": "Only necessary cookies; anything optional only with your permission.",
   "policyLink": "Cookie policy",
   "acceptAll": "Accept all",
   "necessaryOnly": "Necessary only",
@@ -16,7 +17,7 @@
     },
     "preferences": {
       "title": "Preferences",
-      "description": "Remember choices like your theme, recently viewed homes and notices you closed on this device."
+      "description": "Remember the homes you viewed recently and your last search, on this device only."
     },
     "analytics": {
       "title": "Analytics",

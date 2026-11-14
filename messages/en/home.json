@@ -1,105 +1,90 @@
 {
   "meta": {
-    "title": "Homes in Georgia for Jewish travelers, families and investors",
-    "description": "{siteName}: apartments, houses, hotels and homes for sale in Tbilisi, Batumi and across Georgia — with kosher and Shabbat-friendly details, synagogue walking times, verified owners and direct contact. In Hebrew, English, Russian, Arabic and Georgian."
+    "title": "Apartments, houses and hotels in Georgia, with hosts who welcome Israelis",
+    "description": "{siteName}: short stays, monthly rentals, homes for sale and hotels in Tbilisi, Batumi and across Georgia. Every host has promised to welcome Israeli and Jewish guests. In Hebrew, English, Russian, Arabic and Georgian."
   },
   "hero": {
-    "eyebrow": "{siteName} — homes in Georgia",
-    "title": "Find a home in Georgia that feels like home",
-    "lead": "Short stays, monthly rentals, hotels and homes for sale — with kosher kitchens, Shabbat-friendly details and the walk to the nearest synagogue."
+    "title": "A home in Georgia, with hosts <em>who welcome you</em>",
+    "lead": "Every host here welcomes Israeli guests."
+  },
+  "search": {
+    "label": "Search homes",
+    "dealLabel": "What are you looking for?",
+    "deals": {
+      "short-stay": "Short stay",
+      "monthly": "Monthly",
+      "buy": "Buy",
+      "hotels": "Hotels"
+    },
+    "where": "Where to?",
+    "when": "When?",
+    "addDates": "Add dates",
+    "datesTitle": "When are you coming?",
+    "datesDone": "Done",
+    "clearDates": "Clear",
+    "guests": "Guests",
+    "guestsAny": "Any",
+    "guestCount": "{count, plural, one {{count} guest} other {{count} guests}}",
+    "fewerGuests": "Fewer guests",
+    "moreGuests": "More guests",
+    "rooms": "Rooms",
+    "roomsAny": "Any",
+    "roomCount": "{count, plural, one {{count} or more rooms} other {{count} or more rooms}}",
+    "fewerRooms": "Fewer rooms",
+    "moreRooms": "More rooms",
+    "budget": "Budget",
+    "budgetMonthly": "Budget per month",
+    "budgetPlaceholder": "No limit",
+    "submit": "Search"
+  },
+  "promise": "Here, no one will turn you away for who you are",
+  "continue": {
+    "title": "Pick up where you left off",
+    "lastSearch": "Your last search",
+    "saved": "{count, plural, one {Saved · 1 place} other {Saved · {count} places}}",
+    "recent": "Recently viewed",
+    "clear": "Clear",
+    "clearLabel": "Clear the “Recently viewed” list",
+    "cleared": "“Recently viewed” was cleared",
+    "undo": "Undo",
+    "error": "We couldn't load the places you viewed."
   },
   "categories": {
-    "title": "Browse by category",
+    "label": "Types of places",
     "apartments": "Apartments",
-    "houses": "Houses and villas",
+    "houses": "Houses & villas",
     "rooms": "Rooms",
-    "hotels": "Hotels and guesthouses",
+    "hotels": "Hotels",
     "forSale": "For sale",
-    "shabbat": "Shabbat-friendly near a synagogue"
+    "kosherShabbat": "Kosher & Shabbat"
+  },
+  "recommended": {
+    "title": "Recommended places",
+    "all": "All",
+    "empty": {
+      "short-stay": "No short stays here yet",
+      "monthly": "No monthly rentals here yet",
+      "buy": "No places for sale here yet",
+      "hotels": "No hotels here yet"
+    },
+    "emptyText": "Have a place in Georgia? List it for free.",
+    "emptyAction": "List a place",
+    "error": "We couldn't load these places. Check your connection and try again."
   },
   "cities": {
-    "title": "Popular cities",
-    "lead": "From the capital to the Black Sea coast and the mountains.",
-    "all": "All homes",
-    "count": "{count, plural, =0 {New homes coming soon} one {{formatted} home} other {{formatted} homes}}"
-  },
-  "featured": {
-    "eyebrow": "Promoted",
-    "title": "Featured homes",
-    "lead": "Promoted listings, picked by owners and our team.",
-    "all": "See all homes"
-  },
-  "newest": {
-    "title": "Newest homes",
-    "lead": "Just listed by owners across Georgia.",
-    "all": "See all new homes",
-    "emptyTitle": "The first homes are on their way",
-    "emptyText": "Owners are adding their homes right now. Have a place in Georgia? List it for free.",
-    "emptyAction": "List your property"
-  },
-  "whyUs": {
-    "title": "Why {siteName}",
-    "lead": "Built for the community, not just translated for it.",
-    "points": {
-      "verified": {
-        "title": "Verified owners",
-        "text": "Owners can verify their ID and their property. Look for the green Verified badge."
-      },
-      "jewish": {
-        "title": "Jewish-friendly details",
-        "text": "Kosher kitchens, Shabbat-friendly checklists, sukkah space and the walking time to the nearest synagogue."
-      },
-      "direct": {
-        "title": "Direct contact, no booking fees",
-        "text": "Message owners on WhatsApp, Telegram, Viber or by phone. We never take a fee from your booking."
-      },
-      "languages": {
-        "title": "Support in 5 languages",
-        "text": "Hebrew, English, Russian, Arabic and Georgian — on the site and from our support team."
-      }
-    }
+    "title": "Where to?",
+    "count": "{count, plural, one {1 place} other {{formatted} places}}"
   },
   "howItWorks": {
     "title": "How it works",
-    "lead": "Three simple steps, whether you are looking for a home or offering one.",
-    "more": "Learn more",
-    "tabsLabel": "How it works for",
-    "tabs": {
-      "guests": "For guests",
-      "owners": "For owners"
-    },
-    "guests": {
-      "one": {
-        "title": "Search your way",
-        "text": "Pick a city, dates and guests, then filter for a kosher kitchen, Shabbat-friendly homes or a synagogue nearby."
-      },
-      "two": {
-        "title": "Check the details",
-        "text": "Photos, the approximate location, Jewish-friendly details and the Verified badge help you choose with confidence."
-      },
-      "three": {
-        "title": "Contact the owner directly",
-        "text": "One tap opens WhatsApp, Telegram or a call with a ready message in your language. No booking fees."
-      }
-    },
-    "owners": {
-      "one": {
-        "title": "List for free",
-        "text": "Our step-by-step form takes a few minutes: photos, price, rooms and the details Jewish guests look for."
-      },
-      "two": {
-        "title": "Get verified",
-        "text": "We check every new listing. Verify your ID or property to earn the Verified badge and more trust."
-      },
-      "three": {
-        "title": "Guests contact you",
-        "text": "Guests reach you directly in the app you prefer. You decide who to host — with no commission."
-      }
+    "steps": {
+      "search": "Search",
+      "book": "Book on the site",
+      "pay": "Pay the host when you arrive"
     }
   },
   "listCta": {
-    "title": "List your property for free",
-    "text": "Reach Jewish and Israeli travelers, families and investors looking for a home in Georgia. No fees — guests contact you directly.",
-    "button": "List your property for free"
+    "title": "Have a place in Georgia? List it for free",
+    "button": "List a place"
   }
 }

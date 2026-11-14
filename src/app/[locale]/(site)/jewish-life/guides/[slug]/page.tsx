@@ -74,13 +74,13 @@ export default async function GuidePage({ params }: Props) {
       </Link>
       <article className="mt-6">
         <header>
-          <h1 dir="auto" className="text-3xl font-bold tracking-tight text-balance sm:text-4xl">
+          <h1 dir="auto" className="text-h1 text-balance">
             {guide.title}
           </h1>
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
             {guide.publishedAt ? <span>{t("published", { date: formatDate(guide.publishedAt, locale) })}</span> : null}
             {guide.reviewedByLawyer ? (
-              <span className="inline-flex items-center gap-1.5 font-medium text-verified">
+              <span className="inline-flex items-center gap-1.5 font-medium text-success">
                 <Scale aria-hidden="true" className="size-4" />
                 {t("reviewedByLawyer")}
               </span>

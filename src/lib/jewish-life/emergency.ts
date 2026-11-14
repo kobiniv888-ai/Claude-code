@@ -3,17 +3,19 @@
  *
  * Admins store them in SiteSetting key "emergencyContacts" as a JSON array:
  *   [{ "label": { "he": "…", "en": "Embassy of Israel", "ru": "…", "ar": "…", "ka": "…" },
- *      "phone": "+995 32 255 65 00", "url": "https://…" }]
+ *      "phone": "+995 32 2XX XX XX", "url": "https://…" }]
  * Each entry needs a label and a phone number or a URL. Invalid entries are skipped.
  */
 import { z } from "zod";
+import { COUNTRIES, DEFAULT_COUNTRY } from "@/config/countries";
 import { locales, type Localized } from "@/config/site";
-import { safeWebsiteUrl, telHref } from "./places";
+import { telHref } from "@/lib/phone";
+import { safeWebsiteUrl } from "./places";
 
 export const EMERGENCY_CONTACTS_SETTING_KEY = "emergencyContacts";
 
-/** Georgia's single emergency number (police, ambulance, fire). */
-export const GEORGIA_EMERGENCY_NUMBER = "112";
+/** Georgia's single emergency number (police, ambulance, fire): src/config/countries.ts. */
+export const GEORGIA_EMERGENCY_NUMBER = COUNTRIES[DEFAULT_COUNTRY].emergencyNumber;
 
 const labelSchema = z
   .object(Object.fromEntries(locales.map((l) => [l, z.string().trim().max(200).optional()])) as Record<
@@ -48,7 +50,8 @@ export function parseEmergencyContacts(value: unknown): EmergencyContact[] {
     const parsed = entrySchema.safeParse(raw);
     if (!parsed.success) continue;
     const phone = parsed.data.phone?.trim() || null;
-    const phoneHref = phone ? telHref(phone) : null;
+    // E.164 without a national 0 ("+995 032…" → tel:+99532…); short numbers like 112 as written.
+    const phoneHref = phone ? telHref(phone, COUNTRIES[DEFAULT_COUNTRY].defaultPhoneCountry) : null;
     const url = safeWebsiteUrl(parsed.data.url);
     if (!phoneHref && !url) continue;
     const label: Partial<Localized> = {};

@@ -11,7 +11,9 @@ import type { ListingQueryContext } from "@/lib/listing/queries";
  * Same decision as the root layout, so prices and filters always agree.
  */
 export const getSearchContext = cache(async (locale: AppLocale): Promise<ListingQueryContext> => {
-  const [user, rates] = await Promise.all([getCurrentUser().catch(() => null), getRates()]);
+  const [session, rates] = await Promise.all([getCurrentUser().catch(() => null), getRates()]);
+  // A session whose 2-step code is not entered yet counts as signed out (SECURITY_REPORT 4.2.a).
+  const user = session?.twoFactorVerified ? session : null;
   const currency = await getDisplayCurrency(user?.currency);
   return { locale, currency, rates, userId: user?.id ?? null };
 });

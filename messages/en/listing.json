@@ -2,6 +2,7 @@
   "loading": "Loading the listing…",
   "meta": {
     "title": "{title} · {city}",
+    "titleWithId": "{title} · {city} · #{id}",
     "from": "from {price}",
     "per": {
       "NIGHT": "{price} / night",
@@ -16,11 +17,15 @@
   "header": {
     "listingId": "ID <ltr>{id}</ltr>",
     "updated": "Updated {date}",
-    "views": "{count, plural, one {{formatted} view} other {{formatted} views}}"
+    "posted": "Posted {date}",
+    "tag": {
+      "demo": "Demo",
+      "promoted": "Promoted"
+    }
   },
   "status": {
     "title": "Not public: {status}",
-    "manage": "Manage my listings",
+    "manage": "Manage my places",
     "staffNote": "Staff preview — visitors cannot see this page.",
     "labels": {
       "DRAFT": "Draft",
@@ -60,12 +65,21 @@
     "byOwner": "Translated by the owner",
     "showOriginal": "Show original",
     "showTranslation": "Show translation",
-    "showingOriginal": "Original ({language})"
+    "showingOriginal": "Original ({language})",
+    "originalIn": {
+      "he": "Original in Hebrew",
+      "en": "Original in English",
+      "ru": "Original in Russian",
+      "ar": "Original in Arabic",
+      "ka": "Original in Georgian"
+    },
+    "translate": "Translate",
+    "translateHint": "(opens Google Translate)"
   },
   "gallery": {
     "label": "Photos of {title}",
     "open": "Open photo {index} of {total}",
-    "showAll": "{count, plural, one {Show the photo} other {Show all {formatted} photos}}",
+    "showAll": "{count, plural, one {1 photo} other {All {formatted} photos}}",
     "counter": "{index} / {total}",
     "slide": "Photo {index} of {total}",
     "previous": "Previous photo",
@@ -78,7 +92,21 @@
     "videoTitle": "Video of {title}",
     "videoHint": "The video plays from YouTube or Vimeo.",
     "tour": "360° tour",
-    "opensNewTab": "(opens in a new tab)"
+    "opensNewTab": "(opens in a new tab)",
+    "back": "Back",
+    "allPhotos": "All photos",
+    "rooms": {
+      "BEDROOM": "Bedroom",
+      "KITCHEN": "Kitchen",
+      "BATHROOM": "Bathroom",
+      "LIVING_ROOM": "Living room",
+      "VIEW": "View",
+      "BALCONY": "Balcony",
+      "BUILDING": "Building"
+    },
+    "otherPhotos": "More photos",
+    "roomsNav": "Jump to a room",
+    "sectionCount": "{count, plural, one {1 photo} other {{formatted} photos}}"
   },
   "share": {
     "button": "Share",
@@ -94,22 +122,15 @@
   },
   "contactBox": {
     "label": "Contact the owner",
-    "hostedBy": "Listed by",
+    "hostedBy": "Hosted by",
     "hostedByBusiness": "Business",
     "languages": "Speaks",
     "memberSince": "Member since",
-    "replyTime": "Usually replies",
-    "replyTimes": {
-      "hour": "within an hour",
-      "fewHours": "within a few hours",
-      "day": "within a day",
-      "days": "in a few days"
-    },
     "localTime": "Owner's local time",
     "contactHours": "Best time to call",
     "repliesAfterShabbat": "It's Shabbat now — the owner replies after Shabbat.",
     "repliesAfterHoliday": "It's a Jewish holiday now — the owner replies after the holiday.",
-    "videoTip": "Before paying anything, ask for a live video call: the owner should show the place and a paper with today's date and the listing ID (<ltr>{id}</ltr>)."
+    "listedBy": "Listed by"
   },
   "badges": {
     "label": "Trust badges",
@@ -128,42 +149,20 @@
       "propertyVerified": "Our team saw the property on a video call or a visit",
       "businessVerified": "Our team checked the business registration",
       "keepsShabbat": "Does not reply on Shabbat and Jewish holidays",
-      "demo": "Sample content for trying the site — not a real owner"
+      "demo": "Demo content for trying the site — not a real listing"
     }
   },
   "description": {
     "title": "About this place",
     "empty": "The owner has not written a description yet.",
-    "showMore": "Show more",
-    "showLess": "Show less"
+    "showMore": "Read more"
   },
   "amenities": {
-    "title": "Amenities"
-  },
-  "jewish": {
-    "title": "Jewish-friendly",
-    "kitchen": "Kitchen",
-    "synagogue": "Nearest synagogue",
-    "chabad": "Chabad house",
-    "walk": "{count, plural, one {{count} min walk} other {{count} min walk}}",
-    "shabbatChecklist": "Shabbat checklist",
-    "shabbatFriendly": "Shabbat-friendly",
-    "shabbatFriendlyHint": "Shabbat-friendly means a regular key, no motion sensors at the entrance, and a hot plate or a hot-water urn.",
-    "has": "Yes",
-    "hasNot": "No",
-    "jewishFeatures": "More for Jewish guests",
-    "hotelKosher": "Kosher food",
-    "supervision": "Kosher supervision"
+    "title": "What this place offers",
+    "showAll": "Show all {count}"
   },
   "rules": {
-    "title": "House rules",
-    "checkIn": "Check-in",
-    "checkOut": "Check-out",
-    "from": "from {time}",
-    "until": "until {time}",
     "quietHours": "Quiet hours",
-    "allowed": "Allowed",
-    "notAllowed": "Not allowed",
     "smoking": {
       "yes": "Smoking allowed",
       "no": "No smoking"
@@ -175,40 +174,31 @@
     "parties": {
       "yes": "Parties and events allowed",
       "no": "No parties or events"
-    }
+    },
+    "checkInFrom": "Check-in from {time}",
+    "checkOutUntil": "Check-out by {time}",
+    "checkInFlexible": "Flexible check-in",
+    "checkOutFlexible": "Flexible check-out"
   },
   "costs": {
-    "title": "All costs",
     "titleSale": "Price details",
     "deposit": "Security deposit",
     "cleaningFee": "Cleaning fee",
-    "utilities": "Utilities",
     "utilitiesIncluded": "Included in the price",
     "utilitiesNotIncluded": "Not included",
     "utilitiesEstimate": "about {amount} a month, not included",
-    "minStay": "Minimum stay",
-    "nights": "{count, plural, one {{count} night} other {{count} nights}}",
-    "weeklyDiscount": "Weekly discount",
-    "monthlyDiscount": "Monthly discount",
-    "percentOff": "{count}% off",
     "pricePerSqm": "Price per m²",
     "perSqm": "{price} / m²",
-    "priceHistory": "Price changes"
+    "priceHistory": "Price changes",
+    "minStayText": "{count, plural, one {Minimum {count} month} other {Minimum {count} months}}",
+    "weeklyDiscountText": "Weekly discount: {count}%",
+    "monthlyDiscountText": "Monthly discount: {count}%",
+    "minStayNightsText": "{count, plural, one {Minimum {count} night} other {Minimum {count} nights}}"
   },
   "details": {
     "title": "Property details",
-    "dealType": "Deal",
     "propertyType": "Property type",
-    "rooms": "Rooms",
-    "bedrooms": "Bedrooms",
-    "bathrooms": "Bathrooms",
-    "beds": "Beds",
-    "bedsDouble": "{count, plural, one {{count} double} other {{count} double}}",
-    "bedsSingle": "{count, plural, one {{count} single} other {{count} single}}",
-    "bedsSofa": "{count, plural, one {{count} sofa bed} other {{count} sofa beds}}",
-    "maxGuests": "Guests (max)",
     "sharedRoomFor": "Room in a shared flat for",
-    "size": "Size",
     "floor": "Floor",
     "floorOf": "{floor} of {total}",
     "elevator": "Elevator",
@@ -219,41 +209,53 @@
     "views": "View",
     "condition": "Condition",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "showAll": "{count, plural, one {Show 1 detail} other {Show all {count} details}}"
   },
   "rooms": {
     "title": "Rooms",
     "subtitle": "{count, plural, one {{count} room type} other {{count} room types}}",
     "guests": "{count, plural, one {Up to {count} guest} other {Up to {count} guests}}",
     "bedsDouble": "{count, plural, one {{count} double bed} other {{count} double beds}}",
-    "bedsSingle": "{count, plural, one {{count} single bed} other {{count} single beds}}"
+    "bedsSingle": "{count, plural, one {{count} single bed} other {{count} single beds}}",
+    "bedsSofa": "{count, plural, one {1 sofa bed} other {{count} sofa beds}}",
+    "amenitiesLabel": "In the room",
+    "moreAmenities": "+{count} more"
   },
   "calendar": {
     "title": "Availability",
-    "subtitle": "This month and next. The owner keeps the calendar up to date.",
-    "allFree": "No dates are booked in this month or the next. Ask the owner to confirm your dates.",
-    "available": "Available",
+    "available": "available",
     "booked": "Booked",
-    "past": "Past",
-    "today": "Today"
+    "past": "past",
+    "pickIn": "Choose your arrival date",
+    "pickOut": "Now choose your departure date",
+    "range": "{range} · {nights}",
+    "nights": "{count, plural, one {{count} night} other {{count} nights}}",
+    "minStay": "{count, plural, one {Minimum {count} night} other {Minimum {count} nights}}",
+    "checkIn": "arrival",
+    "checkOut": "departure",
+    "previous": "Previous month",
+    "next": "Next month",
+    "clear": "Clear dates"
   },
   "map": {
-    "title": "Where it is",
+    "title": "Location",
     "note": "The circle shows the approximate area. The owner shares the exact address after you contact them.",
     "label": "Map of the approximate area: {place}",
-    "loading": "Loading the map…"
+    "loading": "Loading the map…",
+    "noteBooking": "The exact location is sent after you book"
   },
   "nearby": {
-    "title": "Nearby",
     "note": "Walking times are estimates from the map.",
-    "synagogue": "Synagogue",
-    "chabad": "Chabad house",
-    "kosherFood": "Kosher food",
-    "mikveh": "Mikveh",
     "supermarket": "Supermarket",
     "airport": "Airport",
-    "walk": "{count, plural, one {{count} min walk} other {{count} min walk}}",
-    "km": "{km} km ({code})",
+    "airports": {
+      "TBS": "Tbilisi Airport",
+      "BUS": "Batumi Airport",
+      "KUT": "Kutaisi Airport"
+    },
+    "walk": "Up to {count} min walk",
+    "km": "{km} km",
     "transport": {
       "metro": "Metro station",
       "train": "Train station",
@@ -261,19 +263,8 @@
       "bus": "Bus stop"
     }
   },
-  "shabbat": {
-    "label": "Shabbat and holidays"
-  },
-  "reviews": {
-    "title": "Reviews",
-    "empty": "No reviews yet."
-  },
-  "safety": {
-    "label": "Safety",
-    "reportHint": "Something wrong with this listing? Tell us."
-  },
   "similar": {
-    "title": "Similar places",
+    "title": "Similar homes",
     "viewAll": "See more in this city"
   },
   "notFound": {
@@ -281,5 +272,129 @@
     "description": "It may have been rented, sold or removed by the owner. There are many more places to see.",
     "search": "Browse listings",
     "home": "Back to home"
+  },
+  "host": {
+    "title": "Your host",
+    "profile": "Profile and all listings",
+    "titleSale": "Listed by"
+  },
+  "hostLine": {
+    "hostedBy": "Hosted by <name></name>",
+    "listedBy": "Listed by <name></name>",
+    "verified": "Verified",
+    "pledge": "The host has pledged to welcome Israelis",
+    "pledgeSale": "The seller has pledged to welcome Israelis",
+    "visited": "We visited"
+  },
+  "highlights": {
+    "label": "Highlights",
+    "self_check_in": "Self check-in",
+    "sea_view": "Sea view",
+    "kosher_kitchen": "Kosher kitchen",
+    "mountain_view": "Mountain view",
+    "pool": "Pool",
+    "near_sea": "Near the sea",
+    "near_ski_lifts": "Near the ski lifts",
+    "seaWalk": "Up to {count} minutes' walk to the sea",
+    "liftWalk": "Up to {count} minutes' walk to the ski lifts",
+    "walkSource": "Estimated from OpenStreetMap",
+    "yard": "Yard",
+    "balcony_terrace": "Balcony or terrace",
+    "workspace": "Workspace",
+    "parking": "Parking",
+    "washing_machine": "Washing machine",
+    "air_conditioning": "Air conditioning"
+  },
+  "kosher": {
+    "title": "Kosher and Shabbat",
+    "yes": "Yes",
+    "kitchen": "Kitchen",
+    "supervision": "Kosher supervision",
+    "food": "Kosher food",
+    "checklist": "Shabbat at the place",
+    "line": {
+      "key": {
+        "ok": "A regular key (not a code or an electric lock)",
+        "no": "No regular key (a code or an electric lock)"
+      },
+      "elevator": {
+        "ok": "Stairs or a Shabbat elevator",
+        "no": "No Shabbat elevator",
+        "noFloor": "No Shabbat elevator · floor {floor}"
+      },
+      "sensors": {
+        "ok": "No motion sensors at the entrance",
+        "no": "Motion sensors at the entrance"
+      },
+      "hotPlate": {
+        "ok": "Shabbat hot plate",
+        "no": "No Shabbat hot plate"
+      },
+      "urn": {
+        "ok": "Hot water urn",
+        "no": "No hot water urn"
+      },
+      "timers": {
+        "ok": "Shabbat timer for the lights",
+        "no": "No Shabbat timer for the lights"
+      },
+      "sukkah": {
+        "ok": "Space for a sukkah",
+        "no": "No space for a sukkah"
+      }
+    },
+    "nearestSynagogue": "Nearest synagogue",
+    "nearestChabad": "Nearest Chabad house",
+    "walk": "up to {count} minutes' walk",
+    "times": "Shabbat times in {city}"
+  },
+  "booking": {
+    "boxLabel": "Booking",
+    "barLabel": "Price and booking",
+    "datesTitle": "Choose dates",
+    "chooseDates": "Choose dates",
+    "chooseRoom": "Choose a room",
+    "book": "Book",
+    "clear": "Clear",
+    "done": "Done",
+    "summary": "{nights} · Total {total}",
+    "times": "{price} × {nights}",
+    "cleaningFee": "Cleaning fee",
+    "total": "Total",
+    "checkIn": "Check-in",
+    "checkOut": "Check-out",
+    "addDate": "Add date",
+    "more": "More options",
+    "ask": "Ask the host"
+  },
+  "book": {
+    "title": "Booking on the site opens soon",
+    "text": "Meanwhile, you can ask the host about the dates you chose.",
+    "back": "Back to the listing"
+  },
+  "important": {
+    "title": "Good to know",
+    "times": "Check-in and check-out",
+    "costs": "Other costs",
+    "rules": "House rules",
+    "showAll": "Show all",
+    "cancellation": "Cancellation",
+    "policy": {
+      "FLEXIBLE": "You can cancel up to 24 hours before arrival.",
+      "MODERATE": "You can cancel up to 5 days before arrival.",
+      "STRICT": "You can cancel up to 14 days before arrival.",
+      "none": "Agree on the cancellation terms with the host before you arrive."
+    },
+    "payment": "Payment",
+    "paymentText": "You pay the host when you arrive. Bayit never takes payment.",
+    "safety": "Before you pay anything",
+    "videoTip": "Ask for a live video call that shows you the place and a sheet of paper with today's date and the listing number (<ltr>{id}</ltr>)."
+  },
+  "headline": {
+    "perSqm": "{price} / m²"
+  },
+  "payWarning": {
+    "text": "Never pay in advance by link or transfer. You pay the host when you arrive.",
+    "report": "Report a scam"
   }
 }

@@ -1,8 +1,10 @@
 import type { BrowserContext, Page } from "@playwright/test";
 import { expect, openAs, settle, test } from "./fixtures";
-import { DEMO, loginThroughForm } from "./helpers/auth";
+import { loginThroughForm } from "./helpers/auth";
+import { TEST_ADMIN_PHONE } from "./helpers/staff";
 import { createTestListing, freshPhone, listingByPublicId, sql, userIdByPhone } from "./helpers/db";
 import { makePhotos } from "./helpers/photos";
+import { acceptTermsBox } from "./helpers/terms";
 
 /**
  * Definition of done:
@@ -35,17 +37,23 @@ async function expectStep(page: Page, step: number, heading: string) {
 }
 
 test("a new user signs up, posts a listing with photos and it goes into review", async ({ page, context, consoleErrors }) => {
-  // The longest flow: sign-up, 10 wizard steps, 6 uploads, publish.
+  // The longest flow: sign-up, 14 wizard steps (incl. the pledge), 6 uploads, publish.
   test.slow();
   // Sign up with a fresh phone number.
   ownerPhone = await freshPhone();
   await page.goto("/en/login");
   await settle(page);
-  await loginThroughForm(page, ownerPhone);
+  await loginThroughForm(page, ownerPhone, page, { firstName: "Dana" });
   // Without ?next= the login page continues to the account (the first visit may compile it).
   await expect(page).toHaveURL(/\/en\/account$/, { timeout: 90_000 });
   await expect(page.getByRole("banner").getByRole("link", { name: "Log in" })).toBeHidden({ timeout: 30_000 });
   const [user] = await sql<{ phoneNumberVerified: boolean }>(`SELECT "phoneNumberVerified" FROM "User" WHERE "phoneNumber" = $1`, [ownerPhone]);
+  // SECURITY_REPORT 15.11.b/c: the sign-up's "18 or older + Terms" step logged the acceptance.
+  const signupTerms = await sql<{ ageConfirmed: boolean }>(
+    `SELECT t."ageConfirmed" FROM "TermsAcceptance" t JOIN "User" u ON u.id = t."userId" WHERE u."phoneNumber" = $1`,
+    [ownerPhone],
+  );
+  expect(signupTerms).toEqual([{ ageConfirmed: true }]);
   expect(user?.phoneNumberVerified).toBe(true);
 
   // Post a listing.
@@ -71,43 +79,60 @@ test("a new user signs up, posts a listing with photos and it goes into review",
   await settle(page);
   await map.click({ position: { x: 200, y: 150 } });
   await expect(page.getByText("Pin set at")).toBeVisible();
+  // A short stay can't be published without its exact address (the mistake check, brief 6.1).
+  await page.getByRole("textbox", { name: /^Exact address/ }).fill("E2E Street 3, apartment 4");
   await next(page);
-  // 4 Details
-  await expectStep(page, 4, "Tell guests about the place");
-  await page.getByRole("button", { name: "More: Maximum guests" }).click();
-  await page.getByRole("button", { name: "More: Maximum guests" }).click();
+  // 4–7: the round-1 "details" step, split (brief 5.7). Only the title and description are required here.
+  await expectStep(page, 4, "Size and rooms");
+  await next(page);
+  await expectStep(page, 5, "The building");
+  await next(page);
+  await expectStep(page, 6, "Condition and features");
+  await next(page);
+  await expectStep(page, 7, "Title and description");
+  // (Short stays set the maximum number of guests in "Bookings and price", step 11.)
   const title = `E2E Mountain flat in Mestia ${Date.now().toString(36)}`;
   await page.getByRole("textbox", { name: "Title" }).fill(title);
   await page
     .getByRole("textbox", { name: "Description" })
     .fill("A warm wooden flat with a view of the Svaneti mountains, a full kitchen, fast Wi-Fi and a balcony. Ten minutes on foot to the center.");
   await next(page);
-  // 5 Amenities
-  await expectStep(page, 5, "What does the place offer?");
+  // 8 Amenities
+  await expectStep(page, 8, "What does the place offer?");
   await choose(page.getByRole("checkbox", { name: "Wi-Fi" }));
   await next(page);
-  // 6 Jewish-friendly
-  await expectStep(page, 6, "Jewish-friendly details");
+  // 9 Jewish-friendly
+  await expectStep(page, 9, "Jewish-friendly details");
   await next(page);
-  // 7 Photos: 6 generated JPEGs
-  await expectStep(page, 7, "Add photos");
+  // 10 Photos: 6 generated JPEGs
+  await expectStep(page, 10, "Add photos");
   await page.locator('input[type="file"]').setInputFiles(await makePhotos(6));
   await expect(page.getByText("Enough photos to publish")).toBeVisible({ timeout: 90_000 });
   await expect(page.getByText(/^6 photos/)).toBeVisible();
   await next(page);
-  // 8 Price
-  await expectStep(page, 8, "Price and availability");
-  await page.getByRole("textbox", { name: "Price", exact: true }).fill("95");
+  // 11 Bookings and price (short stays, round 2 phase 4): nightly price, guests, payment on arrival
+  await expectStep(page, 11, "Bookings and price");
+  await page.getByRole("textbox", { name: "Price per night", exact: true }).fill("95");
+  await page.getByRole("button", { name: "More: Maximum guests" }).click();
+  await page.getByRole("button", { name: "More: Maximum guests" }).click();
+  await choose(page.getByRole("checkbox", { name: "Cash" }));
   await next(page);
-  // 9 Contact: the verified phone is already filled in for WhatsApp
-  await expectStep(page, 9, "How should guests contact you?");
+  // 12 Contact: the verified phone is already filled in for WhatsApp
+  await expectStep(page, 12, "How should guests contact you?");
   await expect(page.getByRole("textbox", { name: "WhatsApp number" })).not.toHaveValue("");
+  await next(page);
+  // 13 The Bayit pledge (required; saved on the account)
+  await expectStep(page, 13, "The Bayit pledge");
+  await page.getByRole("checkbox", { name: "I have read this and I commit to it" }).check();
+  await page.getByRole("button", { name: "Accept the pledge" }).click();
+  await expect(page.getByText("You accepted the Bayit pledge")).toBeVisible();
   await page.getByRole("button", { name: "Preview", exact: true }).click();
-  // 10 Preview and publish
-  await expectStep(page, 10, "Preview and publish");
+  // 14 Preview and publish
+  await expectStep(page, 14, "Preview and publish");
   await expect(page.getByRole("region", { name: "Before you can publish" })).toHaveCount(0);
   await page.getByRole("checkbox", { name: /I accept the listing rules/ }).check();
-  await page.getByRole("button", { name: "Publish listing" }).click();
+  await acceptTermsBox(page); // the "18 or older + Terms" box (SECURITY_REPORT 15.11.b/c)
+  await page.getByRole("button", { name: "Publish", exact: true }).click(); // the bottom bar (bug 2.7)
   await expect(page.getByRole("heading", { name: "We're checking your listing" })).toBeVisible({ timeout: 60_000 });
 
   const [row] = await sql<{ publicId: number; status: string; riskReasons: { code: string }[] }>(
@@ -138,7 +163,7 @@ test("a new user signs up, posts a listing with photos and it goes into review",
 
 test("an admin approves the listing and it becomes public", async ({ browser }) => {
   test.skip(!posted, "needs the listing from the previous test");
-  const admin = await openAs(browser, DEMO.admin);
+  const admin = await openAs(browser, TEST_ADMIN_PHONE);
   const page = admin.page;
   await page.goto("/en/admin/moderation");
   await page.getByRole("link", { name: posted.title }).click();
@@ -158,6 +183,9 @@ test("an admin approves the listing and it becomes public", async ({ browser }) 
   await visitor.page.goto(`/en/listing/${posted.publicId}`);
   await expect(visitor.page.getByRole("heading", { level: 1, name: posted.title })).toBeVisible();
   await expect(visitor.page).toHaveURL(new RegExp(`/en/listing/${posted.publicId}-e2e-mountain-flat-in-mestia`));
+  // The owner accepted the Bayit pledge while posting: the host block shows the pledge line (round 2:
+  // one line with a shield instead of the green badge).
+  await expect(visitor.page.getByText(/^The (host|seller) has pledged to welcome Israelis$/).first()).toBeVisible();
   expect(visitor.consoleErrors).toEqual([]);
   await visitor.context.close();
 });
@@ -168,7 +196,7 @@ test("an admin asks for changes and the owner sees the reason", async ({ browser
   const second = await createTestListing({ ownerId, title: `E2E Second flat ${Date.now().toString(36)}`, status: "IN_REVIEW" });
   const [{ title }] = await sql<{ title: string }>(`SELECT title FROM "Listing" WHERE id = $1`, [second.id]);
 
-  const admin = await openAs(browser, DEMO.admin);
+  const admin = await openAs(browser, TEST_ADMIN_PHONE);
   await admin.page.goto(`/en/admin/moderation/${second.id}`);
   await expect(admin.page.getByRole("heading", { level: 1, name: title })).toBeVisible();
   await settle(admin.page);

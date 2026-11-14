@@ -107,7 +107,7 @@ export async function ShabbatTimesCard({
       time: times.candleLighting,
       day: times.erevDate,
       empty: t("card.noTime"),
-      iconClass: "text-terracotta",
+      iconClass: "text-primary-text",
     },
     {
       key: "havdalah",
@@ -141,7 +141,7 @@ export async function ShabbatTimesCard({
         <span
           aria-hidden="true"
           className={cn(
-            "flex shrink-0 items-center justify-center rounded-full bg-terracotta/10 text-terracotta",
+            "flex shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary-text",
             compact ? "size-9" : "size-11",
           )}
         >

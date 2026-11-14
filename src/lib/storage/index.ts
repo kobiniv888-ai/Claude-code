@@ -1,5 +1,5 @@
 import "server-only";
-import { siteConfig } from "@/config/site";
+import { absoluteUrl as siteAbsoluteUrl } from "@/lib/site-url";
 import { decrypt, encrypt } from "@/lib/crypto";
 import { NotFoundError } from "@/lib/errors";
 import { assertValidStorageKey, encodeKeyForUrl, publicContentTypeFor } from "./keys";
@@ -53,7 +53,7 @@ export function publicUrl(key: string): string {
 /** Absolute URL (for emails, sharing previews, structured data). */
 export function absolutePublicUrl(key: string): string {
   const url = publicUrl(key);
-  return url.startsWith("/") ? `${siteConfig.url.replace(/\/+$/, "")}${url}` : url;
+  return url.startsWith("/") ? siteAbsoluteUrl(url) : url;
 }
 
 export async function putPublic(key: string, body: Buffer, contentType: string): Promise<{ key: string; url: string }> {

@@ -128,3 +128,18 @@ describe("unattached private uploads", () => {
     expect((await db.privateUpload.findMany({ where: { userId }, select: { key: true } })).map((r) => r.key)).toEqual([fresh]);
   });
 });
+
+describe("overlapping runs (a cron call delivered twice, a manual run)", () => {
+  it("an upload another run already handled doesn't stop the rest", async () => {
+    const old = ago(3 * DAY);
+    const real = await privateUpload("ticket", old);
+    // A row the other run has already deleted (file and row), still in this run's list.
+    const handled = { key: `${privateUploadPrefix("ticket", userId)}${randomUUID().replace(/-/g, "")}.jpg`, userId, purpose: "ticket", createdAt: old };
+    const list = vi.spyOn(db.privateUpload, "findMany").mockResolvedValueOnce([handled, { key: real, userId, purpose: "ticket", createdAt: old }]);
+    const result = await cleanup.deleteUnattachedPrivateUploads(now);
+    list.mockRestore();
+    expect(result).toEqual({ deleted: 2, attached: 0, failed: 0 });
+    expect(exists("private", real)).toBe(false);
+    expect(await db.privateUpload.count({ where: { key: { in: [real, handled.key] } } })).toBe(0);
+  });
+});

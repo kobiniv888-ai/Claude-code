@@ -1,4 +1,3 @@
-import type { LucideIcon } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 import { Container } from "@/components/common/container";
 import { cn } from "@/lib/utils";
@@ -8,11 +7,13 @@ export function JlContainer(props: ComponentProps<typeof Container>) {
   return <Container {...props} />;
 }
 
-/** One section of the Jewish Life page, with an anchor id and an h2. */
+/**
+ * One section of the Jewish Life hub (round 2): an anchor id, an 18px/22px h2 with a one-line
+ * lead, and a hairline between sections — white (or black) like the rest of the site, no tinted
+ * backgrounds and no icon circles.
+ */
 export function JlSection({
   id,
-  icon: Icon,
-  eyebrow,
   title,
   lead,
   action,
@@ -20,8 +21,6 @@ export function JlSection({
   className,
 }: {
   id: string;
-  icon?: LucideIcon;
-  eyebrow?: ReactNode;
   title: ReactNode;
   lead?: ReactNode;
   /** Shown at the end of the heading row (e.g. a link). */
@@ -31,20 +30,19 @@ export function JlSection({
 }) {
   const headingId = `${id}-title`;
   return (
-    <section id={id} aria-labelledby={headingId} className={cn("scroll-mt-28 py-12 sm:py-16", className)}>
+    // scroll-mt: the jump links land here; keep the heading clear of the sticky header and the nav.
+    <section
+      id={id}
+      aria-labelledby={headingId}
+      className={cn("scroll-mt-[calc(var(--header-height)+4rem)] border-t border-border py-section first:border-t-0", className)}
+    >
       <JlContainer>
-        <div className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div className="max-w-2xl">
-            {eyebrow ? (
-              <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-accent-foreground">
-                {Icon ? <Icon aria-hidden="true" className="size-4" /> : null}
-                {eyebrow}
-              </p>
-            ) : null}
-            <h2 id={headingId} className="text-2xl font-bold tracking-tight text-balance sm:text-3xl">
+        <div className="mb-4 flex flex-col gap-2 sm:mb-6 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            <h2 id={headingId} className="text-h2 text-balance text-foreground">
               {title}
             </h2>
-            {lead ? <p className="mt-2 text-base text-pretty text-muted-foreground sm:text-lg">{lead}</p> : null}
+            {lead ? <p className="mt-1 text-small text-pretty text-muted-foreground sm:text-body">{lead}</p> : null}
           </div>
           {action ? <div className="shrink-0">{action}</div> : null}
         </div>

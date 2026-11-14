@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { cn } from "cn"
+import { cn } from "@/lib/utils"
 import {
   DateLib,
   DayPicker,
@@ -12,9 +12,17 @@ import {
 import { Button, buttonVariants } from "@/components/ui/button"
 import { ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon } from "lucide-react"
 
+/**
+ * Booked or blocked days: pass them as `modifiers={{ booked: dates }}` (or `blocked`); they are
+ * lightly crossed out. Callers can still override with their own `modifiersClassNames`.
+ */
+const CROSSED_OUT =
+  "[&>button]:text-muted-foreground [&>button]:line-through [&>button]:decoration-muted-foreground/70 [&>button]:decoration-1"
+
 function Calendar({
   className,
   classNames,
+  modifiersClassNames,
   showOutsideDays = true,
   captionLayout = "label",
   buttonVariant = "ghost",
@@ -32,13 +40,14 @@ function Calendar({
     <DayPicker
       showOutsideDays={showOutsideDays}
       className={cn(
-        "group/calendar bg-background p-2 [--cell-radius:var(--radius-md)] [--cell-size:--spacing(7)] in-data-[slot=card-content]:bg-transparent in-data-[slot=popover-content]:bg-transparent",
+        "group/calendar bg-transparent p-2 [--cell-radius:9999px] [--cell-size:--spacing(10)] in-data-[slot=card-content]:bg-transparent in-data-[slot=popover-content]:bg-transparent",
         String.raw`rtl:**:[.rdp-button\_next>svg]:rotate-180`,
         String.raw`rtl:**:[.rdp-button\_previous>svg]:rotate-180`,
         className
       )}
       captionLayout={captionLayout}
       locale={locale}
+      modifiersClassNames={{ booked: CROSSED_OUT, blocked: CROSSED_OUT, ...modifiersClassNames }}
       formatters={{
         formatMonthDropdown: (date) =>
           date.toLocaleString(locale?.code, { month: "short" }),
@@ -64,16 +73,16 @@ function Calendar({
         ),
         button_previous: cn(
           buttonVariants({ variant: buttonVariant }),
-          "size-(--cell-size) p-0 select-none aria-disabled:opacity-50",
+          "size-(--cell-size) rounded-full p-0 select-none aria-disabled:opacity-40",
           defaultClassNames.button_previous
         ),
         button_next: cn(
           buttonVariants({ variant: buttonVariant }),
-          "size-(--cell-size) p-0 select-none aria-disabled:opacity-50",
+          "size-(--cell-size) rounded-full p-0 select-none aria-disabled:opacity-40",
           defaultClassNames.button_next
         ),
         month_caption: cn(
-          "flex h-(--cell-size) w-full items-center justify-center px-(--cell-size)",
+          "flex h-(--cell-size) w-full items-center justify-center px-(--cell-size) text-base font-semibold",
           defaultClassNames.month_caption
         ),
         dropdowns: cn(
@@ -118,16 +127,16 @@ function Calendar({
           defaultClassNames.day
         ),
         range_start: cn(
-          "relative isolate z-0 rounded-s-(--cell-radius) bg-muted after:absolute after:inset-y-0 after:end-0 after:w-4 after:bg-muted",
+          "relative isolate z-0 rounded-s-(--cell-radius) bg-primary-tint after:absolute after:inset-y-0 after:end-0 after:w-4 after:bg-primary-tint",
           defaultClassNames.range_start
         ),
-        range_middle: cn("rounded-none", defaultClassNames.range_middle),
+        range_middle: cn("rounded-none bg-primary-tint", defaultClassNames.range_middle),
         range_end: cn(
-          "relative isolate z-0 rounded-e-(--cell-radius) bg-muted after:absolute after:inset-y-0 after:start-0 after:w-4 after:bg-muted",
+          "relative isolate z-0 rounded-e-(--cell-radius) bg-primary-tint after:absolute after:inset-y-0 after:start-0 after:w-4 after:bg-primary-tint",
           defaultClassNames.range_end
         ),
         today: cn(
-          "rounded-(--cell-radius) bg-muted text-foreground data-[selected=true]:rounded-none",
+          "rounded-(--cell-radius) font-semibold text-primary-text data-[selected=true]:rounded-none [&>button]:underline [&>button]:decoration-2 [&>button]:underline-offset-4",
           defaultClassNames.today
         ),
         outside: cn(
@@ -135,7 +144,8 @@ function Calendar({
           defaultClassNames.outside
         ),
         disabled: cn(
-          "text-muted-foreground opacity-50",
+          // Past or closed days: a faded grey, no opacity (so a booked day's strike stays readable).
+          "text-muted-foreground/50 [&>button]:hover:bg-transparent",
           defaultClassNames.disabled
         ),
         hidden: cn("invisible", defaultClassNames.hidden),
@@ -217,7 +227,7 @@ function CalendarDayButton({
       data-range-end={modifiers.range_end}
       data-range-middle={modifiers.range_middle}
       className={cn(
-        "relative isolate z-10 flex aspect-square size-auto w-full min-w-(--cell-size) flex-col gap-1 border-0 leading-none font-normal group-data-[focused=true]/day:relative group-data-[focused=true]/day:z-10 group-data-[focused=true]/day:border-ring group-data-[focused=true]/day:ring-[3px] group-data-[focused=true]/day:ring-ring/50 data-[range-end=true]:rounded-(--cell-radius) data-[range-end=true]:rounded-e-(--cell-radius) data-[range-end=true]:bg-primary data-[range-end=true]:text-primary-foreground data-[range-middle=true]:rounded-none data-[range-middle=true]:bg-muted data-[range-middle=true]:text-foreground data-[range-start=true]:rounded-(--cell-radius) data-[range-start=true]:rounded-s-(--cell-radius) data-[range-start=true]:bg-primary data-[range-start=true]:text-primary-foreground data-[selected-single=true]:bg-primary data-[selected-single=true]:text-primary-foreground dark:hover:text-foreground [&>span]:text-xs [&>span]:opacity-70",
+        "relative isolate z-10 flex aspect-square size-auto w-full min-w-(--cell-size) flex-col gap-1 rounded-(--cell-radius) border-0 text-sm leading-none font-normal hover:bg-surface-muted group-data-[focused=true]/day:relative group-data-[focused=true]/day:z-10 group-data-[focused=true]/day:border-ring group-data-[focused=true]/day:ring-[3px] group-data-[focused=true]/day:ring-ring/50 data-[range-end=true]:rounded-(--cell-radius) data-[range-end=true]:rounded-e-(--cell-radius) data-[range-end=true]:bg-primary data-[range-end=true]:font-semibold data-[range-end=true]:text-primary-foreground data-[range-middle=true]:rounded-none data-[range-middle=true]:bg-transparent data-[range-middle=true]:text-primary-text data-[range-middle=true]:hover:bg-primary-tint-border data-[range-start=true]:rounded-(--cell-radius) data-[range-start=true]:rounded-s-(--cell-radius) data-[range-start=true]:bg-primary data-[range-start=true]:font-semibold data-[range-start=true]:text-primary-foreground data-[selected-single=true]:bg-primary data-[selected-single=true]:font-semibold data-[selected-single=true]:text-primary-foreground [&>span]:text-xs [&>span]:opacity-70",
         defaultClassNames.day,
         className
       )}

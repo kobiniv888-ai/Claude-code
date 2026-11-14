@@ -15,14 +15,42 @@ export type ListingCardPhoto = {
 };
 
 export type ListingCardBadges = {
+  /**
+   * The owner accepted the Bayit welcome pledge ("welcomes Israelis and Jews") and their version
+   * is still valid (settings.pledgeRequiredVersion). The green, most prominent badge.
+   */
+  welcomes: boolean;
   /** The owner's ID is verified, or the ownership of this property is verified. */
   verified: boolean;
+  /**
+   * Round 3 (brief 8.3): "ביקרנו במקום", a Bayit team member visited the place (set by the admin;
+   * never on demo listings). The first card tag. Missing = false.
+   */
+  visited?: boolean;
   /** Posted by a business account (hotel, agency…). */
   business: boolean;
   shabbatFriendly: boolean;
   kosherKitchen: boolean;
   /** Walking minutes to the nearest synagogue. */
   synagogueWalkMin: number | null;
+  /**
+   * Round 2: `synagogueWalkMin` comes from a real, verified place, so the card may show it as a
+   * tag ("6 דק׳ לבית כנסת"). Demo places never count. Missing = false.
+   */
+  synagogueVerified?: boolean;
+  /**
+   * Round 3 (brief 7.3): walking minutes from the pin to the nearest beach / ski lift, computed
+   * from the static OpenStreetMap data (src/lib/geo/walk-targets.ts). Null outside the sea and ski
+   * towns or beyond 30 minutes; the card tag shows it at 15 minutes or less. Missing = null.
+   */
+  seaWalkMinutes?: number | null;
+  liftWalkMinutes?: number | null;
+  /** The host speaks Hebrew (Jewish feature "host_speaks_hebrew" or the owner's languages). */
+  speaksHebrew: boolean;
+  /** The host keeps Shabbat (the owner's profile or the Jewish feature "host_keeps_shabbat"). */
+  keepsShabbat: boolean;
+  /** Hotels and guesthouses: kosher meals or a kosher breakfast. */
+  kosherMeals: boolean;
   /** Published within siteConfig.listings.newLabelDays. */
   isNew: boolean;
   /** Price dropped within siteConfig.listings.priceDropLabelDays. */
@@ -46,6 +74,17 @@ export type ListingCardData = {
   neighborhoodName: string | null;
   /** Up to 6 photos, cover first. */
   photos: ListingCardPhoto[];
+  /**
+   * Optional (card v2): how many photos the listing has in total. When it is more than
+   * `photos.length`, the last card slide shows "+N photos".
+   */
+  photoCount?: number;
+  /** Optional (card v2): the floor, shown in the card's facts line (0 = ground floor). */
+  floor?: number | null;
+  /** Optional (round 2): rooms, in the facts line of monthly rentals and sales ("3 חדרים"). */
+  rooms?: number | null;
+  /** Optional (round 2): beds (single + double + sofa beds), in the facts line of short stays. */
+  beds?: number | null;
   /** In the owner's currency. Null when there is no price. */
   price: number | null;
   currency: CurrencyCode;
@@ -66,6 +105,11 @@ export type ListingCardData = {
   isFavorite: boolean;
   /** ISO date-time. */
   publishedAt: string | null;
+  /**
+   * Optional (round 3, brief 8.1): "★ 4.7 (12)" — the average of the visible reviews and their
+   * count, ONLY from 3 reviews on (cardRating in src/lib/reviews). Missing / null = not shown.
+   */
+  rating?: { average: number; count: number } | null;
 };
 
 /** One marker on the search map. */

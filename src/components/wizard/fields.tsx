@@ -2,9 +2,18 @@
 
 import { useEffect, useId, useState, type ComponentType, type ReactNode } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { CheckIcon, CircleAlertIcon, MinusIcon, PlusIcon } from "lucide-react";
+import { CheckIcon, ChevronDownIcon, CircleAlertIcon, MinusIcon, PlusIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { formatNumber } from "@/lib/format";
+import {
+  checkTimeFromSelect,
+  checkTimeOptions,
+  checkTimeSelectValue,
+  clockLabel,
+  FLEXIBLE_VALUE,
+  type CheckTimeChoice,
+  type CheckTimeKind,
+} from "@/lib/listing/check-times";
 import { cn } from "@/lib/utils";
 
 /**
@@ -67,9 +76,9 @@ export function Field({
   return (
     <div className={cn("grid content-start gap-2", className)} data-invalid={error ? true : undefined}>
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <label htmlFor={id} className="text-sm font-medium">
+        <label htmlFor={id} className="text-small font-semibold">
           {label}
-          {optional && <span className="ms-1.5 text-xs font-normal text-muted-foreground">{t("optional")}</span>}
+          {optional && <span className="ms-1.5 whitespace-nowrap text-xs font-normal text-muted-foreground">{t("optional")}</span>}
         </label>
         {labelAddon}
       </div>
@@ -113,10 +122,11 @@ export function FieldGroup({
       className={cn("grid min-w-0 gap-3", className)}
       aria-describedby={[errorId, descriptionId].filter(Boolean).join(" ") || undefined}
       aria-invalid={error ? true : undefined}
+      data-invalid={error ? true : undefined}
     >
-      <legend className={cn("mb-1 text-base font-semibold", legendClassName)}>
+      <legend className={cn("mb-1 text-body font-bold", legendClassName)}>
         {legend}
-        {optional && <span className="ms-1.5 text-xs font-normal text-muted-foreground">{t("optional")}</span>}
+        {optional && <span className="ms-1.5 whitespace-nowrap text-xs font-normal text-muted-foreground">{t("optional")}</span>}
       </legend>
       {description && (
         <p id={descriptionId} className="-mt-2 text-sm text-pretty text-muted-foreground">
@@ -129,7 +139,7 @@ export function FieldGroup({
   );
 }
 
-/** A section card inside a step. */
+/** A section card inside a step: white card, an icon in a tinted circle, a bold title. */
 export function Section({
   title,
   description,
@@ -144,17 +154,18 @@ export function Section({
   className?: string;
 }) {
   return (
-    <section className={cn("grid gap-5 rounded-2xl bg-card p-4 shadow-card ring-1 ring-foreground/5 sm:p-6", className)}>
+    // min-w-0 on the card and its children: long words (Georgian, Russian) wrap instead of widening the page.
+    <section className={cn("grid min-w-0 gap-5 rounded-card bg-card p-4 shadow-card ring-1 ring-foreground/5 sm:p-6 [&>*]:min-w-0", className)}>
       {(title || description) && (
         <header className="flex items-start gap-3">
           {Icon && (
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-secondary-foreground">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-tint text-primary-text">
               <Icon className="size-5" aria-hidden />
             </span>
           )}
-          <div className="grid gap-1">
-            {title && <h3 className="text-base font-semibold sm:text-lg">{title}</h3>}
-            {description && <p className="text-sm text-pretty text-muted-foreground">{description}</p>}
+          <div className="grid gap-0.5 pt-1">
+            {title && <h2 className="text-h3 text-foreground">{title}</h2>}
+            {description && <p className="text-small text-pretty text-muted-foreground">{description}</p>}
           </div>
         </header>
       )}
@@ -163,11 +174,29 @@ export function Section({
   );
 }
 
+/** The round "selected" mark in the corner of a tile. */
+function CheckMark({ checked, shape = "round" }: { checked: boolean; shape?: "round" | "square" }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "flex size-6 shrink-0 items-center justify-center border-2 transition-[background-color,border-color,transform] duration-(--motion-fast) ease-standard",
+        shape === "round" ? "rounded-full" : "rounded-md",
+        checked ? "scale-100 border-primary bg-primary text-primary-foreground" : "border-input bg-card",
+      )}
+    >
+      <CheckIcon className={cn("size-4 transition-opacity", checked ? "opacity-100" : "opacity-0")} strokeWidth={3} />
+    </span>
+  );
+}
+
 // ─── Choice cards (radio) ─────────────────────────────────────
 
+/** Big tappable tiles for one choice (radio). Selected = navy ring, a filled icon circle and a check. */
 export function ChoiceCards<T extends string>({
   legend,
   legendHidden,
+  description,
   name,
   value,
   options,
@@ -178,6 +207,7 @@ export function ChoiceCards<T extends string>({
 }: {
   legend: ReactNode;
   legendHidden?: boolean;
+  description?: ReactNode;
   name: string;
   value: T | null;
   options: { value: T; title: ReactNode; description?: ReactNode; icon?: IconType; badge?: ReactNode }[];
@@ -187,7 +217,7 @@ export function ChoiceCards<T extends string>({
   size?: "lg" | "md";
 }) {
   return (
-    <FieldGroup legend={legend} error={error} legendClassName={legendHidden ? "sr-only" : undefined}>
+    <FieldGroup legend={legend} description={description} error={error} legendClassName={legendHidden ? "sr-only" : undefined}>
       <div className={cn("grid gap-3", columns)}>
         {options.map((option) => {
           const Icon = option.icon;
@@ -196,10 +226,11 @@ export function ChoiceCards<T extends string>({
             <label
               key={option.value}
               className={cn(
-                "group relative flex cursor-pointer items-start gap-4 rounded-2xl border bg-card text-start transition-all",
-                "hover:border-primary/40 hover:shadow-card-hover has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50",
+                "group relative flex min-h-16 cursor-pointer items-center gap-4 rounded-card border-2 bg-card text-start",
+                "transition-[border-color,background-color,transform] duration-(--motion-fast) ease-standard active:scale-[0.98] motion-reduce:active:scale-100",
+                "hover:border-primary/40 has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50",
                 size === "lg" ? "p-4 sm:p-5" : "p-3.5",
-                checked ? "border-primary bg-primary/5 shadow-card ring-1 ring-primary" : "border-border",
+                checked ? "border-primary bg-primary-tint/50" : "border-border",
               )}
             >
               <input
@@ -213,32 +244,24 @@ export function ChoiceCards<T extends string>({
               {Icon && (
                 <span
                   className={cn(
-                    "flex shrink-0 items-center justify-center rounded-xl transition-colors",
-                    size === "lg" ? "size-12 sm:size-14" : "size-10",
-                    checked ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground",
+                    "flex shrink-0 items-center justify-center rounded-full transition-colors duration-(--motion-fast)",
+                    size === "lg" ? "size-14" : "size-12",
+                    checked ? "bg-primary text-primary-foreground" : "bg-primary-tint text-primary-text",
                   )}
                 >
-                  <Icon className={size === "lg" ? "size-6 sm:size-7" : "size-5"} aria-hidden />
+                  <Icon className={size === "lg" ? "size-7" : "size-6"} aria-hidden />
                 </span>
               )}
-              <span className="grid min-w-0 flex-1 gap-1">
-                <span className="flex flex-wrap items-center gap-2 font-semibold">
+              <span className="grid min-w-0 flex-1 gap-0.5">
+                <span className="flex flex-wrap items-center gap-2 text-body font-bold">
                   {option.title}
                   {option.badge}
                 </span>
                 {option.description && (
-                  <span className="text-sm text-pretty text-muted-foreground">{option.description}</span>
+                  <span className="text-small text-pretty text-muted-foreground">{option.description}</span>
                 )}
               </span>
-              <span
-                aria-hidden
-                className={cn(
-                  "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border transition-colors",
-                  checked ? "border-primary bg-primary text-primary-foreground" : "border-input",
-                )}
-              >
-                {checked && <CheckIcon className="size-3.5" />}
-              </span>
+              <CheckMark checked={checked} />
             </label>
           );
         })}
@@ -247,19 +270,26 @@ export function ChoiceCards<T extends string>({
   );
 }
 
-// ─── Check cards (checkbox list) ──────────────────────────────
+// ─── Check cards (checkbox list or icon tiles) ────────────────
 
+/**
+ * Several choices (checkboxes). `layout="tiles"`: square-ish icon tiles in a grid (amenities,
+ * Jewish features); `layout="list"`: rows with a checkbox (long help texts).
+ */
 export function CheckCards<T extends string>({
   legend,
+  legendHidden,
   description,
   values,
   options,
   onChange,
-  columns = "grid-cols-1 sm:grid-cols-2",
+  columns,
   error,
   optional,
+  layout = "list",
 }: {
   legend: ReactNode;
+  legendHidden?: boolean;
   description?: ReactNode;
   values: readonly string[];
   options: { value: T; label: ReactNode; help?: ReactNode; icon?: IconType }[];
@@ -267,6 +297,7 @@ export function CheckCards<T extends string>({
   columns?: string;
   error?: string | null;
   optional?: boolean;
+  layout?: "list" | "tiles";
 }) {
   const toggle = (value: T, on: boolean) => {
     const next = new Set(values as T[]);
@@ -275,39 +306,78 @@ export function CheckCards<T extends string>({
     // Keep the vocabulary's order.
     onChange(options.map((o) => o.value).filter((v) => next.has(v)));
   };
+  const tiles = layout === "tiles";
   return (
-    <FieldGroup legend={legend} description={description} error={error} optional={optional}>
-      <div className={cn("grid gap-2.5", columns)}>
+    <FieldGroup
+      legend={legend}
+      description={description}
+      error={error}
+      optional={optional}
+      legendClassName={legendHidden ? "sr-only" : undefined}
+    >
+      <div
+        className={cn(
+          "grid",
+          tiles ? "gap-2.5 sm:gap-3" : "gap-2.5",
+          columns ?? (tiles ? "grid-cols-2 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2"),
+        )}
+      >
         {options.map((option) => {
           const Icon = option.icon;
           const checked = values.includes(option.value);
+          const input = (
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={(e) => toggle(option.value, e.target.checked)}
+              className="sr-only"
+            />
+          );
+          if (tiles) {
+            return (
+              <label
+                key={option.value}
+                className={cn(
+                  "relative flex min-h-28 cursor-pointer flex-col items-start gap-2.5 rounded-card border-2 p-3 text-start sm:p-4",
+                  "transition-[border-color,background-color,transform] duration-(--motion-fast) ease-standard active:scale-[0.97] motion-reduce:active:scale-100",
+                  "has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50",
+                  checked ? "border-primary bg-primary-tint/50" : "border-border bg-card hover:border-primary/40",
+                )}
+              >
+                {input}
+                <span className="flex w-full items-start justify-between gap-2">
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "flex size-11 shrink-0 items-center justify-center rounded-full transition-colors duration-(--motion-fast)",
+                      checked ? "bg-primary text-primary-foreground" : "bg-primary-tint text-primary-text",
+                    )}
+                  >
+                    {Icon ? <Icon className="size-5.5" aria-hidden /> : <CheckIcon className="size-5" />}
+                  </span>
+                  <CheckMark checked={checked} shape="square" />
+                </span>
+                <span className="grid min-w-0 gap-0.5">
+                  <span className="text-small leading-snug font-semibold text-balance">{option.label}</span>
+                  {option.help && <span className="text-caption text-pretty text-muted-foreground">{option.help}</span>}
+                </span>
+              </label>
+            );
+          }
           return (
             <label
               key={option.value}
               className={cn(
-                "flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50",
-                checked ? "border-primary bg-primary/5" : "border-border bg-card hover:bg-muted/60",
+                "flex min-h-12 cursor-pointer items-start gap-3 rounded-card border-2 p-3 transition-colors has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50",
+                checked ? "border-primary bg-primary-tint/50" : "border-border bg-card hover:border-primary/40",
               )}
             >
-              <input
-                type="checkbox"
-                checked={checked}
-                onChange={(e) => toggle(option.value, e.target.checked)}
-                className="sr-only"
-              />
-              <span
-                aria-hidden
-                className={cn(
-                  "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border transition-colors",
-                  checked ? "border-primary bg-primary text-primary-foreground" : "border-input bg-background",
-                )}
-              >
-                {checked && <CheckIcon className="size-3.5" />}
-              </span>
-              {Icon && <Icon className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden />}
+              {input}
+              <CheckMark checked={checked} shape="square" />
+              {Icon && <Icon className="mt-0.5 size-5 shrink-0 text-primary-text" aria-hidden />}
               <span className="grid min-w-0 gap-0.5">
-                <span className="text-sm font-medium">{option.label}</span>
-                {option.help && <span className="text-xs text-pretty text-muted-foreground">{option.help}</span>}
+                <span className="text-small font-semibold">{option.label}</span>
+                {option.help && <span className="text-caption text-pretty text-muted-foreground">{option.help}</span>}
               </span>
             </label>
           );
@@ -339,22 +409,26 @@ export function YesNo({
     { key: "no", value: false },
   ];
   return (
-    <fieldset className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-xl border border-border bg-card px-3 py-2.5">
+    <fieldset className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-card border border-border bg-card px-3 py-2.5">
       <legend className="sr-only">{legend}</legend>
-      <span className="flex min-w-0 items-center gap-2.5 text-sm font-medium" aria-hidden>
-        {Icon && <Icon className="size-5 shrink-0 text-muted-foreground" aria-hidden />}
+      <span className="flex min-w-0 items-center gap-2.5 text-small font-semibold" aria-hidden>
+        {Icon && (
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-tint text-primary-text">
+            <Icon className="size-4.5" aria-hidden />
+          </span>
+        )}
         <span className="grid">
           <span>{legend}</span>
-          {description && <span className="text-xs font-normal text-muted-foreground">{description}</span>}
+          {description && <span className="text-caption font-normal text-muted-foreground">{description}</span>}
         </span>
       </span>
-      <div className="flex gap-1 rounded-lg bg-muted p-0.5">
+      <div className="flex gap-1 rounded-full bg-muted p-1">
         {options.map((option) => (
           <label
             key={option.key}
             className={cn(
-              "cursor-pointer rounded-md px-3 py-1.5 text-sm font-medium transition-colors has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50",
-              value === option.value ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+              "flex min-h-9 min-w-14 cursor-pointer items-center justify-center rounded-full px-3.5 text-small font-semibold transition-colors has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50",
+              value === option.value ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
             )}
           >
             <input
@@ -468,18 +542,22 @@ export function Stepper({
   const current = value ?? null;
   const set = (n: number) => onChange(Math.min(max, Math.max(min, Math.round(n / step) * step)));
   return (
-    <div className="grid gap-1.5">
+    <div className="grid min-w-0 gap-1.5">
       <div
         className={cn(
-          "flex items-center justify-between gap-3 rounded-xl border bg-card px-3 py-2.5",
+          "flex min-h-14 min-w-0 items-center justify-between gap-3 rounded-card border bg-card px-3 py-2",
           error ? "border-destructive" : "border-border",
         )}
       >
         <span className="flex min-w-0 items-center gap-2.5">
-          {Icon && <Icon className="size-5 shrink-0 text-muted-foreground" aria-hidden />}
-          <span id={`${id}-label`} className="text-sm font-medium">
+          {Icon && (
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-tint text-primary-text">
+              <Icon className="size-4.5" aria-hidden />
+            </span>
+          )}
+          <span id={`${id}-label`} className="text-small font-semibold">
             {label}
-            {optional && <span className="ms-1.5 text-xs font-normal text-muted-foreground">{t("optional")}</span>}
+            {optional && <span className="ms-1.5 whitespace-nowrap text-xs font-normal text-muted-foreground">{t("optional")}</span>}
           </span>
         </span>
         <div
@@ -493,13 +571,13 @@ export function Stepper({
             onClick={() => (current === null ? onChange(null) : current - step < min ? onChange(null) : set(current - step))}
             disabled={current === null}
             aria-label={t("decrease", { label })}
-            className="flex size-9 items-center justify-center rounded-full border border-input text-foreground transition-colors outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-40"
+            className="flex size-11 items-center justify-center rounded-full border-2 border-input text-foreground transition-[background-color,transform] duration-(--motion-fast) outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-95 disabled:opacity-40 motion-reduce:active:scale-100"
           >
             <MinusIcon className="size-4" aria-hidden />
           </button>
           <output
             aria-live="polite"
-            className={cn("w-10 text-center text-base font-semibold tabular-nums", current === null && "text-muted-foreground")}
+            className={cn("w-9 text-center text-h3 tabular-nums", current === null && "text-muted-foreground")}
           >
             {current === null ? "–" : formatNumber(current, locale, { maximumFractionDigits: 1 })}
           </output>
@@ -508,7 +586,7 @@ export function Stepper({
             onClick={() => set(current === null ? Math.max(min, step >= 1 ? Math.max(min, 1) : min) : current + step)}
             disabled={current !== null && current >= max}
             aria-label={t("increase", { label })}
-            className="flex size-9 items-center justify-center rounded-full border border-input text-foreground transition-colors outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-40"
+            className="flex size-11 items-center justify-center rounded-full border-2 border-input text-foreground transition-[background-color,transform] duration-(--motion-fast) outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-95 disabled:opacity-40 motion-reduce:active:scale-100"
           >
             <PlusIcon className="size-4" aria-hidden />
           </button>
@@ -524,22 +602,92 @@ export function Stepper({
   );
 }
 
-/** Time of day (HH:MM), always left-to-right. */
+/** Every quarter hour of the day: "00:00" … "23:45" (quiet hours, contact hours). */
+const QUARTER_HOURS = Array.from({ length: 96 }, (_, i) => `${String(Math.floor(i / 4)).padStart(2, "0")}:${String((i % 4) * 15).padStart(2, "0")}`);
+
+/**
+ * A time in the language's usual format (round 3): "14:00" in Hebrew, Russian and Georgian,
+ * "2:00 PM" in English, "2:00 م" in Arabic, whatever the browser's own locale is.
+ */
+export function timeOptionLabel(time: string, locale: string): string {
+  return clockLabel(time, locale);
+}
+
+const SELECT_CLASS =
+  "h-11 w-full min-w-0 cursor-pointer appearance-none rounded-input border border-border-strong bg-card ps-3 pe-9 text-base tabular-nums transition-colors outline-none focus-visible:border-primary-text focus-visible:ring-3 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:bg-surface-muted disabled:opacity-60 aria-invalid:border-error aria-invalid:ring-3 aria-invalid:ring-error/20";
+
+function SelectChevron() {
+  return <ChevronDownIcon className="pointer-events-none absolute end-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />;
+}
+
+/**
+ * Time of day (HH:MM) in quarter hours. A select instead of `<input type="time">`, which follows
+ * the browser's locale ("02:00 PM" on the Hebrew site): the labels follow the site's language
+ * (timeOptionLabel). An empty value shows "none"; a saved time off the list stays an option.
+ */
 export function TimeInput({
   value,
   onChange,
+  className,
   ...props
-}: Omit<React.ComponentProps<"input">, "value" | "onChange"> & { value: string; onChange: (value: string) => void }) {
+}: Omit<React.ComponentProps<"select">, "value" | "onChange" | "children"> & { value: string; onChange: (value: string) => void }) {
+  const locale = useLocale();
+  const tc = useTranslations("common");
+  const options = value && !QUARTER_HOURS.includes(value) ? [...QUARTER_HOURS, value].sort() : QUARTER_HOURS;
   return (
-    <Input
-      {...props}
-      type="time"
-      dir="ltr"
-      step={900}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="h-11 w-full text-base tabular-nums"
-    />
+    <div className="relative">
+      <select {...props} value={value} onChange={(e) => onChange(e.target.value)} className={cn(SELECT_CLASS, className)}>
+        <option value="">{tc("none")}</option>
+        {options.map((time) => (
+          <option key={time} value={time}>
+            {timeOptionLabel(time, locale)}
+          </option>
+        ))}
+      </select>
+      <SelectChevron />
+    </div>
+  );
+}
+
+/**
+ * Check-in / check-out (round 3, brief 3): only the usual times every 30 minutes (check-in
+ * 12:00–22:00, check-out 07:00–14:00) plus "גמיש" and "not set". A time saved before that is not
+ * in the list (a 10:00 check-in) stays a selectable option and is never changed by itself.
+ */
+export function CheckTimeSelect({
+  kind,
+  time,
+  flexible,
+  onChange,
+  className,
+  ...props
+}: Omit<React.ComponentProps<"select">, "value" | "onChange" | "children"> & {
+  kind: CheckTimeKind;
+  time: string;
+  flexible: boolean;
+  onChange: (choice: CheckTimeChoice) => void;
+}) {
+  const locale = useLocale();
+  const t = useTranslations("wizard.times");
+  const options = checkTimeOptions(kind, time);
+  return (
+    <div className="relative">
+      <select
+        {...props}
+        value={checkTimeSelectValue({ time, flexible })}
+        onChange={(e) => onChange(checkTimeFromSelect(e.target.value))}
+        className={cn(SELECT_CLASS, className)}
+      >
+        <option value="">{t("notSet")}</option>
+        <option value={FLEXIBLE_VALUE}>{t("flexible")}</option>
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {timeOptionLabel(option, locale)}
+          </option>
+        ))}
+      </select>
+      <SelectChevron />
+    </div>
   );
 }
 
@@ -551,7 +699,7 @@ export function CharCount({ value, max, id }: { value: string; max: number; id?:
   return (
     <span
       id={id}
-      className={cn("text-xs tabular-nums", length > max * 0.95 ? "text-warning" : "text-muted-foreground")}
+      className={cn("text-xs tabular-nums", length > max * 0.95 ? "text-foreground" : "text-muted-foreground")}
       aria-label={t("charCount", { count: length, max })}
     >
       <bdi dir="ltr">

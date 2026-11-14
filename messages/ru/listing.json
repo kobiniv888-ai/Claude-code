@@ -2,6 +2,7 @@
   "loading": "Загружаем объявление…",
   "meta": {
     "title": "{title} · {city}",
+    "titleWithId": "{title} · {city} · #{id}",
     "from": "от {price}",
     "per": {
       "NIGHT": "{price} за ночь",
@@ -16,11 +17,15 @@
   "header": {
     "listingId": "ID <ltr>{id}</ltr>",
     "updated": "Обновлено {date}",
-    "views": "{count, plural, one {{formatted} просмотр} few {{formatted} просмотра} many {{formatted} просмотров} other {{formatted} просмотра}}"
+    "posted": "Опубликовано {date}",
+    "tag": {
+      "demo": "Демо",
+      "promoted": "Продвигается"
+    }
   },
   "status": {
     "title": "Не опубликовано: {status}",
-    "manage": "Мои объявления",
+    "manage": "Мои объекты",
     "staffNote": "Просмотр для команды — посетители не видят эту страницу.",
     "labels": {
       "DRAFT": "Черновик",
@@ -60,12 +65,21 @@
     "byOwner": "Перевод владельца",
     "showOriginal": "Показать оригинал",
     "showTranslation": "Показать перевод",
-    "showingOriginal": "Оригинал ({language})"
+    "showingOriginal": "Оригинал ({language})",
+    "originalIn": {
+      "he": "Оригинал на иврите",
+      "en": "Оригинал на английском",
+      "ru": "Оригинал на русском",
+      "ar": "Оригинал на арабском",
+      "ka": "Оригинал на грузинском"
+    },
+    "translate": "Перевести",
+    "translateHint": "(откроется Google Переводчик)"
   },
   "gallery": {
     "label": "Фото: {title}",
     "open": "Открыть фото {index} из {total}",
-    "showAll": "{count, plural, one {Показать фото} other {Все фото ({formatted})}}",
+    "showAll": "{count, plural, one {{formatted} фото} few {Все {formatted} фото} many {Все {formatted} фото} other {Все {formatted} фото}}",
     "counter": "{index} / {total}",
     "slide": "Фото {index} из {total}",
     "previous": "Предыдущее фото",
@@ -78,7 +92,21 @@
     "videoTitle": "Видео: {title}",
     "videoHint": "Видео воспроизводится с YouTube или Vimeo.",
     "tour": "Тур 360°",
-    "opensNewTab": "(откроется в новой вкладке)"
+    "opensNewTab": "(откроется в новой вкладке)",
+    "back": "Назад",
+    "allPhotos": "Все фото",
+    "rooms": {
+      "BEDROOM": "Спальня",
+      "KITCHEN": "Кухня",
+      "BATHROOM": "Ванная",
+      "LIVING_ROOM": "Гостиная",
+      "VIEW": "Вид",
+      "BALCONY": "Балкон",
+      "BUILDING": "Здание"
+    },
+    "otherPhotos": "Другие фото",
+    "roomsNav": "Перейти к комнате",
+    "sectionCount": "{count, plural, other {{formatted} фото}}"
   },
   "share": {
     "button": "Поделиться",
@@ -94,22 +122,15 @@
   },
   "contactBox": {
     "label": "Связаться с владельцем",
-    "hostedBy": "Владелец",
+    "hostedBy": "Хозяин",
     "hostedByBusiness": "Компания",
     "languages": "Языки",
     "memberSince": "На сайте с",
-    "replyTime": "Обычно отвечает",
-    "replyTimes": {
-      "hour": "в течение часа",
-      "fewHours": "в течение нескольких часов",
-      "day": "в течение дня",
-      "days": "за несколько дней"
-    },
     "localTime": "Время у владельца",
     "contactHours": "Удобное время для звонка",
     "repliesAfterShabbat": "Сейчас Шаббат — владелец ответит после Шаббата.",
     "repliesAfterHoliday": "Сейчас еврейский праздник — владелец ответит после праздника.",
-    "videoTip": "Прежде чем платить, попросите видеозвонок: владелец должен показать жильё и лист бумаги с сегодняшней датой и номером объявления (<ltr>{id}</ltr>)."
+    "listedBy": "Продавец"
   },
   "badges": {
     "label": "Значки доверия",
@@ -128,42 +149,20 @@
       "propertyVerified": "Наша команда видела объект по видеосвязи или на месте",
       "businessVerified": "Наша команда проверила регистрацию компании",
       "keepsShabbat": "Не отвечает в Шаббат и еврейские праздники",
-      "demo": "Пример для знакомства с сайтом — не настоящий владелец"
+      "demo": "Демо-контент для знакомства с сайтом — не настоящее объявление"
     }
   },
   "description": {
-    "title": "Об этом жилье",
+    "title": "О жилье",
     "empty": "Владелец ещё не добавил описание.",
-    "showMore": "Читать дальше",
-    "showLess": "Свернуть"
+    "showMore": "Читать дальше"
   },
   "amenities": {
-    "title": "Удобства"
-  },
-  "jewish": {
-    "title": "Для еврейских гостей",
-    "kitchen": "Кухня",
-    "synagogue": "Ближайшая синагога",
-    "chabad": "Бейт Хабад",
-    "walk": "{count, plural, one {{count} минута пешком} few {{count} минуты пешком} many {{count} минут пешком} other {{count} минуты пешком}}",
-    "shabbatChecklist": "Всё для Шаббата",
-    "shabbatFriendly": "Подходит для Шаббата",
-    "shabbatFriendlyHint": "Подходит для Шаббата — это обычный ключ, нет датчиков движения у входа, есть плата или бойлер для воды.",
-    "has": "Есть",
-    "hasNot": "Нет",
-    "jewishFeatures": "Ещё для еврейских гостей",
-    "hotelKosher": "Кошерное питание",
-    "supervision": "Кошерный надзор"
+    "title": "Что есть в жилье",
+    "showAll": "Показать все ({count})"
   },
   "rules": {
-    "title": "Правила дома",
-    "checkIn": "Заезд",
-    "checkOut": "Выезд",
-    "from": "с {time}",
-    "until": "до {time}",
     "quietHours": "Тихие часы",
-    "allowed": "Разрешено",
-    "notAllowed": "Запрещено",
     "smoking": {
       "yes": "Курение разрешено",
       "no": "Не курить"
@@ -175,40 +174,31 @@
     "parties": {
       "yes": "Вечеринки и мероприятия разрешены",
       "no": "Без вечеринок и мероприятий"
-    }
+    },
+    "checkInFrom": "Заезд с {time}",
+    "checkOutUntil": "Выезд до {time}",
+    "checkInFlexible": "Гибкое время заезда",
+    "checkOutFlexible": "Гибкое время выезда"
   },
   "costs": {
-    "title": "Все расходы",
     "titleSale": "Цена подробно",
     "deposit": "Залог",
     "cleaningFee": "Уборка",
-    "utilities": "Коммунальные услуги",
     "utilitiesIncluded": "Включены в цену",
     "utilitiesNotIncluded": "Не включены",
     "utilitiesEstimate": "около {amount} в месяц, не включены",
-    "minStay": "Минимальный срок",
-    "nights": "{count, plural, one {{count} ночь} few {{count} ночи} many {{count} ночей} other {{count} ночи}}",
-    "weeklyDiscount": "Скидка за неделю",
-    "monthlyDiscount": "Скидка за месяц",
-    "percentOff": "скидка {count}%",
     "pricePerSqm": "Цена за м²",
     "perSqm": "{price} / м²",
-    "priceHistory": "Изменения цены"
+    "priceHistory": "Изменения цены",
+    "minStayText": "{count, plural, one {Минимум {count} месяц} few {Минимум {count} месяца} many {Минимум {count} месяцев} other {Минимум {count} месяца}}",
+    "weeklyDiscountText": "Скидка за неделю: {count}%",
+    "monthlyDiscountText": "Скидка за месяц: {count}%",
+    "minStayNightsText": "{count, plural, one {Минимум {count} ночь} few {Минимум {count} ночи} many {Минимум {count} ночей} other {Минимум {count} ночи}}"
   },
   "details": {
     "title": "Об объекте",
-    "dealType": "Тип сделки",
     "propertyType": "Тип жилья",
-    "rooms": "Комнаты",
-    "bedrooms": "Спальни",
-    "bathrooms": "Ванные",
-    "beds": "Кровати",
-    "bedsDouble": "{count, plural, one {{count} двуспальная} few {{count} двуспальные} many {{count} двуспальных} other {{count} двуспальной}}",
-    "bedsSingle": "{count, plural, one {{count} односпальная} few {{count} односпальные} many {{count} односпальных} other {{count} односпальной}}",
-    "bedsSofa": "{count, plural, one {{count} диван-кровать} few {{count} дивана-кровати} many {{count} диванов-кроватей} other {{count} дивана-кровати}}",
-    "maxGuests": "Гостей (макс.)",
     "sharedRoomFor": "Комната в общей квартире для",
-    "size": "Площадь",
     "floor": "Этаж",
     "floorOf": "{floor} из {total}",
     "elevator": "Лифт",
@@ -219,41 +209,53 @@
     "views": "Вид",
     "condition": "Состояние",
     "yes": "Да",
-    "no": "Нет"
+    "no": "Нет",
+    "showAll": "{count, plural, one {Показать {count} параметр} few {Показать все {count} параметра} many {Показать все {count} параметров} other {Показать все {count} параметра}}"
   },
   "rooms": {
     "title": "Номера",
     "subtitle": "{count, plural, one {{count} тип номера} few {{count} типа номеров} many {{count} типов номеров} other {{count} типа номеров}}",
     "guests": "{count, plural, one {До {count} гостя} other {До {count} гостей}}",
     "bedsDouble": "{count, plural, one {{count} двуспальная кровать} few {{count} двуспальные кровати} many {{count} двуспальных кроватей} other {{count} двуспальной кровати}}",
-    "bedsSingle": "{count, plural, one {{count} односпальная кровать} few {{count} односпальные кровати} many {{count} односпальных кроватей} other {{count} односпальной кровати}}"
+    "bedsSingle": "{count, plural, one {{count} односпальная кровать} few {{count} односпальные кровати} many {{count} односпальных кроватей} other {{count} односпальной кровати}}",
+    "bedsSofa": "{count, plural, one {{count} диван-кровать} few {{count} дивана-кровати} many {{count} диванов-кроватей} other {{count} дивана-кровати}}",
+    "amenitiesLabel": "В номере",
+    "moreAmenities": "и ещё {count}"
   },
   "calendar": {
     "title": "Свободные даты",
-    "subtitle": "Этот и следующий месяц. Владелец обновляет календарь.",
-    "allFree": "В этом и следующем месяце нет занятых дат. Уточните у владельца ваши даты.",
-    "available": "Свободно",
+    "available": "свободно",
     "booked": "Занято",
-    "past": "Прошло",
-    "today": "Сегодня"
+    "past": "прошло",
+    "pickIn": "Выберите дату заезда",
+    "pickOut": "Теперь выберите дату выезда",
+    "range": "{range} · {nights}",
+    "nights": "{count, plural, one {{count} ночь} few {{count} ночи} many {{count} ночей} other {{count} ночи}}",
+    "minStay": "{count, plural, one {Минимум {count} ночь} few {Минимум {count} ночи} many {Минимум {count} ночей} other {Минимум {count} ночи}}",
+    "checkIn": "заезд",
+    "checkOut": "выезд",
+    "previous": "Предыдущий месяц",
+    "next": "Следующий месяц",
+    "clear": "Сбросить даты"
   },
   "map": {
-    "title": "Где это",
+    "title": "Расположение",
     "note": "Круг показывает примерный район. Точный адрес владелец сообщит после того, как вы с ним свяжетесь.",
     "label": "Карта примерного района: {place}",
-    "loading": "Загружаем карту…"
+    "loading": "Загружаем карту…",
+    "noteBooking": "Точный адрес пришлют после бронирования"
   },
   "nearby": {
-    "title": "Рядом",
     "note": "Время пешком примерное, по карте.",
-    "synagogue": "Синагога",
-    "chabad": "Бейт Хабад",
-    "kosherFood": "Кошерная еда",
-    "mikveh": "Миква",
     "supermarket": "Супермаркет",
     "airport": "Аэропорт",
-    "walk": "{count, plural, one {{count} мин пешком} other {{count} мин пешком}}",
-    "km": "{km} км ({code})",
+    "airports": {
+      "TBS": "Аэропорт Тбилиси",
+      "BUS": "Аэропорт Батуми",
+      "KUT": "Аэропорт Кутаиси"
+    },
+    "walk": "Не больше {count} мин пешком",
+    "km": "{km} км",
     "transport": {
       "metro": "Станция метро",
       "train": "Вокзал",
@@ -261,19 +263,8 @@
       "bus": "Автобусная остановка"
     }
   },
-  "shabbat": {
-    "label": "Шаббат и праздники"
-  },
-  "reviews": {
-    "title": "Отзывы",
-    "empty": "Отзывов пока нет."
-  },
-  "safety": {
-    "label": "Безопасность",
-    "reportHint": "Что-то не так с объявлением? Сообщите нам."
-  },
   "similar": {
-    "title": "Похожие варианты",
+    "title": "Похожие объекты",
     "viewAll": "Ещё в этом городе"
   },
   "notFound": {
@@ -281,5 +272,129 @@
     "description": "Возможно, жильё уже сдано или продано, или владелец удалил объявление. Есть много других вариантов.",
     "search": "Смотреть объявления",
     "home": "На главную"
+  },
+  "host": {
+    "title": "Хозяин",
+    "profile": "Профиль и все объявления",
+    "titleSale": "Кто продаёт"
+  },
+  "hostLine": {
+    "hostedBy": "Хозяин: <name></name>",
+    "listedBy": "Продавец: <name></name>",
+    "verified": "Проверен",
+    "pledge": "Хозяин обязался радушно принимать израильтян",
+    "pledgeSale": "Продавец обязался радушно принимать израильтян",
+    "visited": "Мы были на месте"
+  },
+  "highlights": {
+    "label": "Главное о жилье",
+    "self_check_in": "Самостоятельное заселение",
+    "sea_view": "Вид на море",
+    "kosher_kitchen": "Кошерная кухня",
+    "mountain_view": "Вид на горы",
+    "pool": "Бассейн",
+    "near_sea": "Рядом с морем",
+    "near_ski_lifts": "Рядом с подъёмниками",
+    "seaWalk": "{count, plural, one {Не больше {count} минуты пешком до моря} few {Не больше {count} минут пешком до моря} many {Не больше {count} минут пешком до моря} other {Не больше {count} минуты пешком до моря}}",
+    "liftWalk": "{count, plural, one {Не больше {count} минуты пешком до подъёмников} few {Не больше {count} минут пешком до подъёмников} many {Не больше {count} минут пешком до подъёмников} other {Не больше {count} минуты пешком до подъёмников}}",
+    "walkSource": "Оценка по карте OpenStreetMap",
+    "yard": "Двор",
+    "balcony_terrace": "Балкон или терраса",
+    "workspace": "Рабочее место",
+    "parking": "Парковка",
+    "washing_machine": "Стиральная машина",
+    "air_conditioning": "Кондиционер"
+  },
+  "kosher": {
+    "title": "Кошерность и шаббат",
+    "yes": "Да",
+    "kitchen": "Кухня",
+    "supervision": "Кошерный надзор",
+    "food": "Кошерная еда",
+    "checklist": "Шаббат в жилье",
+    "line": {
+      "key": {
+        "ok": "Обычный ключ (не код и не электронный замок)",
+        "no": "Нет обычного ключа (код или электронный замок)"
+      },
+      "elevator": {
+        "ok": "Лестница или лифт для шаббата",
+        "no": "Нет лифта для шаббата",
+        "noFloor": "Нет лифта для шаббата · {floor}-й этаж"
+      },
+      "sensors": {
+        "ok": "У входа нет датчиков движения",
+        "no": "У входа есть датчики движения"
+      },
+      "hotPlate": {
+        "ok": "Плата для шаббата",
+        "no": "Нет платы для шаббата"
+      },
+      "urn": {
+        "ok": "Термопот для шаббата",
+        "no": "Нет термопота"
+      },
+      "timers": {
+        "ok": "Таймер для света на шаббат",
+        "no": "Нет таймера для света"
+      },
+      "sukkah": {
+        "ok": "Есть место для сукки",
+        "no": "Нет места для сукки"
+      }
+    },
+    "nearestSynagogue": "Ближайшая синагога",
+    "nearestChabad": "Ближайший Бейт Хабад",
+    "walk": "{count, plural, one {не больше {count} минуты пешком} few {не больше {count} минут пешком} many {не больше {count} минут пешком} other {не больше {count} минуты пешком}}",
+    "times": "Время шаббата: {city}"
+  },
+  "booking": {
+    "boxLabel": "Бронирование",
+    "barLabel": "Цена и бронирование",
+    "datesTitle": "Выбор дат",
+    "chooseDates": "Выбрать даты",
+    "chooseRoom": "Выбрать номер",
+    "book": "Забронировать",
+    "clear": "Сбросить",
+    "done": "Готово",
+    "summary": "{nights} · Итого {total}",
+    "times": "{price} × {nights}",
+    "cleaningFee": "Уборка",
+    "total": "Итого",
+    "checkIn": "Заезд",
+    "checkOut": "Выезд",
+    "addDate": "Добавить дату",
+    "more": "Ещё",
+    "ask": "Вопрос хозяину"
+  },
+  "book": {
+    "title": "Бронирование на сайте скоро откроется",
+    "text": "А пока можно спросить хозяина о выбранных датах.",
+    "back": "Назад к объявлению"
+  },
+  "important": {
+    "title": "Важно знать",
+    "times": "Заезд и выезд",
+    "costs": "Другие расходы",
+    "rules": "Правила дома",
+    "showAll": "Показать все",
+    "cancellation": "Отмена",
+    "policy": {
+      "FLEXIBLE": "Отменить можно не позже чем за 24 часа до заезда.",
+      "MODERATE": "Отменить можно не позже чем за 5 дней до заезда.",
+      "STRICT": "Отменить можно не позже чем за 14 дней до заезда.",
+      "none": "Условия отмены лучше обсудить с хозяином до заезда."
+    },
+    "payment": "Оплата",
+    "paymentText": "Оплата хозяину при заезде. Bayit не берёт деньги.",
+    "safety": "Перед любой оплатой",
+    "videoTip": "Попросите видеозвонок, где вам покажут жильё и лист бумаги с сегодняшней датой и номером объявления (<ltr>{id}</ltr>)."
+  },
+  "headline": {
+    "perSqm": "{price} / м²"
+  },
+  "payWarning": {
+    "text": "Никогда не платите заранее по ссылке или переводом. Хозяину платят по приезде.",
+    "report": "Сообщить о мошенничестве"
   }
 }

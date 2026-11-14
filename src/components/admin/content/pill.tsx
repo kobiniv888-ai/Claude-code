@@ -10,12 +10,12 @@ const PILL =
 export type PillTone = "success" | "warning" | "danger" | "muted" | "primary" | "demo";
 
 const TONES: Record<PillTone, string> = {
-  success: "bg-verified-soft text-foreground ring-verified/30",
-  warning: "bg-warning-soft text-foreground ring-warning/40",
+  success: "bg-primary-tint text-foreground ring-success/30",
+  warning: "bg-surface-muted text-foreground ring-border-strong/40",
   danger: "bg-destructive/10 text-destructive ring-destructive/30",
   muted: "bg-muted text-muted-foreground ring-border",
   primary: "bg-primary/10 text-primary ring-primary/20",
-  demo: "bg-terracotta/10 text-foreground ring-terracotta/40",
+  demo: "bg-primary/10 text-foreground ring-primary/40",
 };
 
 export function Pill({ tone, icon: Icon, children, className }: { tone: PillTone; icon?: LucideIcon; children: ReactNode; className?: string }) {

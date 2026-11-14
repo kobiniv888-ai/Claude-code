@@ -1,5 +1,9 @@
+import { createHmac, randomBytes } from "node:crypto";
+import fs from "node:fs";
 import { test as base, expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
 import { acceptCookies, loginByPhone } from "./helpers/auth";
+import { E2E_USER_AGENT_TAG, sql, withAdvisoryLock } from "./helpers/db";
+import { ADMIN_STATE_FILE, TEST_ADMIN_PHONE, verifyTwoFactor } from "./helpers/staff";
 
 /** Console noise that is not an app error (external photos that cannot load offline, dev HMR). */
 const IGNORED_CONSOLE = [/Failed to load resource/i, /\[HMR\]/, /\[Fast Refresh\]/, /Download the React DevTools/];
@@ -66,12 +70,38 @@ type StorageState = Awaited<ReturnType<BrowserContext["storageState"]>>;
 const sessions = new Map<string, StorageState>();
 
 /**
+ * The test admin's signed-in, 2-step-verified browser state, shared by every worker of the run
+ * (a file the global setup clears): each authenticator code costs one of the 5 tries the server
+ * allows per 10 minutes, so the admin logs in once per run, under a database lock.
+ */
+async function adminState(browser: Browser): Promise<StorageState> {
+  const cached = sessions.get(TEST_ADMIN_PHONE);
+  if (cached) return cached;
+  const state = await withAdvisoryLock(4615_0001, async () => {
+    if (fs.existsSync(ADMIN_STATE_FILE)) return JSON.parse(fs.readFileSync(ADMIN_STATE_FILE, "utf8")) as StorageState;
+    const use = test.info().project.use;
+    const context = await browser.newContext({ baseURL: use.baseURL, userAgent: use.userAgent, viewport: use.viewport, locale: use.locale });
+    const page = await context.newPage();
+    await acceptCookies(page);
+    await loginByPhone(page, TEST_ADMIN_PHONE);
+    await verifyTwoFactor(page);
+    const fresh = await context.storageState();
+    await context.close();
+    fs.writeFileSync(ADMIN_STATE_FILE, JSON.stringify(fresh));
+    return fresh;
+  });
+  sessions.set(TEST_ADMIN_PHONE, state);
+  return state;
+}
+
+/**
  * A second browser (its own cookies) with the project's settings, signed in with `phone` when
- * given, e.g. the admin next to the owner. Close it with `context.close()`.
+ * given, e.g. the admin next to the owner. Close it with `context.close()`. The test admin
+ * (TEST_ADMIN_PHONE) comes with its 2-step login done (helpers/staff.ts).
  */
 export async function openAs(browser: Browser, phone: string | null, storageState?: StorageState) {
   const use = test.info().project.use;
-  const cached = phone ? sessions.get(phone) : undefined;
+  const cached = phone === TEST_ADMIN_PHONE && !storageState ? await adminState(browser) : phone ? sessions.get(phone) : undefined;
   const context = await browser.newContext({
     baseURL: use.baseURL,
     userAgent: use.userAgent,
@@ -83,9 +113,51 @@ export async function openAs(browser: Browser, phone: string | null, storageStat
   const page = await context.newPage();
   const consoleErrors = trackConsoleErrors(page);
   await acceptCookies(page);
-  if (phone && !cached) {
+  // A sign-in kept from an earlier test of this worker can have ended since (a test that logs an
+  // account out everywhere, or any other way the server ends a session): check it, and sign in
+  // again when it is gone, instead of opening the page signed out. (The test admin's state is
+  // shared by the whole run and verified with 2-step login, so it is left as it is.)
+  const stale =
+    phone && cached && !storageState && phone !== TEST_ADMIN_PHONE
+      ? (await (await context.request.get("/api/auth/get-session")).json().catch(() => null)) === null
+      : false;
+  if (phone && (!cached || stale)) {
+    if (stale) await context.clearCookies();
+    await acceptCookies(page);
     await loginByPhone(page, phone);
     sessions.set(phone, await context.storageState());
   }
   return { context, page, consoleErrors };
+}
+
+/**
+ * Like `openAs`, signed in as a TEST user (or a demo account) without a login code: a session row
+ * written straight into the database, with Better Auth's signed cookie (HMAC-SHA256 with
+ * BETTER_AUTH_SECRET from .env, the same secret the server uses). For tests about something other
+ * than logging in: the site checks at most 30 login codes an hour per address (phone and email
+ * together) and every test runs from 127.0.0.1. The session carries the tests' user agent, so the
+ * cleanup removes it. Never for staff: they always use the real 2-step login (TEST_ADMIN_PHONE).
+ */
+export async function openAsTestUser(browser: Browser, user: { id: string }) {
+  const secret = process.env.BETTER_AUTH_SECRET;
+  if (!secret) throw new Error("BETTER_AUTH_SECRET is not set (.env): the test sessions are signed with it");
+  const use = test.info().project.use;
+  const token = randomBytes(24).toString("base64url");
+  await sql(
+    `INSERT INTO "Session" (id, "expiresAt", token, "createdAt", "updatedAt", "userId", "userAgent")
+     VALUES ($1, now() + interval '1 day', $2, now(), now(), $3, $4)`,
+    [`e2e-sess-${randomBytes(8).toString("hex")}`, token, user.id, use.userAgent ?? E2E_USER_AGENT_TAG],
+  );
+  const value = encodeURIComponent(`${token}.${createHmac("sha256", secret).update(token).digest("base64")}`);
+  const opened = await openAs(browser, null);
+  const url = new URL(use.baseURL ?? "http://localhost");
+  // The login cookie's name (src/lib/auth/session-cookies.ts): "__Host-bayit.session_token" wherever
+  // cookies are Secure (production builds, https; localhost counts as secure), else
+  // "bayit.session_token" (`next dev` on http). Chromium's CDP refuses a "__Host-" cookie given by
+  // URL on http://localhost, and takes it with domain + path (stored host-only, as the server sets it).
+  await opened.context.addCookies([
+    { name: "bayit.session_token", value, domain: url.hostname, path: "/", httpOnly: true, sameSite: "Lax" },
+    { name: "__Host-bayit.session_token", value, domain: url.hostname, path: "/", httpOnly: true, secure: true, sameSite: "Lax" },
+  ]);
+  return opened;
 }
