@@ -47,8 +47,12 @@ You already created the account (OWNER_TODO "Second backup on Backblaze B2"). Th
    set to Compliance, 60 days. Note the bucket's **Endpoint** (e.g.
    `s3.eu-central-003.backblazeb2.com`).
 2. **The lifecycle rule** (Bucket Settings → Lifecycle Settings → custom): prefix
-   `bayit/production/`, hide after **90** days, delete **1** day after hiding. A locked copy cannot
-   go before its lock ends, so this only tidies copies older than the lock.
+   `bayit/production/`, hide after **the lock days + 1** (61 with the default 60-day lock), delete
+   **1** day after hiding. A locked copy cannot go before its lock ends, so a copy exists at most
+   lock + 2 days (62): the privacy policy quotes exactly that number
+   (`offsiteCopyMaxAgeDays`, `src/lib/admin/maintenance/offsite-config.ts`). The weekly job checks
+   it: a copy older than that plus 7 days raises an `offsite_backup_failed` alert ("old copies are
+   not being deleted"), so a missing or wrong rule is noticed.
 3. **The job's key, without delete rights.** The web page's "Read and Write" key includes
    `deleteFiles`, so make it with the Backblaze command-line tool instead (ask the developer to run
    it with you; it needs the account's master key once, which you then keep offline):
@@ -93,7 +97,10 @@ You already created the account (OWNER_TODO "Second backup on Backblaze B2"). Th
 ## Restore from the off-site copy
 
 On a computer you trust (never a codespace for real data: `db-restore` refuses to put a real-site
-backup into a local or codespace database):
+backup into a local or codespace database). For an encrypted copy (`.bkenc`, or
+`db:restore-test -- --latest-offsite`) this refusal comes **before** anything is downloaded or
+decrypted: the target must be a database at the host (not `localhost`, not a codespace), so no
+plain copy of the tables is ever written to a development disk.
 
 ```sh
 # 1. which copies exist (the job's settings in the environment, typed for these commands only)
@@ -155,3 +162,13 @@ was refused ("made with another key"), and a copy cut short was refused ("cut sh
 the download check, encryption round trips of many sizes, the wrong key, a cut-short file,
 changed and reordered chunks, a changed header, and that the settings refuse the photo storage's
 key or endpoint. `backup-format.test.ts` covers the folder format.
+
+## Possible later hardening: a public key for the off-site copies
+
+Today the weekly job encrypts each copy with `BACKUP_ENCRYPTION_KEY` and checks the upload by
+downloading and decrypting it, so that key and the Backblaze key both sit in the hosting's
+settings: someone who can read those settings could download and open the locked copies of the
+last 60 days. A stronger design wraps each copy's file key with a public key (RSA-OAEP or X25519)
+whose private key stays offline with you; the job then checks the upload by size and SHA-256 only,
+and only `db-restore` on your own computer can open a copy. It is not built (it changes the copy
+format and how you keep the key); ask for it if you want it before launch.

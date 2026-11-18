@@ -42,6 +42,38 @@ export const DEVICE_LINK_RETENTION_DAYS = 365;
  * otherwise (the same default as src/lib/admin/maintenance/offsite-config.ts; a test keeps them equal).
  */
 export const OFFSITE_BACKUP_DEFAULT_DAYS = 60;
+/** The lock periods OFFSITE_RETENTION_DAYS may set (the job refuses others). */
+export const OFFSITE_BACKUP_MIN_DAYS = 14;
+export const OFFSITE_BACKUP_MAX_DAYS = 365;
+
+/**
+ * The bucket's lifecycle rule (docs/BACKUPS.md, "The lifecycle rule"): a copy is hidden this many
+ * days after its lock ends, and deleted this many days after it was hidden. With the default lock
+ * a copy exists at most 60 + 1 + 1 = 62 days (S2 review LP-3, ops-backup-1).
+ */
+export const OFFSITE_LIFECYCLE_HIDE_MARGIN_DAYS = 1;
+export const OFFSITE_LIFECYCLE_DELETE_AFTER_HIDE_DAYS = 1;
+
+/** The lock period in force: OFFSITE_RETENTION_DAYS when valid, else the default (never an invalid value). */
+export function offsiteLockDays(env: Partial<Record<string, string | undefined>>): number {
+  const raw = env.OFFSITE_RETENTION_DAYS?.trim();
+  if (!raw) return OFFSITE_BACKUP_DEFAULT_DAYS;
+  const days = Number(raw);
+  return Number.isInteger(days) && days >= OFFSITE_BACKUP_MIN_DAYS && days <= OFFSITE_BACKUP_MAX_DAYS ? days : OFFSITE_BACKUP_DEFAULT_DAYS;
+}
+
+/** The longest an off-site copy can exist when the lifecycle rule is set as documented (the privacy text quotes it). */
+export function offsiteCopyMaxAgeDays(env: Partial<Record<string, string | undefined>>): number {
+  return offsiteLockDays(env) + OFFSITE_LIFECYCLE_HIDE_MARGIN_DAYS + OFFSITE_LIFECYCLE_DELETE_AFTER_HIDE_DAYS;
+}
+
+/**
+ * How far back the database host's own point-in-time restore reaches (Neon: the plan's "history
+ * retention"), which also holds deleted accounts until it rolls over. The privacy policy quotes it
+ * (S2 review LP-3). DATABASE_RESTORE_DAYS overrides it; the founder confirms the plan's value
+ * (OWNER_TODO, INCIDENT_PLAN.md "Facts to fill in").
+ */
+export const DATABASE_RESTORE_DEFAULT_DAYS = 7;
 
 /** What an erased text keeps instead (the same mark as account deletion). */
 export const ERASED_TEXT = "—";

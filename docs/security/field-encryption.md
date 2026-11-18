@@ -100,7 +100,22 @@ npm run db:encrypt-fields -- --dry-run     count only, change nothing
 npm run db:encrypt-fields                  encrypt / re-seal, empty the plain columns, add the guard
 npm run db:encrypt-fields -- --verify      also open EVERY stored value and count those that do not open
 npm run db:encrypt-fields -- --batch 500   rows per batch (default 200)
+npm run db:encrypt-fields -- --expect-key-id <id>   stop unless the key in use has this id
 ```
+
+- **Before anything is read** (`src/lib/field-crypto-preflight.ts`): it prints the database host
+  (never the user or password), `SITE_ENV` and the key id. With `SITE_ENV=staging`/`production` it
+  applies the server's own key rules and refuses any codespace ("BAYITDEV" / "bayit-dev-") key,
+  also as `FIELD_ENCRYPTION_KEY_PREVIOUS`. Against a database that is not on this machine it
+  refuses a missing or codespace key whatever `SITE_ENV` says, and asks for `SITE_ENV`. With
+  `--expect-key-id` it stops unless the current key's id matches. Settings come from `.env`, or from
+  the file named in `DOTENV_CONFIG_PATH` (a pulled `.env.production`).
+- A plain value that cannot be sealed (a pin outside ±90/±180 or `NaN`, from an old restore or a
+  hand edit) leaves its row as it is, is counted as `invalid`, and the run goes on; the script exits
+  with code 1. Correct or empty those rows by hand.
+- Once every stored value has the sealed format it also adds `Listing_sealed_format` and
+  `Booking_sealed_format`: a plain value written into `addressEnc`, `pinEnc`, `guestPhoneEnc` or
+  `guestPhoneLookup` (raw SQL, a future code path) is refused by the database too.
 
 - Idempotent and batched: rows are read in id order, a batch at a time; a row is written only when
   something is left to do, and only while it still holds what was read (a host saving a new
@@ -120,12 +135,22 @@ npm run db:encrypt-fields -- --batch 500   rows per batch (default 200)
 2. In Vercel (Production; Preview has its own key): set `FIELD_ENCRYPTION_KEY_PREVIOUS` to the
    **old** key and `FIELD_ENCRYPTION_KEY` to the **new** one. Redeploy. From now on new values are
    sealed with the new key and old values still open with the previous one.
-3. Re-seal every row with the new key, from a machine with the production settings
-   (`vercel env pull`, then): `npm run db:encrypt-fields`. It prints how many values were re-sealed
-   and how many are "left under an old key" (must be 0).
-4. Check: `npm run db:encrypt-fields -- --verify` (with the new key only:
-   `FIELD_ENCRYPTION_KEY_PREVIOUS=` unset in that shell). It must report `0 unreadable` and
-   `0 … under an old key`.
+3. Re-seal every row with the new key, from **your own computer** (never the codespace: its `.env`
+   holds the codespace's key and database):
+
+   ```sh
+   vercel env pull .env.production --environment=production
+   DOTENV_CONFIG_PATH=.env.production DATABASE_URL="<bayit_migrate address>" SITE_ENV=production \
+     npm run db:encrypt-fields -- --expect-key-id <new key id>
+   ```
+
+   `vercel env pull` writes the file you name; `DOTENV_CONFIG_PATH` makes the script read it
+   (without it the script reads `.env`, not the pulled file). The first line it prints names the
+   database host and the key id: stop if either is not the real one. It prints how many values were
+   re-sealed and how many are "left under an old key" (must be 0).
+4. Check, with the new key only (same command, `FIELD_ENCRYPTION_KEY_PREVIOUS=` set empty in front
+   of it, and `--verify` added). It must report `0 unreadable` and `0 … under an old key`. Then
+   delete `.env.production`.
 5. Remove `FIELD_ENCRYPTION_KEY_PREVIOUS` in Vercel and redeploy.
 6. Keep the old key in the password manager until the last backup made before step 3 has expired
    (backups older than that still hold values sealed with it). After a **leak**, also replace the
@@ -138,7 +163,8 @@ the per-phone booking cap matches lookups under both keys.
 
 Backups (`scripts/db-backup.ts`, the off-site copy) contain the ciphertext, so a restore needs the
 key that sealed those values. Restore into a database created with `prisma db push`, then run
-`npm run db:encrypt-fields -- --verify`: it adds the CHECK constraints again (a fresh push has
+`npm run db:encrypt-fields -- --verify` (for the real database: with the pulled settings and
+`--expect-key-id`, as in rotation step 3): it adds the CHECK constraints again (a fresh push has
 none), seals any plain values from a backup made before encryption, and reports values that do not
 open with the current keys (set the old key as `FIELD_ENCRYPTION_KEY_PREVIOUS` and run again).
 

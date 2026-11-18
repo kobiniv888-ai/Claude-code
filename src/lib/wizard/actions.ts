@@ -209,6 +209,12 @@ export async function updateDraft(
       fields: publicTextFields(step, parsed.data as Record<string, unknown>),
     });
     if (paymentErrors) return fail("payment_in_text", paymentErrors);
+    // The exact address is shown to booked guests and in their confirmation email: no contact
+    // details there either (S2 review TS-8). House and flat numbers are not phone numbers.
+    if (step === "location") {
+      const address = (parsed.data as Record<string, unknown>).address;
+      if (typeof address === "string" && hasContactInfo(detectContactInfo(address))) return fail("contact_in_text", { address: ["contactInText"] });
+    }
     const update = await buildStepUpdate(step, parsed.data as Partial<ParsedStep<typeof step>>, listing, user, stepUpdateDeps);
     if (update.fieldErrors) return fail("invalid_input", update.fieldErrors);
     // A live listing shows the edit at once: an edit that adds a mistake-check error (contact
@@ -284,7 +290,9 @@ export async function updateDraft(
 
 /** The fields of a step that guests read as written (SECURITY_REPORT 14.2.a: checked for payment details). */
 function publicTextFields(step: SavableStepKey, data: Record<string, unknown>): Record<string, string | undefined> {
-  const keys = step === "text" ? ["title", "description"] : step === "property" ? ["businessName"] : step === "jewish" ? ["kosherCertName"] : [];
+  // The exact address too: booked guests read it on the trip page and in the confirmation email (S2 review TS-8).
+  const keys =
+    step === "text" ? ["title", "description"] : step === "property" ? ["businessName"] : step === "jewish" ? ["kosherCertName"] : step === "location" ? ["address"] : [];
   return Object.fromEntries(keys.map((key) => [key, typeof data[key] === "string" ? data[key] : undefined]));
 }
 

@@ -70,7 +70,7 @@ export default async function ModerationDetailPage({ params }: PageProps<"/[loca
   const warnings = await getReviewWarnings({
     id: listing.id,
     ownerId: listing.ownerId,
-    cityId: null,
+    cityId: listing.cityId,
     isDemo: listing.isDemo,
     description: listing.description,
     address: listing.address,

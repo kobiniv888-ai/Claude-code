@@ -14,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   emails: [] as { to: string; code?: string }[],
   texts: [] as string[],
   smsOk: true,
+  /** Twilio's error code for a refused text (30450: SMS Pumping Protection). */
+  smsErrorCode: null as number | null,
   budgetAvailable: true,
 }));
 mocks.ipHash = `vitest-hooks-${run}`;
@@ -47,6 +49,7 @@ vi.mock("@/lib/sms", async (importOriginal) => {
     isSmsConfigured: () => true,
     sendSms: async (input: { to: string }) => {
       mocks.texts.push(input.to);
+      if (mocks.smsErrorCode !== null) return { ok: false, delivered: false, errorCode: mocks.smsErrorCode };
       return mocks.smsOk ? { ok: true, delivered: false } : { ok: false };
     },
   };
@@ -106,6 +109,7 @@ beforeEach(() => {
   mocks.emails = [];
   mocks.texts = [];
   mocks.smsOk = true;
+  mocks.smsErrorCode = null;
   mocks.budgetAvailable = true;
 });
 
@@ -122,7 +126,7 @@ afterAll(async () => {
   ].filter((key): key is string => !!key);
   await db.rateLimit.deleteMany({ where: { OR: [{ key: { in: keys } }, { key: { contains: mocks.ipHash } }] } });
   await db.verification.deleteMany({ where: { OR: emails.map((address) => ({ identifier: { contains: address } })).concat(phones.map((number) => ({ identifier: { contains: number } }))) } });
-  await db.securityEvent.deleteMany({ where: { type: { in: ["login_failed", "login_code_locked", "email_code_sent", "rate_limited"] }, createdAt: { gte: startedAt } } });
+  await db.securityEvent.deleteMany({ where: { type: { in: ["login_failed", "login_code_locked", "email_code_sent", "rate_limited", "sms_pumping_blocked"] }, createdAt: { gte: startedAt } } });
   await db.user.deleteMany({ where: { email: { in: emails } } });
   await db.$disconnect();
 });
@@ -190,6 +194,21 @@ describe("phone codes through the real hooks (SMS route)", () => {
     const keys = codeSendKeys({ channel: "phone", target: number, ipHash: mocks.ipHash, deviceHash: null });
     expect(await counter(keys.targetDay)).toBe(0);
     expect(mocks.texts).toEqual([]);
+  });
+
+  it("Twilio's SMS Pumping Protection (30450): a friendly SMS_BLOCKED answer, a security event without the number, counts given back", async () => {
+    const number = phone();
+    mocks.smsErrorCode = 30450;
+    expect(await sendPhoneCode(number)).toMatchObject({ ok: false, status: 503, code: "SMS_BLOCKED" });
+    const events = await db.securityEvent.findMany({ where: { type: "sms_pumping_blocked", createdAt: { gte: startedAt } } });
+    expect(events.length).toBeGreaterThanOrEqual(1);
+    expect(events.at(-1)?.meta).toMatchObject({ country: "IL", twilioError: 30450 });
+    expect(JSON.stringify(events)).not.toContain(number.slice(4));
+    const keys = codeSendKeys({ channel: "phone", target: number, ipHash: mocks.ipHash, deviceHash: null });
+    expect(await counter(keys.targetDay)).toBe(0);
+    // Any other refusal is still the general "could not send".
+    mocks.smsErrorCode = 21408;
+    expect(await sendPhoneCode(number)).toMatchObject({ ok: false, code: "SMS_UNAVAILABLE" });
   });
 
   it("a text Twilio refused gives its counts back: an immediate retry is allowed", async () => {

@@ -178,7 +178,14 @@ export async function pruneRateLimits(): Promise<number> {
 }
 
 let lastPrune = 0;
+/**
+ * Opportunistic housekeeping, only inside a running Next server (NEXT_RUNTIME is set there; the
+ * cleanup cron prunes too). Unit tests run outside it: there, one test file's first rateLimit() call
+ * used to delete another file's windows dated in the past while that file was using them (the S2
+ * review gate's flaky "daily cap when two runs race" in tests/unit/saved-alerts-db.test.ts).
+ */
 function maybePrune() {
+  if (!process.env.NEXT_RUNTIME) return;
   const now = Date.now();
   if (now - lastPrune < 6 * 3600 * 1000) return;
   lastPrune = now;

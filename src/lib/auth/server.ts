@@ -39,7 +39,7 @@ import { getDeviceHash } from "@/lib/request";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { localeFromRequest } from "./request-locale";
 import { isTwoFactorPending, needsTwoFactorSession } from "./two-factor-gate";
-import { SmsUnavailableError, emailCodeRoute, phoneCodeRoute, sendLoginCode } from "./sms";
+import { SmsUnavailableError, emailCodeRoute, guardSmsCodeSend, phoneCodeRoute, sendLoginCode } from "./sms";
 import { recordSmsCodeVerified, smsBudgetAvailable, smsPausedFor, smsSourceForThisCall } from "./sms-guard";
 
 /**
@@ -104,6 +104,21 @@ function codeLimitError(decision: Extract<CodeSendDecision, { ok: false }>) {
     { code, message: "Please wait before asking for another code", retryAfter: decision.retryAfterSeconds },
     { "Retry-After": seconds, "X-Retry-After": seconds },
   );
+}
+
+/** A phone code that could not go out (./sms.ts SmsUnavailableError) → the answer the forms show. */
+function smsUnavailableHookError(error: SmsUnavailableError) {
+  switch (error.reason) {
+    case "paused":
+      return hookError("SERVICE_UNAVAILABLE", AUTH_HOOK_ERRORS.SMS_PAUSED, "SMS codes are paused right now");
+    case "limited":
+      return hookError("TOO_MANY_REQUESTS", AUTH_HOOK_ERRORS.RATE_LIMITED, "Too many codes requested");
+    case "pumping_blocked":
+      // Twilio error 30450: "try again in a few minutes, or sign in with email".
+      return hookError("SERVICE_UNAVAILABLE", AUTH_HOOK_ERRORS.SMS_BLOCKED, "The text was blocked; try again in a few minutes");
+    default:
+      return hookError("SERVICE_UNAVAILABLE", AUTH_HOOK_ERRORS.SMS_UNAVAILABLE, "Could not send the code");
+  }
 }
 
 /** The visitor's hashed IP (an IPv6 address by its /64) and device id for the code caps (null when unreadable). */
@@ -344,7 +359,7 @@ export const auth = betterAuth({
         // device gets its own allowance for the address next time (3.1.c/f).
         if (ctx.path === "/sign-in/email-otp" && emailCodeRoute(ctx.headers) === "email") {
           const keys = await requestKeys();
-          await refundConfirmedCodeSend(keys);
+          await refundConfirmedCodeSend("email", keys);
           const email = checkLoginEmail(ctx.body?.email);
           if (email) await rememberCodeDevice({ channel: "email", target: email, deviceHash: keys.deviceHash });
         }
@@ -454,29 +469,31 @@ export const auth = betterAuth({
         // Founder's answer (5): a phone check for a number another account has stores its code and
         // charges every limit (above), but sends nothing, after a wait like a real send's
         // (./phone-neutral.ts). The answer is the same "sent".
-        if (isNeutralPhoneSend()) {
-          await neutralSendDelay();
-          return;
-        }
+        const neutral = isNeutralPhoneSend();
         const route = await phoneCodeRoute(to, ctx?.headers);
         try {
+          // The source's pause, budget, share and brake (./sms.ts guardSmsCodeSend) run for a
+          // neutral send TOO, and its reservation is kept like an unanswered text's: a braked or
+          // over-share source gets the same refusal for every number (S2 review FC-1).
+          const guarded = route === "sms" ? await guardSmsCodeSend(to) : undefined;
+          if (neutral) {
+            await neutralSendDelay();
+            return;
+          }
           await sendLoginCode({
             phoneNumber: to,
             code,
             ttlSeconds: OTP_EXPIRES_IN_SECONDS,
             locale: ctx?.getCookie("NEXT_LOCALE"),
             route,
+            guarded,
           });
         } catch (error) {
           if (error instanceof SmsUnavailableError) {
             console.error("[auth] could not send a phone code:", error.message);
             // No text went out: the waits and caps the send hook counted are given back (3.1.c).
             if (route === "sms") await refundCodeSend({ channel: "phone", target: to, ...(await requestKeys()) });
-            throw error.reason === "paused"
-              ? hookError("SERVICE_UNAVAILABLE", AUTH_HOOK_ERRORS.SMS_PAUSED, "SMS codes are paused right now")
-              : error.reason === "limited"
-                ? hookError("TOO_MANY_REQUESTS", AUTH_HOOK_ERRORS.RATE_LIMITED, "Too many codes requested")
-                : hookError("SERVICE_UNAVAILABLE", AUTH_HOOK_ERRORS.SMS_UNAVAILABLE, "Could not send the code");
+            throw smsUnavailableHookError(error);
           }
           throw error;
         }
@@ -494,7 +511,7 @@ export const auth = betterAuth({
         if (right && country && (await phoneCodeRoute(to, ctx?.headers)) === "sms") {
           await recordSmsCodeVerified(country, await smsSourceForThisCall());
           const keys = await requestKeys();
-          await refundConfirmedCodeSend(keys);
+          await refundConfirmedCodeSend("phone", keys);
           await rememberCodeDevice({ channel: "phone", target: to, deviceHash: keys.deviceHash });
         }
         return right;

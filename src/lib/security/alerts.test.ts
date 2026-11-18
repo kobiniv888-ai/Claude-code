@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const { runSecurityAlerts, windowStart } = await import("./alerts");
+const { runSecurityAlerts, windowStart, registrableDomain, rdapExpiryDaysLeft } = await import("./alerts");
 type Deps = NonNullable<Parameters<typeof runSecurityAlerts>[0]>;
 type State = Awaited<ReturnType<NonNullable<Deps["readState"]>>>;
 type Signals = Awaited<ReturnType<NonNullable<Deps["collect"]>>>;
@@ -36,12 +36,23 @@ function signals(over: Partial<Signals> = {}): Signals {
   };
 }
 
-function harness(opts: { state?: State; signals?: Partial<Signals>; delivered?: boolean; tickets?: { id: string; number: number; waitingSince: Date }[] } = {}) {
+function harness(
+  opts: {
+    state?: State;
+    signals?: Partial<Signals>;
+    delivered?: boolean | (() => boolean);
+    tickets?: { id: string; number: number; waitingSince: Date }[];
+    /** When set, the signals exist only while this event time is inside the run's [since, now]. */
+    eventAt?: Date;
+  } = {},
+) {
   let state: State = opts.state ?? {};
-  const deliver = vi.fn<NonNullable<Deps["deliver"]>>(async () => ({ email: opts.delivered ?? true, telegram: 0 }));
-  const collect = vi.fn(async (_since: Date, _now: Date, extra: { certificateDaysLeft?: number | null }) =>
-    signals({ ...opts.signals, certificateDaysLeft: extra.certificateDaysLeft ?? null }),
-  );
+  const delivered = () => (typeof opts.delivered === "function" ? opts.delivered() : (opts.delivered ?? true));
+  const deliver = vi.fn<NonNullable<Deps["deliver"]>>(async () => ({ email: delivered(), telegram: 0 }));
+  const collect = vi.fn(async (since: Date, now: Date, extra: { certificateDaysLeft?: number | null }) => {
+    const inWindow = !opts.eventAt || (opts.eventAt >= since && opts.eventAt <= now);
+    return signals({ ...(inWindow ? opts.signals : {}), certificateDaysLeft: extra.certificateDaysLeft ?? null });
+  });
   const deps = (now: Date): Deps => ({
     now,
     claim: async () => true,
@@ -78,6 +89,31 @@ describe("runSecurityAlerts", () => {
     expect(h.deliver).toHaveBeenCalledTimes(2);
   });
 
+  it("an undelivered alert is counted again an hour later: the window goes back to where it began (ops-alerts-2)", async () => {
+    let up = false;
+    const h = harness({
+      state: { lastRunAt: new Date(NOW.getTime() - HOUR).toISOString() },
+      signals: { staffNewDevices: 1 },
+      eventAt: new Date(NOW.getTime() - 30 * 60_000),
+      delivered: () => up,
+    });
+    expect((await runSecurityAlerts(h.deps(NOW))).sent).toEqual([]);
+    // The window did not move on.
+    expect(h.state().lastRunAt).toBe(new Date(NOW.getTime() - HOUR).toISOString());
+    up = true;
+    const next = await runSecurityAlerts(h.deps(new Date(NOW.getTime() + HOUR)));
+    expect(next.sent).toEqual(["staff_new_device"]);
+    expect(h.deliver).toHaveBeenCalledTimes(2);
+    expect(h.deliver.mock.calls[1]![1]).toBe(120);
+    expect(h.state().lastRunAt).toBe(new Date(NOW.getTime() + HOUR).toISOString());
+  });
+
+  it("a quiet run moves the window on", async () => {
+    const h = harness({ state: { lastRunAt: new Date(NOW.getTime() - HOUR).toISOString() }, delivered: false });
+    await runSecurityAlerts(h.deps(NOW));
+    expect(h.state().lastRunAt).toBe(NOW.toISOString());
+  });
+
   it("another run already holds the claim: nothing happens", async () => {
     const h = harness({ signals: { staffNewDevices: 1 } });
     const result = await runSecurityAlerts({ ...h.deps(NOW), claim: async () => false });
@@ -96,6 +132,25 @@ describe("runSecurityAlerts", () => {
     await run(new Date(NOW.getTime() + 25 * HOUR));
     expect(check).toHaveBeenCalledTimes(2);
     expect(base.certificateHost?.()).toBeNull();
+  });
+
+  it("checks the domain registration once a day and alerts within 30 days (ops-alerts-1)", async () => {
+    const domain = vi.fn(async () => 25);
+    const h = harness();
+    const run = (at: Date) =>
+      runSecurityAlerts({ ...h.deps(at), certificateHost: () => "www.bayit.example", checkCertificate: async () => 300, checkDomain: domain });
+    expect((await run(NOW)).alerts).toEqual(["domain_expiry"]);
+    expect(domain).toHaveBeenCalledWith("bayit.example", NOW);
+    await run(new Date(NOW.getTime() + 2 * HOUR));
+    expect(domain).toHaveBeenCalledTimes(1);
+    expect(h.state().domainDaysLeft).toBe(25);
+    domain.mockResolvedValueOnce(200);
+    expect((await run(new Date(NOW.getTime() + 25 * HOUR))).alerts).toEqual([]);
+  });
+
+  it("a burst of server errors alerts (ops-alerts-1)", async () => {
+    const h = harness({ signals: { events: { server_error: 21 } } });
+    expect((await runSecurityAlerts(h.deps(NOW))).sent).toEqual(["error_spike"]);
   });
 
   it("a late support ticket alerts once per waiting spell", async () => {
@@ -120,10 +175,27 @@ describe("runSecurityAlerts", () => {
 });
 
 describe("windowStart", () => {
-  it("at least an hour; back to the last run when it is recent; never more than 3 hours", () => {
+  it("at least an hour; back to the last run when it is recent; clamped to 3 hours after a longer gap (ops-alerts-3)", () => {
     expect(windowStart(NOW, undefined).toISOString()).toBe(new Date(NOW.getTime() - HOUR).toISOString());
     expect(windowStart(NOW, new Date(NOW.getTime() - 90 * 60_000).toISOString()).toISOString()).toBe(new Date(NOW.getTime() - 90 * 60_000).toISOString());
-    expect(windowStart(NOW, new Date(NOW.getTime() - 10 * HOUR).toISOString()).toISOString()).toBe(new Date(NOW.getTime() - HOUR).toISOString());
+    expect(windowStart(NOW, new Date(NOW.getTime() - 10 * HOUR).toISOString()).toISOString()).toBe(new Date(NOW.getTime() - 3 * HOUR).toISOString());
     expect(windowStart(NOW, "not a date").toISOString()).toBe(new Date(NOW.getTime() - HOUR).toISOString());
+  });
+});
+
+describe("domain expiry helpers", () => {
+  it("the registrable domain of the site's host", () => {
+    expect(registrableDomain("www.bayit.ge")).toBe("bayit.ge");
+    expect(registrableDomain("bayit.ge")).toBe("bayit.ge");
+    expect(registrableDomain("a.bayit.com.ge")).toBe("bayit.com.ge");
+    expect(registrableDomain("localhost")).toBeNull();
+  });
+
+  it("reads the RDAP expiration event; anything else is null", () => {
+    const body = { events: [{ eventAction: "registration", eventDate: "2020-01-01T00:00:00Z" }, { eventAction: "expiration", eventDate: "2026-12-10T12:00:00Z" }] };
+    expect(rdapExpiryDaysLeft(body, NOW)).toBe(30);
+    expect(rdapExpiryDaysLeft({ events: [] }, NOW)).toBeNull();
+    expect(rdapExpiryDaysLeft(null, NOW)).toBeNull();
+    expect(rdapExpiryDaysLeft({ events: [{ eventAction: "expiration", eventDate: "nope" }] }, NOW)).toBeNull();
   });
 });

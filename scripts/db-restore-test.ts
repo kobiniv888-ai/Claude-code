@@ -27,9 +27,9 @@ import pg from "pg";
 import { audit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { backupRoot, createBackup, readBackupMeta, restoreBackup } from "@/lib/admin/maintenance/backup";
-import { quoteIdent } from "@/lib/admin/maintenance/backup-format";
+import { encryptedRestoreRefusal, quoteIdent } from "@/lib/admin/maintenance/backup-format";
 import { downloadOffsiteBackup, listOffsiteBackups, offsiteS3Client, requireOffsiteConfig } from "@/lib/admin/maintenance/offsite";
-import { assertSafeTarget, createSchema, openBackup } from "./db-restore";
+import { assertEncryptedRestoreAllowed, assertSafeTarget, createSchema, openBackup } from "./db-restore";
 
 type Args = { backup?: string; latestOffsite: boolean; keep: boolean };
 
@@ -66,6 +66,17 @@ async function main() {
   const source = process.env.DATABASE_URL;
   const started = Date.now();
   const temp: string[] = [];
+
+  // 0. An off-site copy is never downloaded or decrypted for a codespace or a local database
+  //    (FE-5): the target is known before anything is fetched (the scratch database would be made
+  //    next to DATABASE_URL).
+  const plannedTarget = process.env.RESTORE_TARGET_URL?.trim() || (source ? scratchUrl(source, "bayit_restore_test_planned") : "");
+  if (args.latestOffsite) {
+    const refusal = encryptedRestoreRefusal(plannedTarget, process.env);
+    if (refusal) throw new Error(refusal);
+  } else if (args.backup) {
+    await assertEncryptedRestoreAllowed(args.backup, plannedTarget);
+  }
 
   // 1. Which backup.
   let backup = args.backup;

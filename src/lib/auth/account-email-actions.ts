@@ -39,7 +39,7 @@ const confirmSchema = z.object({ email: emailSchema, code: z.string().trim().reg
 
 export async function sendAccountEmailCode(input: unknown): Promise<ActionResult<CodeSent>> {
   return runAction<CodeSent>(async () => {
-    const user = await requireUserForAction();
+    const user = await requireUserForAction({ terms: false });
     if (!needsAccountEmail(user)) return fail("account_email_present");
     const parsed = sendSchema.safeParse(input);
     if (!parsed.success) return fail("invalid_input", { email: ["invalid_email"] });
@@ -52,7 +52,7 @@ export async function sendAccountEmailCode(input: unknown): Promise<ActionResult
 
 export async function confirmAccountEmail(input: unknown): Promise<ActionResult<{ email: string }>> {
   return runAction<{ email: string }>(async () => {
-    const user = await requireUserForAction();
+    const user = await requireUserForAction({ terms: false });
     if (!needsAccountEmail(user)) return fail("account_email_present");
     const parsed = confirmSchema.safeParse(input);
     if (!parsed.success) return fail("invalid_code");

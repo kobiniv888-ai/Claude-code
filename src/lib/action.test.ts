@@ -14,6 +14,9 @@ import {
   errorMessageKey,
 } from "./errors";
 
+const recordServerError = vi.hoisted(() => vi.fn(async () => undefined));
+vi.mock("@/lib/security/server-errors", () => ({ recordServerError }));
+
 describe("ok / fail", () => {
   it("builds results", () => {
     expect(ok()).toEqual({ ok: true, data: undefined });
@@ -55,6 +58,26 @@ describe("toActionError", () => {
     expect(toActionError(new Error("db password leaked in message"))).toEqual({ ok: false, error: "server_error" });
     expect(toActionError(new AppError("boom", "internal", { status: 500 })).error).toBe("server_error");
     expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it("counts each hidden server error for the error-spike alert, never a known code (S2 review ops-alerts-1)", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubEnv("NEXT_RUNTIME", "nodejs");
+    recordServerError.mockClear();
+    toActionError(new ForbiddenError());
+    toActionError(new AppError("file_too_large", "big", { status: 413 }));
+    await vi.waitFor(() => expect(recordServerError).toHaveBeenCalledTimes(0));
+    toActionError(new Error("unexpected"));
+    toActionError(new AppError("boom", "internal", { status: 500 }));
+    await vi.waitFor(() => expect(recordServerError).toHaveBeenCalledTimes(2));
+    expect(recordServerError).toHaveBeenCalledWith("action");
+    // Outside a running Next server (a unit test calling an action), nothing is recorded.
+    vi.unstubAllEnvs();
+    recordServerError.mockClear();
+    toActionError(new Error("unexpected"));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(recordServerError).not.toHaveBeenCalled();
     spy.mockRestore();
   });
 

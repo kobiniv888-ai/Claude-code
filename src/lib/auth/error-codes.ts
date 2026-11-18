@@ -28,6 +28,8 @@ export const AUTH_HOOK_ERRORS = {
   NOT_MOBILE_NUMBER: "NOT_MOBILE_NUMBER",
   /** The daily SMS budget is used up, or texts to this country are paused (./sms-guard.ts). */
   SMS_PAUSED: "SMS_PAUSED",
+  /** Twilio's SMS Pumping Protection blocked the code text (error 30450): try later, or email. */
+  SMS_BLOCKED: "SMS_BLOCKED",
 } as const;
 
 export type AuthErrorKey =
@@ -54,6 +56,7 @@ export type AuthErrorKey =
   | "code_daily_cap"
   | "not_mobile"
   | "sms_paused"
+  | "sms_blocked"
   | "phone_check_not_here"
   // Google/Apple (SECURITY_REPORT 3.3): an existing email account is joined only from the settings;
   // unverified provider emails are refused; a sensitive change needs a fresh code (3.6).
@@ -101,6 +104,7 @@ const BY_CODE: Record<string, AuthErrorKey> = {
   [AUTH_HOOK_ERRORS.CODE_DAILY_CAP]: "code_daily_cap",
   [AUTH_HOOK_ERRORS.NOT_MOBILE_NUMBER]: "not_mobile",
   [AUTH_HOOK_ERRORS.SMS_PAUSED]: "sms_paused",
+  [AUTH_HOOK_ERRORS.SMS_BLOCKED]: "sms_blocked",
   [AUTH_HOOK_ERRORS.TWO_FACTOR_REQUIRED]: "two_factor_required",
   // Better Auth's CSRF/origin checks. In Codespaces the port forwarder can rewrite Origin, so these
   // were the hidden cause of "something went wrong" on "send code" (see ./dev-origins.ts).

@@ -9,6 +9,15 @@
  *   npm run db:encrypt-fields -- --batch 500   rows per batch (default 200)
  *   npm run db:encrypt-fields -- --verify      also open EVERY stored value and count those that do
  *                                              not open (before removing an old key, after a restore)
+ *   npm run db:encrypt-fields -- --expect-key-id <id>
+ *                                              stop unless the key in use has this id (recommended
+ *                                              for every run against the real database)
+ *
+ * Before anything is read it checks the key (src/lib/field-crypto-preflight.ts, FE-2): on
+ * SITE_ENV=staging/production the server's own key rules and no codespace ("BAYITDEV") key; against
+ * a database that is not on this machine never a missing or codespace key, whatever SITE_ENV says.
+ * It prints the target database host (no credentials), SITE_ENV and the key id first. Settings come
+ * from .env, or from the file in DOTENV_CONFIG_PATH (e.g. a `vercel env pull .env.production`).
  *
  * Needs the new columns first (npx prisma db execute --file prisma/sql/before-push.sql && npx prisma
  * db push) and the key the site uses (FIELD_ENCRYPTION_KEY; during a rotation also
@@ -20,6 +29,7 @@
 import "dotenv/config";
 import { db } from "@/lib/db";
 import { encryptPlainFields } from "@/lib/field-crypto-migrate";
+import { encryptFieldsPreflight, expectedKeyId } from "@/lib/field-crypto-preflight";
 
 function batchSize(argv: string[]): number | undefined {
   const index = argv.findIndex((arg) => arg === "--batch" || arg.startsWith("--batch="));
@@ -34,9 +44,17 @@ async function main() {
   const argv = process.argv.slice(2);
   const dryRun = argv.includes("--dry-run");
   const verify = argv.includes("--verify");
+  const preflight = encryptFieldsPreflight(process.env, { expectKeyId: expectedKeyId(argv) });
+  console.log(`[encrypt-fields] database ${preflight.host || "(unreadable DATABASE_URL)"}${preflight.local ? " (this machine)" : ""}, SITE_ENV ${preflight.site}, key ${preflight.keyId ?? "(unusable)"}`);
+  if (preflight.problems.length) {
+    for (const problem of preflight.problems) console.error(`[encrypt-fields] refused: ${problem}`);
+    console.error("[encrypt-fields] nothing was read or changed (docs/security/field-encryption.md).");
+    process.exitCode = 1;
+    return;
+  }
   const report = await encryptPlainFields(db, { dryRun, verify, batchSize: batchSize(argv) });
   const t = (name: string, r: typeof report.listings) =>
-    `${name}: ${r.changed} rows ${dryRun ? "to change" : "changed"} (${r.sealed} sealed, ${r.resealed} re-sealed, ${r.cleared} plain copies emptied, ${r.unreadable} unreadable, ${r.skipped} skipped` +
+    `${name}: ${r.changed} rows ${dryRun ? "to change" : "changed"} (${r.sealed} sealed, ${r.resealed} re-sealed, ${r.cleared} plain copies emptied, ${r.unreadable} unreadable, ${r.invalid} invalid, ${r.skipped} skipped` +
     `${verify ? `, ${r.verified} checked` : ""})`;
   console.log(`[encrypt-fields] key ${report.keyId}${dryRun ? " — dry run, nothing changed" : ""}${verify ? " — every stored value opened and checked" : ""}`);
   console.log(`[encrypt-fields] ${t("listings", report.listings)}`);
@@ -45,7 +63,18 @@ async function main() {
     `[encrypt-fields] left: ${report.remainingPlain.listings} listings and ${report.remainingPlain.bookings} bookings with plain values; ` +
       `${report.remainingOldKey.listings} listings and ${report.remainingOldKey.bookings} bookings under an old key`,
   );
-  console.log(`[encrypt-fields] database guard: listings ${report.guard.listing ? "on" : "off"}, bookings ${report.guard.booking ? "on" : "off"}`);
+  console.log(
+    `[encrypt-fields] database guard: listings ${report.guard.listing ? "on" : "off"}, bookings ${report.guard.booking ? "on" : "off"}; ` +
+      `sealed-format guard: listings ${report.guard.listingFormat ? "on" : "off"}, bookings ${report.guard.bookingFormat ? "on" : "off"}` +
+      (report.malformed.listings + report.malformed.bookings ? ` (${report.malformed.listings} listings and ${report.malformed.bookings} bookings hold a value that is not sealed)` : ""),
+  );
+  const invalid = report.listings.invalid + report.bookings.invalid;
+  if (invalid > 0) {
+    console.error(
+      `[encrypt-fields] ${invalid} rows hold a plain value that cannot be sealed (e.g. a pin outside ±90/±180): they were left as they are. ` +
+        "Correct or empty them by hand, then run again.",
+    );
+  }
   const unreadable = report.listings.unreadable + report.bookings.unreadable;
   if (unreadable > 0) {
     console.error(
@@ -54,7 +83,7 @@ async function main() {
     );
   }
   const left = report.remainingPlain.listings + report.remainingPlain.bookings + report.remainingOldKey.listings + report.remainingOldKey.bookings;
-  if (!dryRun && (unreadable > 0 || left > 0)) process.exitCode = 1;
+  if (!dryRun && (unreadable > 0 || invalid > 0 || left > 0)) process.exitCode = 1;
 }
 
 main()

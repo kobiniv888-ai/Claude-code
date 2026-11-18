@@ -18,7 +18,7 @@ const headers = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosnif
 
 export async function GET() {
   try {
-    const user = await requireUserForAction();
+    const user = await requireUserForAction({ terms: false });
     await assertRateLimit(`account:export:${user.id}`, { limit: 3, windowSeconds: 86_400 });
     const data = await buildAccountExport(user.id);
     const day = data.exportedAt.slice(0, 10);

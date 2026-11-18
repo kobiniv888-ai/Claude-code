@@ -153,6 +153,24 @@ describe("evaluateSecurityAlerts", () => {
     expect(SECURITY_ALERT_KINDS.filter((k) => k.startsWith("signup"))).toEqual(["signup_burst"]);
   });
 
+  it("error spikes and domain expiry (16.3, ops-alerts-1)", () => {
+    expect(kinds(quiet({ events: { server_error: T.errorSpike } }))).toEqual([]);
+    expect(kinds(quiet({ events: { server_error: T.errorSpike + 1 } }))).toEqual(["error_spike"]);
+    expect(kinds(quiet({ domainDaysLeft: T.domainDays + 1 }))).toEqual([]);
+    expect(evaluateSecurityAlerts(quiet({ domainDaysLeft: 12 }))).toEqual([{ kind: "domain_expiry", count: 1, days: 12 }]);
+    expect(kinds(quiet({ domainDaysLeft: null }))).toEqual([]);
+  });
+
+  it("a window longer than an hour scales the per-hour thresholds (LP-10)", () => {
+    // 30 sign-ups over 2 quiet hours is 15 an hour: under the hourly 20.
+    expect(kinds(quiet({ signupsSite: 30, windowMinutes: 120 }))).toEqual([]);
+    expect(evaluateSecurityAlerts(quiet({ signupsSite: 45, windowMinutes: 120 }))[0]).toMatchObject({ kind: "signup_burst", count: 45, threshold: 2 * T.signupsSite });
+    expect(kinds(quiet({ events: { login_failed: T.loginFailuresSite + 10 }, windowMinutes: 180 }))).toEqual([]);
+    // Never below the hourly number, and one-by-one events still alert from the first.
+    expect(kinds(quiet({ signupsSite: T.signupsSite + 1, windowMinutes: 30 }))).toEqual(["signup_burst"]);
+    expect(kinds(quiet({ staffNewDevices: 1, windowMinutes: 180 }))).toEqual(["staff_new_device"]);
+  });
+
   it("off-site backup: missing for 8 days, or never, once it is set up", () => {
     const day = 86_400_000;
     expect(kinds(quiet({ offsite: { configured: false, lastOkAt: null } }))).toEqual([]);

@@ -122,6 +122,17 @@ describe("buildStepUpdate per step", () => {
     expect(result.data).toMatchObject({ addressEnc: "sealed:Rustaveli 1, apt 3", pinEnc: "sealed-pin:41.65,41.64" });
   });
 
+  it("location: an unreadable saved location is never overwritten by its empty view (FE-6)", async () => {
+    const unreadable = { lat: null, lng: null, address: "", locationUnreadable: true };
+    const walk: StepUpdateDeps = { ...deps, walkMinutes: async () => ({ seaWalkMinutes: null }) };
+    const cityOnly = await buildStepUpdate("location", { cityId: "tbilisi", lat: null, lng: null, address: "" } as never, { ...listing, ...unreadable }, user, walk);
+    for (const key of ["pinEnc", "addressEnc", "approxLat", "approxLng", "seaWalkMinutes"]) expect(cityOnly.data, key).not.toHaveProperty(key);
+    expect(cityOnly.data).toMatchObject({ city: { connect: { id: "tbilisi" } } });
+    // A real new pin or address still overwrites.
+    const fresh = await update("location", { lat: 41.65, lng: 41.64, address: "Rustaveli 1" }, unreadable);
+    expect(fresh.data).toMatchObject({ pinEnc: "sealed-pin:41.65,41.64", addressEnc: "sealed:Rustaveli 1" });
+  });
+
   it("location: an empty address sent on purpose is cleared", async () => {
     expect((await update("location", { address: "" })).data).toEqual({ addressEnc: null });
   });

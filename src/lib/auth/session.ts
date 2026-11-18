@@ -16,6 +16,7 @@ import { can, isStaffRole, type Permission } from "./permissions";
 import { isPlaceholderEmail } from "./phone";
 import { recordSecurityEvent } from "@/lib/security/events";
 import { taintObject, taintValue } from "@/lib/security/taint";
+import { assertTermsAccepted } from "@/lib/legal/terms-server";
 import { auth } from "./server";
 import { checkStaffSessionIdle, hasStaffCookie } from "./staff-session";
 import { canSkipStaffTwoFactor, demoStaffAllowed, staffAccess, type StaffAccess, type StaffAccessEnv } from "./staff-access";
@@ -270,18 +271,23 @@ export class PhoneNotVerifiedError extends AppError {
  * redirecting — use inside server actions together with toActionError().
  */
 export async function requireUserForAction(
-  opts: { phoneVerified?: boolean } = {},
+  opts: { phoneVerified?: boolean; terms?: boolean } = {},
 ): Promise<CurrentUser> {
   const user = await getCurrentUser();
   if (!user) throw new AuthRequiredError();
   if (!user.twoFactorVerified) throw new AuthRequiredError("2-step login required");
   if (opts.phoneVerified && !user.phoneNumberVerified) throw new PhoneNotVerifiedError();
+  // The Terms + 18+ acceptance of the version in force (S2 review LP-1): TermsRequiredError
+  // ("terms_required"), fail closed. `terms: false` only for the exempt actions listed in
+  // tests/unit/terms-gate.test.ts (the Terms box itself, login steps, sign-out, export, deletion).
+  if (opts.terms !== false) await assertTermsAccepted(user);
   return user;
 }
 
 /** Like requireStaff, but throws (ForbiddenError) — for admin server actions and routes. */
 export async function requireStaffForAction(permission: Permission): Promise<CurrentUser> {
-  const user = await requireUserForAction();
+  // Staff actions have their own gate (role, 2-step code); the Terms gate is for guests and hosts.
+  const user = await requireUserForAction({ terms: false });
   const access = await staffAccessForRequest(user);
   if (access === "not_staff" || access === "demo_blocked") {
     await recordPermissionDenied(user, access, permission);

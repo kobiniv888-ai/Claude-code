@@ -8,6 +8,7 @@ import { PhotoSlot } from "@/components/photos/photo-slot";
 import { ContinueDraftCard, DraftCards, StartListingButton } from "@/components/wizard/start-listing";
 import { ShabbatPaused } from "@/components/wizard/shabbat-paused";
 import { siteConfig, type AppLocale } from "@/config/site";
+import { redirectUntilTermsAccepted } from "@/lib/legal/terms-redirect";
 import { requireUser } from "@/lib/auth/session";
 import { formatRelativeTime } from "@/lib/format";
 import { getSettings, isShabbatModeActive } from "@/lib/settings";
@@ -30,6 +31,8 @@ export default async function PostPage({ params }: Props) {
   const locale = raw as AppLocale;
   setRequestLocale(locale);
   const user = await requireUser({ phoneVerified: true, next: "/post" });
+  // The Terms in force (+ 18 or older) before the post form (S2 review LP-1).
+  await redirectUntilTermsAccepted(locale, "/post");
   const [t, drafts, shabbat, settings] = await Promise.all([
     getTranslations("wizard.start"),
     loadDrafts(user.id, locale),

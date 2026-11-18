@@ -391,7 +391,7 @@ const deleteSchema = z.object({ confirmation: z.string().max(100) });
  */
 export async function deleteMyAccount(input: unknown): Promise<ActionResult> {
   return runAction(async () => {
-    const user = await requireUserForAction();
+    const user = await requireUserForAction({ terms: false });
     const parsed = deleteSchema.safeParse(input);
     if (!parsed.success) return fail("invalid_input");
     await assertRateLimit(`account:delete:${user.id}`, { limit: 5, windowSeconds: 3600 });

@@ -34,7 +34,8 @@ vi.mock("@/lib/auth/staff-session", () => ({ checkStaffSessionIdle: async () => 
 vi.mock("@/lib/auth/server", () => ({
   auth: { api: { getSession: async () => (state.user ? { session: { id: "session-1" }, user: { id: state.user.id } } : null) } },
 }));
-vi.mock("@/lib/db", () => {
+vi.mock("@/lib/db", async () => {
+  const { TERMS_VERSION } = await import("@/lib/legal/terms");
   const model = (name: string) =>
     new Proxy(
       {},
@@ -43,6 +44,8 @@ vi.mock("@/lib/db", () => {
           if (name === "session" && method === "findUnique") {
             return async () => (state.user ? { twoFactorVerifiedAt: state.twoFactorVerifiedAt, user: state.user } : null);
           }
+          // The account accepted the Terms in force (the gate of every signed-in action: S2 review LP-1).
+          if (name === "termsAcceptance" && method === "findFirst") return async () => ({ version: TERMS_VERSION, ageConfirmed: true });
           return () => {
             state.touched.push(`db.${name}.${String(method)}`);
             throw new Error(`database touched: ${name}.${String(method)}`);

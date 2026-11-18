@@ -150,6 +150,17 @@ export function isDevelopmentRestoreTarget(url: string, env: Partial<Record<stri
   return host === "localhost" || host === "::1" || host === "0.0.0.0" || /^127\./.test(host) || host.endsWith(".localhost") || !host.includes(".");
 }
 
+/**
+ * An encrypted off-site copy (.bkenc, or --latest-offsite) is a copy of the REAL site: it is never
+ * downloaded or decrypted for a codespace or a local database (SECURITY_REPORT 2.4.j, FE-5). Checked
+ * BEFORE the download and the decryption, so no plain copy of every table ever lands on a
+ * development disk (a crash between decrypt and cleanup would leave one). Null: allowed.
+ */
+export function encryptedRestoreRefusal(target: string, env: Partial<Record<string, string | undefined>> = {}): string | null {
+  if (!isDevelopmentRestoreTarget(target, env)) return null;
+  return "Encrypted off-site copies are copies of the real site: they are restored only into a new empty database at the host (a Neon branch), from your own computer, never into a codespace or a local database. Nothing was downloaded or decrypted.";
+}
+
 /** Removes anything that looks like a connection string or password from an error text. */
 export function redact(text: string): string {
   return text.replace(/postgres(?:ql)?:\/\/[^\s'"]+/gi, "postgresql://***").replace(/password[=:]\s*\S+/gi, "password=***").slice(0, 300);

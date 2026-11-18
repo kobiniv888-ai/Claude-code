@@ -173,7 +173,7 @@
           "e": "<b>Your acceptance of our Terms</b>: which version of the <terms>Terms of use</terms> you accepted, when, and that you confirmed you are {minAge} or older.",
           "f": "<b>Contact clicks</b>: when someone taps “Show contact” or a contact button, to show hosts their statistics and to stop abuse.",
           "g": "<b>Support and reports</b>: your tickets, messages and screenshots, and the reports you send.",
-          "h": "<b>Security data</b>: your IP address (in our security log only as a keyed fingerprint, never the address itself), approximate country, browser and device type, a random device ID kept in a cookie, and sign-in and security events, such as a new device or a changed email.",
+          "h": "<b>Security data</b>: your IP address (in our security log only as a keyed fingerprint, never the address itself), approximate country, browser and device type, a random device ID kept in a cookie, and sign-in and security events, such as a new device or a changed email. A login session also stores the IP address and browser it was made from, until {sessionDays} days after it ends.",
           "i": "<b>ID and ownership documents</b>: only if you ask for a verification badge (see the next section)."
         }
       },
@@ -229,13 +229,18 @@
           "i": "<b>Sentry</b> (USA): error reports, with personal data removed before they are sent, in its EU data region where offered.",
           "j": "<b>Google</b> and <b>Apple</b> (USA): only if you choose to sign in with them.",
           "k": "<b>Telegram</b> (United Arab Emirates): booking alerts, only for hosts who connect our bot. The messages carry a booking code, never names or addresses.",
-          "l": "<b>Web push services</b> of Google, Apple and Mozilla (USA): deliver the browser notifications you turn on. They carry a short text without names or addresses."
+          "l": "<b>Web push services</b> of Google, Apple and Mozilla (USA): deliver the browser notifications you turn on. They carry a short text without names or addresses.",
+          "m": "<b>Google Cloud Translation</b> (USA): only if we switch translation to it instead of Azure. It receives the text only.",
+          "n": "<b>OpenStreetMap Foundation</b> (UK): the address search in the listing form. Our server sends it only the address you typed.",
+          "o": "<b>YouTube</b> (Google) and <b>Vimeo</b> (USA): the video player, when a listing has a video. Your browser loads it from them, and they see your IP address.",
+          "p": "<b>360° tour sites</b> (Matterport, Kuula, Momento360, Roundme): the tour, when a listing has one. Your browser loads it from them, and they see your IP address. <todo>Confirm the country of each</todo>"
         },
         "p2": "Some providers are outside Israel, the European Union and Georgia. When data goes to them, we use protections the law accepts, such as adequacy decisions or standard contractual clauses. <todo>Lawyer: confirm the transfer basis for each provider</todo>"
       },
       "where": {
         "title": "Where your data is stored",
-        "p1": "Our database and files are kept by the providers above, in the regions they list. Exact addresses, map points and guests' phone numbers are encrypted in the database. Backups are encrypted too: a second copy is kept in the European Union, and each copy is deleted after {backupDays} days."
+        "p1": "Our database and files are kept by the providers above, in the regions they list. Exact addresses, map points and guests' phone numbers are encrypted in the database. Backups are encrypted too: a second copy is kept in the European Union, and each copy is deleted after {backupDays} days.",
+        "p2": "The database host also keeps a restore history of the database for {restoreDays} days, so data that was deleted stays in it until that history rolls over. <todo>Founder: confirm the restore window of the database plan</todo>"
       },
       "retention": {
         "title": "How long we keep data",
@@ -243,7 +248,7 @@
         "list": {
           "a": "<b>Your account</b>: while it is open. When you delete it, your personal data is removed (see “Deleting your account” below).",
           "b": "<b>Login codes</b>: a code works for {codeMinutes} minutes, and its record is deleted within {codeHours} hours.",
-          "c": "<b>Login sessions</b>: deleted {sessionDays} days after they expire.",
+          "c": "<b>Login sessions</b> (with the IP address and browser they were made from): deleted {sessionDays} days after they expire.",
           "d": "<b>Guest details on finished bookings</b> (name, phone, message): deleted {guestContactMonths} months after check-out. The booking keeps only anonymous facts, such as dates, nights and price, for statistics.",
           "e": "<b>The exact address of a stay</b>: shown on your trip page until {addressDays} days after check-out. The booking confirmation email also contains it and stays in your mailbox: we can't delete emails already sent.",
           "f": "<b>Support tickets and reports</b>: their texts and screenshots are erased {caseDays} days after the case is closed (interim).",
@@ -291,7 +296,7 @@
           "b": "<b>European Union and United Kingdom</b> — the GDPR and the UK GDPR, for users there.",
           "c": "<b>Georgia</b> — the Law of Georgia on Personal Data Protection."
         },
-        "p1": "You can contact the Privacy Protection Authority in Israel, the data-protection authority in your EU country, the Information Commissioner's Office in the UK, or the Personal Data Protection Service of Georgia."
+        "p1": "You can contact the Privacy Protection Authority in Israel, the data-protection authority in your EU country, the Information Commissioner's Office in the UK, or the personal-data protection unit of the State Audit Office of Georgia <todo>Lawyer: confirm the exact unit and its contact address</todo>."
       },
       "security": {
         "title": "How we protect your data",
@@ -365,7 +370,7 @@
       },
       "storage": {
         "title": "Other storage in your browser",
-        "p1": "Your browser's local storage keeps, on this device only, small settings you chose: light or dark mode, notices you closed, the phone country you used last, and that you read our safety tips. With your consent to “Preferences”, it also keeps the places you viewed recently and your last search. None of it is sent to other companies."
+        "p1": "Your browser's local storage keeps, on this device only, small settings you chose: light or dark mode, notices you closed, the phone country you used last, and that you read our safety tips. It also keeps your compare list, and the lists you save while signed out (they move to your account when you sign in). The listing form keeps answers not sent yet and your scroll position for a short time, until you close the tab. With your consent to “Preferences”, it also keeps the places you viewed recently and your last search. None of it is sent to other companies."
       },
       "thirdParty": {
         "title": "Cookies from other services",
@@ -375,7 +380,8 @@
         "title": "How to change your choice",
         "p1": "You can change or withdraw your consent at any time. The button below clears your saved choice and reloads the page, and the cookie banner asks you again.",
         "consentButton": "Change cookie settings",
-        "p2": "You can also delete or block cookies in your browser settings. If you block strictly necessary cookies, signing in and some other parts of the site will not work."
+        "p2": "You can also delete or block cookies in your browser settings. If you block strictly necessary cookies, signing in and some other parts of the site will not work.",
+        "p3": "When you save a choice, we record what you chose, when, and under which version of this policy, with a keyed fingerprint of your IP address (never the address itself). The record is kept {auditDays} days, so we can show that we had your consent."
       },
       "contact": {
         "title": "Contact",

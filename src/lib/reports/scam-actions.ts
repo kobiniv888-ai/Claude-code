@@ -20,6 +20,7 @@ import { applyReport } from "@/lib/listing/lifecycle";
 import { assertRateLimit, assertRateLimitByIp } from "@/lib/rate-limit";
 import { createTicketRecord, sendTicketCreatedEmail } from "@/lib/tickets/server";
 import { assertTurnstile } from "@/lib/turnstile";
+import { lockReporter } from "./lock";
 import { notifyFounderOfReport } from "./notify";
 import { SCAM_REPORT_LIMITS, scamReportSchema, scamReportTarget } from "./scam";
 
@@ -51,10 +52,12 @@ export async function createScamReport(input: unknown): Promise<ActionResult<Sca
         })
       : null;
     // A booking only from its own guest (a visitor can't name someone's booking).
-    const booking =
+    let booking =
       user && data.booking
         ? await db.booking.findFirst({ where: { code: data.booking, guestUserId: user.id }, select: { id: true, code: true, listingId: true } })
         : null;
+    // A booking of ANOTHER listing is not evidence about this one (S2 review TS-9): dropped.
+    if (listing && booking && booking.listingId !== listing.id) booking = null;
     const about = listing ?? (booking ? await db.listing.findUnique({ where: { id: booking.listingId }, select: { id: true, publicId: true, ownerId: true, title: true } }) : null);
 
     const t = await getTranslations({ locale: data.locale, namespace: "help.scamReport" });
@@ -64,23 +67,28 @@ export async function createScamReport(input: unknown): Promise<ActionResult<Sca
 
     const target = scamReportTarget({ signedIn: !!user, kind: data.kind, hasListing: !!about && about.ownerId !== user?.id });
     if (target === "report" && user && about) {
-      const open = await db.report.findFirst({
-        where: { reporterId: user.id, status: "OPEN", targetType: "LISTING", listingId: about.id },
-        select: { id: true },
+      // One reporter's submits run one at a time, so two at once still give one open report.
+      const report = await db.$transaction(async (tx) => {
+        await lockReporter(tx, user.id);
+        const open = await tx.report.findFirst({
+          where: { reporterId: user.id, status: "OPEN", targetType: "LISTING", listingId: about.id },
+          select: { id: true },
+        });
+        if (open) return null;
+        return tx.report.create({
+          data: {
+            targetType: "LISTING",
+            listingId: about.id,
+            bookingId: booking?.id ?? null,
+            reporterId: user.id,
+            reason: "ASKED_MONEY_UPFRONT",
+            details: `${kindLabel}\n\n${body}`.slice(0, 3000),
+            priority: "URGENT",
+          },
+          select: { id: true },
+        });
       });
-      if (open) return fail("already_reported");
-      const report = await db.report.create({
-        data: {
-          targetType: "LISTING",
-          listingId: about.id,
-          bookingId: booking?.id ?? null,
-          reporterId: user.id,
-          reason: "ASKED_MONEY_UPFRONT",
-          details: `${kindLabel}\n\n${body}`.slice(0, 3000),
-          priority: "URGENT",
-        },
-        select: { id: true },
-      });
+      if (!report) return fail("already_reported");
       // Auto-hide counts reports per device (DeviceLink), as createReport does.
       await linkDevice(user.id);
       await applyReport(about.id);

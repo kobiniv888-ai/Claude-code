@@ -7,7 +7,7 @@
  *    selecting them `false` and the seed's type that leaves them out), and no raw SQL reads or
  *    writes the plain columns (only the migration that empties them, src/lib/field-crypto-migrate.ts).
  * 2. The database itself refuses them (CHECK constraints added by scripts/encrypt-fields.ts once no
- *    plain value is left): a plain write fails through Prisma and through raw SQL, inside a
+ *    plain value is left; and, FE-8, a plain value written into an encrypted column): a plain write fails through Prisma and through raw SQL, inside a
  *    transaction that is always rolled back (the shared development database is never changed), and
  *    no row holds a plain value.
  * The encrypted write paths themselves are tested where they live: the post form
@@ -49,6 +49,9 @@ const LEGACY_FIELD = /\blegacy(?:Address|Lat|Lng|GuestPhone)\b/g;
 const LEGACY_ALLOWED: Record<string, RegExp> = {
   "src/lib/account/export.ts": /^\s*legacy(?:Address|Lat|Lng):\s*false,?\s*$/,
   "prisma/seed/listings/types.ts": /^\s*\|\s*"legacy(?:Address|Lat|Lng)"\s*$/,
+  // The 3-month guest-contact erase clears a phone still in the plain column (ops-ret-2): it may
+  // only look for one and set it to null.
+  "src/lib/admin/maintenance/retention.ts": /^(?:(?!legacy)[\s\S])*legacyGuestPhone: (?:null|\{ not: null \})(?:(?!legacy)[\s\S])*$/,
 };
 
 /** A raw INSERT / UPDATE of Listing or Booking, up to the end of its statement or string. */
@@ -176,12 +179,14 @@ describe("no code names the plain columns (source tripwire)", () => {
 describe("the database refuses plain values (local database, always rolled back)", () => {
   let pg: Client;
   let prisma: typeof import("@/lib/db").db;
-  const guards = { listing: "", booking: "" };
+  const guards = { listing: "", booking: "", listingFormat: "", bookingFormat: "" };
 
   beforeAll(async () => {
-    const { LISTING_GUARD, BOOKING_GUARD } = await import("@/lib/field-crypto-migrate");
+    const { LISTING_GUARD, BOOKING_GUARD, LISTING_FORMAT_GUARD, BOOKING_FORMAT_GUARD } = await import("@/lib/field-crypto-migrate");
     guards.listing = LISTING_GUARD;
     guards.booking = BOOKING_GUARD;
+    guards.listingFormat = LISTING_FORMAT_GUARD;
+    guards.bookingFormat = BOOKING_FORMAT_GUARD;
     pg = new Client({ connectionString: process.env.DATABASE_URL });
     await pg.connect();
     prisma = (await import("@/lib/db")).db;
@@ -192,9 +197,10 @@ describe("the database refuses plain values (local database, always rolled back)
     await prisma?.$disconnect();
   });
 
-  it("both CHECK constraints are installed (npm run db:encrypt-fields)", async () => {
-    const { rows } = await pg.query<{ conname: string }>(`SELECT conname FROM pg_constraint WHERE conname = ANY($1::text[])`, [[guards.listing, guards.booking]]);
-    expect(rows.map((r) => r.conname).sort()).toEqual([guards.booking, guards.listing].sort());
+  it("the CHECK constraints are installed (npm run db:encrypt-fields)", async () => {
+    const all = [guards.listing, guards.booking, guards.listingFormat, guards.bookingFormat];
+    const { rows } = await pg.query<{ conname: string }>(`SELECT conname FROM pg_constraint WHERE conname = ANY($1::text[])`, [all]);
+    expect(rows.map((r) => r.conname).sort()).toEqual([...all].sort());
   });
 
   it("no row holds a plain address, pin or guest phone", async () => {
@@ -226,6 +232,19 @@ describe("the database refuses plain values (local database, always rolled back)
     }
     if (bookings[0]) {
       expect(await refusedInRolledBackTransaction(`UPDATE "Booking" SET "guestPhone" = '+995555000999' WHERE id = '${bookings[0].id}'`)).toContain(guards.booking);
+    }
+  });
+
+  it("raw SQL cannot put a plain value into an ENCRYPTED column either (FE-8)", async () => {
+    const { rows: listings } = await pg.query<{ id: string }>(`SELECT id FROM "Listing" ORDER BY id LIMIT 1`);
+    const { rows: bookings } = await pg.query<{ id: string }>(`SELECT id FROM "Booking" ORDER BY id LIMIT 1`);
+    for (const set of [`"addressEnc" = '1 Plain Street'`, `"pinEnc" = '41.7,44.8'`]) {
+      expect(await refusedInRolledBackTransaction(`UPDATE "Listing" SET ${set} WHERE id = '${listings[0]!.id}'`)).toContain(guards.listingFormat);
+    }
+    if (bookings[0]) {
+      for (const set of [`"guestPhoneEnc" = '+995555000999'`, `"guestPhoneLookup" = '+995555000999'`]) {
+        expect(await refusedInRolledBackTransaction(`UPDATE "Booking" SET ${set} WHERE id = '${bookings[0].id}'`)).toContain(guards.bookingFormat);
+      }
     }
   });
 

@@ -176,3 +176,22 @@ describe("clean listings", () => {
     expect(hasContactInfo(detectContactInfo(text))).toBe(false);
   });
 });
+
+describe("S2 review: disguised dots and combining marks (TS-3)", () => {
+  it.each([
+    ["p̲a̲y̲p̲a̲l̲.me/flat", "paypal.me/flat"],
+    ["paypal⸳me/flat", "paypal.me/flat"],
+    ["paypal。me/flat", "paypal.me/flat"],
+    ["paypal-dot-me/flat", "paypal.me/flat"],
+    ["site_dot_ge/booking", "site.ge/booking"],
+    ["pay here bayit-secure dot ge", "bayit-secure.ge"],
+    ["w̲a̲.me/995555123456", "wa.me/995555123456"],
+  ])("finds the link in %j", (text, url) => {
+    expect(detectContactInfo(text).urls).toContain(url);
+  });
+
+  it("leaves ordinary words alone", () => {
+    expect(hasContactInfo(detectContactInfo("the dot com bubble, a polka-dot-dress, connect the dots"))).toBe(false);
+    expect(hasContactInfo(detectContactInfo("Café near the beach, crème brûlée for breakfast"))).toBe(false);
+  });
+});

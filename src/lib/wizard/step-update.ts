@@ -258,10 +258,18 @@ export async function buildStepUpdate<S extends SavableStepKey>(
           data.neighborhood = neighborhoodId ? { connect: { id: neighborhoodId } } : { disconnect: true };
         }
       }
-      if (has(v, "address")) data.addressEnc = deps.sealAddress(orNull(v.address!));
+      // When the saved address and pin could not be decrypted (`locationUnreadable`, e.g. a key
+      // missing mid-rotation: src/lib/field-crypto.ts), they read as empty but still exist. An
+      // empty address or an empty pin in the patch then only echoes that empty view and must not
+      // seal null over the ciphertext (SECURITY_REPORT 12.3.c, FE-6); a real new value overwrites.
+      const unreadable = listing.locationUnreadable === true;
+      const clearsAddress = has(v, "address") && orNull(v.address ?? "") === null;
+      if (has(v, "address") && !(unreadable && clearsAddress)) data.addressEnc = deps.sealAddress(orNull(v.address!));
       let lat = listing.lat;
       let lng = listing.lng;
-      if (has(v, "lat") || has(v, "lng")) {
+      const pinCleared =
+        (has(v, "lat") || has(v, "lng")) && (has(v, "lat") ? (v.lat ?? null) : listing.lat) === null && (has(v, "lng") ? (v.lng ?? null) : listing.lng) === null;
+      if ((has(v, "lat") || has(v, "lng")) && !(unreadable && pinCleared)) {
         // The pin is one answer: a missing half keeps the saved half.
         const newLat = has(v, "lat") ? (v.lat ?? null) : listing.lat;
         const newLng = has(v, "lng") ? (v.lng ?? null) : listing.lng;
@@ -276,7 +284,8 @@ export async function buildStepUpdate<S extends SavableStepKey>(
           approxLng: approx?.lng ?? null,
         });
       }
-      if (cityId !== listing.cityId || lat !== listing.lat || lng !== listing.lng) {
+      // An unreadable pin still exists: its walking times stay until a real new pin is set.
+      if ((cityId !== listing.cityId || lat !== listing.lat || lng !== listing.lng) && !(unreadable && lat === null)) {
         // "≈ 5 דק׳ הליכה לים" / "למעליות" (brief 7.3): recomputed with the pin, in the same update.
         Object.assign(data, await deps.walkMinutes(cityId, lat, lng));
       }

@@ -11,6 +11,7 @@ import {
   maintenanceAllows,
   maintenanceArea,
   maintenanceLocale,
+  maintenanceNeedsViewer,
   parseStoredMaintenance,
   readMaintenanceEnv,
   type MaintenanceViewer,
@@ -67,10 +68,39 @@ const action = (pathname: string) => ({ pathname, method: "POST", isAction: true
 
 describe("who gets through while it is on", () => {
   it("open paths: health, cron, webhooks, the login library, security.txt, photos and static files", () => {
-    for (const path of ["/api/health", "/api/cron/cleanup", "/api/webhooks/resend", "/api/auth/get-session", "/.well-known/security.txt", "/api/media/listings/x.webp", "/_next/image", "/icons/logo.svg", "/sw.js"]) {
+    for (const path of ["/api/health", "/api/cron/cleanup", "/api/webhooks/resend", "/api/auth/get-session", "/.well-known/security.txt", "/api/media/listings/x.webp", "/_next/image"]) {
       expect(maintenanceArea(path), path).toBe("open");
       expect(maintenanceAllows(get(path), ANON), path).toBe(true);
     }
+    for (const path of ["/icons/logo.svg", "/sw.js", "/icons/x.png"]) {
+      expect(maintenanceArea(path), path).toBe("open-read");
+      expect(maintenanceAllows(get(path), ANON), path).toBe(true);
+      expect(maintenanceNeedsViewer(get(path)), path).toBe(false);
+    }
+  });
+
+  it("a dotted path outside a language is open for reads only: a POST or server action there is closed (ops-maint-1)", () => {
+    // Next.js sends "/evil.png" to the [locale] page worker, which would run the action.
+    for (const path of ["/evil.png", "/zz/listing/5-x.png", "/icons/x.png"]) {
+      for (const viewer of [ANON, USER, MODERATOR, ADMIN_PENDING]) {
+        expect(maintenanceAllows(action(path), viewer), `${path} ${viewer?.role}`).toBe(false);
+        expect(maintenanceAllows({ pathname: path, method: "POST", isAction: false }, viewer), path).toBe(false);
+        expect(maintenanceAllows({ pathname: path, method: "GET", isAction: true }, viewer), path).toBe(false);
+      }
+      expect(maintenanceNeedsViewer(action(path)), path).toBe(true);
+      expect(maintenanceAllows(action(path), ADMIN), path).toBe(true);
+    }
+  });
+
+  it("the security policy page that security.txt links to stays readable (ops-sectxt-1)", () => {
+    for (const locale of locales) {
+      const path = `/${locale}/security`;
+      expect(maintenanceArea(path), path).toBe("open-read");
+      expect(maintenanceAllows(get(path), ANON), path).toBe(true);
+      expect(maintenanceAllows(action(path), ANON), path).toBe(false);
+      expect(maintenanceNeedsViewer(action(path)), path).toBe(true);
+    }
+    expect(maintenanceArea("/he/security/other")).toBe("closed");
   });
 
   it("no SMS code goes out while it is on: the login library's text-message endpoints are closed", () => {
@@ -182,6 +212,13 @@ describe("the real proxy with maintenance mode on", () => {
       expect(res.status, url).not.toBe(503);
     }
     expect(switchState.viewerCalls).toBe(0);
+  });
+
+  it("refuses a server action posted to a dotted path outside a language (ops-maint-1)", async () => {
+    const run = await proxy();
+    const res = await run(req("/evil.png", { method: "POST", headers: { "next-action": "abc", accept: "text/x-component" } }));
+    expect(res.status).toBe(503);
+    expect((await run(req("/icons/logo.svg"))).status).not.toBe(503);
   });
 
   it("refuses a server action on the login page from a signed-out visitor, lets an ADMIN's through", async () => {

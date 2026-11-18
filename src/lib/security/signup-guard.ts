@@ -1,4 +1,5 @@
 import "server-only";
+import { hmacHash } from "@/lib/crypto";
 import { db } from "@/lib/db";
 import { getDeviceHash } from "@/lib/request";
 import { recordSecurityEvent } from "./events";
@@ -18,6 +19,11 @@ import { SIGNUP_DEVICE_ACCOUNT_CAP, SIGNUP_DEVICE_EVENT, SIGNUP_DEVICE_WINDOW_DA
  *   accounts and their first logins; nothing here refuses anything.
  *
  * Demo accounts never count. Best effort: a failure is logged and the sign-up goes on.
+ *
+ * LP-8: every sign-up also leaves a "signup_device" event (a keyed mark of the device, no account
+ * data) that outlives the account's deletion, and a sign-up without a device id leaves
+ * "signup_no_device" (countSignupsWithoutDevice), so neither deleting accounts nor blocking the
+ * cookie hides the pattern from staff.
  */
 
 export {
@@ -34,15 +40,43 @@ const DAY_MS = 24 * 3600 * 1000;
  * After a sign-up (the new account's device is already linked): how many non-demo accounts made in
  * the last SIGNUP_DEVICE_WINDOW_DAYS days this device has signed in to, and the flag when over the cap.
  */
+/**
+ * The device as it is kept in a "signup_device" event: a keyed hash of the device hash, written
+ * with letters only (a–p for 0–f), so the event-meta filter never mistakes it for a phone number
+ * or a code. Not reversible to the cookie.
+ */
+export function signupDeviceMark(deviceHash: string): string {
+  return hmacHash(`signup-device:${deviceHash}`)
+    .slice(0, 32)
+    .replace(/[0-9a-f]/g, (c) => String.fromCharCode(97 + parseInt(c, 16)));
+}
+
+/**
+ * LP-8: the sign-ups are counted from security events too ("signup_device", kept 90 days and kept
+ * when the account is deleted), so "sign up, delete, sign up" on one device still reaches the cap.
+ * The count is the larger of those events and the live device links of accounts made in the window
+ * (an account made elsewhere that later signed in on this device).
+ */
 export async function checkSignupDevice(
   userId: string,
   opts: { deviceHash?: string | null; now?: Date } = {},
 ): Promise<{ accounts: number; flagged: boolean } | null> {
   try {
     const deviceHash = opts.deviceHash !== undefined ? opts.deviceHash : await getDeviceHash();
-    if (!deviceHash) return null;
+    const user = await db.user.findUnique({ where: { id: userId }, select: { isDemo: true } });
+    if (!deviceHash) {
+      // Nothing to count; recorded so staff can see how many sign-ups had no device id.
+      if (user && !user.isDemo) await recordSecurityEvent({ type: "signup_no_device", userId, meta: { reason: "no_device_id" } });
+      return null;
+    }
     const since = new Date((opts.now ?? new Date()).getTime() - SIGNUP_DEVICE_WINDOW_DAYS * DAY_MS);
-    const accounts = await db.deviceLink.count({ where: { deviceHash, user: { createdAt: { gte: since }, isDemo: false } } });
+    const mark = signupDeviceMark(deviceHash);
+    if (user && !user.isDemo) await recordSecurityEvent({ type: "signup_device", userId, ip: null, meta: { d: mark } });
+    const [linked, signups] = await Promise.all([
+      db.deviceLink.count({ where: { deviceHash, user: { createdAt: { gte: since }, isDemo: false } } }),
+      db.securityEvent.count({ where: { type: "signup_device", createdAt: { gte: since }, meta: { path: ["d"], equals: mark } } }),
+    ]);
+    const accounts = Math.max(linked, signups);
     const flagged = overSignupDeviceCap(accounts);
     if (flagged) {
       await recordSecurityEvent({ type: "signup_device_cap", userId, meta: { accounts, windowDays: SIGNUP_DEVICE_WINDOW_DAYS, cap: SIGNUP_DEVICE_ACCOUNT_CAP } });
@@ -123,4 +157,9 @@ export async function listDeviceFlags(state: "open" | "reviewed", page?: { limit
 /** One account's device flag (the "mark reviewed" action checks it again), or null when it has none. */
 export async function deviceFlagSummary(userId: string): Promise<DeviceFlagRow | null> {
   return (await deviceFlagRowsAll([userId]))[0] ?? null;
+}
+
+/** Sign-ups without a device id in the last `days` days (LP-8; for the Flags view). */
+export async function countSignupsWithoutDevice(days = SIGNUP_DEVICE_WINDOW_DAYS, now: Date = new Date()): Promise<number> {
+  return db.securityEvent.count({ where: { type: "signup_no_device", createdAt: { gte: new Date(now.getTime() - days * DAY_MS) } } });
 }

@@ -195,3 +195,45 @@ describe("admin home counts", () => {
     expect(counts.turnedAwayReports).toBeGreaterThanOrEqual(1);
   });
 });
+
+describe("S2 review: which reports count toward the host flag (TS-1, TS-9)", () => {
+  it("leaves out automatic reports until staff act on them, and counts each reporter once", async () => {
+    const p = `${prefix}x`;
+    const host = `${p}-host`;
+    const a = `${p}-a`;
+    const b = `${p}-b`;
+    await db.user.createMany({
+      data: [host, a, b].map((id) => ({ id, name: `${id} Name`, email: `${id}@example.com` })),
+    });
+    const first = await db.listing.create({ data: { ownerId: host, status: "LIVE", dealType: "SHORT_STAY", cityId: ids.city, title: `${p} one` } });
+    const second = await db.listing.create({ data: { ownerId: host, status: "LIVE", dealType: "SHORT_STAY", cityId: ids.city, title: `${p} two` } });
+    try {
+      // Two automatic reports (a blocked payment text and a review burst): no reporter.
+      await report({ targetType: "LISTING", targetUserId: null, listingId: first.id, reporterId: null, reason: "ASKED_MONEY_UPFRONT", details: "auto · payment_details_blocked · surface=listing_text " });
+      await report({ targetType: "LISTING", targetUserId: null, listingId: first.id, reporterId: null, reason: "OTHER", details: "auto · review_burst" });
+      expect(await isHostFlagged(host)).toBe(false);
+
+      // One person: a listing report, a user report on the host and a report on the second listing.
+      await report({ targetType: "LISTING", targetUserId: null, listingId: first.id, reporterId: a, reason: "WRONG_PRICE" });
+      await report({ targetType: "USER", targetUserId: host, reporterId: a, reason: "OTHER" });
+      await report({ targetType: "LISTING", targetUserId: null, listingId: second.id, reporterId: a, reason: "OTHER" });
+      expect(await isHostFlagged(host)).toBe(false);
+
+      // An automatic report that staff resolved with an action counts (as its own "reporter").
+      const auto = await db.report.findFirstOrThrow({ where: { listingId: first.id, reporterId: null, reason: "ASKED_MONEY_UPFRONT" } });
+      await db.report.update({ where: { id: auto.id }, data: { status: "RESOLVED", actionTaken: "listing_hidden", handledAt: new Date() } });
+      expect(await isHostFlagged(host)).toBe(true);
+      await db.report.update({ where: { id: auto.id }, data: { status: "OPEN", actionTaken: null, handledAt: null } });
+      expect(await isHostFlagged(host)).toBe(false);
+
+      // A second person makes it two.
+      await report({ targetType: "LISTING", targetUserId: null, listingId: second.id, reporterId: b, reason: "OTHER" });
+      expect(await isHostFlagged(host)).toBe(true);
+      expect((await hostFlagSummary(host))?.countingReports).toBe(2);
+    } finally {
+      await db.report.deleteMany({ where: { OR: [{ listingId: { in: [first.id, second.id] } }, { targetUserId: host }] } });
+      await db.listing.deleteMany({ where: { ownerId: host } });
+      await db.user.deleteMany({ where: { id: { in: [host, a, b] } } });
+    }
+  });
+});

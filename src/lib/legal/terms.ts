@@ -11,7 +11,8 @@
  *   publish, and at the next booking/publish after the version changed. No row is ever written
  *   without the person ticking "I am 18 or older and I accept the Terms" in that same request.
  * - The server refuses a booking or a publish with "terms_required" when the acceptance it needs is
- *   missing (fails closed: a database error refuses too).
+ *   missing (fails closed: a database error refuses too), and so does every other signed-in action
+ *   of an account without an acceptance of the version in force (S2 review LP-1).
  */
 
 /** The Terms version in force (the date of the change, yyyy-mm-dd). */
@@ -41,13 +42,14 @@ export function hasCurrentAcceptance(latest: LatestAcceptance, version: string =
 
 /**
  * Must the person tick the box for this purpose?
- *   - signup: only when the account never accepted any version (new accounts, and accounts made
- *     before acceptances were logged); a newer version is asked at the next booking/publish;
- *   - booking / publish: at the account's first one (`first`), and whenever the newest acceptance
- *     is not of the version in force (or lacks the 18+ confirmation).
+ *   - signup: whenever the newest acceptance is not of the version in force with the 18+
+ *     confirmation (new accounts, accounts made before acceptances were logged, and everyone after
+ *     the version changed: S2 review LP-2). Every signed-in action checks the same rule
+ *     (assertTermsAccepted in ./terms-server.ts), and the login's "terms" step asks for it;
+ *   - booking / publish: also at the account's first one (`first`), as the Terms say.
  */
 export function termsNeeded(input: { purpose: TermsPurpose; latest: LatestAcceptance; first: boolean; version?: string }): boolean {
-  if (input.purpose === "signup") return input.latest === null;
+  if (input.purpose === "signup") return !hasCurrentAcceptance(input.latest, input.version);
   return input.first || !hasCurrentAcceptance(input.latest, input.version);
 }
 

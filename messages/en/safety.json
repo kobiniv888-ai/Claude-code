@@ -62,7 +62,7 @@
     },
     "offPlatform": {
       "title": "Moving somewhere else to pay",
-      "body": "A request to continue on another site or app to “complete the booking” or pay. {siteName} doesn't take bookings or payments."
+      "body": "A request to continue on another site or app to “complete the booking” or pay. {siteName} takes bookings only on {siteName} and never asks you to pay or finish a booking on another site or app; you pay the host on arrival."
     },
     "report": {
       "title": "Seen one of these signs?",
@@ -121,7 +121,7 @@
       "photos": "Photos already used in another listing or account",
       "price": "A price far below the usual price for the area and size",
       "phrases": "Scam phrases in all five languages, such as “send the deposit first”",
-      "contacts": "Phone numbers or links hidden in the text or the photos",
+      "contacts": "Phone numbers or links hidden in the text",
       "accounts": "A new account posting many listings fast, several accounts on one device, or virtual phone numbers",
       "firstListing": "The first listing from every account is always reviewed by a person"
     }

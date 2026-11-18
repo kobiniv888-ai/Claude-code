@@ -181,6 +181,8 @@ beforeEach(() => {
 afterAll(async () => {
   const listings = await db.listing.findMany({ where: { ownerId: { in: ids.users } }, select: { id: true } });
   await db.auditLog.deleteMany({ where: { targetId: { in: listings.map((l) => l.id) } } });
+  // The founder's "listing in review" email limit (src/lib/alerts/founder-admin.ts) counts per listing.
+  await db.rateLimit.deleteMany({ where: { key: { in: listings.map((l) => `founder:review:${l.id}`) } } });
   await db.user.deleteMany({ where: { id: { in: ids.users } } });
   if (ids.bannedWord) await db.bannedWord.deleteMany({ where: { id: ids.bannedWord } });
   await db.jewishPlace.deleteMany({ where: { id: ids.place } });

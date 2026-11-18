@@ -6,6 +6,7 @@ import { Fragment, Suspense } from "react";
 import { ContactProvider, type ContactAvailability } from "@/components/contact/contact-provider";
 import { MobileContactBar } from "@/components/contact/mobile-contact-bar";
 import { Container } from "@/components/common/container";
+import { StateView } from "@/components/common/states";
 import { JsonLd } from "@/components/common/json-ld";
 import { CardCarousel } from "@/components/ds/card-carousel";
 import { SectionHeader } from "@/components/ds/section-header";
@@ -55,6 +56,7 @@ import { sameTitleInCity } from "@/lib/listing-page/same-title";
 import { parseVideoUrl, safeTourUrl } from "@/lib/listing-page/media";
 import { verifiedNearestSynagogue } from "@/lib/listing-page/places";
 import { resolveListing } from "@/lib/listing-page/resolve";
+import { listingViewAllowed } from "@/lib/listing-page/view-limit";
 import { rangeIsFree } from "@/lib/listing-page/stay";
 import type { ListingPageData } from "@/lib/listing-page/types";
 import { getSimilarListings } from "@/lib/listing/queries";
@@ -141,7 +143,9 @@ export default async function ListingPage({ params, searchParams }: Props) {
   const locale: AppLocale = rawLocale;
   setRequestLocale(locale);
 
-  const resolved = await resolveListing(locale, id);
+  // The page's own limit against bulk copying (SECURITY_REPORT 14.5.d), checked with the load.
+  const [resolved, viewAllowed] = await Promise.all([resolveListing(locale, id), listingViewAllowed()]);
+  if (!viewAllowed) return <ListingTooManyViews locale={locale} />;
   if (!resolved) notFound();
   const { data, access, user, settings, ownerId } = resolved;
   const query = await searchParams;
@@ -472,5 +476,15 @@ function SimilarSkeleton() {
         ))}
       </div>
     </div>
+  );
+}
+
+/** Too many listing pages from one address in a short time (14.5.d): a calm "wait a moment". */
+async function ListingTooManyViews({ locale }: { locale: AppLocale }) {
+  const t = await getTranslations({ locale, namespace: "listing.tooMany" });
+  return (
+    <Container>
+      <StateView headingLevel="h1" size="lg" tone="primary" title={t("title")} description={t("description")} action={{ label: t("search"), href: "/search" }} />
+    </Container>
   );
 }

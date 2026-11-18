@@ -61,12 +61,19 @@ export async function EmergencyContacts({ locale }: { locale: AppLocale }) {
               >
                 {card.phone && card.phoneHref ? (
                   // The whole card calls: a big target with the number written out.
+                  // The name comes from the screen-reader text, not aria-label: an aria-label that
+                  // leaves out the visible note fails axe's label-content-name-mismatch (15.6.a).
                   <a
                     href={card.phoneHref}
-                    aria-label={t("callLabel", { name: card.label, number: card.phone })}
                     className="group flex flex-1 items-center gap-4 p-4 outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/60 sm:p-5"
                   >
-                    <CardText card={card} icon={Icon} />
+                    <span className="sr-only">
+                      {t("callLabel", { name: card.label, number: card.phone })}
+                      {card.description ? ` · ${card.description}` : null}
+                    </span>
+                    <span aria-hidden="true" className="contents">
+                      <CardText card={card} icon={Icon} />
+                    </span>
                     <span
                       aria-hidden="true"
                       className={cn(

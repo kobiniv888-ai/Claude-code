@@ -308,6 +308,25 @@ describe("merging a device's lists at sign-in", () => {
     expect(await db.favorite.count({ where: { userId: user.id } })).toBe(4);
   });
 
+  it("a device list named with an IBAN or a card number is not created (S2 review TS-11)", async () => {
+    const user = await newUser();
+    const T0 = Date.now() - 60_000;
+    const result = await lists.mergeDeviceLists(user, {
+      lists: [
+        { key: "d_iban000001", name: "GE29NB0000000101904917", usedAt: null, createdAt: T0 },
+        { key: "d_card000001", name: "4111 1111 1111 1111", usedAt: null, createdAt: T0 },
+      ],
+      items: [
+        { listingId: ids.a, listKey: "d_iban000001", savedAt: T0 + 1 },
+        { listingId: ids.b, listKey: "d_card000001", savedAt: T0 + 2 },
+      ],
+      defaultUsedAt: null,
+    });
+    expect(result).toMatchObject({ added: 2, listsCreated: 0 });
+    const names = (await db.savedList.findMany({ where: { userId: user.id }, select: { name: true } })).map((l) => l.name);
+    expect(names.some((name) => /GE29|4111/.test(name))).toBe(false);
+  });
+
   it("a device list named like the default list goes into the default list (lists-alerts-10)", async () => {
     const user = await newUser();
     const T0 = Date.now() - 60_000;

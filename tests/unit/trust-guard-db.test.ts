@@ -65,14 +65,24 @@ describe("refusePaymentDetails (14.2.a)", () => {
 
     const events = await db.securityEvent.findMany({ where: { userId: ids.guest, type: "payment_details_blocked" } });
     expect(events).toHaveLength(1);
-    expect(events[0].meta).toMatchObject({ surface: "review", kinds: "payment_link" });
+    expect(events[0].meta).toMatchObject({ surface: "review", kinds: expect.stringContaining("payment_link") });
     expect(JSON.stringify(events[0].meta)).not.toContain("paypal");
 
-    const reports = await db.report.findMany({ where: { listingId: ids.listing, reporterId: null, details: { contains: "surface=review " } } });
+    // The GUEST wrote it: the flag names the guest's account, never the host's listing (S2 review
+    // TS-1); the listing stays in the staff note.
+    expect(await db.report.count({ where: { listingId: ids.listing, reporterId: null, details: { contains: "surface=review " } } })).toBe(0);
+    const reports = await db.report.findMany({ where: { targetUserId: ids.guest, reporterId: null, details: { contains: "surface=review " } } });
     expect(reports).toHaveLength(1);
-    expect(reports[0]).toMatchObject({ targetType: "LISTING", reason: "ASKED_MONEY_UPFRONT", priority: "URGENT", status: "OPEN" });
+    expect(reports[0]).toMatchObject({ targetType: "USER", listingId: null, reason: "ASKED_MONEY_UPFRONT", priority: "URGENT", status: "OPEN" });
+    expect(reports[0].details).toContain(`listing=${ids.listing}`);
     // The staff note holds the masked sample, never the full link.
     expect(reports[0].details).not.toContain("demo-host");
+  });
+
+  it("names the listing for text the host writes (room types, listing text)", async () => {
+    expect(await refusePaymentFields({ surface: "room_type", userId: ids.host, listingId: ids.listing, fields: { name: PAY_TEXT } })).toEqual({ name: ["paymentInText"] });
+    const report = await db.report.findFirst({ where: { listingId: ids.listing, reporterId: null, details: { contains: "surface=room_type " } } });
+    expect(report).toMatchObject({ targetType: "LISTING" });
   });
 
   it("flags the account when there is no listing, per field for forms", async () => {

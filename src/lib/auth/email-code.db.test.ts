@@ -38,6 +38,10 @@ afterAll(async () => {
   await db.emailOutbox.deleteMany({ where: { to: { in: [KNOWN, UNKNOWN] }, createdAt: { gte: startedAt } } }).catch(() => null);
   if (userId) await db.user.delete({ where: { id: userId } }).catch(() => null);
   await db.rateLimit.deleteMany({ where: { key: { contains: ipHash } } });
+  // The per-address send limit is keyed by the address's hash: this test's own addresses only.
+  const { hmacHash } = await import("@/lib/crypto");
+  await db.rateLimit.deleteMany({ where: { key: { in: [KNOWN, UNKNOWN].map((address) => `auth:email-otp-send:email:${hmacHash(`email:${address}`)}`) } } });
+  await db.securityEvent.deleteMany({ where: { type: { in: ["login_failed", "login_code_locked", "email_code_sent", "rate_limited"] }, userId: null, createdAt: { gte: startedAt } } });
   await db.$disconnect();
 });
 

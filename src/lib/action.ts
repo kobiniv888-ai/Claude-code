@@ -69,12 +69,28 @@ export function toActionError(error: unknown): ActionFailure {
     if (KNOWN_CODES.has(error.code) || error.status < 500) return fail(error.code);
     console.error("[action] server error:", error);
     void reportError(error, { kind: "action" });
+    countServerError();
     return fail("server_error");
   }
 
   console.error("[action] unexpected error:", error);
   void reportError(error, { kind: "action" });
+  countServerError();
   return fail("server_error");
+}
+
+/**
+ * An action error the visitor sees as "server_error" never reaches Next's onRequestError (the action
+ * caught it), so it is counted here for the founder's error-spike alert (SECURITY_REPORT 16.3; S2
+ * review ops-alerts-1). Loaded lazily (server-only module) and best effort: never throws. Only
+ * inside a running Next server (NEXT_RUNTIME is set there): unit tests that call actions directly
+ * must not write events into the database.
+ */
+let serverErrors: Promise<typeof import("@/lib/security/server-errors")> | null = null;
+function countServerError() {
+  if (!process.env.NEXT_RUNTIME) return;
+  serverErrors ??= import("@/lib/security/server-errors");
+  void serverErrors.then((m) => m.recordServerError("action")).catch(() => undefined);
 }
 
 /** Runs `fn` and converts thrown errors with `toActionError`. */

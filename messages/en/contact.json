@@ -67,7 +67,8 @@
     "errors": {
       "name": "Please enter your name.",
       "email": "Please enter a valid email address.",
-      "message": "Please write at least a short message."
+      "message": "Please write at least a short message.",
+      "paymentInText": "Please leave out payment details: payment links, bank accounts (IBAN), card numbers or crypto. Guests pay the host on arrival, never in advance."
     }
   },
   "errors": {

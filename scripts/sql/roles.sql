@@ -16,8 +16,11 @@
 --     -f scripts/sql/roles.sql
 --
 -- Leave out -v app_password / -v migrate_password on a later run to keep the passwords as they are.
--- Neon: you can also create the two roles in the console (Branch → Roles) first; this file then
--- only sets their rights.
+-- Let THIS FILE create both roles. Do not create them in the Neon Console, CLI or API: Neon makes
+-- every role created there a member of "neon_superuser" (create roles and databases, bypass row
+-- security, read and write all data). This file removes any role membership of bayit_app and
+-- bayit_migrate, and refuses to finish if one cannot be removed (then drop that role as the owner
+-- and run this file again).
 
 \set ON_ERROR_STOP on
 
@@ -42,6 +45,27 @@ ALTER ROLE bayit_migrate WITH PASSWORD :'migrate_password';
 \if :{?app_password}
 ALTER ROLE bayit_app WITH PASSWORD :'app_password';
 \endif
+
+-- No role membership for either role: a member of another role can act with that role's rights
+-- (Neon's neon_superuser for Console-created roles). The owner's own membership of bayit_migrate
+-- (granted just below) is the other way round and stays.
+DO $memberships$
+DECLARE
+  item record;
+BEGIN
+  FOR item IN
+    SELECT g.rolname AS granted, r.rolname AS member
+    FROM pg_auth_members m JOIN pg_roles g ON g.oid = m.roleid JOIN pg_roles r ON r.oid = m.member
+    WHERE r.rolname IN ('bayit_app', 'bayit_migrate')
+  LOOP
+    BEGIN
+      EXECUTE format('REVOKE %I FROM %I', item.granted, item.member);
+    EXCEPTION WHEN insufficient_privilege OR undefined_object THEN
+      RAISE EXCEPTION '% is a member of % and this owner cannot remove it: drop the role % (DROP ROLE %;) and run this file again so it creates the role itself', item.member, item.granted, item.member, item.member;
+    END;
+  END LOOP;
+END
+$memberships$;
 
 -- The owner may act as bayit_migrate (needed to hand the tables over below; PostgreSQL 16+).
 GRANT bayit_migrate TO CURRENT_USER;
@@ -107,6 +131,14 @@ BEGIN
     WHERE rolname IN ('bayit_app', 'bayit_migrate') AND (rolsuper OR rolcreaterole OR rolcreatedb OR rolreplication OR rolbypassrls)
   ) THEN
     RAISE EXCEPTION 'bayit_app or bayit_migrate has a superuser, create-role, create-database, replication or RLS-bypass right: remove it (ALTER ROLE ... NOSUPERUSER ...) as a superuser, or create the roles again';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.member WHERE r.rolname IN ('bayit_app', 'bayit_migrate')
+  ) THEN
+    RAISE EXCEPTION 'bayit_app or bayit_migrate is still a member of another role (e.g. neon_superuser): drop the role and run this file again';
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tableowner = 'bayit_app') THEN
+    RAISE EXCEPTION 'bayit_app owns a table: it could change it';
   END IF;
   IF has_schema_privilege('bayit_app', 'public', 'CREATE') THEN
     RAISE EXCEPTION 'bayit_app may still create objects in the schema public';

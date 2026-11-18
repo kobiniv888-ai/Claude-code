@@ -201,13 +201,36 @@ describe("limitCodeSend (Postgres, atomic)", () => {
     for (let i = 0; i < 40; i++) {
       const device = `vitest-${run}-cdev-${i}`;
       expect(await send({ channel: "email", target: fakeEmail(), ipHash: ip, deviceHash: device, now: at(i) }), `code ${i + 1}`).toMatchObject({ ok: true });
-      await refundConfirmedCodeSend({ ipHash: ip, deviceHash: device });
+      await refundConfirmedCodeSend("email", { ipHash: ip, deviceHash: device });
     }
     const ip2 = ipHash("unconfirmed");
     for (let i = 0; i < 30; i++) {
       expect(await send({ channel: "email", target: fakeEmail(), ipHash: ip2, deviceHash: `vitest-${run}-udev-${i}`, now: at(i) })).toMatchObject({ ok: true });
     }
     expect(await send({ channel: "email", target: fakeEmail(), ipHash: ip2, deviceHash: `vitest-${run}-udev-31`, now: at(31) })).toMatchObject({ ok: false, scope: "ip" });
+  });
+
+  it("confirmed PHONE codes give back the phone channel's IP and device share, never the email channel's (S2 review FC-1b)", async () => {
+    const ip = ipHash("confirmed-phone");
+    // One number per range of 1000 (the range cap is not what this checks).
+    const seed = Date.now() % 9000;
+    for (let i = 0; i < 40; i++) {
+      const device = `vitest-${run}-pdev-${i}`;
+      const target = `+97250${String((seed + i) % 10000).padStart(4, "0")}${String(i % 1000).padStart(3, "0")}`;
+      expect(await send({ channel: "phone", target, ipHash: ip, deviceHash: device, now: at(i) }), `code ${i + 1}`).toMatchObject({ ok: true });
+      await refundConfirmedCodeSend("phone", { ipHash: ip, deviceHash: device });
+    }
+    const phoneKeys = codeSendKeys({ channel: "phone", target: "", ipHash: ip, deviceHash: null });
+    expect((await db.rateLimit.findUnique({ where: { key: phoneKeys.ipDay } }))?.count).toBe(0);
+
+    // A phone refund leaves the email counters of the same IP and device alone.
+    const emailIp = ipHash("refund-channels");
+    const device = `vitest-${run}-chan-dev`;
+    expect(await send({ channel: "email", target: fakeEmail(), ipHash: emailIp, deviceHash: device, now: at(0) })).toMatchObject({ ok: true });
+    await refundConfirmedCodeSend("phone", { ipHash: emailIp, deviceHash: device });
+    const emailKeys = codeSendKeys({ channel: "email", target: "", ipHash: emailIp, deviceHash: device });
+    expect((await db.rateLimit.findUnique({ where: { key: emailKeys.ipDay } }))?.count).toBe(1);
+    expect((await db.rateLimit.findUnique({ where: { key: emailKeys.deviceDay } }))?.count).toBe(1);
   });
 
   it("a code that could not be sent gives its counts back (an immediate retry is allowed)", async () => {

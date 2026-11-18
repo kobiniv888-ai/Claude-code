@@ -348,6 +348,15 @@ export async function cleanupTestData(opts: { since?: Date } = {}) {
       `DELETE FROM "DeviceLink" WHERE "firstSeenAt" >= $1 AND "userId" IN (SELECT id FROM "User" WHERE "isDemo")`,
       [opts.since],
     );
+    // Rows the run wrote with no test account on them (S2 review gate: they were left behind):
+    // security events (denials, logins of the demo staff, …), short-lived codes and markers of the
+    // demo staff (fresh proof, staff activity, phone-check codes), the emails to demo accounts
+    // (new-device notices) and the cookie-banner records of the test visitors. The e2e suite runs
+    // only against the local demo database, so everything written during the run is test data.
+    await sql(`DELETE FROM "SecurityEvent" WHERE "createdAt" >= $1`, [opts.since]);
+    await sql(`DELETE FROM "Verification" WHERE "createdAt" >= $1`, [opts.since]);
+    await sql(`DELETE FROM "EmailOutbox" WHERE "createdAt" >= $1 AND "to" IN (SELECT email FROM "User" WHERE "isDemo")`, [opts.since]);
+    await sql(`DELETE FROM "AuditLog" WHERE "createdAt" >= $1 AND action = 'consent.cookies'`, [opts.since]);
   }
   // Rate-limit windows the tests filled (login codes, contact form, staff actions, per-user keys).
   await sql(

@@ -9,12 +9,16 @@
  * (a) SITE_ENV missing, (b) SITE_ENV=production with AUTH_TEST_MODE=true, (c) SITE_ENV=production
  * with a required secret missing: `next start` must EXIT with a non-zero code and never answer a
  * page. (d) SITE_ENV=production with complete FAKE settings (tests/startup/fake-env.ts) and the
- * local database (over TLS, through a non-local host name): it starts, and shows no demo listing,
- * no demo banner, no login code on screen, and refuses the demo phone login.
+ * local database (over TLS, through a non-local host name), connected as a throwaway
+ * least-privilege role like the real site's bayit_app (a production start refuses an owner role,
+ * src/lib/startup-check-db-role.ts): it starts, and shows no demo listing, no demo banner, no login
+ * code on screen, and refuses the demo phone login. The role is made and dropped by the local
+ * database's superuser (`runuser -u postgres -- psql`; override with PROBE_DB_ADMIN_PSQL).
  *
  * The port must be free (stop any server on it first). Exit code 0 when every probe passes.
  */
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import pg from "pg";
@@ -54,9 +58,45 @@ async function demoPublicIds(): Promise<number[]> {
   }
 }
 
+/** The throwaway least-privilege role probe (d) connects as (rows only, like bayit_app). */
+const PROBE_ROLE = "bayit_probe_app";
+
+/** Runs SQL as the local database's superuser (the codespace's own Postgres). */
+function asSuperuser(sql: string): void {
+  const database = new URL(localDatabaseUrl()).pathname.slice(1) || "bayit";
+  const command = (process.env.PROBE_DB_ADMIN_PSQL ?? "runuser -u postgres -- psql").split(" ");
+  const result = spawnSync(command[0]!, [...command.slice(1), "-v", "ON_ERROR_STOP=1", "-q", "-d", database, "-c", sql], { encoding: "utf8" });
+  if (result.status !== 0) throw new Error(`superuser psql failed: ${(result.stderr || result.error?.message || "").slice(0, 300)}`);
+}
+
+/** Creates the probe role with a fresh password (only row rights on the schema public). */
+function createProbeRole(): string {
+  const password = randomBytes(18).toString("hex");
+  dropProbeRole();
+  asSuperuser(
+    `CREATE ROLE ${PROBE_ROLE} LOGIN PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+     GRANT CONNECT ON DATABASE "${new URL(localDatabaseUrl()).pathname.slice(1) || "bayit"}" TO ${PROBE_ROLE};
+     GRANT USAGE ON SCHEMA public TO ${PROBE_ROLE};
+     GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ${PROBE_ROLE};
+     GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ${PROBE_ROLE};`,
+  );
+  return password;
+}
+
+function dropProbeRole(): void {
+  asSuperuser(
+    `DO $$ BEGIN IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${PROBE_ROLE}') THEN
+       EXECUTE 'DROP OWNED BY ${PROBE_ROLE}'; EXECUTE 'DROP ROLE ${PROBE_ROLE}'; END IF; END $$;`,
+  );
+}
+
 /** The local database (from .env) over TLS through a host name the start-up check does not call local. */
-function localDatabaseOverTls(): string {
+function localDatabaseOverTls(role?: { user: string; password: string }): string {
   const url = new URL(localDatabaseUrl());
+  if (role) {
+    url.username = role.user;
+    url.password = role.password;
+  }
   // "vm" resolves to 127.0.0.1 in this container (/etc/hosts); override with PROBE_DB_HOST.
   url.hostname = process.env.PROBE_DB_HOST ?? "vm";
   url.search = "";
@@ -116,9 +156,19 @@ async function main() {
     await refuses(`(${testCase.name.startsWith("test mode") ? "b" : "c"}) ${testCase.name}`, { ...fakeProductionEnv(), ...testCase.change }, testCase.expect);
   }
 
+  // (c) on the real database check (S2 review FE-4): complete settings, but DATABASE_URL connects
+  // as the local owner role, which owns the tables and may create objects: refused at start.
+  await refuses(
+    "(c) the database role is an owner, not least-privilege",
+    fakeProductionEnv({ databaseUrl: localDatabaseOverTls(), siteUrl: "https://bayit.example.com" }),
+    /the site runs as the least-privilege role bayit_app/,
+  );
+  await removeSiteMarker();
+
   // (d): complete fake production settings on the local database.
   const site = "https://bayit.example.com";
-  const server = startServer(fakeProductionEnv({ databaseUrl: localDatabaseOverTls(), siteUrl: site }));
+  const password = createProbeRole();
+  const server = startServer(fakeProductionEnv({ databaseUrl: localDatabaseOverTls({ user: PROBE_ROLE, password }), siteUrl: site }));
   try {
     let home: Response | null = null;
     for (let i = 0; i < 90 && !home; i += 1) {
@@ -160,6 +210,11 @@ async function main() {
     // probe ran on the shared development database, so take the mark off again, or every
     // development server on it would refuse to start.
     await removeSiteMarker();
+    try {
+      dropProbeRole();
+    } catch (error) {
+      console.error(`[probe] could NOT drop the role ${PROBE_ROLE} — drop it by hand:`, (error as Error)?.message ?? error);
+    }
   }
 }
 

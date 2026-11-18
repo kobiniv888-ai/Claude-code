@@ -4,10 +4,11 @@ import { siteConfig } from "@/config/site";
 import { isAppLocale } from "@/i18n/locale";
 import { db } from "@/lib/db";
 import { isEmailDeliveryConfigured } from "@/lib/email";
-import { isSmsConfigured, maskPhone, sendSms } from "@/lib/sms";
+import { recordSecurityEvent } from "@/lib/security/events";
+import { TWILIO_SMS_PUMPING_BLOCKED, isSmsConfigured, maskPhone, sendSms } from "@/lib/sms";
 import { codeDisplayForHeaders, type CodeDisplayMode } from "./code-display";
 import { checkLoginPhoneNumber } from "./phone";
-import { recordSmsCodeSent, releaseSmsSend, reserveSmsSend, smsPausedFor, smsSourceForThisCall } from "./sms-guard";
+import { recordSmsCodeSent, releaseSmsSend, reserveSmsSend, smsPausedFor, smsSourceForThisCall, type SmsSource } from "./sms-guard";
 
 /**
  * How phone and email codes reach people.
@@ -90,14 +91,17 @@ export function emailCodeRoute(headers: Pick<Headers, "get"> | null | undefined)
 
 // ── Sending ──
 
+export type SmsUnavailableReason = "unavailable" | "paused" | "limited" | "pumping_blocked";
+
 export class SmsUnavailableError extends Error {
   /**
    * "paused": the daily budget is used up (or only trusted sources may use what is left) or the
    * country is paused; "limited": this account or IP block used its share or has too many codes
-   * nobody entered (./sms-guard.ts).
+   * nobody entered (./sms-guard.ts); "pumping_blocked": Twilio's SMS Pumping Protection refused
+   * the text (error 30450): "try again in a few minutes, or sign in with email".
    */
-  readonly reason: "unavailable" | "paused" | "limited";
-  constructor(message: string, reason: "unavailable" | "paused" | "limited" = "unavailable") {
+  readonly reason: SmsUnavailableReason;
+  constructor(message: string, reason: SmsUnavailableReason = "unavailable") {
     super(message);
     this.name = "SmsUnavailableError";
     this.reason = reason;
@@ -115,26 +119,23 @@ export async function codeSmsText(input: { code: string; ttlSeconds: number; loc
   });
 }
 
-/**
- * Sends a phone code along `route` (see `phoneCodeRoute`). `code` is the one Better Auth made:
- * shown on screen (test mode) or sent as our own text. Throws SmsUnavailableError when it cannot go.
- */
-export async function sendLoginCode(input: {
-  phoneNumber: string;
-  code: string;
-  ttlSeconds: number;
-  locale?: string | null;
-  route: PhoneCodeRoute;
-}): Promise<void> {
-  if (input.route === "screen") {
-    rememberScreenCode(phoneCodeKey(input.phoneNumber), input.code, input.ttlSeconds);
-    console.info(`[auth] test mode: the login code for ${maskPhone(input.phoneNumber)} is shown on screen`);
-    return;
-  }
-  if (input.route !== "sms") throw new SmsUnavailableError("No SMS service is set up");
+/** What `guardSmsCodeSend` reserved: the checked number and the source charged for it. */
+export type SmsCodeSendGuard = { e164: string; country: string; source: SmsSource };
 
+/**
+ * The checks right before a paid code text, and the reservation that counts it (SECURITY_REPORT
+ * 3.2.c/d): the number's rules again, the source's country pause, the daily budget, the source's
+ * 24-hour share and its brake on codes nobody entered (./sms-guard.ts). Throws SmsUnavailableError
+ * ("paused" / "limited" / "unavailable") when no text may go out.
+ *
+ * The neutral phone-check send (a number another account has, founder's answer (5),
+ * ./phone-neutral.ts) runs THIS too and keeps the reservation, so a braked or over-share source
+ * gets the same "rate_limited" for every number and the counters move as for an unanswered text
+ * (S2 review FC-1): only the text itself and its "sent" event are skipped.
+ */
+export async function guardSmsCodeSend(phoneNumber: string): Promise<SmsCodeSendGuard> {
   // Checked again right before the paid text (the hooks in ./server.ts checked them first).
-  const destination = checkLoginPhoneNumber(input.phoneNumber);
+  const destination = checkLoginPhoneNumber(phoneNumber);
   if (!destination.ok) throw new SmsUnavailableError(`SMS refused: ${destination.reason}`);
   // Who asks (the account and IP block): brakes and shares are per source first (./sms-guard.ts).
   const source = await smsSourceForThisCall();
@@ -146,15 +147,48 @@ export async function sendLoginCode(input: {
     const limited = reservation.reason === "share" || reservation.reason === "brake";
     throw new SmsUnavailableError(`No code text: ${reservation.reason}`, limited ? "limited" : "paused");
   }
+  return { e164: destination.e164, country: destination.country, source };
+}
 
+/**
+ * Sends a phone code along `route` (see `phoneCodeRoute`). `code` is the one Better Auth made:
+ * shown on screen (test mode) or sent as our own text. Throws SmsUnavailableError when it cannot go.
+ * `guarded`: the caller already ran `guardSmsCodeSend` for this send (./server.ts sendOTP).
+ */
+export async function sendLoginCode(input: {
+  phoneNumber: string;
+  code: string;
+  ttlSeconds: number;
+  locale?: string | null;
+  route: PhoneCodeRoute;
+  guarded?: SmsCodeSendGuard;
+}): Promise<void> {
+  if (input.route === "screen") {
+    rememberScreenCode(phoneCodeKey(input.phoneNumber), input.code, input.ttlSeconds);
+    console.info(`[auth] test mode: the login code for ${maskPhone(input.phoneNumber)} is shown on screen`);
+    return;
+  }
+  if (input.route !== "sms") throw new SmsUnavailableError("No SMS service is set up");
+
+  const { e164, country, source } = input.guarded ?? (await guardSmsCodeSend(input.phoneNumber));
   const result = await sendSms({
-    to: destination.e164,
+    to: e164,
     body: await codeSmsText(input),
-    logAs: `[login code for ${maskPhone(destination.e164)}]`,
+    logAs: `[login code for ${maskPhone(e164)}]`,
   });
   if (!result.ok) {
     await releaseSmsSend(source);
+    if (result.errorCode === TWILIO_SMS_PUMPING_BLOCKED) {
+      // Twilio's SMS Pumping Protection blocked it (no text, no cost): an event for the security
+      // alerts, with the country and the source's account only, never the number.
+      await recordSecurityEvent({
+        type: "sms_pumping_blocked",
+        userId: source.userId,
+        meta: { country, trusted: source.trusted, twilioError: TWILIO_SMS_PUMPING_BLOCKED },
+      });
+      throw new SmsUnavailableError("Twilio SMS Pumping Protection blocked the code", "pumping_blocked");
+    }
     throw new SmsUnavailableError("Twilio Messaging could not send the code");
   }
-  if (result.delivered) await recordSmsCodeSent(destination.country, source);
+  if (result.delivered) await recordSmsCodeSent(country, source);
 }

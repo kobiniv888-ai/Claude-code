@@ -91,10 +91,18 @@ describe("Twilio errors in logs", () => {
         twilioError(21408, `Permission to send an SMS has not been enabled for the region indicated by the 'To' number: ${IL_MOBILE}.`),
       ),
     );
-    expect(await sendSms({ to: IL_MOBILE, body: "Booking BT-ABCDE" })).toEqual({ ok: false, delivered: false });
+    expect(await sendSms({ to: IL_MOBILE, body: "Booking BT-ABCDE" })).toEqual({ ok: false, delivered: false, errorCode: 21408 });
     expect(logged.join("\n")).toContain("21408");
     expect(logged.join("\n")).not.toContain(IL_MOBILE);
     expect(logged.join("\n")).not.toContain(IL_MOBILE.slice(1));
+  });
+});
+
+describe("Twilio SMS Pumping Protection (30450)", () => {
+  it("sendSms passes Twilio's numeric code on, so a blocked code text can be told apart", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => twilioError(30450, `Message to ${IL_MOBILE} blocked by SMS Pumping Protection.`)));
+    expect(await sendSms({ to: IL_MOBILE, body: "code" })).toEqual({ ok: false, delivered: false, errorCode: 30450 });
+    expect(logged.join("\n")).not.toContain(IL_MOBILE);
   });
 });
 

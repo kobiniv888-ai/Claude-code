@@ -7,8 +7,8 @@ export type LegalDocKey = (typeof legalDocKeys)[number];
 export const legalDocs: Record<LegalDocKey, { path: string; icon: LucideIcon; lastUpdated: string }> = {
   // The Terms' date is their version (TERMS_VERSION): changing the Terms means a new version.
   terms: { path: "/legal/terms", icon: FileText, lastUpdated: TERMS_VERSION },
-  privacy: { path: "/legal/privacy", icon: ShieldCheck, lastUpdated: "2026-11-14" },
-  cookies: { path: "/legal/cookies", icon: Cookie, lastUpdated: "2026-11-14" },
+  privacy: { path: "/legal/privacy", icon: ShieldCheck, lastUpdated: "2026-11-18" },
+  cookies: { path: "/legal/cookies", icon: Cookie, lastUpdated: "2026-11-18" },
   listingRules: { path: "/legal/listing-rules", icon: ListChecks, lastUpdated: "2026-10-31" },
   accessibility: { path: "/legal/accessibility", icon: Accessibility, lastUpdated: "2026-11-14" },
 };

@@ -282,7 +282,8 @@ export function LocationStep({ listing, values, set, errors, context, locale }: 
                   set({
                     cityId,
                     neighborhoodId: keepPin && next ? nearest(next.neighborhoods, pin, NEIGHBORHOOD_MAX_METERS)?.id ?? null : null,
-                    ...(keepPin ? {} : { lat: null, lng: null }),
+                    // Clear only a pin that is shown: an unreadable saved pin is not sent as empty (FE-6).
+                    ...(keepPin || pin === null ? {} : { lat: null, lng: null }),
                   });
                   setFocusKey((k) => k + 1);
                 }}

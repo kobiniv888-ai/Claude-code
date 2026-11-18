@@ -43,7 +43,7 @@ function realLoginEmail(user: Pick<CurrentUser, "email" | "emailIsPlaceholder">)
 
 export async function getProofOptions(): Promise<ActionResult<ProofOptions>> {
   return runAction<ProofOptions>(async () => {
-    const user = await requireUserForAction();
+    const user = await requireUserForAction({ terms: false });
     const email = realLoginEmail(user);
     return ok({ email: email ? maskEmail(email) : null, totp: user.twoFactorEnabled });
   });
@@ -57,14 +57,14 @@ async function sendCode(user: CurrentUser, purpose: SecurityCodePurpose): Promis
 }
 
 export async function sendProofCode(): Promise<ActionResult<CodeSent>> {
-  return runAction<CodeSent>(async () => sendCode(await requireUserForAction(), "confirm"));
+  return runAction<CodeSent>(async () => sendCode(await requireUserForAction({ terms: false }), "confirm"));
 }
 
 const confirmSchema = z.object({ method: z.enum(["email", "totp"]), code: z.string().trim().regex(SECURITY_CODE_PATTERN) });
 
 export async function confirmProof(input: unknown): Promise<ActionResult> {
   return runAction(async () => {
-    const user = await requireUserForAction();
+    const user = await requireUserForAction({ terms: false });
     const parsed = confirmSchema.safeParse(input);
     if (!parsed.success) return fail("invalid_code");
     if (parsed.data.method === "totp") {

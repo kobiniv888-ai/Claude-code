@@ -368,7 +368,8 @@
       "Booking": "حجز",
       "ReferencePrice": "سعر مرجعي",
       "EmailOutbox": "رسالة بريد",
-      "Review": "تقييم"
+      "Review": "تقييم",
+      "CookieConsent": "اختيار ملفات تعريف الارتباط"
     },
     "actions": {
       "listing_approve": "تمت الموافقة على إعلان",
@@ -494,7 +495,8 @@
       "sessions_end_all": "سُجّل خروج الجميع",
       "account_email_added": "أُضيف عنوان بريد إلكتروني إلى الحساب",
       "booking_host_asked_expired": "لم يرد المضيف على «طلب المضيف الإلغاء»: أُحيل إلى المراجعة",
-      "flag_signup_device_reviewed": "تمت مراجعة حسابات من جهاز واحد"
+      "flag_signup_device_reviewed": "تمت مراجعة حسابات من جهاز واحد",
+      "consent_cookies": "تم تسجيل اختيار ملفات تعريف الارتباط"
     }
   },
   "moderation": {
@@ -1473,6 +1475,7 @@
     "emptyHint": "ستظهر حجوزات الضيوف هنا.",
     "flag": {
       "host_cancellation": "إلغاء خلال 48 ساعة",
+      "host_asked_disputed": "المضيف ينفي طلب الإلغاء",
       "no_show": "الضيف لم يحضر"
     },
     "reports": "{count, plural, one {بلاغ واحد} two {بلاغان} few {{count} بلاغات} many {{count} بلاغًا} other {{count} بلاغ}}",
@@ -1511,6 +1514,7 @@
     "backToList": "العودة إلى الحجوزات",
     "flagExplain": {
       "host_cancellation": "ألغى المضيف خلال 48 ساعة من الحجز، أو كتب الضيف أن المضيف طلب الإلغاء. يستحق التحقق من السبب.",
+      "host_asked_disputed": "كتب الضيف أن المضيف طلب منه الإلغاء، وأجاب المضيف بالنفي أو لم يجب خلال 72 ساعة. لا يُحتسب ذلك على المضيف حتى تتحقق من صاحب الحق.",
       "no_show": "يقول المضيف إن الضيف لم يحضر. للعلم فقط."
     },
     "reviewedBy": "راجعه {name}، {when}",

@@ -18,6 +18,7 @@ import { dateToDay, daysBetween, tbilisiToday } from "./dates";
 import { freeCancellationDeadline, isLateCancellation } from "./policy";
 import { bookingPriceLines } from "./price-lines";
 import { hostContactFor } from "./reveal";
+import { showContactChangedNotice } from "@/lib/contact/changed";
 import { toNumber } from "./terms";
 
 /**
@@ -64,6 +65,7 @@ async function loadBooking(bookingId: string) {
           checkInFlexible: true,
           checkOutFlexible: true,
           contactMethods: true,
+          contactChangedAt: true,
           translations: { select: { locale: true, title: true } },
         },
       },
@@ -438,7 +440,20 @@ export async function notifyBookingReminder(bookingId: string, now: Date = new D
           locale: guest.locale,
           template: "booking_reminder_guest",
           // No exact address in the reminder (answer (10)): it links to the trip page.
-          data: { ...stayFor(booking, guest.locale, guest.path), ...arrivalFor(booking), guestName: booking.guestName, daysLeft },
+          data: {
+            ...stayFor(booking, guest.locale, guest.path),
+            ...arrivalFor(booking),
+            guestName: booking.guestName,
+            daysLeft,
+            // The trip page's "contact details changed" warning, in the reminder too (S2 review TS-12).
+            contactChanged: showContactChangedNotice({
+              contactChangedAt: booking.listing.contactChangedAt,
+              status: booking.status,
+              checkOut: dateToDay(booking.checkOut),
+              today: tbilisiToday(now),
+              now,
+            }),
+          },
         }),
       host.email &&
         sendBookingEmail(booking, {

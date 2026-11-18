@@ -72,6 +72,8 @@ const LOOKALIKES: Record<string, string> = {
   Α: "A", Β: "B", Ε: "E", Ζ: "Z", Η: "H", Ι: "I", Κ: "K", Μ: "M", Ν: "N", Ο: "O", Ρ: "P", Τ: "T", Υ: "Y", Χ: "X",
   // Latin variants
   ı: "i", ɑ: "a", ℓ: "l", ɡ: "g", ꞵ: "b",
+  // Armenian ("paypօl" with օ for o)
+  օ: "o", ս: "u", ո: "n", ց: "g", ա: "w", հ: "h", Ս: "U", Օ: "O",
 };
 const LOOKALIKE_RE = new RegExp(`[${Object.keys(LOOKALIKES).join("")}]`, "gu");
 
@@ -130,6 +132,8 @@ type Views = {
 };
 
 function views(text: string): Views {
+  // normalizeForContactScan also drops combining marks ("p̲a̲y̲p̲a̲l̲") and maps look-alike dots
+  // ("paypal⸳me", "paypal-dot-me", "site dot ge"; SECURITY_REPORT 14.2.a, TS-3).
   const base = normalizeForContactScan(text);
   const latin = joinSpelledLetters(foldLookalikes(base)).toLowerCase();
   return { base, latin, leet: foldLeet(latin), digits: foldLookalikes(spellOutDigits(base)), words: normalizeSearchText(base) };
@@ -139,17 +143,76 @@ function views(text: string): Views {
 
 /** "pay", "send", "transfer"… in the 5 languages, as phrase patterns (./phrases.ts syntax). */
 const PAY_WORD_PATTERNS = [
-  "(pay|pays|paid|paying|payment*|prepay*|deposit*|send|sending|sent|transfer|transfers|transferring|wire|wiring|wired|accept|accepted|accepting|via|through|using|buy|buying|purchase*|code|codes|money|fee|fees|advance|upfront|reserve|reservation|invoice|checkout|wallet)",
-  "(לשלם|שלם|שלמו|תשלם|תשלמו|משלמים|תשלום|תשלומים|מקדמה|המקדמה|פיקדון|הפיקדון|להעביר|העבירו|תעבירו|העבר|העברה|העברת|לשלוח|שלחו|שלח|תשלחו|דרך|באמצעות|בעזרת|מקבלים|מקבל|מקבלת|לקנות|קנו|קוד|קודים|הקוד|כסף|הכסף)",
-  "(оплат*|плат*|заплат*|предоплат*|перевод*|перевед*|перечисл*|отправ*|вышл*|скинь*|через|принима*|залог*|депозит*|задат*|аванс*|купит*|код*|деньг*)",
-  "(ادفع|ادفعوا|دفع|الدفع|دفعه|حول|حولوا|تحويل|التحويل|ارسل|ارسلوا|عبر|بواسطه|نقبل|يقبل|نستقبل|اشتر|اشتري|شراء|كود|رمز|الرمز|المبلغ|مبلغ|عربون|العربون|تامين|التامين)",
-  "(გადახდ*|გადაიხად*|გადარიცხ*|ჩარიცხ*|გამოგზავნ*|გამომიგზავნ*|ავანს*|დეპოზიტ*|კოდ*|ფულ*|თანხ*|ვიღებთ)",
+  // "via", "through", "using", "code", "accept" are not payment words on their own: "TRX straps
+  // via the gym", "Netflix code on the fridge" (S2 review TS-4).
+  "(pay|pays|paid|paying|payment*|prepay*|deposit*|send|sending|sent|transfer|transfers|transferring|wire|wiring|wired|buy|buying|purchase*|money|fee|fees|advance|upfront|reserve|reservation|invoice|checkout|wallet)",
+  "(לשלם|שלם|שלמו|תשלם|תשלמו|משלמים|תשלום|תשלומים|מקדמה|המקדמה|פיקדון|הפיקדון|להעביר|העבירו|תעבירו|העבר|העברה|העברת|לשלוח|שלחו|שלח|תשלחו|לקנות|קנו|כסף|הכסף)",
+  "(оплат*|плат*|заплат*|предоплат*|перевод*|перевед*|перечисл*|отправ*|вышл*|скинь*|залог*|депозит*|задат*|аванс*|купит*|деньг*)",
+  "(ادفع|ادفعوا|دفع|الدفع|دفعه|حول|حولوا|تحويل|التحويل|ارسل|ارسلوا|اشتر|اشتري|شراء|المبلغ|مبلغ|عربون|العربون|تامين|التامين)",
+  "(გადახდ*|გადაიხად*|გადარიცხ*|ჩარიცხ*|გამოგზავნ*|გამომიგზავნ*|ავანს*|დეპოზიტ*|ფულ*|თანხ*)",
 ].map(compilePattern);
 
-/** True when a payment word is in `window` (normalized words). */
-function hasPayWord(window: string): boolean {
+/** "We accept…": a payment word for crypto only (there is no paying in crypto on arrival). */
+const ACCEPT_WORD_PATTERNS = [
+  "(accept|accepted|accepting|take|via|through|using)",
+  "(מקבלים|מקבל|מקבלת|דרך|באמצעות|בעזרת)",
+  "(принима*|через)",
+  "(نقبل|يقبل|نستقبل|عبر|بواسطه)",
+  "(ვიღებთ|მივიღებთ)",
+].map(compilePattern);
+
+/** A request for something ("send", "give", "enter", "we need"…): card details and codes. */
+const REQUEST_WORD_PATTERNS = [
+  "(send*|give|enter|type|provide|share|need|needs|needed|require*|please|write|tell|fill|submit|email|text|buy|purchase*|scratch)",
+  "(שלח*|תשלח*|לשלוח|צריך|צריכים|צריכה|נא|תן|תנו|תני|הזינו|הזן|הזיני|הקלידו|כתבו|תכתבו|מלאו|תמלאו|אמתו|אשרו|לקנות|קנו|תקנו)",
+  "(пришл*|отправ*|скин*|нужн*|нужен|введ*|напиш*|укаж*|сообщ*|дайте|дай|предостав*|подтверд*|купит*|куп*)",
+  "(ارسل*|نحتاج|نريد|اعط*|ادخل*|اكتب*|زود*|اكد*|شارك*|اشتر*)",
+  "(გამომიგზავნ*|გამოგზავნ*|გამოგვიგზავნ*|გადმოგზავნ*|მოგვწერ*|მომწერ*|მიუთითე*|შეიყვან*|გვჭირდება|საჭირო*|დაადასტურ*|იყიდ*)",
+].map(compilePattern);
+
+/** Paying in advance ("before arrival", "to hold the booking", "מקדמה", "предоплата"…). */
+const ADVANCE_WORD_PATTERNS = [
+  "(prepay*|advance|deposit*|upfront)",
+  "up front",
+  "before (arrival|check in|checkin|you arrive|your arrival)",
+  "to (book|reserve|hold|secure|confirm)",
+  "(מקדמה|המקדמה|מראש|לשריון|פיקדון|הפיקדון)",
+  "לפני (ההגעה|הגעה|הצק אין|צק אין)",
+  "כדי (לשריין|להבטיח|לאשר)",
+  "(заранее|предоплат*|задат*|аванс*|залог*)",
+  "до (заезда|приезда|заселения)",
+  "для (брони*|бронирования)",
+  "(عربون|العربون|مقدما|مسبقا|لتاكيد|لحجز)",
+  "قبل (الوصول|الدخول)",
+  "(წინასწარ*|ავანს*|დეპოზიტ*|ჩამოსვლამდე|დაჯავშნ*)",
+].map(compilePattern);
+
+/** Paying on arrival or at the signing of a contract: the normal way, never a scam. */
+const ON_SITE_PATTERNS = [
+  "(on|upon|at|after) (arrival|check in|checkin|the property|the apartment|signing|the notary|the agency)",
+  "(when you arrive|in person|contract)",
+  "(בהגעה|בצק אין|במקום|כשמגיעים|בחתימה|חוזה|החוזה)",
+  "בעת ההגעה",
+  "при (заезде|заселении|приезде|встрече|подписании)",
+  "(на месте|договор*)",
+  "عند (الوصول|الدخول|التوقيع)",
+  "(عقد|العقد)",
+  "(ადგილზე|მისვლისას|ჩასვლისას|ხელშეკრულ*)",
+].map(compilePattern);
+
+const matchesAny = (patterns: readonly RegExp[], window: string) => {
   const padded = ` ${window} `;
-  return PAY_WORD_PATTERNS.some((pattern) => pattern.test(padded));
+  return patterns.some((pattern) => pattern.test(padded));
+};
+
+/**
+ * True when a payment word is in `window` (normalized words). A window that only says "pay on
+ * arrival" ("Netflix code on the fridge, pay at arrival") is not an ask unless it also asks for
+ * money in advance.
+ */
+function hasPayWord(window: string, extra: readonly RegExp[] = []): boolean {
+  if (!matchesAny(PAY_WORD_PATTERNS, window) && !matchesAny(extra, window)) return false;
+  return !matchesAny(ON_SITE_PATTERNS, window) || matchesAny(ADVANCE_WORD_PATTERNS, window);
 }
 
 /** How far (in characters of normalized words) a payment word may be from the service it goes with. */
@@ -160,7 +223,12 @@ const ASK_RADIUS = 70;
  * payment word within ASK_RADIUS characters before or after it (the match itself is left out:
  * "Western Union" is not a payment word).
  */
-function askNearPayWord(words: string, patterns: readonly RegExp[], always: readonly RegExp[] = []): string | null {
+function askNearPayWord(
+  words: string,
+  patterns: readonly RegExp[],
+  always: readonly RegExp[] = [],
+  near: (window: string, match: string) => boolean = (window) => hasPayWord(window),
+): string | null {
   const haystack = ` ${words} `;
   for (const pattern of always) {
     const match = pattern.exec(haystack);
@@ -172,7 +240,7 @@ function askNearPayWord(words: string, patterns: readonly RegExp[], always: read
       const start = match.index ?? 0;
       const before = haystack.slice(Math.max(0, start - ASK_RADIUS), start);
       const after = haystack.slice(start + match[0].length, start + match[0].length + ASK_RADIUS);
-      if (hasPayWord(`${before} ${after}`)) return match[0].trim();
+      if (near(`${before} ${after}`, match[0])) return match[0].trim();
     }
   }
   return null;
@@ -238,6 +306,8 @@ function findPaymentLink(v: Views): string | null {
     const at = folded.indexOf(url);
     const around = at >= 0 ? folded.slice(Math.max(0, at - 60), at + url.length + 60) : folded;
     if (PAY_LINK_WORDS.test(around) || PAY_LINK_WORDS.test(url)) return url;
+    // A host named for payments ("paypol.me", "secure-pay.xyz"): look-alikes of a payment service.
+    if (/pay/i.test(url.replace(/^[a-z]+:\/\//i, "").split(/[/?#]/)[0] ?? "")) return url;
   }
   return null;
 }
@@ -275,7 +345,7 @@ export function isValidIban(iban: string): boolean {
 }
 
 /** Country code + check digits, then account characters with optional single separators. */
-const IBAN_CANDIDATE = /(?<![A-Za-z0-9])([A-Za-z]{2})[\s.\-]?(\d{2})((?:[\s.\-]?[A-Za-z0-9]){11,32})/g;
+const IBAN_CANDIDATE = /(?<![A-Za-z0-9])([A-Za-z][\s.\-]?[A-Za-z])[\s.\-]?(\d[\s.\-]?\d)((?:[\s.\-]?[A-Za-z0-9]){11,32})/g;
 /** "IBAN", "IBAN:", "IBAN №", "איבאן", "ИБАН", "آيبان", "აიბანი" followed by an account-like number. */
 const IBAN_LABEL = /(?:\biban\b|איבאן|אייבן|\bибан\b|ايبان|آيبان|აიბან\S*)\s*[:#№.\-]?\s*((?:[A-Za-z0-9][\s.\-]?){15,34})/iu;
 
@@ -283,7 +353,7 @@ function findIban(v: Views): string | null {
   for (const view of [v.base, v.digits]) {
     const text = foldLookalikes(view);
     for (const match of text.matchAll(IBAN_CANDIDATE)) {
-      const country = match[1].toUpperCase();
+      const country = match[1].replace(/[\s.\-]/g, "").toUpperCase();
       const length = IBAN_LENGTHS[country];
       if (!length) continue;
       const body = `${match[2]}${match[3]}`.replace(/[\s.\-]/g, "").toUpperCase();
@@ -354,7 +424,25 @@ function cardGroupsOk(run: string): boolean {
   return groups.length === 3 && groups[0].length === 4 && groups[1].length === 6 && groups[2].length === 5;
 }
 
+/**
+ * "Rooms 4003 4004 4005 4006", "2019 2020 2021 2022": four-digit groups that count up (or stay
+ * within 10 of each other) are a list, not a card (S2 review TS-4).
+ */
+function consecutiveGroups(run: string): boolean {
+  const groups = run.split(/\D+/).filter(Boolean);
+  if (groups.length < 3 || !groups.every((g) => g.length === 4)) return false;
+  return groups.every((g, i) => i === 0 || Math.abs(Number(g) - Number(groups[i - 1])) <= 10);
+}
+
+/**
+ * A whole run of digit groups split by line breaks, commas or semicolons as well as spaces
+ * ("4111\n1111\n1111\n1111", "4111,1111,1111,1111", "41 11 11 11 …"; S2 review TS-2). Dots,
+ * dashes, slashes and colons are left out: those are dates, times and codes.
+ */
+const LOOSE_CARD_RUN = /(?<![\d+])\d+(?:[\s,;_*·•|]{1,3}\d+)+(?!\d)/g;
+
 function findCardNumber(v: Views): string | null {
+  const masked = (digits: string) => `${digits.slice(0, 4)}…${digits.slice(-2)}`;
   for (const view of [v.base, v.digits]) {
     const text = digitLookalikes(view);
     for (const match of text.matchAll(CARD_RUN)) {
@@ -362,8 +450,23 @@ function findCardNumber(v: Views): string | null {
       const before = text.slice(Math.max(0, (match.index ?? 0) - 3), match.index);
       if (/(?:\+|00)\s?$/.test(before)) continue;
       const digits = run.replace(/\D/g, "");
-      if (digits.length < 15 || digits.length > 19 || !cardGroupsOk(run)) continue;
-      if (cardNetworkOk(digits) && luhnOk(digits)) return `${digits.slice(0, 4)}…${digits.slice(-2)}`;
+      if (digits.length < 15 || digits.length > 19 || !cardGroupsOk(run) || consecutiveGroups(run)) continue;
+      if (cardNetworkOk(digits) && luhnOk(digits)) return masked(digits);
+    }
+    // Second pass: any grouping of 1–4 digits once line breaks and commas count as separators.
+    // Luhn plus the card network keep false alarms rare; a run that holds a phone number is a
+    // phone list, never a card.
+    for (const match of text.matchAll(LOOSE_CARD_RUN)) {
+      const run = match[0];
+      const before = text.slice(Math.max(0, (match.index ?? 0) - 3), match.index);
+      if (/(?:\+|00)\s?$/.test(before)) continue;
+      const digits = run.replace(/\D/g, "");
+      if (digits.length < 15 || digits.length > 19 || consecutiveGroups(run)) continue;
+      const groups = run.split(/\D+/).filter(Boolean);
+      if (!groups.every((g) => g.length <= 4) && !cardGroupsOk(run)) continue;
+      if (!cardNetworkOk(digits) || !luhnOk(digits)) continue;
+      if (detectContactInfo(run).phones.length > 0) continue;
+      return masked(digits);
     }
   }
   return null;
@@ -371,30 +474,62 @@ function findCardNumber(v: Views): string | null {
 
 // ─── Card-detail requests ─────────────────────────────────────
 
-/** Asking for card details is never needed on Bayit (5 languages; ./phrases.ts pattern syntax). */
-const CARD_REQUEST_PATTERNS = [
-  "(cvv|cvv2|cvc|cvc2|cvn)",
-  "(card|credit card|debit card|bank card|payment card) (number|numbers|details|detail|info|information|data|credentials|verification|security code|expiry date|expiration date)",
-  "(security code|expiry date|expiration date) (of|on|from) (the|your|) card",
+/**
+ * Asking for card details is never needed on Bayit (5 languages; ./phrases.ts pattern syntax).
+ * These ask on their own: nobody needs "the 3 digits on the back" of a key card.
+ */
+const CARD_REQUEST_ALWAYS = [
+  "(security code|expiry date|expiration date) (of|on|from) (the|your|) (card|credit card|bank card)",
   "(3|three) digits (on|at|from) the back",
   "verify (your|the) (card|payment card|credit card|bank card)",
-  "(מספר|פרטי|תוקף|אימות|ספרות) (כרטיס|הכרטיס|כרטיסי|כרטיס האשראי|האשראי|אשראי)",
   "קוד (אבטחה|האבטחה|הביטחון) (של|על|מ|בגב) (כרטיס|הכרטיס|כרטיס האשראי)",
   "(3|שלוש|שלושת) (ספרות|הספרות) (בגב|מגב|שבגב|על גב) (כרטיס|הכרטיס)",
-  "(номер|номера|данные|реквизиты|cvv|код|срок действия|подтверждение|верификаци*) (карты|карточки|вашей карты|банковской карты|кредитной карты)",
   "код безопасности (карты|вашей карты|банковской карты)",
   "(три|3) (цифры|цифр) (на обороте|с обратной стороны|сзади)",
-  "(رقم|ارقام|بيانات|تفاصيل|معلومات|رمز|تاريخ انتهاء) (البطاقه|بطاقه|بطاقتك|البطاقه البنكيه|بطاقه الائتمان|بطاقه الدفع)",
   "(رمز الامان|رمز التحقق) (للبطاقه|البطاقه|الخاص بالبطاقه)",
   "(الارقام الثلاثه|3 ارقام|ثلاثه ارقام) (على|في|خلف) (ظهر|خلف|الوجه الخلفي)",
-  "ბარათის (ნომერ*|მონაცემ*|დეტალ*|რეკვიზიტ*|კოდ*|ვადა*|უსაფრთხოების)",
+  "ბარათის (უსაფრთხოების|cvv)",
 ].map(compilePattern);
 
-function firstPattern(words: string, patterns: readonly RegExp[]): string | null {
+/**
+ * "Card number", "card details"… count only with a request word nearby ("send", "we need",
+ * "שלחו", "пришлите"…) and never for a key, room, parking or guest card ("Room key card number is
+ * on the envelope", "מספר כרטיס החניה יימסר בהגעה"; S2 review TS-4).
+ */
+const CARD_REQUEST_ASK = [
+  "(card|credit card|debit card|bank card|payment card) (number|numbers|details|detail|info|information|data|credentials|verification|security code|expiry date|expiration date)",
+  "(מספר|פרטי|תוקף|אימות|ספרות) (כרטיס|הכרטיס|כרטיסי|כרטיס האשראי|האשראי|אשראי)",
+  "(номер|номера|данные|реквизиты|cvv|код|срок действия|подтверждение|верификаци*) (карты|карточки|вашей карты|банковской карты|кредитной карты)",
+  "(رقم|ارقام|بيانات|تفاصيل|معلومات|رمز|تاريخ انتهاء) (البطاقه|بطاقه|بطاقتك|البطاقه البنكيه|بطاقه الائتمان|بطاقه الدفع)",
+  "ბარათის (ნომერ*|მონაცემ*|დეტალ*|რეკვიზიტ*|კოდ*|ვადა*)",
+].map(compilePattern);
+
+/** CVV / CVC: next to a 3–4 digit number, or with a request word nearby ("CVC Tbilisi mall" is a mall). */
+const CVV_PATTERN = compilePattern("(cvv|cvv2|cvc|cvc2|cvn)");
+const CVV_WITH_DIGITS = /(?<![\p{L}\p{N}])(?:cvv2?|cvc2?|cvn)\s{0,2}[:#\-=]?\s{0,2}\d{3,4}(?!\d)/iu;
+
+/** Cards that are not payment cards: key, room, parking, entry, guest, gym, club… (5 languages). */
+const NON_PAYMENT_CARD =
+  /(?:\b(?:key|keys|room|rooms|parking|entry|entrance|access|guest|guests|gym|club|loyalty|membership|door|hotel|transport|metro|bus)\b|מפתח|חדר|חניה|חנייה|חניון|כניסה|אורח|מועדון|ключ|гост|парков|въезд|вход|номерн|مفتاح|غرفه|غرفة|موقف|دخول|ضيف|გასაღებ|ოთახ|პარკინგ|სტუმრ|შესასვლ)/iu;
+const NON_PAYMENT_RADIUS = 25;
+
+function findCardRequest(words: string): string | null {
+  const always = askNearPayWord(words, [], CARD_REQUEST_ALWAYS);
+  if (always) return always;
+  const cvv = askNearPayWord(words, [CVV_PATTERN], [], (window) => matchesAny(REQUEST_WORD_PATTERNS, window));
+  if (cvv) return cvv;
+  if (CVV_WITH_DIGITS.test(words)) return CVV_WITH_DIGITS.exec(words)![0].trim();
   const haystack = ` ${words} `;
-  for (const pattern of patterns) {
-    const match = pattern.exec(haystack);
-    if (match) return match[0].trim();
+  for (const pattern of CARD_REQUEST_ASK) {
+    const global = new RegExp(pattern.source, `${pattern.flags.replace("g", "")}g`);
+    for (const match of haystack.matchAll(global)) {
+      const start = match.index ?? 0;
+      const end = start + match[0].length;
+      const close = haystack.slice(Math.max(0, start - NON_PAYMENT_RADIUS), end + NON_PAYMENT_RADIUS);
+      if (NON_PAYMENT_CARD.test(close)) continue;
+      const window = `${haystack.slice(Math.max(0, start - ASK_RADIUS), start)} ${haystack.slice(end, end + ASK_RADIUS)}`;
+      if (matchesAny(REQUEST_WORD_PATTERNS, window)) return match[0].trim();
+    }
   }
   return null;
 }
@@ -437,8 +572,27 @@ function mixedBase58(token: string): boolean {
   return /[a-z]/.test(token) && /[A-Z]/.test(token) && /\d/.test(token.slice(1));
 }
 
+/**
+ * "0x742d35Cc 6634C0532 925a…": a wallet split by spaces. Runs of 2+ letter-and-digit chunks (most
+ * of them with a digit) that join to 26–90 characters are joined (S2 review TS-3); words never are.
+ */
+function joinSplitTokens(text: string): string {
+  return text.replace(/(?<![A-Za-z0-9])[A-Za-z0-9]{3,}(?:[ \t]{1,2}[A-Za-z0-9]{3,}){1,8}(?![A-Za-z0-9])/g, (run) => {
+    const tokens = run.split(/[ \t]+/);
+    const joined = tokens.join("");
+    const withDigit = tokens.filter((t) => /\d/.test(t)).length;
+    return joined.length >= 26 && joined.length <= 90 && withDigit * 2 >= tokens.length + 1 ? joined : run;
+  });
+}
+
 function findWallet(v: Views): string | null {
-  const text = foldLookalikes(v.base);
+  const plain = findWalletIn(foldLookalikes(v.base));
+  if (plain) return plain;
+  const joined = joinSplitTokens(foldLookalikes(v.base));
+  return joined === foldLookalikes(v.base) ? null : findWalletIn(joined);
+}
+
+function findWalletIn(text: string): string | null {
   const eth = text.match(ETH)?.[0];
   if (eth && /[a-f1-9]/i.test(eth.slice(2)) && !/^0x0+$/i.test(eth)) return `${eth.slice(0, 6)}…`;
   for (const match of text.matchAll(BTC_BECH32)) if (bech32Ok(match[0])) return `${match[0].slice(0, 6)}…`;
@@ -448,9 +602,15 @@ function findWallet(v: Views): string | null {
 }
 
 /** Stablecoin and token-network words are payment words on their own. */
-const CRYPTO_ALWAYS = ["(usdt|trc20|trc 20|erc20|erc 20|bep20|bep 20|binance pay|binancepay)", "(юсдт)", "(تيثر)"].map(compilePattern);
+const CRYPTO_ALWAYS = [
+  "(usdt|trc20|trc 20|erc20|erc 20|bep20|bep 20|binance pay|binancepay)",
+  // "eth", "trx", "tether" are also words ("ETH Zurich", "tether your dog"): only as a currency.
+  "(pay|paid|payment|pay me|send|transfer) (in|with|by|via|) (eth|trx|tether)",
+  "(юсдт)",
+  "(تيثر)",
+].map(compilePattern);
 const CRYPTO_WORDS = [
-  "(bitcoin*|btc|crypto*|cryptocurrency|ethereum|eth|litecoin|ltc|tether|trx|binance|wallet address)",
+  "(bitcoin*|btc|crypto*|cryptocurrency|ethereum|litecoin|ltc|binance|wallet address)",
   "(ביטקוין|ביטקוינים|קריפטו*|אתריום|מטבע דיגיטלי|מטבעות דיגיטליים|ארנק דיגיטלי)",
   "(биткоин*|биткойн*|крипт*|эфириум*|кошел*)",
   "(بيتكوين|بتكوين|كريبتو|ايثريوم|عمله رقميه|عملات رقميه|عملات مشفره|محفظه)",
@@ -470,8 +630,42 @@ const TRANSFER_WORDS = [
 /** A Western Union / MoneyGram transfer number: only ever given to collect a payment. */
 const TRANSFER_ALWAYS = ["(mtcn|money transfer control number)"].map(compilePattern);
 
+/**
+ * Pay-by-phone apps and online payment services (Bit, PayBox, PayPal, Revolut, Wise, Zelle, TBC
+ * Pay, BOG Pay, Tinkoff, Sber…): money sent from afar, so any payment word nearby is an ask
+ * (S2 review TS-10; the safety page names Bit and PayBox as warning signs).
+ */
+const P2P_WORDS = [
+  "(paypal|revolut|zelle|venmo|tbc pay|tbcpay|bog pay|bogpay|paybox|payoneer|skrill)",
+  "(via|with|by|through|using|to) wise",
+  "(ביט|בביט|פייבוקס|בפייבוקס|פייבוקס|פייפאל|רבולוט)",
+  "(тинькофф*|тиньков*|сбер*|юмани|киви|paypal|revolut)",
+  "(باي بال|بايبال|ريفولوت)",
+  "(თიბისი პეი|ბოგ პეი|პეიპალ*|რევოლუტ*)",
+].map(compilePattern);
+
+/**
+ * A bank transfer or "to my card": normal at the notary or at the check-in, a scam before arrival.
+ * These need an advance word nearby ("before arrival", "deposit", "מקדמה", "предоплата"…).
+ */
+const BANK_TRANSFER_WORDS = [
+  "(bank transfer|wire transfer|bank account|to my account|to my card|account number|bank details)",
+  "(העברה בנקאית|העברה לחשבון|לחשבון|חשבון בנק|מספר חשבון|סניף|פרטי חשבון)",
+  "(на карту|на счет|на счёт|банковский перевод|реквизит*|номер счета|номер счёта)",
+  "(تحويل بنكي|حساب بنكي|الحساب البنكي|رقم الحساب|على حسابي|على البطاقه)",
+  "(ბარათზე|ანგარიშზე|საბანკო გადარიცხვ*|ანგარიშის ნომერ*)",
+].map(compilePattern);
+
+function findTransferAsk(words: string): string | null {
+  return (
+    askNearPayWord(words, P2P_WORDS, [], (window) => hasPayWord(window)) ??
+    askNearPayWord(words, BANK_TRANSFER_WORDS, [], (window) => matchesAny(ADVANCE_WORD_PATTERNS, window))
+  );
+}
+
 const GIFT_CARD_WORDS = [
-  "(gift|itunes|steam|amazon|apple|google play|razer|ebay|xbox|playstation|psn|netflix) (card|cards|code|codes|voucher|vouchers)",
+  // Not "Apple Card", "Netflix code", "Xbox": those are ordinary things in a flat (S2 review TS-4).
+  "(gift|itunes|steam|amazon|google play|razer|ebay|psn) (card|cards|code|codes|voucher|vouchers)",
   "(giftcard*)",
   "(כרטיס|כרטיסי|כרטיסים|קוד|קודים|שובר|שוברי) (מתנה|גיפט|אייטיונס|גוגל פליי|אמזון|סטים)",
   "(גיפט קארד*|גיפטקארד*)",
@@ -492,10 +686,15 @@ export function detectPaymentInfo(text: string | null | undefined): PaymentFindi
     payment_link: findPaymentLink(v),
     iban: findIban(v),
     card_number: findCardNumber(v),
-    card_request: firstPattern(v.words, CARD_REQUEST_PATTERNS) ?? firstPattern(normalizeSearchText(v.latin), CARD_REQUEST_PATTERNS.slice(0, 5)),
+    card_request: findCardRequest(v.words) ?? findCardRequest(normalizeSearchText(v.latin)),
     crypto_wallet: findWallet(v),
-    crypto_ask: askNearPayWord(v.words, CRYPTO_WORDS, CRYPTO_ALWAYS) ?? askNearPayWord(normalizeSearchText(v.leet), CRYPTO_WORDS.slice(0, 1), CRYPTO_ALWAYS.slice(0, 1)),
-    money_transfer: askNearPayWord(v.words, TRANSFER_WORDS, TRANSFER_ALWAYS) ?? askNearPayWord(normalizeSearchText(v.leet), TRANSFER_WORDS.slice(0, 1)),
+    crypto_ask:
+      askNearPayWord(v.words, CRYPTO_WORDS, CRYPTO_ALWAYS, (window) => hasPayWord(window, ACCEPT_WORD_PATTERNS)) ??
+      askNearPayWord(normalizeSearchText(v.leet), CRYPTO_WORDS.slice(0, 1), CRYPTO_ALWAYS.slice(0, 2), (window) => hasPayWord(window, ACCEPT_WORD_PATTERNS)),
+    money_transfer:
+      askNearPayWord(v.words, TRANSFER_WORDS, TRANSFER_ALWAYS) ??
+      askNearPayWord(normalizeSearchText(v.leet), TRANSFER_WORDS.slice(0, 1)) ??
+      findTransferAsk(v.words),
     gift_card: askNearPayWord(v.words, GIFT_CARD_WORDS) ?? askNearPayWord(normalizeSearchText(v.leet), GIFT_CARD_WORDS.slice(0, 2)),
   };
   for (const kind of PAYMENT_FINDING_KINDS) {

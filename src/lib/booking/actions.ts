@@ -88,7 +88,7 @@ export async function createBookingAction(input: unknown): Promise<ActionResult<
     }
     const data = parsed.data;
     // SECURITY_REPORT 14.2.a: no payment details in what the host reads (src/lib/risk/text-guard.ts).
-    const paymentErrors = await refusePaymentFields({ surface: "booking_message", userId: user.id, fields: { messageToHost: data.messageToHost } });
+    const paymentErrors = await refusePaymentFields({ surface: "booking_message", userId: user.id, fields: { guestName: data.guestName, messageToHost: data.messageToHost } });
     if (paymentErrors) return fail("payment_in_text", paymentErrors);
     // SECURITY_REPORT 15.11.b/c: the first booking, and the next one after the Terms changed, needs
     // the ticked "18 or older + Terms" box in this request (logged in TermsAcceptance).

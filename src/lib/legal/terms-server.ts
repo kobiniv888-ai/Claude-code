@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 import {
+  hasCurrentAcceptance,
   TERMS_REQUIRED,
   TERMS_VERSION,
   termsConsentGiven,
@@ -68,4 +69,23 @@ export async function requireTermsFor(userId: string, purpose: TermsPurpose, inp
   if (!termsConsentGiven(input)) throw new TermsRequiredError();
   await recordTermsAcceptance(userId, client);
   return { recorded: true };
+}
+
+/**
+ * The signed-in gate (S2 review LP-1, LP-2): every signed-in action of a person needs an
+ * acceptance of the Terms in force with the 18+ confirmation, not only bookings and publishing.
+ * requireUserForAction (src/lib/auth/session.ts) calls it for every account action; the few
+ * actions a person needs BEFORE or WITHOUT accepting (the Terms box itself, the login's email,
+ * first-name and 2-step steps, signing out, exporting or deleting the account) pass
+ * `{ terms: false }` (TERMS_EXEMPT_ACTIONS in tests/unit/terms-gate.test.ts lists them). Demo
+ * accounts are exempt, as at login. FAILS CLOSED: a database error throws, so the action is refused.
+ */
+export async function assertTermsAccepted(user: { id: string; isDemo?: boolean }, client: Pick<typeof db, "termsAcceptance"> = db): Promise<void> {
+  if (user.isDemo) return;
+  const latest = await client.termsAcceptance.findFirst({
+    where: { userId: user.id },
+    orderBy: { acceptedAt: "desc" },
+    select: { version: true, ageConfirmed: true },
+  });
+  if (!hasCurrentAcceptance(latest ?? null)) throw new TermsRequiredError();
 }

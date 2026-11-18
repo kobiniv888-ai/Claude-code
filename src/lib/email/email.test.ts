@@ -560,3 +560,42 @@ describe("trust lines (SECURITY_REPORT 13.4.b/c, 14.2.b/c)", () => {
     expect(email.text).not.toContain("https://evil.example");
   });
 });
+
+describe("user text never becomes a link (S2 review TS-6, SECURITY_REPORT 13.4.b)", () => {
+  /** Every field a person writes (names, titles, addresses, subjects, messages…). */
+  const USER_FIELDS = new Set([
+    "name", "firstName", "ownerName", "hostName", "guestName", "senderName", "reviewerName", "listingTitle", "title",
+    "subject", "roomTypeName", "address", "note", "reasonText", "message", "messageToHost", "replyText", "reply",
+    "detail", "text", "body", "comment", "cancelReason", "reason",
+  ]);
+  const EVIL = "evil-pay.com/x";
+  function poison(value: unknown, key = ""): unknown {
+    if (typeof value === "string") return USER_FIELDS.has(key) ? EVIL : value;
+    if (Array.isArray(value)) return value.map((item) => poison(item, key));
+    if (value && typeof value === "object" && !(value instanceof Date)) {
+      return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, poison(v, k)]));
+    }
+    return value;
+  }
+
+  for (const locale of ["he", "en"] as const) {
+    it(`renders every template in ${locale} with every user field set to "${EVIL}": never a bare domain, never an off-site link`, async () => {
+      for (const template of EMAIL_TEMPLATES) {
+        const email = await renderEmail(template, locale, poison(samples[template]) as never);
+        expect(email.html, template).not.toContain("evil-pay.com");
+        expect(email.text, template).not.toContain("evil-pay.com");
+        for (const [, href] of email.html.matchAll(/href="([^"]+)"/g)) {
+          expect(href.replace(/&amp;/g, "&").startsWith(siteUrl()), `${template}: ${href}`).toBe(true);
+        }
+      }
+    });
+  }
+
+  it("a host named bayit-pay.com shows as bayit-pay․com in the guest's confirmation", async () => {
+    const email = await renderEmail("booking_confirmed_guest", "en", { ...samples.booking_confirmed_guest, hostName: "bayit-pay.com" } as never);
+    expect(email.html).toContain("bayit-pay․com");
+    expect(email.html).not.toContain("bayit-pay.com");
+    // Our own copy and the booking code stay as they are.
+    expect(email.html).toContain("BT-7K3Q9");
+  });
+});

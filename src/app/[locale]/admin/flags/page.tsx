@@ -348,7 +348,7 @@ export default async function FlagsPage({ params, searchParams }: Props) {
                   <Link href={`/admin/bookings/${row.id}`} className="inline-flex h-8 min-h-11 items-center rounded-md px-2 text-sm font-medium text-primary hover:underline sm:min-h-0">
                     {t("openBooking")}
                   </Link>
-                  {row.kind === "host_cancellation" ? (
+                  {row.kind !== "no_show" ? (
                     <Link href={`/admin/users/${row.host.id}#actions`} className="inline-flex h-8 min-h-11 items-center rounded-md px-2 text-sm font-medium text-primary hover:underline sm:min-h-0">
                       {t("hostActions")}
                     </Link>

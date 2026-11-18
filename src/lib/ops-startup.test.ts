@@ -21,6 +21,10 @@ describe("production needs the ops settings", () => {
   it("SECURITY_CONTACT_EMAIL is required and must be an address", () => {
     expect(problemsOf({ ...fakeProductionEnv(), SECURITY_CONTACT_EMAIL: "" })).toMatch(/SECURITY_CONTACT_EMAIL is not set/);
     expect(problemsOf({ ...fakeProductionEnv(), SECURITY_CONTACT_EMAIL: "security at bayit" })).toMatch(/not an email address/);
+    // What the security.txt route refuses, the start refuses too (S2 review ops-sectxt-2).
+    for (const bad of ["a:b@example.com", "a/b@example.com", "a\\b@example.com", `${"a".repeat(250)}@example.com`]) {
+      expect(problemsOf({ ...fakeProductionEnv(), SECURITY_CONTACT_EMAIL: bad }), bad).toMatch(/not an email address/);
+    }
   });
 
   it("the off-site backup settings are required, with their own key", () => {

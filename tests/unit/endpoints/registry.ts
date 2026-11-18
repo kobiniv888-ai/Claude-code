@@ -281,6 +281,9 @@ export const SERVER_ACTIONS: Record<string, Record<string, Access>> = {
     termsStatusAction: USER,
     acceptTermsAction: USER,
   },
+  "src/lib/legal/consent-actions.ts": {
+    recordCookieConsent: publicAccess("the record of the cookie banner's choice (SECURITY_REPORT 15.5): shown before sign-in, per IP"),
+  },
   "src/lib/listing/card-actions.ts": {
     getListingCardsAction: publicAccess("public listing cards by public id"),
   },

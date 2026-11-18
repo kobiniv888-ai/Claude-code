@@ -1,6 +1,7 @@
 import "server-only";
 import { safeEqual } from "@/lib/crypto";
 import { reportError } from "@/lib/monitoring";
+import { recordServerError } from "@/lib/security/server-errors";
 import { readSiteEnv } from "@/lib/site-env";
 
 /**
@@ -59,6 +60,7 @@ export async function runCronJob(job: string, task: () => Promise<Record<string,
     }
     console.error(`[cron] ${job} failed:`, error);
     await reportError(error, { kind: "cron", tags: { job } });
+    await recordServerError("cron", job);
     return Response.json({ ok: false, job, error: "server_error" }, { status: 500, headers: NO_STORE });
   }
 }
@@ -79,6 +81,7 @@ export async function runCronSteps(job: string, steps: Record<string, () => Prom
       results[step] = { error: "failed" };
       console.error(`[cron] ${job}: step ${step} failed:`, error);
       await reportError(error, { kind: "cron", tags: { job, step } });
+      await recordServerError("cron", job);
     }
   }
   if (failed) throw new CronStepsFailed(results);

@@ -14,9 +14,22 @@ import { describe, expect, it } from "vitest";
  *    or names a file of the repository.
  */
 const MESSAGES = path.join(process.cwd(), "messages");
-const PLACEHOLDER = /\[|\]|\bTODO\b|<todo>|lorem|\bXXX\b/i;
+const PLACEHOLDER_ANY_CASE = /\[|\]|\bTODO\b|<todo>|lorem|\bXXX\b|\bTBD\b|\bFIXME\b|\?\?\?|example\.(?:com|org)/i;
+/** "PLACEHOLDER" in capitals only: the word "placeholder" is ordinary text in the admin's help. */
+const PLACEHOLDER_CAPS = /\bPLACEHOLDER\b/;
+const PLACEHOLDER = { test: (text: string) => PLACEHOLDER_ANY_CASE.test(text) || PLACEHOLDER_CAPS.test(text) };
 
 const STAFF_ONLY = new Set(["adminContent.json:articles.bodyHint", "auth.json:loginMethods.body"]);
+/** The format hint of an email field ("name@example.com") and the outbox's "a test address such as example.com". */
+const FORMAT_EXAMPLE = new Set([
+  "adminContent.json:outbox.resend.blocked.demo_or_test",
+  "adminContent.json:roles.searchPlaceholder",
+  "auth.json:email.placeholder",
+  "tickets.json:fieldErrors.email_invalid",
+  "wizard.json:contact.placeholders.EMAIL",
+]);
+/** A legal draft without its <todo>…</todo> parts: what is left must pass the full rule. */
+const withoutTodos = (text: string) => text.replace(/<todo>[^<]*<\/todo>/g, "");
 const OWNER_PENDING_FILE = "legal.json";
 
 /** `text` is the start of the string (for the report); the rules look at the whole string. */
@@ -48,8 +61,11 @@ describe("no placeholders in the interface text (19.e)", () => {
     const unexpected = all.filter((h) => {
       const name = `${path.basename(h.file)}:${h.key}`;
       if (STAFF_ONLY.has(name)) return false;
-      // Owner-pending legal parts: only as <todo>…</todo> rich tags, never as brackets.
-      if (path.basename(h.file) === OWNER_PENDING_FILE) return !/<todo>[^<]*<\/todo>/.test(h.full) || /\[|\]|lorem|\bXXX\b/i.test(h.full);
+      if (FORMAT_EXAMPLE.has(name) && !PLACEHOLDER.test(h.full.replace(/example\.(?:com|org)/gi, ""))) return false;
+      // Owner-pending legal parts: only as <todo>…</todo> rich tags; the rest of the string must
+      // pass the full rule (TS-15). The server refuses to start in production while any is left
+      // (src/lib/startup-check-legal.ts).
+      if (path.basename(h.file) === OWNER_PENDING_FILE) return PLACEHOLDER.test(withoutTodos(h.full));
       return true;
     });
     expect(unexpected.map(({ file, key, text }) => ({ file, key, text }))).toEqual([]);

@@ -19,7 +19,14 @@ import { recordSecurityEvent } from "@/lib/security/events";
 import { packBackupFolder, unpackBackupArchive } from "./backup-archive";
 import { backupKeyId, createBackupDecryptStream, createBackupEncryptStream, parseBackupKey } from "./backup-crypto";
 import type { BackupMeta } from "./backup-format";
-import { offsiteObjectKey, readOffsiteConfig, retainUntil, type OffsiteConfig } from "./offsite-config";
+import {
+  OFFSITE_LIFECYCLE_DELETE_AFTER_HIDE_DAYS,
+  OFFSITE_LIFECYCLE_HIDE_MARGIN_DAYS,
+  offsiteObjectKey,
+  readOffsiteConfig,
+  retainUntil,
+  type OffsiteConfig,
+} from "./offsite-config";
 
 /**
  * The weekly encrypted off-site backup (SECURITY_REPORT 12.4.b; founder's choice: Backblaze B2 in
@@ -264,11 +271,44 @@ export async function runAndRecordOffsiteBackup(via: "cron" | "cli", deps: Offsi
       details: { via, key: result.key, bytes: result.bytes, keyId: result.keyId, retainUntil: result.retainUntil, tables: result.tables, rows: result.rows },
     });
     await recordSecurityEvent({ type: "offsite_backup_ok", ip: null, meta: { via, bytes: result.bytes, tables: result.tables } });
+    // The privacy policy promises old copies are deleted (by the bucket's lifecycle rule): check it.
+    await checkOldCopiesLeave(via, deps);
     return result;
   } catch (error) {
     const { step, reason } = offsiteFailureReason(error);
     await recordSecurityEvent({ type: "offsite_backup_failed", ip: null, meta: { via, step, reason } });
     throw error;
+  }
+}
+
+/** A copy may be this many days past the documented lifecycle before the founder is alerted. */
+export const OFFSITE_STALE_GRACE_DAYS = 7;
+
+/**
+ * The stored copies older than the lock + the lifecycle rule (+ OFFSITE_STALE_GRACE_DAYS): they
+ * should have been deleted by the bucket's lifecycle rule, which the founder sets by hand
+ * (docs/BACKUPS.md). The privacy policy promises the deletion, so a missing rule must be noticed
+ * (S2 review ops-backup-1).
+ */
+export async function findStaleOffsiteCopies(client: S3Client, config: OffsiteConfig, now: Date): Promise<OffsiteObject[]> {
+  const maxAge = config.retentionDays + OFFSITE_LIFECYCLE_HIDE_MARGIN_DAYS + OFFSITE_LIFECYCLE_DELETE_AFTER_HIDE_DAYS + OFFSITE_STALE_GRACE_DAYS;
+  const cutoff = now.getTime() - maxAge * 86_400_000;
+  const copies = await listOffsiteBackups(client, config, Number.MAX_SAFE_INTEGER);
+  return copies.filter((copy) => copy.lastModified !== null && new Date(copy.lastModified).getTime() < cutoff);
+}
+
+/** After a good run: old copies still there (or the list unreadable) is an alert, never a failed backup. */
+async function checkOldCopiesLeave(via: "cron" | "cli", deps: OffsiteDeps): Promise<void> {
+  try {
+    const config = deps.config ?? requireOffsiteConfig();
+    const client = deps.client ?? offsiteS3Client(config);
+    const stale = await findStaleOffsiteCopies(client, config, (deps.now ?? (() => new Date()))());
+    if (stale.length > 0) {
+      await recordSecurityEvent({ type: "offsite_backup_failed", ip: null, meta: { via, step: "lifecycle", reason: "old_copies_kept", count: stale.length } });
+    }
+  } catch (error) {
+    const { reason } = offsiteFailureReason(error);
+    await recordSecurityEvent({ type: "offsite_backup_failed", ip: null, meta: { via, step: "lifecycle", reason } });
   }
 }
 

@@ -57,6 +57,10 @@ test("maintenance mode: visitors get the 503 page with Retry-After, the admin ke
     expect((await request.get("/api/map/community")).status()).toBe(503);
     expect([200, 503]).toContain((await request.get("/api/health")).status());
     expect([200, 404]).toContain((await request.get("/.well-known/security.txt")).status());
+    // A server action posted to a dotted path outside a language is closed too (ops-maint-1);
+    // the security policy page that security.txt links to stays readable (ops-sectxt-1).
+    expect((await request.post("/x.png", { headers: { "next-action": "0000", accept: "text/x-component" }, data: "[]" })).status()).toBe(503);
+    expect((await request.get("/en/security")).status()).toBe(200);
     // No login texts go out while the site is closed (SMS pumping is one reason to close it).
     expect((await request.post("/api/auth/phone-number/send-otp", { data: { phoneNumber: member.phone } })).status()).toBe(503);
 

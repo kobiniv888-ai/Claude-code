@@ -21,7 +21,7 @@ export function FirstNameForm({ onSaved, autoFocus = true }: { onSaved: (firstNa
   const [pending, setPending] = useState(false);
 
   function errorText(key: string | undefined): string {
-    if (key === "required" || key === "too_long" || key === "not_a_name") return t(`errors.${key}`);
+    if (key === "required" || key === "too_long" || key === "not_a_name" || key === "paymentInText") return t(`errors.${key}`);
     return t("errors.unknown");
   }
 

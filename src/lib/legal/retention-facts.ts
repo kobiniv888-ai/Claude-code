@@ -11,7 +11,8 @@ import {
   EXPIRED_SESSION_RETENTION_DAYS,
   GUEST_CONTACT_RETENTION_MONTHS,
   LOGIN_CODE_MAX_HOURS,
-  OFFSITE_BACKUP_DEFAULT_DAYS,
+  DATABASE_RESTORE_DEFAULT_DAYS,
+  offsiteCopyMaxAgeDays,
   PHONE_LOOKUP_RETENTION_DAYS,
 } from "@/lib/retention-times";
 import { SECURITY_EVENT_RETENTION_DAYS } from "@/lib/security/events";
@@ -24,7 +25,12 @@ import { MIN_AGE, TERMS_VERSION } from "./terms";
  * Arabic-Indic digits this way). Server-only: a server page passes them to the messages.
  */
 export function retentionFacts(env: Partial<Record<string, string | undefined>> = process.env) {
-  const backupDays = Number(env.OFFSITE_RETENTION_DAYS) || OFFSITE_BACKUP_DEFAULT_DAYS;
+  // The longest an off-site copy exists: the validated lock period (an invalid
+  // OFFSITE_RETENTION_DAYS falls back to the default, as the job does) plus the lifecycle rule's
+  // hide and delete days (S2 review LP-3).
+  const backupDays = offsiteCopyMaxAgeDays(env);
+  const restore = Number(env.DATABASE_RESTORE_DAYS);
+  const restoreDays = Number.isInteger(restore) && restore >= 1 && restore <= 90 ? restore : DATABASE_RESTORE_DEFAULT_DAYS;
   return {
     codeMinutes: String(Math.round(LOGIN_CODE_TTL_SECONDS / 60)),
     codeHours: String(LOGIN_CODE_MAX_HOURS),
@@ -40,6 +46,7 @@ export function retentionFacts(env: Partial<Record<string, string | undefined>> 
     auditDays: String(AUDIT_LOG_RETENTION_DAYS),
     deviceDays: String(DEVICE_LINK_RETENTION_DAYS),
     backupDays: String(backupDays),
+    restoreDays: String(restoreDays),
     minAge: String(MIN_AGE),
     termsVersion: TERMS_VERSION,
   };

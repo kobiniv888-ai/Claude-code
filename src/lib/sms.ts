@@ -49,10 +49,19 @@ export function maskPhone(phone: string): string {
  * is never logged.
  */
 export async function twilioErrorSummary(response: Response): Promise<string> {
+  return (await readTwilioError(response)).summary;
+}
+
+/** Twilio's numeric error code and the log-safe summary of a failed response (the body is read once). */
+async function readTwilioError(response: Response): Promise<{ summary: string; errorCode: number | null }> {
   const data = (await response.json().catch(() => null)) as { code?: unknown } | null;
   const code = typeof data?.code === "number" || typeof data?.code === "string" ? String(data.code).slice(0, 12) : "?";
-  return `${response.status} (Twilio code ${code})`;
+  const errorCode = /^\d{1,6}$/.test(code) ? Number(code) : null;
+  return { summary: `${response.status} (Twilio code ${code})`, errorCode };
 }
+
+/** Twilio error 30450: its SMS Pumping Protection blocked the text (no cost; the number looked like pumping). */
+export const TWILIO_SMS_PUMPING_BLOCKED = 30450;
 
 export async function sendSms(input: {
   to: string;
@@ -67,7 +76,7 @@ export async function sendSms(input: {
    * reach a stranger and cost money).
    */
   logOnly?: boolean;
-}): Promise<{ ok: boolean; delivered: boolean }> {
+}): Promise<{ ok: boolean; delivered: boolean; errorCode?: number }> {
   const destination = checkLoginPhoneNumber(input.to);
   if (!destination.ok) {
     console.warn(`[sms] not sent to ${maskPhone(input.to)}: ${destination.reason} (only mobile numbers in the allowed countries get texts)`);
@@ -96,8 +105,11 @@ export async function sendSms(input: {
       cache: "no-store",
     });
     if (!response.ok) {
-      console.error(`[sms] Twilio Messaging returned ${await twilioErrorSummary(response)} for ${maskPhone(input.to)}`);
-      return { ok: false, delivered: false };
+      const failure = await readTwilioError(response);
+      console.error(`[sms] Twilio Messaging returned ${failure.summary} for ${maskPhone(input.to)}`);
+      // Twilio's numeric code only (never its message, which repeats the number): the caller can tell
+      // SMS Pumping Protection (30450) apart from other failures.
+      return failure.errorCode === null ? { ok: false, delivered: false } : { ok: false, delivered: false, errorCode: failure.errorCode };
     }
     return { ok: true, delivered: true };
   } catch (error) {

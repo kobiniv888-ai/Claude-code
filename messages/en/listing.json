@@ -396,5 +396,10 @@
   "payWarning": {
     "text": "Never pay in advance by link or transfer. You pay the host when you arrive.",
     "report": "Report a scam"
+  },
+  "tooMany": {
+    "title": "You opened many listings in a short time",
+    "description": "To protect hosts from copying, we limit how many listings can be opened in a few minutes. Please try again in a few minutes.",
+    "search": "Back to search"
   }
 }

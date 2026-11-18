@@ -119,11 +119,11 @@ function EmailForm({
       }
       captcha.current?.reset();
       if (result.fieldErrors) {
-        setErrors({
-          name: result.fieldErrors.name ? t("errors.name") : undefined,
-          email: result.fieldErrors.email ? t("errors.email") : undefined,
-          message: result.fieldErrors.message ? t("errors.message") : undefined,
-        });
+        // Payment details in the text (SECURITY_REPORT 14.2.a) have their own message on the field.
+        const fieldError = (name: FieldName) =>
+          result.fieldErrors?.[name]?.includes("paymentInText") ? t("errors.paymentInText") : result.fieldErrors?.[name] ? t(`errors.${name}`) : undefined;
+        setErrors({ name: fieldError("name"), email: fieldError("email"), message: fieldError("message") });
+        if (result.error === "payment_in_text") return;
       }
       setFormError(
         tc.has(`errors.${result.error}`)

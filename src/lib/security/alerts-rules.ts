@@ -62,6 +62,10 @@ export const SECURITY_ALERT_THRESHOLDS = {
   offsiteMissingDays: 8,
   /** The HTTPS certificate ends within this many days. */
   certificateDays: 21,
+  /** Unexpected server errors (500s, failed jobs) in an hour (16.3 "error spikes"). */
+  errorSpike: 20,
+  /** The domain registration ends within this many days (16.3 "domain expiry"; RDAP, daily). */
+  domainDays: 30,
 } as const;
 
 export const SECURITY_ALERT_KINDS = [
@@ -93,6 +97,8 @@ export const SECURITY_ALERT_KINDS = [
   "offsite_backup_failed",
   "offsite_backup_missing",
   "certificate_expiry",
+  "domain_expiry",
+  "error_spike",
   "support_overdue",
   "field_decrypt_failed",
 ] as const;
@@ -100,7 +106,7 @@ export type SecurityAlertKind = (typeof SECURITY_ALERT_KINDS)[number];
 
 /** Minutes before the same kind may alert again. */
 export const ALERT_REPEAT_MINUTES = 60;
-const DAILY_KINDS: readonly SecurityAlertKind[] = ["offsite_backup_missing", "certificate_expiry"];
+const DAILY_KINDS: readonly SecurityAlertKind[] = ["offsite_backup_missing", "certificate_expiry", "domain_expiry"];
 export const repeatMinutesFor = (kind: SecurityAlertKind) => (DAILY_KINDS.includes(kind) ? 24 * 60 : ALERT_REPEAT_MINUTES);
 
 /** What the job counted over the last SECURITY_ALERT_WINDOW_MINUTES (or, for the daily facts, now). */
@@ -125,11 +131,18 @@ export type SecuritySignals = {
   offsite: { configured: boolean; lastOkAt: Date | null } | null;
   /** Days left on the HTTPS certificate (null: not checked). */
   certificateDaysLeft: number | null;
+  /** Days left on the domain registration (null: not checked or not readable). */
+  domainDaysLeft?: number | null;
   /**
    * Support tickets late for the reply promise that the founder has not heard about yet (the job
    * filters with ./alerts-support-rules.ts newlyOverdue), oldest first: their running numbers.
    */
   supportOverdue?: number[];
+  /**
+   * How many minutes the counts cover (default SECURITY_ALERT_WINDOW_MINUTES). After missed or
+   * undelivered runs the window can reach 3 hours: the per-hour thresholds scale with it (LP-10).
+   */
+  windowMinutes?: number;
   now: Date;
 };
 
@@ -154,7 +167,11 @@ export function evaluateSecurityAlerts(s: SecuritySignals): SecurityAlert[] {
   const each = (kind: SecurityAlertKind, count: number) => {
     if (count > 0) out.push({ kind, count });
   };
-  const over = (kind: SecurityAlertKind, count: number, threshold: number) => {
+  // Per-hour thresholds, scaled for a window longer than an hour (never below the hourly number).
+  const scale = Math.max(1, (s.windowMinutes ?? SECURITY_ALERT_WINDOW_MINUTES) / SECURITY_ALERT_WINDOW_MINUTES);
+  const per = (threshold: number) => Math.round(threshold * scale);
+  const over = (kind: SecurityAlertKind, count: number, hourly: number) => {
+    const threshold = per(hourly);
     if (count > threshold) out.push({ kind, count, threshold });
   };
 
@@ -174,13 +191,13 @@ export function evaluateSecurityAlerts(s: SecuritySignals): SecurityAlert[] {
   over("id_guessing_ip", ip("id_not_found"), T.idMissesPerIp);
   over("rate_limited", n("rate_limited"), T.rateLimited);
   // A capped burst of CSP reports is one event per hour: alert on it as well.
-  if (n("csp_report_capped") > 0 && n("csp_report") <= T.cspReports) out.push({ kind: "csp_reports", count: n("csp_report"), threshold: T.cspReports });
+  if (n("csp_report_capped") > 0 && n("csp_report") <= per(T.cspReports)) out.push({ kind: "csp_reports", count: n("csp_report"), threshold: per(T.cspReports) });
   else over("csp_reports", n("csp_report"), T.cspReports);
   over("booking_cap", n("booking_cap_hit"), T.bookingCapHits);
   over("show_contact_cap", n("show_contact_cap_hit"), T.showContactCapHits);
   // One sign-up kind (answer 6): a burst site-wide OR from one connection; alert only.
-  if (s.signupsSite > T.signupsSite || s.signupsPerIpMax > T.signupsPerIp) {
-    out.push({ kind: "signup_burst", count: s.signupsSite, threshold: T.signupsSite, perIp: s.signupsPerIpMax, perIpThreshold: T.signupsPerIp });
+  if (s.signupsSite > per(T.signupsSite) || s.signupsPerIpMax > per(T.signupsPerIp)) {
+    out.push({ kind: "signup_burst", count: s.signupsSite, threshold: per(T.signupsSite), perIp: s.signupsPerIpMax, perIpThreshold: per(T.signupsPerIp) });
   }
   over("listing_burst", s.listingsCreated, T.listingsCreated);
   over("booking_burst", s.bookingsCreated, T.bookingsCreated);
@@ -197,6 +214,9 @@ export function evaluateSecurityAlerts(s: SecuritySignals): SecurityAlert[] {
   if (s.certificateDaysLeft !== null && s.certificateDaysLeft <= T.certificateDays) {
     out.push({ kind: "certificate_expiry", count: 1, days: Math.max(0, s.certificateDaysLeft) });
   }
+  const domainDays = s.domainDaysLeft ?? null;
+  if (domainDays !== null && domainDays <= T.domainDays) out.push({ kind: "domain_expiry", count: 1, days: Math.max(0, domainDays) });
+  over("error_spike", n("server_error"), T.errorSpike);
   const late = s.supportOverdue ?? [];
   if (late.length > 0) out.push({ kind: "support_overdue", count: late.length, tickets: late.slice(0, SUPPORT_ALERT_MAX_LISTED) });
   return out;

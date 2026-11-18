@@ -12,7 +12,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 const { db } = await import("@/lib/db");
-const { eraseClosedCaseTexts, purgeDeadPushSubscriptions, purgeExpiredSessions, purgeOldPhoneLookups } = await import(
+const { eraseClosedCaseTexts, eraseClosedTicketAttachments, purgeDeadPushSubscriptions, purgeExpiredSessions, purgeOldPhoneLookups } = await import(
   "@/lib/admin/maintenance/retention"
 );
 const { CASE_TEXT_RETENTION_DAYS, ERASED_TEXT, LOGIN_CODE_MAX_HOURS } = await import("@/lib/retention-times");
@@ -64,7 +64,12 @@ beforeAll(async () => {
       },
       select: { id: true },
     });
-    await db.ticketMessage.create({ data: { ticketId: row.id, body: "My booking BT-TEST1 and my phone", createdAt: data.at } });
+    const shot = (who: string) => [{ key: `private/ticket/${userId}/${name}-${who}.png`, mime: "image/png", bytes: 1234, name: "screenshot.png" }];
+    await db.ticketMessage.create({ data: { ticketId: row.id, body: "My booking BT-TEST1 and my phone", createdAt: data.at, attachments: shot("guest") } });
+    if (name === "closedOld") {
+      // A staff reply with its own screenshot: it goes too (LP-4).
+      await db.ticketMessage.create({ data: { ticketId: row.id, body: "Staff reply", fromStaff: true, createdAt: data.at, attachments: shot("staff") } });
+    }
     ids.tickets[name] = row.id;
   };
   await ticket("closedOld", { status: "CLOSED", closedAt: ago(181), at: ago(200) });
@@ -137,7 +142,7 @@ describe("founder's answer 7: retention times", () => {
   it("closed tickets and decided reports lose their texts after 180 days; open or recent ones keep them", async () => {
     const scope = { ticket: { userId }, report: { reporterId: userId } };
     const result = await eraseClosedCaseTexts(NOW, scope);
-    expect(result).toEqual({ tickets: 2, messages: 2, reports: 1 });
+    expect(result).toEqual({ tickets: 2, messages: 3, reports: 1 });
 
     const tickets = await db.ticket.findMany({
       where: { id: { in: Object.values(ids.tickets) } },
@@ -147,7 +152,8 @@ describe("founder's answer 7: retention times", () => {
     for (const name of ["closedOld", "resolvedOld"]) {
       const t = byId[ids.tickets[name]!]!;
       expect(t).toMatchObject({ subject: ERASED_TEXT, guestEmail: null, guestName: null, ratingComment: null });
-      expect(t.messages.map((m) => m.body)).toEqual([ERASED_TEXT]);
+      expect(t.messages.length).toBeGreaterThan(0);
+      for (const m of t.messages) expect(m.body).toBe(ERASED_TEXT);
       expect(t.number).toBeGreaterThan(0);
     }
     for (const name of ["closedRecent", "openOld"]) {
@@ -167,5 +173,28 @@ describe("founder's answer 7: retention times", () => {
 
     // A second run changes nothing.
     expect(await eraseClosedCaseTexts(NOW, scope)).toEqual({ tickets: 0, messages: 0, reports: 0 });
+  });
+
+  it("closed tickets lose their screenshots (guest's and staff's) on the same clock, even after their texts went; a failed delete is retried (ops-ret-1, LP-4)", async () => {
+    const attachmentsOf = async (name: string) =>
+      (await db.ticketMessage.findMany({ where: { ticketId: ids.tickets[name]! }, select: { attachments: true }, orderBy: { createdAt: "asc" } })).map((m) => m.attachments);
+
+    // The storage refuses one file: that message keeps its list for the next run.
+    const failing = vi.fn(async (key: string) => {
+      if (key.endsWith("closedOld-staff.png")) throw new Error("storage down");
+    });
+    const first = await eraseClosedTicketAttachments(NOW, { userId }, failing);
+    expect(first).toEqual({ messages: 2, files: 2, failed: 1 });
+    expect((await attachmentsOf("closedOld")).filter((a) => a !== null)).toHaveLength(1);
+
+    const removed: string[] = [];
+    const ok = vi.fn(async (key: string) => void removed.push(key));
+    expect(await eraseClosedTicketAttachments(NOW, { userId }, ok)).toEqual({ messages: 1, files: 1, failed: 0 });
+    expect(removed).toEqual([`private/ticket/${userId}/closedOld-staff.png`]);
+    for (const name of ["closedOld", "resolvedOld"]) expect(await attachmentsOf(name)).toEqual((await attachmentsOf(name)).map(() => null));
+    // A ticket closed recently, or still open, keeps its screenshot.
+    for (const name of ["closedRecent", "openOld"]) expect((await attachmentsOf(name))[0]).toEqual([expect.objectContaining({ key: `private/ticket/${userId}/${name}-guest.png` })]);
+    // Nothing left to do.
+    expect(await eraseClosedTicketAttachments(NOW, { userId }, ok)).toEqual({ messages: 0, files: 0, failed: 0 });
   });
 });

@@ -6,6 +6,7 @@ import { siteConfig, type AppLocale } from "@/config/site";
 import { siteUrl } from "@/lib/site-url";
 import { dirFor } from "@/i18n/locale";
 import { BOOKING_CODE_ALPHABET, BOOKING_CODE_LENGTH, BOOKING_CODE_PREFIX } from "@/lib/booking/constants";
+import { defuseLinks } from "./defuse";
 import { isolate, type EmailBlock, type EmailContent } from "./templates";
 
 export type LayoutContext = {
@@ -47,16 +48,17 @@ export function ownSiteHref(url: string | null | undefined): string | null {
   }
 }
 
+export { defuseLinks } from "./defuse";
+
 /**
- * User-written text (quotes) can hold a web or email address that mail apps would turn into a
- * link. Its dots and "@" become look-alike characters (one dot leader, full-width at) so the text
- * stays readable but is never a link (SECURITY_REPORT 13.4.b).
+ * Text that may carry user values (a name, a listing title, an address, a subject) is defused
+ * wherever it lands: paragraphs, notices, headings, the preheader and detail rows (S2 review TS-6,
+ * SECURITY_REPORT 13.4.b). A host named "bayit-pay.com" shows as "bayit-pay․com", never a link.
+ * Our own links only come through `cta` and `notice.link` (ownSiteHref). Only rows marked `ltr`
+ * (booking codes, phones, amounts, the sender's reply address) are left as they are.
  */
-const ADDRESS_LIKE = /(?:[a-z][a-z0-9+.-]*:\/\/)?[\p{L}\p{N}_%+-]+(?:[.@][\p{L}\p{N}_%+-]+)+(?:\/[^\s]*)?/giu;
-export function defuseLinks(text: string): string {
-  return text.replace(ADDRESS_LIKE, (match) =>
-    /[.@]\p{L}{2,}/u.test(match) ? match.replace(/:\/\//g, ":\u2215\u2215").replace(/\./g, "\u2024").replace(/@/g, "\uff20") : match,
-  );
+function detailValue(row: { value: string; ltr?: boolean }): string {
+  return row.ltr ? row.value : defuseLinks(row.value);
 }
 
 function multiline(value: string): string {
@@ -108,13 +110,13 @@ function renderBlock(block: EmailBlock, align: "left" | "right"): string {
   // Quotes are user-written: dir="auto" + text-align:start let them follow their own language.
   switch (block.type) {
     case "paragraph":
-      return `<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:${colors.text};">${multiline(block.text)}</p>`;
+      return `<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:${colors.text};">${multiline(defuseLinks(block.text))}</p>`;
     case "notice": {
       const href = ownSiteHref(block.link?.url);
       const link = block.link && href
         ? `<br><a href="${escapeHtml(href)}" target="_blank" style="color:${colors.primary};font-weight:600;text-decoration:underline;">${escapeHtml(block.link.label)}</a>`
         : "";
-      return `<p style="margin:0 0 16px;padding:12px 16px;font-size:14px;line-height:1.55;color:${colors.text};background:${colors.primaryTint};border:1px solid ${colors.primaryTintBorder};border-radius:12px;">${multiline(block.text)}${link}</p>`;
+      return `<p style="margin:0 0 16px;padding:12px 16px;font-size:14px;line-height:1.55;color:${colors.text};background:${colors.primaryTint};border:1px solid ${colors.primaryTintBorder};border-radius:12px;">${multiline(defuseLinks(block.text))}${link}</p>`;
     }
     case "quote": {
       const label = block.label
@@ -132,7 +134,7 @@ function renderBlock(block: EmailBlock, align: "left" | "right"): string {
             // A price line ("80 ₾ × 2 ночи (пятница и суббота)") wraps instead of widening the email
             // past a phone screen; its amount then stays on one line.
             `<tr><td style="padding:6px 0;padding-${align === "left" ? "right" : "left"}:16px;font-size:14px;color:${colors.muted};vertical-align:top;${row.wrap ? "white-space:normal;word-break:break-word;" : "white-space:nowrap;"}">${escapeHtml(row.label)}</td>` +
-            `<td style="padding:6px 0;font-size:14px;color:${colors.text};vertical-align:top;${row.wrap ? "white-space:nowrap;" : ""}"${row.ltr ? ' dir="ltr"' : ' dir="auto"'}>${keepCodesTogether(escapeHtml(row.value))}</td></tr>`,
+            `<td style="padding:6px 0;font-size:14px;color:${colors.text};vertical-align:top;${row.wrap ? "white-space:nowrap;" : ""}"${row.ltr ? ' dir="ltr"' : ' dir="auto"'}>${keepCodesTogether(escapeHtml(detailValue(row)))}</td></tr>`,
         )
         .join("");
       return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px;border-collapse:collapse;">${rows}</table>`;
@@ -175,7 +177,7 @@ export function renderEmailHtml(content: EmailContent, ctx: LayoutContext): stri
 <meta name="x-apple-disable-message-reformatting">
 <meta name="color-scheme" content="light">
 <meta name="supported-color-schemes" content="light">
-<title>${escapeHtml(content.subject)}</title>
+<title>${escapeHtml(defuseLinks(content.subject))}</title>
 <style>
 @media only screen and (max-width: 620px) {
   .container { width: 100% !important; border-radius: 0 !important; }
@@ -184,13 +186,13 @@ export function renderEmailHtml(content: EmailContent, ctx: LayoutContext): stri
 </style>
 </head>
 <body style="margin:0;padding:0;background:${colors.background};font-family:${FONT};" dir="${dir}">
-<div style="display:none;max-height:0;max-width:0;overflow:hidden;opacity:0;mso-hide:all;">${escapeHtml(content.preheader)}&#8199;&#65279;&#847;</div>
+<div style="display:none;max-height:0;max-width:0;overflow:hidden;opacity:0;mso-hide:all;">${escapeHtml(defuseLinks(content.preheader))}&#8199;&#65279;&#847;</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${colors.background};">
 <tr><td align="center" style="padding:24px 12px;">
 <table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;background:#FFFFFF;border:1px solid ${colors.border};border-radius:16px;overflow:hidden;">
 ${renderHeader(ctx, dir, align)}
 <tr><td class="px" dir="${dir}" style="padding:32px;text-align:${align};font-family:${FONT};">
-<h1 style="margin:0 0 20px;font-size:22px;line-height:1.25;font-weight:600;color:${colors.text};">${escapeHtml(content.heading)}</h1>
+<h1 style="margin:0 0 20px;font-size:22px;line-height:1.25;font-weight:600;color:${colors.text};">${escapeHtml(defuseLinks(content.heading))}</h1>
 <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:${colors.text};">${escapeHtml(greeting)}</p>
 ${content.blocks.map((b) => renderBlock(b, align)).join("\n")}
 ${cta}
@@ -211,15 +213,15 @@ ${cta}
 export function renderEmailText(content: EmailContent, ctx: LayoutContext): string {
   const { t, brand, page } = ctx;
   const lines: string[] = [];
-  lines.push(content.heading, "");
+  lines.push(defuseLinks(content.heading), "");
   lines.push(
     content.greetingName ? t("common.greeting", { name: isolate(defuseLinks(content.greetingName)) }) : t("common.greetingNoName"),
     "",
   );
   for (const block of content.blocks) {
-    if (block.type === "paragraph") lines.push(block.text, "");
+    if (block.type === "paragraph") lines.push(defuseLinks(block.text), "");
     else if (block.type === "notice") {
-      lines.push(block.text);
+      lines.push(defuseLinks(block.text));
       const href = ownSiteHref(block.link?.url);
       if (block.link && href) lines.push(`${block.link.label}: ${href}`);
       lines.push("");
@@ -228,7 +230,7 @@ export function renderEmailText(content: EmailContent, ctx: LayoutContext): stri
       if (block.label) lines.push(`${block.label}:`);
       lines.push(...defuseLinks(block.text).split(/\r?\n/).map((line) => `> ${line}`), "");
     } else if (block.type === "details") {
-      lines.push(...block.rows.map((row) => `${row.label}: ${row.value}`), "");
+      lines.push(...block.rows.map((row) => `${row.label}: ${detailValue(row)}`), "");
     } else if (block.type === "code") {
       lines.push(`${block.label}:`, block.code, "");
     }

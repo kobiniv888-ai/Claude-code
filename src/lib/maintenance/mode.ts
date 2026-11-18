@@ -13,8 +13,9 @@
  *   - always: the health check (/api/health), scheduled jobs (/api/cron/*, CRON_SECRET: backups
  *     and the founder's security alerts keep running), signed provider webhooks (/api/webhooks/*),
  *     the login library (/api/auth/*, with its own limits; an ADMIN logs in by email code or
- *     Google) and /.well-known/security.txt, public photos (/api/media, /_next/image) and static
- *     files. NOT its text-message part (/api/auth/phone-number/*): no SMS code goes out while the
+ *     Google) and /.well-known/security.txt, public photos (/api/media, /_next/image);
+ *   - for plain GET/HEAD reads only: static files and the security policy page (/<locale>/security,
+ *     security.txt's Policy URL). A POST or server action there is closed like a public page. NOT its text-message part (/api/auth/phone-number/*): no SMS code goes out while the
  *     site is closed (SMS pumping is one of the incidents this switch is for);
  *   - the staff entry pages (/<locale>/login, /<locale>/two-factor…): anyone may LOAD them; their
  *     actions only for an ADMIN account's session;
@@ -55,8 +56,13 @@ export function parseStoredMaintenance(value: unknown): StoredMaintenance {
   };
 }
 
-/** Where a request goes while maintenance mode is on. */
-export type MaintenanceArea = "open" | "staff-entry" | "admin" | "closed";
+/**
+ * Where a request goes while maintenance mode is on. "open-read": static files and the security
+ * policy page that /.well-known/security.txt links to (18.1) — open for plain GET/HEAD reads only.
+ * A POST or a server action call there is "closed": Next.js would send a dotted path such as
+ * "/evil.png" to the [locale] page worker and run the action before the page's notFound().
+ */
+export type MaintenanceArea = "open" | "open-read" | "staff-entry" | "admin" | "closed";
 
 const LOCALE = `(?:${locales.join("|")})`;
 /** The login library's SMS endpoints: closed like a public page (no texts while the site is offline). */
@@ -79,6 +85,8 @@ const LOCALE_PREFIX = new RegExp(`^/${LOCALE}(?:/|$)`);
  * there a dot can still render a page ("/he/listing/12-x.y"), which stays closed.
  */
 const STATIC_FILE = /^\/(?!api\/)[^?#]*\.[A-Za-z0-9]{2,8}$/;
+/** The security policy page (security.txt's Policy URL): readable while the site is closed. */
+const SECURITY_POLICY_PAGE = new RegExp(`^/${LOCALE}/security/?$`);
 const STAFF_ENTRY = new RegExp(`^(?:/${LOCALE})?/(?:login|two-factor)(?:/|$)`);
 const ADMIN_AREA = new RegExp(`^(?:/${LOCALE}/admin(?:/|$)|/api/admin/)`);
 
@@ -86,7 +94,8 @@ export function maintenanceArea(pathname: string): MaintenanceArea {
   if (SMS_AUTH_PATHS.test(pathname)) return "closed";
   if (OPEN_PATHS.some((pattern) => pattern.test(pathname))) return "open";
   if (CLOSED_FILES.test(pathname)) return "closed";
-  if (STATIC_FILE.test(pathname) && !LOCALE_PREFIX.test(pathname)) return "open";
+  if (STATIC_FILE.test(pathname) && !LOCALE_PREFIX.test(pathname)) return "open-read";
+  if (SECURITY_POLICY_PAGE.test(pathname)) return "open-read";
   if (STAFF_ENTRY.test(pathname)) return "staff-entry";
   if (ADMIN_AREA.test(pathname)) return "admin";
   return "closed";
@@ -103,11 +112,23 @@ export type MaintenanceRequest = {
 };
 
 /** May this request through while maintenance mode is on? */
-export function maintenanceAllows(request: MaintenanceRequest, viewer: MaintenanceViewer): boolean {
+/** A plain page or file read: GET/HEAD and no server action. */
+function isRead(request: MaintenanceRequest): boolean {
+  return (request.method === "GET" || request.method === "HEAD") && !request.isAction;
+}
+
+/** The area for THIS request: "open-read" becomes "closed" for anything but a plain read. */
+function requestArea(request: MaintenanceRequest): MaintenanceArea {
   const area = maintenanceArea(request.pathname);
+  if (area === "open-read") return isRead(request) ? "open" : "closed";
+  return area;
+}
+
+export function maintenanceAllows(request: MaintenanceRequest, viewer: MaintenanceViewer): boolean {
+  const area = requestArea(request);
   if (area === "open") return true;
   const admin = viewer?.role === "ADMIN";
-  const reading = (request.method === "GET" || request.method === "HEAD") && !request.isAction;
+  const reading = isRead(request);
   if (area === "staff-entry") return reading || admin;
   if (area === "admin") return admin;
   return admin && viewer!.twoFactorVerified;
@@ -115,9 +136,9 @@ export function maintenanceAllows(request: MaintenanceRequest, viewer: Maintenan
 
 /** Does this request need the session looked up to decide (no lookup for open paths and staff-entry page loads)? */
 export function maintenanceNeedsViewer(request: MaintenanceRequest): boolean {
-  const area = maintenanceArea(request.pathname);
+  const area = requestArea(request);
   if (area === "open") return false;
-  if (area === "staff-entry") return !((request.method === "GET" || request.method === "HEAD") && !request.isAction);
+  if (area === "staff-entry") return !isRead(request);
   return true;
 }
 

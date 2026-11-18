@@ -46,7 +46,13 @@ async function removeFiles(keys: string[], remove: (key: string) => Promise<void
  */
 export async function deleteAccountData(userId: string): Promise<void> {
   const now = new Date();
-  const user = await db.user.findUniqueOrThrow({ where: { id: userId }, select: { id: true, image: true } });
+  const user = await db.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: { id: true, image: true, phoneNumber: true, email: true, contactEmail: true },
+  });
+  // The raw number's carrier lookup and the copies of emails sent to the account's addresses go
+  // with the account, not after their 90 days (S2 review LP-7). Read before the row is anonymized.
+  const ownAddresses = [...new Set([user.email, user.contactEmail].map((a) => a?.trim()).filter((a): a is string => !!a))];
   // Before anything is anonymized: the guests/hosts of upcoming stays must hear about it.
   await releaseBookingsOfDeletedAccount(userId, now);
 
@@ -113,6 +119,13 @@ export async function deleteAccountData(userId: string): Promise<void> {
     db.twoFactorRecoveryCode.deleteMany({ where: { userId } }),
     db.termsAcceptance.deleteMany({ where: { userId } }),
     db.securityEvent.updateMany({ where: { userId }, data: { userId: null } }),
+    // The phone's line-type lookup (keyed by the raw number) and the email log's copies of what we
+    // sent to this account (names, booking details). The deletion confirmation ("account_deleted",
+    // sent just before this) stays as the record that the account was told.
+    ...(user.phoneNumber ? [db.phoneLookup.deleteMany({ where: { phoneNumber: user.phoneNumber } })] : []),
+    ...(ownAddresses.length
+      ? [db.emailOutbox.deleteMany({ where: { to: { in: ownAddresses, mode: "insensitive" }, NOT: { template: "account_deleted" } } })]
+      : []),
     db.userBlock.deleteMany({ where: { OR: [{ blockerId: userId }, { blockedId: userId }] } }),
     db.verificationRequest.deleteMany({ where: { id: { in: undecided } } }),
     db.verificationRequest.updateMany({

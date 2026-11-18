@@ -31,6 +31,7 @@
 import { PRODUCTION_HOSTS, hostOfAddress, isRealSiteHost } from "../config/production-hosts";
 import { readSiteEnv, testModeRequested, type SiteEnv } from "./site-env";
 // Security contact, off-site backup, Sentry, database roles, codespace keys, maintenance mode (ops-incident).
+import { isMarkedDevKey } from "./dev-keys";
 import { opsStartupProblems, opsStartupWarnings } from "./ops-startup";
 import { accessibilityStartupProblems } from "./legal/accessibility";
 
@@ -346,7 +347,7 @@ const isKey32 = (raw: string) => /^[A-Za-z0-9+/]+={0,2}$/.test(raw) && Buffer.fr
  * key(s) of a rotation (FIELD_ENCRYPTION_KEY_PREVIOUS, comma-separated) follow the same rules and
  * differ from the current key.
  */
-function fieldEncryptionProblems(env: StartupEnv, site: SiteEnv | null): string[] {
+export function fieldEncryptionProblems(env: StartupEnv, site: SiteEnv | null): string[] {
   const problems: string[] = [];
   const hint = "generate it with: openssl rand -base64 32";
   const current = value(env, "FIELD_ENCRYPTION_KEY");
@@ -384,6 +385,12 @@ function fieldEncryptionProblems(env: StartupEnv, site: SiteEnv | null): string[
     if (!isKey32(raw)) problems.push("FIELD_ENCRYPTION_KEY_PREVIOUS must hold 32-byte base64 keys (comma-separated).");
     else if (isKey32(current) && decoded(raw) === decoded(current)) problems.push("FIELD_ENCRYPTION_KEY_PREVIOUS is the same key as FIELD_ENCRYPTION_KEY: put the OLD key there.");
     else if (twin) problems.push(`FIELD_ENCRYPTION_KEY_PREVIOUS must not be APP_ENCRYPTION_KEY or another secret: one of its keys is the same as ${twin}.`);
+    // A codespace key as the OLD key would keep dev-sealed rows opening on the real site (FE-9).
+    if ((site === "staging" || site === "production") && isMarkedDevKey(raw)) {
+      problems.push(
+        'FIELD_ENCRYPTION_KEY_PREVIOUS holds a codespace development key (it carries the "BAYITDEV" marker): values sealed with it can be opened in the codespace. Re-seal them with the real key (docs/security/field-encryption.md) and remove it.',
+      );
+    }
   }
   return problems;
 }

@@ -34,7 +34,18 @@ export const COPY_MATCHES_SHOWN = 5;
 
 export type CopyMatch = { listingId: string; publicId: number; title: string; percent: number };
 
-/** Other accounts' listings whose description shares most of this one (the same city when known). */
+/** The copied text among `texts` with the highest containment, or null when none is a copy. */
+export function bestCopySimilarity(mine: ReadonlySet<number>, texts: readonly (string | null | undefined)[]): ReturnType<typeof copySimilarity> | null {
+  let best: ReturnType<typeof copySimilarity> | null = null;
+  for (const text of texts) {
+    if (!text) continue;
+    const similarity = copySimilarity(mine, shingles(text));
+    if (similarity.copied && (!best || similarity.containment > best.containment)) best = similarity;
+  }
+  return best;
+}
+
+/** Other accounts' listings whose description (or one of its translations) shares most of this one (the same city when known). */
 export async function findCopiedDescriptions(listing: {
   id: string;
   ownerId: string;
@@ -52,16 +63,16 @@ export async function findCopiedDescriptions(listing: {
       status: { notIn: ["DRAFT", "DELETED"] },
       ...(listing.cityId ? { cityId: listing.cityId } : {}),
     },
-    select: { id: true, publicId: true, title: true, description: true },
+    // Translations too: a scammer copies the text another listing's page shows in another
+    // language (S2 review TS-13).
+    select: { id: true, publicId: true, title: true, description: true, translations: { select: { description: true } } },
     orderBy: { updatedAt: "desc" },
     take: COPY_CANDIDATES,
   });
   const matches: CopyMatch[] = [];
   for (const other of others) {
-    const similarity = copySimilarity(mine, shingles(other.description));
-    if (similarity.copied) {
-      matches.push({ listingId: other.id, publicId: other.publicId, title: other.title, percent: Math.round(similarity.containment * 100) });
-    }
+    const best = bestCopySimilarity(mine, [other.description, ...other.translations.map((t) => t.description)]);
+    if (best) matches.push({ listingId: other.id, publicId: other.publicId, title: other.title, percent: Math.round(best.containment * 100) });
   }
   return matches.sort((a, b) => b.percent - a.percent).slice(0, COPY_MATCHES_SHOWN);
 }

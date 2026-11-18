@@ -3,6 +3,7 @@ import { siteConfig } from "@/config/site";
 import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { NotFoundError } from "@/lib/errors";
+import { openListingLocation } from "@/lib/field-crypto";
 import { getSettings } from "@/lib/settings";
 import { detectContactInfo, hasContactInfo, type ContactInfoFindings } from "./contact-info";
 import { detectExclusionaryText } from "./exclusion";
@@ -131,6 +132,9 @@ const LISTING_SELECT = {
   publishedAt: true,
   contactMethods: true,
   kosherCertName: true,
+  // The exact address, sealed (src/lib/field-crypto.ts): booked guests read it, so it is scanned
+  // for payment and contact details too (S2 review TS-8).
+  addressEnc: true,
   photos: { select: { id: true, url: true, storageKey: true, phash: true, alt: true } },
   roomTypes: { select: { names: true, description: true } },
   translations: { where: { editedByOwner: true }, select: { title: true, description: true } },
@@ -268,11 +272,17 @@ function localizedStrings(value: unknown): string[] {
   return Object.values(value as Record<string, unknown>).filter((v): v is string => typeof v === "string");
 }
 
-/** Every text of the listing guests read as the host wrote it: title, description, owner translations, room types, photo descriptions, kosher certificate. */
+/** The exact address, decrypted for the scan only (empty when it cannot be opened). */
+function exactAddress(listing: ListingForRisk): string | null {
+  return openListingLocation({ addressEnc: listing.addressEnc }, "risk_check").address;
+}
+
+/** Every text of the listing guests read as the host wrote it: title, description, owner translations, room types, photo descriptions, kosher certificate, exact address. */
 function publicText(listing: ListingForRisk): string {
   return [
     listingText(listing),
     listing.kosherCertName,
+    exactAddress(listing),
     ...listing.roomTypes.flatMap((room) => [...localizedStrings(room.names), ...localizedStrings(room.description)]),
     ...listing.photos.map((photo) => photo.alt),
   ]
@@ -341,7 +351,7 @@ function describeContactInfo(found: ContactInfoFindings): string {
 }
 
 async function checkContactInfo(listing: ListingForRisk): Promise<CheckResult> {
-  const found = detectContactInfo(listingText(listing));
+  const found = detectContactInfo([listingText(listing), exactAddress(listing)].filter(Boolean).join("\n"));
   if (!hasContactInfo(found)) return { reasons: [] };
   return { reasons: [{ code: "contact_info_in_text", points: RISK_POINTS.contactInfoInText, detail: describeContactInfo(found) }] };
 }

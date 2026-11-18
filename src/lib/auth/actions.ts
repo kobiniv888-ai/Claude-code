@@ -81,7 +81,7 @@ function needsSecondStep(user: CurrentUser): boolean {
 /** Step 1 of turning 2-step login on (or of moving it to a new phone: `replace`). Needs a fresh code. */
 export async function startTotpEnrollment(input?: unknown): Promise<ActionResult<TotpEnrollment>> {
   return runAction(async () => {
-    const user = await requireUserForAction();
+    const user = await requireUserForAction({ terms: false });
     const replace = z.object({ replace: z.boolean().optional() }).safeParse(input ?? {});
     if (user.twoFactorEnabled && !(replace.success && replace.data.replace)) return fail("totp_already_enabled");
     // Turning on or changing 2-step login is a sensitive change (3.6): a code from the last 5 minutes.
@@ -97,7 +97,7 @@ export async function startTotpEnrollment(input?: unknown): Promise<ActionResult
  */
 export async function confirmTotpEnrollment(input: unknown): Promise<ActionResult<{ recoveryCodes: string[] }>> {
   return runAction<{ recoveryCodes: string[] }>(async () => {
-    const user = await requireUserForAction();
+    const user = await requireUserForAction({ terms: false });
     const parsed = codeSchema.safeParse(input);
     if (!parsed.success) return fail("totp_invalid_code");
     if (!(await hasPendingEnrollment(user.id))) return fail(user.twoFactorEnabled ? "totp_already_enabled" : "totp_setup_expired");
@@ -166,7 +166,7 @@ export async function verifyRecoveryCodeForSession(input: unknown): Promise<Acti
 /** Turns 2-step login off (needs a current code: that code is the fresh proof). Staff must keep it on. */
 export async function disableTotp(input: unknown): Promise<ActionResult> {
   return runAction(async () => {
-    const user = await requireUserForAction();
+    const user = await requireUserForAction({ terms: false });
     if (user.isStaff) return fail("totp_required_for_staff");
     const parsed = codeSchema.safeParse(input);
     if (!parsed.success) return fail("totp_invalid_code");
@@ -183,7 +183,7 @@ export async function disableTotp(input: unknown): Promise<ActionResult> {
 /** New recovery codes (the old ones stop working). Needs a fresh code; shown once. */
 export async function regenerateRecoveryCodes(): Promise<ActionResult<{ recoveryCodes: string[] }>> {
   return runAction<{ recoveryCodes: string[] }>(async () => {
-    const user = await requireUserForAction();
+    const user = await requireUserForAction({ terms: false });
     if (!user.twoFactorEnabled) return fail("totp_not_enabled");
     await requireFreshProof(user);
     const recoveryCodes = await createRecoveryCodes(user.id);

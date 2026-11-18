@@ -56,6 +56,15 @@ function retentionDays(env: OffsiteEnv): number | null {
   return Number.isInteger(days) && days >= MIN_OFFSITE_RETENTION_DAYS && days <= MAX_OFFSITE_RETENTION_DAYS ? days : null;
 }
 
+// The bucket's lifecycle rule and the longest a copy exists: src/lib/retention-times.ts (the privacy
+// policy quotes them, and public pages may not import this folder).
+export {
+  OFFSITE_LIFECYCLE_DELETE_AFTER_HIDE_DAYS,
+  OFFSITE_LIFECYCLE_HIDE_MARGIN_DAYS,
+  offsiteCopyMaxAgeDays,
+  offsiteLockDays as offsiteRetentionDays,
+} from "../../retention-times";
+
 /** Everything wrong with the off-site settings (empty: complete and well-formed). */
 export function offsiteConfigProblems(env: OffsiteEnv): string[] {
   const problems: string[] = [];

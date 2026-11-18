@@ -24,7 +24,7 @@ vi.mock("server-only", () => ({}));
 
 const { PrismaPg } = await import("@prisma/adapter-pg");
 const { PrismaClient } = await import("@/generated/prisma/client");
-const { encryptPlainFields, LISTING_GUARD, BOOKING_GUARD } = await import("@/lib/field-crypto-migrate");
+const { encryptPlainFields, LISTING_GUARD, BOOKING_GUARD, LISTING_FORMAT_GUARD, BOOKING_FORMAT_GUARD } = await import("@/lib/field-crypto-migrate");
 
 const DB_NAME = `bayit_fieldenc_test_${randomBytes(4).toString("hex")}`;
 const key = () => randomBytes(32).toString("base64");
@@ -137,10 +137,17 @@ describe("encrypt-fields: plain → encrypted", () => {
 describe("the database refuses plain values once they are all moved", () => {
   it("adds the CHECK constraints, and a plain write fails even through raw SQL", async () => {
     const report = await encryptPlainFields(prisma, { keyring: oldRing });
-    expect(report.guard).toEqual({ listing: true, booking: true });
+    expect(report.guard).toEqual({ listing: true, booking: true, listingFormat: true, bookingFormat: true });
+    expect(report.malformed).toEqual({ listings: 0, bookings: 0 });
     await expect(q(`INSERT INTO "Listing" (id, address) VALUES ('p1', '1 Plain Street')`)).rejects.toThrow(new RegExp(LISTING_GUARD));
     await expect(q(`UPDATE "Listing" SET lat = 41.7 WHERE id = 'l0'`)).rejects.toThrow(new RegExp(LISTING_GUARD));
     await expect(q(`INSERT INTO "Booking" (id, "guestPhone") VALUES ('p2', '+995555000999')`)).rejects.toThrow(new RegExp(BOOKING_GUARD));
+    // A plain value written into an ENCRYPTED column is refused too (FE-8).
+    await expect(q(`UPDATE "Listing" SET "addressEnc" = '1 Plain Street' WHERE id = 'l0'`)).rejects.toThrow(new RegExp(LISTING_FORMAT_GUARD));
+    await expect(q(`UPDATE "Listing" SET "pinEnc" = '41.7,44.8' WHERE id = 'l0'`)).rejects.toThrow(new RegExp(LISTING_FORMAT_GUARD));
+    await expect(q(`INSERT INTO "Booking" (id, "guestPhoneEnc") VALUES ('p3', '+995555000999')`)).rejects.toThrow(new RegExp(BOOKING_FORMAT_GUARD));
+    await expect(q(`INSERT INTO "Booking" (id, "guestPhoneLookup") VALUES ('p4', '+995555000999')`)).rejects.toThrow(new RegExp(BOOKING_FORMAT_GUARD));
+    await expect(q(`INSERT INTO "Booking" (id, "guestPhoneEnc") VALUES ('p5', 'fe1:0000000g:abc')`)).rejects.toThrow(new RegExp(BOOKING_FORMAT_GUARD));
     // Encrypted values and clearing still work.
     await q(`UPDATE "Listing" SET "addressEnc" = NULL WHERE id = 'l6'`);
   });
@@ -197,5 +204,21 @@ describe("a value that cannot be opened", () => {
     // A plain value is still there, so the bookings guard stays off until it is solved.
     expect(report.remainingPlain.bookings).toBe(1);
     expect(report.guard.booking).toBe(false);
+  });
+});
+
+describe("an invalid legacy pin (FE-7)", () => {
+  it("is left as it is and counted; the rest of the run is done", async () => {
+    await q(`ALTER TABLE "Listing" DROP CONSTRAINT IF EXISTS "${LISTING_GUARD}"`);
+    await q(`INSERT INTO "Listing" (id, address, lat, lng) VALUES ('pin-bad', '9 Fake Street', 200, 1), ('pin-nan', NULL, 'NaN', 44.8), ('pin-good', '10 Fake Street', 41.7, 44.8)`);
+    const report = await encryptPlainFields(prisma, { keyring: newOnlyRing, listingIds: ["pin-bad", "pin-nan", "pin-good"] });
+    expect(report.listings.invalid).toBe(2);
+    const good = await listing("pin-good");
+    expect(good).toMatchObject({ address: null, lat: null, lng: null });
+    expect(decodePin(openField(newOnlyRing, "listing.pin", good.pinEnc))).toEqual({ lat: 41.7, lng: 44.8 });
+    expect(await listing("pin-bad")).toMatchObject({ address: "9 Fake Street", lat: 200, addressEnc: null, pinEnc: null });
+    expect(report.remainingPlain.listings).toBe(2);
+    expect(report.guard.listing).toBe(false);
+    await q(`DELETE FROM "Listing" WHERE id IN ('pin-bad', 'pin-nan')`);
   });
 });

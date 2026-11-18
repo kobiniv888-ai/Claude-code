@@ -88,6 +88,8 @@ afterAll(async () => {
   await db.savedList.deleteMany({ where: { userId: { in: users } } });
   await db.auditLog.deleteMany({ where: { actorId: { in: users } } });
   await db.rateLimit.deleteMany({ where: { key: { contains: prefix } } });
+  // The share limit counts by the mocked IP hash ("test-ip"), not by this test's prefix.
+  await db.rateLimit.deleteMany({ where: { key: { startsWith: "lists-share:ip:test-ip" } } });
   await db.user.deleteMany({ where: { id: { in: users } } });
 });
 

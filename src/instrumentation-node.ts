@@ -8,6 +8,9 @@
  * 2. The database's owner (src/lib/site-env-marker.ts, SECURITY_REPORT 12.1.b): the real site
  *    marks its database; a development or staging server whose database carries that mark EXITS
  *    (staging also when the database cannot be checked).
+ * 2b. The database ROLE (src/lib/startup-check-db-role.ts, SECURITY_REPORT 12.3.b): a production
+ *    server whose DATABASE_URL role can change tables, make roles or databases, bypass row
+ *    security, or is a member of another role (Neon's neon_superuser) EXITS; staging warns.
  * 3. Loud warnings when nobody could log in (src/lib/auth/login-methods.ts), when links that
  *    leave the site would not be on the permanent address (SITE_URL, src/lib/site-url.ts) and when
  *    Google could not index the site (src/lib/seo.ts).
@@ -39,10 +42,29 @@ async function checkDatabaseOwner(): Promise<void> {
   if (decision.action === "warn") console.warn(`\n${decision.warning}\n`);
 }
 
+/** What the DATABASE_URL role can do (FE-4): production refuses an over-privileged role. */
+async function checkDatabaseRole(): Promise<void> {
+  const site = readSiteEnv(process.env);
+  if (site !== "production" && site !== "staging") return;
+  const { db } = await import("@/lib/db");
+  const { databaseRoleProblems, readDatabaseRoleFacts } = await import("@/lib/startup-check-db-role");
+  let problems: string[];
+  try {
+    problems = databaseRoleProblems(await readDatabaseRoleFacts(db));
+  } catch (error) {
+    console.warn(`\n[startup] could not check the database role's rights: ${(error as Error)?.message ?? error}\n`);
+    return;
+  }
+  if (problems.length === 0) return;
+  if (site === "production") refuse(problems);
+  for (const problem of problems) console.warn(`\n[startup] ${problem}\n`);
+}
+
 export async function registerNode(): Promise<void> {
   const problems = startupProblems(process.env);
   if (problems.length > 0) refuse(problems);
   await checkDatabaseOwner();
+  await checkDatabaseRole();
   for (const warning of startupWarnings(process.env)) console.warn(`\n${warning}\n`);
   const [{ loginMethodsWarning }, { siteUrlWarning }, { indexingWarning }, { warmOnStart }] = await Promise.all([
     import("@/lib/auth/login-methods"),

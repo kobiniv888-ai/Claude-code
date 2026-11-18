@@ -51,6 +51,9 @@ test("the email-code answer is the same whether or not an account exists", async
 test("the phone picker for SMS codes offers only Israel and Georgia", async ({ page }) => {
   await page.goto("/en/login");
   const phoneTab = page.getByRole("button", { name: "Log in with a phone code (test mode)" });
+  // The button renders once the login panel is ready: wait for it before deciding (a bare count
+  // right after goto could run before it and skip this test by accident; S2 review gate).
+  await phoneTab.waitFor({ state: "visible", timeout: 15_000 }).catch(() => undefined);
   test.skip((await phoneTab.count()) === 0, "phone login is shown only in test mode");
   await phoneTab.click();
   await page.getByRole("button", { name: /^Country code / }).click();

@@ -53,7 +53,7 @@ export async function logOutHere(): Promise<ActionResult> {
 
 export async function logOutEverywhere(): Promise<ActionResult<{ sessions: number }>> {
   return runAction<{ sessions: number }>(async () => {
-    const user = await requireUserForAction();
+    const user = await requireUserForAction({ terms: false });
     await assertRateLimit(`auth:logout-all:${user.id}`, { limit: 5, windowSeconds: 3600 });
     const sessions = await endAllSessions(user.id);
     if (sessions < 1) return fail("logout_all_failed");

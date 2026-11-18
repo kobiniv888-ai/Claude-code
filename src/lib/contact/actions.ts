@@ -11,6 +11,7 @@
  */
 import { personName } from "@/lib/auth/first-name";
 import { z } from "zod";
+import { refusePaymentFields } from "@/lib/risk/text-guard";
 import { isAppLocale } from "@/i18n/locale";
 import { fail, ok, runAction, type ActionResult } from "@/lib/action";
 import { requireUserForAction } from "@/lib/auth/session";
@@ -181,6 +182,15 @@ export async function sendContactEmail(input: unknown): Promise<ActionResult> {
     if (listing.ownerId === user.id) return fail("own_listing");
     if (await isBlockedBetween(user.id, listing.ownerId)) return fail("blocked");
     await assertRateLimit(`contact-email:listing:${listing.id}`, { limit: 50, windowSeconds: DAY });
+    // SECURITY_REPORT 14.2.a (S2 review TS-7): an email sent under Bayit's name carries no payment
+    // details ("refund the difference to IBAN …"); the flag names the sender, never the listing.
+    const paymentErrors = await refusePaymentFields({
+      surface: "contact_message",
+      userId: user.id,
+      listingId: listing.id,
+      fields: { message: data.message, name: data.name },
+    });
+    if (paymentErrors) return fail("payment_in_text", paymentErrors);
 
     const emailMethod = parseContactMethods(listing.contactMethods).find((m) => m.channel === "EMAIL");
     if (!emailMethod) return fail("no_email");

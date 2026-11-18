@@ -19,6 +19,7 @@
 import { offsiteConfigProblems, offsiteRequested } from "./admin/maintenance/offsite-config";
 import { DEV_MARKED_SETTINGS, isMarkedDevKey } from "./dev-keys";
 import { readMaintenanceEnv } from "./maintenance/env";
+import { securityContactEmail } from "./security/security-txt";
 import { sentryDsnInfo } from "./sentry-dsn";
 
 export { sentryDsnInfo, type SentryDsnInfo } from "./sentry-dsn";
@@ -27,7 +28,6 @@ type Env = Partial<Record<string, string | undefined>>;
 type Site = "development" | "staging" | "production" | null;
 
 const value = (env: Env, name: string) => env[name]?.trim() ?? "";
-const EMAIL = /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[A-Za-z]{2,}$/;
 
 /** Roles that may change the schema: the app never runs as one of them. */
 export const OWNER_ROLE_NAMES = ["postgres", "neondb_owner", "bayit_migrate", "root", "admin"];
@@ -61,7 +61,9 @@ export function opsStartupProblems(env: Env, site: Site): string[] {
 
   const contact = value(env, "SECURITY_CONTACT_EMAIL");
   if (!contact) problems.push("SECURITY_CONTACT_EMAIL is not set: the security contact address for /.well-known/security.txt (a private setting at the hosting).");
-  else if (!EMAIL.test(contact)) problems.push("SECURITY_CONTACT_EMAIL is not an email address.");
+  // The same rule as the security.txt route (S2 review ops-sectxt-2): an address it would refuse
+  // (":", "/", "\\", longer than 254) would leave /.well-known/security.txt answering 404.
+  else if (securityContactEmail(env) === null) problems.push("SECURITY_CONTACT_EMAIL is not an email address.");
 
   problems.push(...offsiteConfigProblems(env));
 

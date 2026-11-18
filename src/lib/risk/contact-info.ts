@@ -46,12 +46,28 @@ function bracketed(words: string[], symbol: string): RegExp {
 const BRACKETED_AT = bracketed(AT_WORDS, "@");
 const BRACKETED_DOT = bracketed(DOT_WORDS, "\\.");
 
+/** Dots that look like a full stop: "⸳" (U+2E33), "。" (U+3002), "｡" (U+FF61), "．" (U+FF0E). */
+const LOOKALIKE_DOTS = /[⸳。｡．]/g;
+/** "paypal-dot-me", "site_dot_ge": a dot word glued in with dashes or underscores. */
+const GLUED_DOT = new RegExp(`(?<=[A-Za-z0-9])[-_](?:${DOT_WORDS.join("|")})[-_](?=[A-Za-z0-9])`, "giu");
+/** "bayit-secure dot ge": a dot word between a host-like label and a top-level domain. */
+const SPACED_DOT_TLD = new RegExp(
+  `(?<=(?<![\\p{L}\\p{N}])(?!(?:the|a|an|this|that|its)\\s)[A-Za-z0-9][A-Za-z0-9-]{1,62})\\s+(?:${DOT_WORDS.join("|")})\\s+(?=(?:com|net|org|info|io|ly|ge|il|ru|ua|by|kz|me|to|xyz|site|online|store|shop|top|link|app|dev)(?![\\p{L}\\p{N}]))`,
+  "giu",
+);
+
 export function normalizeForContactScan(text: string): string {
   return (
     text
-      // Full-width letters and digits → ASCII ("５５５", "ｗａ．ｍｅ").
+      // Combining marks out ("p̲a̲y̲p̲a̲l̲" → "paypal", "é" → "e"; SECURITY_REPORT 14.2.a, TS-3), then
+      // full-width letters and digits → ASCII ("５５５", "ｗａ．ｍｅ").
+      .normalize("NFKD")
+      .replace(/\p{M}/gu, "")
       .normalize("NFKC")
       .replace(INVISIBLE, "")
+      .replace(LOOKALIKE_DOTS, ".")
+      .replace(GLUED_DOT, ".")
+      .replace(SPACED_DOT_TLD, ".")
       .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
       .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06f0))
       .replace(BRACKETED_AT, "@")

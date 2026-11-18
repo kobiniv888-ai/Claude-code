@@ -38,7 +38,7 @@ import {
 } from "./backup-crypto";
 import { BACKUP_FORMAT, BACKUP_FORMAT_VERSION, isDevelopmentRestoreTarget, type BackupMeta } from "./backup-format";
 import { offsiteConfigProblems, readOffsiteConfig, retainUntil, type OffsiteConfig } from "./offsite-config";
-import { decryptBackupInto, encryptBackupFolder, offsiteS3Client, runAndRecordOffsiteBackup, runOffsiteBackup } from "./offsite";
+import { decryptBackupInto, encryptBackupFolder, findStaleOffsiteCopies, offsiteS3Client, runAndRecordOffsiteBackup, runOffsiteBackup } from "./offsite";
 
 const KEY = Buffer.alloc(32, 7);
 const OTHER_KEY = Buffer.alloc(32, 9);
@@ -223,7 +223,12 @@ describe("backup archive", () => {
 // ── The job against a fake S3 server ───────────────────────────────────────
 
 type SeenRequest = { method: string; url: string; headers: http.IncomingHttpHeaders; body: Buffer };
-const fake = { requests: [] as SeenRequest[], objects: new Map<string, { body: Buffer; headers: http.IncomingHttpHeaders }>(), corrupt: false, dropLock: false };
+const fake = {
+  requests: [] as SeenRequest[],
+  objects: new Map<string, { body: Buffer; headers: http.IncomingHttpHeaders; lastModified?: Date }>(),
+  corrupt: false,
+  dropLock: false,
+};
 let server: http.Server;
 let endpoint = "";
 
@@ -236,6 +241,23 @@ beforeAll(async () => {
       const url = new URL(req.url ?? "/", "http://fake");
       fake.requests.push({ method: req.method ?? "", url: url.pathname, headers: req.headers, body });
       const stored = fake.objects.get(url.pathname);
+      if (req.method === "GET" && url.searchParams.get("list-type") === "2") {
+        // ListObjectsV2 (path style: /<bucket>?list-type=2&prefix=…): the stored copies.
+        const bucket = url.pathname.replace(/^\/+|\/+$/g, "");
+        const prefix = url.searchParams.get("prefix") ?? "";
+        const items = [...fake.objects.entries()]
+          .map(([key, value]) => ({ key: key.replace(`/${bucket}/`, ""), value }))
+          .filter((item) => item.key.startsWith(prefix))
+          .map(
+            (item) =>
+              `<Contents><Key>${item.key}</Key><Size>${item.value.body.length}</Size><LastModified>${(item.value.lastModified ?? new Date()).toISOString()}</LastModified></Contents>`,
+          )
+          .join("");
+        res
+          .writeHead(200, { "Content-Type": "application/xml" })
+          .end(`<?xml version="1.0" encoding="UTF-8"?><ListBucketResult><Name>${bucket}</Name><Prefix>${prefix}</Prefix><IsTruncated>false</IsTruncated>${items}</ListBucketResult>`);
+        return;
+      }
       if (req.method === "PUT") {
         const md5 = createHash("md5").update(body).digest("base64");
         if (req.headers["content-md5"] !== md5) {
@@ -343,6 +365,24 @@ describe("the off-site job (fake S3)", () => {
     const broken = { ...deps(), config: { ...config(), bucket: "missing-bucket" }, client: offsiteS3Client({ ...config(), endpoint: "http://127.0.0.1:1" }) };
     await expect(runAndRecordOffsiteBackup("cron", broken)).rejects.toMatchObject({ step: "upload" });
     expect(recorded.events).toEqual([{ type: "offsite_backup_failed", ip: null, meta: { via: "cron", step: "upload", reason: expect.stringMatching(/^[A-Za-z0-9_]+$/) } }]);
+  });
+
+  it("alerts when old copies are not being deleted by the bucket's lifecycle rule (S2 review ops-backup-1)", async () => {
+    await runAndRecordOffsiteBackup("cron", deps());
+    expect(recorded.events.map((e) => e.type)).toEqual(["offsite_backup_ok"]);
+    // A copy older than the lock (60) + hide (1) + delete (1) + 7 days of grace is still there.
+    const stale = `/bayit-offsite/${config().prefix}2026-08-01T00-00-00-000Z-old.bkenc`;
+    fake.objects.set(stale, { body: Buffer.from("x"), headers: {}, lastModified: new Date(NOW.getTime() - 70 * 86_400_000) });
+    expect((await findStaleOffsiteCopies(offsiteS3Client(config()), config(), NOW)).map((c) => c.key)).toEqual([stale.replace("/bayit-offsite/", "")]);
+    recorded.events = [];
+    await runAndRecordOffsiteBackup("cron", deps());
+    expect(recorded.events).toEqual([
+      { type: "offsite_backup_ok", ip: null, meta: expect.any(Object) },
+      { type: "offsite_backup_failed", ip: null, meta: { via: "cron", step: "lifecycle", reason: "old_copies_kept", count: 1 } },
+    ]);
+    // A copy inside the window is fine.
+    fake.objects.set(stale, { body: Buffer.from("x"), headers: {}, lastModified: new Date(NOW.getTime() - 65 * 86_400_000) });
+    expect(await findStaleOffsiteCopies(offsiteS3Client(config()), config(), NOW)).toEqual([]);
   });
 
   it("deletes its temporary files", async () => {

@@ -47,6 +47,8 @@ describe("the network of an address", () => {
 const prefix = `vnc${randomUUID().replace(/-/g, "").slice(0, 10)}`;
 const ids = { user: `${prefix}-host`, city: "", listing: "" };
 
+const startedAt = new Date();
+
 beforeAll(async () => {
   await db.user.create({
     data: { id: ids.user, name: "Host", email: `${ids.user}@example.com`, phoneNumber: `+99559${`${Date.now() % 10_000_000}`.padStart(7, "0")}`, phoneNumberVerified: true, locale: "en" },
@@ -76,6 +78,8 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await db.rateLimit.deleteMany({ where: { key: { contains: ids.listing } } });
+  // The network cap's first refusal is logged as a "rate_limited" event (no account, no IP): ours only.
+  await db.securityEvent.deleteMany({ where: { type: "rate_limited", createdAt: { gte: startedAt }, meta: { path: ["scope"], equals: "stats:view-net" } } });
   if (ids.listing) await db.listing.delete({ where: { id: ids.listing } });
   await db.user.deleteMany({ where: { id: ids.user } });
   await db.city.deleteMany({ where: { id: ids.city } });

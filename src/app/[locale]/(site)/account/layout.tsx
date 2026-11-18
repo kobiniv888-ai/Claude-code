@@ -6,6 +6,7 @@ import { AccountShell } from "@/components/account/account-shell";
 import { accountNavItems } from "@/lib/account/nav";
 import { redirectSignedOutFromSaved } from "@/lib/lists/redirect";
 import { requireUser } from "@/lib/auth/session";
+import { redirectUntilTermsAccepted } from "@/lib/legal/terms-redirect";
 import { BOOKABLE_DEAL_TYPES } from "@/lib/booking/constants";
 import { db } from "@/lib/db";
 import { avatarInitial } from "@/lib/account/greeting";
@@ -28,6 +29,8 @@ export default async function AccountLayout({
   // "שמורים" signed out: the lists kept on this device (/saved), not the login page (brief 7.2).
   await redirectSignedOutFromSaved(locale);
   const user = await requireUser();
+  // The Terms + 18+ acceptance of the version in force first (S2 review LP-1).
+  await redirectUntilTermsAccepted(locale, "/account");
   const [waitingTickets, bookablePlace, hostBooking] = await Promise.all([
     db.ticket.count({ where: { userId: user.id, status: "WAITING_FOR_USER" } }),
     // "הזמנות לנכסים שלי" is for hosts: a short stay or hotel of theirs, or bookings of their places.

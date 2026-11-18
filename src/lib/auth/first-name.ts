@@ -12,6 +12,9 @@ export function looksLikeContact(value: string | null | undefined): boolean {
   const text = value?.trim() ?? "";
   if (!text) return false;
   if (text.includes("@")) return true;
+  // A web address ("bayit-pay.com", "paypal.me/x", look-alike dots too): never a name shown to
+  // guests or hosts (S2 review TS-5/TS-6). "J. Levi" and "J.R." stay names.
+  if (/\uff20/u.test(text) || /[^\s.\u2024\uff0e][.\u2024\uff0e]\p{L}{2,}/u.test(text)) return true;
   const digits = text.replace(/\D/g, "").length;
   if (digits >= 7) return true;
   // "+972", "050-123": only digits and phone punctuation.

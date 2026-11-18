@@ -21,7 +21,7 @@ const purposeSchema = z.enum(TERMS_PURPOSES);
 /** Must the signed-in account tick the box before this booking / publish / after sign-up? */
 export async function termsStatusAction(purpose: unknown): Promise<ActionResult<{ needed: boolean; version: string }>> {
   return runAction(async () => {
-    const user = await requireUserForAction();
+    const user = await requireUserForAction({ terms: false });
     const parsed = purposeSchema.safeParse(purpose);
     if (!parsed.success) return fail("invalid_input");
     await assertRateLimit(`legal:terms-status:${user.id}`, { limit: 60, windowSeconds: 10 * 60 });
@@ -44,7 +44,7 @@ const consentSchema = z
  */
 export async function acceptTermsAction(input: unknown): Promise<ActionResult<{ version: string; recorded: boolean }>> {
   return runAction<{ version: string; recorded: boolean }>(async () => {
-    const user = await requireUserForAction();
+    const user = await requireUserForAction({ terms: false });
     const parsed = consentSchema.safeParse(input);
     if (!parsed.success) return fail("terms_required", z.flattenError(parsed.error).fieldErrors);
     await assertRateLimit(`legal:terms-accept:${user.id}`, { limit: 10, windowSeconds: 10 * 60 });

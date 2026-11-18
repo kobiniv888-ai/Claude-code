@@ -41,7 +41,8 @@ const { db } = await import("@/lib/db");
 const service = await import("@/lib/booking/service");
 const { addDays, dayToDate, tbilisiToday } = await import("@/lib/booking/dates");
 const guestFlags = await import("@/lib/admin/server/guest-flags");
-const { hostFlagSummary } = await import("@/lib/listing/host-flags-server");
+const { OPEN_CANCELLATION, hostFlagSummary, isHostFlagged } = await import("@/lib/listing/host-flags-server");
+const { bookingFlagKind } = await import("@/lib/listing/host-flags");
 const hostAsked = await import("@/lib/booking/host-asked");
 
 const prefix = `hak${randomUUID().replace(/-/g, "").slice(0, 10)}`;
@@ -63,14 +64,18 @@ async function makeUser(name: string, last: string, role: "USER" | "MODERATOR" =
 }
 
 /** A booking row written directly (the states the flags read), never through the guest flow. */
-async function booking(guestUserId: string, data: { status: "CONFIRMED" | "CANCELLED_BY_GUEST" | "CANCELLED_BY_HOST" | "NO_SHOW"; from: number; nights: number; cancelledAt?: Date; reason?: string | null; noShowAt?: Date }) {
+async function booking(
+  guestUserId: string,
+  data: { status: "CONFIRMED" | "CANCELLED_BY_GUEST" | "CANCELLED_BY_HOST" | "NO_SHOW"; from: number; nights: number; cancelledAt?: Date; reason?: string | null; noShowAt?: Date },
+  at: { listingId: string; hostUserId: string } = { listingId: ids.flat, hostUserId: ids.host },
+) {
   codeSeq += 1;
   const row = await db.booking.create({
     data: {
       code: `T-${prefix}-${codeSeq}`,
-      listingId: ids.flat,
+      listingId: at.listingId,
       guestUserId,
-      hostUserId: ids.host,
+      hostUserId: at.hostUserId,
       status: data.status,
       checkIn: dayToDate(day(data.from)),
       checkOut: dayToDate(day(data.from + data.nights)),
@@ -232,5 +237,60 @@ describe("the timeout job (expireHostAskedAnswers)", () => {
     // Admin → Flags reads the queue from flaggedForReview: both are there now.
     expect(await db.booking.count({ where: { id: { in: [old, fresh] }, flaggedForReview: true, flagReviewedAt: null } })).toBe(2);
     void guestFlags;
+  });
+});
+
+describe("a disputed \"the host asked me\" never puts the host under review (S2 review FC-2)", () => {
+  it("denied or unanswered: not a flagged host, still in the open Flags list; confirmed: a flagged host", async () => {
+    const host = await makeUser("FlagHost", "7");
+    const guest = await makeUser("FlagGuest", "8");
+    const own = await db.listing.create({
+      data: {
+        ownerId: host,
+        status: "LIVE",
+        dealType: "SHORT_STAY",
+        propertyType: "APARTMENT",
+        pricePeriod: "NIGHT",
+        price: 100,
+        currency: "USD",
+        minStayNights: 1,
+        maxGuests: 4,
+        bookingMode: "INSTANT",
+        cancellationPolicy: "MODERATE",
+        paymentMethodsAtCheckIn: ["cash"],
+        cityId: ids.city,
+        pinEnc: sealPin({ lat: 41.72, lng: 44.78 }),
+        addressEnc: sealAddress("2 Test Street, Tbilisi"),
+        contactMethods: [{ channel: "WHATSAPP", value: "+995555000002", order: 0 }],
+        originalLocale: "en",
+        title: `${prefix} flag flat`,
+        description: "A test listing.",
+      },
+    });
+    listings.push(own.id);
+    const at = { listingId: own.id, hostUserId: host };
+    const openFlag = async (id: string) => db.booking.count({ where: { ...OPEN_CANCELLATION, id } });
+
+    // The host says "No, I didn't".
+    const denied = await booking(guest, { status: "CANCELLED_BY_GUEST", from: 100, nights: 2, cancelledAt: hoursAgo(2), reason: "HOST_ASKED" }, at);
+    await service.answerHostAsked({ bookingId: denied, hostUserId: host, answer: "deny" });
+    expect(await isHostFlagged(host)).toBe(false);
+    expect(await openFlag(denied)).toBe(1);
+    expect(bookingFlagKind(await db.booking.findUniqueOrThrow({ where: { id: denied } }))).toBe("host_asked_disputed");
+    expect((await hostFlagSummary(host))?.openCancellations).toBe(0);
+
+    // No answer within 72 hours: the timeout job.
+    const expired = await booking(guest, { status: "CANCELLED_BY_GUEST", from: 110, nights: 2, cancelledAt: hoursAgo(hostAsked.HOST_ASKED_ANSWER_HOURS + 2), reason: "HOST_ASKED" }, at);
+    await service.expireHostAskedAnswers();
+    expect((await stateOf(expired)).cancelReasonCode).toBe("HOST_ASKED_EXPIRED");
+    expect(await isHostFlagged(host)).toBe(false);
+    expect(await openFlag(expired)).toBe(1);
+
+    // The host confirms: it counts against the host, and the host is flagged.
+    const confirmed = await booking(guest, { status: "CANCELLED_BY_GUEST", from: 120, nights: 2, cancelledAt: hoursAgo(1), reason: "HOST_ASKED" }, at);
+    await service.answerHostAsked({ bookingId: confirmed, hostUserId: host, answer: "confirm" });
+    expect(await isHostFlagged(host)).toBe(true);
+    expect(bookingFlagKind(await db.booking.findUniqueOrThrow({ where: { id: confirmed } }))).toBe("host_cancellation");
+    expect((await hostFlagSummary(host))?.openCancellations).toBe(1);
   });
 });

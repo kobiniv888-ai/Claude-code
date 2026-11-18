@@ -23,5 +23,10 @@ export async function register(): Promise<void> {
 export const onRequestError: Instrumentation.onRequestError = async (error, request, context) => {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
   const { reportError } = await import("@/lib/monitoring");
-  await reportError(error, { kind: context.routeType, route: context.routePath, path: request.path, method: request.method });
+  // Also counted for the founder's error-spike alert (16.3; capped, best effort, no message stored).
+  const { recordServerError } = await import("@/lib/security/server-errors");
+  await Promise.all([
+    reportError(error, { kind: context.routeType, route: context.routePath, path: request.path, method: request.method }),
+    recordServerError(context.routeType),
+  ]);
 };

@@ -729,6 +729,8 @@
         "offsite_backup_failed": "The weekly off-site backup failed ({count}).",
         "offsite_backup_missing": "No off-site backup has succeeded for {days} days.",
         "certificate_expiry": "The site’s HTTPS certificate ends in {days} days.",
+        "domain_expiry": "The site’s domain registration ends in {days} days: check auto-renew at the registrar.",
+        "error_spike": "{count} unexpected server errors (alert above {threshold}): look at the error monitoring and the server log.",
         "support_overdue": "{count, plural, one {1 support ticket has} other {{count} support tickets have}} waited longer than the reply promise (one business day, Sunday to Thursday): {tickets}.",
         "field_decrypt_failed": "Encrypted addresses or phone numbers could not be opened ({count}): check FIELD_ENCRYPTION_KEY at the hosting."
       }

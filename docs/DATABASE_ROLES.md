@@ -39,8 +39,13 @@ The two places that need such rights are scripts you run by hand: a restore
 
    It prints a small table with `bayit_app` and `bayit_migrate`, every column `f` except
    `rolcanlogin`. It stops with an error, changing nothing more, if either role has a right it must
-   not have. Neon alternative: create the two roles under **Branch → Roles** first (Neon shows each
-   password once), then run the same command **without** the two `-v …_password` lines.
+   not have, or if either role is a member of another role. Do **not** create the roles in the Neon
+   Console, CLI or API: Neon makes every role created there a member of `neon_superuser` (create
+   roles and databases, bypass row security, read and write all data). If you already did, the file
+   removes that membership, or stops and asks you to drop the role (`DROP ROLE bayit_app;` as the
+   owner) and run it again so it creates the role itself. The running site checks this too: a
+   production server whose `DATABASE_URL` role can change tables, make roles or databases, or is a
+   member of another role refuses to start.
 4. **Set the passwords you need**: run `\password bayit_app` and `\password bayit_migrate` in `psql`
    as the owner if you did not keep the generated ones (they are not printed). Save both in your
    password manager.
@@ -55,9 +60,19 @@ The two places that need such rights are scripts you run by hand: a restore
    ```sh
    MIGRATION_DATABASE_URL="<bayit_migrate address>" npx prisma db execute --file prisma/sql/before-push.sql
    MIGRATION_DATABASE_URL="<bayit_migrate address>" npx prisma db push
-   DATABASE_URL="<bayit_migrate address>" SITE_ENV=production npm run db:encrypt-fields
+   vercel env pull .env.production --environment=production
+   DOTENV_CONFIG_PATH=.env.production DATABASE_URL="<bayit_migrate address>" SITE_ENV=production npm run db:encrypt-fields -- --expect-key-id <id>
    SITE_ENV=production DATABASE_URL="<bayit_migrate address>" npm run db:seed
+   rm .env.production
    ```
+
+   `db:encrypt-fields` seals real data, so it must use the site's own `FIELD_ENCRYPTION_KEY`: the
+   pulled `.env.production` supplies it (`DOTENV_CONFIG_PATH`; without it `.env` would be read,
+   and in a codespace that holds the codespace's own key). The script refuses to start with a
+   missing or codespace ("BAYITDEV") key against a database that is not on this machine, prints the
+   database host, `SITE_ENV` and the key id first, and with `--expect-key-id` stops unless the key
+   id is the one you noted when you made the key (the 8 characters after `fe1:` in any sealed
+   value; the first run prints it). Run it from your own computer, never from the codespace.
 
    `prisma.config.ts` uses `MIGRATION_DATABASE_URL` for every `prisma` command when it is set.
    `db:encrypt-fields` and `db:seed` read `DATABASE_URL`, so they are given the migration address

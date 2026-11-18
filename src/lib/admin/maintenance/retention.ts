@@ -1,9 +1,11 @@
 import "server-only";
-import type { Prisma } from "@/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 import { VISIT_SET_ACTION } from "@/lib/admin/badges/server";
 import { LONG_STAY_REVIEWED_ACTION } from "@/lib/admin/server/guest-flags";
 import { dayToDate, isDay, tbilisiToday } from "@/lib/booking/dates";
 import { db } from "@/lib/db";
+import { deletePrivate } from "@/lib/storage";
+import { parseAttachments } from "@/lib/tickets/attachments";
 import {
   CASE_TEXT_RETENTION_DAYS,
   DEAD_PUSH_RETENTION_DAYS,
@@ -37,6 +39,7 @@ import {
  * | Expired login sessions (IP, browser)          | 30 days after they expired     | purgeExpiredSessions        |
  * | Support-ticket texts (subject, messages,      | 180 days after closing (ONE    | eraseClosedCaseTexts        |
  * | rating comment, a guest's name and email)     | clock, @/lib/retention-times)  |                             |
+ * | Support-ticket screenshots (files + list)     | 180 days after closing         | eraseClosedTicketAttachments|
  * | Report texts (details, staff notes)           | 180 days after the decision    | eraseClosedCaseTexts        |
  * | Report screenshots                            | 180 days after the decision    | src/lib/reports/retention   |
  * | Phone-line checks (PhoneLookup)               | 90 days                        | purgeOldPhoneLookups        |
@@ -89,8 +92,8 @@ const CANCELLED_STATUSES = ["CANCELLED_BY_GUEST", "CANCELLED_BY_HOST"] as const;
 /**
  * Founder's decision 9: on every booking whose check-out is at least 3 months ago (any status:
  * completed, no-show, cancelled), the guest's contact details are blanked — the name ("—", as
- * account deletion does), the phone (its encrypted copy and its lookup value: null; SECURITY_REPORT
- * 12.3.c), the message to the host and the free-text cancellation reason. A cancelled booking was finished when it was cancelled, so it is blanked 3 months after
+ * account deletion does), the phone (its encrypted copy, its lookup value and any legacy plain copy
+ * not moved yet: null; SECURITY_REPORT 12.3.c), the message to the host and the free-text cancellation reason. A cancelled booking was finished when it was cancelled, so it is blanked 3 months after
  * the cancellation even when its planned check-out is still ahead (a stay booked 11 months ahead
  * and cancelled the next day does not keep the guest's phone for 14 months; retention-cancelled-1).
  * Guest flags count cancellations by account, never by these fields, so they are not weakened.
@@ -110,13 +113,15 @@ export async function eraseOldGuestContacts(now: Date = new Date(), scope: Prism
             { guestName: { not: ERASED_GUEST_NAME } },
             { guestPhoneEnc: { not: null } },
             { guestPhoneLookup: { not: null } },
+            // A phone still in the legacy plain column (encrypt-fields not run yet, ops-ret-2).
+            { legacyGuestPhone: { not: null } },
             { messageToHost: { not: null } },
             { cancelReason: { not: null } },
           ],
         },
       ],
     },
-    data: { guestName: ERASED_GUEST_NAME, guestPhoneEnc: null, guestPhoneLookup: null, messageToHost: null, cancelReason: null },
+    data: { guestName: ERASED_GUEST_NAME, guestPhoneEnc: null, guestPhoneLookup: null, legacyGuestPhone: null, messageToHost: null, cancelReason: null },
   });
   return count;
 }
@@ -208,20 +213,73 @@ export async function purgeDeadPushSubscriptions(now: Date = new Date(), scope: 
  *     the ticket's number, category, status and dates stay for the counts;
  *   - reports RESOLVED or DISMISSED (handledAt): the reporter's details and the staff notes go;
  *     the reason, the kind, the decision and the action taken stay.
- * The report screenshots use the same clock (src/lib/reports/retention.ts). Idempotent.
+ * The report screenshots (src/lib/reports/retention.ts) and the ticket screenshots
+ * (eraseClosedTicketAttachments) use the same clock. Idempotent.
  */
-export async function eraseClosedCaseTexts(
-  now: Date = new Date(),
-  scope: { ticket?: Prisma.TicketWhereInput; report?: Prisma.ReportWhereInput } = {},
-): Promise<{ tickets: number; messages: number; reports: number }> {
+/** Tickets closed CASE_TEXT_RETENTION_DAYS ago (CLOSED, or RESOLVED with no change since). */
+function closedTicketsWhere(now: Date, scope: Prisma.TicketWhereInput = {}): Prisma.TicketWhereInput {
   const cutoff = new Date(now.getTime() - CASE_TEXT_RETENTION_DAYS * DAY_MS);
-  const closedTickets: Prisma.TicketWhereInput = {
-    ...scope.ticket,
+  return {
+    ...scope,
     OR: [
       { status: "CLOSED", closedAt: { lt: cutoff } },
       { status: "RESOLVED", updatedAt: { lt: cutoff }, lastMessageAt: { lt: cutoff } },
     ],
   };
+}
+
+const ATTACHMENT_BATCH = 200;
+
+/**
+ * The screenshots of closed support tickets (guest's and staff's), on the same clock as their
+ * texts (CASE_TEXT_RETENTION_DAYS after closing; the privacy text promises "texts and screenshots",
+ * ops-ret-1 / LP-4): every file is deleted from private storage, then TicketMessage.attachments
+ * becomes NULL — only for a message whose deletions ALL succeeded; a failure keeps the list, so the
+ * next run tries again (like the verification documents). Independent of the text erase, so a
+ * ticket whose texts are already "—" is still picked up. Idempotent.
+ */
+export async function eraseClosedTicketAttachments(
+  now: Date = new Date(),
+  scope: Prisma.TicketWhereInput = {},
+  remove: (key: string) => Promise<void> = deletePrivate,
+): Promise<{ messages: number; files: number; failed: number }> {
+  const cutoff = new Date(now.getTime() - CASE_TEXT_RETENTION_DAYS * DAY_MS);
+  // Erasing the texts moves a RESOLVED ticket's updatedAt: a ticket whose texts are already
+  // erased (and with no message since the cutoff) is due whatever its updatedAt says.
+  const due: Prisma.TicketWhereInput = {
+    OR: [closedTicketsWhere(now, scope), { ...scope, status: { in: ["CLOSED", "RESOLVED"] }, subject: ERASED_TEXT, lastMessageAt: { lt: cutoff } }],
+  };
+  const rows = await db.ticketMessage.findMany({
+    where: { ticket: due, NOT: [{ attachments: { equals: Prisma.AnyNull } }] },
+    select: { id: true, attachments: true },
+    orderBy: { createdAt: "asc" },
+    take: ATTACHMENT_BATCH,
+  });
+  let messages = 0;
+  let files = 0;
+  let failed = 0;
+  for (const row of rows) {
+    const keys = [...new Set(parseAttachments(row.attachments).map((a) => a.key))];
+    const results = await Promise.allSettled(keys.map((key) => remove(key)));
+    const errors = results.filter((r): r is PromiseRejectedResult => r.status === "rejected");
+    files += keys.length - errors.length;
+    if (errors.length > 0) {
+      failed++;
+      console.error(`[cleanup] could not delete the screenshots of ticket message ${row.id}:`, errors.map((e) => e.reason));
+      continue;
+    }
+    await db.ticketMessage.update({ where: { id: row.id }, data: { attachments: Prisma.DbNull } });
+    messages++;
+  }
+  return { messages, files, failed };
+}
+
+export async function eraseClosedCaseTexts(
+  now: Date = new Date(),
+  scope: { ticket?: Prisma.TicketWhereInput; report?: Prisma.ReportWhereInput } = {},
+): Promise<{ tickets: number; messages: number; reports: number }> {
+  const cutoff = new Date(now.getTime() - CASE_TEXT_RETENTION_DAYS * DAY_MS);
+  const closedTickets = closedTicketsWhere(now, scope.ticket);
   const due = await db.ticket.findMany({
     where: { AND: [closedTickets, { OR: [{ subject: { not: ERASED_TEXT } }, { guestEmail: { not: null } }, { guestName: { not: null } }, { ratingComment: { not: null } }] }] },
     select: { id: true },

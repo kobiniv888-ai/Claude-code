@@ -11,7 +11,7 @@ import { db } from "@/lib/db";
 import { guestPhoneLookups, openGuestPhone } from "@/lib/field-crypto";
 import { taintObject } from "@/lib/security/taint";
 import { parseBookingSearch, stayOverlap, type AdminBookingStatus } from "../booking-search";
-import { bookingFlagKind, hoursFromBookingToCancel } from "../flags";
+import { bookingFlagKind, hoursFromBookingToCancel, type BookingFlagKind } from "../flags";
 import { pageInfo } from "../params";
 import { canSeeGuestPhone, canSeeReporter, guestWithheldFor, staffPhone, type StaffPhone, type StaffViewer } from "../staff-visibility";
 import { HOST_UNREACHABLE_ACTION } from "./attention";
@@ -112,7 +112,7 @@ export type AdminBookingListRow = {
   total: number;
   currency: CurrencyCode;
   createdAt: Date;
-  flag: "host_cancellation" | "no_show" | null;
+  flag: BookingFlagKind | null;
   flagOpen: boolean;
   reportCount: number;
   /** Null when withheld: the booking has a turned-away report and the viewer may not see its sender (Q12). */
@@ -142,6 +142,7 @@ export async function searchBookings(filters: BookingSearchFilters, requestedPag
       total: true,
       currency: true,
       createdAt: true,
+      cancelReasonCode: true,
       flaggedForReview: true,
       flagReviewedAt: true,
       guestName: true,

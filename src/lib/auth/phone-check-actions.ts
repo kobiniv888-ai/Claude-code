@@ -7,6 +7,7 @@ import { z } from "zod";
 import { fail, ok, runAction, type ActionResult } from "@/lib/action";
 import { INSTANT_DEAL_TYPES } from "@/lib/booking/constants";
 import { db } from "@/lib/db";
+import { recordSecurityEvent } from "@/lib/security/events";
 import { demoAllowed } from "@/lib/site-env";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { codeDisplayForHeaders } from "./code-display";
@@ -151,7 +152,7 @@ async function sessionBinding(user: { id: string; sessionId: string }, phoneNumb
 
 export async function sendPhoneCheckCode(input: unknown): Promise<ActionResult<PhoneCodeSent>> {
   return runAction<PhoneCodeSent>(async () => {
-    const user = await requireUserForAction();
+    const user = await requireUserForAction({ terms: false });
     // Every account has an email first (founder's answer (5)): the email route never depends on texts.
     requireAccountEmail(user);
     const parsed = sendSchema.safeParse(input);
@@ -184,6 +185,12 @@ export async function sendPhoneCheckCode(input: unknown): Promise<ActionResult<P
     const step = phoneCheckStep(user, phoneNumber, { usedByAnotherAccount: !!other });
     if (step === "already_verified") return ok({ status: "already_verified", phoneNumber });
     const neutral = step === "send_neutral";
+    // Staff can see the conflict (a reassigned SIM still held by an old account: S2 review FC-3):
+    // this account and the other one, never the number. Not awaited, so the answer's timing stays
+    // like a free number's; recordSecurityEvent never throws.
+    if (neutral && other) {
+      void recordSecurityEvent({ type: "phone_check_number_taken", userId: user.id, meta: { otherUserId: other.id } });
+    }
 
     const requestHeaders = await headers();
     if ((await phoneCodeRoute(phoneNumber, requestHeaders)) === "unavailable") return fail("phone_check_unavailable");
@@ -209,7 +216,7 @@ export async function sendPhoneCheckCode(input: unknown): Promise<ActionResult<P
 
 export async function confirmPhoneCheckCode(input: unknown): Promise<ActionResult<{ phoneNumber: string }>> {
   return runAction(async () => {
-    const user = await requireUserForAction();
+    const user = await requireUserForAction({ terms: false });
     requireAccountEmail(user);
     const parsed = confirmSchema.safeParse(input);
     if (!parsed.success) return fail("invalid_code");

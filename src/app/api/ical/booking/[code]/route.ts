@@ -36,7 +36,8 @@ export async function GET(request: Request, context: Context) {
 
   let user: CurrentUser;
   try {
-    user = await requireUserForAction();
+    // Read-only (the guest's own booking): not behind the Terms gate (S2 review LP-1).
+    user = await requireUserForAction({ terms: false });
   } catch {
     return plain(401, "Sign in to download this booking");
   }

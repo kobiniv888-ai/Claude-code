@@ -177,6 +177,8 @@ const reviewSelect = {
   id: true,
   publicId: true,
   ownerId: true,
+  // The copied-description check compares within the listing's city, as the risk engine does (TS-13).
+  cityId: true,
   status: true,
   dealType: true,
   propertyType: true,

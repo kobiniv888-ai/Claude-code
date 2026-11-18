@@ -102,4 +102,33 @@ describe("deleting an account", () => {
     expect(await db.termsAcceptance.count({ where: { userId: securityUserId } })).toBe(0);
     expect(await db.securityEvent.findUniqueOrThrow({ where: { id: securityEventId } })).toMatchObject({ type: "sensitive_change", userId: null });
   });
+
+  it("removes the phone's line-type lookup and the email log's copies, keeping only the deletion confirmation (S2 review LP-7)", async () => {
+    const id = `${prefix}-lp7`;
+    const phone = `+99559${String(Date.now() % 1_000_000).padStart(6, "0")}7`;
+    const address = `${id}@example.com`;
+    const contact = `${id}-contact@example.com`;
+    await db.user.create({ data: { id, name: "LP7 Test", email: address, contactEmail: contact, phoneNumber: phone, phoneNumberVerified: true } });
+    await db.phoneLookup.create({ data: { phoneNumber: phone, lineType: "mobile" } });
+    const mail = (to: string, template: string) => ({ to, template, locale: "en" as const, subject: "s", html: "<p>Dana, booking BT-AAAAA</p>" });
+    await db.emailOutbox.createMany({
+      data: [mail(address, "booking_confirmed_guest"), mail(contact.toUpperCase(), "welcome"), mail(address, "account_deleted"), mail(`${id}-other@example.com`, "welcome")],
+    });
+    try {
+      await deleteAccountData(id);
+      expect(await db.phoneLookup.count({ where: { phoneNumber: phone } })).toBe(0);
+      const left = await db.emailOutbox.findMany({ where: { to: { contains: id, mode: "insensitive" } }, select: { to: true, template: true } });
+      expect(left).toHaveLength(2);
+      expect(left).toEqual(
+        expect.arrayContaining([
+          { to: address, template: "account_deleted" },
+          { to: `${id}-other@example.com`, template: "welcome" },
+        ]),
+      );
+    } finally {
+      await db.emailOutbox.deleteMany({ where: { to: { contains: id, mode: "insensitive" } } });
+      await db.phoneLookup.deleteMany({ where: { phoneNumber: phone } });
+      await db.user.deleteMany({ where: { id } });
+    }
+  });
 });

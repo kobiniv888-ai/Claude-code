@@ -251,6 +251,12 @@ order. The detailed steps and prices are in "Login & messages" below.
       to draft for the lawyer: the Amendment 13 risk assessment and the written data-security
       policy (SECURITY_REPORT 15.1, 15.2), and whether inactive accounts should be deleted after
       3 years (it needs a database change first).
+- [ ] **Ask the lawyer which Georgian authority receives breach reports and complaints** (checklist
+      15.3: the personal-data authority's work moved to the **State Audit Office** in March 2026).
+      INCIDENT_PLAN.md and the privacy policy now name the State Audit Office's personal-data
+      protection unit, with a `<todo>` for the exact unit and its incident-report form or address.
+      Fill it in before launch (a real-site build is refused while any legal `<todo>` is left:
+      see "Review of S2" below).
 - [ ] **Ask the lawyer: "the shortest safe time" to keep the texts of closed cases** (your answer
       7 of 9 November 2026). Support-ticket texts, report texts and report screenshots are erased
       on ONE clock, today **180 days after the ticket was closed or the report decided** (an
@@ -295,7 +301,11 @@ order. The detailed steps and prices are in "Login & messages" below.
          Backblaze's command-line tool, with the developer (the exact command is in
          `docs/BACKUPS.md`, "Set up the off-site copy", step 3). Give it only to the backup job
          (hosting settings `OFFSITE_S3_*`). Never use the account's master key there. Old backups
-         go by a **lifecycle rule** on the bucket (hide after 90 days), not by the key.
+         go by a **lifecycle rule** on the bucket (hide after the lock days + 1, i.e. **61**
+         with the default 60; delete 1 day after hiding), not by the key. The privacy policy
+         promises "deleted after 62 days", and the weekly job alerts you when an older copy is
+         still there. Also set `DATABASE_RESTORE_DAYS` at the hosting to your Neon plan's
+         restore window (history retention); the privacy policy quotes it (default 7).
       5. Keep the account's recovery codes offline, like your other 2-step codes.
       6. **The backup encryption key** (`BACKUP_ENCRYPTION_KEY`): make it with
          `openssl rand -base64 32`, save it in your password manager **and on paper in a safe
@@ -347,7 +357,11 @@ order. The detailed steps and prices are in "Login & messages" below.
       Client Keys → copy the DSN (its host ends in `.ingest.de.sentry.io`) into `SENTRY_DSN` at
       the hosting. The real site does not start without it, and warns when it is not the EU
       region. Then Alerts → a rule "a new issue / more than 20 events in an hour → email me"
-      (error spikes).
+      (error spikes). The site's own hourly alert also tells you by email and Telegram when more
+      than 20 server errors happen in an hour (`error_spike`), with or without this rule.
+- [ ] **Domain: turn on auto-renew at the registrar** and keep the registrar's expiry emails going
+      to an address you read. The hourly security alert also checks the registration date once a
+      day (RDAP) and warns 30 days before it ends (`domain_expiry`), where the registry publishes it.
 - [ ] **A free uptime monitor** (UptimeRobot or Better Stack): check `https://<domain>/he` and
       `https://<domain>/api/health` every 5 minutes, alert by email and the phone app.
 - [ ] **Telegram for security alerts.** The hourly security alerts go by email (`ADMIN_ALERT_EMAIL`)
@@ -402,8 +416,33 @@ order. The detailed steps and prices are in "Login & messages" below.
       the stored walking times so no Chabad house counts as a walk.
 - [ ] **Never copy keys from the codespace.** The codespace now marks every key it makes for
       itself (`bayit-dev-…` or a hidden `BAYITDEV` inside 32-byte keys); a staging or real site
-      refuses to start with a marked key. Keys made before this change carry no mark: they are
-      still development keys, never use them anywhere else.
+      refuses to start with a marked key. Keys made before this change are re-marked the next
+      time the codespace starts; either way, they are development keys, never use them anywhere
+      else.
+
+## Review of S2 (18 November 2026): what only you can do
+
+- [ ] **Answer the new questions** in SECURITY_REPORT section 6, table "New after the review of
+      S2": the legal-draft deploy block, the phone number held by an old account (3.1.d, pick (a)
+      or (b)), the disputed "host asked me" outcome, names like "Jean.Pierre", Bit/PayBox "on
+      arrival", 240 listing pages in 10 minutes, the Terms re-ask, the two new alert thresholds,
+      staging as the database owner, and the optional backup key design.
+- [ ] **The real site cannot be deployed until the legal drafts are finished.** About 80
+      `<todo>` parts are left in the privacy, Terms, cookie and accessibility drafts (company
+      details, the lawyer's wording, the State Audit Office unit, the countries of the 360-tour
+      sites Kuula, Momento360 and Roundme). A real-site build stops and lists the missing parts by
+      name. Plan the lawyer's review before the launch date.
+- [ ] **Create the two database roles only with `scripts/sql/roles.sql`** (docs/DATABASE_ROLES.md),
+      never in the Neon Console, CLI or API: Neon makes those roles members of `neon_superuser`,
+      and the real site now refuses to start when its database role can change tables or has
+      such rights.
+- [ ] **Encrypting or re-keying the real database: always from your own computer** with the real
+      settings pulled into a file (`vercel env pull .env.production`), and with
+      `--expect-key-id` (docs/security/field-encryption.md). The command now shows which database
+      and key it will use and refuses a codespace key.
+- [ ] **Optional extra:** a Vercel Firewall rate rule on listing and search pages. The site now
+      limits listing pages itself (240 per connection in 10 minutes), so this is no longer
+      needed for launch.
 
 ## Login & messages (the details)
 How people log in: **Google** (when set up), a **6-digit code by email** (always), and — only on

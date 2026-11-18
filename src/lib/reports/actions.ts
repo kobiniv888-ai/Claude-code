@@ -20,11 +20,11 @@ import { fail, ok, runAction, type ActionResult } from "@/lib/action";
 import { linkDevice } from "@/lib/auth/hooks";
 import { requireUserForAction } from "@/lib/auth/session";
 import { tbilisiToday } from "@/lib/booking/dates";
-import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { applyReport } from "@/lib/listing/lifecycle";
 import { assertRateLimit } from "@/lib/rate-limit";
 import { assertTurnstile } from "@/lib/turnstile";
+import { lockReporter } from "./lock";
 import { notifyFounderOfReport, sendReportConfirmation } from "./notify";
 import { reportInputSchema } from "./schemas";
 import { happenedOnProblem, turnedAwayInputSchema } from "./turned-away";
@@ -33,16 +33,6 @@ import { checkReportAttachments, resolveTurnedAwayTarget } from "./turned-away-s
 const DAY = 24 * 3600;
 const userIdSchema = z.string().trim().min(1).max(64);
 
-/**
- * Serialises one reporter's report submits: a second submit waits here until the first one's
- * transaction ends, then sees its report. There is no database constraint for "one open report
- * per target" (a report can be decided and a new one sent), so the check and the insert must not
- * interleave. FOR NO KEY UPDATE: it waits only for another lockReporter, not for rows elsewhere
- * that merely reference the user (their foreign-key checks take a key-share lock).
- */
-async function lockReporter(tx: Prisma.TransactionClient, userId: string): Promise<void> {
-  await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${userId} FOR NO KEY UPDATE`;
-}
 
 export async function createReport(input: unknown): Promise<ActionResult> {
   return runAction(async () => {

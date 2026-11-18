@@ -45,6 +45,7 @@ const { sendPhoneCheckCode, confirmPhoneCheckCode } = await import("@/lib/auth/p
 const { phoneOtpIdentifier } = await import("@/lib/auth/phone-code");
 const { markFreshProof } = await import("@/lib/auth/fresh-proof");
 const { freshProofKey } = await import("@/lib/auth/fresh-proof-rules");
+const { hmacHash } = await import("@/lib/crypto");
 
 const tag = randomInt(1e9);
 const fakeNumber = (prefix: string) => `+9725000${prefix}${String(randomInt(10_000)).padStart(4, "0")}`;
@@ -83,7 +84,17 @@ afterAll(async () => {
       ],
     },
   });
-  await db.rateLimit.deleteMany({ where: { OR: [{ key: { contains: ipHash } }, { key: { contains: A.id } }, { key: { contains: V.id } }] } });
+  await db.rateLimit.deleteMany({
+    where: {
+      OR: [
+        { key: { contains: ipHash } },
+        { key: { contains: A.id } },
+        { key: { contains: V.id } },
+        // The per-number send window is keyed by a hash of the number, not the IP or the account.
+        { key: { in: [N, N2, M].map((n) => `auth:otp-send:phone:${hmacHash(`phone:${n}`)}`) } },
+      ],
+    },
+  });
   await db.securityEvent.deleteMany({ where: { userId: { in: [A.id, V.id] } } });
   await db.session.deleteMany({ where: { userId: { in: [A.id, V.id] } } });
   await db.user.deleteMany({ where: { id: { in: [A.id, V.id] } } });

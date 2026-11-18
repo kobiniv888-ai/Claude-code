@@ -213,6 +213,27 @@ describe("auto-saves of a LIVE listing can't add an error (mistake-2)", () => {
     expect((await actions.updateDraft(draft, "location", { address: "" })).ok).toBe(true);
   });
 
+  it("payment or contact details in the exact address are refused and flagged; a normal address saves (S2 review TS-8)", async () => {
+    const draft = await listing();
+    expect(await actions.updateDraft(draft, "location", { address: "Rustaveli 5 - before arrival pay the deposit: paypal.me/x" })).toEqual({
+      ok: false,
+      error: "payment_in_text",
+      fieldErrors: { address: ["paymentInText"] },
+    });
+    const flag = await db.report.findFirst({ where: { listingId: draft, reporterId: null, details: { contains: "surface=listing_text " } } });
+    expect(flag).toMatchObject({ targetType: "LISTING", reason: "ASKED_MONEY_UPFRONT" });
+    expect(await actions.updateDraft(draft, "location", { address: "Rustaveli 5, WhatsApp +995 555 12 34 56" })).toEqual({
+      ok: false,
+      error: "contact_in_text",
+      fieldErrors: { address: ["contactInText"] },
+    });
+    expect(openListingLocation(await db.listing.findUniqueOrThrow({ where: { id: draft } }), "test").address).toBe("Fake street 1, apt 2");
+    expect((await actions.updateDraft(draft, "location", { address: "Rustaveli 12, apt 5" })).ok).toBe(true);
+    expect(openListingLocation(await db.listing.findUniqueOrThrow({ where: { id: draft } }), "test").address).toBe("Rustaveli 12, apt 5");
+    await db.report.deleteMany({ where: { listingId: draft } });
+    await db.securityEvent.deleteMany({ where: { userId: users.owner } });
+  });
+
   it("deleting a photo below the minimum is refused (the 6th goes, the 5th stays)", async () => {
     const listingId = await listing({ status: "LIVE" }, 6);
     const photos = await db.listingPhoto.findMany({ where: { listingId }, orderBy: { sortOrder: "asc" } });

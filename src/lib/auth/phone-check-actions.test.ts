@@ -29,6 +29,8 @@ const state = vi.hoisted(() => ({
   /** Whether each send ran inside the neutral context (no text). */
   neutralSends: [] as boolean[],
   screenCodes: true,
+  /** Security events recorded (type, userId, meta). */
+  events: [] as { type: string; userId?: string | null; meta?: Record<string, unknown> }[],
   /** Verification rows by identifier (the session bindings). */
   verifications: new Map<string, { value: string; expiresAt: Date; createdAt: Date }>(),
 }));
@@ -78,6 +80,12 @@ vi.mock("./fresh-proof", async () => {
 });
 vi.mock("./fresh-proof-rules", () => ({ isPhoneReplacement: () => state.replacement }));
 vi.mock("./phone-change", () => ({ afterPhoneChanged: async () => {} }));
+vi.mock("@/lib/security/events", () => ({
+  recordSecurityEvent: async (event: { type: string; userId?: string | null; meta?: Record<string, unknown> }) => {
+    state.events.push(event);
+    return true;
+  },
+}));
 vi.mock("@/lib/turnstile", () => ({ verifyTurnstile: async () => state.captchaOk }));
 vi.mock("./login-rate-limit", () => ({
   limitLoginCodeChecks: async () => true,
@@ -143,6 +151,7 @@ describe("sendPhoneCheckCode", () => {
     state.newHostLimit.mockClear();
     state.verifications.clear();
     state.neutralSends.length = 0;
+    state.events.length = 0;
     state.screenCodes = true;
     state.user = { id: "me", sessionId: "session-me", email: "me@example.com", phoneNumber: "+995555000099", phoneNumberVerified: true };
   });
@@ -177,6 +186,17 @@ describe("sendPhoneCheckCode", () => {
     expect(state.neutralSends).toEqual([true, false]);
     // The session may confirm either one (the confirm then fails like a wrong code for the taken one).
     expect(state.verifications.has(phoneCheckBindingKey("session-me", NUMBER))).toBe(true);
+  });
+
+  it("a number another account has leaves exactly one event for staff, with both accounts and never the number (S2 review FC-3)", async () => {
+    await sendPhoneCheckCode({ phoneNumber: NUMBER, ...BOOKING });
+    expect(state.events).toEqual([{ type: "phone_check_number_taken", userId: "me", meta: { otherUserId: "someone-else" } }]);
+    expect(JSON.stringify(state.events)).not.toContain(NUMBER.slice(4));
+    // A free number: no event.
+    state.otherAccount = false;
+    state.events.length = 0;
+    await sendPhoneCheckCode({ phoneNumber: NUMBER, ...BOOKING });
+    expect(state.events).toEqual([]);
   });
 
   it("test mode never shows a code for a number another account has", async () => {

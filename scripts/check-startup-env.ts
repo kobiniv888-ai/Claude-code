@@ -9,9 +9,12 @@
  * setting changed after the build is still caught.
  */
 import "dotenv/config";
+import { readSiteEnv } from "../src/lib/site-env";
 import { formatStartupProblems, startupProblems, startupWarnings } from "../src/lib/startup-check";
+import { legalStartupProblems } from "../src/lib/startup-check-legal";
 
-const problems = startupProblems(process.env);
+// The legal drafts' <todo> parts never reach the real site (19.e, TS-15).
+const problems = [...startupProblems(process.env), ...legalStartupProblems(readSiteEnv(process.env))];
 if (problems.length > 0) {
   console.error(`\n${formatStartupProblems(problems)}\n`);
   process.exit(1);

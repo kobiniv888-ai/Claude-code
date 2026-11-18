@@ -7,6 +7,11 @@
 # - a throwaway FIELD_ENCRYPTION_KEY (the key of the encrypted addresses, pins and guest phones,
 #   src/lib/field-crypto.ts) when .env has none: made on this machine, marked as a development key
 #   (src/lib/dev-keys.ts), never committed, never printed
+# - the other throwaway secrets the codespace makes for itself (BETTER_AUTH_SECRET, HASH_SALT,
+#   CRON_SECRET, APP_ENCRYPTION_KEY) carry the same mark: a value made before the mark existed (a
+#   codespace older than 14 November) is replaced by a marked one on the next start, so a copied
+#   .env always stops a staging or production start (SECURITY_REPORT 2.4.h, 12.2.b). A Codespaces
+#   secret of the same name is left alone (it is read from the environment)
 # Service keys (map, translation, email, Google login, SMS, Telegram) and the PRIVATE admin
 # settings (BAYIT_ADMIN_EMAIL, BAYIT_ADMIN_PHONE, ADMIN_ALERT_EMAIL) are Codespaces secrets: the
 # codespace puts them in the environment of every process, and the website and the scripts read
@@ -40,6 +45,52 @@ CODESPACE_SECRET_NAMES="SITE_URL NEXT_PUBLIC_MAP_TILE_KEY TRANSLATE_PROVIDER GOO
   TELEGRAM_BOT_TOKEN TELEGRAM_BOT_USERNAME TELEGRAM_WEBHOOK_SECRET \
   BAYIT_ADMIN_EMAIL BAYIT_ADMIN_PHONE ADMIN_ALERT_EMAIL"
 
+# The throwaway secrets the codespace makes for itself and the kind of each (text / 32-byte key).
+CODESPACE_DEV_TEXT_SECRETS="BETTER_AUTH_SECRET HASH_SALT CRON_SECRET"
+CODESPACE_DEV_KEYS="APP_ENCRYPTION_KEY"
+
+env_value() { # env_value NAME — the value in .env without quotes (empty when missing); never printed by callers
+  local line
+  line=$(grep -m1 "^${1}=" .env 2>/dev/null) || return 0
+  line="${line#*=}"
+  line="${line%\"}"; line="${line#\"}"
+  line="${line%\'}"; line="${line#\'}"
+  printf '%s' "$line"
+}
+
+is_marked_dev_value() { # is_marked_dev_value VALUE — same rule as isMarkedDevKey (src/lib/dev-keys.ts)
+  local value="$1" head
+  case "$value" in
+    [Bb][Aa][Yy][Ii][Tt]-[Dd][Ee][Vv]-*) return 0 ;;
+  esac
+  [[ "$value" =~ ^[A-Za-z0-9+/]+={0,2}$ ]] || return 1
+  head=$(printf '%s' "$value" | base64 -d 2>/dev/null | head -c 8)
+  [ "$head" = "BAYITDEV" ]
+}
+
+new_dev_text_secret() { echo "bayit-dev-$(node -e "console.log(require('crypto').randomBytes(32).toString('base64'))")"; }
+new_dev_key() { node -e "const c=require('crypto');console.log(Buffer.concat([Buffer.from('BAYITDEV'),c.randomBytes(24)]).toString('base64'))"; }
+
+remark_dev_secrets() { # replaces unmarked throwaway secrets in .env with marked ones; prints names only
+  local name value
+  for name in $CODESPACE_DEV_TEXT_SECRETS $CODESPACE_DEV_KEYS; do
+    [ -n "${!name:-}" ] && continue          # a Codespaces secret: read from the environment, not ours
+    value=$(env_value "$name")
+    [ -n "$value" ] || continue              # not set: nothing to mark (setup.sh makes the required ones)
+    is_marked_dev_value "$value" && continue
+    case " $CODESPACE_DEV_KEYS " in
+      *" $name "*)
+        set_env "$name" "$(new_dev_key)"
+        echo "Replaced ${name} in .env with a marked development key. Development Google tokens and staff 2-step secrets made with the old key can no longer be read: re-run npm run db:seed and set up the 2-step login again (fake data only)."
+        ;;
+      *)
+        set_env "$name" "$(new_dev_text_secret)"
+        echo "Replaced ${name} in .env with a marked development secret (development sessions and codes made with the old one stop working; sign in again)."
+        ;;
+    esac
+  done
+}
+
 sync_env() {
   [ -f .env ] || return 0
   chmod 600 .env 2>/dev/null || true
@@ -51,6 +102,7 @@ sync_env() {
     set_env FIELD_ENCRYPTION_KEY "$(node -e "const c=require('crypto');console.log(Buffer.concat([Buffer.from('BAYITDEV'),c.randomBytes(24)]).toString('base64'))")"
     echo "Set a development FIELD_ENCRYPTION_KEY in .env (npm run db:encrypt-fields re-seals values made before with the derived key)"
   fi
+  remark_dev_secrets
   if [ -n "${CODESPACE_NAME:-}" ] && [ -n "${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-}" ]; then
     local url="https://${CODESPACE_NAME}-3000.${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN}"
     if ! grep -q "^NEXT_PUBLIC_SITE_URL=\"${url}\"" .env; then

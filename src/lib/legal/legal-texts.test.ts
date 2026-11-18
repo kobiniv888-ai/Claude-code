@@ -97,13 +97,23 @@ describe("cookie policy and the account-deletion text", () => {
       securityDays: "90",
       auditDays: "365",
       deviceDays: "365",
-      backupDays: "60",
+      // 60 days locked + hidden 1 day after the lock + deleted 1 day after hiding (S2 review LP-3).
+      backupDays: "62",
+      restoreDays: "7",
       minAge: "18",
     });
-    expect(retentionFacts({ OFFSITE_RETENTION_DAYS: "90" }).backupDays).toBe("90");
-    // The policy's default backup time is the backup job's default.
-    const { DEFAULT_OFFSITE_RETENTION_DAYS } = await import("@/lib/admin/maintenance/offsite-config");
-    expect(facts.backupDays).toBe(String(DEFAULT_OFFSITE_RETENTION_DAYS));
+    expect(retentionFacts({ OFFSITE_RETENTION_DAYS: "90" }).backupDays).toBe("92");
+    // An invalid lock period (the job refuses 500: at most 365) is never quoted: the default is.
+    expect(retentionFacts({ OFFSITE_RETENTION_DAYS: "500" }).backupDays).toBe("62");
+    expect(retentionFacts({ DATABASE_RESTORE_DAYS: "30" }).restoreDays).toBe("30");
+    expect(retentionFacts({ DATABASE_RESTORE_DAYS: "abc" }).restoreDays).toBe("7");
+    // The quoted time covers the lock and the lifecycle rule docs/BACKUPS.md asks for.
+    const { DEFAULT_OFFSITE_RETENTION_DAYS, OFFSITE_LIFECYCLE_HIDE_MARGIN_DAYS, OFFSITE_LIFECYCLE_DELETE_AFTER_HIDE_DAYS } = await import(
+      "@/lib/admin/maintenance/offsite-config"
+    );
+    expect(Number(facts.backupDays)).toBeGreaterThanOrEqual(DEFAULT_OFFSITE_RETENTION_DAYS + OFFSITE_LIFECYCLE_HIDE_MARGIN_DAYS + OFFSITE_LIFECYCLE_DELETE_AFTER_HIDE_DAYS);
+    const { readFileSync } = await import("node:fs");
+    expect(readFileSync("docs/BACKUPS.md", "utf8")).toMatch(/hide after \*\*the lock days \+ 1\*\*/);
   });
 });
 

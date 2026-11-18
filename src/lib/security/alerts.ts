@@ -44,6 +44,9 @@ export type SecurityAlertsState = {
   lastSent?: Partial<Record<string, string>>;
   certCheckedAt?: string;
   certDaysLeft?: number | null;
+  /** The daily domain registration check (RDAP), like the certificate. */
+  domainCheckedAt?: string;
+  domainDaysLeft?: number | null;
   /** Late support tickets already reported: ticket id → its waitingSince (ISO). */
   supportAlerted?: SupportAlerted;
 };
@@ -61,6 +64,8 @@ function parseState(value: unknown): SecurityAlertsState {
     lastSent: raw.lastSent && typeof raw.lastSent === "object" ? raw.lastSent : {},
     certCheckedAt: typeof raw.certCheckedAt === "string" ? raw.certCheckedAt : undefined,
     certDaysLeft: typeof raw.certDaysLeft === "number" ? raw.certDaysLeft : null,
+    domainCheckedAt: typeof raw.domainCheckedAt === "string" ? raw.domainCheckedAt : undefined,
+    domainDaysLeft: typeof raw.domainDaysLeft === "number" ? raw.domainDaysLeft : null,
     supportAlerted:
       raw.supportAlerted && typeof raw.supportAlerted === "object" && !Array.isArray(raw.supportAlerted)
         ? Object.fromEntries(Object.entries(raw.supportAlerted).filter(([, v]) => typeof v === "string"))
@@ -78,11 +83,17 @@ async function writeState(state: SecurityAlertsState): Promise<void> {
   await db.siteSetting.upsert({ where: { key: SECURITY_ALERTS_STATE_KEY }, create: { key: SECURITY_ALERTS_STATE_KEY, value }, update: { value } });
 }
 
-/** The start of this run's window: the last run (when recent), at least an hour back. */
+/**
+ * The start of this run's window: back to the last run (a missed or undelivered run is covered),
+ * at least an hour back, and never more than MAX_WINDOW_MS (3 hours) back: after a longer cron gap
+ * the window is clamped to 3 hours, not dropped to the last hour (ops-alerts-3).
+ */
 export function windowStart(now: Date, lastRunAt: string | undefined): Date {
   const hourAgo = new Date(now.getTime() - SECURITY_ALERT_WINDOW_MINUTES * 60_000);
+  const floor = new Date(now.getTime() - MAX_WINDOW_MS);
   const last = lastRunAt ? new Date(lastRunAt) : null;
-  if (!last || Number.isNaN(last.getTime()) || now.getTime() - last.getTime() > MAX_WINDOW_MS) return hourAgo;
+  if (!last || Number.isNaN(last.getTime())) return hourAgo;
+  if (last < floor) return floor;
   return last < hourAgo ? last : hourAgo;
 }
 
@@ -199,6 +210,52 @@ function certificateHost(): string | null {
   }
 }
 
+/** Second-level labels under which a registrable domain has three labels ("bayit.com.ge"). */
+const SECOND_LEVEL = new Set(["com", "org", "net", "edu", "gov", "co", "ac", "mil", "pvt", "school"]);
+
+/** "www.bayit.ge" → "bayit.ge"; "x.bayit.co.il" → "bayit.co.il". Pure; null for a bare TLD. */
+export function registrableDomain(host: string): string | null {
+  const labels = host.trim().toLowerCase().replace(/\.$/, "").split(".").filter(Boolean);
+  if (labels.length < 2) return null;
+  const take = labels.length >= 3 && SECOND_LEVEL.has(labels[labels.length - 2]!) ? 3 : 2;
+  return labels.slice(-take).join(".");
+}
+
+/** Days until the RDAP "expiration" event of an RDAP domain answer (null when there is none). Pure. */
+export function rdapExpiryDaysLeft(body: unknown, now: Date): number | null {
+  if (!body || typeof body !== "object") return null;
+  const events = (body as { events?: unknown }).events;
+  if (!Array.isArray(events)) return null;
+  for (const event of events) {
+    if (!event || typeof event !== "object") continue;
+    const { eventAction, eventDate } = event as { eventAction?: unknown; eventDate?: unknown };
+    if (eventAction !== "expiration" || typeof eventDate !== "string") continue;
+    const end = Date.parse(eventDate);
+    if (Number.isFinite(end)) return Math.floor((end - now.getTime()) / 86_400_000);
+  }
+  return null;
+}
+
+/**
+ * Days until the domain registration ends, from RDAP (rdap.org forwards to the registry's own
+ * RDAP server). Null when it cannot be read (no RDAP for the TLD, a timeout): then only the
+ * registrar's own expiry emails and auto-renew protect it (OWNER_TODO). Never throws.
+ */
+export async function domainDaysLeft(domain: string, now: Date = new Date(), timeoutMs = 8000): Promise<number | null> {
+  try {
+    const res = await fetch(`https://rdap.org/domain/${encodeURIComponent(domain)}`, {
+      headers: { accept: "application/rdap+json, application/json" },
+      redirect: "follow",
+      signal: AbortSignal.timeout(timeoutMs),
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    return rdapExpiryDaysLeft(await res.json(), now);
+  } catch {
+    return null;
+  }
+}
+
 /** Where founder alerts go on Telegram: ADMIN_ALERT_TELEGRAM_CHAT_ID (private setting), else the admins who connected the bot. */
 export async function founderTelegramChats(env: NodeJS.ProcessEnv = process.env): Promise<{ chatId: string; locale: AppLocale }[]> {
   const configured = (env.ADMIN_ALERT_TELEGRAM_CHAT_ID ?? "")
@@ -236,6 +293,7 @@ export type SecurityAlertsDeps = {
   collect?: (since: Date, now: Date, opts: { certificateDaysLeft?: number | null }) => Promise<SecuritySignals>;
   deliver?: (alerts: SecurityAlert[], windowMinutes: number, now: Date) => Promise<{ email: boolean; telegram: number }>;
   checkCertificate?: (host: string, now: Date) => Promise<number | null>;
+  checkDomain?: (domain: string, now: Date) => Promise<number | null>;
   certificateHost?: () => string | null;
   waitingTickets?: () => Promise<WaitingTicket[]>;
 };
@@ -259,30 +317,44 @@ export async function runSecurityAlerts(deps: SecurityAlertsDeps = {}): Promise<
     certCheckedAt = now.toISOString();
   }
 
+  // The domain registration (16.3 "domain expiry"): once a day, on the real site only.
+  let domainDays = state.domainDaysLeft ?? null;
+  let domainCheckedAt = state.domainCheckedAt;
+  const domain = host ? registrableDomain(host) : null;
+  if (domain && (!domainCheckedAt || now.getTime() - Date.parse(domainCheckedAt) >= 24 * 3600 * 1000)) {
+    domainDays = await (deps.checkDomain ?? domainDaysLeft)(domain, now);
+    domainCheckedAt = now.toISOString();
+  }
+
   // Support tickets late for the reply promise, each reported once per waiting spell.
   const supportAlerted = state.supportAlerted ?? {};
   const overdue = overdueTickets(await (deps.waitingTickets ?? waitingSupportTickets)(), now);
   const lateNew = newlyOverdue(overdue, supportAlerted);
 
   const signals = await (deps.collect ?? collectSecuritySignals)(since, now, { certificateDaysLeft: host ? certDaysLeft : null });
-  const alerts = evaluateSecurityAlerts({ ...signals, supportOverdue: lateNew.map((ticket) => ticket.number) });
+  const windowMinutes = Math.max(SECURITY_ALERT_WINDOW_MINUTES, Math.round((now.getTime() - since.getTime()) / 60_000));
+  // The per-hour thresholds scale with a window longer than an hour (LP-10).
+  const alerts = evaluateSecurityAlerts({ ...signals, windowMinutes, domainDaysLeft: domain ? domainDays : null, supportOverdue: lateNew.map((ticket) => ticket.number) });
   const due = dueAlerts(alerts, state.lastSent ?? {}, now);
   const lastSent = { ...(state.lastSent ?? {}) };
   let delivery: { email: boolean; telegram: number } | undefined;
   let accepted = false;
   if (due.length) {
-    const minutes = Math.max(SECURITY_ALERT_WINDOW_MINUTES, Math.round((now.getTime() - since.getTime()) / 60_000));
-    delivery = await (deps.deliver ?? deliverSecurityAlerts)(due, minutes, now);
+    delivery = await (deps.deliver ?? deliverSecurityAlerts)(due, windowMinutes, now);
     // Nothing accepted it (no email and no Telegram): the same alerts go again next hour.
     accepted = delivery.email || delivery.telegram > 0;
     if (accepted) for (const alert of due) lastSent[alert.kind] = now.toISOString();
   }
   const supportSent = accepted && due.some((alert) => alert.kind === "support_overdue") ? lateNew : [];
   await (deps.writeState ?? writeState)({
-    lastRunAt: now.toISOString(),
+    // An alert no channel accepted: the next window starts where this one began, so the events
+    // are counted (and sent) again (ops-alerts-2; still at most MAX_WINDOW_MS back).
+    lastRunAt: due.length && !accepted ? (state.lastRunAt ?? since.toISOString()) : now.toISOString(),
     lastSent,
     certCheckedAt,
     certDaysLeft,
+    domainCheckedAt,
+    domainDaysLeft: domainDays,
     supportAlerted: nextSupportAlerted(overdue, supportAlerted, supportSent),
   });
   return {

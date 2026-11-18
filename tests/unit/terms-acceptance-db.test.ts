@@ -5,7 +5,7 @@
  *   asked again; nothing is logged without both ticks;
  * - first booking / first publish: the box is needed (and logged) even right after the sign-up
  *   acceptance; after that, not again while the version stays the same;
- * - a new Terms version: the next booking and publish need the box again;
+ * - a new Terms version: the next sign-in step, booking and publish need the box again;
  * - requireTermsFor refuses ("terms_required") without the ticked box and writes nothing.
  *
  * Creates its own users (@example.com), city, listing and booking rows, and removes them afterwards.
@@ -174,7 +174,7 @@ describe("first booking and first publish", () => {
 });
 
 describe("a new Terms version", () => {
-  it("asks again before the next booking and the next publish (not at sign-in)", async () => {
+  it("asks again at the next sign-in step, booking and publish (S2 review LP-2)", async () => {
     const id = await makeUser("veteran");
     const flat = await makeListing(ids.host, "LIVE");
     await makeListing(id, "LIVE");
@@ -182,7 +182,7 @@ describe("a new Terms version", () => {
     // Accepted an older version only.
     await db.termsAcceptance.create({ data: { userId: id, version: "2026-01-01", ageConfirmed: true, acceptedAt: new Date("2026-01-01T10:00:00Z") } });
 
-    expect(await termsNeededFor(id, "signup")).toBe(false);
+    expect(await termsNeededFor(id, "signup")).toBe(true);
     expect(await termsNeededFor(id, "booking")).toBe(true);
     expect(await termsNeededFor(id, "publish")).toBe(true);
     await expect(requireTermsFor(id, "booking", {})).rejects.toBeInstanceOf(TermsRequiredError);
@@ -192,5 +192,6 @@ describe("a new Terms version", () => {
     expect(latest).toMatchObject({ version: TERMS_VERSION, ageConfirmed: true });
     expect(await termsNeededFor(id, "booking")).toBe(false);
     expect(await termsNeededFor(id, "publish")).toBe(false);
+    expect(await termsNeededFor(id, "signup")).toBe(false);
   });
 });

@@ -288,8 +288,12 @@ export async function refundCodeSend(input: CodeSendInput, now: Date = new Date(
  * address (a hotel, a carrier) is limited by the codes nobody entered, not by people logging in
  * (SECURITY_REPORT 3.1.c). The target's own waits and caps stay. Never throws.
  */
-export async function refundConfirmedCodeSend(input: { ipHash: string | null; deviceHash: string | null }): Promise<void> {
-  const keys = codeSendKeys({ channel: "email", target: "", ipHash: input.ipHash, deviceHash: input.deviceHash });
+export async function refundConfirmedCodeSend(
+  channel: "phone" | "email",
+  input: { ipHash: string | null; deviceHash: string | null },
+): Promise<void> {
+  // The IP and device caps are per channel (codeSendKeys): a phone code gives back the PHONE share.
+  const keys = codeSendKeys({ channel, target: "", ipHash: input.ipHash, deviceHash: input.deviceHash });
   try {
     await db.$executeRaw`UPDATE "RateLimit" SET "count" = GREATEST("count" - 1, 0) WHERE "key" = ANY(${[keys.ipDay, keys.deviceDay]}::text[])`;
   } catch (error) {

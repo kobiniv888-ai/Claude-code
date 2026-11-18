@@ -19,6 +19,7 @@ import { publicListingWhere } from "@/lib/listing/where";
 import { photoUrl } from "@/lib/media";
 import { randomToken } from "@/lib/crypto";
 import { detectContactInfo, hasContactInfo } from "@/lib/risk/contact-info";
+import { detectPaymentInfo } from "@/lib/risk/payment-info";
 import { refusePaymentDetails } from "@/lib/risk/text-guard";
 import { getSettings } from "@/lib/settings";
 import { ALERT_PRICE_SELECT, headlineAlertPrice } from "./alert-price";
@@ -439,7 +440,9 @@ export async function mergeDeviceLists(
     const plan = planDeviceMerge(
       device,
       { lists, savedListingIds: new Set(saved.map((row) => row.listingId)), publicListingIds: new Set(byId.keys()), reservedNameKeys: reserved },
-      (name) => !listNameHasContactInfo(name),
+      // A name with contact OR payment details falls back like createList / renameList refuse it
+      // (S2 review TS-11: an IBAN is not contact info, but it would show on the shared page).
+      (name) => !listNameHasContactInfo(name) && detectPaymentInfo(name).kinds.length === 0,
     );
     const createdIds = new Map<string, string>();
     for (const list of plan.create) {

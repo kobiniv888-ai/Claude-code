@@ -48,6 +48,13 @@ beforeAll(async () => {
 afterAll(async () => {
   await db.verification.deleteMany({ where: { identifier: phoneOtpIdentifier(PHONE) } });
   await db.rateLimit.deleteMany({ where: { key: { contains: ipHash } } });
+  // The per-number send limit is keyed by the number's hash, and a code locked by wrong tries is a
+  // security event with no account: this test's own rows only.
+  const { hmacHash } = await import("@/lib/crypto");
+  await db.rateLimit.deleteMany({ where: { key: { contains: hmacHash(`phone:${PHONE}`) } } });
+  await db.securityEvent.deleteMany({
+    where: { type: { in: ["login_failed", "login_code_locked", "sms_code_sent", "sms_code_verified", "rate_limited"] }, userId: null, createdAt: { gte: startedAt } },
+  });
   await db.$disconnect();
 });
 

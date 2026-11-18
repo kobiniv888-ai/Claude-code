@@ -55,8 +55,15 @@ Two switches, use either one:
   redeploy. While this switch is on, the admin button cannot turn it off.
 
 Fail-safe rules (built in, `src/lib/maintenance/`): any value of `MAINTENANCE_MODE` other than
-`on`/`off` counts as **on**; if the check of who you are fails, you count as a visitor. Each switch
-is written to the audit log and alerts you by email and Telegram.
+`on`/`off` counts as **on**; if the check of who you are fails, you count as a visitor. The admin
+button is written to the audit log and alerts you by email and Telegram. The hosting switch is
+**not**: it shows only in Vercel's activity log and in the server log line at each start
+("MAINTENANCE_MODE is on"). If you did not set it yourself, treat a changed `MAINTENANCE_MODE`
+as a sign that someone has access to the hosting: change the hosting account's password and
+check its 2-step login (section 1.3, the accounts behind the keys).
+
+While the site is closed, static files and the security policy page (`/<language>/security`,
+linked from `/.well-known/security.txt`) can still be read; nothing can be sent to them.
 
 ### 1.2 Sign everyone out
 
@@ -199,7 +206,7 @@ it started.
 |---|---|---|
 | **The lawyer** | at once | phone, then a short email with your note's facts |
 | **Israel: the Privacy Protection Authority** (הרשות להגנת הפרטיות, Ministry of Justice) | as soon as possible ("immediately" for a serious incident under the Data Security Regulations); the lawyer says whether it is one | the authority's online form for reporting a security incident (on gov.il); keep the confirmation |
-| **Georgia: the Personal Data Protection Service** (პერსონალურ მონაცემთა დაცვის სამსახური) | **within 72 hours** of learning about it, unless it is unlikely to cause harm (the lawyer decides) | the service's official website (personaldata.ge): its incident form or the address it lists; keep the confirmation |
+| **Georgia: the State Audit Office, its personal-data protection unit** (the authority's work moved there in March 2026; **lawyer: confirm the exact unit and its incident-report form or address before launch**, OWNER_TODO.md) | **within 72 hours** of learning about it, unless it is unlikely to cause harm (the lawyer decides) | the State Audit Office's official website: the incident form or the address it lists for personal-data incidents; keep the confirmation |
 | Other countries | if people from the EU (or elsewhere) are affected, the lawyer checks whether their authority must be told too (often also 72 hours) | as the lawyer says |
 | **The people affected** | without delay when there is a real risk to them (the lawyer confirms); always in **their own language** | by email from the site (the developer sends one per language from the list of section 2); a short notice on the site if many are affected |
 | The provider involved (hosting, database, email…) | when the problem may be on their side | their support page (section 5) |
@@ -339,7 +346,7 @@ your password manager or another private place, never in this repository.**
 | Lawyer (Israel) | [name in your private place] | decides on notifications, drafts them | [private] |
 | Lawyer / advisor (Georgia) | [name in your private place] | the Georgian authority, local rules | [private] |
 | Authority (Israel) | Privacy Protection Authority | receives incident reports | the official gov.il website |
-| Authority (Georgia) | Personal Data Protection Service | receives incident reports (72 hours) | the official personaldata.ge website |
+| Authority (Georgia) | State Audit Office, personal-data protection unit (lawyer to confirm the unit) | receives incident reports (72 hours) | the State Audit Office's official website |
 | Developer | [name in your private place] | everything in the code | [private] |
 
 **Facts to fill in** (in your private place, and the non-secret ones here):

@@ -15,7 +15,8 @@
  *
  * A backup of the REAL site (SITE_ENV=production, or its database marker) is never restored into a
  * codespace or a local database (SECURITY_REPORT 2.4.j; checklist 0.6: no real data in development):
- * restore it into a new database at the host (a Neon branch), from there.
+ * restore it into a new database at the host (a Neon branch), from there. An encrypted off-site copy
+ * (.bkenc) is refused for such a target BEFORE it is decrypted (FE-5).
  *
  * To restore the real site: create a new empty database at the host, restore into it, check it,
  * then point DATABASE_URL at it. A pg_dump file (database.dump), when present, can also be used
@@ -28,7 +29,7 @@ import { createReadStream, existsSync } from "node:fs";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { isBackupId, isDevelopmentRestoreTarget } from "@/lib/admin/maintenance/backup-format";
+import { encryptedRestoreRefusal, isBackupId, isDevelopmentRestoreTarget } from "@/lib/admin/maintenance/backup-format";
 import { backupRoot, isProductionBackup, readBackupMeta, restoreBackup } from "@/lib/admin/maintenance/backup";
 import { parseBackupKey } from "@/lib/admin/maintenance/backup-crypto";
 import { decryptBackupInto } from "@/lib/admin/maintenance/offsite";
@@ -57,8 +58,24 @@ function parseArgs(argv: string[]) {
  * The backup folder for a name, a folder or an encrypted file (decrypted into a temporary folder:
  * `cleanup` deletes it). Shared with scripts/db-restore-test.ts.
  */
+/** Where a backup argument points (a name in backups/, or a path). */
+export function resolveBackupPath(backup: string): string {
+  return isBackupId(backup) && !existsSync(backup) ? path.join(backupRoot(), backup) : path.resolve(backup);
+}
+
+/**
+ * FE-5: before anything is decrypted, an encrypted copy (a file, not a backup folder) is refused
+ * for a codespace or a local target. Throws; shared with scripts/db-restore-test.ts.
+ */
+export async function assertEncryptedRestoreAllowed(backup: string, target: string, env: NodeJS.ProcessEnv = process.env): Promise<void> {
+  const stat = await fs.stat(resolveBackupPath(backup)).catch(() => null);
+  if (stat && stat.isDirectory()) return;
+  const refusal = encryptedRestoreRefusal(target, env);
+  if (refusal) throw new Error(refusal);
+}
+
 export async function openBackup(backup: string): Promise<{ dir: string; cleanup: () => Promise<void>; encrypted: boolean }> {
-  const resolved = isBackupId(backup) && !existsSync(backup) ? path.join(backupRoot(), backup) : path.resolve(backup);
+  const resolved = resolveBackupPath(backup);
   const stat = await fs.stat(resolved).catch(() => null);
   if (!stat) throw new Error(`${resolved} does not exist.`);
   if (stat.isDirectory()) return { dir: resolved, cleanup: async () => {}, encrypted: false };
@@ -103,6 +120,7 @@ export function createSchema(dir: string, target: string): void {
 
 async function main() {
   const { backup, target, createSchema: withSchema } = parseArgs(process.argv.slice(2));
+  await assertEncryptedRestoreAllowed(backup, target);
   const opened = await openBackup(backup);
   try {
     const meta = await readBackupMeta(opened.dir);

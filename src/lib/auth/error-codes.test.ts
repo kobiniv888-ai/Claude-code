@@ -66,6 +66,7 @@ describe("code limits with a wait (SECURITY_REPORT 3.1.c)", () => {
     expect(authFailure({ code: "CODE_DAILY_CAP", status: 429, retryAfter: 7200 })).toEqual({ key: "code_daily_cap", retryAfter: 7200 });
     expect(authFailure({ code: "NOT_MOBILE_NUMBER", status: 400 })).toEqual({ key: "not_mobile", retryAfter: null });
     expect(authFailure({ code: "SMS_PAUSED", status: 503 })).toEqual({ key: "sms_paused", retryAfter: null });
+    expect(authFailure({ code: "SMS_BLOCKED", status: 503 })).toEqual({ key: "sms_blocked", retryAfter: null });
     // A wait on any other error is ignored.
     expect(authFailure({ code: "INVALID_OTP", status: 400, retryAfter: 5 })).toEqual({ key: "invalid_code", retryAfter: null });
   });

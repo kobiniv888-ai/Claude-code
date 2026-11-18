@@ -12,6 +12,16 @@ describe("first names (brief 5.8, bug 8.2)", () => {
     }
   });
 
+  it("spots web addresses, so no host or guest name is a link (S2 review TS-5/TS-6)", () => {
+    for (const value of ["bayit-pay.com", "paypal.me/flatowner", "pay via wise.com", "evil\u2024com", "name\uff20mail"]) {
+      expect(looksLikeContact(value), value).toBe(true);
+      expect(firstNameSchema.safeParse({ firstName: value }).success, value).toBe(false);
+    }
+    for (const value of ["J. Levi", "J.R.", "Dr. Noa", "Anna-Maria"]) {
+      expect(looksLikeContact(value), value).toBe(false);
+    }
+  });
+
   it("cleans a first name or refuses it", () => {
     expect(cleanFirstName("  נועה  ")).toBe("נועה");
     expect(cleanFirstName("Mary  Ann")).toBe("Mary Ann");

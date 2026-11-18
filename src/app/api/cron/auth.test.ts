@@ -12,11 +12,15 @@ vi.mock("@/lib/monitoring", () => ({
   reportError: async (error: unknown, context: { tags?: unknown }) => void reported.push({ error, tags: context.tags }),
 }));
 
+const serverErrors = vi.hoisted(() => [] as unknown[][]);
+vi.mock("@/lib/security/server-errors", () => ({ recordServerError: async (...args: unknown[]) => void serverErrors.push(args) }));
+
 const { runCronJob, runCronSteps } = await import("./auth");
 
 describe("runCronSteps", () => {
   afterEach(() => {
     reported.length = 0;
+    serverErrors.length = 0;
     vi.restoreAllMocks();
   });
 
@@ -54,5 +58,16 @@ describe("runCronSteps", () => {
     });
     // Reported once, by the step (runCronJob doesn't report it a second time).
     expect(reported).toEqual([{ error: failure, tags: { job: "cleanup", step: "unattachedUploads" } }]);
+    // Counted once for the founder's error-spike alert (16.3).
+    expect(serverErrors).toEqual([["cron", "cleanup"]]);
+  });
+
+  it("a job that throws is counted as a server error for the error-spike alert", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const res = await runCronJob("ical-sync", async () => {
+      throw new Error("boom");
+    });
+    expect(res.status).toBe(500);
+    expect(serverErrors).toEqual([["cron", "ical-sync"]]);
   });
 });

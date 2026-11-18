@@ -82,7 +82,36 @@ describe("accounts per device (3.8.b)", () => {
     expect(await guard.deviceFlagSummary(fourth)).toMatchObject({ open: true, accounts: 5 });
   });
 
-  it("no device id (cookie blocked): nothing to count, nothing flagged", async () => {
+  it("no device id (cookie blocked): nothing to count, nothing flagged, but the sign-up is recorded (LP-8)", async () => {
+    const before = await guard.countSignupsWithoutDevice();
     expect(await guard.checkSignupDevice(`${prefix}-a1`, { deviceHash: null })).toBeNull();
+    expect(await db.securityEvent.count({ where: { type: "signup_no_device", userId: `${prefix}-a1` } })).toBe(1);
+    expect(await guard.countSignupsWithoutDevice()).toBe(before + 1);
+  });
+
+  it("deleting accounts does not reset the count: sign up 4, delete 2, the next one is still flagged (LP-8)", async () => {
+    const device = `${prefix}-device-b`;
+    const made: string[] = [];
+    for (const n of [1, 2, 3, 4]) {
+      const id = await accountOnDevice(`b${n}`, device);
+      made.push(id);
+      await guard.checkSignupDevice(id, { deviceHash: device, now: NOW });
+    }
+    // Two accounts deleted: their device links go, their events stay (userId becomes null).
+    const gone = made.slice(0, 2);
+    const goneEvents = (await db.securityEvent.findMany({ where: { userId: { in: gone } }, select: { id: true } })).map((e) => e.id);
+    await db.deviceLink.deleteMany({ where: { userId: { in: gone } } });
+    await db.user.deleteMany({ where: { id: { in: gone } } });
+    try {
+      const next = await accountOnDevice("b5", device);
+      const result = await guard.checkSignupDevice(next, { deviceHash: device, now: NOW });
+      expect(result).toEqual({ accounts: 5, flagged: true });
+      // The event keeps a keyed mark of the device, never the device hash itself.
+      const [event] = await db.securityEvent.findMany({ where: { type: "signup_device", userId: next }, select: { meta: true } });
+      expect((event!.meta as { d: string }).d).toMatch(/^[a-p]{32}$/);
+      expect(JSON.stringify(event!.meta)).not.toContain(device);
+    } finally {
+      await db.securityEvent.deleteMany({ where: { id: { in: goneEvents } } });
+    }
   });
 });

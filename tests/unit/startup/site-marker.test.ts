@@ -105,8 +105,12 @@ describe("the real site's database marker", () => {
   it("the real site writes the marker when it starts", async () => {
     await setMarker(false);
     const { code, out } = start(fakeProductionEnv({ databaseUrl: throwawayUrl("tls") }));
-    expect(out).toContain("STARTED");
-    expect(code).toBe(0);
+    // This test connects as the local owner role (it made the throwaway database), so after writing
+    // the marker the real site refuses to serve with it (FE-4, src/lib/startup-check-db-role.ts):
+    // the codespace cannot make the least-privilege role bayit_app (no CREATEROLE).
+    expect(out).toMatch(/DATABASE_URL connects as "[^"]+", which can/);
+    expect(out).not.toContain("STARTED");
+    expect(code).toBe(1);
     const rows = await sql(`SELECT "value" FROM "SiteSetting" WHERE "key" = '${SITE_ENV_MARKER_KEY}'`, DB_NAME);
     expect(rows.rows[0]?.value).toBe(PRODUCTION_MARKER);
     await setMarker(false);

@@ -7,6 +7,7 @@ import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
 import { ALL_CONSENT, CONSENT_EVENT, makeConsent, NECESSARY_ONLY, writeConsent, type Consent } from "@/lib/consent-cookie";
+import { recordCookieConsent } from "@/lib/legal/consent-actions";
 import { siteName } from "@/lib/seo";
 import { cn } from "@/lib/utils";
 
@@ -34,8 +35,10 @@ export function CookieConsent({ initialOpen }: { initialOpen: boolean }) {
 
   if (!open) return null;
 
-  function save(consent: Consent, announce = false) {
+  function save(consent: Consent, method: "accept_all" | "necessary_only" | "custom", announce = false) {
     writeConsent(consent);
+    // The site's record of the choice (SECURITY_REPORT 15.5): best effort, never blocks the banner.
+    void recordCookieConsent({ preferences: consent.preferences, analytics: consent.analytics, v: consent.v, method }).catch(() => undefined);
     window.dispatchEvent(new CustomEvent<Consent>(CONSENT_EVENT, { detail: consent }));
     setOpen(false);
     if (announce) toast.success(t("saved"));
@@ -119,7 +122,7 @@ export function CookieConsent({ initialOpen }: { initialOpen: boolean }) {
             <Button
               type="button"
               className="col-span-3 h-11 rounded-xl sm:col-span-2 lg:h-10"
-              onClick={() => save(makeConsent({ preferences, analytics }), true)}
+              onClick={() => save(makeConsent({ preferences, analytics }), "custom", true)}
             >
               {t("save")}
             </Button>
@@ -128,7 +131,7 @@ export function CookieConsent({ initialOpen }: { initialOpen: boolean }) {
               <Button
                 type="button"
                 className="h-auto min-h-11 rounded-xl px-2 py-2 leading-tight whitespace-normal sm:col-span-2 lg:min-h-10"
-                onClick={() => save(ALL_CONSENT)}
+                onClick={() => save(ALL_CONSENT, "accept_all")}
               >
                 {t("acceptAll")}
               </Button>
@@ -136,7 +139,7 @@ export function CookieConsent({ initialOpen }: { initialOpen: boolean }) {
                 type="button"
                 variant="outline"
                 className="h-auto min-h-11 rounded-xl bg-card px-2 py-2 leading-tight whitespace-normal lg:min-h-10"
-                onClick={() => save(NECESSARY_ONLY)}
+                onClick={() => save(NECESSARY_ONLY, "necessary_only")}
               >
                 {t("necessaryOnly")}
               </Button>

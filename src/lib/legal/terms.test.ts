@@ -10,9 +10,11 @@ describe("Terms acceptance rules", () => {
     expect(MIN_AGE).toBe(18);
   });
 
-  it("asks at sign-up only an account that never accepted any version", () => {
+  it("asks at sign-up (and at every signed-in action) until the version in force is accepted with 18+ (S2 review LP-2)", () => {
     expect(termsNeeded({ purpose: "signup", latest: null, first: true })).toBe(true);
-    expect(termsNeeded({ purpose: "signup", latest: { version: "2000-01-01", ageConfirmed: true }, first: true })).toBe(false);
+    expect(termsNeeded({ purpose: "signup", latest: { version: "2000-01-01", ageConfirmed: true }, first: true })).toBe(true);
+    expect(termsNeeded({ purpose: "signup", latest: { version: TERMS_VERSION, ageConfirmed: false }, first: true })).toBe(true);
+    expect(termsNeeded({ purpose: "signup", latest: { version: TERMS_VERSION, ageConfirmed: true }, first: true })).toBe(false);
   });
 
   it("asks at the first booking and the first publish, even right after the sign-up acceptance", () => {

@@ -26,7 +26,11 @@ import {
  * - A stored encrypted value that cannot be opened (another key, changed) is LEFT AS IT IS and
  *   counted as `unreadable`: nothing is lost, and the report says so.
  * - Once no plain value is left, the database refuses new ones: CHECK constraints
- *   "Listing_no_plain_location" and "Booking_no_plain_guest_phone" (`installGuard`).
+ *   "Listing_no_plain_location" and "Booking_no_plain_guest_phone" (`installGuard`); once every
+ *   stored value has the sealed / lookup format, "Listing_sealed_format" and "Booking_sealed_format"
+ *   refuse a plain value written into an encrypted column too (FE-8).
+ * - A plain value that cannot be sealed (an invalid legacy pin) leaves its row as it is, counted as
+ *   `invalid`; the run goes on (FE-7).
  *
  * Raw SQL on the column names on purpose: it runs on any database that has the new columns (pushed
  * schema), whatever the Prisma field names are, and the site's code never touches the plain columns.
@@ -68,6 +72,11 @@ export type TableReport = {
   cleared: number;
   /** Encrypted values that could not be opened: left untouched (see the report). */
   unreadable: number;
+  /**
+   * Rows whose PLAIN value cannot be sealed (a pin outside ±90/±180 or NaN from an old restore or a
+   * hand edit): left untouched and counted, the run goes on (FE-7). Fix or empty them by hand.
+   */
+  invalid: number;
   /** Rows skipped because they changed while the script ran (the next run picks them up). */
   skipped: number;
   /** Rows whose stored values were all opened and checked (`verify` only). */
@@ -84,14 +93,36 @@ export type EncryptFieldsReport = {
   remainingPlain: { listings: number; bookings: number };
   /** Encrypted values under another key after this run. */
   remainingOldKey: { listings: number; bookings: number };
-  guard: { listing: boolean; booking: boolean };
+  guard: { listing: boolean; booking: boolean; listingFormat: boolean; bookingFormat: boolean };
+  /** Stored values that are not in the sealed / lookup format (the format guard waits for 0). */
+  malformed: { listings: number; bookings: number };
 };
 
 export const LISTING_GUARD = "Listing_no_plain_location";
 export const BOOKING_GUARD = "Booking_no_plain_guest_phone";
 const DEFAULT_BATCH = 200;
 
-const emptyReport = (): TableReport => ({ changed: 0, sealed: 0, resealed: 0, cleared: 0, unreadable: 0, skipped: 0, verified: 0 });
+const emptyReport = (): TableReport => ({ changed: 0, sealed: 0, resealed: 0, cleared: 0, unreadable: 0, invalid: 0, skipped: 0, verified: 0 });
+
+/** Seals a plain value; "invalid" when the value itself cannot be sealed (bad_value). */
+function trySeal(seal: () => string): string | "invalid" {
+  try {
+    return seal();
+  } catch (error) {
+    if (isFieldCryptoError(error) && error.reason === "bad_value") return "invalid";
+    throw error;
+  }
+}
+
+/**
+ * The format guards (FE-8): an encrypted column holds a sealed value or nothing, a lookup column a
+ * lookup value or nothing. The exact prefixes and charsets of ./field-crypto-core.ts (fe1/fl1, an
+ * 8-hex key id, base64url). A plain value written by raw SQL or a future code path is refused.
+ */
+export const SEALED_SQL_PATTERN = "^fe1:[0-9a-f]{8}:[A-Za-z0-9_-]+$";
+export const LOOKUP_SQL_PATTERN = "^fl1:[0-9a-f]{8}:[A-Za-z0-9_-]{43}$";
+export const LISTING_FORMAT_GUARD = "Listing_sealed_format";
+export const BOOKING_FORMAT_GUARD = "Booking_sealed_format";
 
 type ListingRow = { id: string; address: string | null; lat: number | null; lng: number | null; addressEnc: string | null; pinEnc: string | null };
 type BookingRow = { id: string; guestPhone: string | null; guestPhoneEnc: string | null; guestPhoneLookup: string | null };
@@ -156,7 +187,12 @@ async function migrateListings(client: RawSqlClient, ring: FieldKeyring, options
         if (row.address !== null) cleared++;
       } else if (row.address !== null) {
         if (row.address.trim()) {
-          addressEnc = sealField(ring, "listing.address", row.address.trim());
+          const next = trySeal(() => sealField(ring, "listing.address", row.address!.trim()));
+          if (next === "invalid") {
+            report.invalid++;
+            continue;
+          }
+          addressEnc = next;
           sealed++;
         } else cleared++;
       }
@@ -168,7 +204,16 @@ async function migrateListings(client: RawSqlClient, ring: FieldKeyring, options
         }
         if (row.lat !== null || row.lng !== null) cleared++;
       } else if (row.lat !== null && row.lng !== null) {
-        pinEnc = sealField(ring, "listing.pin", encodePin({ lat: row.lat, lng: row.lng }));
+        // A legacy pin outside ±90/±180 or NaN (an old restore, a hand edit): the row stays as it
+        // is, counted as invalid, and the run goes on (FE-7).
+        const lat = row.lat;
+        const lng = row.lng;
+        const next = trySeal(() => sealField(ring, "listing.pin", encodePin({ lat, lng })));
+        if (next === "invalid") {
+          report.invalid++;
+          continue;
+        }
+        pinEnc = next;
         sealed++;
       } else if (row.lat !== null || row.lng !== null) {
         cleared++;
@@ -246,8 +291,14 @@ async function migrateBookings(client: RawSqlClient, ring: FieldKeyring, options
         lookup = nextLookup;
         if (row.guestPhone !== null) cleared++;
       } else if (row.guestPhone !== null && row.guestPhone.trim()) {
-        enc = sealField(ring, "booking.guestPhone", row.guestPhone.trim());
-        lookup = fieldLookup(ring, "booking.guestPhone", row.guestPhone.trim());
+        const phone = row.guestPhone.trim();
+        const next = trySeal(() => sealField(ring, "booking.guestPhone", phone));
+        if (next === "invalid") {
+          report.invalid++;
+          continue;
+        }
+        enc = next;
+        lookup = fieldLookup(ring, "booking.guestPhone", phone);
         sealed++;
       } else {
         // Erased ("") or a lookup without a phone: nothing to keep.
@@ -338,6 +389,32 @@ export async function encryptPlainFields(client: RawSqlClient, options: EncryptF
       await client.$executeRawUnsafe(`ALTER TABLE "Booking" ADD CONSTRAINT "${BOOKING_GUARD}" CHECK ("guestPhone" IS NULL)`);
     }
   }
+  // The format guards (FE-8): only once every stored value already has the format.
+  const malformed = {
+    listings: await count(
+      client,
+      `SELECT COUNT(*)::bigint AS n FROM "Listing" WHERE ("addressEnc" IS NOT NULL AND "addressEnc" !~ $1) OR ("pinEnc" IS NOT NULL AND "pinEnc" !~ $1)`,
+      SEALED_SQL_PATTERN,
+    ),
+    bookings: await count(
+      client,
+      `SELECT COUNT(*)::bigint AS n FROM "Booking" WHERE ("guestPhoneEnc" IS NOT NULL AND "guestPhoneEnc" !~ $1) OR ("guestPhoneLookup" IS NOT NULL AND "guestPhoneLookup" !~ $2)`,
+      SEALED_SQL_PATTERN,
+      LOOKUP_SQL_PATTERN,
+    ),
+  };
+  if (!options.dryRun && options.installGuard !== false) {
+    if (malformed.listings === 0 && !(await hasConstraint(client, LISTING_FORMAT_GUARD))) {
+      await client.$executeRawUnsafe(
+        `ALTER TABLE "Listing" ADD CONSTRAINT "${LISTING_FORMAT_GUARD}" CHECK (("addressEnc" IS NULL OR "addressEnc" ~ '${SEALED_SQL_PATTERN}') AND ("pinEnc" IS NULL OR "pinEnc" ~ '${SEALED_SQL_PATTERN}'))`,
+      );
+    }
+    if (malformed.bookings === 0 && !(await hasConstraint(client, BOOKING_FORMAT_GUARD))) {
+      await client.$executeRawUnsafe(
+        `ALTER TABLE "Booking" ADD CONSTRAINT "${BOOKING_FORMAT_GUARD}" CHECK (("guestPhoneEnc" IS NULL OR "guestPhoneEnc" ~ '${SEALED_SQL_PATTERN}') AND ("guestPhoneLookup" IS NULL OR "guestPhoneLookup" ~ '${LOOKUP_SQL_PATTERN}'))`,
+      );
+    }
+  }
   return {
     dryRun: !!options.dryRun,
     verify: !!options.verify,
@@ -346,6 +423,12 @@ export async function encryptPlainFields(client: RawSqlClient, options: EncryptF
     bookings,
     remainingPlain,
     remainingOldKey,
-    guard: { listing: await hasConstraint(client, LISTING_GUARD), booking: await hasConstraint(client, BOOKING_GUARD) },
+    guard: {
+      listing: await hasConstraint(client, LISTING_GUARD),
+      booking: await hasConstraint(client, BOOKING_GUARD),
+      listingFormat: await hasConstraint(client, LISTING_FORMAT_GUARD),
+      bookingFormat: await hasConstraint(client, BOOKING_FORMAT_GUARD),
+    },
+    malformed,
   };
 }

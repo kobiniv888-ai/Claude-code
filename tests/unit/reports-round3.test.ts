@@ -212,6 +212,8 @@ afterAll(async () => {
   await db.booking.deleteMany({ where: { hostUserId: { in: ids } } });
   await db.listing.deleteMany({ where: { ownerId: { in: ids } } });
   await db.city.deleteMany({ where: { slug: { startsWith: prefix } } });
+  // A booking number that matched nothing is an "id_not_found" event of the test account (4.7.a).
+  await db.securityEvent.deleteMany({ where: { userId: { in: ids } } });
   await db.user.deleteMany({ where: { id: { in: ids } } });
 });
 
@@ -471,10 +473,14 @@ describe("automatic host flag (2 or more reports in 12 months, dismissed left ou
     });
   }
 
+  // Each reporter counts once (S2 review TS-9): the second report comes from another account.
   it("one report is not a flag; a turned-away report plus a listing report is", async () => {
     await add("flag1", { kind: "TURNED_AWAY", reason: "REFUSED_OR_IGNORED", priority: "URGENT" });
     expect(await hostFlagSummary(users.flag1)).toMatchObject({ countingReports: 0, reportFlagOpen: false, flagged: false });
+    // One account's second report (about the host's listing) still counts once.
     await add("flag1", { targetType: "LISTING", targetUserId: null, listingId: listings.flag1, reason: "WRONG_PRICE" });
+    expect(await hostFlagSummary(users.flag1)).toMatchObject({ reportFlagOpen: false, flagged: false });
+    await add("flag1", { targetType: "LISTING", targetUserId: null, listingId: listings.flag1, reason: "WRONG_PRICE", reporterId: users.guest4 });
     expect(await hostFlagSummary(users.flag1)).toMatchObject({ countingReports: 2, turnedAway: 1, reportFlagOpen: true, flagged: true });
   });
 
@@ -482,7 +488,7 @@ describe("automatic host flag (2 or more reports in 12 months, dismissed left ou
     await add("flag2", { kind: "TURNED_AWAY", status: "DISMISSED", handledAt: new Date() });
     await add("flag2", { kind: "TURNED_AWAY" });
     expect(await hostFlagSummary(users.flag2)).toMatchObject({ reportFlagOpen: false, flagged: false });
-    await add("flag2", { kind: "TURNED_AWAY", status: "RESOLVED", handledAt: new Date() });
+    await add("flag2", { kind: "TURNED_AWAY", status: "RESOLVED", handledAt: new Date(), reporterId: users.guest4 });
     expect(await hostFlagSummary(users.flag2)).toMatchObject({ countingReports: 2, reportFlagOpen: true });
   });
 

@@ -729,6 +729,8 @@
         "offsite_backup_failed": "הגיבוי השבועי מחוץ לאתר נכשל ({count}).",
         "offsite_backup_missing": "כבר {days} ימים שלא הצליח גיבוי מחוץ לאתר.",
         "certificate_expiry": "תעודת ה־HTTPS של האתר מסתיימת בעוד {days} ימים.",
+        "domain_expiry": "רישום הדומיין של האתר מסתיים בעוד {days} ימים: בדקו חידוש אוטומטי אצל רשם הדומיין.",
+        "error_spike": "{count} שגיאות שרת לא צפויות (התראה מעל {threshold}): בדקו את ניטור השגיאות ואת יומן השרת.",
         "support_overdue": "{count, plural, one {פנייה אחת לתמיכה ממתינה} other {{count} פניות לתמיכה ממתינות}} יותר מזמן המענה שהבטחנו (יום עסקים אחד, ראשון עד חמישי): {tickets}.",
         "field_decrypt_failed": "לא הצלחנו לפתוח כתובות או מספרי טלפון מוצפנים ({count}): בדקו את FIELD_ENCRYPTION_KEY בהגדרות האחסון."
       }

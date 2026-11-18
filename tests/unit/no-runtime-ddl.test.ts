@@ -93,6 +93,11 @@ describe("scripts/sql/roles.sql", () => {
     for (const grant of appGrants) expect(grant, grant.trim()).not.toMatch(/\b(?:CREATE|TRUNCATE|TRIGGER|REFERENCES|ALL PRIVILEGES)\b/);
   });
 
+  it("removes and refuses every role membership of bayit_app (Neon's neon_superuser, FE-4)", () => {
+    expect(statements).toMatch(/REVOKE %I FROM %I/);
+    expect(statements).toMatch(/FROM pg_auth_members m JOIN pg_roles r ON r\.oid = m\.member WHERE r\.rolname IN \('bayit_app', 'bayit_migrate'\)\s*\) THEN\s*RAISE EXCEPTION/);
+  });
+
   it("never writes a password into the file", () => {
     expect(statements).not.toMatch(/PASSWORD\s+'/i);
     expect(statements).toMatch(/PASSWORD :'app_password'/);

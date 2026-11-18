@@ -39,3 +39,27 @@ describe("keepsNumbers edge cases", () => {
     expect(keepsNumbers("2.5 km", "2,5 км")).toBe(true);
   });
 });
+
+describe("currencies and units next to the numbers (S2 review TS-16)", () => {
+  it.each([
+    ["120 ₾ a night", "120 $ за ночь"],
+    ["45 m², 3 rooms", "45 ft², 3 rooms"],
+    ["120 ₾ a night", "120 € ללילה"],
+    ["5 km to the sea", "5 m² to the sea"],
+    ["$90 a night", "90 ₪ ללילה"],
+  ])("%j → %j changes the meaning", (source, translation) => {
+    expect(keepsNumbers(source, translation)).toBe(false);
+  });
+
+  it.each([
+    ["120 ₾ a night", "120 לארי ללילה"],
+    ["120 GEL a night", "120 лари за ночь"],
+    ["120 ₾", "120 ლარი"],
+    ["$90 a night, 45 m²", "90 دولار لليلة، 45 م²"],
+    ["45 sqm, 2 km to the beach", "45 מ\"ר, 2 ק\"מ לחוף"],
+    ["300 шекелей", "300 שקלים"],
+    ["Check-in 14:00, 2 rooms", "צ'ק אין 14:00, 2 חדרים"],
+  ])("%j → %j keeps the meaning", (source, translation) => {
+    expect(keepsNumbers(source, translation)).toBe(true);
+  });
+});

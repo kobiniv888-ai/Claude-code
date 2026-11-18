@@ -1,7 +1,7 @@
 import "server-only";
 import { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
-import { HOST_ASKED_CONFIRMED } from "@/lib/booking/host-asked";
+import { HOST_ASKED_CONFIRMED, HOST_ASKED_DENIED, HOST_ASKED_EXPIRED } from "@/lib/booking/host-asked";
 import {
   HOST_REPORT_FLAG_MIN,
   hostRepeatCancelWindowStart,
@@ -21,7 +21,30 @@ export const FLAG_STATES = ["open", "reviewed"] as const;
 export type FlagState = (typeof FLAG_STATES)[number];
 
 export const OPEN_CANCELLATION: Prisma.BookingWhereInput = { flaggedForReview: true, flagReviewedAt: null };
+/**
+ * Open flags that count against the HOST (the review rule, the host's own counts): every open
+ * cancellation flag except a guest's "the host asked me to cancel" that the host denied or never
+ * answered. Those stay in OPEN_CANCELLATION (Admin → Flags, the counts) for staff to decide, but
+ * never put the host under review (founder's answer (4), S2 review FC-2). The NULL branch keeps a
+ * guest cancellation without a reason code in (SQL NOT IN is unknown for NULL).
+ */
+export const HOST_CANCELLATION_FLAG: Prisma.BookingWhereInput = {
+  ...OPEN_CANCELLATION,
+  OR: [
+    { status: { not: "CANCELLED_BY_GUEST" } },
+    { cancelReasonCode: null },
+    { cancelReasonCode: { notIn: [HOST_ASKED_DENIED, HOST_ASKED_EXPIRED] } },
+  ],
+};
 export const OPEN_NO_SHOW: Prisma.BookingWhereInput = { status: "NO_SHOW", flaggedForReview: false, flagReviewedAt: null };
+
+/**
+ * Which reports count toward the host flag (S2 review TS-1, TS-9): reports a person filed, and an
+ * automatic one (no reporter: a blocked payment text, a review burst) only once staff resolved it
+ * with an action. Counted per reporter, so one account filing a listing report and a user report
+ * (or reports on two of the host's listings) never reaches HOST_REPORT_FLAG_MIN alone.
+ */
+const COUNTING_REPORT = Prisma.sql`(r."reporterId" IS NOT NULL OR (r."status" = 'RESOLVED' AND r."actionTaken" IS NOT NULL))`;
 
 export type HostFlagRow = { hostId: string; reports: number; turnedAway: number; open: number; latest: Date; reviewedAt: Date | null };
 
@@ -34,20 +57,22 @@ export async function hostFlagRows(now: Date, opts: { state: FlagState | "any"; 
   const since = hostReportWindowStart(now);
   const rows = await db.$queryRaw<HostFlagRow[]>`
     WITH counted AS (
-      SELECT COALESCE(r."targetUserId", l."ownerId") AS "hostId", r."createdAt", r."kind", r."status"
+      SELECT COALESCE(r."targetUserId", l."ownerId") AS "hostId", r."createdAt", r."kind", r."status",
+             COALESCE(r."reporterId", r."id") AS "who"
       FROM "Report" r
       LEFT JOIN "Listing" l ON l."id" = r."listingId"
       WHERE r."status" <> 'DISMISSED' AND r."targetType" <> 'REVIEW'
         AND r."createdAt" >= ${since} AND r."createdAt" <= ${now}
+        AND ${COUNTING_REPORT}
     ), per_host AS (
-      SELECT c."hostId", COUNT(*)::int AS "reports",
+      SELECT c."hostId", COUNT(DISTINCT c."who")::int AS "reports",
              COUNT(*) FILTER (WHERE c."kind" = 'TURNED_AWAY')::int AS "turnedAway",
              COUNT(*) FILTER (WHERE c."status" = 'OPEN')::int AS "open",
              MAX(c."createdAt") AS "latest"
       FROM counted c
       WHERE c."hostId" IS NOT NULL
       GROUP BY c."hostId"
-      HAVING COUNT(*) >= ${HOST_REPORT_FLAG_MIN}
+      HAVING COUNT(DISTINCT c."who") >= ${HOST_REPORT_FLAG_MIN}
     )
     SELECT p."hostId", p."reports", p."turnedAway", p."open", p."latest", u."hostFlagReviewedAt" AS "reviewedAt"
     FROM per_host p
@@ -68,17 +93,18 @@ export async function countHostFlags(now: Date, state: FlagState): Promise<numbe
   const since = hostReportWindowStart(now);
   const [row] = await db.$queryRaw<{ count: number }[]>`
     WITH counted AS (
-      SELECT COALESCE(r."targetUserId", l."ownerId") AS "hostId", r."createdAt"
+      SELECT COALESCE(r."targetUserId", l."ownerId") AS "hostId", r."createdAt", COALESCE(r."reporterId", r."id") AS "who"
       FROM "Report" r
       LEFT JOIN "Listing" l ON l."id" = r."listingId"
       WHERE r."status" <> 'DISMISSED' AND r."targetType" <> 'REVIEW'
         AND r."createdAt" >= ${since} AND r."createdAt" <= ${now}
+        AND ${COUNTING_REPORT}
     ), per_host AS (
       SELECT c."hostId", MAX(c."createdAt") AS "latest"
       FROM counted c
       WHERE c."hostId" IS NOT NULL
       GROUP BY c."hostId"
-      HAVING COUNT(*) >= ${HOST_REPORT_FLAG_MIN}
+      HAVING COUNT(DISTINCT c."who") >= ${HOST_REPORT_FLAG_MIN}
     )
     SELECT COUNT(*)::int AS "count"
     FROM per_host p
@@ -138,7 +164,7 @@ export async function isHostSanctioned(userId: string, now: Date = new Date()): 
 export async function isHostFlagged(userId: string, now: Date = new Date()): Promise<boolean> {
   const [rows, openCancellationFlags, sanctioned] = await Promise.all([
     hostFlagRows(now, { state: "any", userId, limit: 1 }),
-    db.booking.count({ where: { ...OPEN_CANCELLATION, hostUserId: userId } }),
+    db.booking.count({ where: { ...HOST_CANCELLATION_FLAG, hostUserId: userId } }),
     isHostSanctioned(userId, now),
   ]);
   const row = rows[0];
@@ -151,7 +177,7 @@ export async function hostFlagSummary(userId: string, now: Date = new Date()) {
   try {
     const [rows, openCancellations, openNoShows, reviewedAt, sanctioned, ownCancellations] = await Promise.all([
       hostFlagRows(now, { state: "any", userId, limit: 1 }),
-      db.booking.count({ where: { ...OPEN_CANCELLATION, hostUserId: userId } }),
+      db.booking.count({ where: { ...HOST_CANCELLATION_FLAG, hostUserId: userId } }),
       db.booking.count({ where: { ...OPEN_NO_SHOW, hostUserId: userId } }),
       db.user.findUnique({ where: { id: userId }, select: { hostFlagReviewedAt: true } }),
       isHostSanctioned(userId, now),

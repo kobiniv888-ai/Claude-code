@@ -39,8 +39,25 @@ export const TEXT_SURFACES = [
   "booking_cancel_reason",
   "list_name",
   "profile",
+  "contact_message",
 ] as const;
 export type TextSurface = (typeof TEXT_SURFACES)[number];
+
+/**
+ * Surfaces a guest (or any visitor) writes. Their flag always names the WRITER's account, never
+ * the listing the text is about: a guest's refused review must not count against the host
+ * (S2 review TS-1). Host surfaces (listing texts, room types, photo captions) name the listing.
+ */
+export const WRITER_SURFACES: ReadonlySet<TextSurface> = new Set(["review", "booking_message", "list_name", "profile", "contact_message"]);
+
+/** Who the automatic flag is filed against. */
+export function flagTarget(
+  surface: TextSurface,
+  userId: string,
+  listingId: string | null,
+): { targetType: "LISTING"; listingId: string } | { targetType: "USER"; targetUserId: string } {
+  return listingId && !WRITER_SURFACES.has(surface) ? { targetType: "LISTING", listingId } : { targetType: "USER", targetUserId: userId };
+}
 
 /** At most one security event per account and surface in this many minutes (auto-save sends many). */
 export const EVENT_GAP_MINUTES = 10;
@@ -50,9 +67,10 @@ export const FLAG_GAP_HOURS = 24;
 const MINUTE = 60 * 1000;
 
 /** The automatic report's note for staff (codes only; the samples are masked by the detector). */
-export function flagNote(surface: TextSurface, findings: PaymentFindings): string {
+export function flagNote(surface: TextSurface, findings: PaymentFindings, listingId: string | null = null): string {
   const samples = findings.samples.map((s) => `${s.kind}: ${s.text}`).join(" · ");
-  return `auto · payment_details_blocked · surface=${surface} · ${samples}`.slice(0, 1000);
+  const listing = listingId ? `listing=${listingId} · ` : "";
+  return `auto · payment_details_blocked · surface=${surface} · ${listing}${samples}`.slice(0, 1000);
 }
 
 async function recordOnce(surface: TextSurface, userId: string, findings: PaymentFindings): Promise<void> {
@@ -67,8 +85,9 @@ async function recordOnce(surface: TextSurface, userId: string, findings: Paymen
 
 async function flagOnce(surface: TextSurface, userId: string, listingId: string | null, findings: PaymentFindings): Promise<void> {
   const since = new Date(Date.now() - FLAG_GAP_HOURS * 60 * MINUTE);
-  const target = listingId ? { targetType: "LISTING" as const, listingId } : { targetType: "USER" as const, targetUserId: userId };
-  const note = flagNote(surface, findings);
+  const target = flagTarget(surface, userId, listingId);
+  // The listing the text was about stays in the note for staff when the flag names the writer.
+  const note = flagNote(surface, findings, target.targetType === "USER" ? listingId : null);
   const open = await db.report.findFirst({
     where: { ...target, reporterId: null, status: "OPEN", reason: "ASKED_MONEY_UPFRONT", createdAt: { gte: since }, details: { contains: `surface=${surface} ` } },
     select: { id: true },
@@ -81,7 +100,10 @@ export type GuardInput = {
   surface: TextSurface;
   /** The writer (signed in: every surface needs an account). */
   userId: string;
-  /** The listing the text belongs to, when there is one (the flag then names the listing). */
+  /**
+   * The listing the text belongs to, when there is one. The flag names the listing only for text
+   * the host writes; for WRITER_SURFACES it names the writer and keeps the listing in its note.
+   */
   listingId?: string | null;
   texts: readonly (string | null | undefined)[];
 };

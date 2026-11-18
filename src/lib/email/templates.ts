@@ -9,6 +9,7 @@ import { describePriceLine, formatBookingMoney, priceLineAmount } from "@/lib/bo
 import type { PriceLine } from "@/lib/booking/pricing";
 import { formatDateRange, formatMoney, formatNumber, formatTime } from "@/lib/format";
 import { checkTimeDisplay, clockLabel } from "@/lib/listing/check-times";
+import { defuseLinks } from "./defuse";
 import { ADMIN_EMAIL_TEMPLATES, adminEmailBuilders, type AdminEmailData } from "@/lib/alerts/founder-email-templates";
 import { REPORT_EMAIL_TEMPLATES, reportEmailBuilders, type ReportEmailData } from "@/lib/reports/email-templates";
 import { WEEKLY_EMAIL_TEMPLATES, weeklyEmailBuilders, type WeeklyEmailData } from "@/lib/alerts/weekly-host-email-template";
@@ -186,7 +187,13 @@ export type EmailData = {
     guestPhone: string;
     messageToHost?: string | null;
   };
-  booking_reminder_guest: BookingEmailStay & BookingEmailArrival & { guestName?: string | null; daysLeft: number };
+  booking_reminder_guest: BookingEmailStay &
+    BookingEmailArrival & {
+      guestName?: string | null;
+      daysLeft: number;
+      /** The host changed the listing's contact details recently (SECURITY_REPORT 14.3.c): the warning shows. */
+      contactChanged?: boolean;
+    };
   booking_reminder_host: BookingEmailStay & { hostName?: string | null; guestName: string; guestPhone: string; daysLeft: number };
   booking_cancelled_by_guest: BookingEmailStay & {
     hostName?: string | null;
@@ -322,8 +329,18 @@ export type TemplateContext = {
   brand: string;
 };
 
-function clean(value: string | null | undefined): string {
+/** Our own values (codes, template names, times): trimmed only. */
+function plain(value: string | null | undefined): string {
   return (value ?? "").trim();
+}
+
+/**
+ * A user-written value (a title, a name, an address, a subject): trimmed, with web and email
+ * addresses defused so no mail app makes a link of them (S2 review TS-6, SECURITY_REPORT 13.4.b).
+ * Defused here too, so the Subject header and every builder's sentence carry the safe form.
+ */
+function clean(value: string | null | undefined): string {
+  return defuseLinks(plain(value));
 }
 
 /**
@@ -392,8 +409,8 @@ function arrivalRows(data: BookingEmailArrival, ctx: TemplateContext): DetailRow
   const { t, locale } = ctx;
   const rows: DetailRow[] = [];
   // Times in the reader's usual format ("14:00", "2:00 PM", "2:00 م"); "גמיש" in words (round 3).
-  const checkIn = checkTimeDisplay(clean(data.checkInFrom), data.checkInFlexible);
-  const checkOut = checkTimeDisplay(clean(data.checkOutUntil), data.checkOutFlexible);
+  const checkIn = checkTimeDisplay(plain(data.checkInFrom), data.checkInFlexible);
+  const checkOut = checkTimeDisplay(plain(data.checkOutUntil), data.checkOutFlexible);
   if (checkIn) {
     rows.push({
       label: t("booking.arrivalLabel"),
@@ -684,7 +701,7 @@ const builders: { [K in EmailTemplate]: Builder<K> } = {
     const id = String(data.listingId);
     const rows: { label: string; value: string; ltr?: boolean }[] = [
       { label: t("templates.contact_owner.fromLabel"), value: clean(data.senderName) },
-      { label: t("templates.contact_owner.emailLabel"), value: clean(data.senderEmail), ltr: true },
+      { label: t("templates.contact_owner.emailLabel"), value: plain(data.senderEmail), ltr: true },
     ];
     if (clean(data.senderPhone)) {
       rows.push({ label: t("templates.contact_owner.phoneLabel"), value: clean(data.senderPhone), ltr: true });
@@ -869,6 +886,17 @@ const builders: { [K in EmailTemplate]: Builder<K> } = {
       greetingName: clean(data.guestName) || null,
       blocks: [
         { type: "paragraph", text: t("templates.booking_reminder_guest.body1", { title, count: data.daysLeft }) },
+        // The host changed the contact details recently: the same warning as the trip page and the
+        // one-time email, before the phone numbers below (S2 review TS-12, SECURITY_REPORT 14.3.c).
+        ...(data.contactChanged
+          ? [
+              {
+                type: "notice" as const,
+                text: t("templates.host_contact_changed_guest.body", { title, code: data.code }),
+                link: { label: t("scamReport"), url: ctx.page(scamReportHref({ booking: data.code })) },
+              },
+            ]
+          : []),
         // Never the exact address in a reminder (founder's answer (10)): the trip page has it.
         { type: "details", rows: [...stayRows(data, ctx), ...arrivalRows({ ...data, address: null }, ctx)] },
         { type: "paragraph", text: t("templates.booking_reminder_guest.addressOnTrip") },
@@ -1031,7 +1059,7 @@ const builders: { [K in EmailTemplate]: Builder<K> } = {
     const kind = (ADMIN_ALERT_KINDS as readonly string[]).includes(data.kind) ? data.kind : "email_bounced";
     const key = `templates.admin_alert.${kind}`;
     const reason = t(`templates.admin_alert.reason.${ADMIN_ALERT_REASONS.includes(data.reason) ? data.reason : "failed"}`);
-    const code = clean(data.bookingCode);
+    const code = plain(data.bookingCode);
     const title = isolate(clean(data.listingTitle));
     const address = clean(data.address);
     const rows: DetailRow[] = [];
@@ -1042,7 +1070,7 @@ const builders: { [K in EmailTemplate]: Builder<K> } = {
     }
     if (clean(data.hostName)) rows.push({ label: t("booking.hostLabel"), value: clean(data.hostName) });
     if (address) rows.push({ label: t("templates.admin_alert.addressLabel"), value: address, ltr: true });
-    if (clean(data.template)) rows.push({ label: t("templates.admin_alert.templateLabel"), value: clean(data.template), ltr: true });
+    if (plain(data.template)) rows.push({ label: t("templates.admin_alert.templateLabel"), value: plain(data.template), ltr: true });
     const channel = data.channel === "email" || data.channel === "telegram" ? data.channel : null;
     if (channel) rows.push({ label: t("templates.admin_alert.channelLabel"), value: t(`templates.admin_alert.channel.${channel}`) });
     const country = /^[A-Z]{2}$/.test(data.country ?? "") ? data.country! : null;

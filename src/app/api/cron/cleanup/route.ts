@@ -1,6 +1,7 @@
 import {
   anonymizeOldContactClicks,
   eraseClosedCaseTexts,
+  eraseClosedTicketAttachments,
   eraseOldGuestContacts,
   purgeOldAuditLogs,
   purgeOldEmailOutbox,
@@ -37,7 +38,8 @@ import { isAuthorizedCron, runCronJob, runCronSteps, unauthorized } from "../aut
  * - retention (security checklist 15.9, @/lib/admin/maintenance/retention): blanks the guest's
  *   contact details on bookings that ended 3 months ago (founder's decision 9), deletes staff
  *   audit entries after a year, email outbox rows after 90 days and device links not seen for a
- *   year, and drops the account from "show contact" taps after 90 days (the counts stay).
+ *   year, and drops the account from "show contact" taps after 90 days (the counts stay); the
+ *   texts and screenshots of support tickets closed 180 days ago.
  * Each step runs on its own: one that fails is logged, reported and answered as
  * `{ error: "failed" }` (the job answers 500), and the steps after it still run.
  */
@@ -113,6 +115,8 @@ export async function GET(request: Request) {
       expiredSessions: () => purgeExpiredSessions(now),
       phoneLookups: () => purgeOldPhoneLookups(now),
       deadPushSubscriptions: () => purgeDeadPushSubscriptions(now),
+      // Ticket screenshots first, then the texts, on the same 180-day clock (ops-ret-1 / LP-4).
+      ticketScreenshots: () => eraseClosedTicketAttachments(now),
       caseTexts: () => eraseClosedCaseTexts(now),
     });
   });

@@ -171,8 +171,9 @@ describe("card-detail requests", () => {
     "أرسل رقم البطاقة",
     "نحتاج بيانات البطاقة",
     "გამომიგზავნეთ ბარათის ნომერი",
-    "ბარათის მონაცემები",
+    "ბარათის მონაცემები გამოგვიგზავნეთ",
     "c.v.v please",
+    "CVV: 123",
   ])("blocks %s", (text) => {
     expect(kinds(text)).toContain("card_request");
   });
@@ -242,6 +243,115 @@ describe("money transfers and gift cards", () => {
   it("allows naming a service without asking for a payment", () => {
     expect(kinds("The Western Union office is next to the building")).toEqual([]);
     expect(kinds("ליד הבניין יש סניף של ווסטרן יוניון")).toEqual([]);
+  });
+});
+
+describe("S2 review: split card numbers (TS-2)", () => {
+  it.each(["Deposit to card:\n4111\n1111\n1111\n1111", "4111\n1111\n1111\n1111", "4111 1111\n1111 1111", "4111,1111,1111,1111", "41 11 11 11 11 11 11 11", "4111 1111 1111 111 1"])(
+    "blocks %j",
+    (text) => {
+      expect(kinds(text)).toContain("card_number");
+    },
+  );
+
+  it.each([
+    "14:00\n16:00",
+    "Check-in 14:00, 15:00, 16:00, 17:00 or 22:00",
+    "+995 555 12 34 56, 555 98 76 54",
+    "054 123 4567\n052 765 4321",
+    "555 12 34 56\n599 12 34 56",
+    "Rooms 4003 4004 4005 4006",
+    "Rooms 4003\n4004\n4005\n4006",
+    "Built 2019, renovated 2020, 2021, 2022",
+  ])("allows %j", (text) => {
+    expect(kinds(text)).toEqual([]);
+  });
+
+  it("allows room lists: about 1 in 14 consecutive 4-digit lists used to read as a card", () => {
+    let caught = 0;
+    for (let start = 1000; start < 9900; start += 33) {
+      const rooms = [0, 1, 2, 3].map((i) => String(start + i)).join(" ");
+      if (kinds(`Rooms ${rooms}`).includes("card_number")) caught++;
+    }
+    expect(caught).toBe(0);
+  });
+});
+
+describe("S2 review: false alarms on hospitality text (TS-4)", () => {
+  it.each([
+    "Room key card number is on the envelope",
+    "Parking card details at reception",
+    "מספר כרטיס החניה יימסר בהגעה",
+    "פרטי הכרטיס לכניסה לחניון",
+    "Номер карты гостя выдаётся на ресепшене",
+    "CVC Tbilisi mall is 5 minutes away",
+    "We accept Visa, Mastercard and Apple Card, pay at check-in",
+    "Netflix code on the fridge, pay at arrival",
+    "כרטיס מתנה למסעדה ליד, משלמים בהגעה",
+    "ETH zurich alumni welcome, pay on arrival",
+    "Tether your dog outside; pay on arrival",
+    "TRX fitness straps available via the gym",
+    "Steam codes not included",
+    "Код от домофона и карта гостя - на месте, оплата при заезде",
+    "بطاقة الغرفة عند الاستقبال، الدفع عند الوصول",
+    "ოთახის ბარათის ნომერი მიმღებში, გადახდა ადგილზე",
+  ])("allows %s", (text) => {
+    expect(kinds(text)).toEqual([]);
+  });
+});
+
+describe("S2 review: disguised spellings (TS-3)", () => {
+  it.each([
+    ["p̲a̲y̲p̲a̲l̲.me/flat", "payment_link"],
+    ["paypօl.me/flat", "payment_link"],
+    ["paypal⸳me/flat", "payment_link"],
+    ["paypal。me/flat", "payment_link"],
+    ["paypal-dot-me/flat", "payment_link"],
+    ["paypal_dot_me/flat", "payment_link"],
+    ["pay here bayit-secure dot ge", "payment_link"],
+    ["G E 2 9 N B 0 0 0 0 0 0 0 1 0 1 9 0 4 9 1 7", "iban"],
+    ["GE-29-NB00 0000 0101 9049 17", "iban"],
+    ["0x742d35Cc 6634C0532 925a3b844Bc454e4438f44e", "crypto_wallet"],
+    ["TQn9Y2kh EsLJW1Ch VWFMSMeR Dow5KcbLSE", "crypto_wallet"],
+  ] as const)("blocks %s as %s", (text, kind) => {
+    expect(kinds(text)).toContain(kind);
+  });
+
+  it("does not join ordinary words into a wallet", () => {
+    expect(kinds("Tamar Queen Hotel Batumi 5 rooms 2 floors sea view 300 meters")).toEqual([]);
+    expect(kinds("Apartment 12 Rustaveli Avenue 45 Tbilisi Georgia 0108")).toEqual([]);
+  });
+});
+
+describe("S2 review: pay-by-phone apps and bank transfers before arrival (TS-10)", () => {
+  it.each([
+    "תשלום בביט למספר",
+    "שלמו בפייבוקס",
+    "pay with paypal",
+    "pay by bank transfer before arrival",
+    "העבירו מקדמה לחשבון 123456789 בנק הפועלים סניף 600",
+    "переведите предоплату на карту тинькофф",
+    "pay me via Wise",
+    "Оплата через Сбер заранее",
+    "ادفع العربون بتحويل بنكي قبل الوصول",
+    "წინასწარ ჩარიცხეთ ბარათზე",
+    "Please send the deposit via Revolut",
+  ])("blocks %s", (text) => {
+    expect(kinds(text)).toContain("money_transfer");
+  });
+
+  it.each([
+    "we accept bank transfer on arrival",
+    "כרטיס אשראי בהגעה",
+    "Price: 250 000 $. Bank transfer at the notary.",
+    "Bank transfer when signing the contract",
+    "העברה בנקאית בעת ההגעה",
+    "Перевод на карту при заезде",
+    "تحويل بنكي عند الوصول",
+    "საბანკო გადარიცხვა ადგილზე",
+    "A wise choice for families",
+  ])("allows %s", (text) => {
+    expect(kinds(text)).toEqual([]);
   });
 });
 

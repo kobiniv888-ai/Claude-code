@@ -368,7 +368,8 @@
       "Booking": "הזמנה",
       "ReferencePrice": "מחיר ייחוס",
       "EmailOutbox": "מייל",
-      "Review": "ביקורת"
+      "Review": "ביקורת",
+      "CookieConsent": "בחירת עוגיות"
     },
     "actions": {
       "listing_approve": "מודעה אושרה",
@@ -494,7 +495,8 @@
       "sessions_end_all": "כל המשתמשים נותקו",
       "account_email_added": "נוספה כתובת אימייל לחשבון",
       "booking_host_asked_expired": "ביטול \"המארח ביקש\" ללא תשובה מהמארח: הועבר לבדיקה",
-      "flag_signup_device_reviewed": "נבדק: חשבונות ממכשיר אחד"
+      "flag_signup_device_reviewed": "נבדק: חשבונות ממכשיר אחד",
+      "consent_cookies": "בחירת עוגיות נרשמה"
     }
   },
   "moderation": {
@@ -1473,6 +1475,7 @@
     "emptyHint": "הזמנות של אורחים יופיעו כאן.",
     "flag": {
       "host_cancellation": "ביטול תוך 48 שעות",
+      "host_asked_disputed": "המארח מכחיש שביקש לבטל",
       "no_show": "האורח לא הגיע"
     },
     "reports": "{count, plural, one {דיווח אחד} other {{count} דיווחים}}",
@@ -1511,6 +1514,7 @@
     "backToList": "חזרה להזמנות",
     "flagExplain": {
       "host_cancellation": "המארח ביטל תוך 48 שעות מרגע ההזמנה, או שהאורח כתב שהמארח ביקש לבטל. כדאי לבדוק למה.",
+      "host_asked_disputed": "האורח כתב שהמארח ביקש ממנו לבטל, והמארח השיב שלא או לא ענה תוך 72 שעות. זה לא נספר נגד המארח עד שתבדקו מי צודק.",
       "no_show": "המארח דיווח שהאורח לא הגיע. לידיעה בלבד."
     },
     "reviewedBy": "נבדק על ידי {name}, {when}",

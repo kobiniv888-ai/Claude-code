@@ -27,7 +27,7 @@
  * `repeatCancellations`), review only: nothing automatic follows from the count (decision 7).
  */
 
-import { effectiveHostAskedState, hostAskedCountsAgainstHost } from "@/lib/booking/host-asked";
+import { HOST_ASKED_DENIED, HOST_ASKED_EXPIRED, effectiveHostAskedState, hostAskedCountsAgainstHost } from "@/lib/booking/host-asked";
 
 export const HOST_REPORT_FLAG_MIN = 2;
 export const HOST_REPORT_WINDOW_DAYS = 365;
@@ -74,11 +74,20 @@ export type FlagBooking = {
   flagReviewedAt: Date | null;
 };
 
-export type BookingFlagKind = "host_cancellation" | "no_show";
+export type BookingFlagKind = "host_cancellation" | "host_asked_disputed" | "no_show";
 
-/** What a booking is flagged for (null = nothing). A flagged host cancellation wins over a no-show. */
-export function bookingFlagKind(booking: Pick<FlagBooking, "status" | "flaggedForReview">): BookingFlagKind | null {
-  if (booking.flaggedForReview) return "host_cancellation";
+/** "The host asked me to cancel" that the host denied or never answered (72 h): staff decide; it never counts against the host. */
+export function isDisputedHostAsked(booking: { status: string; cancelReasonCode?: string | null }): boolean {
+  return booking.status === "CANCELLED_BY_GUEST" && (booking.cancelReasonCode === HOST_ASKED_DENIED || booking.cancelReasonCode === HOST_ASKED_EXPIRED);
+}
+
+/**
+ * What a booking is flagged for (null = nothing). A flagged host cancellation wins over a no-show.
+ * A denied or unanswered "the host asked me" is its own kind (founder's answer (4), S2 review FC-2):
+ * in Admin → Flags for staff, but not a host cancellation.
+ */
+export function bookingFlagKind(booking: Pick<FlagBooking, "status" | "flaggedForReview"> & { cancelReasonCode?: string | null }): BookingFlagKind | null {
+  if (booking.flaggedForReview) return isDisputedHostAsked(booking) ? "host_asked_disputed" : "host_cancellation";
   if (booking.status === "NO_SHOW") return "no_show";
   return null;
 }
@@ -90,7 +99,7 @@ export function bookingFlagOpen(booking: FlagBooking): boolean {
 
 /**
  * Is the host flagged right now (for the review rule)? An open report flag, or at least one open
- * host-cancellation flag. No-shows never count.
+ * host-cancellation flag. No-shows never count, nor a disputed "the host asked me" (FC-2).
  */
 export function isFlaggedHost(input: { reportFlagOpen: boolean; openCancellationFlags: number }): boolean {
   return input.reportFlagOpen || input.openCancellationFlags > 0;

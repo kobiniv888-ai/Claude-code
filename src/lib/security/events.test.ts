@@ -15,7 +15,9 @@ const { hmacHash } = await import("@/lib/crypto");
 const { SECURITY_EVENT_TYPES, isSecurityEventType } = await import("./event-types");
 const { purgeOldSecurityEvents, recordSecurityEvent, sanitizeSecurityMeta, SECURITY_EVENT_RETENTION_DAYS } = await import("./events");
 
-const run = `vitest${randomUUID().replace(/-/g, "").slice(0, 12)}`;
+// Letters only: a random hex marker with a long run of digits looks like a phone number to the
+// sanitizer and would be dropped (a flaky failure seen in the S2 gate run).
+const run = `vitest${randomUUID().replace(/-/g, "").slice(0, 12).replace(/[0-9]/g, (d) => "ghijklmnop"[Number(d)]!)}`;
 const mine = () => db.securityEvent.findMany({ where: { meta: { path: ["run"], equals: run } }, orderBy: { createdAt: "asc" } });
 
 afterAll(async () => {

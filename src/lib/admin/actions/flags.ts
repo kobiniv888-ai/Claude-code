@@ -48,7 +48,7 @@ export async function markBookingFlagReviewedAction(input: unknown): Promise<Act
       if (!parsed.success) return fail("invalid_input", z.flattenError(parsed.error).fieldErrors);
       const booking = await db.booking.findUnique({
         where: { id: parsed.data.bookingId },
-        select: { id: true, code: true, status: true, flaggedForReview: true, flagReviewedAt: true, hostUserId: true, guestUserId: true },
+        select: { id: true, code: true, status: true, cancelReasonCode: true, flaggedForReview: true, flagReviewedAt: true, hostUserId: true, guestUserId: true },
       });
       if (!booking) throw new AdminActionError("booking_not_found", 404);
       if (booking.hostUserId === staff.id || booking.guestUserId === staff.id) throw new AdminActionError("not_allowed_on_self", 403);

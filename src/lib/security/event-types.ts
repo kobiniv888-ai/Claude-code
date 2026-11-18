@@ -65,6 +65,8 @@ export const SECURITY_EVENT_TYPES = [
   "all_sessions_ended",
   /** A booking, trip, list or ticket link that matches nothing for this visitor (meta: kind): ID guessing shows as a burst. */
   "id_not_found",
+  /** An unexpected server error (meta: kind render / route / action / cron, job). Capped per server; for the error-spike alert (16.3). */
+  "server_error",
   // Field encryption (SECURITY_REPORT 12.3.c, D7; builder field-encryption).
   /** An encrypted exact address, pin or guest phone could not be opened (meta: field, reason, where); shown as not available. */
   "field_decrypt_failed",
@@ -76,6 +78,15 @@ export const SECURITY_EVENT_TYPES = [
   // Fake sign-ups (SECURITY_REPORT 3.8.b; builder legal-privacy).
   /** A new account is over the cap of accounts made on one device in 30 days (meta: accounts, windowDays, cap). Flag only, never a block. */
   "signup_device_cap",
+  /** A new non-demo account was made on a device (meta: d, a keyed letters-only mark of the device hash). Survives the account's deletion, so "sign up, delete, sign up" still counts (LP-8). */
+  "signup_device",
+  /** A new non-demo account was made without a device id (cookie blocked or cleared): nothing to count (LP-8). */
+  "signup_no_device",
+  // Phone codes (SECURITY_REPORT 3.1.d, 3.2.c; S2 review FC-3 and the 30450 open item).
+  /** Twilio's SMS Pumping Protection blocked a code text (error 30450; meta: country, source). Never the number. */
+  "sms_pumping_blocked",
+  /** A phone check asked for a number another account holds: the neutral send (meta: otherUserId). Never the number. */
+  "phone_check_number_taken",
 ] as const;
 
 export type SecurityEventType = (typeof SECURITY_EVENT_TYPES)[number];
