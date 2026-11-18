@@ -1,9 +1,10 @@
 "use server";
 
 import { z } from "zod";
+import { DEFAULT_COUNTRY } from "@/config/countries";
 import { Prisma } from "@/generated/prisma/client";
 import { fail, ok, type ActionResult } from "@/lib/action";
-import { audit } from "@/lib/audit";
+import { audit, auditOrThrow } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { recomputeProximityNear } from "@/lib/nearby";
 import { cleanLocalized, cleanLocalizedOrNull } from "../localized";
@@ -12,8 +13,14 @@ import { ContentActionError, parseInput, runContentAction } from "../server/comm
 
 /**
  * Jewish Life places ("content"). After every change the walking times of listings near the
- * old and the new position are recomputed.
+ * old and the new position are recomputed (only verified, non-demo places count: a new or
+ * cleared verification date adds or removes walking times on nearby real listings).
  */
+
+/** Same calendar day (the form sends a date; keep who verified it unless the date changes). */
+function sameDay(a: Date | null, b: Date | null): boolean {
+  return a === b || (a !== null && b !== null && a.toISOString().slice(0, 10) === b.toISOString().slice(0, 10));
+}
 
 async function recompute(points: { lat: number; lng: number }[]): Promise<number> {
   let updated = 0;
@@ -39,9 +46,12 @@ export async function savePlace(input: unknown): Promise<ActionResult<{ id: stri
     const parsed = parseInput(placeSchema, raw.values);
     if (!parsed.ok) return parsed.result;
     const v = parsed.data;
+    // The place's country is its city's (src/config/countries.ts); without a city, the default.
+    let countryCode: string = DEFAULT_COUNTRY;
     if (v.cityId) {
-      const city = await db.city.findUnique({ where: { id: v.cityId }, select: { id: true } });
+      const city = await db.city.findUnique({ where: { id: v.cityId }, select: { id: true, countryCode: true } });
       if (!city) return fail("invalid_input", { cityId: ["invalid"] });
+      countryCode = city.countryCode;
     }
     const data = {
       type: v.type,
@@ -50,21 +60,29 @@ export async function savePlace(input: unknown): Promise<ActionResult<{ id: stri
       address: cleanLocalizedOrNull(v.address) ?? undefined,
       hours: cleanLocalizedOrNull(v.hours) ?? undefined,
       cityId: v.cityId || null,
+      countryCode,
       lat: v.lat,
       lng: v.lng,
       phone: v.phone || null,
       website: v.website || null,
       active: v.active,
       isDemo: v.isDemo,
+      verifiedAt: v.verifiedAt,
+      source: v.source || null,
     };
 
     if (placeId) {
-      const before = await db.jewishPlace.findUnique({ where: { id: placeId }, select: { id: true, lat: true, lng: true, active: true } });
+      const before = await db.jewishPlace.findUnique({
+        where: { id: placeId },
+        select: { id: true, lat: true, lng: true, active: true, verifiedAt: true, verifiedById: true },
+      });
       if (!before) throw new ContentActionError("item_not_found", 404);
+      const verifiedChanged = !sameDay(before.verifiedAt, data.verifiedAt);
       await db.jewishPlace.update({
         where: { id: placeId },
         data: {
           ...data,
+          verifiedById: !data.verifiedAt ? null : verifiedChanged ? staff.id : before.verifiedById,
           // Cleared optional texts become database NULL.
           description: data.description ?? Prisma.DbNull,
           address: data.address ?? Prisma.DbNull,
@@ -82,20 +100,25 @@ export async function savePlace(input: unknown): Promise<ActionResult<{ id: stri
           moved: before.lat !== data.lat || before.lng !== data.lng,
           active: data.active,
           isDemo: data.isDemo,
+          verifiedAt: data.verifiedAt?.toISOString().slice(0, 10) ?? null,
+          verifiedChanged,
           listingsUpdated,
         },
       });
       return ok({ id: placeId, listingsUpdated });
     }
 
-    const place = await db.jewishPlace.create({ data: { ...data, createdById: staff.id }, select: { id: true } });
+    const place = await db.jewishPlace.create({
+      data: { ...data, createdById: staff.id, verifiedById: data.verifiedAt ? staff.id : null },
+      select: { id: true },
+    });
     const listingsUpdated = await recompute([data]);
     await audit({
       actorId: staff.id,
       action: "place.create",
       targetType: "JewishPlace",
       targetId: place.id,
-      details: { type: data.type, isDemo: data.isDemo, listingsUpdated },
+      details: { type: data.type, isDemo: data.isDemo, verifiedAt: data.verifiedAt?.toISOString().slice(0, 10) ?? null, listingsUpdated },
     });
     return ok({ id: place.id, listingsUpdated });
   });
@@ -110,15 +133,22 @@ export async function deletePlace(input: unknown): Promise<ActionResult<{ listin
       select: { id: true, lat: true, lng: true, type: true, names: true, isDemo: true },
     });
     if (!place) throw new ContentActionError("item_not_found", 404);
-    await db.jewishPlace.delete({ where: { id: place.id } });
-    const listingsUpdated = await recompute([place]);
-    await audit({
-      actorId: staff.id,
-      action: "place.delete",
-      targetType: "JewishPlace",
-      targetId: place.id,
-      details: { type: place.type, names: place.names, isDemo: place.isDemo, listingsUpdated },
+    // Q13: the delete and its audit row commit together, or not at all; the walking distances of
+    // nearby listings are worked out again after that.
+    await db.$transaction(async (tx) => {
+      await tx.jewishPlace.delete({ where: { id: place.id } });
+      await auditOrThrow(
+        {
+          actorId: staff.id,
+          action: "place.delete",
+          targetType: "JewishPlace",
+          targetId: place.id,
+          details: { type: place.type, names: place.names, isDemo: place.isDemo },
+        },
+        tx,
+      );
     });
+    const listingsUpdated = await recompute([place]);
     return ok({ listingsUpdated });
-  });
+  }, { freshProof: "window" });
 }

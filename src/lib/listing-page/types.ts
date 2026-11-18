@@ -12,6 +12,7 @@ import type {
   HeatingType,
   KitchenKosher,
   ListingStatus,
+  PhotoRoom,
   PricePeriod,
   PropertyCondition,
   PropertyType,
@@ -19,7 +20,7 @@ import type {
   ViewType,
 } from "@/generated/prisma/enums";
 import type { ContactChannelKey } from "@/lib/listing/fields";
-import type { NearbyInfo } from "@/lib/nearby";
+import type { PublicNearbyInfo } from "@/lib/geo/public-walk";
 
 export type PagePhoto = {
   id: string;
@@ -29,6 +30,8 @@ export type PagePhoto = {
   medium: string;
   alt: string;
   blurDataUrl: string | null;
+  /** Which room the photo shows (the host's optional label; round 3, brief 6.1). */
+  room?: PhotoRoom | null;
 };
 
 export type OwnerBadges = {
@@ -48,6 +51,8 @@ export type OwnerSummary = {
   badges: OwnerBadges;
   /** ISO 639-1 codes. */
   languages: string[];
+  /** The Bayit welcome pledge version the owner accepted (null = never); see @/lib/pledge/pledge. */
+  welcomePledgeVersion: number | null;
   /** ISO date-time. */
   memberSince: string;
   avgReplyMinutes: number | null;
@@ -62,12 +67,26 @@ export type RoomTypeData = {
   price: number | null;
   currency: CurrencyCode;
   pricePeriod: PricePeriod;
+  /** Friday and Saturday nights (null = the nightly price). */
+  weekendPrice?: number | null;
   maxGuests: number | null;
   bedsSingle: number | null;
   bedsDouble: number | null;
+  bedsSofa?: number | null;
   sizeSqm: number | null;
+  /** The room's own amenity keys (src/lib/listing/fields.ts). */
+  amenities?: string[];
   photos: PagePhoto[];
+  /**
+   * Hotels that take bookings (round 3, founder's answer 3): the number of rooms of this type and
+   * the calendar's nights with fewer free (src/lib/booking/room-availability.ts). Unset for room
+   * types guests can't book here.
+   */
+  quantity?: number;
+  segments?: { start: string; end: string; free: number }[];
 };
+
+export type CancellationPolicyKey = "FLEXIBLE" | "MODERATE" | "STRICT";
 
 export type PriceChangeData = { oldPrice: number; newPrice: number; currency: CurrencyCode; changedAt: string };
 
@@ -93,12 +112,16 @@ export type ListingPageData = {
   originalLocale: AppLocale;
   city: { slug: string; name: string; lat: number; lng: number; timezone: string } | null;
   neighborhoodName: string | null;
+  /** ISO 3166-1 alpha-2 (Listing.countryCode); missing on old fixtures = src/config/countries.ts DEFAULT_COUNTRY. */
+  countryCode?: string;
   /** Approximate map point only. */
   approx: { lat: number; lng: number } | null;
 
   price: number | null;
   currency: CurrencyCode;
   pricePeriod: PricePeriod;
+  /** The listing's own currency (`currency` is the cheapest room type's when the price is "from"). */
+  listingCurrency?: CurrencyCode;
   /** True when the price is the cheapest room type ("from …"), for hotels. */
   priceIsFrom: boolean;
   priceDroppedAt: string | null;
@@ -129,12 +152,23 @@ export type ListingPageData = {
   kosherCertName: string | null;
   hotelJewishFeatures: string[];
   sharedRoomFor: SharedRoomFor | null;
+  /** The nearest SYNAGOGUE's walk, rounded up to 5 (never a Chabad house, founder's answer (2)). */
   synagogueWalkMin: number | null;
-  chabadWalkMin: number | null;
-  nearby: NearbyInfo;
+  /**
+   * Round 3 (brief 7.3): minutes on foot from the pin to the nearest beach / ski lift (sea and ski
+   * towns only, ≤ 30). Missing = none.
+   */
+  seaWalkMinutes?: number | null;
+  liftWalkMinutes?: number | null;
+  /** Listing.nearby reduced by publicWalkTimes (walks rounded up to 5 minutes, no meters, at most 3 walks). */
+  nearby: PublicNearbyInfo;
 
   deposit: number | null;
   cleaningFee: number | null;
+  /** Friday and Saturday nights (booking settings), null = the nightly price. */
+  weekendPrice: number | null;
+  /** INSTANT: guests book on the site; CONTACT: they ask the host. */
+  bookingMode: "INSTANT" | "CONTACT";
   utilitiesIncluded: boolean | null;
   utilitiesEstimate: number | null;
   minStayNights: number | null;
@@ -143,6 +177,11 @@ export type ListingPageData = {
 
   checkInFrom: string | null;
   checkOutUntil: string | null;
+  /** "גמיש" (round 3): shown as "צ׳ק-אין גמיש" / "צ׳ק-אאוט גמיש". */
+  checkInFlexible: boolean;
+  checkOutFlexible: boolean;
+  /** The booking cancellation policy (round 2, phase 4 schema); null = not set yet. */
+  cancellationPolicy: CancellationPolicyKey | null;
   smokingAllowed: boolean | null;
   petsAllowed: boolean | null;
   partiesAllowed: boolean | null;
@@ -163,6 +202,17 @@ export type ListingPageData = {
   publishedAt: string | null;
   ownerVerified: boolean;
   propertyVerified: boolean;
+  /**
+   * Round 3 (brief 8.3): "ביקרנו במקום · נובמבר 2026" — the month of the Bayit team's visit
+   * ("YYYY-MM"), never the day or the staff note. Null (or missing) without the badge and on demo listings.
+   */
+  visitedMonth?: string | null;
+  /**
+   * Round 3 (brief 8.1): the VISIBLE reviews' count and the sum of their stars (Listing.reviewCount /
+   * ratingSum). The average shows only from 3 (getRatingSummary in src/lib/reviews). Missing = none.
+   */
+  reviewCount?: number;
+  ratingSum?: number;
   promoted: boolean;
   isNew: boolean;
 
@@ -173,5 +223,11 @@ export type ListingPageData = {
   priceChanges: PriceChangeData[];
   /** Blocked date ranges from today on ("YYYY-MM-DD", end exclusive). */
   blocks: { start: string; end: string }[];
+  /**
+   * The host's holiday prices from today on (round 3, brief 6.3; "YYYY-MM-DD", end exclusive):
+   * the dates sheet prices the nights with them like the server does. roomTypeId null = the whole
+   * listing. `label` is the host's note ({ he, … }, render with dir="auto").
+   */
+  datePrices?: { roomTypeId: string | null; start: string; end: string; price: number; minNights: number | null; label: unknown }[];
   owner: OwnerSummary;
 };

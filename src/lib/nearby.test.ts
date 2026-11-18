@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const { pickOsmNearby, toLocalized } = await import("./nearby");
+const { pickOsmForListing, pickOsmNearby, proximityPlaceWhere, toLocalized } = await import("./nearby");
 
 const home = { lat: 41.709, lng: 44.766 };
 /** A point `meters` north of home. */
@@ -37,6 +37,38 @@ describe("pickOsmNearby", () => {
   });
 });
 
+describe("pickOsmForListing (walk-trilat-1: what pages show comes from the public point)", () => {
+  // The public map point, 250 m north of the pin (the offset is 120–300 m).
+  const publicPoint = { lat: north(250).lat, lng: home.lng };
+  const elements: Parameters<typeof pickOsmForListing>[2] = [
+    { type: "node" as const, ...north(-120), tags: { shop: "supermarket", name: "Near the pin" } },
+    { type: "node" as const, ...north(380), tags: { shop: "supermarket", name: "Near the public point" } },
+    { type: "node" as const, ...north(-60), tags: { highway: "bus_stop", name: "Pin stop" } },
+    { type: "node" as const, ...north(300), tags: { highway: "bus_stop", name: "Public stop" } },
+  ];
+
+  it("keeps the pin's picks for staff and picks the page's ones around the public point", () => {
+    const { exact, public: shown } = pickOsmForListing(home, publicPoint, elements);
+    expect(exact.supermarket?.name).toBe("Near the pin");
+    expect(exact.transport?.name).toBe("Pin stop");
+    expect(shown.supermarket?.name).toBe("Near the public point");
+    expect(shown.supermarket?.meters).toBe(150);
+    expect(shown.transport).toMatchObject({ name: "Public stop", meters: 50, kind: "bus" });
+  });
+
+  it("depends on the public point alone: the same answer for any pin that has that public point", () => {
+    const a = pickOsmForListing(home, publicPoint, elements).public;
+    const otherPin = { lat: north(500).lat, lng: home.lng }; // also 250 m from the public point
+    expect(pickOsmForListing(otherPin, publicPoint, elements).public).toEqual(a);
+  });
+
+  it("only looks as far from the public point as a query around the pin surely covers (900 m)", () => {
+    const far = [{ type: "node" as const, ...north(250 + 1_000), tags: { shop: "supermarket", name: "Too far" } }];
+    expect(pickOsmForListing(home, publicPoint, far).public).toEqual({});
+    expect(pickOsmForListing(home, null, elements).public).toEqual({});
+  });
+});
+
 describe("toLocalized", () => {
   it("fills missing languages from English", () => {
     expect(toLocalized({ en: "Great Synagogue", he: "בית הכנסת הגדול" })).toEqual({
@@ -47,5 +79,18 @@ describe("toLocalized", () => {
       ka: "Great Synagogue",
     });
     expect(toLocalized(null).en).toBe("");
+  });
+});
+
+describe("proximityPlaceWhere (brief 5.9: walking times only from verified, real places)", () => {
+  it("real listings use only active, non-demo places with a verification date", () => {
+    expect(proximityPlaceWhere(false)).toEqual({ active: true, isDemo: false, verifiedAt: { not: null } });
+  });
+
+  it("demo listings may also use demo places, but never unverified real ones", () => {
+    expect(proximityPlaceWhere(true)).toEqual({
+      active: true,
+      OR: [{ isDemo: false, verifiedAt: { not: null } }, { isDemo: true }],
+    });
   });
 });

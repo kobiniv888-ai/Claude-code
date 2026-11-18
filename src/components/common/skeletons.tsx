@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 
 /** One shimmering block. */
 export function SkeletonBlock({ className }: { className?: string }) {
-  return <div aria-hidden className={cn("shimmer rounded-md", className)} />;
+  return <div aria-hidden className={cn("skeleton-shimmer rounded-md", className)} />;
 }
 
 function LoadingLabel({ label }: { label?: string }) {

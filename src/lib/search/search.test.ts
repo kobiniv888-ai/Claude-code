@@ -145,10 +145,11 @@ describe("search SEO", () => {
     expect(dealTitleKey(null)).toBe("any");
   });
 
-  it("indexes deal + city pages and drops page, sort and bounds from the canonical", () => {
+  it("keeps page, sort and view variants out of the index, canonical to the deal + city landing", () => {
     const f = parseSearchParams({ deal: "monthly", city: "tbilisi", page: "3", sort: "newest", view: "map" });
     expect(seoFilterCount(f)).toBe(2);
-    expect(searchNoIndex(f)).toBe(false);
+    expect(searchNoIndex(f)).toBe(true);
+    expect(searchNoIndex(parseSearchParams({ deal: "monthly", city: "tbilisi" }))).toBe(false);
     expect(canonicalSearchPath(f)).toBe("/search?deal=monthly&city=tbilisi");
   });
 

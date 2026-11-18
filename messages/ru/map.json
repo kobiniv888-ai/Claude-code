@@ -1,0 +1,50 @@
+{
+  "label": "Карта объектов",
+  "loading": "Загружаем карту…",
+  "status": {
+    "loading": "Загрузка…",
+    "inArea": "{count, plural, =0 {В этом районе нет объектов} one {{formatted} объект в этом районе} few {{formatted} объекта в этом районе} many {{formatted} объектов в этом районе} other {{formatted} объекта в этом районе}}"
+  },
+  "controls": {
+    "label": "Управление картой",
+    "searchAsMove": "Искать при перемещении карты",
+    "recenter": "Вернуть карту",
+    "recenterLabel": "Вернуться к району поиска",
+    "list": "Список",
+    "listLabel": "Вернуться к списку результатов",
+    "community": "Еврейская община",
+    "communityHint": "Синагоги, дома Хабада и кошерные места на карте",
+    "communityLoading": "Загружаем места общины…",
+    "communityError": "Не удалось загрузить места общины. Попробуйте ещё раз.",
+    "communityEmpty": "На карте пока нет мест общины."
+  },
+  "pill": {
+    "noPrice": "По запросу"
+  },
+  "cluster": "{count, plural, one {{formatted} объект здесь} few {{formatted} объекта здесь} many {{formatted} объектов здесь} other {{formatted} объекта здесь}} — нажмите, чтобы приблизить",
+  "card": {
+    "label": "Объект, выбранный на карте",
+    "close": "Закрыть карточку",
+    "loading": "Загружаем объект…",
+    "open": "К объявлению"
+  },
+  "community": {
+    "types": {
+      "SYNAGOGUE": "Синагога",
+      "CHABAD_HOUSE": "Дом Хабада",
+      "KOSHER_RESTAURANT": "Кошерный ресторан",
+      "KOSHER_SHOP": "Кошерный магазин"
+    },
+    "legend": {
+      "label": "Условные знаки: места общины",
+      "synagogue": "Синагога",
+      "chabad": "Хабад",
+      "kosher": "Кошер"
+    },
+    "walk": "Пешком",
+    "walkLabel": "Пешеходный маршрут до места «{name}» (откроется в новом окне)",
+    "demo": "Демо",
+    "demoNote": "Демо-точка, не настоящее место",
+    "cluster": "{count, plural, one {{formatted} место общины здесь} few {{formatted} места общины здесь} many {{formatted} мест общины здесь} other {{formatted} места общины здесь}} — нажмите, чтобы приблизить"
+  }
+}

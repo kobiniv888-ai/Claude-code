@@ -1,0 +1,50 @@
+{
+  "label": "خريطة العقارات",
+  "loading": "جارٍ تحميل الخريطة…",
+  "status": {
+    "loading": "جارٍ التحميل…",
+    "inArea": "{count, plural, =0 {لا عقارات في هذه المنطقة} one {عقار واحد في المنطقة} two {عقاران في المنطقة} few {{formatted} عقارات في المنطقة} many {{formatted} عقارًا في المنطقة} other {{formatted} عقار في المنطقة}}"
+  },
+  "controls": {
+    "label": "أدوات الخريطة",
+    "searchAsMove": "البحث عند تحريك الخريطة",
+    "recenter": "إعادة التوسيط",
+    "recenterLabel": "العودة إلى منطقة البحث",
+    "list": "القائمة",
+    "listLabel": "العودة إلى قائمة النتائج",
+    "community": "الجالية اليهودية",
+    "communityHint": "الكُنُس وبيوت حاباد والأماكن الكوشر على الخريطة",
+    "communityLoading": "جارٍ تحميل أماكن الجالية…",
+    "communityError": "تعذّر تحميل أماكن الجالية. حاولوا مرة أخرى.",
+    "communityEmpty": "لا توجد أماكن للجالية على الخريطة بعد."
+  },
+  "pill": {
+    "noPrice": "عند الطلب"
+  },
+  "cluster": "{count, plural, one {عقار واحد هنا} two {عقاران هنا} few {{formatted} عقارات هنا} many {{formatted} عقارًا هنا} other {{formatted} عقار هنا}} — انقروا للتكبير",
+  "card": {
+    "label": "العقار المختار على الخريطة",
+    "close": "إغلاق البطاقة",
+    "loading": "جارٍ تحميل العقار…",
+    "open": "عرض الإعلان"
+  },
+  "community": {
+    "types": {
+      "SYNAGOGUE": "كنيس",
+      "CHABAD_HOUSE": "بيت حاباد",
+      "KOSHER_RESTAURANT": "مطعم كوشر",
+      "KOSHER_SHOP": "متجر كوشر"
+    },
+    "legend": {
+      "label": "مفتاح الخريطة: أماكن الجالية",
+      "synagogue": "كنيس",
+      "chabad": "حاباد",
+      "kosher": "كوشر"
+    },
+    "walk": "مسار المشي",
+    "walkLabel": "مسار المشي إلى {name} (يفتح في نافذة جديدة)",
+    "demo": "تجريبي",
+    "demoNote": "نقطة تجريبية، ليست مكانًا حقيقيًا",
+    "cluster": "{count, plural, one {مكان واحد للجالية هنا} two {مكانان للجالية هنا} few {{formatted} أماكن للجالية هنا} many {{formatted} مكانًا للجالية هنا} other {{formatted} مكان للجالية هنا}} — انقروا للتكبير"
+  }
+}

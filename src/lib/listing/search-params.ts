@@ -13,6 +13,7 @@
  * equal URLs (good for caching and canonical links).
  */
 import { siteConfig } from "@/config/site";
+import { documentChecksOn } from "@/config/verification";
 import type {
   BuildingAge,
   DealType,
@@ -23,6 +24,8 @@ import type {
   ViewType,
 } from "@/generated/prisma/enums";
 import { parseBounds, serializeBounds, type Bounds } from "@/lib/geo";
+import { isSeaTown, isSkiTown } from "@/lib/geo/walk-towns";
+import { clampBoundsToGeorgia } from "@/lib/map-bounds";
 import {
   AMENITIES,
   CONDITIONS,
@@ -151,6 +154,11 @@ export type SearchFilters = {
   amenities: AmenityFilter[];
   kitchen: KitchenFilter | null;
   shabbatFriendly: boolean;
+  /**
+   * The "כשר ושבת" quick chip (round 2, `?kosherShabbat=1`): a kosher kitchen OR Shabbat-friendly
+   * OR (hotels) kosher meals or a kosher breakfast. One of them is enough.
+   */
+  kosherShabbat: boolean;
   /** Must have all of these Jewish-friendly details. */
   jewish: JewishFeature[];
   /** Must have all of these hotel features (kosher breakfast…). */
@@ -162,6 +170,15 @@ export type SearchFilters = {
   sharedRoomFor: SharedRoomFor | null;
   /** Owner's ID or ownership is verified. */
   verifiedOnly: boolean;
+  /** Round 3 (brief 8.3): "ביקרנו במקום", a Bayit team member visited the place (`?visited=1`). */
+  visited: boolean;
+  /**
+   * Round 3 (brief 7.3): "קרוב לים", the walk from the pin to a beach is 15 minutes or less
+   * (`?nearSea=1`). Only with a sea town as `city` (src/lib/geo/walk-towns.ts); dropped otherwise.
+   */
+  nearSea: boolean;
+  /** "קרוב למעליות", the walk to a ski lift is 15 minutes or less (`?nearLifts=1`; ski towns only). */
+  nearLifts: boolean;
   ownerType: OwnerType | null;
   hasPhotos: boolean;
   hasVideo: boolean;
@@ -208,12 +225,16 @@ export function emptyFilters(): SearchFilters {
     amenities: [],
     kitchen: null,
     shabbatFriendly: false,
+    kosherShabbat: false,
     jewish: [],
     hotel: [],
     synagogueMaxWalk: null,
     bigFamily: false,
     sharedRoomFor: null,
     verifiedOnly: false,
+    visited: false,
+    nearSea: false,
+    nearLifts: false,
     ownerType: null,
     hasPhotos: false,
     hasVideo: false,
@@ -253,12 +274,16 @@ const PARAM_ORDER = [
   "amenities",
   "kitchen",
   "shabbatFriendly",
+  "kosherShabbat",
   "jewish",
   "hotel",
   "synagogueMaxWalk",
   "bigFamily",
   "sharedRoomFor",
   "verifiedOnly",
+  "visited",
+  "nearSea",
+  "nearLifts",
   "ownerType",
   "hasPhotos",
   "hasVideo",
@@ -428,13 +453,19 @@ export function parseSearchParams(input: SearchParamsInput | null | undefined): 
   filters.amenities = pickList(listValues(read, "amenities"), AMENITY_FILTERS, lowerKey);
   filters.kitchen = pickOne(one("kitchen"), KITCHEN_FILTERS, lowerKey);
   filters.shabbatFriendly = flag(one("shabbatFriendly"));
+  filters.kosherShabbat = flag(one("kosherShabbat"));
   filters.jewish = pickList(listValues(read, "jewish"), JEWISH_FEATURES, lowerKey);
   filters.hotel = pickList(listValues(read, "hotel"), HOTEL_JEWISH_FEATURES, lowerKey);
   const walk = numberIn(one("synagogueMaxWalk"), 1, 60);
   filters.synagogueMaxWalk = SYNAGOGUE_WALK_OPTIONS.find((m) => m === walk) ?? null;
   filters.bigFamily = flag(one("bigFamily"));
   filters.sharedRoomFor = pickOne(one("sharedRoomFor"), SHARED_ROOM_FOR, enumKey);
-  filters.verifiedOnly = flag(one("verifiedOnly"));
+  // Hidden with the document badges (src/config/verification.ts): an old link with it is ignored.
+  filters.verifiedOnly = documentChecksOn() && flag(one("verifiedOnly"));
+  filters.visited = flag(one("visited"));
+  // Brief 7.3: the walking-time chips exist only in the sea / ski towns.
+  filters.nearSea = isSeaTown(filters.city) && flag(one("nearSea"));
+  filters.nearLifts = isSkiTown(filters.city) && flag(one("nearLifts"));
   filters.ownerType = pickOne(one("ownerType"), OWNER_TYPES, exactKey);
   filters.hasPhotos = flag(one("hasPhotos"));
   filters.hasVideo = flag(one("hasVideo"));
@@ -461,10 +492,11 @@ export function parseSearchParams(input: SearchParamsInput | null | undefined): 
   filters.view = pickOne(one("view"), VIEW_MODES, exactKey) ?? DEFAULT_VIEW;
 
   const bounds = parseBounds(one("bounds"));
+  // Clamped to Georgia: a saved world-sized area (zoomed far out) must not open on the world.
   filters.bounds =
     bounds && [bounds.north, bounds.south].every((lat) => Math.abs(lat) <= 90) &&
     [bounds.east, bounds.west].every((lng) => Math.abs(lng) <= 180)
-      ? bounds
+      ? clampBoundsToGeorgia(bounds)
       : null;
 
   filters.page = numberIn(one("page"), 1, LIMITS.page) ?? 1;
@@ -521,6 +553,8 @@ export function withFilters(filters: SearchFilters, patch: Partial<SearchFilters
   const next: SearchFilters = { ...filters, ...patch, page: patch.page ?? 1 };
   if ("city" in patch && patch.city !== filters.city && !("neighborhood" in patch)) next.neighborhood = null;
   if (!next.city) next.neighborhood = null;
+  if (!isSeaTown(next.city)) next.nearSea = false;
+  if (!isSkiTown(next.city)) next.nearLifts = false;
   if (!availableSorts(next.deal).includes(next.sort)) next.sort = DEFAULT_SORT;
   return next;
 }
@@ -545,12 +579,16 @@ export type ChipKey =
   | "amenities"
   | "kitchen"
   | "shabbatFriendly"
+  | "kosherShabbat"
   | "jewish"
   | "hotel"
   | "synagogueMaxWalk"
   | "bigFamily"
   | "sharedRoomFor"
   | "verifiedOnly"
+  | "visited"
+  | "nearSea"
+  | "nearLifts"
   | "ownerType"
   | "hasPhotos"
   | "hasVideo"
@@ -584,8 +622,12 @@ const VALUE_CHIPS = [
 ] as const;
 const FLAG_CHIPS = [
   "shabbatFriendly",
+  "kosherShabbat",
   "bigFamily",
   "verifiedOnly",
+  "visited",
+  "nearSea",
+  "nearLifts",
   "hasPhotos",
   "hasVideo",
   "furnished",

@@ -1,0 +1,319 @@
+{
+  "section": {
+    "title": "Reviews",
+    "count": "{count, plural, one {1 review} other {{count} reviews}}",
+    "noAverage": "The average rating shows from {min} reviews on.",
+    "empty": "No reviews of this place yet",
+    "emptyHint": "Only guests who booked through Bayit and stayed here can write a review.",
+    "showMore": "{count, plural, one {1 more review} other {{count} more reviews}}",
+    "realOnly": "Every review was written by a guest who booked and stayed here. A review can't be edited or deleted once it is posted.",
+    "unavailable": "Reviews can't be shown right now. Try refreshing the page in a few minutes.",
+    "showingOf": "Showing the newest {shown} of {total} reviews.",
+    "allReviews": "{count, plural, one {See the review} other {See all {countText} reviews}}"
+  },
+  "summary": {
+    "average": "{average} out of 5",
+    "label": "Rated {average} out of 5, {count, plural, one {1 review} other {{count} reviews}}. Go to the reviews"
+  },
+  "stars": {
+    "label": "{count, plural, one {1 star out of 5} other {{count} stars out of 5}}"
+  },
+  "quick": {
+    "title": "Ratings by topic",
+    "cleanliness": "Cleanliness",
+    "accuracy": "Accuracy",
+    "checkIn": "Check-in",
+    "communication": "Communication",
+    "location": "Location",
+    "value": "Value"
+  },
+  "item": {
+    "guest": "Guest",
+    "label": "Review by {name}",
+    "reply": "Host's reply"
+  },
+  "text": {
+    "translated": "Translated automatically",
+    "showOriginal": "Show original",
+    "showTranslation": "Show translation"
+  },
+  "prompt": {
+    "title": "How was your stay?",
+    "body": "Tell the next guests about <bdi>{title}</bdi>. You can write a review until {date}.",
+    "starsLabel": "Quick rating",
+    "star": "{count, plural, one {1 star} other {{count} stars}}",
+    "cta": "Write a review",
+    "daysLeft": "{count, plural, one {1 day left} other {{count} days left}}"
+  },
+  "form": {
+    "metaTitle": "Write a review",
+    "metaDescription": "A review of a stay you booked through Bayit.",
+    "crumbTrips": "My trips",
+    "crumb": "Review",
+    "title": "Review your stay",
+    "about": "At <bdi>{title}</bdi>",
+    "closes": "You can write this review until {date}.",
+    "ratingLabel": "Overall rating",
+    "ratingRequired": "Choose a rating from 1 to 5 stars.",
+    "starOption": "{count, plural, one {1 star} other {{count} stars}}: {name}",
+    "ratingNames": {
+      "1": "Terrible",
+      "2": "Poor",
+      "3": "OK",
+      "4": "Very good",
+      "5": "Excellent"
+    },
+    "textLabel": "What should the next guests know?",
+    "textHint": "At least {count} characters. No phone numbers, emails or links.",
+    "placeholder": "For example: how clean it was, the welcome, the neighbourhood, and what you wish you had known before",
+    "counter": "{count} / {max}",
+    "textTooShort": "Your review is too short. Write at least {count} characters.",
+    "textTooFewLetters": "Your review is too short. Write at least {count} letters or digits, not just symbols.",
+    "textTooLong": "Your review is too long. Up to {count} characters.",
+    "quickTitle": "Ratings by topic",
+    "optional": "Optional",
+    "clear": "Clear",
+    "clearOne": "Clear the rating: {name}",
+    "finalTitle": "A review is final.",
+    "finalBody": "Once posted, it can't be edited or deleted. It shows with your first name and the month, for example \"Dana · October 2026\".",
+    "confirm": "I understand the review can't be edited or deleted",
+    "confirmRequired": "Tick the box to confirm that the review is final.",
+    "submit": "Post the review",
+    "sending": "Posting…",
+    "doneTitle": "Thank you! Your review is posted",
+    "doneBody": "It now shows on the listing and helps the next guests choose. The host can reply once.",
+    "viewListing": "See it on the listing",
+    "backToTrip": "Back to the booking",
+    "posted": "You have already reviewed this stay. A review is final, so it can't be changed.",
+    "postedHidden": "Your review of this stay was hidden by the Bayit team and doesn't show on the site.",
+    "privacy": "Only your first name and the month show next to your review. Your full name, the booking and the dates never do.",
+    "blocked": {
+      "too_early": {
+        "title": "It's too early to write a review",
+        "body": "You can write a review from the day after check-out until {date}."
+      },
+      "too_late": {
+        "title": "The time to write a review has passed",
+        "body": "Reviews can be written up to 14 days after check-out. For this stay that ended on {date}."
+      },
+      "not_stayed": {
+        "title": "This booking can't be reviewed",
+        "body": "Reviews are only for stays that happened, not for bookings that were cancelled or where you didn't arrive."
+      },
+      "not_reviewable_type": {
+        "title": "Monthly rentals and sales have no reviews",
+        "body": "For now, reviews are only for short stays and hotels."
+      },
+      "demo": {
+        "title": "This is a demo booking",
+        "body": "Demo listings have no reviews."
+      },
+      "listing_gone": {
+        "title": "The listing is no longer on the site",
+        "body": "A deleted listing can't be reviewed."
+      },
+      "already_reviewed": {
+        "title": "You have already written a review",
+        "body": "Each booking gets one review."
+      }
+    }
+  },
+  "errors": {
+    "not_reviewable_type": "For now, reviews are only for short stays and hotels.",
+    "demo": "Demo listings have no reviews.",
+    "listing_gone": "The listing is no longer on the site.",
+    "not_stayed": "Reviews are only for stays that happened.",
+    "too_early": "It's too early: you can write a review from the day after check-out.",
+    "too_late": "The time to review this stay has passed.",
+    "already_reviewed": "You have already reviewed this booking.",
+    "contact_in_text": "Please leave out phone numbers, emails and links, then try again.",
+    "too_short": "The text is too short.",
+    "too_long": "The text is too long.",
+    "already_replied": "You have already replied to this review. A reply is final.",
+    "review_hidden": "This review was hidden, so it can't get a reply.",
+    "already_reported": "You have already reported this review. We are looking into it.",
+    "details_required": "Tell us in a few words what is wrong.",
+    "already_hidden": "The review is already hidden.",
+    "not_hidden": "The review is already on the site.",
+    "payment_in_text": "Please leave out payment details: payment links, bank accounts (IBAN), card numbers or crypto. Guests pay the host on arrival, never in advance."
+  },
+  "account": {
+    "title": "Reviews",
+    "description": "Reviews you wrote, and guests' reviews of your places.",
+    "pendingTitle": "Waiting for your review",
+    "pendingUntil": "You can write it until {date}",
+    "write": "Write a review",
+    "emptyTitle": "No reviews yet",
+    "emptyText": "After a stay you booked through Bayit, you can review it. Guests' reviews of your places will show here too.",
+    "toTrips": "My trips",
+    "hostTitle": "Reviews of my places",
+    "hostLead": "You can reply once to each review, and report a review that breaks the rules. Reviews can't be edited or deleted.",
+    "writtenTitle": "Reviews I wrote",
+    "booking": "Booking",
+    "hiddenHost": "The Bayit team hid this review ({reason}). It doesn't show on the site or count in the rating.",
+    "hiddenGuest": "The Bayit team hid your review ({reason}). It doesn't show on the site.",
+    "emailSection": "Review requests",
+    "emailTitle": "Email me after a stay",
+    "emailHint": "One email after each stay, with a link to write a review.",
+    "emailOnSaved": "We'll ask you for a review after your next stay.",
+    "emailOffSaved": "We won't email you review requests any more."
+  },
+  "hideReasons": {
+    "offensive": "offensive content",
+    "discrimination": "discrimination or hate",
+    "personal_info": "personal details",
+    "not_about_stay": "not about the stay",
+    "not_genuine": "not a genuine review",
+    "other": "breaks the rules"
+  },
+  "reply": {
+    "open": "Reply to the review",
+    "label": "Your public reply",
+    "placeholder": "For example: thank you for staying with us, it was a pleasure",
+    "counter": "{count} / {max}",
+    "finalNote": "A reply is final: it can't be edited or deleted, and it shows under the review to everyone who sees the listing. No phone numbers, emails or links.",
+    "confirm": "I understand the reply can't be edited or deleted",
+    "confirmRequired": "Tick the box to confirm that the reply is final.",
+    "tooShort": "The reply is too short. Write at least {count} characters.",
+    "tooFewLetters": "The reply is too short. Write at least {count} letters or digits, not just symbols.",
+    "tooLong": "The reply is too long. Up to {count} characters.",
+    "submit": "Post the reply",
+    "sending": "Posting…",
+    "cancel": "Cancel"
+  },
+  "report": {
+    "open": "Report this review",
+    "reported": "You reported this review on {date}. We are looking into it.",
+    "title": "Report a review",
+    "intro": "The Bayit team will look at the review. If it breaks the rules, we will hide it. Reviews are never edited.",
+    "reasonLabel": "What's wrong?",
+    "reasons": {
+      "OFFENSIVE": "Offensive, insulting or discriminatory",
+      "OTHER": "Something else (for example: the guest didn't stay here, it contains personal details)"
+    },
+    "reasonRequired": "Choose what is wrong.",
+    "detailsLabel": "Details (optional)",
+    "detailsLabelRequired": "Details",
+    "detailsPlaceholder": "What should we know?",
+    "detailsRequired": "Tell us in a few words what is wrong (at least {count} characters).",
+    "note": "A report counts against no one and never shows on the site. We will update you by email.",
+    "submit": "Send the report",
+    "sending": "Sending…",
+    "doneTitle": "Report sent",
+    "done": "Thank you. We will look at the review and update you by email.",
+    "close": "Close",
+    "replyOpen": "Report the host's reply",
+    "replyReported": "You reported the host's reply on {date}. We are looking into it.",
+    "replyTitle": "Report a host's reply",
+    "replyIntro": "The Bayit team will look at the reply. If it breaks the rules, we will hide the review together with it. Replies are never edited.",
+    "replyDone": "Thank you. We will look at the reply and update you by email.",
+    "replyReasons": {
+      "OFFENSIVE": "Offensive, insulting or discriminatory",
+      "OTHER": "Something else (for example: it contains personal details about me)"
+    }
+  },
+  "hostBooking": {
+    "title": "The guest's review",
+    "all": "All reviews"
+  },
+  "admin": {
+    "title": "The review",
+    "gone": "The review no longer exists (its booking was deleted).",
+    "viewOnSite": "On the listing",
+    "hiddenBadge": "Hidden",
+    "hiddenBy": "Hidden by {name} on {date}",
+    "written": "Written in {month} · language: {language}",
+    "noReply": "The host hasn't replied.",
+    "guest": "Guest",
+    "host": "Host",
+    "listing": "Listing",
+    "booking": "Booking",
+    "stay": "Stay",
+    "shownAs": "Shown on the site as",
+    "hideTitle": "Hide the review",
+    "showTitle": "Put the review back on the site",
+    "never": "A review can never be edited. You can only hide one that breaks the rules, with a reason, and show it again. Every action is logged.",
+    "own": "This is your own review or a review of your place: someone else on the team decides.",
+    "timeline": "What was done with the review",
+    "reasonLabel": "Reason",
+    "reasonPlaceholder": "Choose a reason",
+    "reasonRequired": "Choose a reason.",
+    "reasons": {
+      "offensive": "Offensive or insulting",
+      "discrimination": "Discrimination or hate",
+      "personal_info": "Personal or contact details",
+      "not_about_stay": "Not about the stay",
+      "not_genuine": "Not a genuine review (the guest didn't stay)",
+      "other": "Breaks another rule"
+    },
+    "noteLabel": "Internal note (required)",
+    "showNoteLabel": "Why does the review go back? (required)",
+    "notePlaceholder": "What you saw and why you decided this",
+    "noteHint": "The note stays in the audit log and is never sent to the guest or the host. They get an email with the reason's name only.",
+    "noteRequired": "Write a short note.",
+    "hide": "Hide the review",
+    "show": "Show the review again",
+    "hiddenDone": "The review is hidden",
+    "shownDone": "The review is back on the site",
+    "part": {
+      "review": "The review was reported (by the host)",
+      "reply": "The host's reply was reported (by the guest)"
+    },
+    "replyTarget": "A host's reply to a review",
+    "hideWithReply": "Hiding hides the review together with the host's reply (the reply can't be hidden on its own).",
+    "pageTitle": "Review",
+    "backToReports": "Review reports",
+    "reportsTitle": "Reports about this review",
+    "noReports": "No one has reported this review.",
+    "recentTitle": "Recent reviews",
+    "recentHint": "Every new review, including ones nobody reported. Open a review to hide it if it breaks the rules.",
+    "recentEmpty": "There are no reviews on the site yet.",
+    "userWritten": "Reviews they wrote",
+    "userReceived": "Reviews of their places"
+  },
+  "all": {
+    "metaTitle": "Reviews of {title}",
+    "metaDescription": "Every review by guests who booked through Bayit and stayed here.",
+    "back": "Back to the listing",
+    "pagesLabel": "Review pages",
+    "pageOf": "Page {page} of {pages}",
+    "newer": "Newer reviews",
+    "older": "Older reviews"
+  },
+  "unsubscribe": {
+    "metaTitle": "Review request emails",
+    "metaDescription": "Stop or restart the email that asks for a review after a stay.",
+    "confirm": {
+      "title": "Stop review requests?",
+      "body": "We won't email you after a stay to ask for a review. You can still write one from the booking page."
+    },
+    "alreadyOff": {
+      "title": "Review requests are already off",
+      "body": "You can turn them back on here or on the Reviews page of your account."
+    },
+    "off": {
+      "title": "Review requests stopped",
+      "body": "We won't send you these emails any more. You can turn them back on at any time, here or on the Reviews page of your account."
+    },
+    "on": {
+      "title": "Review requests are back on",
+      "body": "After your next stay we'll email you a link to write a review."
+    },
+    "invalid": {
+      "title": "This link doesn't work",
+      "body": "It may have been cut short, or the account was deleted. You can choose which emails you get on the Reviews page of your account."
+    },
+    "limited": {
+      "title": "Too many tries",
+      "body": "Try again in an hour, or change the setting on the Reviews page of your account."
+    },
+    "error": {
+      "title": "Something went wrong",
+      "body": "We couldn't save the change. Try again in a moment."
+    },
+    "turnOff": "Stop review requests",
+    "turnOn": "Turn review requests back on",
+    "retry": "Try again",
+    "settings": "Go to the Reviews page"
+  }
+}

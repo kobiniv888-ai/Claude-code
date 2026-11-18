@@ -21,6 +21,7 @@ import { Link } from "@/i18n/navigation";
 import { requireUser } from "@/lib/auth/session";
 import { formatDate, formatRelativeTime } from "@/lib/format";
 import { pageMetadata } from "@/lib/seo";
+import { recordIdMiss } from "@/lib/security/id-guess";
 import { isShabbatModeActive } from "@/lib/settings";
 import { canUserClose, canUserRate, canUserReply, getTicketForUser, parseTicketNumber } from "@/lib/tickets";
 import { ticketListingPath } from "@/lib/tickets/listing-link";
@@ -58,7 +59,11 @@ export default async function TicketPage({ params, searchParams }: Props) {
     isShabbatModeActive(),
     getTranslations("tickets.detail"),
   ]);
-  if (!ticket) notFound();
+  if (!ticket) {
+    // 4.7.a: a burst of numbers that match nothing alerts the founder (src/lib/security/id-guess.ts).
+    await recordIdMiss("ticket", user.id);
+    notFound();
+  }
 
   const closed = ticket.status === "CLOSED";
   const rateable = canUserRate(ticket);
@@ -154,7 +159,7 @@ export default async function TicketPage({ params, searchParams }: Props) {
                           key={value}
                           className={cn(
                             "size-4",
-                            value <= (ticket.rating ?? 0) ? "fill-warning text-warning" : "text-muted-foreground/50",
+                            value <= (ticket.rating ?? 0) ? "fill-muted-foreground text-foreground" : "text-muted-foreground/50",
                           )}
                         />
                       ))}

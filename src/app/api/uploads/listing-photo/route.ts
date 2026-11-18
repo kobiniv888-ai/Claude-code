@@ -4,7 +4,7 @@ import { siteConfig } from "@/config/site";
 import { requireUserForAction } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { AppError, NotFoundError } from "@/lib/errors";
-import { IMAGE_MIME_TYPES, processListingPhoto, removeListingPhotoFiles, scanFile, validateImage } from "@/lib/images";
+import { IMAGE_MIME_TYPES, prepareUploadImage, processListingPhoto, removeListingPhotoFiles, scanFile } from "@/lib/images";
 import { submitForPublication } from "@/lib/listing/lifecycle";
 import { listingPhotoStorageKey, photoUrl, photoVariantKey } from "@/lib/media";
 import { assertRateLimit } from "@/lib/rate-limit";
@@ -25,12 +25,14 @@ import {
 /**
  * POST /api/uploads/listing-photo   (multipart/form-data)
  *   listingId    the owner's listing (not deleted)
- *   file         JPEG, PNG, WebP, AVIF, GIF (first frame) or HEIC where supported; ≤ 15 MB
+ *   file         JPEG, PNG or WebP, checked from its first bytes (SECURITY_REPORT 9.a), or an iPhone
+ *                HEIC photo, decoded on the server (prepareUploadImage in @/lib/images); ≤ 15 MB
  *   roomTypeId   optional — a hotel room type of that listing
  *
  * → 201 { id, url, thumbUrl, width, height, isCover, blurDataUrl }
  * → { error: code } with 400 invalid_input · 401 auth_required · 403 forbidden (cross-site) · 404 not_found ·
- *   409 too_many_photos · 413 file_too_large · 415 file_type_not_allowed ·
+ *   409 too_many_photos · 413 file_too_large · 415 file_type_not_allowed (AVIF, GIF, SVG…) |
+ *   heic_not_supported (a HEIC file we could not decode: the message says how to send JPEG) ·
  *   422 image_too_small | image_corrupt | file_rejected · 423 shabbat_mode · 429 rate_limited
  *
  * The photo is re-encoded (EXIF/GPS removed, watermark added) by processListingPhoto and stored
@@ -84,9 +86,9 @@ export async function POST(request: Request) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const info = await validateImage(buffer);
-    await scanFile(buffer, IMAGE_MIME_TYPES[info.format]);
-    const processed = await processListingPhoto(buffer);
+    const upload = await prepareUploadImage(buffer, { userId: user.id });
+    await scanFile(buffer, IMAGE_MIME_TYPES[upload.source]);
+    const processed = await processListingPhoto(upload.buffer);
 
     const photoId = randomUUID().replace(/-/g, "");
     const storageKey = listingPhotoStorageKey(listing.id, photoId);

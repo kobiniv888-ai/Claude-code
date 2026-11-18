@@ -1,8 +1,5 @@
 "use client";
 
-import { ErrorView } from "@/components/layout/error-view";
-
-/** Errors in a page: shown inside the site frame, so the header and footer stay usable. */
-export default function SiteError({ error, retry }: { error: unknown; retry: () => void }) {
-  return <ErrorView error={error} retry={retry} />;
-}
+// Errors in a page: shown inside the site frame, so the header and footer stay usable. The error
+// page's code loads only when needed (src/components/layout/error-boundaries.tsx).
+export { SiteError as default } from "@/components/layout/error-boundaries";

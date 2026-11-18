@@ -8,6 +8,8 @@ import {
   formatNumber,
   formatRelativeTime,
   formatTime,
+  isolate,
+  isolateLtr,
 } from "./format";
 
 /** Arabic-Indic (U+0660–0669), Extended Arabic-Indic (U+06F0–06F9) and other non-Western digits. */
@@ -53,6 +55,15 @@ describe("formatMoney", () => {
     expect(formatMoney(100, "GBP", "ar")).not.toContain("UK£");
     expect(formatMoney(100, "ILS", "he")).toContain("₪");
     expect(formatMoney(100, "EUR", "ru")).toContain("€");
+  });
+
+  it("writes Hebrew and Arabic amounts one way, symbol first, with no direction marks", () => {
+    expect(formatMoney(290, "USD", "he")).toBe("$290");
+    expect(formatMoney(1250, "ILS", "he")).toBe("₪1,250");
+    expect(formatMoney(1250000, "ILS", "he", { compact: true })).toBe("₪1.3M");
+    expect(formatMoney(-40, "GEL", "he")).toBe("-₾40");
+    expect(formatMoney(290, "USD", "ar")).toBe("$290");
+    expect(formatMoney(12.5, "USD", "he")).toBe("$12.50");
   });
 
   it("drops decimals from 100 up and for whole numbers", () => {
@@ -109,6 +120,28 @@ describe("dates", () => {
     expect(formatRelativeTime(new Date("2026-10-31T11:59:40Z"), "en", now)).toBe("now");
     expect(formatRelativeTime(new Date("2026-10-31T14:00:00Z"), "en", now)).toBe("in 2 hours");
     expect(formatRelativeTime(new Date("2026-10-30T12:00:00Z"), "en", now)).toBe("yesterday");
+  });
+
+  it("Hebrew relative times never show the count in brackets (newer CLDR: 'לפני שעתיים (2)')", () => {
+    const now = new Date("2026-10-31T12:00:00Z");
+    const ago = (ms: number) => formatRelativeTime(new Date(now.getTime() - ms), "he", now);
+    const MIN = 60_000;
+    const HOUR = 60 * MIN;
+    const DAY = 24 * HOUR;
+    expect(ago(MIN)).toBe("לפני דקה");
+    expect(ago(HOUR)).toBe("לפני שעה");
+    expect(ago(2 * HOUR)).toBe("לפני שעתיים");
+    expect(ago(14 * DAY)).toBe("לפני שבועיים");
+    expect(ago(62 * DAY)).toBe("לפני חודשיים");
+    expect(ago(-HOUR)).toBe("בעוד שעה");
+    // The plain plural form is unchanged.
+    expect(ago(95 * DAY)).toBe("לפני 3 חודשים");
+    for (const ms of [MIN, HOUR, 2 * HOUR, 7 * DAY, 14 * DAY, 62 * DAY, 400 * DAY]) expect(ago(ms)).not.toMatch(/\(\d+\)/);
+  });
+
+  it("isolates names and signed numbers inside translated sentences", () => {
+    expect(isolate("Demo Admin")).toBe("\u2068Demo Admin\u2069");
+    expect(isolateLtr("+15")).toBe("\u2066+15\u2069");
   });
 
   it("returns an empty string for invalid dates", () => {

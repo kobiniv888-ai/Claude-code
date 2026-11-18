@@ -15,11 +15,12 @@ import {
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { ArrowDownIcon, ArrowUpIcon, ClockIcon, EyeOffIcon, GripVerticalIcon, MoonStarIcon, PlusIcon, XIcon } from "lucide-react";
-import { PhoneInput } from "@/components/forms/phone-input";
+import { PhoneInput, type PhoneCountry } from "@/components/forms/phone-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { CONTACT_CHANNELS, type ContactChannelKey, type ContactMethod } from "@/lib/listing/fields";
+import { listingContactDefaultCountry } from "@/lib/auth/phone-defaults";
 import { cn } from "@/lib/utils";
 import { normalizeContactValue, PHONE_CHANNELS } from "@/lib/wizard/schemas";
 import { Field, FieldError, Section, TimeInput } from "../fields";
@@ -67,7 +68,8 @@ function MethodRow({
         isDragging ? "z-10 border-primary shadow-card-hover" : error ? "border-destructive/50" : "border-border",
       )}
     >
-      <div className="flex items-center gap-2">
+      {/* Wraps on narrow phones (long channel names in ru/ka): the move/remove buttons go to a second line. */}
+      <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           ref={setActivatorNodeRef}
@@ -82,11 +84,11 @@ function MethodRow({
         <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
           <Icon className="size-4" aria-hidden />
         </span>
-        <span className="min-w-0 flex-1 font-medium">
+        <span className="min-w-0 flex-[1_1_8rem] font-medium">
           {name}
-          {index === 0 && <span className="ms-2 rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">{t("first")}</span>}
+          {index === 0 && <span className="ms-2 inline-block rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">{t("first")}</span>}
         </span>
-        <div className="flex shrink-0 items-center">
+        <div className="ms-auto flex shrink-0 items-center">
           <Button type="button" size="icon-sm" variant="ghost" onClick={() => onMove(-1)} disabled={index === 0} aria-label={t("moveUp", { name })}>
             <ArrowUpIcon aria-hidden />
           </Button>
@@ -101,6 +103,9 @@ function MethodRow({
       {isPhone ? (
         <PhoneInput
           value={method.value || undefined}
+          // A host's contact phone starts on +995 (brief section 6); a prefilled number keeps its own.
+          defaultCountry={listingContactDefaultCountry() as PhoneCountry}
+          rememberAs="listing-contact"
           onChange={(value) => onValue(value ?? "")}
           aria-label={t("valueLabel", { name })}
           error={error ?? null}
@@ -132,7 +137,7 @@ function MethodRow({
 }
 
 /** Step 9 — which contact methods to show, in which order, contact hours and Shabbat. */
-export function ContactStep({ listing, context, values, set, errors }: StepProps) {
+export function ContactStep({ listing, context, values, set, errors, ready }: StepProps) {
   const t = useTranslations("wizard.contact");
   const label = useOptionLabel();
   const methods = values.contactMethods;
@@ -156,11 +161,12 @@ export function ContactStep({ listing, context, values, set, errors }: StepProps
     return "";
   };
 
-  // A new listing starts with WhatsApp and a phone call on the verified number.
+  // A new listing starts with WhatsApp and a phone call on the verified number — decided once the
+  // saved answers have arrived (bug 2.2: never from answers the page may have restored from cache).
   useEffect(() => {
-    if (prefilled.has(listing.id)) return;
+    if (!ready || prefilled.has(listing.id)) return;
     prefilled.add(listing.id);
-    if (listing.values.contactMethods.length === 0 && values.contactMethods.length === 0 && defaultPhone) {
+    if (values.contactMethods.length === 0 && defaultPhone) {
       set({
         contactMethods: [
           { channel: "WHATSAPP", value: defaultPhone, order: 0 },
@@ -168,9 +174,9 @@ export function ContactStep({ listing, context, values, set, errors }: StepProps
         ],
       });
     }
-    // Runs once per listing.
+    // Runs once per listing, when its answers are in.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listing.id]);
+  }, [listing.id, ready]);
 
   const onDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;

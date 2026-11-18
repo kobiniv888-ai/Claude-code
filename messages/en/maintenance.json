@@ -1,0 +1,41 @@
+{
+  "page": {
+    "title": "{brand} – a short break for maintenance",
+    "heading": "We’ll be back in a few minutes",
+    "body": "We’re doing some maintenance on the site. Please come back in a few minutes.",
+    "trip": "Have a booking? The address and the host’s contact details are in your booking confirmation email.",
+    "tryAgain": "Try again",
+    "brandLine": "{brand} · Homes and apartments in Georgia"
+  },
+  "api": "The site is down for a short maintenance break. Please try again in a few minutes.",
+  "admin": {
+    "title": "Emergency tools",
+    "lead": "For emergencies only. Each action asks for a fresh code from your authenticator app and is written to the audit log.",
+    "mode": {
+      "title": "Maintenance mode",
+      "pillOn": "On",
+      "pillOff": "Off",
+      "on": "Maintenance mode is on: visitors see the “We’ll be back in a few minutes” page.",
+      "off": "The site is open to everyone.",
+      "since": "On since {time}",
+      "env": "Maintenance mode was switched on by the hosting setting MAINTENANCE_MODE. To switch it off, remove that setting at the hosting and redeploy.",
+      "stays": "Still working: admins with 2-step login, the health check, scheduled jobs and security.txt.",
+      "turnOn": "Turn on maintenance mode",
+      "turnOff": "Turn off maintenance mode",
+      "confirmOnTitle": "Turn on maintenance mode?",
+      "confirmOnBody": "Every public page will show the “We’ll be back in a few minutes” page right away. Only admins with 2-step login can get in.",
+      "confirmOffTitle": "Turn off maintenance mode?",
+      "confirmOffBody": "The site opens again for every visitor within a minute.",
+      "turnedOn": "Maintenance mode is on",
+      "turnedOff": "Maintenance mode is off"
+    },
+    "sessions": {
+      "title": "Sign everyone out",
+      "lead": "Ends every account’s login on every device – guests, hosts and staff – except this browser. Everyone has to log in again.",
+      "button": "Sign everyone out",
+      "confirmTitle": "Sign everyone out?",
+      "confirmBody": "Every user is signed out at once, staff included. You stay logged in on this browser only.",
+      "done": "{count, plural, =0 {There were no other logins} one {1 login ended} other {{count} logins ended}}"
+    }
+  }
+}

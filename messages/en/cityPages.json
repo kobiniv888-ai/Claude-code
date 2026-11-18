@@ -1,0 +1,235 @@
+{
+  "inFallback": "in {city}",
+  "types": {
+    "shortStays": "Short stays",
+    "monthly": "Monthly rentals",
+    "sale": "Homes for sale",
+    "hotels": "Hotels and guesthouses"
+  },
+  "title": {
+    "shortStays": "Short stays {inCity}",
+    "monthly": "Monthly rentals {inCity}",
+    "sale": "Homes for sale {inCity}",
+    "hotels": "Hotels and guesthouses {inCity}"
+  },
+  "description": {
+    "shortStays": "Short-stay apartments {inCity}: book on the site and pay the host on arrival. With kosher and Shabbat details and this week's Shabbat times.",
+    "monthly": "Apartments for monthly rent {inCity}: contact the host directly, with no booking fees. With kosher and Shabbat details.",
+    "sale": "Apartments and houses for sale {inCity}: contact the seller directly, and the site takes no commission. With kosher and Shabbat details.",
+    "hotels": "Hotels and guesthouses {inCity}: choose a room, book on the site and pay on arrival. With kosher and Shabbat details and this week's Shabbat times."
+  },
+  "lead": {
+    "shortStays": "Places for a few nights. Book on the site and pay the host when you arrive.",
+    "monthly": "Places for a month or longer. Contact the host directly.",
+    "sale": "Apartments and houses for sale. Contact the seller directly.",
+    "hotels": "Choose a room, book on the site and pay when you arrive."
+  },
+  "breadcrumb": {
+    "label": "Breadcrumb",
+    "home": "Home"
+  },
+  "nav": {
+    "label": "Places {inCity} by type"
+  },
+  "count": "{count, plural, one {1 place} other {{formatted} places}}",
+  "listings": {
+    "label": "Places {inCity}",
+    "seeAll": "All results and filters",
+    "showing": "Showing {shown} of {total}"
+  },
+  "empty": {
+    "title": "No places here yet",
+    "action": "Post yours",
+    "description": {
+      "shortStays": "Do you have a short-stay apartment {inCity}? Posting it is free.",
+      "monthly": "Do you have an apartment for monthly rent {inCity}? Posting it is free.",
+      "sale": "Do you have a property for sale {inCity}? Posting it is free.",
+      "hotels": "Do you have a hotel or guesthouse {inCity}? Posting it is free."
+    },
+    "descriptionAny": "Do you have a place to rent out or sell {inCity}? Posting it is free.",
+    "allGeorgia": "Search all of Georgia"
+  },
+  "about": {
+    "title": "{city} at a glance"
+  },
+  "map": {
+    "title": "On the map",
+    "show": "Show the map",
+    "loading": "Loading the map…",
+    "error": "We couldn't load the map.",
+    "retry": "Try again",
+    "note": "Places are shown in their approximate area."
+  },
+  "booking": {
+    "instantTitle": "How booking works",
+    "contactTitle": "How to get in touch",
+    "step": "Step {number}",
+    "more": "How it all works",
+    "shortStays": {
+      "step1": {
+        "title": "Choose your dates",
+        "body": "On the place's page, choose your dates and the number of guests. You see the full price before you confirm."
+      },
+      "step2": {
+        "title": "Book on the site",
+        "body": "Where you see instant booking, your booking is confirmed right away, and you get the address and the host's details."
+      },
+      "step3": {
+        "title": "Pay on arrival",
+        "body": "You pay the host when you arrive, in cash, by card or by transfer, as the host accepts. We take no payments and no booking fees."
+      }
+    },
+    "hotels": {
+      "step1": {
+        "title": "Choose dates and a room",
+        "body": "On the hotel's page, choose your dates, a room type and how many rooms. You see the full price before you confirm."
+      },
+      "step2": {
+        "title": "Book on the site",
+        "body": "Where you see instant booking, your booking is confirmed right away, and you get the address and the hotel's contact details."
+      },
+      "step3": {
+        "title": "Pay on arrival",
+        "body": "You pay the hotel when you arrive. We take no payments and no booking fees."
+      }
+    },
+    "monthly": {
+      "step1": {
+        "title": "Contact the host",
+        "body": "On the place's page, contact the host directly by WhatsApp, phone, Telegram or email, as the host chose. Sign in to see the contact details."
+      },
+      "step2": {
+        "title": "See the place first",
+        "body": "Arrange a visit or a live video call, and never pay before you have seen the place."
+      },
+      "step3": {
+        "title": "Agree directly",
+        "body": "You agree the dates, the price and the payment directly with the host. We take no payments and no fees."
+      }
+    },
+    "sale": {
+      "step1": {
+        "title": "Contact the seller",
+        "body": "On the listing's page, contact the seller directly, the way they chose. Sign in to see the contact details."
+      },
+      "step2": {
+        "title": "See the property",
+        "body": "Arrange a visit or a live video call before you decide, and never pay before you have seen the property."
+      },
+      "step3": {
+        "title": "Agree directly",
+        "body": "You agree the price and the terms directly with the seller. We take no payments and no fees."
+      }
+    }
+  },
+  "shabbat": {
+    "link": "Shabbat times and the Jewish calendar {inCity}"
+  },
+  "more": {
+    "title": "More {inCity}",
+    "overview": "Everything {inCity}"
+  },
+  "overview": {
+    "title": "{city}: homes, hotels and places for sale",
+    "description": "Short stays, monthly rentals, hotels and homes for sale {inCity}, with kosher and Shabbat details and this week's Shabbat times.",
+    "lead": "What are you looking for {inCity}? Choose a type of place.",
+    "typesTitle": "Types of places",
+    "none": "None yet",
+    "recentTitle": "Recently added {inCity}"
+  },
+  "footer": {
+    "title": "Cities in Georgia"
+  },
+  "cities": {
+    "tbilisi": {
+      "_review": "draft — founder to review",
+      "in": "in Tbilisi",
+      "about": {
+        "p1": "Tbilisi is the capital of Georgia and its largest city. It lies in the east of the country, on both banks of the Mtkvari (Kura) River.",
+        "p2": "The old town, below the Narikala fortress, is known for its sulphur baths, narrow streets and wooden balconies. A cable car goes up to the fortress, and the city has a metro.",
+        "p3": "Tbilisi has a long-established Jewish community, and the Great Synagogue stands in the old town. The city has an international airport."
+      }
+    },
+    "batumi": {
+      "_review": "draft — founder to review",
+      "in": "in Batumi",
+      "about": {
+        "p1": "Batumi is Georgia's main city on the Black Sea, in the south-west of the country near the border with Turkey. It is the capital of the Autonomous Republic of Adjara.",
+        "p2": "The city is known for its long seaside boulevard, its pebble beaches and its mix of old streets and new high-rise buildings. The climate is subtropical, with warm summers and plenty of rain.",
+        "p3": "The Batumi Botanical Garden is on the coast just north of the city. Makhinjauri to the north and Gonio to the south are seaside areas near the city. Batumi has its own international airport."
+      }
+    },
+    "kutaisi": {
+      "_review": "draft — founder to review",
+      "in": "in Kutaisi",
+      "about": {
+        "p1": "Kutaisi is a city in western Georgia, on the Rioni River, and the main city of the Imereti region.",
+        "p2": "It is known for Bagrati Cathedral, on a hill above the city, and for the nearby Gelati Monastery, a UNESCO World Heritage Site. Prometheus Cave and other caves and canyons in the area are popular day trips.",
+        "p3": "Kutaisi has a historic Jewish community and a synagogue. Kutaisi International Airport, west of the city, has flights by low-cost airlines."
+      }
+    },
+    "kobuleti": {
+      "_review": "draft — founder to review",
+      "in": "in Kobuleti",
+      "about": {
+        "p1": "Kobuleti is a seaside resort town in Adjara, on the Black Sea coast north of Batumi.",
+        "p2": "It is known for its long beach and seaside promenade, and it is busiest in summer. The town is smaller than Batumi.",
+        "p3": "Nearby are protected wetlands and peat bogs. The nearest airport is in Batumi."
+      }
+    },
+    "gudauri": {
+      "_review": "draft — founder to review",
+      "in": "in Gudauri",
+      "about": {
+        "p1": "Gudauri is a ski resort high in the Greater Caucasus, on the Georgian Military Road north of Tbilisi.",
+        "p2": "In winter it is known for its wide, open slopes, including off-piste skiing. In summer people come for hiking and paragliding.",
+        "p3": "The nearest international airport in Georgia is in Tbilisi. In winter, check the road conditions before you travel."
+      }
+    },
+    "bakuriani": {
+      "_review": "draft — founder to review",
+      "in": "in Bakuriani",
+      "about": {
+        "p1": "Bakuriani is a mountain resort in the Borjomi district of central Georgia, on the slopes of the Trialeti Range.",
+        "p2": "In winter it is a ski resort, with gentle slopes for beginners and children as well as longer runs. In summer people come for walks in the surrounding forests.",
+        "p3": "The spa town of Borjomi, known for its mineral water, is nearby."
+      }
+    },
+    "borjomi": {
+      "_review": "draft — founder to review",
+      "in": "in Borjomi",
+      "about": {
+        "p1": "Borjomi is a spa town in the Borjomi Gorge in central Georgia, on the Mtkvari (Kura) River, surrounded by forested mountains.",
+        "p2": "It is famous for its mineral water, which comes from springs in the town. The central park, with its mineral springs, is the heart of the town.",
+        "p3": "Borjomi-Kharagauli National Park, with marked hiking trails, is right next to the town. The ski resort of Bakuriani is nearby too."
+      }
+    },
+    "kazbegi": {
+      "_review": "draft — founder to review",
+      "in": "in Kazbegi",
+      "about": {
+        "p1": "Kazbegi, officially Stepantsminda, is a small town high in the Caucasus in the north of Georgia, on the Georgian Military Road near the Russian border.",
+        "p2": "Above the town stands the Gergeti Trinity Church, with Mount Kazbek behind it.",
+        "p3": "The area is known for hiking, for example in the Truso and Juta valleys and the Dariali Gorge. The nearest international airport in Georgia is in Tbilisi."
+      }
+    },
+    "sighnaghi": {
+      "_review": "draft — founder to review",
+      "in": "in Sighnaghi",
+      "about": {
+        "p1": "Sighnaghi is a small hilltop town in Kakheti, Georgia's main wine region, in the east of the country.",
+        "p2": "It looks out over the Alazani Valley, with the Caucasus mountains on the horizon on clear days. The town is known for its old defensive walls and towers and its cobbled streets.",
+        "p3": "Many wineries in the area welcome visitors, and Bodbe Monastery is just outside the town."
+      }
+    },
+    "mestia": {
+      "_review": "draft — founder to review",
+      "in": "in Mestia",
+      "about": {
+        "p1": "Mestia is the main town of Upper Svaneti, a mountain region high in the Greater Caucasus in the north-west of Georgia.",
+        "p2": "It is known for its medieval Svan towers, stone defensive towers that stand next to the old houses. The town also has a museum of Svan history.",
+        "p3": "In summer the area is popular for hiking, including the trek to Ushguli, and in winter there is skiing on the slopes near the town."
+      }
+    }
+  }
+}

@@ -1,16 +1,10 @@
 import Image from "next/image";
+import { avatarInitial } from "@/lib/account/greeting";
 import { cn } from "@/lib/utils";
 
-/** The owner's photo, or their initials on a tinted circle. */
+/** The owner's photo, or the first letter of their first name on a tinted circle. */
 export function OwnerAvatar({ name, image, size = 56, className }: { name: string; image: string | null; size?: number; className?: string }) {
-  const initials = name
-    .replace(/[—–-].*$/, "")
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part.charAt(0))
-    .join("")
-    .toUpperCase();
+  const initials = avatarInitial({ name });
   return (
     <span
       className={cn("relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary font-semibold text-primary", className)}

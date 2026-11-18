@@ -10,7 +10,8 @@ const card = (page: Page, title: string) => page.getByRole("list", { name: "Sear
 test("favorites and compare", async ({ browser }) => {
   const user = await createTestUser({ name: "E2E Saver" });
   const { context, page, consoleErrors } = await openAs(browser, user.phone);
-  await page.goto("/en/search?city=tbilisi&deal=short-stay");
+  // Round 2: the compare toggle is only on the desktop list view (the grid card's photo keeps just the heart).
+  await page.goto("/en/search?city=tbilisi&deal=short-stay&view=list");
   await expect(card(page, VAKE)).toBeVisible();
   await settle(page);
 
@@ -41,12 +42,15 @@ test("favorites and compare", async ({ browser }) => {
 test("Jewish Life shows the map of places and this week's Shabbat times", async ({ page, consoleErrors }) => {
   await page.goto("/en/jewish-life");
   await expect(page.getByRole("heading", { level: 1, name: "Jewish life in Georgia" })).toBeVisible();
-  const shabbat = page.getByRole("region", { name: "Shabbat in Tbilisi" });
-  await expect(shabbat).toContainText("Candle lighting");
+  // Redesign phase 3: the Shabbat section holds the live countdown card (city chips) and the table.
+  const shabbat = page.getByRole("region", { name: "Shabbat times in every city" });
+  await expect(shabbat.getByRole("article")).toContainText("Candle lighting");
   await expect(shabbat).toContainText("Havdalah");
   await expect(shabbat.locator("time").first()).toHaveText(/\d{1,2}:\d{2}/);
-  await expect(page.getByRole("region", { name: "Shabbat times in every city" })).toContainText("Batumi");
+  await expect(shabbat).toContainText("Batumi");
 
+  // The map mounts only when its area comes near the screen (redesign phase 1): scroll there first.
+  await page.getByRole("list", { name: "Places" }).scrollIntoViewIfNeeded();
   const map = page.getByRole("region", { name: "Map of Jewish places" });
   await map.scrollIntoViewIfNeeded();
   await expect(map.locator(".leaflet-container")).toBeVisible();

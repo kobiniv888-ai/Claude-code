@@ -15,13 +15,13 @@ export function LawyerReviewNotice({
   return (
     <aside
       className={cn(
-        "flex items-start gap-3 rounded-2xl border border-warning/30 bg-warning-soft p-4 sm:gap-4 sm:p-5",
+        "flex items-start gap-3 rounded-2xl border border-border-strong/30 bg-surface-muted p-4 sm:gap-4 sm:p-5",
         className,
       )}
     >
       <span
         aria-hidden="true"
-        className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-warning/15 text-warning"
+        className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-muted/15 text-foreground"
       >
         <Scale className="size-5" strokeWidth={1.75} />
       </span>

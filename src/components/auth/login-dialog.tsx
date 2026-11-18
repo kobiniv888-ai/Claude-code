@@ -12,33 +12,23 @@ import {
   type ReactNode,
 } from "react";
 import dynamic from "next/dynamic";
-import { useTranslations } from "next-intl";
-import { LogInIcon, XIcon } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import { LogInIcon } from "lucide-react";
+import { useIsDesktop } from "@/components/ds/use-is-desktop";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { siteConfig, type AppLocale } from "@/config/site";
 import { Link, useRouter } from "@/i18n/navigation";
 import type { LoginConfig } from "@/lib/auth/config";
 import { safeNextPath, withNext } from "@/lib/auth/next-path";
-import { Skeleton } from "@/components/ui/skeleton";
+import { afterLoadIdle } from "@/lib/idle";
+import { loginSubtitleKey } from "@/lib/auth/login-subtitle";
 import { cn } from "@/lib/utils";
+import type { LoginStage } from "./login-panel";
 
-// The login form (phone input with the country list and number rules) loads when the dialog
-// opens, not with every page.
-const LoginPanel = dynamic(() => import("./login-panel").then((m) => m.LoginPanel), {
-  loading: () => (
-    <div aria-hidden className="grid gap-3">
-      <Skeleton className="h-11 rounded-xl" />
-      <Skeleton className="h-11 rounded-xl" />
-    </div>
-  ),
-});
+// The dialog (Radix Dialog / vaul, the welcome illustration, then the form) is not part of the
+// first load of every page: it loads once the page is idle, or at the first "Log in".
+const loadLoginDialogSheet = () => import("./login-dialog-sheet");
+const LoginDialogSheet = dynamic(() => loadLoginDialogSheet().then((m) => m.LoginDialogSheet), { ssr: false });
 
 /**
  * Log in without leaving the page.
@@ -85,8 +75,16 @@ export function LoginDialogProviderClient({
     signedInRef.current = signedIn;
   }, [signedIn]);
 
+  const locale = useLocale();
+  const isDesktop = useIsDesktop();
   const [open, setOpen] = useState(false);
+  /** Mount the (lazy) dialog: after the page is idle, or at the first open. */
+  const [sheetWanted, setSheetWanted] = useState(false);
+  useEffect(() => afterLoadIdle(() => setSheetWanted(true)), []);
   const [next, setNext] = useState("/");
+  const [stage, setStage] = useState<LoginStage>("start");
+  /** Opened for an action ("Show contact"…): the headline says "Log in to continue". */
+  const [forAction, setForAction] = useState(false);
   const pending = useRef<PendingAction | null>(null);
   // The button or link that opened the dialog. The phone field takes focus as soon as the dialog
   // mounts, so the dialog cannot tell on its own where to give focus back when it closes.
@@ -96,7 +94,10 @@ export function LoginDialogProviderClient({
     const active = document.activeElement;
     opener.current = active instanceof HTMLElement && active !== document.body ? active : null;
     pending.current = afterLogin ?? null;
+    setForAction(!!afterLogin);
+    setStage("start");
     setNext(currentPath());
+    setSheetWanted(true);
     setOpen(true);
   }, []);
 
@@ -117,40 +118,43 @@ export function LoginDialogProviderClient({
     if (action) await action();
   }
 
+  const hasSocial = config.providers.google || config.providers.apple;
+  const title = forAction
+    ? t("dialogTitle")
+    : t("title", { name: siteConfig.localizedName[locale as AppLocale] ?? siteConfig.name });
+  const description = t(loginSubtitleKey(config));
+
+  const onOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (!nextOpen) pending.current = null;
+  };
+  const onCloseAutoFocus = (event: Event) => {
+    const target = opener.current;
+    opener.current = null;
+    if (target?.isConnected) {
+      event.preventDefault();
+      target.focus({ preventScroll: true });
+    }
+  };
   return (
     <LoginDialogContext.Provider value={value}>
       {children}
-      <Dialog
-        open={open}
-        onOpenChange={(nextOpen) => {
-          setOpen(nextOpen);
-          if (!nextOpen) pending.current = null;
-        }}
-      >
-        <DialogContent
-          showCloseButton={false}
-          className="max-h-[calc(100dvh-2rem)] gap-5 overflow-y-auto rounded-2xl p-5 sm:max-w-md sm:p-7"
-          onCloseAutoFocus={(event) => {
-            const target = opener.current;
-            opener.current = null;
-            if (target?.isConnected) {
-              event.preventDefault();
-              target.focus({ preventScroll: true });
-            }
-          }}
-        >
-          <DialogHeader className="pe-8 text-start">
-            <DialogTitle className="text-xl font-semibold">{t("dialogTitle")}</DialogTitle>
-            <DialogDescription className="text-sm">{t("dialogSubtitle")}</DialogDescription>
-          </DialogHeader>
-          <DialogClose asChild>
-            <Button variant="ghost" size="icon" className="absolute end-3 top-3" aria-label={t("close")}>
-              <XIcon aria-hidden />
-            </Button>
-          </DialogClose>
-          {open && <LoginPanel variant="dialog" config={config} next={next} onSuccess={onSuccess} />}
-        </DialogContent>
-      </Dialog>
+      {sheetWanted && (
+        <LoginDialogSheet
+          open={open}
+          onOpenChange={onOpenChange}
+          onCloseAutoFocus={onCloseAutoFocus}
+          isDesktop={isDesktop}
+          hasSocial={hasSocial}
+          title={title}
+          description={description}
+          stage={stage}
+          onStageChange={setStage}
+          config={config}
+          next={next}
+          onSuccess={onSuccess}
+        />
+      )}
     </LoginDialogContext.Provider>
   );
 }
@@ -197,7 +201,7 @@ export function LoginButton({
   const context = useContext(LoginDialogContext);
   const router = useRouter();
   return (
-    <Button asChild variant={variant} size={size} className={cn("rounded-full", className)}>
+    <Button asChild variant={variant} size={size} className={cn("rounded-button", className)}>
       <Link
         href="/login"
         onClick={(event) => {

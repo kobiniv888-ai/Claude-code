@@ -12,9 +12,12 @@ export { TOTP_CODE_PATTERN } from "./totp";
  *
  * Secrets are stored encrypted (APP_ENCRYPTION_KEY). A pending secret waits in the Verification
  * table for 15 minutes until the user confirms it with a first code. Each accepted code is
- * remembered so the same code cannot be used twice.
+ * remembered so the same code cannot be used twice: the check and the write run in ONE transaction
+ * under a per-account lock (SECURITY_REPORT 3.7.a), so two requests with the same code at the same
+ * moment cannot both pass.
  *
- * These functions do not check the session — the server actions in ./actions.ts do.
+ * These functions do not check the session, the limits or the daily lock — the server actions in
+ * ./actions.ts do (./totp-lockout.ts).
  */
 
 const ENROLLMENT_TTL_MS = 15 * 60 * 1000;
@@ -31,16 +34,17 @@ async function acceptCode(userId: string, secretBase32: string, code: string): P
   if (counter === null) return false;
 
   const identifier = lastUsedKey(userId);
-  const previous = await db.verification.findFirst({
-    where: { identifier },
-    orderBy: { createdAt: "desc" },
-    select: { value: true },
-  });
-  if (previous && Number(previous.value) >= counter) return false;
-
-  await db.$transaction([
-    db.verification.deleteMany({ where: { identifier } }),
-    db.verification.create({
+  return db.$transaction(async (tx) => {
+    // One check at a time per account (released at the end of the transaction).
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${identifier}))`;
+    const previous = await tx.verification.findFirst({
+      where: { identifier },
+      orderBy: { createdAt: "desc" },
+      select: { value: true },
+    });
+    if (previous && Number(previous.value) >= counter) return false;
+    await tx.verification.deleteMany({ where: { identifier } });
+    await tx.verification.create({
       data: {
         id: randomUUID(),
         identifier,
@@ -48,9 +52,9 @@ async function acceptCode(userId: string, secretBase32: string, code: string): P
         // Only needs to outlive the validation window.
         expiresAt: new Date(Date.now() + (TOTP_WINDOW * 2 + 2) * TOTP_PERIOD_SECONDS * 1000),
       },
-    }),
-  ]);
-  return true;
+    });
+    return true;
+  });
 }
 
 /** What the authenticator app shows next to the codes, e.g. "+995 555 12 34 56". */
@@ -93,14 +97,20 @@ export async function beginTotpEnrollment(userId: string, label: string): Promis
   return { otpauthUrl, qrDataUrl, secret };
 }
 
+/** Is a pending secret waiting for its first code? */
+export async function hasPendingEnrollment(userId: string): Promise<boolean> {
+  const count = await db.verification.count({ where: { identifier: enrollmentKey(userId), expiresAt: { gt: new Date() } } });
+  return count > 0;
+}
+
 export type ConfirmResult = "enabled" | "wrong_code" | "expired";
 
-/** Checks the first code against the pending secret, then turns 2-step login on. */
-export async function confirmTotpEnrollment(
-  userId: string,
-  sessionId: string,
-  code: string,
-): Promise<ConfirmResult> {
+/**
+ * Checks the first code against the pending secret, then turns 2-step login on (or, when it was
+ * on, replaces the authenticator). Every session of the account must enter a code again; the
+ * caller gives the current one a new, verified session (./session-rotation.ts).
+ */
+export async function confirmTotpEnrollment(userId: string, code: string): Promise<ConfirmResult> {
   const identifier = enrollmentKey(userId);
   const pending = await db.verification.findFirst({
     where: { identifier, expiresAt: { gt: new Date() } },
@@ -112,18 +122,12 @@ export async function confirmTotpEnrollment(
   const secret = decryptString(pending.value);
   if (!(await acceptCode(userId, secret, code))) return "wrong_code";
 
-  const now = new Date();
   await db.$transaction([
     db.user.update({
       where: { id: userId },
       data: { twoFactorEnabled: true, totpSecret: encryptString(secret) },
     }),
-    // The session that set it up counts as verified; the user's other sessions must verify.
-    db.session.updateMany({ where: { id: sessionId, userId }, data: { twoFactorVerifiedAt: now } }),
-    db.session.updateMany({
-      where: { userId, id: { not: sessionId } },
-      data: { twoFactorVerifiedAt: null },
-    }),
+    db.session.updateMany({ where: { userId }, data: { twoFactorVerifiedAt: null } }),
     db.verification.deleteMany({ where: { identifier } }),
   ]);
   return "enabled";
@@ -138,24 +142,18 @@ async function storedSecret(userId: string): Promise<string | null> {
   return decryptString(user.totpSecret);
 }
 
-/** Checks a code for an account with 2-step login on and marks this session as verified. */
-export async function verifyTotpSession(userId: string, sessionId: string, code: string): Promise<boolean> {
+/** Checks (and uses up) a code of an account with 2-step login on. */
+export async function checkAccountTotp(userId: string, code: string): Promise<boolean> {
   const secret = await storedSecret(userId);
-  if (!secret || !(await acceptCode(userId, secret, code))) return false;
-  await db.session.updateMany({
-    where: { id: sessionId, userId },
-    data: { twoFactorVerifiedAt: new Date() },
-  });
-  return true;
+  return !!secret && (await acceptCode(userId, secret, code));
 }
 
-/** Turns 2-step login off after checking a current code. */
+/** Turns 2-step login off after checking a current code; its recovery codes go too. */
 export async function disableTotpWithCode(userId: string, code: string): Promise<boolean> {
-  const secret = await storedSecret(userId);
-  if (!secret || !(await acceptCode(userId, secret, code))) return false;
-  await db.user.update({
-    where: { id: userId },
-    data: { twoFactorEnabled: false, totpSecret: null },
-  });
+  if (!(await checkAccountTotp(userId, code))) return false;
+  await db.$transaction([
+    db.user.update({ where: { id: userId }, data: { twoFactorEnabled: false, totpSecret: null } }),
+    db.twoFactorRecoveryCode.deleteMany({ where: { userId } }),
+  ]);
   return true;
 }

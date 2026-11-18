@@ -6,18 +6,25 @@ import { siteConfig, type AppLocale, type CurrencyCode } from "@/config/site";
 import type { CurrentUser } from "@/lib/auth/session";
 import { hmacHash, safeEqual } from "@/lib/crypto";
 import { isEnabledCurrency } from "@/lib/currency/convert";
+import { cleanPaymentMethods } from "@/lib/booking/constants";
 import { db } from "@/lib/db";
 import { NotFoundError } from "@/lib/errors";
+import { openListingLocation } from "@/lib/field-crypto";
+import { taintObject } from "@/lib/security/taint";
 import { CONTACT_CHANNELS, DEFAULT_PRICE_PERIOD, type ContactMethod } from "@/lib/listing/fields";
 import { photoUrl } from "@/lib/media";
 import { getCities, getNeighborhoods } from "@/lib/places";
+import { getPledgeStatus } from "@/lib/pledge/server";
 import { getSettings } from "@/lib/settings";
+import { absoluteUrl } from "@/lib/site-url";
 import { isTranslationEnabled } from "@/lib/translate";
 import type { WizardValues } from "./schemas";
 import { applies, stepsFor, type ListingKind } from "./steps";
+import { answeredChoices } from "./patch";
 import type {
   DayRange,
   DraftSummary,
+  WizardAnswers,
   WizardCity,
   WizardContext,
   WizardListing,
@@ -55,6 +62,7 @@ const photoSelect = {
   alt: true,
   sortOrder: true,
   roomTypeId: true,
+  room: true,
 } satisfies Prisma.ListingPhotoSelect;
 
 type PhotoRow = Prisma.ListingPhotoGetPayload<{ select: typeof photoSelect }>;
@@ -69,15 +77,32 @@ export function toWizardPhoto(photo: PhotoRow): WizardPhoto {
     isCover: photo.isCover,
     alt: photo.alt ?? "",
     roomTypeId: photo.roomTypeId,
+    room: photo.room,
   };
 }
 
-/** The listing row (any non-deleted status) if `userId` owns it, else null. */
+/**
+ * The listing row (any non-deleted status) if `userId` owns it, else null — with its exact address
+ * and pin DECRYPTED for the owner's own post form (`address`, `lat`, `lng`; SECURITY_REPORT
+ * 12.3.c). When they cannot be opened they read as empty and `locationUnreadable` is true (fail
+ * closed: src/lib/field-crypto.ts). The row is tainted: only the form's values reach the page.
+ */
 export async function findOwnedListing(listingId: string, userId: string) {
   if (typeof listingId !== "string" || listingId.length === 0 || listingId.length > 64) return null;
-  return db.listing.findFirst({
+  const row = await db.listing.findFirst({
     where: { id: listingId, ownerId: userId, status: { in: EDITABLE_STATUSES }, deletedAt: null },
   });
+  if (!row) return null;
+  const location = openListingLocation(row, "post_form");
+  const listing = {
+    ...row,
+    address: location.address,
+    lat: location.pin?.lat ?? null,
+    lng: location.pin?.lng ?? null,
+    locationUnreadable: location.failed,
+  };
+  taintObject("owned listing row (exact address)", listing);
+  return listing;
 }
 
 /** Like findOwnedListing, but throws NotFoundError (for server actions). */
@@ -152,6 +177,8 @@ export function toWizardValues(listing: ListingRow, businessName: string | null)
     partiesAllowed: listing.partiesAllowed,
     checkInFrom: listing.checkInFrom ?? "",
     checkOutUntil: listing.checkOutUntil ?? "",
+    checkInFlexible: listing.checkInFlexible,
+    checkOutFlexible: listing.checkOutFlexible,
     quietHoursFrom: listing.quietHoursFrom ?? "",
     quietHoursTo: listing.quietHoursTo ?? "",
     kitchenKosher: listing.kitchenKosher,
@@ -171,6 +198,9 @@ export function toWizardValues(listing: ListingRow, businessName: string | null)
     weeklyDiscountPct: listing.weeklyDiscountPct,
     monthlyDiscountPct: listing.monthlyDiscountPct,
     icalImportUrls: listing.icalImportUrls,
+    weekendPrice: num(listing.weekendPrice),
+    cancellationPolicy: listing.cancellationPolicy,
+    paymentMethodsAtCheckIn: cleanPaymentMethods(listing.paymentMethodsAtCheckIn),
     contactMethods: parseContactMethods(listing.contactMethods),
     contactHoursFrom: listing.contactHoursFrom ?? "",
     contactHoursTo: listing.contactHoursTo ?? "",
@@ -236,16 +266,13 @@ export function publicPathFor(listing: { publicId: number; status: ListingStatus
   return `/listing/${listing.publicId}`;
 }
 
-export async function loadWizard(
-  listingId: string,
-  user: CurrentUser,
-  mode: WizardMode,
-  locale: AppLocale,
-): Promise<{ listing: WizardListing; context: WizardContext } | null> {
-  const listing = await findOwnedListing(listingId, user.id);
-  if (!listing) return null;
-
-  const [photos, roomTypes, blocks, translations, cities, settings, translationEnabled] = await Promise.all([
+/**
+ * The answers and media of a listing as the form edits them. Shared by the page and the
+ * loadWizardSnapshot action, which every mount of the form calls (bug 2.2: a page restored from
+ * the browser's cache must never show, or save, older answers).
+ */
+export async function loadWizardAnswers(listing: ListingRow, businessName: string | null): Promise<WizardAnswers> {
+  const [photos, roomTypes, blocks, translations] = await Promise.all([
     db.listingPhoto.findMany({
       where: { listingId: listing.id },
       select: photoSelect,
@@ -258,17 +285,10 @@ export async function loadWizard(
       take: 1000,
     }),
     db.listingTranslation.findMany({ where: { listingId: listing.id } }),
-    loadCities(locale),
-    getSettings(),
-    Promise.resolve(isTranslationEnabled()),
   ]);
 
   const mainPhotos = photos.filter((p) => !p.roomTypeId).map(toWizardPhoto);
-  const values = toWizardValues(listing, user.businessName);
-  const fresh =
-    listing.status === "DRAFT" &&
-    listing.wizardStep <= 1 &&
-    listing.updatedAt.getTime() - listing.createdAt.getTime() < 2000;
+  const values = toWizardValues(listing, businessName);
 
   const wizardRoomTypes: WizardRoomType[] = roomTypes.map((room) => ({
     id: room.id,
@@ -276,40 +296,75 @@ export async function loadWizard(
     price: Number(room.price),
     currency: (isEnabledCurrency(room.currency) ? room.currency : values.currency) as CurrencyCode,
     pricePeriod: room.pricePeriod,
+    weekendPrice: room.weekendPrice === null ? null : Number(room.weekendPrice),
     maxGuests: room.maxGuests,
     bedsSingle: room.bedsSingle,
     bedsDouble: room.bedsDouble,
+    bedsSofa: room.bedsSofa,
     sizeSqm: room.sizeSqm,
+    amenities: room.amenities,
     quantity: room.quantity,
+    active: room.active,
     photos: photos.filter((p) => p.roomTypeId === room.id).map(toWizardPhoto),
   }));
+
+  return {
+    status: listing.status,
+    wizardStep: listing.wizardStep,
+    chosen: answeredChoices({
+      status: listing.status,
+      wizardStep: listing.wizardStep,
+      createdAt: listing.createdAt,
+      updatedAt: listing.updatedAt,
+      values,
+      photoCount: photos.length,
+    }),
+    values,
+    photos: mainPhotos,
+    roomTypes: wizardRoomTypes,
+    blocked: blocks.filter((b) => b.source === "OWNER").map((b) => toInclusiveRange(b.startDate, b.endDate)),
+    icalBlocked: blocks.filter((b) => b.source === "ICAL").map((b) => toInclusiveRange(b.startDate, b.endDate)),
+    translations: translations
+      .filter((t) => isAppLocale(t.locale))
+      .map((t) => ({
+        locale: t.locale as AppLocale,
+        title: t.title,
+        description: t.description,
+        isAuto: t.isAuto,
+        editedByOwner: t.editedByOwner,
+        updatedAt: t.updatedAt.toISOString(),
+      })),
+    rulesAccepted: listing.rulesAcceptedAt !== null,
+    publicPath: publicPathFor(listing),
+    updatedAt: listing.updatedAt.toISOString(),
+    locationUnreadable: listing.locationUnreadable,
+  };
+}
+
+export async function loadWizard(
+  listingId: string,
+  user: CurrentUser,
+  mode: WizardMode,
+  locale: AppLocale,
+): Promise<{ listing: WizardListing; context: WizardContext } | null> {
+  const listing = await findOwnedListing(listingId, user.id);
+  if (!listing) return null;
+
+  const [answers, cities, settings, translationEnabled, pledge] = await Promise.all([
+    loadWizardAnswers(listing, user.businessName),
+    loadCities(locale),
+    getSettings(),
+    Promise.resolve(isTranslationEnabled()),
+    getPledgeStatus(user.id),
+  ]);
 
   return {
     listing: {
       id: listing.id,
       publicId: listing.publicId,
-      status: listing.status,
-      wizardStep: listing.wizardStep,
-      fresh,
-      values,
-      photos: mainPhotos,
-      roomTypes: wizardRoomTypes,
-      blocked: blocks.filter((b) => b.source === "OWNER").map((b) => toInclusiveRange(b.startDate, b.endDate)),
-      icalBlocked: blocks.filter((b) => b.source === "ICAL").map((b) => toInclusiveRange(b.startDate, b.endDate)),
-      translations: translations
-        .filter((t) => isAppLocale(t.locale))
-        .map((t) => ({
-          locale: t.locale as AppLocale,
-          title: t.title,
-          description: t.description,
-          isAuto: t.isAuto,
-          editedByOwner: t.editedByOwner,
-          updatedAt: t.updatedAt.toISOString(),
-        })),
-      icalExportUrl: `${siteConfig.url.replace(/\/+$/, "")}/api/ical/${listing.icalToken}`,
-      rulesAccepted: listing.rulesAcceptedAt !== null,
-      publicPath: publicPathFor(listing),
-      updatedAt: listing.updatedAt.toISOString(),
+      ...answers,
+      // The same address as icalExportUrl() in @/lib/ical (not imported: it loads node-ical).
+      icalExportUrl: absoluteUrl(`/api/ical/${encodeURIComponent(listing.icalToken)}.ics`),
     },
     context: {
       mode,
@@ -320,6 +375,7 @@ export async function loadWizard(
         phoneNumber: user.phoneNumber,
         phoneVerified: user.phoneNumberVerified,
         email: user.emailIsPlaceholder ? null : user.email,
+        pledge,
       },
       listingExpiryDays: settings.listingExpiryDays,
       translationEnabled,
@@ -394,7 +450,7 @@ export function nonApplicableResets(kind: ListingKind): Prisma.ListingUpdateInpu
   if (off("houseRules")) {
     Object.assign(reset, { petsAllowed: null, smokingAllowed: null, quietHoursFrom: null, quietHoursTo: null });
   }
-  if (off("checkInOut")) Object.assign(reset, { checkInFrom: null, checkOutUntil: null });
+  if (off("checkInOut")) Object.assign(reset, { checkInFrom: null, checkOutUntil: null, checkInFlexible: false, checkOutFlexible: false });
   if (off("partiesAllowed")) reset.partiesAllowed = null;
   if (off("shabbatFeatures")) Object.assign(reset, { shabbatFeatures: [], isShabbatFriendly: false });
   if (off("hotelJewishFeatures")) reset.hotelJewishFeatures = [];
@@ -405,6 +461,8 @@ export function nonApplicableResets(kind: ListingKind): Prisma.ListingUpdateInpu
   if (off("minStay")) reset.minStayNights = null;
   if (off("discounts")) Object.assign(reset, { weeklyDiscountPct: null, monthlyDiscountPct: null });
   if (off("ical")) reset.icalImportUrls = [];
+  // Monthly rentals and sales are never booked on the site.
+  if (off("bookingTerms")) Object.assign(reset, { weekendPrice: null, bookingMode: "CONTACT" });
   return reset;
 }
 

@@ -28,17 +28,24 @@ export default async function OutboxPage({ params, searchParams }: PageProps<"/[
   const query = await searchParams;
   const templates = await outboxTemplates();
   const template = param(query, "template");
+  // ?waiting=1 and ?recent=7 come from the admin home's outbox rows (the same filter as their count).
+  const waiting = param(query, "waiting") === "1";
+  const recent = Number(param(query, "recent"));
+  const recentDays = Number.isInteger(recent) && recent >= 1 && recent <= 90 ? recent : undefined;
   const filters = {
-    status: enumParam(query, "status", STATUSES),
+    status: waiting ? ("LOGGED" as const) : enumParam(query, "status", STATUSES),
     template: templates.includes(template) ? template : undefined,
     to: param(query, "to").slice(0, 120) || undefined,
+    waiting,
+    recentDays,
   };
   const [t, tCommon, result] = await Promise.all([
     getTranslations("adminContent.outbox"),
     getTranslations("adminContent.common"),
     listOutbox(filters, pageParam(query)),
   ]);
-  const filtered = Boolean(filters.status || filters.template || filters.to);
+  const filtered = Boolean(filters.status || filters.template || filters.to || waiting || recentDays);
+  const narrowed = waiting || recentDays;
 
   return (
     <>
@@ -50,6 +57,14 @@ export default async function OutboxPage({ params, searchParams }: PageProps<"/[
           { type: "select", name: "template", label: t("template"), allLabel: tCommon("all"), options: templates.map((tpl) => ({ value: tpl, label: tpl })) },
         ]}
       />
+      {narrowed ? (
+        <p className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+          <span>{[waiting ? t("waitingOnly") : null, recentDays ? t("recentOnly", { days: recentDays }) : null].filter(Boolean).join(" · ")}</span>
+          <Link href={filters.status ? `/admin/outbox?status=${filters.status}` : "/admin/outbox"} className="font-medium text-primary hover:underline">
+            {t("showAll")}
+          </Link>
+        </p>
+      ) : null}
       {result.rows.length === 0 ? (
         <EmptyState
           bordered

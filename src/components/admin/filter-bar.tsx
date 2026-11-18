@@ -107,7 +107,9 @@ export function AdminFilterBar({ fields, className }: { fields: FilterField[]; c
             <Input
               id={id}
               type={field.type === "date" ? "date" : "search"}
-              dir={field.type === "date" ? "ltr" : "auto"}
+              // Empty, a dir="auto" field shows its Hebrew example text left to right ("…או #1234"):
+              // the page's direction until something is typed.
+              dir={field.type === "date" ? "ltr" : values[field.name] ? "auto" : undefined}
               value={values[field.name] ?? ""}
               placeholder={field.type === "search" ? field.placeholder : undefined}
               onChange={(e) => setValues((v) => ({ ...v, [field.name]: e.target.value }))}
@@ -116,29 +118,33 @@ export function AdminFilterBar({ fields, className }: { fields: FilterField[]; c
           </div>
         );
       })}
-      <div className="flex items-center gap-2">
-        {textFields.length ? (
-          <Button type="submit" size="sm" className="h-9" disabled={pending}>
-            <Search aria-hidden />
-            {t("apply")}
-          </Button>
-        ) : null}
-        {active ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-9"
-            onClick={() => {
-              setValues(Object.fromEntries(textFields.map((f) => [f.name, ""])));
-              startTransition(() => router.replace(pathname));
-            }}
-          >
-            <X aria-hidden />
-            {t("reset")}
-          </Button>
-        ) : null}
-      </div>
+      {/* Only when it holds a button: an empty one still takes a gap, so the last select on a
+          phone line came out 12px narrower than the others. */}
+      {textFields.length || active ? (
+        <div className="flex items-center gap-2">
+          {textFields.length ? (
+            <Button type="submit" size="sm" className="h-9" disabled={pending}>
+              <Search aria-hidden />
+              {t("apply")}
+            </Button>
+          ) : null}
+          {active ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-9"
+              onClick={() => {
+                setValues(Object.fromEntries(textFields.map((f) => [f.name, ""])));
+                startTransition(() => router.replace(pathname));
+              }}
+            >
+              <X aria-hidden />
+              {t("reset")}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
     </form>
   );
 }

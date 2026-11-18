@@ -4,6 +4,7 @@ import { AlertTriangle, BadgeCheck, Ban, BadgeX, Clock, ShieldCheck, Undo2 } fro
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "@/lib/toast";
+import { documentChecksOn } from "@/config/verification";
 import type { UserRole, UserStatus } from "@/generated/prisma/enums";
 import {
   banUserAction,
@@ -53,7 +54,7 @@ export function UserActions({
 
   return (
     <div className="flex flex-wrap gap-2">
-      {idVerified ? (
+      {!documentChecksOn() ? null : idVerified ? (
         <ActionDialog
           triggerLabel={t("unverify")}
           triggerIcon={BadgeX}
@@ -186,7 +187,7 @@ export function RoleChanger({ userId, role, twoFactorEnabled }: { userId: string
           {t("save")}
         </Button>
       </div>
-      {willBeStaff && !twoFactorEnabled ? <p className="rounded-md bg-warning-soft px-2 py-1 text-xs text-foreground">{t("twoFactorWarning")}</p> : null}
+      {willBeStaff && !twoFactorEnabled ? <p className="rounded-md bg-surface-muted px-2 py-1 text-xs text-foreground">{t("twoFactorWarning")}</p> : null}
       <p className="text-xs text-muted-foreground">{t("hint")}</p>
     </div>
   );

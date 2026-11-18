@@ -7,6 +7,7 @@
 import { getLocale } from "next-intl/server";
 import { z } from "zod";
 import { siteConfig, type AppLocale, type CurrencyCode } from "@/config/site";
+import { showsDocumentBadge } from "@/config/verification";
 import type { DealType, KitchenKosher, Locale, PricePeriod, PropertyType } from "@/generated/prisma/enums";
 import { isAppLocale, pickLocalized } from "@/i18n/locale";
 import { fail, ok, runAction, type ActionResult } from "@/lib/action";
@@ -18,6 +19,9 @@ import { publicListingWhere } from "@/lib/listing/where";
 import { photoUrl } from "@/lib/media";
 import { assertRateLimit } from "@/lib/rate-limit";
 import { getSettings } from "@/lib/settings";
+import { displayAmenities } from "@/lib/geo/walk-towns";
+import { publicWalkTimes } from "@/lib/geo/public-walk";
+import { parseNearby } from "@/lib/nearby";
 
 export type CompareItem = {
   publicId: number;
@@ -44,7 +48,6 @@ export type CompareItem = {
     kitchenKosher: KitchenKosher | null;
     kosherCertName: string | null;
     synagogueWalkMin: number | null;
-    chabadWalkMin: number | null;
     features: string[];
   };
   amenities: string[];
@@ -107,11 +110,14 @@ export async function getCompareItems(publicIds: unknown): Promise<ActionResult<
         kitchenKosher: true,
         kosherCertName: true,
         synagogueWalkMin: true,
-        chabadWalkMin: true,
+        seaWalkMinutes: true,
+        liftWalkMinutes: true,
+        nearby: true,
         shabbatFeatures: true,
         jewishFeatures: true,
         hotelJewishFeatures: true,
         amenities: true,
+        approxLat: true,
         ownerVerifiedAt: true,
         owner: { select: { idVerifiedAt: true } },
         city: { select: { names: true } },
@@ -138,6 +144,7 @@ export async function getCompareItems(publicIds: unknown): Promise<ActionResult<
           ? { amount: own, currency: row.currency as CurrencyCode, period: row.pricePeriod, from: false }
           : { amount: num(room.price), currency: room.currency as CurrencyCode, period: room.pricePeriod, from: true };
       const photo = row.photos[0];
+      const walks = publicWalkTimes({ ...row, nearby: parseNearby(row.nearby) });
       const place = [row.neighborhood ? pickLocalized(row.neighborhood.names, locale) : "", row.city ? pickLocalized(row.city.names, locale) : ""]
         .filter(Boolean)
         .join(" · ");
@@ -151,7 +158,7 @@ export async function getCompareItems(publicIds: unknown): Promise<ActionResult<
           propertyType: row.propertyType,
           place: place || null,
           price,
-          verified: !!row.owner.idVerifiedAt || !!row.ownerVerifiedAt,
+          verified: showsDocumentBadge(row.owner.idVerifiedAt) || showsDocumentBadge(row.ownerVerifiedAt),
           facts: {
             rooms: row.rooms,
             bedrooms: row.bedrooms,
@@ -166,11 +173,13 @@ export async function getCompareItems(publicIds: unknown): Promise<ActionResult<
             shabbatFriendly: row.isShabbatFriendly,
             kitchenKosher: row.kitchenKosher,
             kosherCertName: row.kosherCertName?.trim() || null,
-            synagogueWalkMin: row.synagogueWalkMin,
-            chabadWalkMin: row.chabadWalkMin,
+            // Security checklist 6.d, answers (2)/(3): rounded up to 5 minutes, the same walks as
+            // the listing page (at most 3, never a Chabad house; src/lib/geo/public-walk.ts).
+            synagogueWalkMin: walks.synagogueWalkMin,
             features: [...row.shabbatFeatures.map((f) => `shabbat:${f}`), ...row.jewishFeatures.map((f) => `jewish:${f}`), ...row.hotelJewishFeatures.map((f) => `hotel:${f}`)],
           },
-          amenities: row.amenities,
+          // Brief 7.3: with a pin, the computed walk replaces the host's "Near the sea" tick.
+          amenities: displayAmenities(row.amenities, row.approxLat !== null),
           costs: {
             currency: row.currency as CurrencyCode,
             deposit: num(row.deposit),

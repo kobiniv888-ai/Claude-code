@@ -1,4 +1,5 @@
 import { BadgeCheck, CreditCard, Megaphone, MessagesSquare, Rocket, ShieldCheck, type LucideIcon } from "lucide-react";
+import type { IconCircleProps } from "@/components/ds/icon-circle";
 import type { FaqCategory } from "@/generated/prisma/enums";
 
 /** FAQ topics in display order, with their icons. */
@@ -18,4 +19,14 @@ export const faqCategoryIcons: Record<FaqCategory, LucideIcon> = {
   SAFETY: ShieldCheck,
   ACCOUNT_VERIFICATION: BadgeCheck,
   PAYMENTS: CreditCard,
+};
+
+/** The tinted circle behind each topic's icon (help center tiles and group headings). */
+export const faqCategoryTones: Record<FaqCategory, NonNullable<IconCircleProps["tone"]>> = {
+  GETTING_STARTED: "navy",
+  POSTING: "coral",
+  CONTACTING_OWNERS: "navy",
+  SAFETY: "green",
+  ACCOUNT_VERIFICATION: "green",
+  PAYMENTS: "amber",
 };

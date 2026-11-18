@@ -18,9 +18,9 @@ const pill =
 
 const LISTING_STATUS_STYLES: Record<ListingStatus, string> = {
   DRAFT: "bg-muted text-muted-foreground ring-border",
-  IN_REVIEW: "bg-warning-soft text-foreground ring-warning/40",
-  NEEDS_CHANGES: "bg-warning-soft text-foreground ring-warning/40",
-  LIVE: "bg-verified-soft text-foreground ring-verified/30",
+  IN_REVIEW: "bg-surface-muted text-foreground ring-border-strong/40",
+  NEEDS_CHANGES: "bg-surface-muted text-foreground ring-border-strong/40",
+  LIVE: "bg-primary-tint text-foreground ring-success/30",
   PAUSED: "bg-muted text-muted-foreground ring-border",
   EXPIRED: "bg-muted text-muted-foreground ring-border",
   RENTED: "bg-secondary text-secondary-foreground ring-primary/15",
@@ -36,10 +36,10 @@ export function ListingStatusBadge({ status, className }: { status: ListingStatu
 }
 
 const USER_STATUS_STYLES: Record<UserStatus, string> = {
-  ACTIVE: "bg-verified-soft text-foreground ring-verified/30",
-  WARNED: "bg-warning-soft text-foreground ring-warning/40",
+  ACTIVE: "bg-primary-tint text-foreground ring-success/30",
+  WARNED: "bg-surface-muted text-foreground ring-border-strong/40",
   SUSPENDED: "bg-destructive/10 text-destructive ring-destructive/30",
-  BANNED: "bg-destructive text-white ring-destructive",
+  BANNED: "bg-destructive text-destructive-foreground ring-destructive",
   DELETED: "bg-muted text-muted-foreground ring-border",
 };
 
@@ -60,8 +60,8 @@ export function RoleBadge({ role, className }: { role: UserRole; className?: str
 }
 
 const REPORT_STATUS_STYLES: Record<ReportStatus, string> = {
-  OPEN: "bg-warning-soft text-foreground ring-warning/40",
-  RESOLVED: "bg-verified-soft text-foreground ring-verified/30",
+  OPEN: "bg-surface-muted text-foreground ring-border-strong/40",
+  RESOLVED: "bg-primary-tint text-foreground ring-success/30",
   DISMISSED: "bg-muted text-muted-foreground ring-border",
 };
 
@@ -71,9 +71,9 @@ export function ReportStatusBadge({ status, className }: { status: ReportStatus;
 }
 
 const VERIFICATION_STATUS_STYLES: Record<VerificationStatus, string> = {
-  PENDING: "bg-warning-soft text-foreground ring-warning/40",
+  PENDING: "bg-surface-muted text-foreground ring-border-strong/40",
   NEEDS_MORE_INFO: "bg-secondary text-secondary-foreground ring-primary/15",
-  APPROVED: "bg-verified-soft text-foreground ring-verified/30",
+  APPROVED: "bg-primary-tint text-foreground ring-success/30",
   REJECTED: "bg-destructive/10 text-destructive ring-destructive/30",
 };
 
@@ -94,8 +94,8 @@ export function AccountMarkers({
   return (
     <span className={cn("inline-flex flex-wrap items-center gap-1", className)}>
       {user.idVerifiedAt ? (
-        <span className={cn(pill, "bg-verified-soft text-foreground ring-verified/30")}>
-          <BadgeCheck aria-hidden className="text-verified" />
+        <span className={cn(pill, "bg-primary-tint text-foreground ring-success/30")}>
+          <BadgeCheck aria-hidden className="text-success" />
           {t("idVerified")}
         </span>
       ) : null}

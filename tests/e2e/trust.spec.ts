@@ -1,6 +1,7 @@
 import { expect, openAs, settle, test } from "./fixtures";
-import { DEMO } from "./helpers/auth";
-import { createReport, createTestListing, createTestUser, listingByPublicId } from "./helpers/db";
+import { TEST_ADMIN_PHONE } from "./helpers/staff";
+import { createReport, createTestListing, createTestUser, listingByPublicId, sql } from "./helpers/db";
+import { acceptTermsBoxIfShown } from "./helpers/terms";
 
 /** Definition of done: report buttons, safety tips and the automatic scam checks all work. */
 
@@ -42,26 +43,54 @@ test("the Report dialog sends a report, and enough reports hide the listing", as
   await context.close();
 });
 
-test("scam phrases and a phone number in the description send a listing to review with those reasons", async ({ browser }) => {
+test("a phone number in the description stops publishing; a payment request is refused; scam phrases send a listing to review with those reasons", async ({ browser }) => {
   const owner = await createTestUser({ name: "E2E Risky Owner" });
+  // Publishing needs the Bayit pledge (redesign phase 1); this owner accepted version 1 earlier.
+  await sql(`UPDATE "User" SET "welcomePledgeVersion" = 1, "welcomePledgeAcceptedAt" = now() WHERE id = $1`, [owner.id]);
   // Not the owner's first listing, so the review is caused by the checks themselves.
   await createTestListing({ ownerId: owner.id, title: `E2E Earlier flat ${Date.now().toString(36)}` });
   const title = `E2E Risky flat ${Date.now().toString(36)}`;
-  const draft = await createTestListing({
-    ownerId: owner.id,
-    title,
-    status: "DRAFT",
-    description:
-      "Cozy flat with a mountain view. I am abroad right now, so please send the deposit by Western Union first and I will post you the keys. WhatsApp me: +995 599 12 34 56.",
-  });
+  const scamText = "Cozy flat with a mountain view. I am abroad right now, so please send the deposit by Western Union first and I will post you the keys.";
+  const reviewText = "Cozy flat with a mountain view. I am abroad right now and I only use Western Union, so I will post you the keys.";
+  const draft = await createTestListing({ ownerId: owner.id, title, status: "DRAFT", description: `${scamText} WhatsApp me: +995 599 12 34 56.` });
 
   const { context, page, consoleErrors } = await openAs(browser, owner.phone);
-  await page.goto(`/en/post/${draft.id}?step=10`);
+  // By key: the preview's position depends on the steps (the pledge, the split details step…).
+  await page.goto(`/en/post/${draft.id}?step=publish`);
   await expect(page.getByRole("heading", { level: 1, name: "Preview and publish" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Before you can publish" })).toHaveCount(0);
   await settle(page);
+  // Round 3 (brief 6.1): a phone number in the description is an error of the mistake check, and
+  // "Publish" is refused while it is there.
+  const panel = page.getByTestId("mistake-check");
+  await expect(panel.locator('[data-mistake="contact_in_description"]')).toBeVisible();
   await page.getByRole("checkbox", { name: /I accept the listing rules/ }).click();
-  await page.getByRole("button", { name: "Publish listing" }).click();
+  await acceptTermsBoxIfShown(page); // the "18 or older + Terms" box (SECURITY_REPORT 15.11.b/c)
+  await page.getByRole("button", { name: "Publish", exact: true }).click(); // the bottom bar (bug 2.7)
+  await expect(panel.getByRole("heading", { name: "Check before publishing" })).toBeFocused();
+  expect((await listingByPublicId(draft.publicId)).status).toBe("DRAFT");
+
+  // Without the phone number, the text still ASKS for a money transfer ("send the deposit by
+  // Western Union first"): payment details are refused outright (SECURITY_REPORT 14.2.a), the
+  // listing does not go live or to review, and the host is told what to fix.
+  await sql(`UPDATE "Listing" SET description = $2, "contentUpdatedAt" = now() WHERE id = $1`, [draft.id, scamText]);
+  await panel.getByRole("button", { name: "Check again" }).click();
+  await expect(panel.locator('[data-mistake="contact_in_description"]')).toHaveCount(0);
+  await page.getByRole("button", { name: "Publish", exact: true }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Your listing needs a few changes" })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText("The text contains payment details")).toBeVisible();
+  expect(["LIVE", "IN_REVIEW"]).not.toContain((await listingByPublicId(draft.publicId)).status);
+
+  // Scam words without a payment request ("I only use Western Union"): it publishes, and the
+  // phrases send it to review with those reasons.
+  await sql(`UPDATE "Listing" SET description = $2, "contentUpdatedAt" = now() WHERE id = $1`, [draft.id, reviewText]);
+  await page.goto(`/en/post/${draft.id}?step=publish`);
+  await expect(page.getByRole("heading", { level: 1, name: "Preview and publish" })).toBeVisible();
+  await settle(page);
+  const rules = page.getByRole("checkbox", { name: /I accept the listing rules/ });
+  if (!(await rules.isChecked())) await rules.click();
+  await acceptTermsBoxIfShown(page);
+  await page.getByRole("button", { name: "Publish", exact: true }).click();
   await expect(page.getByRole("heading", { name: "We're checking your listing" })).toBeVisible({ timeout: 60_000 });
   expect(consoleErrors).toEqual([]);
   await context.close();
@@ -71,17 +100,15 @@ test("scam phrases and a phone number in the description send a listing to revie
   expect(listing.riskScore ?? 0).toBeGreaterThanOrEqual(30);
   const codes = (listing.riskReasons ?? []).map((r) => r.code);
   expect(codes).toContain("scam_phrase");
-  expect(codes).toContain("contact_info_in_text");
   expect(codes).not.toContain("first_listing");
   const scam = listing.riskReasons!.find((r) => r.code === "scam_phrase")!;
   expect(scam.detail?.toLowerCase()).toContain("western union");
 
   // The moderator sees the score and the reasons.
-  const admin = await openAs(browser, DEMO.admin);
+  const admin = await openAs(browser, TEST_ADMIN_PHONE);
   await admin.page.goto(`/en/admin/moderation/${listing.id}`);
   const risk = admin.page.getByRole("region", { name: "Automatic risk check" }).or(admin.page.locator("section", { has: admin.page.getByRole("heading", { name: "Automatic risk check" }) }));
   await expect(risk.first()).toContainText("Scam phrases");
-  await expect(risk.first()).toContainText("Contact details in the text");
   expect(admin.consoleErrors).toEqual([]);
   await admin.context.close();
 });

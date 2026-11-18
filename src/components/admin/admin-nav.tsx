@@ -2,6 +2,9 @@
 
 import {
   BadgeCheck,
+  CalendarCheck2,
+  CircleDollarSign,
+  DatabaseBackup,
   ExternalLink,
   FileText,
   Flag,
@@ -10,9 +13,11 @@ import {
   LifeBuoy,
   LogOut,
   Mail,
+  MapPinCheck,
   Menu,
   ScrollText,
   Settings,
+  ShieldAlert,
   ShieldCheck,
   Users,
   type LucideIcon,
@@ -22,9 +27,9 @@ import { useState } from "react";
 import { LogoMark } from "@/components/common/logo";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Link, usePathname, useRouter } from "@/i18n/navigation";
+import { getPathname, Link, usePathname } from "@/i18n/navigation";
 import { isRtl } from "@/i18n/locale";
-import { signOut } from "@/lib/auth/client";
+import { toast } from "@/lib/toast";
 import {
   groupAdminNav,
   isAdminNavActive,
@@ -40,14 +45,19 @@ const ICONS: Record<AdminNavKey, LucideIcon> = {
   overview: LayoutDashboard,
   moderation: Inbox,
   reports: Flag,
+  flags: ShieldAlert,
+  bookings: CalendarCheck2,
   users: Users,
   verifications: BadgeCheck,
+  badges: MapPinCheck,
+  referencePrices: CircleDollarSign,
   tickets: LifeBuoy,
   content: FileText,
   settings: Settings,
   roles: ShieldCheck,
   audit: ScrollText,
   outbox: Mail,
+  maintenance: DatabaseBackup,
 };
 
 function NavBadge({ item, counts }: { item: AdminNavItem; counts: AdminCounts | null }) {
@@ -59,7 +69,7 @@ function NavBadge({ item, counts }: { item: AdminNavItem; counts: AdminCounts | 
     <span
       className={cn(
         "ms-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums",
-        urgent ? "bg-destructive text-white" : "bg-primary/10 text-primary",
+        urgent ? "bg-destructive text-destructive-foreground" : "bg-primary/10 text-primary",
       )}
     >
       <span aria-hidden>{formatNumber(count, locale)}</span>
@@ -209,9 +219,11 @@ export function ViewSiteLink() {
   );
 }
 
+/** Logs out with the shared logOut() (SECURITY_REPORT 3.5.d): the session ends on the server, or an error shows. */
 export function SignOutButton() {
   const t = useTranslations("admin.shell");
-  const router = useRouter();
+  const ts = useTranslations("security.challenge");
+  const locale = useLocale();
   const [pending, setPending] = useState(false);
   return (
     <Button
@@ -221,13 +233,11 @@ export function SignOutButton() {
       disabled={pending}
       onClick={async () => {
         setPending(true);
-        try {
-          await signOut();
-          router.replace("/");
-          router.refresh();
-        } finally {
-          setPending(false);
-        }
+        const { logOut } = await import("@/lib/auth/logout");
+        const result = await logOut({ homeHref: getPathname({ href: "/", locale }), keepLists: false });
+        if (result.ok) return; // the page is leaving
+        setPending(false);
+        toast.error(ts("logoutError"));
       }}
     >
       <LogOut aria-hidden className="rtl:-scale-x-100" />

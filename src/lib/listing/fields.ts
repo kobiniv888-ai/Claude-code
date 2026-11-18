@@ -4,7 +4,7 @@
  * Labels live in messages/<locale>/listingFields.json under the same keys.
  * Icons live in src/components/listing/field-icons.tsx.
  */
-import type { DealType, PricePeriod, PropertyType } from "@/generated/prisma/enums";
+import type { DealType, PhotoRoom, PricePeriod, PropertyType } from "@/generated/prisma/enums";
 
 export const DEAL_TYPES = ["SHORT_STAY", "MONTHLY_RENT", "SALE", "HOTEL_ROOM"] as const satisfies readonly DealType[];
 
@@ -170,3 +170,11 @@ export const REPORT_REASONS = [
   "OFFENSIVE",
   "OTHER",
 ] as const;
+
+/**
+ * Which room a listing photo shows (ListingPhoto.room, optional, set by the host in the photos
+ * step; round 3, brief 6.1). The order is the gallery's section order. Labels:
+ * listingFields.photoRoom.<key>.
+ */
+export const PHOTO_ROOMS = ["BEDROOM", "KITCHEN", "BATHROOM", "LIVING_ROOM", "VIEW", "BALCONY", "BUILDING"] as const satisfies readonly PhotoRoom[];
+export type PhotoRoomKey = (typeof PHOTO_ROOMS)[number];

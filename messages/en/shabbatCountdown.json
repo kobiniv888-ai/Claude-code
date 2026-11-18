@@ -1,0 +1,19 @@
+{
+  "title": "This week's Shabbat",
+  "cities": "Choose a city",
+  "before": "Shabbat starts in {time}",
+  "during": "Shabbat shalom · ends at {time}",
+  "duringNoEnd": "Shabbat shalom",
+  "after": "Shavua tov — have a good week",
+  "unknown": "Shabbat times will appear here soon",
+  "candleLighting": "Candle lighting",
+  "havdalah": "Havdalah",
+  "localTime": "Local time",
+  "more": "All Shabbat times",
+  "units": {
+    "day": "{count, plural, one {{count} day} other {{count} days}}",
+    "hour": "{count, plural, one {{count} hour} other {{count} hours}}",
+    "minute": "{count, plural, one {{count} minute} other {{count} minutes}}"
+  },
+  "pair": "{first} and {second}"
+}

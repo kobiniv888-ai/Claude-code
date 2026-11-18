@@ -1,4 +1,4 @@
-import { locales, rtlLocales, type AppLocale, type Localized } from "@/config/site";
+import { locales, rtlLocales, type AppLocale, type Localized } from "@/config/locales";
 
 export function isAppLocale(value: unknown): value is AppLocale {
   return typeof value === "string" && (locales as readonly string[]).includes(value);

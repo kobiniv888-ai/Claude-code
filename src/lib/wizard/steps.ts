@@ -6,25 +6,47 @@
  * so the position of the later steps depends on the deal type.
  */
 import type { DealType, PropertyType } from "@/generated/prisma/enums";
+import { isBookableDealType } from "@/lib/booking/constants";
 import { BUSINESS_PROPERTY_TYPES, PROPERTY_TYPES_BY_DEAL } from "@/lib/listing/fields";
 
 export const WIZARD_STEP_KEYS = [
   "deal",
   "property",
   "location",
-  "details",
+  // Step 4 of round 1 ("ספרו לאורחים על המקום", ~20 fields) split into short steps (brief 5.7):
+  "size", // גודל וחדרים
+  "building", // הבניין (incl. the private cadastral code)
+  "features", // מצב ומאפיינים: all optional, folded (Georgian condition terms, heating, views, video)
+  "text", // כותרת ותיאור
   "amenities",
   "jewish",
   "photos",
   "rooms",
   "price",
+  // "הזמנות ומחיר" (bookings and price): replaces "price" for short stays and hotel rooms.
+  "booking",
   "contact",
+  // The Bayit welcome pledge (required; saved on the user, not the listing).
+  "pledge",
   "publish",
 ] as const;
 export type WizardStepKey = (typeof WIZARD_STEP_KEYS)[number];
 
-/** Steps saved with updateDraft(listingId, step, data). Photos, rooms and publish have their own actions. */
-export const SAVABLE_STEPS = ["deal", "property", "location", "details", "amenities", "jewish", "price", "contact"] as const;
+/** Steps saved with updateDraft(listingId, step, data). Photos, rooms, pledge and publish have their own actions. */
+export const SAVABLE_STEPS = [
+  "deal",
+  "property",
+  "location",
+  "size",
+  "building",
+  "features",
+  "text",
+  "amenities",
+  "jewish",
+  "price",
+  "booking",
+  "contact",
+] as const;
 export type SavableStepKey = (typeof SAVABLE_STEPS)[number];
 
 export function isSavableStep(step: string): step is SavableStepKey {
@@ -35,6 +57,26 @@ export function isWizardStepKey(step: string): step is WizardStepKey {
   return (WIZARD_STEP_KEYS as readonly string[]).includes(step);
 }
 
+/**
+ * Steps marked "אופציונלי" with a "דילוג" button (round 3, brief 3: the Jewish-friendly details).
+ * Nothing on them is required; Skip saves what was already ticked and moves on, like a jump.
+ */
+export const OPTIONAL_STEPS: readonly WizardStepKey[] = ["jewish"];
+
+export function isOptionalStep(step: WizardStepKey): boolean {
+  return OPTIONAL_STEPS.includes(step);
+}
+
+/** The step after `step` for this listing (null on the last step): where "דילוג" goes. */
+export function stepAfter(step: WizardStepKey, kind: ListingKind): WizardStepKey | null {
+  const steps = stepsFor(kind);
+  const index = steps.indexOf(step);
+  return index === -1 || index >= steps.length - 1 ? null : steps[index + 1];
+}
+
+/** Step keys from older links (?step=details, round 1) and the step that took their place. */
+const LEGACY_STEP_KEYS: Record<string, WizardStepKey> = { details: "size" };
+
 export type ListingKind = { dealType: DealType; propertyType: PropertyType };
 
 /** True for hotels, guesthouses and hostels (several room types, "Business" label). */
@@ -42,9 +84,30 @@ export function isBusinessListing(kind: ListingKind): boolean {
   return kind.dealType === "HOTEL_ROOM" || BUSINESS_PROPERTY_TYPES.includes(kind.propertyType);
 }
 
+/**
+ * Short stays and hotel rooms are booked on the site: their price, stay rules, cancellation policy
+ * and payment methods live in one "הזמנות ומחיר" step (brief 5.6), which takes the place of the
+ * "price" step. Saving it turns instant booking on (docs/redesign-2/booking.md).
+ */
+export function usesBookingStep(kind: Pick<ListingKind, "dealType">): boolean {
+  return isBookableDealType(kind.dealType);
+}
+
 /** The steps shown for this listing, in order. */
 export function stepsFor(kind: ListingKind): WizardStepKey[] {
-  return WIZARD_STEP_KEYS.filter((key) => key !== "rooms" || isBusinessListing(kind));
+  const booking = usesBookingStep(kind);
+  return WIZARD_STEP_KEYS.filter((key) => {
+    if (key === "rooms") return isBusinessListing(kind);
+    if (key === "size") return sizeStepApplies(kind);
+    if (key === "price") return !booking;
+    if (key === "booking") return booking;
+    return true;
+  });
+}
+
+/** The step that holds the listing's price ("booking" for short stays and hotels). */
+export function priceStepFor(kind: ListingKind): "price" | "booking" {
+  return usesBookingStep(kind) ? "booking" : "price";
 }
 
 /** 1-based position of a step (the number shown in the progress bar and the URL). */
@@ -64,7 +127,13 @@ export function stepAt(position: number, kind: ListingKind): WizardStepKey {
 /** Parses ?step= (a number, or a step key). */
 export function parseStepParam(value: unknown, kind: ListingKind, fallback: number): WizardStepKey {
   const raw = Array.isArray(value) ? value[0] : value;
-  if (typeof raw === "string" && isWizardStepKey(raw) && stepsFor(kind).includes(raw)) return raw;
+  const steps = stepsFor(kind);
+  if (typeof raw === "string" && isWizardStepKey(raw) && steps.includes(raw)) return raw;
+  if (typeof raw === "string" && raw in LEGACY_STEP_KEYS) {
+    const legacy = LEGACY_STEP_KEYS[raw];
+    // Hotels have no "size" step: the first of the split steps they do have.
+    return steps.includes(legacy) ? legacy : "building";
+  }
   const n = typeof raw === "string" ? Number.parseInt(raw, 10) : Number.NaN;
   return stepAt(Number.isFinite(n) ? n : fallback, kind);
 }
@@ -88,7 +157,8 @@ export const FIELD_APPLIES = {
   bedrooms: (k: ListingKind) => k.dealType !== "HOTEL_ROOM",
   bathrooms: (k: ListingKind) => k.dealType !== "HOTEL_ROOM",
   beds: (k: ListingKind) => k.dealType === "SHORT_STAY" || k.dealType === "MONTHLY_RENT",
-  maxGuests: (k: ListingKind) => k.dealType === "SHORT_STAY" || k.dealType === "MONTHLY_RENT",
+  // Shown in the booking step for short stays and hotels (a hotel's room types can set their own).
+  maxGuests: (k: ListingKind) => k.dealType !== "SALE",
   sizeSqm: (k: ListingKind) => k.dealType !== "HOTEL_ROOM",
   floor: (k: ListingKind) => APARTMENT_LIKE.includes(k.propertyType),
   totalFloors: () => true,
@@ -112,10 +182,14 @@ export const FIELD_APPLIES = {
   kosherCertificate: (k: ListingKind) => isBusinessListing(k),
   // Price step
   deposit: (k: ListingKind) => k.dealType === "SHORT_STAY" || k.dealType === "MONTHLY_RENT",
-  cleaningFee: (k: ListingKind) => k.dealType === "SHORT_STAY",
+  cleaningFee: (k: ListingKind) => k.dealType === "SHORT_STAY" || k.dealType === "HOTEL_ROOM",
   utilities: (k: ListingKind) => k.dealType === "MONTHLY_RENT",
   minStay: (k: ListingKind) => k.dealType === "SHORT_STAY" || k.dealType === "HOTEL_ROOM",
-  discounts: (k: ListingKind) => k.dealType === "SHORT_STAY",
+  // Long-stay discounts (round 3, brief 6.3): % off the nights for 7+ / 28+ nights, priced by the
+  // booking quote (src/lib/booking/pricing.ts), so only for stays booked on the site.
+  discounts: (k: ListingKind) => usesBookingStep(k),
+  // Booking terms (weekend price, cancellation policy, payment methods, instant booking).
+  bookingTerms: (k: ListingKind) => usesBookingStep(k),
   availability: (k: ListingKind) => k.dealType !== "SALE",
   ical: (k: ListingKind) => k.dealType === "SHORT_STAY" || k.dealType === "HOTEL_ROOM",
   pricePerSqm: (k: ListingKind) => k.dealType === "SALE",
@@ -124,4 +198,18 @@ export type ApplicableField = keyof typeof FIELD_APPLIES;
 
 export function applies(field: ApplicableField, kind: ListingKind): boolean {
   return FIELD_APPLIES[field](kind);
+}
+
+/**
+ * "גודל וחדרים" has something to ask (rooms, beds, size, maximum tenants or who shares the room).
+ * Hotel rooms have none of these (their room types and the booking step hold them), so they skip it.
+ */
+export function sizeStepApplies(kind: ListingKind): boolean {
+  return (
+    applies("rooms", kind) ||
+    applies("beds", kind) ||
+    applies("sizeSqm", kind) ||
+    applies("sharedRoomFor", kind) ||
+    (applies("maxGuests", kind) && !usesBookingStep(kind))
+  );
 }

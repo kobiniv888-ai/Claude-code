@@ -23,6 +23,8 @@ import { cn } from "@/lib/utils";
 /**
  * A button that opens a confirmation dialog, optionally asking for a reason, a note and/or a
  * date, then runs `onConfirm`. `shortcut` opens it from the keyboard (ignored while typing).
+ * Each field's hint or error is tied to it (aria-describedby), a missing field is announced and
+ * gets the focus. The trigger is 44px tall on phones (touch target), its own size from `sm` up.
  */
 
 export type ActionDialogValues = { reason: string; note: string; date: string };
@@ -33,6 +35,7 @@ export function ActionDialog({
   triggerLabel,
   triggerIcon: Icon,
   triggerVariant = "outline",
+  triggerSize = "default",
   triggerClassName,
   title,
   description,
@@ -49,6 +52,8 @@ export function ActionDialog({
   triggerLabel: string;
   triggerIcon?: LucideIcon;
   triggerVariant?: ButtonVariant;
+  /** "sm" next to other small row buttons (smaller text, padding and icon). */
+  triggerSize?: "default" | "sm";
   triggerClassName?: string;
   title: string;
   description?: ReactNode;
@@ -93,6 +98,9 @@ export function ActionDialog({
     event.preventDefault();
     if (missingReason || missingNote || missingDate) {
       setShowErrors(true);
+      // The first missing field gets the focus (its error is announced: role="alert").
+      const first = missingReason ? "reason" : missingDate ? "date" : "note";
+      document.getElementById(`${id}-${first}`)?.focus();
       return;
     }
     setBusy(true);
@@ -114,9 +122,10 @@ export function ActionDialog({
         <Button
           type="button"
           variant={triggerVariant}
+          size={triggerSize}
           disabled={disabled}
           aria-keyshortcuts={shortcut}
-          className={cn("h-9", triggerClassName)}
+          className={cn("h-9 min-h-11 sm:min-h-0", triggerClassName)}
         >
           {Icon ? <Icon aria-hidden /> : null}
           {triggerLabel}
@@ -144,6 +153,7 @@ export function ActionDialog({
                   id={`${id}-reason`}
                   className="w-full"
                   aria-invalid={showErrors && missingReason ? true : undefined}
+                  aria-required
                   aria-describedby={`${id}-reason-hint`}
                 >
                   <SelectValue placeholder={t("chooseReason")} />
@@ -158,7 +168,9 @@ export function ActionDialog({
               </Select>
               <p id={`${id}-reason-hint`} className="text-xs text-muted-foreground">
                 {showErrors && missingReason ? (
-                  <span className="text-destructive">{t("reasonRequired")}</span>
+                  <span role="alert" className="text-destructive">
+                    {t("reasonRequired")}
+                  </span>
                 ) : selected?.hint ? (
                   <>
                     <span className="font-medium">{t("userWillRead")}</span> {selected.hint}
@@ -180,9 +192,15 @@ export function ActionDialog({
                 value={values.date}
                 onChange={(e) => setValues((s) => ({ ...s, date: e.target.value }))}
                 aria-invalid={showErrors && missingDate ? true : undefined}
+                aria-required
+                aria-describedby={showErrors && missingDate ? `${id}-date-hint` : undefined}
                 className="w-full sm:w-56"
               />
-              {showErrors && missingDate ? <p className="text-xs text-destructive">{t("dateRequired")}</p> : null}
+              {showErrors && missingDate ? (
+                <p id={`${id}-date-hint`} role="alert" className="text-xs text-destructive">
+                  {t("dateRequired")}
+                </p>
+              ) : null}
             </div>
           ) : null}
 
@@ -194,18 +212,24 @@ export function ActionDialog({
               </Label>
               <Textarea
                 id={`${id}-note`}
-                dir="auto"
+                dir={values.note ? "auto" : undefined}
                 rows={note.rows ?? 3}
                 maxLength={note.max}
                 placeholder={note.placeholder}
                 value={values.note}
                 onChange={(e) => setValues((s) => ({ ...s, note: e.target.value }))}
                 aria-invalid={showErrors && missingNote ? true : undefined}
+                aria-required={note.required || undefined}
+                aria-describedby={(showErrors && missingNote) || note.hint ? `${id}-note-hint` : undefined}
               />
               {showErrors && missingNote ? (
-                <p className="text-xs text-destructive">{t("noteRequired")}</p>
+                <p id={`${id}-note-hint`} role="alert" className="text-xs text-destructive">
+                  {t("noteRequired")}
+                </p>
               ) : note.hint ? (
-                <p className="text-xs text-muted-foreground">{note.hint}</p>
+                <p id={`${id}-note-hint`} className="text-xs text-muted-foreground">
+                  {note.hint}
+                </p>
               ) : null}
             </div>
           ) : null}

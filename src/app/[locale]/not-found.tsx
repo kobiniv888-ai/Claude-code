@@ -1,70 +1,25 @@
-import { House, LifeBuoy, Search } from "lucide-react";
-import { getLocale, getTranslations } from "next-intl/server";
-import { Container } from "@/components/common/container";
-import { NotFoundState } from "@/components/common/states";
-import { NAV_ITEMS } from "@/components/layout/nav-items";
-import { SiteShell } from "@/components/layout/site-shell";
+import { getLocale } from "next-intl/server";
+import { BrandLockup } from "@/components/brand/mark";
+import { NotFoundView } from "@/components/layout/not-found-view";
 import { Link } from "@/i18n/navigation";
-import { siteName } from "@/lib/seo";
 
-const SUGGESTIONS = ["rent", "buy", "hotels", "jewishLife"] as const;
-
-/** The designed 404 page, inside the full site frame (any notFound() and unknown addresses). */
+/**
+ * 404 for the addresses of a language that are outside the public site (admin and dev pages).
+ * Public pages and unknown addresses get the same content inside the site's header and footer:
+ * app/[locale]/(site)/not-found.tsx and app/[locale]/[...rest]/not-found.tsx.
+ *
+ * Deliberately without the site frame: this page is rendered into the data of every page of the
+ * language (Next.js does that for a segment's not-found page), so the frame would be sent twice
+ * with each page.
+ */
 export default async function NotFound() {
-  const [t, tNav, locale] = await Promise.all([
-    getTranslations("states.notFound"),
-    getTranslations("nav"),
-    getLocale(),
-  ]);
-  const suggestions = NAV_ITEMS.filter((item) => (SUGGESTIONS as readonly string[]).includes(item.key));
-
+  const locale = await getLocale();
   return (
-    <SiteShell>
-      {/* not-found files cannot export metadata; React places this <title> in <head>. */}
-      <title>{`${t("title")} · ${siteName(locale)}`}</title>
-      <Container size="narrow" className="relative isolate">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-80 bg-[radial-gradient(55%_80%_at_50%_0%,color-mix(in_oklab,var(--primary)_9%,transparent),transparent)]"
-        />
-        <NotFoundState
-          size="lg"
-          headingLevel="h1"
-          eyebrow={t("eyebrow")}
-          title={t("title")}
-          description={t("description")}
-          action={{ label: t("search"), href: "/search", icon: Search }}
-          secondaryAction={{ label: t("home"), href: "/", icon: House }}
-        >
-          <nav aria-labelledby="not-found-suggestions" className="mt-4 grid w-full gap-3 border-t pt-6">
-            <h2 id="not-found-suggestions" className="text-sm font-semibold text-muted-foreground">
-              {t("suggestions")}
-            </h2>
-            <ul className="flex flex-wrap justify-center gap-2">
-              {suggestions.map(({ key, href, icon: Icon }) => (
-                <li key={key}>
-                  <Link
-                    href={href}
-                    className="inline-flex min-h-10 items-center gap-2 rounded-full border bg-card px-4 text-sm font-medium shadow-xs outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
-                  >
-                    <Icon aria-hidden className="size-4 text-primary" />
-                    {tNav(`tabs.${key}`)}
-                  </Link>
-                </li>
-              ))}
-              <li>
-                <Link
-                  href="/help"
-                  className="inline-flex min-h-10 items-center gap-2 rounded-full border bg-card px-4 text-sm font-medium shadow-xs outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
-                >
-                  <LifeBuoy aria-hidden className="size-4 text-primary" />
-                  {t("help")}
-                </Link>
-              </li>
-            </ul>
-          </nav>
-        </NotFoundState>
-      </Container>
-    </SiteShell>
+    <main id="main" tabIndex={-1} className="flex min-h-dvh flex-col items-center justify-center gap-6 py-10 outline-none">
+      <Link href="/" className="rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+        <BrandLockup locale={locale} size={26} />
+      </Link>
+      <NotFoundView />
+    </main>
   );
 }

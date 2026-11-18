@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { getTranslations } from "next-intl/server";
 import type { AlertSeverity } from "@/generated/prisma/enums";
 import { pickLocalized } from "@/i18n/locale";
-import { db } from "@/lib/db";
+import { getActiveScamAlerts, type PublicScamAlert } from "@/lib/scam-alerts/server";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatContentDate, isoDate } from "./format";
@@ -19,9 +19,9 @@ const severityStyle: Record<AlertSeverity, { icon: LucideIcon; card: string; chi
   },
   WARNING: {
     icon: TriangleAlert,
-    card: "border-warning/35 bg-warning-soft",
-    chip: "bg-warning text-warning-foreground",
-    iconWrap: "bg-card text-warning",
+    card: "border-border-strong/35 bg-surface-muted",
+    chip: "bg-surface-muted text-foreground",
+    iconWrap: "bg-card text-foreground",
   },
   CRITICAL: {
     icon: OctagonAlert,
@@ -31,28 +31,14 @@ const severityStyle: Record<AlertSeverity, { icon: LucideIcon; card: string; chi
   },
 };
 
-async function getActiveAlerts() {
-  const now = new Date();
-  return db.scamAlert.findMany({
-    where: {
-      active: true,
-      startsAt: { lte: now },
-      OR: [{ endsAt: null }, { endsAt: { gt: now } }],
-    },
-    orderBy: [{ startsAt: "desc" }, { createdAt: "desc" }],
-    take: 20,
-    select: { id: true, title: true, body: true, severity: true, startsAt: true, endsAt: true },
-  });
-}
-
-/** Current scam alerts posted by admins (active, started, not ended), newest first. */
+/** Current scam alerts posted by admins (active, started, not ended), newest first; the demo alert only while demo data is shown. */
 export async function ScamAlertList({ locale }: { locale: string }) {
   await connection();
   const t = await getTranslations({ locale, namespace: "safety" });
 
-  let alerts: Awaited<ReturnType<typeof getActiveAlerts>>;
+  let alerts: PublicScamAlert[];
   try {
-    alerts = await getActiveAlerts();
+    alerts = await getActiveScamAlerts();
   } catch (error) {
     console.error("[safety] could not load scam alerts", error);
     return (

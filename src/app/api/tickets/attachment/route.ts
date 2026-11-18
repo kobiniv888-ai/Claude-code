@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getCurrentUser, isStaffTwoFactorSkipped } from "@/lib/auth/session";
+import { getCurrentUser, hasStaffRights } from "@/lib/auth/session";
 import { getPrivate } from "@/lib/storage";
 import { isValidStorageKey } from "@/lib/storage/keys";
 import { rateLimit, rateLimitHeaders } from "@/lib/rate-limit";
@@ -45,8 +45,8 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Staff rights count only with 2-step login, as in the admin panel.
-  const staffReady = user.isStaff && (user.twoFactorEnabled || isStaffTwoFactorSkipped());
+  // Staff rights count only with 2-step login, as in the admin panel (src/lib/auth/staff-access.ts).
+  const staffReady = hasStaffRights(user);
   const attachment = await canAccessTicketAttachment(key, { id: user.id, role: staffReady ? user.role : "USER" });
   if (!attachment) return notFound();
 

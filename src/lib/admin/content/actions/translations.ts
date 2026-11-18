@@ -2,7 +2,7 @@
 
 import { createTranslator } from "next-intl";
 import { fail, ok, type ActionResult } from "@/lib/action";
-import { audit } from "@/lib/audit";
+import { audit, auditOrThrow } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { clearMessagesCache } from "@/i18n/messages";
 import { translationOverrideSchema } from "../schemas";
@@ -88,15 +88,15 @@ export async function resetTranslationOverride(input: unknown): Promise<ActionRe
     const fullKey = overrideKey(namespace, key);
     const existing = await db.translationOverride.findUnique({ where: { locale_key: { locale, key: fullKey } }, select: { id: true, value: true } });
     if (!existing) return ok();
-    await db.translationOverride.delete({ where: { id: existing.id } });
-    clearMessagesCache();
-    await audit({
-      actorId: staff.id,
-      action: "translation.reset",
-      targetType: "TranslationOverride",
-      targetId: `${locale}:${fullKey}`,
-      details: { removed: existing.value },
+    // A delete: the row and its audit entry commit together, or neither (Q13, 12.6.d).
+    await db.$transaction(async (tx) => {
+      await tx.translationOverride.delete({ where: { id: existing.id } });
+      await auditOrThrow(
+        { actorId: staff.id, action: "translation.reset", targetType: "TranslationOverride", targetId: `${locale}:${fullKey}`, details: { removed: existing.value } },
+        tx,
+      );
     });
+    clearMessagesCache();
     return ok();
   });
 }

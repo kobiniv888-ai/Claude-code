@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import {
   ArrowRightIcon,
@@ -20,22 +20,24 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Ltr } from "@/components/common/ltr";
-import { Turnstile, type TurnstileHandle } from "@/components/common/turnstile";
+import { Turnstile } from "@/components/common/turnstile";
 import { locales, siteConfig, type AppLocale } from "@/config/site";
 import { Link } from "@/i18n/navigation";
 import { formatArea, formatMoney, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { acceptRulesAndPublish, generateTranslations, saveTranslations } from "@/lib/wizard/actions";
+import { generateTranslations, saveTranslations } from "@/lib/wizard/actions";
 import { missingRequirements, type MissingRequirement } from "@/lib/wizard/requirements";
 import { LIMITS } from "@/lib/wizard/schemas";
-import { isBusinessListing, stepsFor } from "@/lib/wizard/steps";
+import { isBusinessListing, isWizardStepKey, stepsFor } from "@/lib/wizard/steps";
+import { MistakeCheckPanel } from "@/components/listing/mistake-check-panel";
 import type { WizardTranslation } from "@/lib/wizard/types";
 import { CharCount, Section } from "../fields";
 import { CHANNEL_ICONS } from "../icons";
 import { useOptionLabel } from "../labels";
 import { displayPrice, PreviewCard } from "../preview-card";
 import type { StepProps } from "../step-props";
-import { scrollBehavior } from "@/lib/motion";
+import { revealAndFocus } from "../use-publish";
+import { TermsConsentField } from "@/components/legal/terms-consent";
 
 function MissingList({
   missing,
@@ -51,9 +53,9 @@ function MissingList({
   const t = useTranslations("wizard.publish");
   const tSteps = useTranslations("wizard.steps");
   return (
-    <section className="grid gap-3 rounded-2xl border border-warning/40 bg-warning-soft p-4 sm:p-5 dark:bg-warning/10" aria-labelledby="missing-title">
+    <section className="grid gap-3 rounded-2xl border border-border-strong/40 bg-surface-muted p-4 sm:p-5 dark:bg-surface-muted/10" aria-labelledby="missing-title">
       <h3 id="missing-title" tabIndex={-1} className="flex items-center gap-2 font-semibold outline-none">
-        <CircleAlertIcon className="size-5 text-warning" aria-hidden />
+        <CircleAlertIcon className="size-5 text-foreground" aria-hidden />
         {t("missingTitle")}
       </h3>
       <ul className="grid gap-2">
@@ -61,7 +63,7 @@ function MissingList({
           <li key={item.key} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-card px-3 py-2.5 text-sm shadow-sm">
             <span>{t(`missing.${item.key}`, { count: siteConfig.listings.minPhotos })}</span>
             {item.step ? (
-              <Button type="button" size="sm" variant="outline" onClick={() => goTo(item.step!)}>
+              <Button type="button" size="sm" variant="outline" onClick={() => goTo(item.step!)} className="h-auto min-h-8 max-w-full py-1 whitespace-normal">
                 {t("goToStep", { step: stepNumber(item.step), name: tSteps(item.step) })}
                 <ArrowRightIcon className="rtl:-scale-x-100" aria-hidden />
               </Button>
@@ -283,18 +285,19 @@ function TranslationsPanel({ listing, context, values, translations, setTranslat
           {!hasText && <p className="text-sm text-muted-foreground">{t("translateNeedsText")}</p>}
         </div>
       )}
-      <Tabs value={tab} onValueChange={(v) => setTab(v as AppLocale)} className="gap-4">
-        <TabsList className="h-auto w-full flex-wrap justify-start gap-1 bg-muted p-1">
+      <Tabs value={tab} onValueChange={(v) => setTab(v as AppLocale)} className="min-w-0 gap-4">
+        {/* Five languages never fit on a phone: one row that scrolls sideways. */}
+        <TabsList className="h-12 w-full justify-start gap-1 overflow-x-auto rounded-full bg-muted p-1 scrollbar-none">
           {locales.map((l) => {
             const tr = byLocale.get(l);
             const isOriginal = l === values.originalLocale;
             return (
-              <TabsTrigger key={l} value={l} lang={l} className="flex-none gap-1.5 px-3 py-1.5">
+              <TabsTrigger key={l} value={l} lang={l} className="h-10 flex-none gap-1.5 rounded-full px-4">
                 {siteConfig.i18n.nativeNames[l]}
                 {isOriginal ? (
                   <span className="text-[0.65rem] text-muted-foreground">{t("originalShort")}</span>
                 ) : !tr ? (
-                  <span className="size-1.5 rounded-full bg-warning" role="img" aria-label={t("notTranslated")} />
+                  <span className="size-1.5 rounded-full bg-surface-muted" role="img" aria-label={t("notTranslated")} />
                 ) : null}
               </TabsTrigger>
             );
@@ -314,7 +317,7 @@ function TranslationsPanel({ listing, context, values, translations, setTranslat
                   <p className="text-sm whitespace-pre-line text-pretty" dir="auto">
                     {values.description || t("noDescription")}
                   </p>
-                  <Button type="button" variant="outline" size="sm" className="justify-self-start" onClick={() => goTo("details")}>
+                  <Button type="button" variant="outline" size="sm" className="justify-self-start" onClick={() => goTo("text")}>
                     <PencilIcon aria-hidden />
                     {t("editOriginal")}
                   </Button>
@@ -348,17 +351,21 @@ function TranslationsPanel({ listing, context, values, translations, setTranslat
   );
 }
 
-/** Step 10 — preview, languages, listing rules and Publish (or "Save changes" when editing). */
+/** The invisible CAPTCHA of "פרסום" (its token is read by the bottom bar's button). */
+function PublishCaptcha({ controller }: { controller: NonNullable<StepProps["publish"]> }) {
+  const { captchaRef, onToken, onExpire } = controller;
+  return <Turnstile ref={captchaRef} action="publish" onToken={onToken} onExpire={onExpire} />;
+}
+
+/**
+ * The last step — preview, languages and the listing rules. "פרסום" is the big button in the
+ * bottom bar (bug 2.7, ./use-publish.ts); "Save changes" when editing.
+ */
 export function PublishStep(props: StepProps) {
-  const { listing, context, values, kind, photos, roomTypes, goTo, flush, onPublished, track } = props;
+  const { listing, context, values, kind, photos, roomTypes, goTo, pledge, publish: controller } = props;
   const t = useTranslations("wizard.publish");
-  const tw = useTranslations("wizard");
+  const tSteps = useTranslations("wizard.steps");
   const locale = useLocale();
-  const [accepted, setAccepted] = useState(listing.rulesAccepted);
-  const [publishing, setPublishing] = useState(false);
-  const [rulesError, setRulesError] = useState(false);
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
-  const captcha = useRef<TurnstileHandle>(null);
   const isEdit = context.mode === "edit";
   const steps = stepsFor(kind);
   const stepNumber = (s: NonNullable<MissingRequirement["step"]>) => steps.indexOf(s) + 1;
@@ -368,43 +375,33 @@ export function PublishStep(props: StepProps) {
     roomPhotoCount: roomTypes.reduce((n, r) => n + r.photos.length, 0),
     pricedRoomTypes: roomTypes.filter((r) => r.price > 0).length,
     phoneVerified: context.user.phoneVerified,
+    pledgeAccepted: pledge.isCurrent,
   });
   const price = displayPrice(values, roomTypes);
   const verifyHref = `/verify-phone?next=${encodeURIComponent(`/post/${listing.id}?step=${steps.length}`)}`;
-
-  const publish = async () => {
-    if (!accepted) {
-      setRulesError(true);
-      document.getElementById("rules-checkbox")?.focus();
-      return;
-    }
-    setPublishing(true);
-    const saved = await flush();
-    if (!saved) {
-      setPublishing(false);
-      toast.error(tw("chrome.fixErrors"));
-      return;
-    }
-    const result = await track(acceptRulesAndPublish(listing.id, { rulesAccepted: true, turnstileToken: captchaToken })).catch(() => null);
-    setPublishing(false);
-    if (result?.ok) {
-      onPublished(result.data);
-      return;
-    }
-    // Turnstile tokens are single-use.
-    captcha.current?.reset();
-    if (!result) return;
-    const code = result.error;
-    toast.error(tw.has(`errors.${code}`) ? tw(`errors.${code}`) : tw("errors.server_error"));
-  };
+  const accepted = controller?.accepted ?? listing.rulesAccepted;
+  const rulesError = !!controller?.rulesError && !accepted;
 
   return (
     <div className="grid gap-6">
       {missing.length > 0 && <MissingList missing={missing} goTo={goTo} stepNumber={stepNumber} verifyHref={verifyHref} />}
 
+      {/* "בדיקה לפני פרסום" (round 3, brief 6.1): errors block "פרסום" (and the server refuses). */}
+      <MistakeCheckPanel
+        listingId={listing.id}
+        onFix={(step) => {
+          if (isWizardStepKey(step) && steps.includes(step)) goTo(step);
+        }}
+        stepInfo={(step) => (isWizardStepKey(step) && steps.includes(step) ? { number: stepNumber(step), name: tSteps(step) } : null)}
+        onResult={(result) => controller?.setMistakeErrors?.(result?.errors.length ?? 0)}
+      />
+
       <Section title={t("previewTitle")} description={t("previewDescription")} icon={EyeIcon}>
         <div className="grid gap-6 md:grid-cols-[minmax(0,20rem)_1fr]">
           <PreviewCard
+            listingId={listing.id}
+            publicId={listing.publicId}
+            pledgeAccepted={pledge.isCurrent}
             values={values}
             title={values.title}
             photos={photos}
@@ -431,25 +428,23 @@ export function PublishStep(props: StepProps) {
           <CalendarClockIcon className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden />
           <p>{t("expiry", { days: context.listingExpiryDays })}</p>
         </div>
-        {!isEdit && (
+        {!isEdit && controller && (
           <>
             <div className="grid gap-2">
               <label
                 className={cn(
                   "flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50",
-                  rulesError && !accepted ? "border-destructive" : "border-border",
+                  rulesError ? "border-destructive" : "border-border",
                 )}
+                data-invalid={rulesError ? true : undefined}
               >
                 <input
                   id="rules-checkbox"
                   type="checkbox"
                   checked={accepted}
-                  onChange={(e) => {
-                    setAccepted(e.target.checked);
-                    if (e.target.checked) setRulesError(false);
-                  }}
-                  aria-invalid={rulesError && !accepted ? true : undefined}
-                  aria-describedby={rulesError && !accepted ? "rules-error" : undefined}
+                  onChange={(e) => controller.setAccepted(e.target.checked)}
+                  aria-invalid={rulesError ? true : undefined}
+                  aria-describedby={rulesError ? "rules-error" : undefined}
                   className="mt-0.5 size-5 shrink-0 accent-primary"
                 />
                 <span className="text-sm">
@@ -462,40 +457,27 @@ export function PublishStep(props: StepProps) {
                   })}
                 </span>
               </label>
-              {rulesError && !accepted && (
+              {rulesError && (
                 <p id="rules-error" className="text-sm font-medium text-destructive" role="alert">
                   {t("rulesRequired")}
                 </p>
               )}
             </div>
+            {controller.terms ? <TermsConsentField consent={controller.terms} /> : null}
             <p className="text-sm text-muted-foreground">{t("reviewNote")}</p>
-            <Turnstile ref={captcha} action="publish" onToken={setCaptchaToken} onExpire={() => setCaptchaToken(null)} />
-            {missing.length === 0 ? (
-              <Button
-                type="button"
-                className="h-12 w-full text-base sm:w-auto sm:justify-self-end sm:px-8"
-                onClick={() => void publish()}
-                disabled={publishing}
-              >
-                {publishing ? <LoaderCircleIcon className="animate-spin" aria-hidden /> : <RocketIcon aria-hidden />}
-                {publishing ? t("publishing") : t("publish")}
-              </Button>
-            ) : (
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-warning/40 bg-warning-soft p-3.5 dark:bg-warning/10">
+            <PublishCaptcha controller={controller} />
+            {missing.length > 0 ? (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border-strong/40 bg-surface-muted p-3.5 dark:bg-surface-muted/10">
                 <p className="text-sm font-medium">{t("publishBlocked", { count: missing.length })}</p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const list = document.getElementById("missing-title");
-                    list?.scrollIntoView({ behavior: scrollBehavior(), block: "center" });
-                    list?.focus();
-                  }}
-                >
+                <Button type="button" variant="outline" size="sm" onClick={() => revealAndFocus("missing-title")}>
                   {t("showMissing")}
                 </Button>
               </div>
+            ) : (
+              <p className="flex items-start gap-2 text-sm text-pretty text-muted-foreground">
+                <RocketIcon className="mt-0.5 size-4 shrink-0 text-primary-text" aria-hidden />
+                {t("publishHint")}
+              </p>
             )}
           </>
         )}

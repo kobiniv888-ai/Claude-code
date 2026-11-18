@@ -1,19 +1,45 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { deflateSync } from "node:zlib";
 import sharp, { type Sharp } from "sharp";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
+// The HEIC decode limit (per user per hour) is a database counter; here it only records its calls.
+const rateLimit = vi.hoisted(() => ({ calls: [] as string[], refuse: false }));
+vi.mock("@/lib/rate-limit", async () => {
+  const { RateLimitError } = await import("@/lib/errors");
+  return {
+    assertRateLimit: async (key: string) => {
+      rateLimit.calls.push(key);
+      if (rateLimit.refuse) throw new RateLimitError(new Date(Date.now() + 60_000));
+      return { ok: true, remaining: 1, resetAt: new Date() };
+    },
+  };
+});
 
 const {
   checkPdf,
   hammingDistance,
   ImageValidationError,
+  MAX_HEIC_PIXELS,
   perceptualHash,
+  prepareUploadImage,
+  processCityPhoto,
   processListingPhoto,
   processPrivateImage,
   sniffImageFormat,
   validateImage,
 } = await import("./images");
+const { processAvatar } = await import("./account/avatar");
+
+/**
+ * A made-up iPhone HEIC photo (480×400) with a GPS position, the camera model "FixturePhone 15" and
+ * an XMP block naming exif:GPSLatitude: made by tests/fixtures/heic/make-gps-heic.mjs (ffmpeg +
+ * libx265, nothing downloaded); its EXIF also reads back with the independent go4.org HEIF parser.
+ */
+const HEIC_FIXTURE = readFileSync(path.join(__dirname, "../../tests/fixtures/heic/gps-photo.heic"));
+const FIXTURE_MODEL = "FixturePhone 15";
 
 /** Seeded PRNG so the generated test images are the same on every run. */
 function rng(seed: number) {
@@ -65,10 +91,31 @@ describe("validateImage", () => {
     await expect(validateImage(jpeg)).resolves.toEqual({ format: "jpeg", width: 900, height: 1200 });
   });
 
-  it("accepts the first frame of a GIF and AVIF", async () => {
+  it("accepts JPEG, PNG and WebP", async () => {
     const img = await blockImage(3, 640, 480);
-    await expect(validateImage(await img.clone().gif().toBuffer())).resolves.toMatchObject({ format: "gif" });
-    await expect(validateImage(await img.clone().avif().toBuffer())).resolves.toMatchObject({ format: "avif" });
+    await expect(validateImage(await img.clone().jpeg().toBuffer())).resolves.toMatchObject({ format: "jpeg" });
+    await expect(validateImage(await img.clone().png().toBuffer())).resolves.toMatchObject({ format: "png" });
+    await expect(validateImage(await img.clone().webp().toBuffer())).resolves.toMatchObject({ format: "webp" });
+  });
+
+  // SECURITY_REPORT 9.a: JPEG, PNG and WebP only (founder's answers L7 and Q2: AVIF off).
+  it("refuses AVIF and GIF from their bytes, before any decoder runs", async () => {
+    const img = await blockImage(3, 640, 480);
+    await expectCode(validateImage(await img.clone().avif().toBuffer()), "file_type_not_allowed");
+    await expectCode(validateImage(await img.clone().gif().toBuffer()), "file_type_not_allowed");
+  });
+
+  it("refuses raw HEIC with its own code (prepareUploadImage converts HEIC before validateImage)", async () => {
+    for (const brand of ["heic", "heix", "mif1"]) {
+      const box = Buffer.alloc(24);
+      box.writeUInt32BE(24, 0);
+      box.write(`ftyp${brand}`, 4, "latin1");
+      box.write("mif1heic", 16, "latin1");
+      const heic = Buffer.concat([box, Buffer.alloc(2048, 1)]);
+      expect(sniffImageFormat(heic), brand).toBe("heic");
+      await expectCode(validateImage(heic), "heic_not_supported");
+    }
+    expect(new ImageValidationError("heic_not_supported").status).toBe(415);
   });
 
   it("refuses photos that are too small, too large, of another type or broken", async () => {
@@ -202,6 +249,152 @@ describe("processPrivateImage", () => {
     const meta = await sharp(body).metadata();
     expect(meta.format).toBe("jpeg");
     expect(meta.exif).toBeUndefined();
+  });
+});
+
+// SECURITY_REPORT 9.g / 9.a, founder's answer (e): no stored image keeps EXIF, GPS, XMP or the camera
+// model, whichever pipeline stores it (public listing photos, public avatars, public city photos,
+// private documents and screenshots) and whether it came as JPEG or as an iPhone HEIC photo.
+describe("every stored image loses its metadata", () => {
+  const GPS_XMP =
+    '<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">' +
+    '<rdf:Description xmlns:exif="http://ns.adobe.com/exif/1.0/" exif:GPSLatitude="41,42.08N" exif:GPSLongitude="44,49.62E"/>' +
+    "</rdf:RDF></x:xmpmeta>";
+
+  /** A landscape JPEG (1200×800 as stored) with orientation 6, so it is displayed as portrait 800×1200. */
+  async function gpsJpeg(): Promise<Buffer> {
+    return (await blockImage(9, 1200, 800))
+      .jpeg({ quality: 92 })
+      .withExif({
+        IFD0: { Make: "TestCam", Model: "Secret Model" },
+        IFD3: { GPSLatitudeRef: "N", GPSLatitude: "41/1 42/1 5/1", GPSLongitudeRef: "E", GPSLongitude: "44/1 49/1 37/1" },
+      })
+      .withMetadata({ orientation: 6 })
+      .withXmp(GPS_XMP)
+      .toBuffer();
+  }
+
+  const pipelines: Array<[string, (buffer: Buffer) => Promise<Buffer[]>]> = [
+    ["listing photo (lg, md, sm, og)", async (b) => Object.values(await processListingPhoto(b)).filter(Buffer.isBuffer)],
+    ["private image", async (b) => [(await processPrivateImage(b)).body]],
+    ["avatar", async (b) => [await processAvatar(b, "user-1")]],
+    ["city photo", async (b) => [await processCityPhoto(b)]],
+  ];
+
+  async function expectClean(outputs: Buffer[], secrets: string[]) {
+    expect(outputs.length).toBeGreaterThan(0);
+    for (const output of outputs) {
+      const meta = await sharp(output).metadata();
+      expect(meta.exif).toBeUndefined();
+      expect(meta.xmp).toBeUndefined();
+      expect(meta.iptc).toBeUndefined();
+      expect(meta.orientation).toBeUndefined();
+      const bytes = output.toString("latin1");
+      for (const secret of ["GPS", ...secrets]) expect(bytes).not.toContain(secret);
+    }
+  }
+
+  it("the JPEG fixture really carries EXIF GPS, the model and XMP GPS", async () => {
+    const meta = await sharp(await gpsJpeg()).metadata();
+    expect(meta.exif?.toString("latin1")).toContain("Secret Model");
+    // The GPS IFD pointer (tag 0x8825, little-endian) and the latitude reference "N".
+    expect(meta.exif?.includes(Buffer.from([0x25, 0x88]))).toBe(true);
+    expect(meta.xmp?.toString("utf8")).toContain("exif:GPSLatitude");
+    expect(meta.orientation).toBe(6);
+  });
+
+  it.each(pipelines)("%s from a JPEG with GPS: metadata removed, orientation applied", async (_name, run) => {
+    const prepared = await prepareUploadImage(await gpsJpeg(), { userId: "user-1", minShortSide: 16 });
+    expect(prepared.source).toBe("jpeg");
+    const outputs = await run(prepared.buffer);
+    await expectClean(outputs, ["Secret Model", "TestCam", "exif:GPSLatitude"]);
+    for (const output of outputs) expect(output.includes(Buffer.from([0x25, 0x88, 0x04, 0x00]))).toBe(false);
+    // Portrait after orientation 6 (the avatar is a square crop, the og image a fixed 1200×630 crop).
+    const first = await sharp(outputs[0]).metadata();
+    if (first.width !== first.height && !(first.width === 1200 && first.height === 630)) expect(first.height).toBeGreaterThan(first.width);
+  });
+
+  it("the HEIC fixture really carries GPS, the model and XMP GPS", () => {
+    expect(sniffImageFormat(HEIC_FIXTURE)).toBe("heic");
+    const bytes = HEIC_FIXTURE.toString("latin1");
+    expect(bytes).toContain("GPS");
+    expect(bytes).toContain(FIXTURE_MODEL);
+    expect(bytes).toContain("exif:GPSLatitude");
+  });
+
+  it.each(pipelines)("%s from an iPhone HEIC with GPS: decoded on the server, metadata removed", async (_name, run) => {
+    rateLimit.calls.length = 0;
+    const prepared = await prepareUploadImage(HEIC_FIXTURE, { userId: "user-1", minShortSide: 16 });
+    expect(prepared.source).toBe("heic");
+    expect(prepared.info).toEqual({ format: "png", width: 480, height: 400 });
+    expect(rateLimit.calls).toEqual(["upload:heic:user-1"]);
+    await expectClean([prepared.buffer], [FIXTURE_MODEL, "exif:GPSLatitude"]);
+    await expectClean(await run(prepared.buffer), [FIXTURE_MODEL, "exif:GPSLatitude"]);
+  });
+
+  it("keeps the HEIC picture itself (colours of its four quarters)", async () => {
+    const { buffer } = await prepareUploadImage(HEIC_FIXTURE, { userId: "user-1", minShortSide: 16 });
+    const { data, info } = await sharp(buffer).removeAlpha().raw().toBuffer({ resolveWithObject: true });
+    const at = (x: number, y: number) => Array.from(data.subarray((y * info.width + x) * 3, (y * info.width + x) * 3 + 3));
+    const near = (actual: number[], expected: number[]) => actual.every((v, i) => Math.abs(v - expected[i]) <= 24);
+    expect(near(at(40, 40), [220, 70, 50]), `top left ${at(40, 40)}`).toBe(true);
+    expect(near(at(440, 40), [40, 200, 50]), `top right ${at(440, 40)}`).toBe(true);
+    expect(near(at(40, 360), [40, 66, 210]), `bottom left ${at(40, 360)}`).toBe(true);
+  });
+});
+
+describe("prepareUploadImage (HEIC limits)", () => {
+  beforeEach(() => {
+    rateLimit.calls.length = 0;
+    rateLimit.refuse = false;
+  });
+
+  it("passes JPEG, PNG and WebP straight to validateImage (no HEIC decode, no HEIC limit)", async () => {
+    const png = await (await blockImage(10, 640, 480)).png().toBuffer();
+    const prepared = await prepareUploadImage(png, { userId: "user-1" });
+    expect(prepared).toMatchObject({ buffer: png, source: "png", info: { format: "png", width: 640, height: 480 } });
+    expect(rateLimit.calls).toEqual([]);
+  });
+
+  it("checks the file size before decoding, and the short side after", async () => {
+    await expectCode(prepareUploadImage(HEIC_FIXTURE, { userId: "user-1", maxBytes: 100 }), "file_too_large");
+    expect(rateLimit.calls).toEqual([]);
+    // The fixture's short side is 400 px: exactly the gallery minimum passes, one more does not.
+    await expectCode(prepareUploadImage(HEIC_FIXTURE, { userId: "user-1", minShortSide: 401 }), "image_too_small");
+  });
+
+  it("refuses a HEIC that announces more than MAX_HEIC_PIXELS before decoding it", async () => {
+    // Rewrite the picture size the file announces ('ispe') to 10000×10000.
+    const big = Buffer.from(HEIC_FIXTURE);
+    const at = big.indexOf("ispe", 0, "latin1");
+    expect(at).toBeGreaterThan(0);
+    big.writeUInt32BE(10_000, at + 8);
+    big.writeUInt32BE(10_000, at + 12);
+    expect(10_000 * 10_000).toBeGreaterThan(MAX_HEIC_PIXELS);
+    await expectCode(prepareUploadImage(big, { userId: "user-1" }), "file_too_large");
+  });
+
+  it("answers a broken HEIC with the friendly heic_not_supported message", async () => {
+    const box = Buffer.alloc(24);
+    box.writeUInt32BE(24, 0);
+    box.write("ftypheic", 4, "latin1");
+    box.write("mif1heic", 16, "latin1");
+    await expectCode(prepareUploadImage(Buffer.concat([box, Buffer.alloc(2048, 1)]), { userId: "user-1" }), "heic_not_supported");
+    const truncated = HEIC_FIXTURE.subarray(0, Math.floor(HEIC_FIXTURE.length * 0.8));
+    await expect(prepareUploadImage(truncated, { userId: "user-1" })).rejects.toBeInstanceOf(ImageValidationError);
+  });
+
+  it("stops at the per-user decode limit (fail closed: no decode when the counter refuses)", async () => {
+    rateLimit.refuse = true;
+    await expect(prepareUploadImage(HEIC_FIXTURE, { userId: "user-2" })).rejects.toMatchObject({ code: "rate_limited" });
+    expect(rateLimit.calls).toEqual(["upload:heic:user-2"]);
+  });
+
+  it("still refuses AVIF and GIF (only HEIC is converted)", async () => {
+    const img = await blockImage(3, 640, 480);
+    await expectCode(prepareUploadImage(await img.clone().avif().toBuffer(), { userId: "user-1" }), "file_type_not_allowed");
+    await expectCode(prepareUploadImage(await img.clone().gif().toBuffer(), { userId: "user-1" }), "file_type_not_allowed");
+    expect(rateLimit.calls).toEqual([]);
   });
 });
 

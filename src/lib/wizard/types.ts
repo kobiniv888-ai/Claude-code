@@ -2,8 +2,9 @@
  * Data the wizard pages hand to the browser (client-safe, serializable).
  */
 import type { AppLocale, CurrencyCode } from "@/config/site";
-import type { AccountType, ListingStatus, PricePeriod } from "@/generated/prisma/enums";
+import type { AccountType, ListingStatus, PhotoRoom, PricePeriod } from "@/generated/prisma/enums";
 import type { WizardValues } from "./schemas";
+import type { PledgeStatus } from "@/lib/pledge";
 
 export type WizardMode = "create" | "edit";
 
@@ -16,6 +17,8 @@ export type WizardPhoto = {
   isCover: boolean;
   alt: string;
   roomTypeId: string | null;
+  /** Which room the photo shows (round 3, brief 6.1; optional, null = no label). */
+  room?: PhotoRoom | null;
 };
 
 export type WizardRoomType = {
@@ -25,11 +28,19 @@ export type WizardRoomType = {
   price: number;
   currency: CurrencyCode;
   pricePeriod: PricePeriod;
+  /** Friday and Saturday nights (null = the nightly price). */
+  weekendPrice: number | null;
   maxGuests: number | null;
   bedsSingle: number | null;
   bedsDouble: number | null;
+  bedsSofa: number | null;
   sizeSqm: number | null;
+  /** The room's own amenity keys (ROOM_TYPE_AMENITIES). */
+  amenities: string[];
+  /** "כמה חדרים כאלה להציע בבית" (at least 1). */
   quantity: number | null;
+  /** false = switched off: not offered to new guests. */
+  active: boolean;
   photos: WizardPhoto[];
 };
 
@@ -56,13 +67,12 @@ export type WizardCity = {
   neighborhoods: WizardNeighborhood[];
 };
 
-export type WizardListing = {
-  id: string;
-  publicId: number;
+/** What the form edits, as saved (the page's first render and every loadWizardSnapshot). */
+export type WizardAnswers = {
   status: ListingStatus;
   wizardStep: number;
-  /** A brand-new draft: nothing chosen yet on steps 1–2. */
-  fresh: boolean;
+  /** Steps 1–2 were answered (a new draft shows no selection there; see answeredChoices). */
+  chosen: { deal: boolean; property: boolean };
   values: WizardValues;
   photos: WizardPhoto[];
   roomTypes: WizardRoomType[];
@@ -71,11 +81,30 @@ export type WizardListing = {
   /** Days imported from Airbnb / Booking.com calendars (read-only here). */
   icalBlocked: DayRange[];
   translations: WizardTranslation[];
-  icalExportUrl: string;
   rulesAccepted: boolean;
   /** Public page path once published ("/listing/1234-…"), else null. */
   publicPath: string | null;
+  /** The listing row's updatedAt (ISO). */
   updatedAt: string;
+  /**
+   * The saved exact address and pin could not be decrypted (src/lib/field-crypto.ts, fail closed):
+   * the location step shows them empty with a note, and nothing is overwritten unless the owner
+   * enters them again (SECURITY_REPORT 12.3.c).
+   */
+  locationUnreadable?: boolean;
+};
+
+export type WizardListing = WizardAnswers & {
+  id: string;
+  publicId: number;
+  icalExportUrl: string;
+};
+
+/** loadWizardSnapshot: the saved answers now, plus what may have changed on the account. */
+export type WizardSnapshot = WizardAnswers & {
+  user: { phoneVerified: boolean; pledge: PledgeStatus };
+  /** The server's clock (ISO), to compare with the browser's when restoring unsent changes. */
+  serverNow: string;
 };
 
 export type WizardUser = {
@@ -85,6 +114,8 @@ export type WizardUser = {
   phoneVerified: boolean;
   /** Real email (never the phone-only placeholder). */
   email: string | null;
+  /** The Bayit welcome pledge: accepted version, current or not (the pledge step and publishing need it). */
+  pledge: PledgeStatus;
 };
 
 export type WizardContext = {
@@ -102,6 +133,8 @@ export type PublishOutcome = {
   /** Codes from the automatic checks (BLOCKED / IN_REVIEW). */
   reasons: string[];
   publicPath: string | null;
+  /** publicPath on the permanent address (SITE_URL, @/lib/site-url), for "share". */
+  publicUrl?: string | null;
   publicId: number;
 };
 

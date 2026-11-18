@@ -99,7 +99,7 @@ export function HolidayCalendar(props: RangeProps | SingleProps) {
     <p className="mt-3 flex min-h-5 items-center gap-2 text-xs text-muted-foreground" aria-live="polite">
       {hoveredMark ? (
         <>
-          <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-terracotta" />
+          <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-primary" />
           <span>
             <span className="font-medium text-foreground">
               {formatDate(hoveredMark.date, locale, { weekday: "short", day: "numeric", month: "short" })}
@@ -110,7 +110,7 @@ export function HolidayCalendar(props: RangeProps | SingleProps) {
         </>
       ) : (
         <>
-          <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-terracotta" />
+          <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-primary" />
           <span>{t("holidayLegend")}</span>
         </>
       )}
@@ -170,7 +170,7 @@ function HolidayDayButton({ children, ...props }: DayButtonProps) {
             aria-hidden="true"
             className={cn(
               "absolute inset-x-0 bottom-1 mx-auto size-1 rounded-full",
-              props.modifiers.selected ? "bg-current" : "bg-terracotta",
+              props.modifiers.selected ? "bg-current" : "bg-primary",
             )}
           />
           <span className="sr-only">{`, ${mark.name}`}</span>

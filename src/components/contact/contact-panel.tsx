@@ -1,18 +1,23 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { EyeIcon, LockKeyholeIcon, ShieldOffIcon } from "lucide-react";
+import { LockKeyholeIcon, PhoneIcon, ShieldOffIcon } from "lucide-react";
 import { Ltr } from "@/components/common/ltr";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ds/button";
 import { Link } from "@/i18n/navigation";
 import { displayValue } from "@/lib/contact/links";
+import { contactLayout } from "@/lib/listing-page/helpers";
 import { cn } from "@/lib/utils";
 import { ChannelIcon } from "./channel-icon";
 import { useContact } from "./contact-provider";
 
 /**
- * The contact buttons: "Show contact" until revealed, then one button per channel in the
- * owner's order. Contact values only exist in the browser after the reveal.
+ * The contact buttons (desktop side box and the phone "all ways to contact" sheet).
+ * - Before the reveal: the main channel as a big button (green WhatsApp when offered), "Show
+ *   phone" (login → reveal), and the other apps as small pills. Every tap goes through the
+ *   provider (login, CAPTCHA, first-time safety tip, click tracking, Telegram/Viber copy).
+ * - After the reveal: one row per channel with its number or username.
+ * Contact values only exist in the browser after the reveal.
  */
 export function ContactPanel({ className }: { className?: string }) {
   const t = useTranslations("contact");
@@ -22,12 +27,12 @@ export function ContactPanel({ className }: { className?: string }) {
     const Icon = availability === "blocked" ? ShieldOffIcon : LockKeyholeIcon;
     return (
       <div className={cn("grid gap-3", className)}>
-        <p className="flex gap-2 rounded-xl bg-muted p-3 text-sm text-muted-foreground">
+        <p className="flex gap-2 rounded-xl bg-muted p-3 text-small text-muted-foreground">
           <Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
           {t(`unavailable.${availability}`)}
         </p>
         {availability === "own" ? (
-          <Button asChild variant="outline" className="h-11 rounded-xl">
+          <Button asChild variant="outline" block>
             <Link href="/account/listings">{t("manageListings")}</Link>
           </Button>
         ) : null}
@@ -36,51 +41,74 @@ export function ContactPanel({ className }: { className?: string }) {
   }
 
   if (listing.channels.length === 0) {
-    return <p className={cn("rounded-xl bg-muted p-3 text-sm text-muted-foreground", className)}>{t("noChannels")}</p>;
+    return <p className={cn("rounded-xl bg-muted p-3 text-small text-muted-foreground", className)}>{t("noChannels")}</p>;
   }
 
   if (!methods) {
+    const { primary, phone, more } = contactLayout(listing.channels);
     return (
-      <div className={cn("grid gap-3", className)}>
-        <Button type="button" size="lg" className="h-12 rounded-xl text-base" onClick={reveal} disabled={revealing} aria-busy={revealing}>
-          <EyeIcon aria-hidden />
-          {revealing ? t("revealing") : t("showContact")}
-        </Button>
-        <ul className="flex flex-wrap items-center justify-center gap-2" aria-label={t("availableChannels")}>
-          {listing.channels.map((channel) => (
-            <li key={channel} className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
-              <ChannelIcon channel={channel} className="size-3.5" />
-              {t(`channel.${channel}`)}
-            </li>
-          ))}
-        </ul>
-        <p className="text-center text-xs text-muted-foreground">{t("showContactHint")}</p>
+      <div className={cn("grid gap-2.5", className)}>
+        {primary ? (
+          <Button
+            variant={primary === "WHATSAPP" ? "whatsapp" : "primary"}
+            size="lg"
+            block
+            onClick={() => contact(primary)}
+            disabled={revealing}
+            aria-busy={revealing || undefined}
+          >
+            <ChannelIcon channel={primary} mono className="size-5" />
+            {t(`channelAction.${primary}`)}
+          </Button>
+        ) : null}
+        {phone ? (
+          <Button variant="outline" size="lg" block onClick={() => reveal()} disabled={revealing} aria-busy={revealing || undefined}>
+            <PhoneIcon aria-hidden />
+            {revealing ? t("revealing") : t("showPhone")}
+          </Button>
+        ) : null}
+        {more.length ? (
+          <ul className="flex flex-wrap justify-center gap-2" aria-label={t("otherChannels")}>
+            {more.map((channel) => (
+              <li key={channel}>
+                <Button variant="outline" size="sm" onClick={() => contact(channel)} disabled={revealing}>
+                  <ChannelIcon channel={channel} className="size-4.5" />
+                  {t(`channel.${channel}`)}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <p className="text-center text-caption text-muted-foreground">{t("showContactHint")}</p>
       </div>
     );
   }
 
   return (
     <ul className={cn("grid gap-2", className)} aria-label={t("contactOwner")}>
-      {methods.map((method, index) => {
+      {methods.map((method) => {
         const shown = displayValue(method.channel, method.value);
+        const whatsapp = method.channel === "WHATSAPP";
         return (
           <li key={method.channel}>
-            <Button
+            <button
               type="button"
-              variant={index === 0 ? "default" : "outline"}
-              className="h-auto min-h-12 w-full justify-start gap-3 rounded-xl px-4 py-2 text-start"
               onClick={() => contact(method.channel)}
+              className={cn(
+                "flex min-h-14 w-full items-center gap-3 rounded-2xl border px-3 py-2 text-start outline-none transition-[transform,background-color] duration-(--motion-fast) ease-standard focus-visible:ring-3 focus-visible:ring-ring/50 active:scale-[0.98] motion-reduce:active:scale-100",
+                whatsapp ? "border-transparent bg-whatsapp text-whatsapp-foreground hover:bg-whatsapp/90" : "bg-card hover:bg-muted",
+              )}
             >
-              <span className={cn("inline-flex size-8 shrink-0 items-center justify-center rounded-full", index === 0 ? "bg-primary-foreground" : "bg-muted")}>
-                <ChannelIcon channel={method.channel} className="size-4.5" />
+              <span className={cn("inline-flex size-10 shrink-0 items-center justify-center rounded-full", whatsapp ? "bg-white/15" : "bg-muted")}>
+                <ChannelIcon channel={method.channel} mono={whatsapp} className="size-5" />
               </span>
               <span className="grid min-w-0">
                 <span className="font-semibold">{t(`channelAction.${method.channel}`)}</span>
                 {shown ? (
-                  <Ltr className={cn("truncate text-xs font-normal", index === 0 ? "text-primary-foreground/80" : "text-muted-foreground")}>{shown}</Ltr>
+                  <Ltr className={cn("truncate text-small", whatsapp ? "text-whatsapp-foreground/85" : "text-muted-foreground")}>{shown}</Ltr>
                 ) : null}
               </span>
-            </Button>
+            </button>
           </li>
         );
       })}

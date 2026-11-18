@@ -10,6 +10,7 @@
     "dismiss": "Dismiss this alert"
   },
   "demo": {
-    "text": "Preview: listings marked “Demo” are examples, not real homes."
+    "text": "Listings marked “Demo” are examples, not real homes.",
+    "dismiss": "Close this notice"
   }
 }

@@ -18,7 +18,7 @@
       "price": "Your price and the dates it's available",
       "contact": "How guests should contact you"
     },
-    "trust": "Every listing is checked before it goes live. Your first listing is reviewed by a person — usually within a few hours.",
+    "trust": "Every listing is checked before it goes live. Your first listing is reviewed by a person — usually within a day.",
     "expiry": "Listings stay up for {days} days and can be renewed.",
     "draftsTitle": "Continue your draft",
     "draftUntitled": "Untitled draft",
@@ -32,7 +32,15 @@
     "deleteDraftDescription": "The draft and everything in it will be removed. This can't be undone.",
     "deleteDraftConfirm": "Delete draft",
     "cancel": "Cancel",
-    "deleted": "Draft deleted"
+    "deleted": "Draft deleted",
+    "pledgeNote": "Every host here promises to welcome Israeli and Jewish guests. You'll confirm this before publishing.",
+    "continueTitle": "Continue your draft",
+    "continueButton": "Continue the draft",
+    "moreDrafts": "Other drafts",
+    "confirmTitle": "Did you mean to continue your draft?",
+    "confirmBody": "You have a draft that isn't published yet: <title></title>. You can pick up where you left off, or start a new listing.",
+    "confirmBodyUntitled": "You have a draft that isn't published yet. You can pick up where you left off, or start a new listing.",
+    "confirmNew": "Start a new listing"
   },
   "shabbat": {
     "title": "Shabbat Shalom",
@@ -44,13 +52,18 @@
     "deal": "Deal type",
     "property": "Property type",
     "location": "Location",
-    "details": "Details",
+    "size": "Size and rooms",
+    "building": "The building",
+    "features": "Condition and features",
+    "text": "Title and description",
     "amenities": "Amenities",
     "jewish": "Jewish-friendly",
     "photos": "Photos",
     "rooms": "Room types",
     "price": "Price & availability",
+    "booking": "Bookings and price",
     "contact": "Contact",
+    "pledge": "Bayit pledge",
     "publish": "Preview & publish"
   },
   "chrome": {
@@ -64,6 +77,8 @@
     "completed": "(completed)",
     "back": "Back",
     "next": "Next",
+    "skip": "Skip",
+    "optionalStep": "Optional",
     "toPreview": "Preview",
     "saving": "Saving…",
     "savedAt": "Saved at {time}",
@@ -77,7 +92,12 @@
     "decrease": "Fewer: {label}",
     "increase": "More: {label}",
     "charCount": "{count} of {max} characters",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "allSteps": "All steps",
+    "loadingAnswers": "Loading your saved answers…",
+    "loadFailed": "We couldn't load your saved answers. Check your connection and try again.",
+    "publish": "Publish",
+    "backToListing": "Back to the listing"
   },
   "errors": {
     "rate_limited": "You're going a bit fast. Please wait a minute and try again.",
@@ -95,17 +115,24 @@
     "too_many_room_types": "You can add up to 30 room types.",
     "translation_disabled": "Automatic translation isn't available right now. You can write the other languages yourself.",
     "translation_needs_text": "Write a title and a description first, then translate them.",
-    "edit_original_in_details": "This is your original language — edit it in the Details step.",
+    "edit_original_in_details": "This is your original language — edit it in the “Title and description” step.",
     "missing_requirements": "A few things are still missing before you can publish.",
     "rules_not_accepted": "Please accept the listing rules to publish.",
     "already_published": "This listing is already published. Use \"Save changes\" instead.",
     "not_published_yet": "This listing isn't published yet. Please publish it first.",
     "invalid_status": "This listing can't be changed in its current state.",
-    "captcha_failed": "We couldn't confirm you're not a robot. Please refresh the page and try again."
+    "captcha_failed": "We couldn't confirm you're not a robot. Please refresh the page and try again.",
+    "pledge_required": "To publish, please accept the Bayit pledge first.",
+    "pledge_outdated": "The pledge wording was updated. Reload the page and read the new wording.",
+    "listing_mistakes": "Some things need fixing before you publish. They are listed under “Check before publishing”.",
+    "photos_min": "A listing on the site keeps at least {min} photos that guests see. Add another photo first, then delete this one.",
+    "contact_in_text": "No phone number, email, link or @username in the text — guests contact you with the buttons.",
+    "payment_in_text": "Please leave out payment details: payment links, bank accounts (IBAN), card numbers or crypto. Guests pay the host on arrival, never in advance."
   },
   "uploadErrors": {
     "file_too_large": "This photo is too large. Please choose a smaller one (up to 15 MB).",
-    "file_type_not_allowed": "This file type isn't supported. Please use JPG, PNG, WebP or HEIC photos.",
+    "file_type_not_allowed": "This file type isn't supported. Please use JPG, PNG or WebP photos.",
+    "heic_not_supported": "We couldn't open this HEIC photo (the file may be damaged). Please send it as a JPEG: choose it again from your Photos library (not from Files) and your iPhone will send a JPEG. To take JPEG photos from now on: Settings › Camera › Formats › Most Compatible.",
     "image_too_small": "This photo is too small. Please use a photo at least 400 pixels on its short side.",
     "image_corrupt": "This photo couldn't be opened. Please try another one.",
     "file_rejected": "This file was refused. Please choose a different photo.",
@@ -121,6 +148,7 @@
   },
   "validation": {
     "invalid": "Please check this field.",
+    "contactInText": "No phone number, email, link or @username here — guests contact you with the buttons.",
     "required": "This field is required.",
     "tooLong": "This is too long.",
     "tooSmall": "This number is too small.",
@@ -132,6 +160,8 @@
     "invalidCadastral": "A cadastral code has digits and dots, for example 01.10.13.023.045.",
     "videoUrl": "Please paste a YouTube or Vimeo link that starts with https://.",
     "httpsOnly": "Please use a secure link that starts with https://.",
+    "calendarHost": "We can connect calendars from Airbnb, Booking.com, Vrbo or Google Calendar only.",
+    "tourHost": "360° tours can come from Matterport, Kuula, Momento360 or Roundme only.",
     "tooMany": "That's too many.",
     "duplicateChannel": "Each contact method can be added only once.",
     "pickOne": "Please choose one option.",
@@ -143,13 +173,19 @@
     "floorAboveTotal": "The floor can't be higher than the number of floors in the building.",
     "bedroomsAboveRooms": "There can't be more bedrooms than rooms.",
     "priceRequired": "Please enter the price.",
+    "paymentMethodRequired": "Please choose at least one way to pay.",
     "contactRequired": "Please add at least one way to contact you.",
     "invalidPhone": "Please enter a valid phone number with the country code.",
     "invalidTelegram": "Enter your Telegram username (like @name) or a phone number with the country code.",
     "invalidMessenger": "Enter your Facebook username (the part after facebook.com/).",
     "invalidEmail": "Please enter a valid email address.",
     "invalidDate": "Please choose a valid date.",
-    "invalidRange": "The end date must be after the start date."
+    "invalidRange": "The end date must be after the start date.",
+    "monthlyBelowWeekly": "The monthly discount can't be smaller than the weekly one.",
+    "discountTooLarge": "The discount can be up to 60%.",
+    "addressRequired": "A short stay or a hotel needs the exact address. Guests get it only after they book.",
+    "datePricesExist": "You have holiday prices in the current currency. Change or delete them in the calendar first, then switch the currency.",
+    "paymentInText": "Please leave out payment details: payment links, bank accounts (IBAN), card numbers or crypto. Guests pay the host on arrival, never in advance."
   },
   "options": {
     "dealType": {
@@ -313,8 +349,8 @@
     "neighborhoodHelp": "We pick the nearest one from the pin — change it if needed.",
     "noCities": "No cities are available yet. Please try again later.",
     "searchLabel": "Search the address",
-    "searchPlaceholder": "Street and number, e.g. Chavchavadze Ave 12",
-    "searchHelp": "Type at least 3 letters. Results come from OpenStreetMap.",
+    "searchPlaceholder": "Street and number",
+    "searchHelp": "Type the address and press Search. Results come from OpenStreetMap.",
     "searchError": "The address search isn't answering right now. You can still tap the map to put the pin.",
     "searchResults": "Address suggestions",
     "searchEmpty": "No addresses found. Try another spelling or tap the map.",
@@ -330,14 +366,16 @@
     "pinSet": "Pin set at",
     "geoUnsupported": "Your browser can't share your location. Please search the address or tap the map.",
     "geoOutside": "Your location seems to be outside Georgia. Please search the address or tap the map.",
+    "tapOutside": "That spot is outside Georgia. Tap a place inside Georgia.",
     "geoDenied": "Location access was blocked. You can allow it in your browser settings, or tap the map.",
     "geoFailed": "We couldn't find your location. Please search the address or tap the map.",
-    "privacyNote": "Only the approximate area (about {meters} m) is shown publicly. You share the exact address after a guest contacts you."
+    "privacyNote": "Only the approximate area (about {meters} m) is shown publicly. You share the exact address after a guest contacts you.",
+    "unreadable": "We can't show the address and pin you saved right now. They haven't been deleted. Try again in a few minutes, or enter them again.",
+    "searchShort": "Type at least 3 letters, then press Search.",
+    "searchBusy": "Lots of searches right now. Try again in a few seconds, or tap the map.",
+    "addressFromSearch": "We filled in the street and house number. Add the entrance and apartment — only you see this address."
   },
   "details": {
-    "title": "Tell guests about the place",
-    "subtitle": "The more you fill in, the easier it is for the right guests to find you.",
-    "sizeTitle": "Size and rooms",
     "rooms": "Rooms",
     "roomsHelp": "All rooms except the kitchen and bathrooms (2.5 is fine).",
     "bedrooms": "Bedrooms",
@@ -350,7 +388,6 @@
     "bedsSofa": "Sofa beds",
     "size": "Size",
     "sqm": "m²",
-    "buildingTitle": "Building",
     "floor": "Floor",
     "floorHelp": "0 = ground floor",
     "totalFloors": "Floors in the building",
@@ -362,7 +399,6 @@
       "NEW": "Built in recent years (often with a new-building frame status).",
       "OLD": "An older building, for example Soviet-era or historic."
     },
-    "marketTitle": "Condition and features",
     "marketDescription": "Georgian property terms help buyers and tenants compare places.",
     "condition": "Condition",
     "conditionHelp": {
@@ -381,12 +417,11 @@
     "sharedTitle": "Who is the shared room for?",
     "sharedDescription": "For rooms in shared apartments only: let guests know who shares the apartment.",
     "sharedLegend": "Shared room for",
-    "textTitle": "Title and description",
-    "textDescription": "Write in your own language — we can translate it into the other languages.",
     "writingIn": "I'm writing in",
     "writingInHelp": "The language of your title and description.",
     "titleLabel": "Title",
     "titleHelp": "Short and clear, for example \"Sunny 2-room apartment near Vake Park\".",
+    "titleEmojiRemoved": "We removed the emoji from the title. They're fine in the description.",
     "titlePlaceholder": "Sunny 2-room apartment near the park",
     "descriptionLabel": "Description",
     "descriptionHelp": "What makes it special, the neighborhood, how to get there. Don't add phone numbers or links — guests contact you with the buttons.",
@@ -395,7 +430,27 @@
     "videoUrl": "Video link",
     "videoUrlHelp": "A YouTube or Vimeo link.",
     "tourUrl": "360° tour link",
-    "tourUrlHelp": "A virtual tour link (Matterport, Kuula…), starting with https://."
+    "tourUrlHelp": "A virtual tour link on Matterport, Kuula, Momento360 or Roundme, starting with https://."
+  },
+  "size": {
+    "title": "Size and rooms",
+    "subtitle": "How many rooms and beds there are, and how big the place is."
+  },
+  "building": {
+    "title": "The building",
+    "subtitle": "Floor, elevator and year built. Skip anything you don't know.",
+    "privateTitle": "Property registration"
+  },
+  "features": {
+    "title": "Condition and features",
+    "subtitle": "Everything here is optional. Open only what matters for your place.",
+    "notSet": "Not set",
+    "unfurnished": "Not furnished",
+    "selectedCount": "{count, plural, one {{countText} selected} other {{countText} selected}}"
+  },
+  "text": {
+    "title": "Title and description",
+    "subtitle": "Write in your own language — we can translate it into the other languages."
   },
   "amenities": {
     "title": "What does the place offer?",
@@ -407,8 +462,8 @@
     "pets": "Pets allowed",
     "smoking": "Smoking allowed",
     "parties": "Parties or events allowed",
-    "checkIn": "Check-in from",
-    "checkOut": "Check-out until",
+    "checkIn": "Check-in time",
+    "checkOut": "Check-out time",
     "quietHours": "Quiet hours",
     "optional": "Optional",
     "quietFrom": "From",
@@ -417,7 +472,7 @@
   },
   "jewish": {
     "title": "Jewish-friendly details",
-    "subtitle": "This is what makes the site different — families look for exactly these details.",
+    "subtitle": "Fill in only what the place has. Guests who keep kosher or Shabbat filter by these details.",
     "kitchenTitle": "Kitchen",
     "kitchenLegend": "Is the kitchen kosher?",
     "kitchenHelp": {
@@ -524,7 +579,20 @@
     "dndStart": "Picked up photo {position}.",
     "dndOver": "Over position {position}.",
     "dndEnd": "Photo dropped at position {position}.",
-    "dndCancel": "Moving cancelled."
+    "dndCancel": "Moving cancelled.",
+    "roomLabel": "What does {label} show?",
+    "roomNone": "No label",
+    "roomHelp": "Pick what each photo shows. On the listing page the photos are grouped by room, so guests quickly find the kitchen, the bedrooms and the bathroom.",
+    "roomSaved": "Label saved",
+    "rooms": {
+      "BEDROOM": "Bedroom",
+      "KITCHEN": "Kitchen",
+      "BATHROOM": "Bathroom",
+      "LIVING_ROOM": "Living room",
+      "VIEW": "View",
+      "BALCONY": "Balcony",
+      "BUILDING": "Building"
+    }
   },
   "rooms": {
     "title": "Room types",
@@ -538,8 +606,8 @@
     "currency": "Currency",
     "period": "Per",
     "maxGuests": "Maximum guests",
-    "quantity": "Rooms of this type",
-    "quantityHelp": "How many rooms like this you have.",
+    "quantity": "How many of these rooms to offer on Bayit",
+    "quantityHelp": "You may offer fewer rooms than you have, to lower the risk of a double booking with other sites.",
     "bedsDouble": "Double beds",
     "bedsSingle": "Single beds",
     "size": "Room size",
@@ -559,7 +627,18 @@
     "deleteTitle": "Delete this room type?",
     "deleteDescription": "The room type and its photos will be removed. This can't be undone.",
     "deleteConfirm": "Delete room type",
-    "namesNote": "Room names are shown in your language until they are translated."
+    "namesNote": "Room names are shown in your language until they are translated.",
+    "bedsSofa": "Sofa beds",
+    "weekendPrice": "Weekend price",
+    "weekendPriceHelp": "For Friday and Saturday nights. Leave it empty to use the regular price. Holiday prices are set in the calendar.",
+    "weekendSummary": "weekend {price}",
+    "amenities": "In the room",
+    "amenitiesHelp": "On top of what the whole place has.",
+    "active": "Offered to guests",
+    "activeOn": "Guests can book this room.",
+    "activeOff": "Off: guests don't see it. Bookings already made are kept.",
+    "offBadge": "Off",
+    "hasBookings": "This room has upcoming bookings, so it can't be deleted. You can switch it off instead."
   },
   "price": {
     "title": "Price and availability",
@@ -612,6 +691,53 @@
     "copied": "Copied",
     "copyFailed": "Couldn't copy. Please select the link and copy it."
   },
+  "booking": {
+    "title": "Bookings and price",
+    "subtitle": "Price per night, stay rules and cancellation policy. Guests book on the site and pay you on arrival.",
+    "instantTitle": "Instant booking",
+    "instantBody": "When the dates are free, the booking is confirmed right away, with no need to approve each guest. You set rules (minimum nights, number of guests, times), not who comes.",
+    "priceTitle": "Price",
+    "priceFromTitle": "Starting price per night",
+    "pricePerNight": "Price per night",
+    "hotelPriceHelp": "Each room type has its own price. If you leave this empty, we show \"from\" the cheapest room.",
+    "currency": "Currency",
+    "currencyHelp": "Guests pay you in this currency.",
+    "legacyWeekly": "Your earlier price was per week (<price></price>). Bookings on the site are priced per night, so please enter a nightly price.",
+    "weekendPrice": "Weekend price",
+    "weekendPriceHelp": "For Friday and Saturday nights. If empty, the regular price applies.",
+    "priceHistoryNote": "If you lower the price, the listing shows a \"Price dropped\" label for a while.",
+    "feesTitle": "Extras",
+    "feesDescription": "Optional. Guests see every amount before they book.",
+    "cleaningFee": "Cleaning fee",
+    "cleaningFeeHelp": "Once per booking.",
+    "deposit": "Deposit",
+    "depositHelp": "Paid on arrival and returned at the end of the stay. Not part of the booking total.",
+    "stayTitle": "Stay rules",
+    "stayDescription": "The rules apply to every guest equally.",
+    "minNights": "Minimum nights",
+    "maxGuests": "Maximum guests",
+    "maxGuestsHelp": "Adults and children. Infants under 2 don't count.",
+    "maxGuestsHotelHelp": "Optional: each room type can have its own number.",
+    "checkInFrom": "Check-in time",
+    "checkOutUntil": "Check-out time",
+    "timesHelp": "Check-in: the earliest time guests can arrive. Check-out: the latest time they leave. Without a check-in time, or with “Flexible”, the free-cancellation deadline is counted from {time}.",
+    "policyTitle": "Cancellation policy",
+    "policyDescription": "Choose one of three options. Guests see it before they book.",
+    "policyNote": "Guests pay only on arrival, so nobody is charged for cancelling. A cancellation after the deadline is recorded as late.",
+    "paymentTitle": "Payment on arrival",
+    "paymentLegend": "How can guests pay you on arrival?",
+    "paymentHelp": "Guests pay you directly, {currency}.",
+    "noFeesNote": "Bayit takes no payment and no fee. Never ask guests to pay in advance through a link.",
+    "calendarTitle": "Calendar and sync",
+    "calendarDescription": "Block dates, see bookings and connect your Airbnb and Booking.com calendars to avoid double bookings.",
+    "calendarLink": "Open the place calendar",
+    "discountsTitle": "Long-stay discounts",
+    "discountsDescription": "A percent off the nights (not the cleaning fee). From 28 nights the monthly discount applies instead of the weekly one. Optional.",
+    "weeklyDiscount": "Discount for 7+ nights",
+    "monthlyDiscount": "Discount for 28+ nights",
+    "discountExample": "For example: a week at your regular price costs guests <after></after> instead of <before></before>.",
+    "instantHotelBody": "Guests choose a room type and how many rooms, and the booking is confirmed at once when rooms are free. You set rules, not who comes."
+  },
   "contact": {
     "title": "How should guests contact you?",
     "subtitle": "Choose the apps you use and put your favorite first.",
@@ -655,6 +781,17 @@
     "noShabbat": "I don't answer on Shabbat and holidays",
     "noShabbatHelp": "During Shabbat and Jewish holidays guests see \"Replies after Shabbat\"."
   },
+  "pledge": {
+    "title": "The Bayit pledge",
+    "subtitle": "One last step before the preview: a short commitment every Bayit host accepts.",
+    "moment": {
+      "whyTitle": "Why it matters",
+      "reasons": {
+        "guests": "Israeli and Jewish guests know they are welcome at your place, and contact you with peace of mind.",
+        "everyone": "Every host here makes the same promise."
+      }
+    }
+  },
   "publish": {
     "title": "Preview and publish",
     "subtitle": "Check how guests will see your listing, then publish it.",
@@ -663,10 +800,14 @@
       "phoneVerified": "Verify your phone number",
       "propertyType": "Choose the property type",
       "location": "Choose the city and put the pin on the map",
-      "details": "Fill in the title, description and required details",
+      "size": "Fill in the size and rooms",
+      "building": "Check the building details",
+      "features": "Fix the details in “Condition and features”",
+      "text": "Write a title and a description",
       "photos": "Add at least {count} photos",
       "price": "Enter the price",
-      "contact": "Add a contact method"
+      "contact": "Add a contact method",
+      "pledge": "Accept the Bayit pledge"
     },
     "goToStep": "Step {step}: {name}",
     "verifyPhone": "Verify phone",
@@ -726,19 +867,20 @@
     "expiry": "Listings stay up for {days} days and can be renewed.",
     "rules": "I accept the <link>listing rules</link>: the place is real, the photos are mine, and I won't ask for money before guests have checked the place.",
     "rulesRequired": "Please accept the listing rules to publish.",
-    "reviewNote": "After you publish, our automatic checks run. Your first listing is always reviewed by a person — usually within a few hours.",
+    "reviewNote": "After you publish, our automatic checks run. Your first listing is always reviewed by a person — usually within a day.",
     "publish": "Publish listing",
     "publishing": "Publishing…",
     "publishBlocked": "{count, plural, one {1 thing is still missing before you can publish.} other {{count} things are still missing before you can publish.}}",
     "showMissing": "See what's missing",
-    "editNote": "Your changes are saved as you go. Press \"Save changes\" when you're done so we can check them again."
+    "editNote": "Your changes are saved as you go. Press \"Save changes\" when you're done so we can check them again.",
+    "publishHint": "Everything is ready. Tap “Publish” below."
   },
   "result": {
     "liveTitle": "Your listing is live",
     "liveEditedTitle": "Your changes are live",
     "liveBody": "Guests can find it now. Share it with friends and in groups to get your first messages faster.",
     "reviewTitle": "We're checking your listing",
-    "reviewBody": "We're checking your listing — usually within a few hours. We'll email you when it's live.",
+    "reviewBody": "Your listing goes live after a person on our team checks it — usually within a day. We'll email you when it's live.",
     "blockedTitle": "Your listing needs a few changes",
     "blockedBody": "Our automatic checks found something that has to be fixed before the listing can go live.",
     "savedTitle": "Changes saved",
@@ -748,7 +890,7 @@
     "share": "Share",
     "copied": "Link copied",
     "shareFailed": "Couldn't share. Please copy the link from the listing page.",
-    "myListings": "My listings",
+    "myListings": "My places",
     "keepEditing": "Keep editing",
     "fixIn": "Fix in \"{step}\"",
     "next": {
@@ -800,7 +942,113 @@
       "other": {
         "title": "Something needs checking",
         "fix": "Please review your listing. If you're not sure what to change, contact support."
+      },
+      "payment_details": {
+        "title": "The text contains payment details",
+        "fix": "Remove payment links, account, card or crypto wallet numbers. Guests pay you on arrival."
+      },
+      "exclusionary_text": {
+        "title": "The text turns guests away",
+        "fix": "Guests can't be refused for their religion, nationality or origin (the Terms, fair housing). A person from our team will check the listing."
+      },
+      "copied_description": {
+        "title": "The description is very close to another listing",
+        "fix": "Write your own description of the place. If someone copied yours, contact support."
+      },
+      "price_below_guide": {
+        "title": "The price is far below the price guide",
+        "fix": "Check the price and the currency. A very low price is a common scam sign."
       }
+    },
+    "viewPreview": "View the listing",
+    "calendarTitle": "Connect your calendar",
+    "calendarBody": "Block the dates when the place isn't free, and connect your Airbnb and Booking.com calendars so you never get double bookings.",
+    "calendarAction": "Open the calendar"
+  },
+  "calendarSheet": {
+    "done": "Done",
+    "loading": "Loading the calendar…",
+    "loadFailed": "We couldn't load the calendar.",
+    "retry": "Try again"
+  },
+  "times": {
+    "flexible": "Flexible",
+    "notSet": "Not set"
+  },
+  "mistakes": {
+    "title": "Check before publishing",
+    "subtitle": "We checked your listing before guests see it.",
+    "loading": "Checking your listing…",
+    "failed": "We couldn't check your listing right now.",
+    "retry": "Check again",
+    "allGood": "All looks good",
+    "allGoodHint": "We found no mistakes in your listing.",
+    "errorsTitle": "Fix before publishing",
+    "errorsHint": "{count, plural, one {One thing stops publishing.} other {{count} things stop publishing.}}",
+    "warningsTitle": "Worth checking",
+    "warningsHint": "You can publish as it is, but guests notice these details.",
+    "fix": "Fix",
+    "fixLabel": "Fix in step {step}: {name}",
+    "inStep": "Step {step}: {name}",
+    "summaryErrors": "{count, plural, one {1 thing to fix} other {{count} things to fix}}",
+    "summaryWarnings": "{count, plural, one {1 thing to check} other {{count} things to check}}",
+    "summaryShow": "Show",
+    "or": "or",
+    "quoted": "“{text}”",
+    "contactKind": {
+      "phone": "a phone number",
+      "email": "an email address",
+      "link": "a link",
+      "handle": "a username"
+    },
+    "currencies": {
+      "GEL": "lari (₾)",
+      "USD": "US dollars ($)",
+      "ILS": "shekels (₪)",
+      "EUR": "euros (€)",
+      "GBP": "pounds (£)",
+      "RUB": "rubles (₽)"
+    },
+    "languages": {
+      "he": "Hebrew",
+      "en": "English",
+      "ru": "Russian",
+      "ar": "Arabic",
+      "ka": "Georgian"
+    },
+    "rooms": {
+      "BEDROOM": "Bedroom",
+      "KITCHEN": "Kitchen",
+      "BATHROOM": "Bathroom",
+      "LIVING_ROOM": "Living room",
+      "VIEW": "View",
+      "BALCONY": "Balcony",
+      "BUILDING": "Building"
+    },
+    "issues": {
+      "address_missing": "The exact address is missing. Guests get it only after they book, and without it they can't find the place.",
+      "photos_too_few": "{count, plural, =0 {There are no photos yet} one {There is only 1 photo} other {There are only {count} photos}}. You need at least {min} to publish.",
+      "contact_in_title": "The title contains {kind}: {value}. Contact details are shown only through the contact buttons, to protect you and your guests from scams.",
+      "contact_in_description": "The description contains {kind}: {value}. Contact details are shown only through the contact buttons, to protect you and your guests from scams.",
+      "contact_in_translation": "The {language} version you wrote yourself contains {kind}: {value}. Contact details are shown only through the contact buttons, to protect you and your guests from scams.",
+      "contact_in_room_name": "The room type name “{room}” contains {kind}: {value}. Contact details are shown only through the contact buttons, to protect you and your guests from scams.",
+      "pin_outside_city": "The pin on the map is about {km} km from the center of the city you chose. Check that the city and the pin are right.",
+      "guests_below_beds": "Maximum guests is {maxGuests}, but the beds sleep {sleeps}.",
+      "guests_above_beds": "Maximum guests is {maxGuests}, but the beds sleep only {sleeps}. Add the beds or change the number of guests.",
+      "room_guests_below_beds": "In “{room}”: maximum guests is {maxGuests}, but the beds sleep {sleeps}.",
+      "room_guests_above_beds": "In “{room}”: maximum guests is {maxGuests}, but the beds sleep only {sleeps}.",
+      "no_bathrooms": "Bathrooms is 0. If there is a shower or a toilet, update the number.",
+      "title_language": "The title looks like it's in {detected}, but you chose to write in {setting}. The other languages are translated from the one you chose.",
+      "description_currency": "The description says {written}, but the listing's currency is {listingCurrency}. Write amounts in the listing's currency so guests aren't confused.",
+      "checkin_time_mismatch": "The description says check-in {written}, but the setting says check-in from {setting}. Fix whichever is wrong.",
+      "checkout_time_mismatch": "The description says check-out {written}, but the setting says check-out until {setting}. Fix whichever is wrong.",
+      "checkin_time_missing": "No check-in time is set. Guests need to know when they can arrive.",
+      "checkin_time_missing_written": "No check-in time is set, and the description says {written}. Choose the time in the settings.",
+      "photo_rooms_missing": "No photo has the label {rooms}. Pick the room under each photo so guests find it quickly.",
+      "price_far_below": "The price is far below what similar places usually cost. Check for a mistake, such as the currency or a missing zero.",
+      "price_far_above": "The price is far above what similar places usually cost. Check for a mistake, such as the currency or an extra zero.",
+      "room_price_far_below": "In “{room}”: the price is far below what similar rooms usually cost.",
+      "room_price_far_above": "In “{room}”: the price is far above what similar rooms usually cost."
     }
   }
 }

@@ -12,6 +12,17 @@ export function demoListingId(n: number): string {
   return `demo-listing-${String(n).padStart(2, "0")}`;
 }
 
+/**
+ * The public number (/listing/<n>) of demo listing n: always 88 + n (#89 … #113), the numbers the
+ * first seed gave them, which docs and the end-to-end tests name (#91 kosher short stay, #104 sea
+ * view, #107 Gudauri chalet, #113 the template of test listings). Kept stable so a database whose
+ * demo rows were removed and seeded again gets the same addresses.
+ */
+export const DEMO_PUBLIC_ID_OFFSET = 88;
+export function demoListingPublicId(n: number): number {
+  return DEMO_PUBLIC_ID_OFFSET + n;
+}
+
 export type ListingTimeline = {
   createdAt: Date;
   publishedAt: Date | null;

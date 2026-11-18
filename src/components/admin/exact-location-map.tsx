@@ -3,7 +3,8 @@
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { useMemo } from "react";
-import { Circle, MapContainer, Marker, TileLayer } from "react-leaflet";
+import { Circle, MapContainer, Marker } from "react-leaflet";
+import { BaseTiles } from "@/components/maps/base-tiles";
 import { siteConfig } from "@/config/site";
 
 /**
@@ -25,7 +26,7 @@ export default function ExactLocationMap({ lat, lng, approx, label }: ExactLocat
       L.divIcon({
         html:
           `<span style="display:flex;width:${PIN}px;height:${PIN}px;filter:drop-shadow(0 3px 4px rgb(0 0 0/.35))">` +
-          `<svg width="${PIN}" height="${PIN}" viewBox="0 0 24 24" fill="#c2410c" stroke="white" stroke-width="1.5" aria-hidden="true" focusable="false">` +
+          `<svg width="${PIN}" height="${PIN}" viewBox="0 0 24 24" fill="#4B2A8C" stroke="white" stroke-width="1.5" aria-hidden="true" focusable="false">` +
           `<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/>` +
           `<circle cx="12" cy="10" r="3" fill="white"/></svg></span>`,
         className: "",
@@ -39,17 +40,18 @@ export default function ExactLocationMap({ lat, lng, approx, label }: ExactLocat
       <MapContainer
         center={[lat, lng]}
         zoom={16}
+        maxZoom={siteConfig.map.maxZoom}
         scrollWheelZoom={false}
         className="h-full w-full rounded-lg"
         attributionControl
         aria-label={label}
       >
-        <TileLayer url={siteConfig.map.tileUrl} attribution={siteConfig.map.tileAttribution} />
+        <BaseTiles />
         {approx ? (
           <Circle
             center={[approx.lat, approx.lng]}
             radius={siteConfig.listings.approximateLocationMeters}
-            pathOptions={{ color: "#2563eb", weight: 1.5, dashArray: "4 4", fillOpacity: 0.08 }}
+            pathOptions={{ color: "#4B2A8C", weight: 1.5, dashArray: "4 4", fillOpacity: 0.08 }}
           />
         ) : null}
         <Marker position={[lat, lng]} icon={icon} title={label} alt={label} keyboard={false} />

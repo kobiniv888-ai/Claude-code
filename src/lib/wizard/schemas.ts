@@ -9,11 +9,14 @@
  *
  * Error messages are message keys in messages/<locale>/wizard.json under "validation.*".
  */
-import { isValidPhoneNumber } from "libphonenumber-js";
 import { z } from "zod";
+import { COUNTRIES, isInCountry } from "@/config/countries";
+import { allowListedHttpsUrl, CALENDAR_IMPORT_DOMAINS, canonicalCalendarImportUrl, isTourUrl } from "@/config/external-hosts";
+import { isValidPhone as isValidPhoneNumber, normalizePhone } from "@/lib/phone";
 import { locales, siteConfig, type AppLocale, type CurrencyCode } from "@/config/site";
 import type {
   BuildingAge,
+  CancellationPolicy,
   DealType,
   HeatingType,
   KitchenKosher,
@@ -23,6 +26,8 @@ import type {
   SharedRoomFor,
   ViewType,
 } from "@/generated/prisma/enums";
+import { CANCELLATION_POLICIES, MAX_STAY_NIGHTS, PAYMENT_METHODS, type PaymentMethod } from "@/lib/booking/constants";
+import { LONG_STAY } from "@/lib/booking/pricing";
 import { enabledCurrencies } from "@/lib/currency/convert";
 import {
   AMENITIES,
@@ -33,6 +38,7 @@ import {
   HOTEL_JEWISH_FEATURES,
   JEWISH_FEATURES,
   KITCHEN_KOSHER,
+  PHOTO_ROOMS,
   PROPERTY_TYPES,
   SHABBAT_FEATURES,
   SHARED_ROOM_FOR,
@@ -40,7 +46,7 @@ import {
   type ContactChannelKey,
   type ContactMethod,
 } from "@/lib/listing/fields";
-import { applies, isPropertyTypeAllowed, type ListingKind, type SavableStepKey } from "./steps";
+import { applies, isPropertyTypeAllowed, usesBookingStep, type ListingKind, type SavableStepKey } from "./steps";
 
 // ─── Values ───────────────────────────────────────────────────
 
@@ -88,6 +94,9 @@ export type WizardValues = {
   partiesAllowed: boolean | null;
   checkInFrom: string;
   checkOutUntil: string;
+  /** "גמיש" in the check-in / check-out picker (round 3); the time is "" then. */
+  checkInFlexible: boolean;
+  checkOutFlexible: boolean;
   quietHoursFrom: string;
   quietHoursTo: string;
   // 6
@@ -109,6 +118,11 @@ export type WizardValues = {
   weeklyDiscountPct: number | null;
   monthlyDiscountPct: number | null;
   icalImportUrls: string[];
+  // "הזמנות ומחיר" (short stays and hotels; the step also edits price, currency, cleaning fee,
+  // deposit, minimum nights, maximum guests and the check-in/out times above)
+  weekendPrice: number | null;
+  cancellationPolicy: CancellationPolicy;
+  paymentMethodsAtCheckIn: PaymentMethod[];
   // 9
   contactMethods: ContactMethod[];
   contactHoursFrom: string;
@@ -121,20 +135,26 @@ export const STEP_FIELDS = {
   deal: ["dealType"],
   property: ["propertyType", "businessName"],
   location: ["cityId", "neighborhoodId", "address", "lat", "lng"],
-  details: [
-    "rooms", "bedrooms", "bathrooms", "bedsSingle", "bedsDouble", "bedsSofa", "maxGuests", "sizeSqm",
-    "floor", "totalFloors", "elevator", "yearBuilt", "buildingAge", "furnished", "condition", "heating",
-    "views", "cadastralCode", "sharedRoomFor", "originalLocale", "title", "description", "videoUrl",
-    "tour360Url",
-  ],
+  // Round 1's "details" step, split (brief 5.7). maxGuests is asked here only for monthly rentals;
+  // short stays and hotels set it in "booking" (both save the same value).
+  size: ["rooms", "bedrooms", "bathrooms", "bedsSingle", "bedsDouble", "bedsSofa", "maxGuests", "sizeSqm", "sharedRoomFor"],
+  building: ["floor", "totalFloors", "elevator", "yearBuilt", "buildingAge", "cadastralCode"],
+  features: ["condition", "furnished", "heating", "views", "videoUrl", "tour360Url"],
+  text: ["originalLocale", "title", "description"],
   amenities: [
     "amenities", "petsAllowed", "smokingAllowed", "partiesAllowed", "checkInFrom", "checkOutUntil",
-    "quietHoursFrom", "quietHoursTo",
+    "checkInFlexible", "checkOutFlexible", "quietHoursFrom", "quietHoursTo",
   ],
   jewish: ["kitchenKosher", "shabbatFeatures", "jewishFeatures", "hotelJewishFeatures", "kosherCertName", "kosherCertPhotoKey"],
   price: [
     "price", "currency", "pricePeriod", "deposit", "cleaningFee", "utilitiesIncluded", "utilitiesEstimate",
     "minStayNights", "weeklyDiscountPct", "monthlyDiscountPct", "icalImportUrls",
+  ],
+  // iCal links are not here: they are managed on the listing's calendar page.
+  booking: [
+    "price", "currency", "pricePeriod", "weekendPrice", "cleaningFee", "deposit", "minStayNights", "maxGuests",
+    "checkInFrom", "checkOutUntil", "checkInFlexible", "checkOutFlexible", "cancellationPolicy", "paymentMethodsAtCheckIn",
+    "weeklyDiscountPct", "monthlyDiscountPct",
   ],
   contact: ["contactMethods", "contactHoursFrom", "contactHoursTo", "noReplyOnShabbat"],
 } as const satisfies Record<SavableStepKey, readonly (keyof WizardValues)[]>;
@@ -168,11 +188,12 @@ export const LIMITS = {
   altMax: 200,
 } as const;
 
-/** Rough box around Georgia (the only country open for posting in Phase 1). */
-export const GEORGIA_BOUNDS = { north: 43.65, south: 41.0, east: 46.8, west: 39.9 } as const;
+/** Rough box around Georgia (the only country open for posting): src/config/countries.ts. */
+export const GEORGIA_BOUNDS = COUNTRIES.GE.pinBounds;
 
+/** A pin inside Georgia. For a listing in another country use isInCountry(code, lat, lng). */
 export function isInGeorgia(lat: number, lng: number): boolean {
-  return lat <= GEORGIA_BOUNDS.north && lat >= GEORGIA_BOUNDS.south && lng <= GEORGIA_BOUNDS.east && lng >= GEORGIA_BOUNDS.west;
+  return isInCountry("GE", lat, lng);
 }
 
 export const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -202,6 +223,22 @@ export function isHttpsUrl(value: string): boolean {
   return !!url && url.protocol === "https:" && url.hostname.includes(".");
 }
 
+/**
+ * A calendar link to import: https on Airbnb, Booking.com, Vrbo / HomeAway or Google Calendar
+ * (CALENDAR_IMPORT_DOMAINS, SECURITY_REPORT 8.1.a). The sync checks it again on every download.
+ */
+export function isCalendarImportUrl(value: string): boolean {
+  return allowListedHttpsUrl(value, CALENDAR_IMPORT_DOMAINS) !== null;
+}
+
+/** "httpsOnly" for a link that isn't https at all, else `hostKey` when its site isn't on the list. */
+function allowListRefine(isAllowed: (value: string) => boolean, hostKey: string) {
+  return (value: string, ctx: z.RefinementCtx<string>) => {
+    if (value === "" || isAllowed(value)) return;
+    ctx.addIssue({ code: "custom", message: isHttpsUrl(value) ? hostKey : "httpsOnly" });
+  };
+}
+
 export function isValidPhone(value: string): boolean {
   return E164.test(value) && isValidPhoneNumber(value);
 }
@@ -219,9 +256,15 @@ export function contactValueProblem(channel: ContactChannelKey, raw: string): st
   return null;
 }
 
-/** "https://m.me/john.doe" or "facebook.com/john.doe" → "john.doe"; "@name" stays as typed for Telegram. */
+/**
+ * "https://m.me/john.doe" or "facebook.com/john.doe" → "john.doe"; "@name" stays as typed for Telegram.
+ * Phone numbers → E.164 without the national 0 ("+972 053-…" → "+97253…", brief 2.5); a number
+ * typed without a country code is Georgian (the listing contact default, src/config/countries.ts).
+ */
 export function normalizeContactValue(channel: ContactChannelKey, raw: string): string {
   let value = raw.trim();
+  const phoneLike = PHONE_CHANNELS.includes(channel) || (channel === "TELEGRAM" && /^\+?[\d\s().-]+$/.test(value));
+  if (phoneLike && value) return normalizePhone(value, COUNTRIES.GE.defaultPhoneCountry) ?? value;
   if (channel === "MESSENGER") {
     value = value.replace(/^https?:\/\//i, "").replace(/^(www\.)?(m\.me|facebook\.com|fb\.com|messenger\.com\/t)\//i, "");
     value = value.replace(/[/?#].*$/, "");
@@ -320,8 +363,39 @@ export const detailsStepSchema = z.object({
   title: optionalText(LIMITS.titleMax),
   description: optionalText(LIMITS.descriptionMax),
   videoUrl: urlField.refine((v) => v === "" || isVideoUrl(v), "videoUrl"),
-  tour360Url: urlField.refine((v) => v === "" || isHttpsUrl(v), "httpsOnly"),
+  // Matterport, Kuula, Momento360 or Roundme only (SECURITY_REPORT 7.f); the page checks it again.
+  tour360Url: urlField.superRefine(allowListRefine(isTourUrl, "tourHost")),
 });
+
+/** The four steps that replaced round 1's "details" step each validate their part of it. */
+export const sizeStepSchema = detailsStepSchema.pick({
+  rooms: true,
+  bedrooms: true,
+  bathrooms: true,
+  bedsSingle: true,
+  bedsDouble: true,
+  bedsSofa: true,
+  maxGuests: true,
+  sizeSqm: true,
+  sharedRoomFor: true,
+});
+export const buildingStepSchema = detailsStepSchema.pick({
+  floor: true,
+  totalFloors: true,
+  elevator: true,
+  yearBuilt: true,
+  buildingAge: true,
+  cadastralCode: true,
+});
+export const featuresStepSchema = detailsStepSchema.pick({
+  condition: true,
+  furnished: true,
+  heating: true,
+  views: true,
+  videoUrl: true,
+  tour360Url: true,
+});
+export const textStepSchema = detailsStepSchema.pick({ originalLocale: true, title: true, description: true });
 
 export const amenitiesStepSchema = z.object({
   amenities: uniqueKeys(AMENITIES),
@@ -330,6 +404,8 @@ export const amenitiesStepSchema = z.object({
   partiesAllowed: bool,
   checkInFrom: time,
   checkOutUntil: time,
+  checkInFlexible: z.boolean(),
+  checkOutFlexible: z.boolean(),
   quietHoursFrom: time,
   quietHoursTo: time,
 });
@@ -360,9 +436,42 @@ export const priceStepSchema = z.object({
   weeklyDiscountPct: int(0, LIMITS.discountMax),
   monthlyDiscountPct: int(0, LIMITS.discountMax),
   icalImportUrls: z
-    .array(z.string().trim().max(LIMITS.urlMax, "tooLong").refine((v) => v === "" || isHttpsUrl(v), "httpsOnly"))
+    // Airbnb's other country sites are stored as www.airbnb.com (canonicalCalendarImportUrl).
+    .array(z.string().trim().max(LIMITS.urlMax, "tooLong").transform(canonicalCalendarImportUrl).superRefine(allowListRefine(isCalendarImportUrl, "calendarHost")))
     .max(LIMITS.maxIcalImports, "tooMany")
     .transform((list) => [...new Set(list.filter(Boolean))]),
+});
+
+/**
+ * A long-stay discount of a booked stay (round 3, brief 6.3): whole percents 1–60 off the nights
+ * (LONG_STAY in src/lib/booking/pricing.ts); empty or 0 = no discount.
+ */
+const longStayPct = z
+  .number({ error: "invalidNumber" })
+  .int("wholeNumber")
+  .min(0, "tooSmall")
+  .max(LONG_STAY.maxPct, "discountTooLarge")
+  .transform((n) => (n >= LONG_STAY.minPct ? n : null))
+  .nullable();
+
+/** "הזמנות ומחיר": prices per night, stay rules and booking terms (short stays and hotels). */
+export const bookingStepSchema = z.object({
+  price: money(LIMITS.priceMax),
+  currency: enabledCurrency,
+  pricePeriod: z.enum(["NIGHT", "WEEK", "MONTH", "TOTAL"]),
+  weekendPrice: money(LIMITS.priceMax),
+  cleaningFee: money(LIMITS.feeMax),
+  deposit: money(LIMITS.feeMax),
+  minStayNights: int(1, MAX_STAY_NIGHTS),
+  maxGuests: int(1, 100),
+  checkInFrom: time,
+  checkOutUntil: time,
+  checkInFlexible: z.boolean(),
+  checkOutFlexible: z.boolean(),
+  cancellationPolicy: z.enum(CANCELLATION_POLICIES, "pickOne"),
+  paymentMethodsAtCheckIn: uniqueKeys(PAYMENT_METHODS),
+  weeklyDiscountPct: longStayPct,
+  monthlyDiscountPct: longStayPct,
 });
 
 export const contactMethodSchema = z.object({
@@ -388,10 +497,14 @@ export const stepSaveSchemas = {
   deal: dealStepSchema,
   property: propertyStepSchema,
   location: locationStepSchema,
-  details: detailsStepSchema,
+  size: sizeStepSchema,
+  building: buildingStepSchema,
+  features: featuresStepSchema,
+  text: textStepSchema,
   amenities: amenitiesStepSchema,
   jewish: jewishStepSchema,
   price: priceStepSchema,
+  booking: bookingStepSchema,
   contact: contactStepSchema,
 } satisfies Record<SavableStepKey, z.ZodType>;
 
@@ -429,23 +542,32 @@ function requiredIssues(step: SavableStepKey, v: WizardValues, kind: ListingKind
       if (v.lat === null || v.lng === null) into.lat = "pinRequired";
       else if (!isInGeorgia(v.lat, v.lng)) into.lat = "outsideGeorgia";
       break;
-    case "details": {
+    // Only the essentials are required (brief 5.7): rooms for rentals and sales, the size of a
+    // home for sale, who shares a room, and a title and description.
+    case "size":
+      // Short stays enter their maximum guests in the booking step.
+      if (kind.dealType === "SHORT_STAY" && !usesBookingStep(kind)) need("maxGuests");
+      if (kind.dealType === "SALE") need("sizeSqm");
+      if (kind.dealType === "SALE" || kind.dealType === "MONTHLY_RENT") need("rooms");
+      if (applies("sharedRoomFor", kind)) need("sharedRoomFor");
+      if (applies("bedrooms", kind) && v.bedrooms !== null && v.rooms !== null && v.bedrooms > v.rooms && !into.bedrooms) {
+        into.bedrooms = "bedroomsAboveRooms";
+      }
+      break;
+    case "building":
+      if (applies("floor", kind) && v.floor !== null && v.totalFloors !== null && v.floor > v.totalFloors && !into.floor) {
+        into.floor = "floorAboveTotal";
+      }
+      break;
+    case "features":
+      break;
+    case "text": {
       need("title");
       need("description");
       const title = v.title.trim();
       const description = v.description.trim();
       if (!into.title && title.length < LIMITS.titleMin) into.title = "titleTooShort";
       if (!into.description && description.length < LIMITS.descriptionMin) into.description = "descriptionTooShort";
-      if (kind.dealType === "SHORT_STAY") need("maxGuests");
-      if (kind.dealType === "SALE") need("sizeSqm");
-      if (kind.dealType === "SALE" || kind.dealType === "MONTHLY_RENT") need("rooms");
-      if (applies("sharedRoomFor", kind)) need("sharedRoomFor");
-      if (applies("floor", kind) && v.floor !== null && v.totalFloors !== null && v.floor > v.totalFloors && !into.floor) {
-        into.floor = "floorAboveTotal";
-      }
-      if (applies("bedrooms", kind) && v.bedrooms !== null && v.rooms !== null && v.bedrooms > v.rooms && !into.bedrooms) {
-        into.bedrooms = "bedroomsAboveRooms";
-      }
       break;
     }
     case "amenities":
@@ -456,6 +578,26 @@ function requiredIssues(step: SavableStepKey, v: WizardValues, kind: ListingKind
       // Hotels may leave their own price empty and show "from" the cheapest room type.
       if (kind.dealType !== "HOTEL_ROOM" && (blank(v.price) || v.price === 0)) into.price = into.price ?? "priceRequired";
       if (!PRICE_PERIODS_BY_DEAL[kind.dealType].includes(v.pricePeriod)) into.pricePeriod = "pickOne";
+      break;
+    case "booking":
+      // Booked stays are priced per night. Hotels may leave their own price empty and show
+      // "from" the cheapest room type (each room type then has its own nightly price).
+      if (kind.dealType !== "HOTEL_ROOM" && (blank(v.price) || v.price === 0 || v.pricePeriod !== "NIGHT")) {
+        into.price = into.price ?? "priceRequired";
+      }
+      if (kind.dealType === "SHORT_STAY") need("maxGuests");
+      if (v.paymentMethodsAtCheckIn.length === 0) into.paymentMethodsAtCheckIn = "paymentMethodRequired";
+      // A month is never cheaper per night than a week (the 28+ discount is at least the 7+ one).
+      if (
+        !into.monthlyDiscountPct &&
+        v.weeklyDiscountPct !== null &&
+        v.monthlyDiscountPct !== null &&
+        v.weeklyDiscountPct > 0 &&
+        v.monthlyDiscountPct > 0 &&
+        v.monthlyDiscountPct < v.weeklyDiscountPct
+      ) {
+        into.monthlyDiscountPct = "monthlyBelowWeekly";
+      }
       break;
     case "contact": {
       if (v.contactMethods.length === 0) into.contactMethods = "contactRequired";
@@ -486,6 +628,7 @@ export const REQUIRED_CODES = new Set([
   "cityRequired",
   "pinRequired",
   "priceRequired",
+  "paymentMethodRequired",
   "contactRequired",
   "pickOne",
   "titleTooShort",
@@ -498,6 +641,9 @@ export const photoIdsSchema = z.array(id).min(1).max(siteConfig.listings.maxPhot
 
 export const photoAltSchema = z.string().trim().max(LIMITS.altMax, "tooLong");
 
+/** A photo's room label (round 3, brief 6.1), or null to clear it. */
+export const photoRoomSchema = z.enum(PHOTO_ROOMS).nullable();
+
 const dayString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "invalidDate");
 
 /** Owner-blocked days as inclusive ranges ("2026-03-10" → "2026-03-12" blocks 3 nights). */
@@ -505,18 +651,49 @@ export const availabilitySchema = z
   .array(z.object({ start: dayString, end: dayString }).refine((r) => r.start <= r.end, "invalidRange"))
   .max(400);
 
-export const roomTypeSchema = z.object({
-  id: id.optional(),
-  name: text(LIMITS.roomTypeNameMax).min(2, "required"),
-  price: z.number({ error: "priceRequired" }).positive("priceRequired").max(LIMITS.priceMax, "tooLarge"),
-  currency: enabledCurrency,
-  pricePeriod: z.enum(ROOM_TYPE_PERIODS as [PricePeriod, ...PricePeriod[]]),
-  maxGuests: int(1, 50),
-  bedsSingle: int(0, 50),
-  bedsDouble: int(0, 50),
-  sizeSqm: decimal(1, 10_000),
-  quantity: int(1, 1000),
-});
+/**
+ * The amenities a room type can have on its own (round 3, founder's answer 3), from the listing
+ * vocabulary (src/lib/listing/fields.ts): the in-room ones. The hotel's own (pool, parking…) stay
+ * on the listing.
+ */
+export const ROOM_TYPE_AMENITIES = [
+  "wifi",
+  "air_conditioning",
+  "heating",
+  "tv",
+  "workspace",
+  "balcony_terrace",
+  "full_kitchen",
+  "washing_machine",
+  "crib_high_chair",
+  "wheelchair_access",
+] as const satisfies readonly (typeof AMENITIES)[number][];
+
+/**
+ * A hotel room type (round 3, founder's answer 3). `quantity`: "כמה חדרים כאלה להציע בבית", the
+ * identical rooms Bayit may sell per night (empty means 1). `active` false switches the room type
+ * off for new guests (its bookings, blocks and prices stay). `weekendPrice`: Friday and Saturday
+ * nights (holiday prices are set in the calendar).
+ */
+export const roomTypeSchema = z
+  .object({
+    id: id.optional(),
+    name: text(LIMITS.roomTypeNameMax).min(2, "required"),
+    price: z.number({ error: "priceRequired" }).positive("priceRequired").max(LIMITS.priceMax, "tooLarge"),
+    currency: enabledCurrency,
+    pricePeriod: z.enum(ROOM_TYPE_PERIODS as [PricePeriod, ...PricePeriod[]]),
+    weekendPrice: money(LIMITS.priceMax).optional().default(null),
+    maxGuests: int(1, 50),
+    bedsSingle: int(0, 50),
+    bedsDouble: int(0, 50),
+    bedsSofa: int(0, 50).optional().default(null),
+    sizeSqm: decimal(1, 10_000),
+    amenities: uniqueKeys(ROOM_TYPE_AMENITIES).optional().default([]),
+    quantity: int(1, 1000),
+    active: z.boolean().optional().default(true),
+  })
+  // A weekend price is per night: only for room types priced per night, and never 0.
+  .transform((v) => ({ ...v, weekendPrice: v.pricePeriod === "NIGHT" && v.weekendPrice ? v.weekendPrice : null }));
 export type RoomTypeInput = z.input<typeof roomTypeSchema>;
 
 export const translationSchema = z.object({

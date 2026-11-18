@@ -2,6 +2,7 @@ import { useLocale, useTranslations } from "next-intl";
 import {
   AlertTriangleIcon,
   BadgeCheckIcon,
+  BellRingIcon,
   CircleDashedIcon,
   ClockIcon,
   FilePenLineIcon,
@@ -17,6 +18,7 @@ import {
 import { ChevronEnd } from "@/components/common/directional-icon";
 import { Ltr } from "@/components/common/ltr";
 import { Progress } from "@/components/ui/progress";
+import { documentChecksOn } from "@/config/verification";
 import { Link } from "@/i18n/navigation";
 import type { ListingFilter } from "@/lib/account/listing-status";
 import { daysUntil } from "@/lib/account/listing-status";
@@ -26,8 +28,8 @@ import { formatDate, formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const STATE_STYLE: Record<BadgeState, { icon: LucideIcon; className: string }> = {
-  verified: { icon: BadgeCheckIcon, className: "bg-verified-soft text-verified" },
-  pending: { icon: ClockIcon, className: "bg-warning-soft text-warning" },
+  verified: { icon: BadgeCheckIcon, className: "bg-primary-tint text-success" },
+  pending: { icon: ClockIcon, className: "bg-surface-muted text-foreground" },
   actionNeeded: { icon: AlertTriangleIcon, className: "bg-destructive/10 text-destructive" },
   notStarted: { icon: CircleDashedIcon, className: "bg-muted text-muted-foreground" },
 };
@@ -48,11 +50,16 @@ export const sectionCard = "rounded-2xl border bg-card p-4 shadow-xs sm:p-6";
 export function VerificationProgressCard({ progress }: { progress: AccountOverview["progress"] }) {
   const t = useTranslations("account.overview.verification");
   const locale = useLocale();
-  const rows: { key: "phone" | "id" | "owner"; icon: LucideIcon; state: BadgeState; href: string }[] = [
-    { key: "phone", icon: SmartphoneIcon, state: progress.phone, href: progress.phone === "verified" ? "/account/verification" : "/verify-phone" },
-    { key: "id", icon: BadgeCheckIcon, state: progress.id, href: "/account/verification#id" },
-  ];
+  const rows: { key: "phone" | "id" | "owner"; icon: LucideIcon; state: BadgeState; href: string }[] = [];
+  // No phone row for a guest without a verified phone: the paid SMS check is offered to guests
+  // only in the booking review (src/lib/auth/phone-check-policy.ts). A verified phone always shows.
+  if (progress.phone) {
+    rows.push({ key: "phone", icon: SmartphoneIcon, state: progress.phone, href: progress.phone === "verified" ? "/account/verification" : "/verify-phone" });
+  }
+  if (progress.id) rows.push({ key: "id", icon: BadgeCheckIcon, state: progress.id, href: "/account/verification#id" });
   if (progress.owner) rows.push({ key: "owner", icon: ShieldCheckIcon, state: progress.owner, href: "/account/verification#owner" });
+  // Nothing to show (a guest, while there are no document checks): no card.
+  if (rows.length === 0) return null;
   const percent = progress.total ? Math.round((progress.done / progress.total) * 100) : 0;
 
   return (
@@ -77,7 +84,7 @@ export function VerificationProgressCard({ progress }: { progress: AccountOvervi
               className="flex min-h-12 items-center gap-3 rounded-xl px-2 py-2 outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
             >
               <Icon className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-              <span className="min-w-0 flex-1 text-sm font-medium">{t(`badges.${key}`)}</span>
+              <span className="min-w-0 flex-1 text-sm font-medium [overflow-wrap:anywhere]">{t(`badges.${key}`)}</span>
               <BadgeStateChip state={state} />
               <ChevronEnd className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
             </Link>
@@ -89,9 +96,9 @@ export function VerificationProgressCard({ progress }: { progress: AccountOvervi
 }
 
 const TILES: { filter: ListingFilter; tone: string }[] = [
-  { filter: "live", tone: "text-verified" },
+  { filter: "live", tone: "text-success" },
   { filter: "review", tone: "text-primary" },
-  { filter: "changes", tone: "text-warning" },
+  { filter: "changes", tone: "text-foreground" },
   { filter: "paused", tone: "text-muted-foreground" },
   { filter: "expired", tone: "text-destructive" },
   { filter: "drafts", tone: "text-muted-foreground" },
@@ -159,7 +166,7 @@ function AttentionRow({ item }: { item: AttentionItem }) {
   const untitled = useTranslations("account.listings")("untitled");
 
   let icon: LucideIcon = AlertTriangleIcon;
-  let tone = "bg-warning-soft text-warning";
+  let tone = "bg-surface-muted text-foreground";
   let title: React.ReactNode;
   let body: React.ReactNode = null;
   let href: string;
@@ -254,36 +261,54 @@ function AttentionRow({ item }: { item: AttentionItem }) {
   );
 }
 
+/** The waiting items in a card; with nothing waiting, one slim "all set" line instead of a card. */
 export function AttentionList({ items }: { items: AttentionItem[] }) {
   const t = useTranslations("account.overview.attention");
+  if (items.length === 0) {
+    return (
+      <p className="flex items-center gap-2 rounded-xl bg-success/10 px-3 py-3 text-sm font-medium text-success">
+        <BadgeCheckIcon className="size-5 shrink-0" aria-hidden="true" />
+        {t("allGood")}
+      </p>
+    );
+  }
   return (
     <section aria-labelledby="attention" className={sectionCard}>
-      <h2 id="attention" className="text-lg font-semibold">
+      <h2 id="attention" className="text-h2">
         {t("title")}
       </h2>
-      {items.length === 0 ? (
-        <p className="mt-3 flex items-center gap-2 rounded-xl bg-verified/10 px-3 py-3 text-sm font-medium text-verified">
-          <BadgeCheckIcon className="size-5 shrink-0" aria-hidden="true" />
-          {t("allGood")}
-        </p>
-      ) : (
-        <ul className="mt-4 grid gap-2">
-          {items.map((item, i) => (
-            <AttentionRow key={`${item.kind}-${i}`} item={item} />
-          ))}
-        </ul>
-      )}
+      <ul className="mt-4 grid gap-2">
+        {items.map((item, i) => (
+          <AttentionRow key={`${item.kind}-${i}`} item={item} />
+        ))}
+      </ul>
     </section>
   );
 }
 
-export function QuickActions({ idVerified, favorites, openTickets }: { idVerified: boolean; favorites: number; openTickets: number }) {
+export function QuickActions({
+  idVerified,
+  favorites,
+  openTickets,
+  savedSearches,
+}: {
+  idVerified: boolean;
+  favorites: number;
+  openTickets: number;
+  /** Active saved searches (round 3, brief 7.4); the card is left out when not given. */
+  savedSearches?: number;
+}) {
   const t = useTranslations("account.overview.quick");
+  const ta = useTranslations("alerts.quick");
   const locale = useLocale();
   const actions: { href: string; icon: LucideIcon; label: string; hint: string; primary?: boolean }[] = [
     { href: "/post", icon: PlusIcon, label: t("post"), hint: t("postHint"), primary: true },
-    ...(idVerified ? [] : [{ href: "/account/verification#id", icon: BadgeCheckIcon, label: t("verify"), hint: t("verifyHint") }]),
+    // No "verify your ID" while there are no document checks (src/config/verification.ts).
+    ...(idVerified || !documentChecksOn() ? [] : [{ href: "/account/verification#id", icon: BadgeCheckIcon, label: t("verify"), hint: t("verifyHint") }]),
     { href: "/account/favorites", icon: HeartIcon, label: t("favorites"), hint: t("favoritesHint", { count: favorites, countText: formatNumber(favorites, locale) }) },
+    ...(savedSearches === undefined
+      ? []
+      : [{ href: "/account/alerts", icon: BellRingIcon, label: ta("label"), hint: ta("hint", { count: savedSearches, countText: formatNumber(savedSearches, locale) }) }]),
     { href: "/account/tickets", icon: LifeBuoyIcon, label: t("support"), hint: t("supportHint", { count: openTickets, countText: formatNumber(openTickets, locale) }) },
   ];
   return (

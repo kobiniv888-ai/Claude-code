@@ -5,6 +5,8 @@ import {
   mediaBaseUrl,
   photoUrl,
   privateUploadPrefix,
+  reverseImageSearchLinks,
+  UPLOAD_IMAGE_ACCEPT,
 } from "./media";
 
 afterEach(() => vi.unstubAllEnvs());
@@ -65,5 +67,37 @@ describe("private uploads", () => {
     expect(isOwnPrivateUpload("private/verification/u1/../u2/abc.pdf", "u1", "verification")).toBe(false);
     expect(isOwnPrivateUpload("private/verification/u1/sub/abc.pdf", "u1", "verification")).toBe(false);
     expect(isOwnPrivateUpload(42, "u1", "verification")).toBe(false);
+  });
+});
+
+// SECURITY_REPORT 9.m: a reverse image search link per photo in the first-listing review.
+describe("reverseImageSearchLinks", () => {
+  it("links Google Lens and TinEye to the photo's public address (encoded, nothing uploaded)", () => {
+    const photo = "https://media.bayit.example/listings/l1/p1-lg.webp?v=1&x=2";
+    const links = reverseImageSearchLinks(photo)!;
+    expect(links.googleLens).toBe(`https://lens.google.com/uploadbyurl?url=${encodeURIComponent(photo)}`);
+    expect(links.tinEye).toBe(`https://tineye.com/search?url=${encodeURIComponent(photo)}`);
+    // The photo address is one query value: it cannot add parameters of its own.
+    expect(new URL(links.tinEye).searchParams.get("url")).toBe(photo);
+    expect([...new URL(links.tinEye).searchParams.keys()]).toEqual(["url"]);
+  });
+
+  it("makes a local media path absolute on the site's address", () => {
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://bayit.example");
+    const links = reverseImageSearchLinks("/api/media/listings/l1/p1-lg.webp")!;
+    expect(new URL(links.googleLens).searchParams.get("url")).toMatch(/^https?:\/\/[^/]+\/api\/media\/listings\/l1\/p1-lg\.webp$/);
+  });
+
+  it("gives no links for other schemes or addresses with credentials", () => {
+    expect(reverseImageSearchLinks("javascript:alert(1)")).toBeNull();
+    expect(reverseImageSearchLinks("data:image/png;base64,AAAA")).toBeNull();
+    expect(reverseImageSearchLinks("https://user:pass@media.bayit.example/p.webp")).toBeNull();
+  });
+});
+
+// SECURITY_REPORT 9.a: upload fields offer JPEG, PNG and WebP only (iPhones then send JPEG).
+describe("UPLOAD_IMAGE_ACCEPT", () => {
+  it("lists exactly JPEG, PNG and WebP", () => {
+    expect(UPLOAD_IMAGE_ACCEPT.split(",").sort()).toEqual(["image/jpeg", "image/png", "image/webp"]);
   });
 });

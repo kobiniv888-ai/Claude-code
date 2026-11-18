@@ -140,7 +140,10 @@
     "WRONG_PRICE": "מחיר שגוי",
     "ASKED_MONEY_UPFRONT": "ביקשו כסף לפני צפייה בנכס",
     "OFFENSIVE": "תוכן פוגעני",
-    "OTHER": "משהו אחר"
+    "OTHER": "משהו אחר",
+    "CANCELLED_FOR_IDENTITY": "המארח ביטל בגלל זהות האורח",
+    "ASKED_RELIGION_OR_ORIGIN": "המארח שאל על דת או מוצא",
+    "REFUSED_OR_IGNORED": "המארח סירב או התעלם"
   },
   "ownerType": {
     "private": "בעלים פרטי",
@@ -189,8 +192,8 @@
     "floor": "קומה {floor}",
     "floorOf": "קומה {floor} מתוך {total}",
     "studio": "סטודיו",
-    "synagogueWalk": "{count} דק׳ הליכה לבית כנסת",
-    "chabadWalk": "{count} דק׳ הליכה לבית חב״ד",
+    "synagogueWalk": "עד {count} דק׳ הליכה לבית כנסת",
+    "chabadWalk": "עד {count} דק׳ הליכה לבית חב״ד",
     "minStay": "{count, plural, one {מינימום לילה אחד} other {מינימום {count} לילות}}"
   }
 }

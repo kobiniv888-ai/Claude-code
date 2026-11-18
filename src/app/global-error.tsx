@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useSyncExternalStore } from "react";
-import ar from "../../messages/ar/states.json";
-import en from "../../messages/en/states.json";
-import he from "../../messages/he/states.json";
-import ka from "../../messages/ka/states.json";
-import ru from "../../messages/ru/states.json";
+import { lazy, Suspense, useEffect, useSyncExternalStore } from "react";
+import ar from "../../messages/ar/global.json";
+import en from "../../messages/en/global.json";
+import he from "../../messages/he/global.json";
+import ka from "../../messages/ka/global.json";
+import ru from "../../messages/ru/global.json";
 import { fontStyle } from "@/components/layout/fonts";
-import { locales, siteConfig, type AppLocale } from "@/config/site";
+// The language list from its own small module, not @/config/site: this page's code is part of
+// every page's first load, in a chunk of its own, so the whole site configuration came twice.
+import { locales, type AppLocale } from "@/config/locales";
 import { dirFor, isAppLocale } from "@/i18n/locale";
 import "./globals.css";
 
@@ -18,6 +20,11 @@ import "./globals.css";
  */
 
 const messages: Record<AppLocale, typeof en> = { he, en, ru, ar, ka };
+
+// This component's code is part of every page's first load (Next.js preloads it for the root
+// error boundary). The logo brings the class merger (cn), which would then be downloaded twice
+// (once here, once with the page), so it loads only when this page is actually shown.
+const BrandLockup = lazy(() => import("@/components/brand/mark").then((m) => ({ default: m.BrandLockup })));
 
 const subscribe = () => () => {};
 function useAddressLocale(): AppLocale {
@@ -33,7 +40,7 @@ function useAddressLocale(): AppLocale {
 
 export default function GlobalError({ error, retry }: { error: unknown; retry: () => void }) {
   const locale = useAddressLocale();
-  const m = messages[locale].global;
+  const m = messages[locale];
 
   useEffect(() => {
     console.error(error);
@@ -42,11 +49,14 @@ export default function GlobalError({ error, retry }: { error: unknown; retry: (
   return (
     <html lang={locale} dir={dirFor(locale)} style={fontStyle}>
       <body className="bg-background text-foreground">
-        <title>{`${m.errorTitle} · ${siteConfig.name}`}</title>
+        <title>{m.errorTitle}</title>
         <main className="flex min-h-dvh items-center justify-center px-4 py-10">
           <div className="w-full max-w-lg rounded-3xl border bg-card p-6 text-center shadow-card sm:p-8">
-            {/* eslint-disable-next-line @next/next/no-img-element -- static brand mark, no layout here */}
-            <img src={siteConfig.logo.mark} alt={siteConfig.name} width={48} height={48} className="mx-auto" />
+            <div className="flex justify-center">
+              <Suspense fallback={<div className="h-9" />}>
+                <BrandLockup locale={locale} size={26} />
+              </Suspense>
+            </div>
             <h1 className="mt-5 text-2xl font-bold tracking-tight">{m.errorTitle}</h1>
             <p className="mt-2 text-pretty text-muted-foreground">{m.errorDescription}</p>
             <div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row">
@@ -69,8 +79,8 @@ export default function GlobalError({ error, retry }: { error: unknown; retry: (
                 .filter((l) => l !== locale)
                 .map((l) => (
                   <li key={l} lang={l} dir={dirFor(l)}>
-                    <p className="font-semibold">{messages[l].global.errorTitle}</p>
-                    <p className="text-muted-foreground">{messages[l].global.errorDescription}</p>
+                    <p className="font-semibold">{messages[l].errorTitle}</p>
+                    <p className="text-muted-foreground">{messages[l].errorDescription}</p>
                   </li>
                 ))}
             </ul>

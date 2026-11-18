@@ -38,6 +38,22 @@ describe("buildEnvelope", () => {
     expect(lines.join("\n")).not.toContain("995555000001");
   });
 
+  it("scrubs personal data and tokens from the message, stack, cause path and tags (5.l, 16.1)", () => {
+    const error = new Error("Unique constraint failed for noa@example.com / +972500000017, code 482913, from 203.0.113.42");
+    error.stack = `Error: noa@example.com\n    at verify (/app/src/lib/auth.ts:12:3) +972500000017`;
+    const body = buildEnvelope(error, {
+      kind: "route",
+      path: "/api/ical/Xk3vQ9_aZ0-pL7mN2bR8sT4uW6yA1cE5dF7gH9jK0lM.ics",
+      tags: { job: "send to dana@example.com" },
+    });
+    for (const secret of ["noa@example.com", "dana@example.com", "0000017", "482913", "203.0.113.42", "Xk3vQ9_aZ0-pL7mN2bR8sT4uW6yA1cE5dF7gH9jK0lM"]) {
+      expect(body).not.toContain(secret);
+    }
+    const event = JSON.parse(body.split("\n")[2]);
+    expect(event.request.url).toBe("/api/ical/[token].ics");
+    expect(event.exception.values[0].value).toContain("n***@e…");
+  });
+
   it("handles thrown non-errors", () => {
     const event = JSON.parse(buildEnvelope("plain", { kind: "cron", tags: { job: "cleanup" } }).split("\n")[2]);
     expect(event.exception.values[0]).toEqual({ type: "NonError", value: "plain" });

@@ -1,4 +1,4 @@
-import { BadgeCheck } from "lucide-react";
+import { BadgeCheck, Info } from "lucide-react";
 import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { AccountMarkers, VerificationStatusBadge } from "@/components/admin/badges";
@@ -8,6 +8,7 @@ import { AdminPageHeader } from "@/components/admin/page-header";
 import { AdminPagination } from "@/components/admin/pagination";
 import { TabLinks } from "@/components/admin/tab-links";
 import { EmptyState } from "@/components/common/states";
+import { documentChecksOn } from "@/config/verification";
 import { Link } from "@/i18n/navigation";
 import { enumParam, pageParam, withParams } from "@/lib/admin/params";
 import { ADMIN_PAGE_SIZE } from "@/lib/admin/server/shared";
@@ -39,6 +40,15 @@ export default async function VerificationsPage({ params, searchParams }: PagePr
   return (
     <>
       <AdminPageHeader title={t("title")} description={t("description")} />
+      {documentChecksOn() ? null : (
+        <p className="mb-4 flex items-start gap-2 rounded-xl border border-primary/20 bg-secondary/60 p-3 text-sm">
+          <Info aria-hidden className="mt-0.5 size-4 shrink-0 text-primary" />
+          <span>
+            <span className="block font-medium">{t("paused.title")}</span>
+            <span className="block text-muted-foreground">{t("paused.body")}</span>
+          </span>
+        </p>
+      )}
       <TabLinks
         label={t("statusTabs")}
         active={filters.status}

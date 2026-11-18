@@ -31,12 +31,12 @@ export const SECTION_CHIPS: Record<FilterSection, readonly ChipKey[]> = {
   deal: ["propertyTypes"],
   price: ["price"],
   dates: ["dates", "guests"],
-  rooms: ["rooms", "bedrooms", "bathrooms"],
-  jewish: ["kitchen", "shabbatFriendly", "synagogueMaxWalk", "jewish", "hotel", "bigFamily", "sharedRoomFor"],
-  amenities: ["amenities"],
+  rooms: ["rooms", "bedrooms", "bathrooms", "bigFamily"],
+  jewish: ["kosherShabbat", "kitchen", "shabbatFriendly", "synagogueMaxWalk", "jewish", "hotel", "sharedRoomFor"],
+  amenities: ["nearSea", "nearLifts", "amenities"],
   property: ["size", "floor", "condition", "heating", "views", "furnished", "elevator", "buildingAge"],
   owner: ["verifiedOnly", "ownerType"],
-  listing: ["hasPhotos", "hasVideo", "postedWithin"],
+  listing: ["visited", "hasPhotos", "hasVideo", "postedWithin"],
 };
 
 /** Active filters inside one section. */

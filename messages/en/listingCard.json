@@ -11,7 +11,7 @@
     "business": "Business",
     "shabbatFriendly": "Shabbat-friendly",
     "kosherKitchen": "Kosher kitchen",
-    "synagogueWalk": "{count} min walk to synagogue"
+    "synagogueWalk": "Up to {count} min walk to synagogue"
   },
   "price": {
     "per": {
@@ -23,7 +23,13 @@
     "onRequest": "Price on request",
     "original": "{price} original",
     "approx": "≈ {price}",
-    "approxHint": "Approximate, at today's exchange rate. The owner's price is {price}."
+    "approxHint": "Approximate, at today's exchange rate. The owner's price is {price}.",
+    "total": "{price} total"
+  },
+  "deal": {
+    "MONTHLY_RENT": "Monthly",
+    "SALE": "For sale",
+    "HOTEL_ROOM": "Hotel"
   },
   "favorite": {
     "save": "Save {title}",
@@ -64,5 +70,18 @@
   "empty": {
     "title": "No listings to show",
     "description": "Try another city, other dates or fewer filters."
-  }
+  },
+  "facts": {
+    "groundFloor": "Ground floor"
+  },
+  "tags": {
+    "visited": "We visited",
+    "kosherKitchen": "Kosher kitchen",
+    "shabbatFriendly": "Shabbat-friendly",
+    "sea": "Up to {count} min walk to the sea",
+    "lift": "Up to {count} min walk to the lifts",
+    "synagogue": "Up to {count} min to synagogue",
+    "hebrew": "Speaks Hebrew"
+  },
+  "rating": "Rated {average} out of 5, {count, plural, one {1 review} other {{count} reviews}}"
 }

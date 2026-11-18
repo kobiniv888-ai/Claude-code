@@ -168,7 +168,7 @@ export function LanguageTabs({
                 {hasError ? (
                   <CircleAlert aria-hidden className="size-3.5 text-destructive" />
                 ) : isFilled ? (
-                  <CircleCheck aria-hidden className="size-3.5 text-verified" />
+                  <CircleCheck aria-hidden className="size-3.5 text-success" />
                 ) : (
                   <span aria-hidden className="size-2 rounded-full border border-muted-foreground/50" />
                 )}

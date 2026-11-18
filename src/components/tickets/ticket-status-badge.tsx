@@ -12,9 +12,9 @@ import { Siren } from "lucide-react";
 
 const statusStyles: Record<TicketStatus, { pill: string; icon: string }> = {
   OPEN: { pill: "bg-secondary text-secondary-foreground ring-primary/15", icon: "text-primary" },
-  IN_PROGRESS: { pill: "bg-accent text-accent-foreground ring-terracotta/20", icon: "text-terracotta" },
-  WAITING_FOR_USER: { pill: "bg-warning-soft text-foreground ring-warning/40", icon: "text-warning" },
-  RESOLVED: { pill: "bg-verified-soft text-foreground ring-verified/30", icon: "text-verified" },
+  IN_PROGRESS: { pill: "bg-accent text-accent-foreground ring-primary/20", icon: "text-primary-text" },
+  WAITING_FOR_USER: { pill: "bg-surface-muted text-foreground ring-border-strong/40", icon: "text-foreground" },
+  RESOLVED: { pill: "bg-primary-tint text-foreground ring-success/30", icon: "text-success" },
   CLOSED: { pill: "bg-muted text-muted-foreground ring-border", icon: "text-muted-foreground" },
 };
 
@@ -66,7 +66,7 @@ export function TicketCategoryLabel({
   const Icon = ticketCategoryIcons[category];
   return (
     <span className={cn("inline-flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground", className)}>
-      <Icon aria-hidden="true" className={cn("size-4 shrink-0", category === "SCAM_REPORT" && "text-terracotta")} />
+      <Icon aria-hidden="true" className={cn("size-4 shrink-0", category === "SCAM_REPORT" && "text-primary-text")} />
       <span className="truncate">{t(`category.${category}.label`)}</span>
     </span>
   );
@@ -79,7 +79,7 @@ export function TicketPriorityBadge({ priority, className }: { priority: TicketP
   return (
     <span
       className={cn(
-        "inline-flex h-6 shrink-0 items-center gap-1 rounded-full bg-terracotta px-2 text-xs font-semibold text-terracotta-foreground",
+        "inline-flex h-6 shrink-0 items-center gap-1 rounded-full bg-primary px-2 text-xs font-semibold text-primary-foreground",
         className,
       )}
     >

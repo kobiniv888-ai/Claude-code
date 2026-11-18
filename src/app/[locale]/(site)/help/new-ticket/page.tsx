@@ -5,6 +5,7 @@ import { Container } from "@/components/common/container";
 import { PageHeader } from "@/components/common/page-header";
 import { NewTicketForm } from "@/components/tickets/new-ticket-form";
 import { ShabbatPauseNotice } from "@/components/tickets/shabbat-pause-notice";
+import { SupportReplyPromise } from "@/components/help/support-reply-promise";
 import { Link } from "@/i18n/navigation";
 import { requireUser } from "@/lib/auth/session";
 import { pageMetadata } from "@/lib/seo";
@@ -79,6 +80,11 @@ export default async function NewTicketPage({ params, searchParams }: Props) {
 
         <aside className="flex flex-col gap-4" aria-label={t("asideLabel")}>
           <section className="rounded-2xl border bg-card p-5 shadow-card">
+            <h2 className="text-base font-semibold">{t("replyTitle")}</h2>
+            <SupportReplyPromise className="mt-2 text-sm leading-relaxed text-pretty text-muted-foreground" />
+          </section>
+
+          <section className="rounded-2xl border bg-card p-5 shadow-card">
             <h2 className="text-base font-semibold">{t("tipsTitle")}</h2>
             <ul className="mt-3 flex flex-col gap-3">
               {tips.map(({ key, icon: Icon }) => (
@@ -90,9 +96,9 @@ export default async function NewTicketPage({ params, searchParams }: Props) {
             </ul>
           </section>
 
-          <section className="rounded-2xl border border-terracotta/30 bg-accent p-5 text-accent-foreground">
+          <section className="rounded-2xl border border-primary/30 bg-accent p-5 text-accent-foreground">
             <h2 className="flex items-center gap-2 text-base font-semibold">
-              <ShieldAlert aria-hidden="true" className="size-4 text-terracotta" />
+              <ShieldAlert aria-hidden="true" className="size-4 text-primary-text" />
               {t("scamTitle")}
             </h2>
             <p className="mt-2 text-sm leading-relaxed text-pretty">{t("scamBody")}</p>
@@ -107,7 +113,7 @@ export default async function NewTicketPage({ params, searchParams }: Props) {
           <section className="rounded-2xl border bg-card p-5 shadow-card">
             <h2 className="flex items-center gap-2 text-base font-semibold">
               {user.emailIsPlaceholder ? (
-                <MailWarning aria-hidden="true" className="size-4 text-warning" />
+                <MailWarning aria-hidden="true" className="size-4 text-foreground" />
               ) : (
                 <BellRing aria-hidden="true" className="size-4 text-primary" />
               )}

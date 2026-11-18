@@ -1,0 +1,181 @@
+/*
+ * Sign-in illustration (welcome-door.tsx): a key turns, the door opens onto warm light, a heart
+ * floats out and a check pops up. One gentle 6-second loop.
+ *
+ * Only transform and opacity animate. The resting state (no animation) is the finished scene —
+ * door open, light on, check shown — so reduced motion, or no CSS animation support, shows a
+ * complete, still picture. Plain global CSS with the `bayit-door` prefix (CSS modules are not
+ * set up in this project).
+ */
+
+.bayit-door [data-part] {
+  transform-box: fill-box;
+}
+
+/* ── Resting state: the finished scene ── */
+.bayit-door [data-part="door"] {
+  transform-origin: 0% 50%;
+  transform: scaleX(0.16);
+}
+.bayit-door [data-part="glow"] {
+  transform-origin: 50% 50%;
+  opacity: 1;
+}
+.bayit-door [data-part="key"] {
+  transform-origin: 50% 50%;
+  opacity: 0;
+}
+.bayit-door [data-part="heart"] {
+  transform-origin: 50% 100%;
+  transform: translateY(-6px);
+  opacity: 1;
+}
+.bayit-door [data-part="check"] {
+  transform-origin: 50% 50%;
+}
+.bayit-door [data-part="dot"],
+.bayit-door [data-part="spark"] {
+  transform-origin: 50% 50%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .bayit-door [data-part="door"] {
+    animation: bayit-door-open 6s var(--ease-soft) infinite both;
+  }
+  .bayit-door [data-part="glow"] {
+    animation: bayit-door-glow 6s ease-in-out infinite both;
+  }
+  .bayit-door [data-part="key"] {
+    animation: bayit-door-key 6s var(--ease-soft) infinite both;
+  }
+  .bayit-door [data-part="heart"] {
+    animation: bayit-door-heart 6s ease-out infinite both;
+  }
+  .bayit-door [data-part="check"] {
+    animation: bayit-door-check 6s var(--ease-pop) infinite both;
+  }
+  .bayit-door [data-part="dot"] {
+    animation: bayit-door-float 3.2s ease-in-out infinite alternate both;
+    animation-delay: var(--delay, 0s);
+  }
+  .bayit-door [data-part="spark"] {
+    animation: bayit-door-twinkle 2.4s ease-in-out infinite both;
+    animation-delay: var(--delay, 0s);
+  }
+}
+
+/* The key slides in, then turns half a circle around its own shaft (seen from the side it
+   flattens and flips, so scaleY 1 → -1), then lets go. */
+@keyframes bayit-door-key {
+  0% {
+    opacity: 0;
+    transform: translateX(22px) scaleY(1);
+  }
+  8% {
+    opacity: 1;
+  }
+  18% {
+    opacity: 1;
+    transform: translateX(0) scaleY(1);
+  }
+  30%,
+  34% {
+    opacity: 1;
+    transform: translateX(0) scaleY(-1);
+  }
+  40%,
+  100% {
+    opacity: 0;
+    transform: translateX(0) scaleY(-1);
+  }
+}
+
+@keyframes bayit-door-open {
+  0%,
+  36% {
+    transform: scaleX(1);
+  }
+  50%,
+  84% {
+    transform: scaleX(0.16);
+  }
+  96%,
+  100% {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes bayit-door-glow {
+  0%,
+  38% {
+    opacity: 0.25;
+  }
+  52%,
+  82% {
+    opacity: 1;
+  }
+  96%,
+  100% {
+    opacity: 0.25;
+  }
+}
+
+@keyframes bayit-door-heart {
+  0%,
+  50% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.6);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  80% {
+    opacity: 1;
+    transform: translateY(-8px) scale(1);
+  }
+  90%,
+  100% {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.9);
+  }
+}
+
+@keyframes bayit-door-check {
+  0%,
+  48% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  58%,
+  84% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  94%,
+  100% {
+    opacity: 0;
+    transform: scale(0);
+  }
+}
+
+@keyframes bayit-door-float {
+  from {
+    transform: translateY(3px);
+  }
+  to {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes bayit-door-twinkle {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.7);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

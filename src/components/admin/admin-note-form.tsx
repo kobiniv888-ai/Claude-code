@@ -36,7 +36,7 @@ export function AdminNoteForm({ userId }: { userId: string }) {
         placeholder={t("placeholder")}
         value={body}
         onChange={(e) => setBody(e.target.value)}
-        className="bg-warning-soft/40"
+        className="bg-surface-muted/40"
       />
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground">{t("hint")}</p>

@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { Prisma } from "@/generated/prisma/client";
 import { fail, ok, type ActionResult } from "@/lib/action";
-import { audit } from "@/lib/audit";
+import { audit, auditOrThrow } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { cleanLocalized, cleanLocalizedOrNull } from "../localized";
 import { alertSchema, articleSchema, faqReorderSchema, faqSchema } from "../schemas";
@@ -76,10 +76,13 @@ export async function deleteArticle(input: unknown): Promise<ActionResult> {
     if (!parsed.success) return fail("invalid_input");
     const article = await db.article.findUnique({ where: { id: parsed.data.id }, select: { id: true, slug: true } });
     if (!article) throw new ContentActionError("item_not_found", 404);
-    await db.article.delete({ where: { id: article.id } });
-    await audit({ actorId: staff.id, action: "article.delete", targetType: "Article", targetId: article.id, details: { slug: article.slug } });
+    // Q13: each delete and its audit row commit together, or not at all.
+    await db.$transaction(async (tx) => {
+      await tx.article.delete({ where: { id: article.id } });
+      await auditOrThrow({ actorId: staff.id, action: "article.delete", targetType: "Article", targetId: article.id, details: { slug: article.slug } }, tx);
+    });
     return ok();
-  });
+  }, { freshProof: "window" });
 }
 
 // ─── FAQ ─────────────────────────────────────────────────────
@@ -120,10 +123,12 @@ export async function deleteFaqItem(input: unknown): Promise<ActionResult> {
     if (!parsed.success) return fail("invalid_input");
     const item = await db.faqItem.findUnique({ where: { id: parsed.data.id }, select: { id: true, category: true, question: true } });
     if (!item) throw new ContentActionError("item_not_found", 404);
-    await db.faqItem.delete({ where: { id: item.id } });
-    await audit({ actorId: staff.id, action: "faq.delete", targetType: "FaqItem", targetId: item.id, details: { category: item.category, question: item.question } });
+    await db.$transaction(async (tx) => {
+      await tx.faqItem.delete({ where: { id: item.id } });
+      await auditOrThrow({ actorId: staff.id, action: "faq.delete", targetType: "FaqItem", targetId: item.id, details: { category: item.category, question: item.question } }, tx);
+    });
     return ok();
-  });
+  }, { freshProof: "window" });
 }
 
 /** Saves the order of every item in one category (ids in the new order). */
@@ -192,8 +197,10 @@ export async function deleteScamAlert(input: unknown): Promise<ActionResult> {
     if (!parsed.success) return fail("invalid_input");
     const alert = await db.scamAlert.findUnique({ where: { id: parsed.data.id }, select: { id: true, title: true } });
     if (!alert) throw new ContentActionError("item_not_found", 404);
-    await db.scamAlert.delete({ where: { id: alert.id } });
-    await audit({ actorId: staff.id, action: "scam_alert.delete", targetType: "ScamAlert", targetId: alert.id, details: { title: alert.title } });
+    await db.$transaction(async (tx) => {
+      await tx.scamAlert.delete({ where: { id: alert.id } });
+      await auditOrThrow({ actorId: staff.id, action: "scam_alert.delete", targetType: "ScamAlert", targetId: alert.id, details: { title: alert.title } }, tx);
+    });
     return ok();
-  });
+  }, { freshProof: "window" });
 }

@@ -102,10 +102,10 @@ export async function HolidaysInRange({
   return (
     <aside
       aria-labelledby={headingId}
-      className={cn("rounded-2xl border border-terracotta/25 bg-accent/60 p-4 sm:p-5", className)}
+      className={cn("rounded-2xl border border-primary/25 bg-accent/60 p-4 sm:p-5", className)}
     >
       <Heading id={headingId} className="flex items-center gap-2 text-base font-semibold">
-        <CalendarHeart aria-hidden="true" className="size-5 shrink-0 text-terracotta" />
+        <CalendarHeart aria-hidden="true" className="size-5 shrink-0 text-primary-text" />
         {t("holidays.title")}
       </Heading>
       <ul className="mt-3 space-y-2 text-sm">
@@ -121,7 +121,7 @@ export async function HolidaysInRange({
               <span className="font-medium">{erevOnly ? t("holidays.beginsEvening", { name }) : name}</span>
               <span className="text-muted-foreground">{range}</span>
               {group.hasYomTov ? (
-                <span className="rounded-full bg-terracotta/15 px-2 py-0.5 text-xs font-semibold text-accent-foreground">
+                <span className="rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold text-accent-foreground">
                   {t("holidays.yomTov")}
                 </span>
               ) : null}

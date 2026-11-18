@@ -1,77 +1,89 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { ArrowLeftIcon, LoaderCircleIcon, MessageSquareTextIcon, RotateCcwIcon, TerminalIcon } from "lucide-react";
-import { formatPhoneNumberIntl, isValidPhoneNumber, parsePhoneNumber, type Country } from "react-phone-number-input";
+import { LoaderCircleIcon, MessageSquareTextIcon, TerminalIcon } from "lucide-react";
+import { formatPhoneNumberIntl, isValidPhoneNumber, parsePhoneNumber, type Country } from "react-phone-number-input/input";
 import { Ltr } from "@/components/common/ltr";
 import { Turnstile, type TurnstileHandle } from "@/components/common/turnstile";
 import { PhoneInput } from "@/components/forms/phone-input";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth/client";
 import type { LoginConfig } from "@/lib/auth/config";
-import { authErrorKey, type AuthErrorKey } from "@/lib/auth/error-codes";
-import { cn } from "@/lib/utils";
-import { CodeInput } from "./code-input";
-import { formatCountdown, useAuthErrorMessage } from "./use-auth-messages";
+import { authErrorKey, authFailure, parseActionFailure, type AuthErrorKey, type AuthFailure } from "@/lib/auth/error-codes";
+import { confirmPhoneCheckCode, sendPhoneCheckCode } from "@/lib/auth/phone-check-actions";
+import type { PhoneCheckPlace } from "@/lib/auth/phone-check-policy";
+import { CodeStep, useResendTimer } from "./code-step";
+import { useAuthDevHint, useAuthErrorMessage, useAuthFailureMessage } from "./use-auth-messages";
 
 /**
- * Phone number → 6-digit code. Used to log in (creates the account on first use) and to add
- * a phone number to a Google/Apple account (`mode="add-phone"`).
+ * Phone number → 6-digit code.
+ * - `purpose="sign-in"`: the phone LOGIN (test mode only; creates the account on first use)
+ *   through the Better Auth API.
+ * - `purpose="check"`: a signed-in account verifies a number (booking, posting) through the server
+ *   actions in @/lib/auth/phone-check-actions — once per number: a number the account already has
+ *   verified is accepted without a code. `place` (+ `listingId` for a booking) tells the server
+ *   where the check happens; it decides whether a text may be sent. Use <PhoneCheck>.
+ *
+ * Only Israeli and Georgian mobile numbers get codes (the country list offers only those; the
+ * server checks again). The waits between codes and the daily caps are the SERVER's
+ * (src/lib/auth/code-rules.ts); the form shows them.
  */
-
-const RESEND_AFTER_SECONDS = 60;
 
 type Step = "phone" | "code";
 
 export function PhoneCodeForm({
-  mode,
+  purpose,
   config,
   onVerified,
   autoFocus,
   initialPhone,
+  onStepChange,
+  place = "account",
+  listingId,
+  postStepToken,
 }: {
-  mode: "sign-in" | "add-phone";
+  purpose: "sign-in" | "check";
   config: LoginConfig["phone"];
+  /** `purpose="check"`: where the check happens (the server allows texts only there). */
+  place?: PhoneCheckPlace;
+  /** `place="booking"`: the listing being booked. */
+  listingId?: string | null;
+  /** `place="post"` before the first draft: the post form's phone-step token (the server checks it). */
+  postStepToken?: string | null;
   onVerified: (phoneNumber: string) => void | Promise<void>;
   autoFocus?: boolean;
   initialPhone?: string;
+  /** Told when the form moves between the phone number and the 6-digit code. */
+  onStepChange?: (step: Step) => void;
 }) {
   const t = useTranslations("auth.phone");
-  const errorMessage = useAuthErrorMessage();
-  const formId = useId();
-  const codeId = `${formId}-code`;
-  const codeHelpId = `${formId}-code-help`;
-  const codeErrorId = `${formId}-code-error`;
+  const tCodes = useTranslations("auth.codes");
+  // Phone checks happen while signed in: never suggest other ways to log in there.
+  const errorMessage = useAuthErrorMessage({ phoneOnly: purpose === "check" });
+  const failureMessage = useAuthFailureMessage({ phoneOnly: purpose === "check" });
+  const devHint = useAuthDevHint();
 
-  const [step, setStep] = useState<Step>("phone");
+  const [step, setStepState] = useState<Step>("phone");
+  const setStep = (next: Step) => {
+    setStepState(next);
+    onStepChange?.(next);
+  };
   const [phone, setPhone] = useState<string | undefined>(initialPhone);
   const [country, setCountry] = useState<Country | undefined>(config.defaultCountry as Country);
   const [phoneError, setPhoneError] = useState<string | null>(null);
+  /** The error key behind phoneError, for the development-only hint. */
+  const [phoneErrorKey, setPhoneErrorKey] = useState<AuthErrorKey | string | null>(null);
   const [code, setCode] = useState("");
-  const [codeError, setCodeError] = useState<AuthErrorKey | null>(null);
+  const [codeError, setCodeError] = useState<AuthFailure | null>(null);
   const [pending, setPending] = useState<"send" | "verify" | "resend" | null>(null);
-  const [resendAt, setResendAt] = useState(0);
-  const [now, setNow] = useState(() => Date.now());
+  const timer = useResendTimer();
   const [notice, setNotice] = useState<string | null>(null);
-  const [devCode, setDevCode] = useState<string | null>(null);
+  const [screenCode, setScreenCode] = useState<string | null>(null);
 
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [captchaFailed, setCaptchaFailed] = useState(false);
   const captcha = useRef<TurnstileHandle>(null);
-
-  // Countdown for "send a new code".
-  useEffect(() => {
-    if (step !== "code" || resendAt <= Date.now()) return;
-    const timer = window.setInterval(() => {
-      const current = Date.now();
-      setNow(current);
-      if (current >= resendAt) window.clearInterval(timer);
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, [step, resendAt]);
-
-  const secondsLeft = Math.max(0, Math.ceil((resendAt - now) / 1000));
 
   function validatePhone(value: string | undefined): string | null {
     if (!value) return t("required");
@@ -83,30 +95,58 @@ export function PhoneCodeForm({
     return null;
   }
 
-  async function fetchDevCode(phoneNumber: string) {
-    if (!config.devHints) return;
+  async function fetchScreenCode(phoneNumber: string): Promise<string | null> {
+    if (!config.devHints) return null;
     try {
-      const response = await fetch(`/api/dev/last-otp?phone=${encodeURIComponent(phoneNumber)}`, {
-        cache: "no-store",
-      });
-      if (!response.ok) return;
+      const response = await fetch(`/api/dev/last-otp?phone=${encodeURIComponent(phoneNumber)}`, { cache: "no-store" });
+      if (!response.ok) return null;
       const data = (await response.json()) as { code?: string | null };
-      setDevCode(data.code ?? null);
+      return data.code ?? null;
     } catch {
-      setDevCode(null);
+      return null;
     }
   }
 
-  /** Sends a code; returns an error key or null. */
-  async function sendCode(phoneNumber: string): Promise<AuthErrorKey | null> {
-    const { error } = await authClient.phoneNumber.sendOtp({
-      phoneNumber,
-      fetchOptions: captchaToken ? { headers: { "x-captcha-response": captchaToken } } : undefined,
-    });
+  type Sent = { error: AuthFailure } | { alreadyVerified: true } | { screenCode: string | null };
+
+  /** Sends a code (or, for a number this account already verified, nothing). */
+  async function sendCode(phoneNumber: string): Promise<Sent> {
+    const token = captchaToken;
     // Turnstile tokens are single-use.
     setCaptchaToken(null);
     captcha.current?.reset();
-    return error ? authErrorKey(error) : null;
+    if (purpose === "check") {
+      const result = await sendPhoneCheckCode({ phoneNumber, captchaToken: token, place, listingId, postStepToken }).catch(() => null);
+      if (!result) return { error: { key: "network", retryAfter: null } };
+      if (!result.ok) return { error: parseActionFailure(result.error) };
+      if (result.data.status === "already_verified") return { alreadyVerified: true };
+      return { screenCode: result.data.screenCode };
+    }
+    const { error } = await authClient.phoneNumber.sendOtp({
+      phoneNumber,
+      fetchOptions: token ? { headers: { "x-captcha-response": token } } : undefined,
+    });
+    if (error) return { error: authFailure(error) };
+    return { screenCode: await fetchScreenCode(phoneNumber) };
+  }
+
+  async function checkCode(phoneNumber: string, value: string): Promise<AuthFailure | null> {
+    if (purpose === "check") {
+      const result = await confirmPhoneCheckCode({ phoneNumber, code: value }).catch(() => null);
+      if (!result) return { key: "network", retryAfter: null };
+      return result.ok ? null : parseActionFailure(result.error);
+    }
+    const { error } = await authClient.phoneNumber.verify({ phoneNumber, code: value });
+    return error ? { key: authErrorKey(error), retryAfter: null } : null;
+  }
+
+  /** The code step, after a code was sent now or a moment ago. */
+  function showCodeStep(screen: string | null, notice: string | null) {
+    setStep("code");
+    setCode("");
+    setCodeError(null);
+    setNotice(notice);
+    setScreenCode(screen);
   }
 
   async function onSubmitPhone(event: FormEvent) {
@@ -114,23 +154,34 @@ export function PhoneCodeForm({
     if (pending) return;
     const problem = validatePhone(phone);
     setPhoneError(problem);
+    setPhoneErrorKey(null);
     if (problem || !phone) return;
 
     setPending("send");
-    const error = await sendCode(phone);
-    setPending(null);
-    if (error) {
-      setPhoneError(errorMessage(error));
+    const sent = await sendCode(phone);
+    if ("error" in sent) {
+      setPending(null);
+      // A code went to this number a moment ago (the server's wait): it still works, so ask for it.
+      if (sent.error.key === "code_wait" && sent.error.retryAfter) {
+        showCodeStep(null, tCodes("alreadySent"));
+        timer.waitFor(sent.error.retryAfter);
+        return;
+      }
+      setPhoneError(failureMessage(sent.error));
+      setPhoneErrorKey(sent.error.key);
       return;
     }
-    setStep("code");
-    setCode("");
-    setCodeError(null);
-    setNotice(null);
-    setDevCode(null);
-    setNow(Date.now());
-    setResendAt(Date.now() + RESEND_AFTER_SECONDS * 1000);
-    void fetchDevCode(phone);
+    if ("alreadyVerified" in sent) {
+      try {
+        await onVerified(phone);
+      } finally {
+        setPending(null);
+      }
+      return;
+    }
+    setPending(null);
+    showCodeStep(sent.screenCode, null);
+    timer.restart();
   }
 
   async function verify(value: string) {
@@ -138,18 +189,12 @@ export function PhoneCodeForm({
     setPending("verify");
     setCodeError(null);
     setNotice(null);
-    const { error } = await authClient.phoneNumber.verify({
-      phoneNumber: phone,
-      code: value,
-      ...(mode === "add-phone" && { updatePhoneNumber: true }),
-    });
+    const error = await checkCode(phone, value);
     if (error) {
       setPending(null);
-      const key = authErrorKey(error);
-      setCodeError(key);
+      setCodeError(error);
       setCode("");
-      // The code is gone after too many attempts or when it expired: allow a new one now.
-      if (key === "too_many_attempts" || key === "code_expired") setResendAt(0);
+      if (error.key === "too_many_attempts" || error.key === "code_expired") timer.allowNow();
       return;
     }
     try {
@@ -159,28 +204,27 @@ export function PhoneCodeForm({
     }
   }
 
-  async function onSubmitCode(event: FormEvent) {
-    event.preventDefault();
-    await verify(code);
-  }
-
   async function resend() {
-    if (!phone || pending || secondsLeft > 0) return;
+    if (!phone || pending || timer.secondsLeft > 0) return;
     setPending("resend");
     setCodeError(null);
     setNotice(null);
-    const error = await sendCode(phone);
+    const sent = await sendCode(phone);
     setPending(null);
-    if (error) {
-      setCodeError(error);
+    if ("error" in sent) {
+      // The server's wait: the countdown shows it (no error text needed).
+      if (sent.error.key === "code_wait" && sent.error.retryAfter) {
+        timer.waitFor(sent.error.retryAfter);
+        return;
+      }
+      setCodeError(sent.error);
       return;
     }
+    if ("alreadyVerified" in sent) return;
     setCode("");
-    setDevCode(null);
-    setNotice(t("resent"));
-    setNow(Date.now());
-    setResendAt(Date.now() + RESEND_AFTER_SECONDS * 1000);
-    void fetchDevCode(phone);
+    setScreenCode(sent.screenCode);
+    setNotice(tCodes("resent"));
+    timer.restart();
   }
 
   function changeNumber() {
@@ -188,7 +232,7 @@ export function PhoneCodeForm({
     setCode("");
     setCodeError(null);
     setNotice(null);
-    setDevCode(null);
+    setScreenCode(null);
   }
 
   const captchaReady = captchaToken !== null;
@@ -201,23 +245,27 @@ export function PhoneCodeForm({
         <form onSubmit={onSubmitPhone} noValidate className="grid gap-4">
           <PhoneInput
             label={t("label")}
-            description={config.channel === "whatsapp" ? t("hintWhatsapp") : t("hintSms")}
+            description={t("hintSms")}
             value={phone}
             onChange={(value) => {
               setPhone(value);
               if (phoneError) setPhoneError(null);
+              if (phoneErrorKey) setPhoneErrorKey(null);
             }}
             onCountryChange={setCountry}
             defaultCountry={config.defaultCountry as Country}
+            countries={config.allowedCountries as Country[]}
+            rememberAs="login"
             error={phoneError}
             autoFocus={autoFocus}
             required
             size="lg"
           />
+          <DevHint text={devHint(phoneErrorKey)} />
           <Button
             type="submit"
             size="lg"
-            className="h-12 w-full rounded-xl text-base"
+            className="h-12 w-full rounded-button text-base font-semibold"
             disabled={pending !== null || !captchaReady}
             aria-busy={pending === "send" || undefined}
           >
@@ -230,102 +278,26 @@ export function PhoneCodeForm({
           </Button>
         </form>
       ) : (
-        <form onSubmit={onSubmitCode} noValidate className="grid gap-4">
-          <div className="grid gap-1 text-center">
-            <p className="text-base font-semibold" id={`${formId}-code-title`}>
-              {t("codeTitle")}
-            </p>
-            <p id={codeHelpId} className="text-sm text-muted-foreground">
-              {config.channel === "whatsapp"
-                ? t.rich("codeSentWhatsapp", { phone: displayPhone, ltr })
-                : t.rich("codeSentSms", { phone: displayPhone, ltr })}
-            </p>
-          </div>
-
-          <CodeInput
-            id={codeId}
-            label={t("codeLabel")}
-            value={code}
-            onChange={(value) => {
-              setCode(value);
-              if (codeError) setCodeError(null);
-            }}
-            onComplete={(value) => void verify(value)}
-            disabled={pending === "verify"}
-            invalid={!!codeError}
-            autoFocus
-            describedBy={[codeHelpId, codeError ? codeErrorId : null].filter(Boolean).join(" ")}
-          />
-
-          {codeError && (
-            <p id={codeErrorId} role="alert" className="text-center text-sm font-medium text-destructive">
-              {errorMessage(codeError)}
-            </p>
-          )}
-          {notice && !codeError && (
-            <p role="status" className="text-center text-sm text-verified">
-              {notice}
-            </p>
-          )}
-
-          {devCode && (
-            <div className="flex items-center gap-2 rounded-lg border border-dashed border-warning/50 bg-warning-soft px-3 py-2 text-sm text-foreground">
-              <TerminalIcon className="size-4 shrink-0 text-warning" aria-hidden />
-              <span>
-                {t.rich("devCode", {
-                  code: devCode,
-                  value: (chunks) => (
-                    <button
-                      type="button"
-                      className="rounded px-1 font-mono font-semibold tracking-widest underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                      onClick={() => {
-                        setCode(devCode);
-                        void verify(devCode);
-                      }}
-                      dir="ltr"
-                    >
-                      {chunks}
-                    </button>
-                  ),
-                })}
-              </span>
-            </div>
-          )}
-
-          <Button
-            type="submit"
-            size="lg"
-            className="h-12 w-full rounded-xl text-base"
-            disabled={pending !== null || code.length !== 6}
-            aria-busy={pending === "verify" || undefined}
-          >
-            {pending === "verify" && <LoaderCircleIcon className="size-5 animate-spin" aria-hidden />}
-            {pending === "verify" ? t("verifying") : t("verify")}
-          </Button>
-
-          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm">
-            <Button type="button" variant="link" className="h-auto px-0" onClick={changeNumber}>
-              <ArrowLeftIcon className="rtl:-scale-x-100" aria-hidden />
-              {t("changeNumber")}
-            </Button>
-            {secondsLeft > 0 ? (
-              <span className="text-muted-foreground" aria-live="off">
-                {t.rich("resendIn", { time: formatCountdown(secondsLeft), ltr: (c) => <Ltr>{c}</Ltr> })}
-              </span>
-            ) : (
-              <Button
-                type="button"
-                variant="link"
-                className="h-auto px-0"
-                onClick={() => void resend()}
-                disabled={pending !== null || !captchaReady}
-              >
-                <RotateCcwIcon className={cn(pending === "resend" && "animate-spin")} aria-hidden />
-                {t("resend")}
-              </Button>
-            )}
-          </div>
-        </form>
+        <CodeStep
+          sentText={t.rich("codeSentSms", { phone: displayPhone, ltr })}
+          code={code}
+          onCodeChange={(value) => {
+            setCode(value);
+            if (codeError) setCodeError(null);
+          }}
+          onVerify={(value) => void verify(value)}
+          verifying={pending === "verify"}
+          resending={pending === "resend"}
+          error={failureMessage(codeError)}
+          extra={<DevHint text={devHint(codeError?.key)} />}
+          notice={notice}
+          screenCode={screenCode}
+          backLabel={t("changeNumber")}
+          onBack={changeNumber}
+          secondsLeft={timer.secondsLeft}
+          onResend={() => void resend()}
+          resendDisabled={!captchaReady}
+        />
       )}
 
       <Turnstile
@@ -347,5 +319,16 @@ export function PhoneCodeForm({
         </p>
       )}
     </div>
+  );
+}
+
+/** Development only: what to fix when sending a code fails (origin, proxy, server, SMS). */
+export function DevHint({ text }: { text: string | null }) {
+  if (!text) return null;
+  return (
+    <p className="flex items-start gap-2 rounded-input border border-dashed border-border-strong/50 bg-surface-muted px-3 py-2 text-xs text-foreground">
+      <TerminalIcon className="mt-0.5 size-3.5 shrink-0 text-foreground" aria-hidden />
+      <span>{text}</span>
+    </p>
   );
 }

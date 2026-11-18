@@ -69,23 +69,26 @@ export function ClicksByChannelChart({
           </BarChart>
         </ResponsiveContainer>
       </div>
-      <table className="sr-only">
-        <caption>{labels.table}</caption>
-        <thead>
-          <tr>
-            <th scope="col">{labels.channel}</th>
-            <th scope="col">{labels.clicks}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((row) => (
-            <tr key={row.label}>
-              <th scope="row">{row.label}</th>
-              <td>{formatNumber(row.count, locale)}</td>
+      {/* sr-only on a wrapper: a table ignores the 1px width and would widen the page (long Georgian headers). */}
+      <div className="sr-only">
+        <table>
+          <caption>{labels.table}</caption>
+          <thead>
+            <tr>
+              <th scope="col">{labels.channel}</th>
+              <th scope="col">{labels.clicks}</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {data.map((row) => (
+              <tr key={row.label}>
+                <th scope="row">{row.label}</th>
+                <td>{formatNumber(row.count, locale)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

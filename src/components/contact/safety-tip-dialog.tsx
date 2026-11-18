@@ -40,7 +40,7 @@ export function SafetyTipDialog({
         <ul className="grid gap-3">
           {points.map(({ icon: Icon, text }) => (
             <li key={text} className="flex gap-3 text-sm leading-relaxed">
-              <Icon className="mt-0.5 size-5 shrink-0 text-warning" aria-hidden />
+              <Icon className="mt-0.5 size-5 shrink-0 text-foreground" aria-hidden />
               <span>{text}</span>
             </li>
           ))}

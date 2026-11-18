@@ -1,11 +1,13 @@
 import { parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js";
 import { siteConfig } from "@/config/site";
+import { cleanPhoneQuery, normalizePhone, stripInvisible } from "@/lib/phone";
 
 /**
  * Understands what staff typed into the user search (pure, client-safe):
  * a name, an email, a phone number in international (+995…, 00995…) or local form
  * (555 12 34 56, 052-123-4567), a user id, or a listing ID ("#1234", "ID 1234", "1234").
- * The server ORs every term that applies.
+ * The server ORs every term that applies. Text pasted from WhatsApp or another RTL app works too:
+ * bidi marks, Arabic-Indic digits and tel: / wa.me links are cleaned first (src/lib/phone.ts).
  */
 
 export type UserSearchTerms = {
@@ -37,10 +39,16 @@ const LOCAL_COUNTRIES: CountryCode[] = [siteConfig.phone.defaultCountry as Count
 const MAX_PUBLIC_ID = 2_147_483_647;
 
 export function normalizePhoneCandidates(input: string): string[] {
-  const raw = input.replace(/[\s().-]/g, "");
+  const cleaned = cleanPhoneQuery(input);
+  const raw = cleaned.replace(/[\s().-]/g, "");
   if (!/^\+?\d{5,16}$/.test(raw) && !/^00\d{5,16}$/.test(raw)) return [];
   const international = raw.startsWith("+") ? raw : raw.startsWith("00") ? `+${raw.slice(2)}` : null;
   const out = new Set<string>();
+  // The site's own normalization (how numbers are stored), for both local countries.
+  for (const country of LOCAL_COUNTRIES) {
+    const stored = normalizePhone(cleaned, country);
+    if (stored) out.add(stored);
+  }
   if (international) {
     const parsed = parsePhoneNumberFromString(international);
     out.add(parsed?.isPossible() ? parsed.number : international);
@@ -56,8 +64,14 @@ export function normalizePhoneCandidates(input: string): string[] {
   return [...out];
 }
 
+/** Digits for "phone number contains": a local number's leading national 0 can't be in E.164. */
+function partialPhoneDigits(phoneText: string, digits: string): string | null {
+  const partial = !phoneText.startsWith("+") && digits.startsWith("0") ? digits.slice(1) : digits;
+  return partial.length >= 5 ? partial : null;
+}
+
 export function parseUserSearch(input: string | null | undefined): UserSearchTerms {
-  const query = (input ?? "").trim().slice(0, 120);
+  const query = stripInvisible(input ?? "").trim().slice(0, 120);
   if (!query) return EMPTY;
 
   const listingMatch = /^(?:#|id[\s:#-]*|listing[\s:#-]*)(\d{1,10})$/i.exec(query);
@@ -70,11 +84,12 @@ export function parseUserSearch(input: string | null | undefined): UserSearchTer
     return { ...EMPTY, email: query.toLowerCase(), text: query };
   }
 
-  const digits = query.replace(/\D/g, "");
-  if (/^[+\d\s().-]+$/.test(query) && digits.length > 0) {
+  const phoneText = cleanPhoneQuery(query);
+  const digits = phoneText.replace(/\D/g, "");
+  if (/^[+\d\s().-]+$/.test(phoneText) && digits.length > 0) {
     const terms: UserSearchTerms = { ...EMPTY };
-    terms.phones = normalizePhoneCandidates(query);
-    terms.phoneDigits = digits.length >= 5 ? digits : null;
+    terms.phones = normalizePhoneCandidates(phoneText);
+    terms.phoneDigits = partialPhoneDigits(phoneText, digits);
     // Short plain numbers are listing IDs too ("1234").
     if (/^\d{1,7}$/.test(query)) {
       const id = Number(query);

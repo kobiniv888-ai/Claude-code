@@ -1,12 +1,38 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type Ref } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type Ref } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Building2, LoaderCircle, MapPin, Search, X } from "lucide-react";
+import { Building2, MapPin, Search, X } from "lucide-react";
+import type { Localized } from "@/config/site";
+import { afterLoadIdle } from "@/lib/idle";
+import type { PlaceMatch } from "@/lib/places-match";
 import type { PlaceValue } from "@/lib/search/search-bar";
 import { cn } from "@/lib/utils";
 
-/** A suggestion row (cities and neighborhoods from /api/places/search, or the popular cities). */
+/**
+ * The gazetteer and its matcher (~5 KB) load when the field is first focused or touched (or once
+ * the page is idle), not with the page: the home page and the search page show this field on
+ * their first screen, but nobody needs a suggestion before tapping it. Until it has arrived, the
+ * list offers the popular cities and "search for …".
+ */
+type Matcher = typeof import("@/lib/places-match");
+let matcher: Matcher | null = null;
+let matcherLoad: Promise<Matcher> | null = null;
+function loadMatcher(): Promise<Matcher> {
+  matcherLoad ??= import("@/lib/places-match").then((module) => (matcher = module));
+  return matcherLoad;
+}
+
+function useMatcher(): [Matcher | null, () => void] {
+  const [loaded, setLoaded] = useState<Matcher | null>(matcher);
+  const request = useCallback(() => {
+    if (!matcher) void loadMatcher().then(setLoaded, () => (matcherLoad = null));
+  }, []);
+  useEffect(() => (matcher ? undefined : afterLoadIdle(request)), [request]);
+  return [loaded ?? matcher, request];
+}
+
+/** A suggestion row (cities and neighborhoods from the gazetteer, or the popular cities). */
 type Suggestion = {
   key: string;
   value: PlaceValue;
@@ -15,48 +41,47 @@ type Suggestion = {
   kind: "city" | "neighborhood" | "text";
 };
 
-type ApiPlace = {
-  type: "city" | "neighborhood";
-  id: string;
-  slug: string;
-  citySlug: string;
-  name: string;
-  cityName: string | null;
-};
-
 export type PopularPlace = { slug: string; name: string };
 
-const DEBOUNCE_MS = 180;
+const MAX_SUGGESTIONS = 8;
 const MIN_QUERY = 1;
 
-function toSuggestion(place: ApiPlace): Suggestion {
+function nameIn(names: Localized, locale: string): string {
+  return names[locale as keyof Localized] || names.en;
+}
+
+function toSuggestion(place: PlaceMatch, locale: string): Suggestion {
+  const name = nameIn(place.names, locale);
   if (place.type === "neighborhood") {
+    const cityName = place.cityNames ? nameIn(place.cityNames, locale) : null;
     return {
-      key: `n:${place.id}`,
+      key: `n:${place.citySlug}/${place.slug}`,
       kind: "neighborhood",
-      title: place.name,
-      subtitle: place.cityName,
+      title: name,
+      subtitle: cityName,
       value: {
         kind: "neighborhood",
         citySlug: place.citySlug,
         neighborhoodSlug: place.slug,
-        label: [place.name, place.cityName].filter(Boolean).join(", "),
+        label: [name, cityName].filter(Boolean).join(", "),
       },
     };
   }
   return {
-    key: `c:${place.id}`,
+    key: `c:${place.slug}`,
     kind: "city",
-    title: place.name,
+    title: name,
     subtitle: null,
-    value: { kind: "city", citySlug: place.slug, label: place.name },
+    value: { kind: "city", citySlug: place.slug, label: name },
   };
 }
 
 /**
- * "Where" field: a combobox (WAI-ARIA 1.2 pattern) with suggestions from /api/places/search in
- * any of the five languages. Empty input shows the popular cities. Typing without picking a
- * suggestion searches the text itself (titles, neighborhoods, listing IDs).
+ * "Where" field: a combobox (WAI-ARIA 1.2 pattern) with instant suggestions from the bundled
+ * gazetteer (src/config/places.ts) in any of the five languages, other spellings and small typos
+ * (src/lib/places-match.ts) — no request, no spinner. Empty input shows the popular cities.
+ * Typing without picking a suggestion searches the text itself (titles, neighborhoods, listing
+ * IDs) on the search page.
  */
 export function PlaceCombobox({
   value,
@@ -87,9 +112,6 @@ export function PlaceCombobox({
   const [text, setText] = useState(value?.label ?? "");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
-  const [results, setResults] = useState<{ query: string; items: Suggestion[] } | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [failed, setFailed] = useState(false);
   const [syncedLabel, setSyncedLabel] = useState(value?.label ?? "");
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -104,31 +126,22 @@ export function PlaceCombobox({
   const picked = value !== null && value.kind !== "text" && value.label === text;
   const searching = query.length >= MIN_QUERY && !picked;
 
-  useEffect(() => {
-    if (!searching) return;
-    const controller = new AbortController();
-    const timer = window.setTimeout(async () => {
-      setLoading(true);
-      setFailed(false);
-      try {
-        const params = new URLSearchParams({ q: query, locale, limit: "8" });
-        const response = await fetch(`/api/places/search?${params}`, { signal: controller.signal });
-        if (!response.ok) throw new Error(String(response.status));
-        const body = (await response.json()) as { results?: ApiPlace[] };
-        setResults({ query, items: (body.results ?? []).map(toSuggestion) });
-      } catch (error) {
-        if ((error as Error).name !== "AbortError") setFailed(true);
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-    }, DEBOUNCE_MS);
-    return () => {
-      controller.abort();
-      window.clearTimeout(timer);
-    };
-  }, [query, locale, searching]);
+  const [places, loadPlaces] = useMatcher();
+  const found = useMemo(
+    () =>
+      searching && places
+        ? places.matchPlaces(query, { limit: MAX_SUGGESTIONS }).map((place) => toSuggestion(place, locale))
+        : [],
+    [query, searching, locale, places],
+  );
 
-  const popularItems: Suggestion[] = popular.map((city) => ({
+  // The database's popular cities; the gazetteer's when the database has none (e.g. not seeded).
+  const popularList: PopularPlace[] =
+    popular.length > 0
+      ? popular
+      : (places?.popularGazetteerCities() ?? []).map((city) => ({ slug: city.slug, name: nameIn(city.names, locale) }));
+
+  const popularItems: Suggestion[] = popularList.map((city) => ({
     key: `p:${city.slug}`,
     kind: "city",
     title: city.name,
@@ -142,7 +155,6 @@ export function PlaceCombobox({
     items = popularItems;
     heading = t("popularPlaces");
   } else {
-    const found = results && results.query === query ? results.items : [];
     const textItem: Suggestion = {
       key: "text",
       kind: "text",
@@ -191,10 +203,10 @@ export function PlaceCombobox({
         if (showList && activeIndex >= 0) {
           event.preventDefault();
           choose(items[activeIndex]);
-        } else if (showList && searching && results?.query === query && results.items.length > 0) {
+        } else if (showList && searching && found.length > 0) {
           // Enter on a typed name picks the best match ("tbil" → Tbilisi).
           event.preventDefault();
-          choose(results.items[0]);
+          choose(found[0]);
         } else {
           setOpen(false);
         }
@@ -252,7 +264,11 @@ export function PlaceCombobox({
           value={text}
           placeholder={t("wherePlaceholder")}
           onChange={(event) => onType(event.target.value)}
-          onFocus={() => setOpen(true)}
+          onPointerDown={loadPlaces}
+          onFocus={() => {
+            loadPlaces();
+            setOpen(true);
+          }}
           onClick={() => setOpen(true)}
           onKeyDown={onKeyDown}
           className={cn(
@@ -278,12 +294,11 @@ export function PlaceCombobox({
           !showList && "hidden",
         )}
       >
-        <p className="flex items-center justify-between gap-2 px-4 pt-3 pb-1 text-xs font-semibold text-muted-foreground">
-          <span>{heading}</span>
-          {loading ? <LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : null}
-        </p>
+        <p className="px-4 pt-3 pb-1 text-xs font-semibold text-muted-foreground">{heading}</p>
         <ul id={listId} role="listbox" aria-label={heading} className="max-h-80 overflow-y-auto p-1.5">
-          {items.map((item, index) => {
+          {/* Options only while open: closed, they were ~5 KB of hidden markup (and icons) in the
+              first screen of the home page, ahead of its largest paint. */}
+          {(showList ? items : []).map((item, index) => {
             const Icon = item.kind === "text" ? Search : item.kind === "neighborhood" ? MapPin : Building2;
             return (
               <li
@@ -316,14 +331,9 @@ export function PlaceCombobox({
             );
           })}
         </ul>
-        {failed && searching ? (
-          <p role="status" className="px-4 pb-3 text-xs text-muted-foreground">
-            {t("suggestionsFailed")}
-          </p>
-        ) : null}
       </div>
       <p className="sr-only" role="status" aria-live="polite">
-        {showList && searching && results?.query === query ? t("suggestionCount", { count: results.items.length }) : ""}
+        {showList && searching ? t("suggestionCount", { count: found.length }) : ""}
       </p>
     </div>
   );

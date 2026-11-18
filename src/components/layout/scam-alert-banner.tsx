@@ -1,25 +1,10 @@
 import { connection } from "next/server";
 import { getLocale, getTranslations } from "next-intl/server";
 import { pickLocalized } from "@/i18n/locale";
-import { db } from "@/lib/db";
+import { getBannerScamAlert } from "@/lib/scam-alerts/server";
 import { getSettings } from "@/lib/settings";
 import { alertKey, DISMISSED_ALERTS_ATTR } from "./dismissed-alerts";
 import { ScamAlertBannerView } from "./scam-alert-banner-view";
-
-async function getBannerAlert() {
-  const now = new Date();
-  return db.scamAlert.findFirst({
-    where: {
-      active: true,
-      showAsBanner: true,
-      startsAt: { lte: now },
-      OR: [{ endsAt: null }, { endsAt: { gt: now } }],
-    },
-    // Enum order is INFO < WARNING < CRITICAL: the most serious alert wins, then the newest.
-    orderBy: [{ severity: "desc" }, { startsAt: "desc" }],
-    select: { id: true, title: true, body: true, severity: true, updatedAt: true },
-  });
-}
 
 /**
  * The site-wide scam-alert bar (Admin → Content → Scam alerts, "show as banner"), shown while
@@ -30,9 +15,9 @@ export async function ScamAlertBanner() {
   const settings = await getSettings();
   if (!settings.scamBannerEnabled) return null;
 
-  let alert: Awaited<ReturnType<typeof getBannerAlert>> = null;
+  let alert: Awaited<ReturnType<typeof getBannerScamAlert>>;
   try {
-    alert = await getBannerAlert();
+    alert = await getBannerScamAlert();
   } catch (error) {
     console.error("[layout] could not load the scam-alert banner", error);
     return null;

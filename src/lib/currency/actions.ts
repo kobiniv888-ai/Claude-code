@@ -2,9 +2,11 @@
 
 import { cookies } from "next/headers";
 import { fail, ok, type ActionResult } from "@/lib/action";
+import { getCurrentUser } from "@/lib/auth/session";
+import { db } from "@/lib/db";
+import { rateLimitByIp } from "@/lib/rate-limit";
 import { CURRENCY_COOKIE_NAME, CURRENCY_COOKIE_MAX_AGE } from "./cookie";
 import { isEnabledCurrency } from "./convert";
-import { rateLimitByIp } from "@/lib/rate-limit";
 
 /** Saves the visitor's display currency in a cookie for a year. */
 export async function setDisplayCurrency(code: unknown): Promise<ActionResult> {
@@ -20,5 +22,21 @@ export async function setDisplayCurrency(code: unknown): Promise<ActionResult> {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
   });
+  return ok();
+}
+
+/**
+ * "Automatic (by language)" (round 3, bug 2.8): forgets the visitor's choice — the cookie, and the
+ * account setting when signed in (User.currency = null) — so prices follow the page language again
+ * (he/ru/ar ₪, en $, ka ₾). Only the caller's own cookie and own account row are touched.
+ */
+export async function clearDisplayCurrency(): Promise<ActionResult> {
+  const limit = await rateLimitByIp("currency:set", { limit: 30, windowSeconds: 60 });
+  if (!limit.ok) return fail("rate_limited");
+
+  (await cookies()).delete(CURRENCY_COOKIE_NAME);
+  const user = await getCurrentUser().catch(() => null);
+  // A session whose 2-step code is not entered yet counts as signed out (SECURITY_REPORT 4.2.a).
+  if (user?.twoFactorVerified && user.currency) await db.user.update({ where: { id: user.id }, data: { currency: null } });
   return ok();
 }

@@ -45,7 +45,7 @@ export function ChipList({ items }: { items: { icon: LucideIcon; label: ReactNod
           key={index}
           className="inline-flex items-center gap-1.5 rounded-full border bg-background px-3 py-1 text-sm font-medium"
         >
-          <Icon aria-hidden="true" className="size-4 text-terracotta" strokeWidth={1.9} />
+          <Icon aria-hidden="true" className="size-4 text-primary-text" strokeWidth={1.9} />
           {label}
         </li>
       ))}

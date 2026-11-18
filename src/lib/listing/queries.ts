@@ -11,8 +11,10 @@
  */
 import "server-only";
 import { siteConfig, type AppLocale, type CurrencyCode } from "@/config/site";
-import type { Prisma } from "@/generated/prisma/client";
+import type { DealType, Prisma } from "@/generated/prisma/client";
 import type { Rates } from "@/lib/currency/convert";
+import { addDays, daysBetween, isDay } from "@/lib/booking/dates";
+import { MAX_STAY_NIGHTS } from "@/lib/booking/constants";
 import { db } from "@/lib/db";
 import { listingCardSelect, listingMapSelect, toListingCard, toListingMapPoint, type ListingCardRow } from "@/lib/listing/mappers";
 import type { SearchFilters } from "@/lib/listing/search-params";
@@ -24,6 +26,7 @@ import {
   notPromotedWhere,
   promotedWhere,
   publicListingWhere,
+  sortBySynagogueStep,
 } from "@/lib/listing/where";
 import { getSettings } from "@/lib/settings";
 
@@ -44,7 +47,7 @@ const MAX_PAGE_SIZE = 60;
 const MAX_MAP_POINTS = 500;
 const MAX_CARDS_BY_ID = 100;
 
-type Runtime = { now: Date; demoVisible: boolean; featuredIds: string[]; featuredSet: Set<string> };
+type Runtime = { now: Date; demoVisible: boolean; featuredIds: string[]; featuredSet: Set<string>; pledgeRequiredVersion: number };
 
 async function runtime(): Promise<Runtime> {
   const settings = await getSettings();
@@ -53,11 +56,53 @@ async function runtime(): Promise<Runtime> {
     demoVisible: settings.demoDataVisible,
     featuredIds: settings.featuredListingIds,
     featuredSet: new Set(settings.featuredListingIds),
+    pledgeRequiredVersion: settings.pledgeRequiredVersion,
   };
 }
 
-function whereFor(filters: SearchFilters, ctx: ListingQueryContext, rt: Runtime): Prisma.ListingWhereInput {
-  return buildListingWhere(filters, { currency: ctx.currency, rates: ctx.rates, demoVisible: rt.demoVisible, now: rt.now });
+/**
+ * Hotels with at least one active, nightly-priced room type that has a free room on EVERY night
+ * of [checkIn, checkOut) (one night when there is no check-out), for dated searches (search-1).
+ * The same rules as the booking (src/lib/booking/room-availability.ts): a block of a room type
+ * takes its `rooms` (null or below 1: all of them), a block without a room type closes the whole
+ * hotel, a quantity below 1 counts as 1. A stay longer than MAX_STAY_NIGHTS can't be booked: none.
+ */
+export async function freeHotelIdsForStay(checkIn: string, checkOut: string | null): Promise<string[]> {
+  const end = checkOut ?? addDays(checkIn, 1);
+  const nights = daysBetween(checkIn, end);
+  if (!isDay(checkIn) || !isDay(end) || !(nights >= 1) || nights > MAX_STAY_NIGHTS) return [];
+  const rows = await db.$queryRaw<{ id: string }[]>`
+    SELECT DISTINCT rt."listingId" AS "id"
+    FROM "RoomType" rt
+    JOIN "Listing" l ON l."id" = rt."listingId"
+    WHERE l."dealType" = 'HOTEL_ROOM' AND l."status" = 'LIVE' AND l."deletedAt" IS NULL
+      AND rt."active" = true AND rt."pricePeriod" = 'NIGHT' AND rt."price" > 0
+      AND NOT EXISTS (
+        SELECT 1
+        FROM generate_series(${checkIn}::date, ${end}::date - 1, interval '1 day') AS d("night")
+        WHERE GREATEST(rt."quantity", 1) <= (
+          SELECT COALESCE(SUM(CASE WHEN b."roomTypeId" IS NULL OR b."rooms" IS NULL OR b."rooms" < 1 THEN GREATEST(rt."quantity", 1) ELSE b."rooms" END), 0)
+          FROM "AvailabilityBlock" b
+          WHERE b."listingId" = rt."listingId"
+            AND (b."roomTypeId" = rt."id" OR b."roomTypeId" IS NULL)
+            AND b."startDate" <= d."night" AND b."endDate" > d."night"
+        )
+      )`;
+  return rows.map((row) => row.id);
+}
+
+/** The search's `where`; a dated search first asks which hotels still have a free room. */
+export async function searchWhere(
+  filters: SearchFilters,
+  ctx: Pick<ListingQueryContext, "currency" | "rates">,
+  rt: { demoVisible: boolean; now: Date },
+): Promise<Prisma.ListingWhereInput> {
+  const freeHotelIds = filters.checkIn ? await freeHotelIdsForStay(filters.checkIn, filters.checkOut) : undefined;
+  return buildListingWhere(filters, { currency: ctx.currency, rates: ctx.rates, demoVisible: rt.demoVisible, now: rt.now, freeHotelIds });
+}
+
+function whereFor(filters: SearchFilters, ctx: ListingQueryContext, rt: Runtime): Promise<Prisma.ListingWhereInput> {
+  return searchWhere(filters, ctx, rt);
 }
 
 function publicWhere(rt: Runtime, ...extra: Prisma.ListingWhereInput[]): Prisma.ListingWhereInput {
@@ -75,7 +120,7 @@ async function favoriteIdsFor(userId: string | null | undefined, listingIds: str
 
 async function toCards(rows: ListingCardRow[], ctx: ListingQueryContext, rt: Runtime): Promise<ListingCardData[]> {
   const favoriteIds = await favoriteIdsFor(ctx.userId, rows.map((r) => r.id));
-  return rows.map((row) => toListingCard(row, { locale: ctx.locale, now: rt.now, featuredIds: rt.featuredSet, favoriteIds }));
+  return rows.map((row) => toListingCard(row, { locale: ctx.locale, now: rt.now, featuredIds: rt.featuredSet, favoriteIds, pledgeRequiredVersion: rt.pledgeRequiredVersion }));
 }
 
 function findCardRows(
@@ -87,6 +132,32 @@ function findCardRows(
 ): Promise<ListingCardRow[]> {
   if (take <= 0) return Promise.resolve([]);
   return db.listing.findMany({ where, orderBy, skip, take, select: listingCardSelect(locale) });
+}
+
+/** How many listings the "nearest synagogue" sort orders in memory (the nearest ones first). */
+const MAX_SYNAGOGUE_SORT_ROWS = 2_000;
+
+/**
+ * One page of the "nearest synagogue" sort, ordered by the walking time AS SHOWN (rounded up to
+ * 5 minutes) and then a walk-free order (sortBySynagogueStep; security checklist 6.d): the
+ * database cannot order by the rounded value, so the keys of the matching listings are sorted
+ * here and the page is loaded by id.
+ */
+async function synagogueStepPage(where: Prisma.ListingWhereInput, locale: AppLocale, skip: number, take: number): Promise<ListingCardRow[]> {
+  const keys = await db.listing.findMany({
+    where,
+    // The nearest first when there are more than the cap (a cut can only fall inside the last step).
+    orderBy: [{ synagogueWalkMin: { sort: "asc", nulls: "last" } }, { publicId: "desc" }],
+    take: MAX_SYNAGOGUE_SORT_ROWS,
+    select: { id: true, publicId: true, synagogueWalkMin: true, bumpedAt: true },
+  });
+  const ids = sortBySynagogueStep(keys)
+    .slice(skip, skip + take)
+    .map((k) => k.id);
+  if (ids.length === 0) return [];
+  const rows = await findCardRows({ AND: [where, { id: { in: ids } }] }, [{ publicId: "desc" }], locale, 0, ids.length);
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  return ids.map((id) => byId.get(id)).filter((r): r is ListingCardRow => r !== undefined);
 }
 
 function pageSizeOf(ctx: ListingQueryContext): number {
@@ -101,7 +172,7 @@ function pageSizeOf(ctx: ListingQueryContext): number {
  */
 export async function searchListings(filters: SearchFilters, ctx: ListingQueryContext): Promise<ListingSearchResult> {
   const rt = await runtime();
-  const where = whereFor(filters, ctx, rt);
+  const where = await whereFor(filters, ctx, rt);
   const sort = effectiveSort(filters);
   const orderBy = buildListingOrderBy(sort);
   const pageSize = pageSizeOf(ctx);
@@ -129,6 +200,8 @@ export async function searchListings(filters: SearchFilters, ctx: ListingQueryCo
       ),
     ]);
     rows = [...top, ...rest];
+  } else if (sort === "synagogue" && total > 0) {
+    rows = await synagogueStepPage(where, ctx.locale, offset, pageSize);
   } else {
     rows = total === 0 ? [] : await findCardRows(where, orderBy, ctx.locale, offset, pageSize);
   }
@@ -139,14 +212,14 @@ export async function searchListings(filters: SearchFilters, ctx: ListingQueryCo
 /** The number of results for the live "Show 123 results" button. */
 export async function countListings(filters: SearchFilters, ctx: ListingQueryContext): Promise<number> {
   const rt = await runtime();
-  return db.listing.count({ where: whereFor(filters, ctx, rt) });
+  return db.listing.count({ where: await whereFor(filters, ctx, rt) });
 }
 
 /** Up to 500 approximate map points for the filters (the map ignores `page`). */
 export async function getMapPoints(filters: SearchFilters, ctx: ListingQueryContext): Promise<ListingMapPoint[]> {
   const rt = await runtime();
   const rows = await db.listing.findMany({
-    where: { AND: [whereFor(filters, ctx, rt), { approxLat: { not: null } }, { approxLng: { not: null } }] },
+    where: { AND: [await whereFor(filters, ctx, rt), { approxLat: { not: null } }, { approxLng: { not: null } }] },
     orderBy: buildListingOrderBy(effectiveSort(filters)),
     take: MAX_MAP_POINTS,
     select: listingMapSelect(ctx.locale),
@@ -195,11 +268,20 @@ export async function getListingCards(
   return ordered;
 }
 
+/** Only these deal types (the home page's selected tab); all when omitted. */
+function dealTypesWhere(dealTypes?: readonly DealType[]): Prisma.ListingWhereInput {
+  return dealTypes ? { dealType: { in: [...dealTypes] } } : {};
+}
+
 /** "Featured" on the home page: hand-picked listings in the admin's order, then paid featured ones. */
-export async function getFeaturedListings(ctx: ListingQueryContext, limit = 8): Promise<ListingCardData[]> {
+export async function getFeaturedListings(
+  ctx: ListingQueryContext,
+  limit = 8,
+  { dealTypes }: { dealTypes?: readonly DealType[] } = {},
+): Promise<ListingCardData[]> {
   const rt = await runtime();
   const rows = await findCardRows(
-    publicWhere(rt, promotedWhere(rt.featuredIds, rt.now)),
+    publicWhere(rt, promotedWhere(rt.featuredIds, rt.now), dealTypesWhere(dealTypes)),
     buildListingOrderBy("recommended"),
     ctx.locale,
     0,
@@ -217,10 +299,14 @@ export async function getFeaturedListings(ctx: ListingQueryContext, limit = 8): 
   return toCards(sorted, ctx, rt);
 }
 
-/** The newest public listings. */
-export async function getNewestListings(ctx: ListingQueryContext, limit = 8): Promise<ListingCardData[]> {
+/** The newest public listings (of these deal types, when given). */
+export async function getNewestListings(
+  ctx: ListingQueryContext,
+  limit = 8,
+  { dealTypes }: { dealTypes?: readonly DealType[] } = {},
+): Promise<ListingCardData[]> {
   const rt = await runtime();
-  const rows = await findCardRows(publicWhere(rt), buildListingOrderBy("newest"), ctx.locale, 0, limit);
+  const rows = await findCardRows(publicWhere(rt, dealTypesWhere(dealTypes)), buildListingOrderBy("newest"), ctx.locale, 0, limit);
   return toCards(rows, ctx, rt);
 }
 

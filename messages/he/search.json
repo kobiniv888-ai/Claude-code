@@ -18,7 +18,14 @@
     },
     "withPage": "{title} – עמוד {page}",
     "description": "דירות, בתים, מלונות ונכסים למכירה בכל גאורגיה, עם פרטי כשרות ושבת, זמן הליכה לבית הכנסת וקשר ישיר עם הבעלים.",
-    "descriptionIn": "נכסים ב{place}: פרטי כשרות ושבת, זמן הליכה לבית הכנסת, בעלים מאומתים וקשר ישיר בלי דמי הזמנה."
+    "descriptionIn": "נכסים ב{place}: פרטי כשרות ושבת, זמן הליכה לבית הכנסת, בעלים מאומתים וקשר ישיר בלי דמי הזמנה.",
+    "dealDescription": {
+      "rent": "דירות ובתים להשכרה בכל גאורגיה, לכמה לילות או לחודש ויותר, עם פרטי כשרות ושבת, זמן הליכה לבית הכנסת וקשר ישיר עם הבעלים.",
+      "shortStay": "דירות ובתים לכמה לילות בכל גאורגיה, עם פרטי כשרות ושבת, זמן הליכה לבית הכנסת וקשר ישיר עם המארחים.",
+      "monthly": "דירות ובתים להשכרה חודשית בכל גאורגיה, עם פרטי כשרות ושבת, זמן הליכה לבית הכנסת וקשר ישיר עם הבעלים.",
+      "buy": "דירות ובתים למכירה בכל גאורגיה, עם המחיר למטר רבוע, פרטי כשרות ושבת וקשר ישיר עם הבעלים.",
+      "hotels": "מלונות ובתי הארחה בכל גאורגיה, עם סוגי החדרים, פרטי כשרות ושבת וזמן הליכה לבית הכנסת."
+    }
   },
   "bar": {
     "label": "חיפוש נכסים",
@@ -50,7 +57,7 @@
     "sheetTitle": "חיפוש",
     "sheetDescription": "בחרו מקום, תאריכים ומספר אורחים.",
     "closeSheet": "סגירת החיפוש",
-    "clear": "ניקוי הכול"
+    "clear": "ניקוי הכל"
   },
   "dates": {
     "holidayLegend": "חג יהודי — העבירו את הסמן על היום כדי לראות איזה"
@@ -58,7 +65,7 @@
   "guests": {
     "label": "אורחים",
     "hint": "מבוגרים וילדים",
-    "any": "הכול",
+    "any": "הכל",
     "decrease": "פחות אורחים",
     "increase": "יותר אורחים"
   },
@@ -77,14 +84,14 @@
       "price": "מחיר",
       "dates": "תאריכים ואורחים",
       "moveIn": "תאריך כניסה ואורחים",
-      "rooms": "חדרים",
+      "rooms": "חדרים ומיטות",
       "jewish": "מותאם לשומרי מסורת",
       "amenities": "מאפיינים",
       "property": "פרטי הנכס",
       "owner": "מפרסם",
       "listing": "המודעה"
     },
-    "any": "הכול",
+    "any": "הכל",
     "anyTime": "בכל זמן",
     "atLeast": "{value}+",
     "dealType": "עסקה",
@@ -122,28 +129,44 @@
     "buildingAge": "בניין",
     "verifiedHint": "הצוות שלנו בדק את תעודת הזהות של הבעלים או הוכחת בעלות.",
     "ownerType": "מפרסם",
-    "postedWithin": "פורסם ב"
+    "postedWithin": "פורסם ב",
+    "noMin": "ללא מינימום",
+    "noMax": "ללא מקסימום",
+    "kosherShabbat": "כשר או מתאים לשבת",
+    "kosherShabbatHint": "מטבח כשר, מתאים לשבת או ארוחות כשרות: מספיק אחד מהם",
+    "walkUpTo": "עד {count} דק׳",
+    "visited": "ביקרנו במקום",
+    "visitedHint": "מישהו מצוות בית ביקר בנכס בעצמו.",
+    "nearSea": "קרוב לים",
+    "nearSeaHint": "עד {minutes} דק׳ הליכה לחוף, לפי המפה",
+    "nearLifts": "קרוב למעליות",
+    "nearLiftsHint": "עד {minutes} דק׳ הליכה למעלית סקי, לפי המפה"
   },
   "chips": {
     "heading": "מסננים פעילים",
     "remove": "הסרת המסנן",
-    "clearAll": "ניקוי הכול",
+    "clearAll": "ניקוי הכל",
     "text": "„{q}”",
     "moveIn": "כניסה ב-{date}",
     "between": "{min} – {max}",
     "atLeast": "מ-{min}",
     "atMost": "עד {max}",
-    "minRooms": "{value}+ חדרים",
-    "minBedrooms": "{value}+ חדרי שינה",
-    "minBathrooms": "{value}+ חדרי רחצה",
+    "minRooms": "{value} חדרים",
+    "minBedrooms": "{value} חדרי שינה",
+    "minBathrooms": "{value} חדרי רחצה",
     "floor": "קומה {range}",
-    "mapArea": "אזור במפה"
+    "mapArea": "אזור במפה",
+    "kosherShabbat": "כשר או מתאים לשבת",
+    "visited": "ביקרנו במקום",
+    "nearSea": "קרוב לים",
+    "nearLifts": "קרוב למעליות"
   },
   "toolbar": {
     "sortLabel": "מיון לפי",
     "viewLabel": "תצוגה",
     "showMap": "מפה",
-    "showList": "רשימה"
+    "showList": "רשימה",
+    "pillLabel": "מפה ומיון"
   },
   "results": {
     "listLabel": "תוצאות החיפוש",
@@ -157,7 +180,8 @@
       "hotels": "מלונות ובתי הארחה"
     },
     "count": "{count, plural, =0 {לא נמצאו נכסים} one {נכס אחד} other {{formatted} נכסים}}",
-    "countIn": "{count, plural, =0 {לא נמצאו נכסים ב{place}} one {נכס אחד ב{place}} other {{formatted} נכסים ב{place}}}"
+    "countIn": "{count, plural, =0 {לא נמצאו נכסים ב{place}} one {נכס אחד ב{place}} other {{formatted} נכסים ב{place}}}",
+    "promise": "כל המארחים כאן התחייבו לקבל ישראלים בברכה"
   },
   "map": {
     "loading": "טוענים את המפה…",
@@ -166,7 +190,8 @@
     "noPrice": "מחיר לפי בקשה",
     "openListing": "למודעה",
     "carouselLabel": "נכסים במפה",
-    "noResultsHere": "אין נכסים באזור הזה. הקטינו את התצוגה או הזיזו את המפה."
+    "noResultsHere": "אין נכסים באזור הזה. הקטינו את התצוגה או הזיזו את המפה.",
+    "fetching": "טוענים…"
   },
   "pagination": {
     "label": "עמודי התוצאות",
@@ -181,12 +206,67 @@
     "titleNoListings": "עדיין אין כאן נכסים",
     "descriptionNoListings": "נכסים חדשים נוספים כל יום. בינתיים אפשר לחפש בעיר אחרת.",
     "clear": "ניקוי כל המסננים",
-    "tryCities": "ערים פופולריות"
+    "tryCities": "ערים פופולריות",
+    "descriptionFixes": "שינוי קטן אחד יחזיר תוצאות — בחרו אחד מאלה:"
   },
   "error": {
     "title": "לא הצלחנו לטעון את התוצאות",
     "description": "משהו השתבש אצלנו. נסו שוב בעוד רגע.",
     "retry": "ניסיון נוסף",
     "startOver": "חיפוש חדש"
+  },
+  "top": {
+    "chipsLabel": "סינון מהיר",
+    "deal": "סוג עסקה",
+    "price": "מחיר",
+    "rooms": "חדרים",
+    "quick": {
+      "kosher": "כשר",
+      "shabbat": "מתאים לשבת",
+      "synagogue": "ליד בית כנסת",
+      "hebrew": "דובר עברית",
+      "kosherShabbat": "כשר ושבת",
+      "nearSea": "קרוב לים",
+      "nearLifts": "קרוב למעליות"
+    },
+    "anywhere": "כל גאורגיה",
+    "anyDates": "הוספת תאריכים",
+    "moveIn": "כניסה ב-{date}",
+    "summaryLabel": "שינוי החיפוש: {summary}",
+    "propertyType": "סוג נכס",
+    "propertyTypes": "{count, plural, one {סוג נכס אחד} other {{count} סוגי נכס}}"
+  },
+  "sort": {
+    "title": "מיון לפי",
+    "open": "מיון: {sort}. לשינוי המיון",
+    "short": "מיון"
+  },
+  "sheet": {
+    "dealShort": {
+      "any": "הכל",
+      "rent": "השכרה",
+      "short-stay": "יומי",
+      "monthly": "חודשי",
+      "buy": "קנייה",
+      "hotels": "מלונות"
+    },
+    "showCount": "{count, plural, =0 {אין נכסים מתאימים} one {הצגת נכס אחד} other {הצגת <n></n> נכסים}}",
+    "clearAll": "ניקוי הכל",
+    "noneTitle": "אין נכסים שמתאימים לכל המסננים",
+    "noneHint": "שינוי אחד ויש תוצאות:",
+    "noneGeneric": "נסו טווח מחירים רחב יותר או פחות מסננים.",
+    "removeChip": "הסרת המסנן {label}",
+    "synagogueNear": "בית כנסת במרחק הליכה",
+    "bigFamily": "משפחות גדולות 8+",
+    "jewishTitle": "כשרות ושבת",
+    "jewishMore": "עוד פרטים לשומרי מסורת",
+    "noPrices": "אין מחירים להצגה"
+  },
+  "fixes": {
+    "remove": "הסרת הסינון „{label}”",
+    "dates": "ניקוי התאריכים",
+    "widerArea": "הרחבת האזור",
+    "allGeorgia": "חיפוש בכל גאורגיה",
+    "count": "{count, plural, one {נכס אחד} other {{formatted} נכסים}}"
   }
 }

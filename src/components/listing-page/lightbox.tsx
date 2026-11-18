@@ -14,7 +14,7 @@ import type { PagePhoto } from "@/lib/listing-page/types";
 import { cn } from "@/lib/utils";
 
 const navButton =
-  "absolute top-1/2 z-10 hidden size-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-black shadow-lg outline-none transition hover:bg-white focus-visible:ring-3 focus-visible:ring-white/70 disabled:opacity-30 sm:inline-flex";
+  "absolute top-1/2 z-10 hidden size-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-black shadow-raised outline-none transition-[transform,opacity] duration-(--motion-fast) hover:bg-white focus-visible:ring-3 focus-visible:ring-white/70 active:scale-95 disabled:opacity-0 motion-reduce:transition-none sm:inline-flex";
 
 /**
  * Full-screen photos: swipe, arrow keys (mirrored in right-to-left languages), Esc to close,
@@ -69,17 +69,17 @@ export function Lightbox({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="flex h-dvh max-h-dvh w-screen max-w-none flex-col gap-0 rounded-none border-0 bg-black p-0 text-white sm:max-w-none"
+        className="flex h-dvh max-h-dvh w-screen max-w-none flex-col gap-0 rounded-none border-0 bg-black p-0 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] text-white sm:max-w-none"
         onKeyDown={onKeyDown}
       >
         <DialogTitle className="sr-only">{t("lightboxTitle", { title })}</DialogTitle>
         <DialogDescription className="sr-only">{t("lightboxHint")}</DialogDescription>
-        <div className="flex h-14 shrink-0 items-center justify-between gap-4 px-4">
-          <p className="text-sm font-medium tabular-nums" aria-live="polite">
+        <div className="flex h-16 shrink-0 items-center justify-between gap-4 px-3">
+          <p className="rounded-full bg-white/12 px-3 py-1 text-small font-semibold tabular-nums" aria-live="polite">
             <Ltr>{t("counter", { index: formatNumber(selected + 1, locale), total: formatNumber(total, locale) })}</Ltr>
           </p>
           <DialogClose
-            className="inline-flex size-11 items-center justify-center rounded-full outline-none hover:bg-white/10 focus-visible:ring-3 focus-visible:ring-white/60"
+            className="inline-flex size-11 items-center justify-center rounded-full bg-white/12 outline-none transition-colors hover:bg-white/20 focus-visible:ring-3 focus-visible:ring-white/60"
             aria-label={t("close")}
           >
             <XIcon className="size-6" aria-hidden />

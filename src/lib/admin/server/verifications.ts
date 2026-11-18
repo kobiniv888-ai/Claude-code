@@ -2,8 +2,11 @@ import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
 import type { VerificationStatus, VerificationType } from "@/generated/prisma/enums";
 import { db } from "@/lib/db";
+import { openListingLocation } from "@/lib/field-crypto";
+import { taintObject } from "@/lib/security/taint";
 import { compareCadastralCodes, parseVerificationDocuments } from "../documents";
-import { ADMIN_PAGE_SIZE, coverPhotoSelect } from "./shared";
+import type { StaffViewer } from "../staff-visibility";
+import { accountPhoneFor, ADMIN_PAGE_SIZE, coverPhotoSelect } from "./shared";
 
 /** The verification queue and the request page (server-only). */
 
@@ -58,7 +61,12 @@ export async function listVerifications(filters: VerificationFilters, page: numb
 
 export type VerificationListRow = Awaited<ReturnType<typeof listVerifications>>["rows"][number];
 
-export async function getVerificationDetail(id: string) {
+/**
+ * One verification request. The applicant's phone is ADMIN only (Q12, founder's answer (c)):
+ * `userPhone` holds the number for an ADMIN and only its last 2 digits for other staff; the
+ * request's own select never reads it.
+ */
+export async function getVerificationDetail(id: string, viewer: Pick<StaffViewer, "role">) {
   const request = await db.verificationRequest.findUnique({
     where: { id },
     select: {
@@ -79,7 +87,6 @@ export async function getVerificationDetail(id: string) {
           id: true,
           name: true,
           email: true,
-          phoneNumber: true,
           phoneNumberVerified: true,
           role: true,
           status: true,
@@ -99,7 +106,8 @@ export async function getVerificationDetail(id: string) {
           publicId: true,
           title: true,
           status: true,
-          address: true,
+          // Encrypted (12.3.c): decrypted below for the ownership check.
+          addressEnc: true,
           cadastralCode: true,
           ownerId: true,
           ownerVerifiedAt: true,
@@ -111,16 +119,26 @@ export async function getVerificationDetail(id: string) {
     },
   });
   if (!request) return null;
+  // The raw row (documents, the account's contact values) only through the DTO below (React taint, 5.k).
+  taintObject("raw verification request row", request);
 
-  const history = await db.verificationRequest.findMany({
-    where: { userId: request.user.id, id: { not: request.id } },
-    orderBy: { createdAt: "desc" },
-    take: 10,
-    select: { id: true, type: true, status: true, createdAt: true, reviewedAt: true, reviewedBy: { select: { name: true } } },
-  });
+  const [history, userPhone] = await Promise.all([
+    db.verificationRequest.findMany({
+      where: { userId: request.user.id, id: { not: request.id } },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+      select: { id: true, type: true, status: true, createdAt: true, reviewedAt: true, reviewedBy: { select: { name: true } } },
+    }),
+    accountPhoneFor(viewer, request.user.id),
+  ]);
 
+  // The listing's exact address, decrypted for the reviewer ("not available" when it cannot be).
+  const listing = request.listing
+    ? (({ addressEnc, ...rest }) => ({ ...rest, address: openListingLocation({ addressEnc }, "admin_verification").address }))(request.listing)
+    : null;
   return {
-    request,
+    request: { ...request, listing },
+    userPhone,
     documents: request.documentsDeletedAt ? [] : parseVerificationDocuments(request.documents),
     cadastral: compareCadastralCodes(request.cadastralCode, request.listing?.cadastralCode),
     /** The listing in an ownership request belongs to someone else (should never happen). */

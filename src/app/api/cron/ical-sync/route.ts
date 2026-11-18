@@ -2,8 +2,9 @@ import { syncIcalImports } from "@/lib/ical";
 import { isAuthorizedCron, runCronJob, unauthorized } from "../auth";
 
 /**
- * GET /api/cron/ical-sync — every 3 hours (vercel.json).
- * Re-imports the Airbnb / Booking.com calendars of listings that have import URLs.
+ * GET /api/cron/ical-sync — every hour (vercel.json).
+ * Re-imports the Airbnb / Booking.com calendars of listings that have import URLs; imported nights
+ * block bookings on Bayit. Overlaps with confirmed Bayit bookings are logged ("conflicts").
  */
 
 export const runtime = "nodejs";

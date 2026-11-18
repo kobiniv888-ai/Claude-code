@@ -11,10 +11,12 @@ import { useRouter } from "@/i18n/navigation";
 import { submitBusinessVerification, submitIdVerification, submitOwnershipVerification } from "@/lib/account/actions";
 import { acceptsPdf, isValidCadastralCode, type DocumentSlot, type UploadedFile } from "@/lib/account/verification";
 import { formatNumber } from "@/lib/format";
+import { UPLOAD_IMAGE_ACCEPT } from "@/lib/media";
+import { readyForUpload } from "@/lib/media-client";
 import { cn } from "@/lib/utils";
 import { useActionError } from "./use-action-error";
 
-const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif";
+const IMAGE_ACCEPT = UPLOAD_IMAGE_ACCEPT;
 
 function sizeLabel(bytes: number, locale: string): string {
   if (bytes >= 1024 * 1024) return `${formatNumber(bytes / (1024 * 1024), locale, { maximumFractionDigits: 1 })} MB`;
@@ -42,10 +44,12 @@ function DocumentUpload({
   const [error, setError] = useState<string | null>(null);
   const pdf = acceptsPdf(slot);
 
-  const upload = async (file: File) => {
+  const upload = async (picked: File) => {
     setBusy(true);
     setError(null);
     try {
+      // HEIC: converted to JPEG where this browser can (else the server converts it).
+      const { file } = await readyForUpload(picked);
       const form = new FormData();
       form.set("purpose", "verification");
       form.set("file", file);
@@ -85,8 +89,8 @@ function DocumentUpload({
         }}
       />
       {value ? (
-        <div className="flex items-center gap-3 rounded-xl border bg-verified-soft/60 px-3 py-2">
-          <FileCheck2Icon className="size-5 shrink-0 text-verified" aria-hidden="true" />
+        <div className="flex items-center gap-3 rounded-xl border bg-primary-tint/60 px-3 py-2">
+          <FileCheck2Icon className="size-5 shrink-0 text-success" aria-hidden="true" />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium" dir="auto">
               {value.name || t("uploaded")}

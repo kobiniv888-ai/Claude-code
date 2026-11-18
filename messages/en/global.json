@@ -1,0 +1,8 @@
+{
+  "notFoundTitle": "Page not found",
+  "notFoundDescription": "This address doesn't exist. Choose your language to continue:",
+  "errorTitle": "Something went wrong",
+  "errorDescription": "Please reload the page. If it keeps happening, try again a little later.",
+  "reload": "Reload the page",
+  "home": "Home page"
+}

@@ -1,8 +1,27 @@
-import { describe, expect, it, vi } from "vitest";
+import dns from "node:dns";
+import { EventEmitter } from "node:events";
+import https from "node:https";
+import { Readable } from "node:stream";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const { assertSafeFeedUrl, buildIcs, escapeIcsText, foldIcsLine, isPrivateAddress, parseIcsText, safeLookup } = await import("./ical");
+const {
+  assertSafeFeedUrl,
+  buildIcs,
+  CalendarHostNotAllowedError,
+  classifyFeedError,
+  escapeIcsText,
+  FEED_MAX_BYTES,
+  FEED_TIMEOUT_MS,
+  fetchIcsFeed,
+  foldIcsLine,
+  hotelExportBlocks,
+  isPrivateAddress,
+  parseIcsText,
+  roomTypeExportBlocks,
+  safeLookup,
+} = await import("./ical");
 
 const day = (value: string) => new Date(`${value}T00:00:00Z`);
 const NOW = new Date("2026-10-31T12:00:00Z");
@@ -37,6 +56,41 @@ describe("buildIcs", () => {
       { start: "2026-12-24", end: "2026-12-25", summary: "Not available" },
     ]);
     expect(events[0].uid).toMatch(/^b1@/);
+  });
+});
+
+describe("hotels: export per room type (round 3)", () => {
+  // Double: 2 rooms. Suite: 1 room. A booking of 1 double, a booking of the suite, a whole-hotel block.
+  const double = { id: "double", quantity: 2 };
+  const suite = { id: "suite", quantity: 1 };
+  const blocks = [
+    { start: "2026-11-03", end: "2026-11-06", roomTypeId: "double", rooms: 1 },
+    { start: "2026-11-04", end: "2026-11-05", roomTypeId: "double", rooms: 1 },
+    { start: "2026-11-04", end: "2026-11-08", roomTypeId: "suite", rooms: 1 },
+    { start: "2026-12-24", end: "2026-12-25", roomTypeId: null, rooms: null },
+  ];
+  const window = [day("2026-10-01"), day("2027-10-01")] as const;
+  const ranges = (list: { startDate: Date; endDate: Date }[]) => list.map((b) => [b.startDate.toISOString().slice(0, 10), b.endDate.toISOString().slice(0, 10)]);
+
+  it("a room type's feed is busy only on nights it has no free room left (iCal has no room counts)", () => {
+    expect(ranges(roomTypeExportBlocks(double, blocks, ...window))).toEqual([
+      ["2026-11-04", "2026-11-05"],
+      ["2026-12-24", "2026-12-25"],
+    ]);
+    expect(ranges(roomTypeExportBlocks(suite, blocks, ...window))).toEqual([
+      ["2026-11-04", "2026-11-08"],
+      ["2026-12-24", "2026-12-25"],
+    ]);
+  });
+
+  it("the hotel's own feed is busy only when every room type is full or the hotel is closed", () => {
+    expect(ranges(hotelExportBlocks("h1", [double, suite], blocks, ...window))).toEqual([
+      ["2026-11-04", "2026-11-05"],
+      ["2026-12-24", "2026-12-25"],
+    ]);
+    const ics = buildIcs({ id: "h1", publicId: 111 }, roomTypeExportBlocks(suite, blocks, ...window), NOW);
+    expect(ics).toContain("SUMMARY:Not available");
+    expect(ics).toMatch(/UID:room-suite-2026-11-04@/);
   });
 });
 
@@ -99,6 +153,96 @@ describe("parseIcsText", () => {
   });
 });
 
+// SECURITY_REPORT 7.m / 8.1.d: a feed under 1 MB must not hold the server for seconds. Each case
+// must finish well under a second and still return the feed's ordinary events.
+describe("parseIcsText work limits", () => {
+  const feed = (body: string) => `BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//test//EN\r\n${body}END:VCALENDAR\r\n`;
+  const normal =
+    "BEGIN:VEVENT\r\nDTSTART;VALUE=DATE:20261110\r\nDTEND;VALUE=DATE:20261115\r\nUID:normal-1\r\nSUMMARY:Reserved\r\nEND:VEVENT\r\n" +
+    "BEGIN:VEVENT\r\nDTSTART;VALUE=DATE:20261201\r\nDTEND;VALUE=DATE:20261203\r\nUID:normal-2\r\nSUMMARY:Reserved\r\nEND:VEVENT\r\n";
+  const timed = (fn: () => unknown) => {
+    const started = performance.now();
+    const result = fn();
+    return { result, ms: performance.now() - started };
+  };
+  const ymd = (d: Date) => d.toISOString().slice(0, 10).replace(/-/g, "");
+
+  it("stops expanding once 2000 ranges are found (3000 daily rules)", () => {
+    const body = Array.from(
+      { length: 3000 },
+      (_, i) => `BEGIN:VEVENT\r\nDTSTART;VALUE=DATE:20261101\r\nDTEND;VALUE=DATE:20261102\r\nRRULE:FREQ=DAILY\r\nUID:daily-${i}\r\nEND:VEVENT\r\n`,
+    ).join("");
+    const { result, ms } = timed(() => parseIcsText(feed(normal + body), NOW));
+    const events = result as ReturnType<typeof parseIcsText>;
+    expect(ms).toBeLessThan(1000);
+    expect(events.length).toBeLessThanOrEqual(2000);
+    expect(events.map((e) => e.uid)).toEqual(expect.arrayContaining(["normal-1", "normal-2"]));
+  });
+
+  it("skips rules that repeat more often than daily (100 two-hourly rules, one plain hourly rule)", () => {
+    const twoHourly = Array.from(
+      { length: 100 },
+      (_, i) => `BEGIN:VEVENT\r\nDTSTART:20261101T100000Z\r\nDTEND:20261101T110000Z\r\nRRULE:FREQ=HOURLY;INTERVAL=2\r\nUID:h2-${i}\r\nEND:VEVENT\r\n`,
+    ).join("");
+    const hourly = "BEGIN:VEVENT\r\nDTSTART:20261101T100000Z\r\nDTEND:20261101T110000Z\r\nRRULE:FREQ=HOURLY\r\nUID:hourly\r\nEND:VEVENT\r\n";
+    const minutely = "BEGIN:VEVENT\r\nDTSTART:20261101T100000Z\r\nDTEND:20261101T100100Z\r\nRRULE:FREQ=MINUTELY\r\nUID:minutely\r\nEND:VEVENT\r\n";
+    const { result, ms } = timed(() => parseIcsText(feed(twoHourly + hourly + normal + minutely), NOW));
+    expect(ms).toBeLessThan(1000);
+    expect((result as ReturnType<typeof parseIcsText>).map((e) => e.uid)).toEqual(["normal-1", "normal-2"]);
+  });
+
+  it("checks 30,000 EXDATEs of an all-day daily rule in linear time, and still honours them", () => {
+    const start = new Date("2026-11-01T00:00:00Z");
+    const exdates: string[] = [];
+    // Every day from 2026-11-01 on is excluded except 2026-11-05 (index 4), for 30,000 days.
+    for (let i = 0; i < 30_000; i++) {
+      if (i === 4) continue;
+      exdates.push(`EXDATE;VALUE=DATE:${ymd(new Date(start.getTime() + i * 86_400_000))}`);
+    }
+    const body = `BEGIN:VEVENT\r\nDTSTART;VALUE=DATE:20261101\r\nDTEND;VALUE=DATE:20261102\r\nRRULE:FREQ=DAILY\r\n${exdates.join("\r\n")}\r\nUID:exdates\r\nEND:VEVENT\r\n`;
+    const { result, ms } = timed(() => parseIcsText(feed(normal + body), NOW));
+    const events = result as ReturnType<typeof parseIcsText>;
+    expect(ms).toBeLessThan(1500);
+    expect(events.filter((e) => e.uid.startsWith("exdates#")).map((e) => e.start)).toEqual(["2026-11-05"]);
+    expect(events.map((e) => e.uid)).toEqual(expect.arrayContaining(["normal-1", "normal-2"]));
+  });
+
+  it("keeps node-ical's EXDATE and override behaviour for an all-day weekly rule", () => {
+    const body =
+      "BEGIN:VEVENT\r\nDTSTART;VALUE=DATE:20261106\r\nDTEND;VALUE=DATE:20261107\r\nRRULE:FREQ=WEEKLY;COUNT=4\r\nEXDATE;VALUE=DATE:20261113\r\nUID:wk\r\nEND:VEVENT\r\n" +
+      "BEGIN:VEVENT\r\nRECURRENCE-ID;VALUE=DATE:20261120\r\nDTSTART;VALUE=DATE:20261121\r\nDTEND;VALUE=DATE:20261122\r\nUID:wk\r\nEND:VEVENT\r\n";
+    expect(parseIcsText(feed(body), NOW).map((e) => e.start)).toEqual(["2026-11-06", "2026-11-21", "2026-11-27"]);
+  });
+
+  it("skips only the event whose rule cannot be expanded", () => {
+    // COUNT-limited rules are walked from DTSTART: a daily rule from 1900 hits rrule-temporal's cap.
+    const broken = "BEGIN:VEVENT\r\nDTSTART;VALUE=DATE:19000101\r\nDTEND;VALUE=DATE:19000102\r\nRRULE:FREQ=DAILY;COUNT=60000\r\nUID:broken\r\nEND:VEVENT\r\n";
+    const events = parseIcsText(feed(broken + normal), NOW);
+    expect(events.map((e) => e.uid)).toEqual(expect.arrayContaining(["normal-1", "normal-2"]));
+  });
+
+  it("refuses a feed with more than 5000 events, and one that takes longer than its budget, as too large", () => {
+    const many = Array.from(
+      { length: 5001 },
+      (_, i) => `BEGIN:VEVENT\r\nDTSTART;VALUE=DATE:20261110\r\nUID:m${i}\r\nEND:VEVENT\r\n`,
+    ).join("");
+    let error: unknown;
+    try {
+      parseIcsText(feed(many), NOW);
+    } catch (caught) {
+      error = caught;
+    }
+    expect(classifyFeedError(error)).toBe("too_large");
+    error = undefined;
+    try {
+      parseIcsText(feed(normal), NOW, -1);
+    } catch (caught) {
+      error = caught;
+    }
+    expect(classifyFeedError(error)).toBe("too_large");
+  });
+});
+
 describe("SSRF guards", () => {
   it.each([
     ["127.0.0.1", true],
@@ -113,6 +257,19 @@ describe("SSRF guards", () => {
     ["fe80::1", true],
     ["::ffff:10.0.0.1", true],
     ["::ffff:7f00:1", true],
+    // IPv4-compatible (hex and dotted), IPv4-translated, 6to4, Teredo and local-use NAT64 (8.1.b).
+    ["::7f00:1", true],
+    ["::a00:1", true],
+    ["::127.0.0.1", true],
+    ["::8.8.8.8", true],
+    ["::ffff:0:7f00:1", true],
+    ["2002:7f00:1::", true],
+    ["2002:a00:1::1", true],
+    ["2001:0:4136:e378:8000:63bf:3fff:fdd2", true],
+    ["64:ff9b:1::a00:1", true],
+    ["64:ff9b::a00:1", true],
+    ["::ffff:8.8.8.8", false],
+    ["2001:4860:4860::8888", false],
     ["not-an-ip", true],
     ["8.8.8.8", false],
     ["151.101.1.140", false],
@@ -136,8 +293,71 @@ describe("SSRF guards", () => {
     expect(() => assertSafeFeedUrl(url)).toThrow(/Calendar URL refused/);
   });
 
-  it("accepts public https URLs", () => {
+  it("accepts https links of the allowed calendar sites (SECURITY_REPORT 8.1.a)", () => {
     expect(assertSafeFeedUrl("https://www.airbnb.com/calendar/ical/123.ics?s=abc").hostname).toBe("www.airbnb.com");
+    expect(assertSafeFeedUrl("https://www.airbnb.co.il/calendar/ical/123.ics?s=abc").hostname).toBe("www.airbnb.co.il");
+    expect(assertSafeFeedUrl("https://admin.booking.com/hotel/hoteladmin/ical.html?t=abc").hostname).toBe("admin.booking.com");
+    expect(assertSafeFeedUrl("https://ical.booking.com/v1/export?t=abc").hostname).toBe("ical.booking.com");
+    expect(assertSafeFeedUrl("https://www.vrbo.com/icalendar/abc.ics").hostname).toBe("www.vrbo.com");
+    expect(assertSafeFeedUrl("https://www.homeaway.com/icalendar/abc.ics").hostname).toBe("www.homeaway.com");
+    expect(assertSafeFeedUrl("https://calendar.google.com/calendar/ical/x/private-y/basic.ics").hostname).toBe("calendar.google.com");
+    expect(assertSafeFeedUrl("https://www.airbnb.com:443/calendar/ical/1.ics").hostname).toBe("www.airbnb.com");
+  });
+
+  // The audit's probe saved these two (8.1.a); other public sites, look-alikes and bare IPs too.
+  it.each([
+    "https://10.0.0.1.sslip.io/cal.ics",
+    "https://localhost./cal.ics",
+    "https://evil.example/cal.ics",
+    "https://airbnb.com.evil.example/cal.ics",
+    "https://evilairbnb.com/cal.ics",
+    "https://booking.com-calendar.example/cal.ics",
+    "https://www.google.com/calendar/ical/x/basic.ics",
+    "https://8.8.8.8/cal.ics",
+    "https://[2606:4700:4700::1111]/cal.ics",
+    "https://0x7f000001/cal.ics",
+    "https://[::ffff:127.0.0.1]/cal.ics",
+    "https://2130706433/cal.ics",
+    "https://metadata.google.internal/computeMetadata/v1/",
+  ])("refuses %s (not a calendar site we import from)", (url) => {
+    expect(() => assertSafeFeedUrl(url)).toThrow(/Calendar URL refused/);
+    let error: unknown;
+    try {
+      assertSafeFeedUrl(url);
+    } catch (caught) {
+      error = caught;
+    }
+    expect(["calendar_host", "unsafe_url"]).toContain(classifyFeedError(error));
+  });
+
+  // DNS rebinding (8.1.b): an allowed name whose DNS answer holds any non-public address is
+  // refused when connecting, even if the first answer was public.
+  it("refuses at connect time when any DNS answer is private", async () => {
+    const answers: Record<string, { address: string; family: number }[]> = {
+      "www.airbnb.com": [
+        { address: "151.101.1.140", family: 4 },
+        { address: "169.254.169.254", family: 4 },
+      ],
+      "ical.booking.com": [{ address: "fd00::1", family: 6 }],
+      "calendar.google.com": [{ address: "142.250.74.46", family: 4 }],
+    };
+    const spy = vi.spyOn(dns, "lookup").mockImplementation(((host: string, _options: unknown, callback: (e: null, a: unknown) => void) =>
+      callback(null, answers[host] ?? [])) as unknown as typeof dns.lookup);
+    const lookup = (host: string) =>
+      new Promise<{ error: NodeJS.ErrnoException | null; address: unknown }>((resolve) =>
+        safeLookup(host, {} as never, ((error: NodeJS.ErrnoException | null, address: unknown) => resolve({ error, address })) as never),
+      );
+    expect((await lookup("www.airbnb.com")).error?.code).toBe("EADDRNOTAVAIL");
+    expect((await lookup("ical.booking.com")).error?.code).toBe("EADDRNOTAVAIL");
+    expect((await lookup("vrbo.com")).error?.code).toBe("EADDRNOTAVAIL");
+    expect(await lookup("calendar.google.com")).toEqual({ error: null, address: "142.250.74.46" });
+    spy.mockRestore();
+  });
+
+  it("tells a site that isn't on the list apart from an unsafe address", () => {
+    expect(() => assertSafeFeedUrl("https://evil.example/cal.ics")).toThrow(CalendarHostNotAllowedError);
+    expect(classifyFeedError(new CalendarHostNotAllowedError())).toBe("calendar_host");
+    expect(() => assertSafeFeedUrl("http://www.airbnb.com/cal.ics")).not.toThrow(CalendarHostNotAllowedError);
   });
 
   it("refuses host names that resolve to private addresses at connect time", async () => {
@@ -150,5 +370,114 @@ describe("SSRF guards", () => {
     expect(single.error?.code).toBe("EADDRNOTAVAIL");
     const all = await lookup({ all: true });
     expect(all.error?.code).toBe("EADDRNOTAVAIL");
+  });
+});
+
+/**
+ * The download itself (fetchIcsFeed) with https.get stubbed: no network. Every request the code
+ * makes is recorded, so a test can prove that a refused hop was never requested.
+ */
+describe("fetchIcsFeed: redirects, size and time limits (SECURITY_REPORT 8.1.c, 8.1.d)", () => {
+  const CALENDAR = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//test//EN\r\nEND:VCALENDAR\r\n";
+  type Answer = { status: number; headers?: Record<string, string>; chunks?: Buffer[] };
+  let requested: { url: string; signal: unknown }[] = [];
+  let pulled = 0;
+
+  function stub(answers: Record<string, Answer>) {
+    requested = [];
+    pulled = 0;
+    vi.spyOn(https, "get").mockImplementation(((url: URL, options: { signal?: AbortSignal }, callback: (response: unknown) => void) => {
+      requested.push({ url: url.toString(), signal: options.signal });
+      const answer = answers[url.toString()] ?? { status: 404 };
+      const chunks = answer.chunks ?? [];
+      const response = Readable.from(
+        (function* () {
+          for (const chunk of chunks) {
+            pulled++;
+            yield chunk;
+          }
+        })(),
+      ) as Readable & { statusCode: number; headers: Record<string, string> };
+      response.statusCode = answer.status;
+      response.headers = answer.headers ?? {};
+      queueMicrotask(() => callback(response));
+      return new EventEmitter();
+    }) as unknown as typeof https.get);
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("follows a redirect to another allowed calendar site, re-checking the hop", async () => {
+    stub({
+      "https://www.airbnb.co.il/calendar/ical/1.ics": { status: 301, headers: { location: "https://www.airbnb.com/calendar/ical/1.ics" } },
+      "https://www.airbnb.com/calendar/ical/1.ics": { status: 200, chunks: [Buffer.from(CALENDAR)] },
+    });
+    await expect(fetchIcsFeed("https://www.airbnb.co.il/calendar/ical/1.ics")).resolves.toContain("BEGIN:VCALENDAR");
+    expect(requested.map((r) => r.url)).toEqual(["https://www.airbnb.co.il/calendar/ical/1.ics", "https://www.airbnb.com/calendar/ical/1.ics"]);
+  });
+
+  it.each([
+    ["another public site", "https://evil.example/cal.ics", "calendar_host"],
+    ["cloud metadata", "http://169.254.169.254/latest/meta-data/", "unsafe_url"],
+    ["a private address", "https://10.0.0.1/cal.ics", "unsafe_url"],
+    ["an IPv6 private address", "https://[fd00::1]/cal.ics", "unsafe_url"],
+    ["a DNS trick name", "https://127.0.0.1.sslip.io/cal.ics", "calendar_host"],
+    ["a relative path on another host", "//evil.example/cal.ics", "calendar_host"],
+  ])("refuses a redirect to %s and never requests it", async (_label, location, code) => {
+    stub({ "https://www.airbnb.com/calendar/ical/1.ics": { status: 302, headers: { location } } });
+    const error = await fetchIcsFeed("https://www.airbnb.com/calendar/ical/1.ics").catch((caught: unknown) => caught);
+    expect(classifyFeedError(error)).toBe(code);
+    expect(requested).toHaveLength(1);
+  });
+
+  it("stops after 3 redirects", async () => {
+    const hop = (n: number) => `https://www.airbnb.com/hop/${n}.ics`;
+    stub(Object.fromEntries([0, 1, 2, 3, 4].map((n) => [hop(n), { status: 302, headers: { location: hop(n + 1) } }])));
+    const error = await fetchIcsFeed(hop(0)).catch((caught: unknown) => caught);
+    expect(classifyFeedError(error)).toBe("http_error");
+    expect(requested).toHaveLength(4);
+  });
+
+  it("caps the file at 1 MB while it streams in, even without a Content-Length", async () => {
+    expect(FEED_MAX_BYTES).toBe(1024 * 1024);
+    const chunk = Buffer.alloc(64 * 1024, 0x41);
+    stub({ "https://www.airbnb.com/big.ics": { status: 200, chunks: [Buffer.from(CALENDAR), ...Array.from({ length: 40 }, () => chunk)] } });
+    const error = await fetchIcsFeed("https://www.airbnb.com/big.ics").catch((caught: unknown) => caught);
+    expect(classifyFeedError(error)).toBe("too_large");
+    // The download stopped just past 1 MB: most of the 2.5 MB body was never read.
+    expect(pulled).toBeLessThan(20);
+  });
+
+  it("refuses a file that announces more than 1 MB before reading it", async () => {
+    stub({ "https://www.airbnb.com/big.ics": { status: 200, headers: { "content-length": String(FEED_MAX_BYTES + 1) }, chunks: [Buffer.from(CALENDAR)] } });
+    const error = await fetchIcsFeed("https://www.airbnb.com/big.ics").catch((caught: unknown) => caught);
+    expect(classifyFeedError(error)).toBe("too_large");
+    expect(pulled).toBe(0);
+  });
+
+  it("accepts a calendar just under 1 MB", async () => {
+    const padding = Buffer.alloc(FEED_MAX_BYTES - CALENDAR.length - 10, 0x20);
+    stub({ "https://calendar.google.com/calendar/ical/x/basic.ics": { status: 200, chunks: [Buffer.from(CALENDAR), padding] } });
+    await expect(fetchIcsFeed("https://calendar.google.com/calendar/ical/x/basic.ics")).resolves.toMatch(/^BEGIN:VCALENDAR/);
+  });
+
+  it("gives every hop the same 10-second deadline", async () => {
+    expect(FEED_TIMEOUT_MS).toBe(10_000);
+    stub({
+      "https://www.vrbo.com/a.ics": { status: 302, headers: { location: "https://www.vrbo.com/b.ics" } },
+      "https://www.vrbo.com/b.ics": { status: 200, chunks: [Buffer.from(CALENDAR)] },
+    });
+    await fetchIcsFeed("https://www.vrbo.com/a.ics");
+    expect(requested).toHaveLength(2);
+    expect(requested[0].signal).toBeInstanceOf(AbortSignal);
+    expect(requested[1].signal).toBe(requested[0].signal);
+  });
+
+  it("refuses an answer that is not a calendar", async () => {
+    stub({ "https://www.airbnb.com/page.ics": { status: 200, chunks: [Buffer.from("<html>login</html>")] } });
+    const error = await fetchIcsFeed("https://www.airbnb.com/page.ics").catch((caught: unknown) => caught);
+    expect(classifyFeedError(error)).toBe("not_calendar");
   });
 });

@@ -1,9 +1,17 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "npm ci && npm run deps:scripts",
   "crons": [
     { "path": "/api/cron/exchange-rates", "schedule": "13 3 * * *" },
     { "path": "/api/cron/expire-listings", "schedule": "7 * * * *" },
-    { "path": "/api/cron/ical-sync", "schedule": "23 */3 * * *" },
-    { "path": "/api/cron/cleanup", "schedule": "41 2 * * *" }
+    { "path": "/api/cron/ical-sync", "schedule": "23 * * * *" },
+    { "path": "/api/cron/booking-reminders", "schedule": "17 6 * * *" },
+    { "path": "/api/cron/complete-bookings", "schedule": "47 4 * * *" },
+    { "path": "/api/cron/cleanup", "schedule": "41 2 * * *" },
+    { "path": "/api/cron/daily-summary", "schedule": "3 5-9 * * *" },
+    { "path": "/api/cron/weekly-host-stats", "schedule": "11 6-9 * * 0-2" },
+    { "path": "/api/cron/saved-alerts", "schedule": "29 5-9 * * *" },
+    { "path": "/api/cron/security-alerts", "schedule": "53 * * * *" },
+    { "path": "/api/cron/offsite-backup", "schedule": "37 1 * * 0" }
   ]
 }

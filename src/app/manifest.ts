@@ -6,21 +6,22 @@ import { siteConfig } from "@/config/site";
 /**
  * Web app manifest (/manifest.webmanifest) — makes the site installable ("Add to Home Screen").
  * "/" and the shortcuts redirect to the visitor's language (/he, /en…) through the proxy.
- * Icons are generated from public/brand/logo-mark.svg by scripts/generate-icons.mjs.
+ * Icons are generated from public/brand/bayit-app-icon*.svg by scripts/generate-icons.mjs.
  * A manifest has one language; it uses the English text (the fallback language).
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",
-    name: siteConfig.name,
+    // "Bayit · בית": the name in Latin letters and in Hebrew (BRIEF 3.1).
+    name: `${siteConfig.name} · ${siteConfig.localizedName.he}`,
     short_name: siteConfig.name,
     description: common.siteTagline,
     start_url: "/",
     scope: "/",
     display: "standalone",
     orientation: "portrait",
-    background_color: siteConfig.colors.background,
-    theme_color: siteConfig.colors.primary,
+    background_color: siteConfig.colors.background, // #FFFFFF
+    theme_color: siteConfig.colors.primary, // #4B2A8C
     lang: "en",
     dir: "ltr",
     categories: ["travel", "lifestyle", "business"],

@@ -3,7 +3,8 @@
  * that once by calling `Function("")`. Our Content-Security-Policy has no 'unsafe-eval', so that
  * check is reported as a CSP violation on every page with a form (listing, owner, contact…).
  *
- * The root layout runs this before any bundle: zod reads its shared config object
+ * The root layout has Next.js run this before any app module (a "beforeInteractive" script,
+ * executed by Next.js' own bootstrap before it loads the page's modules): zod reads its shared config object
  * (`globalThis.__zod_globalConfig`, the one `z.config()` writes) when it loads, and schema
  * modules read `jitless` when they are defined, which is too early for a `z.config()` call in
  * one of them. Server code is not affected.

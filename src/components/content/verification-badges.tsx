@@ -20,12 +20,12 @@ export function VerificationBadgeGrid({ items, className }: { items: BadgeInfo[]
             <span
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold",
-                comingSoon ? "bg-muted text-foreground" : "bg-verified-soft text-foreground",
+                comingSoon ? "bg-muted text-foreground" : "bg-primary-tint text-foreground",
               )}
             >
               <Icon
                 aria-hidden="true"
-                className={cn("size-4", comingSoon ? "text-muted-foreground" : "text-verified")}
+                className={cn("size-4", comingSoon ? "text-muted-foreground" : "text-success")}
                 strokeWidth={2}
               />
               {label}

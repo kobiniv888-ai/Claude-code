@@ -3,6 +3,7 @@
 import { ImageOff, ImageUp, Plane, Save } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
+import { COUNTRIES, DEFAULT_COUNTRY } from "@/config/countries";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +14,8 @@ import { saveCity, uploadCityPhoto } from "@/lib/admin/content/actions/cities";
 import { emptyLocalized, type LocalizedForm } from "@/lib/admin/content/localized";
 import { CITY_TIMEZONES, LIMITS, citySchema, slugSchema } from "@/lib/admin/content/schemas";
 import { slugify } from "@/lib/listing/urls";
+import { isHeicFile, UPLOAD_IMAGE_ACCEPT } from "@/lib/media";
+import { readyForUpload } from "@/lib/media-client";
 import { errorAt, FormField, FormFooter, LocalizedInputs, parseNumber, parseOptionalNumber, SwitchRow, useFieldErrors } from "./form";
 import { coordText, type CoordText } from "@/lib/admin/content/coords";
 import { MapField } from "./map-field";
@@ -38,7 +41,7 @@ function newCityValues(): CityFormValues {
     aliases: "",
     slug: "",
     coords: coordText(null, null),
-    timezone: "Asia/Tbilisi",
+    timezone: COUNTRIES[DEFAULT_COUNTRY].timezone,
     airportCode: "",
     airport: coordText(null, null),
     isPopular: false,
@@ -66,8 +69,11 @@ function toPayload(v: CityFormValues) {
   };
 }
 
-async function compress(file: File): Promise<File> {
-  if (file.type === "image/gif") return file;
+async function compress(picked: File): Promise<File> {
+  // HEIC: converted to JPEG where this browser can; a HEIC it cannot read goes up as it is (the
+  // server converts it, SECURITY_REPORT 9.a).
+  const { file } = await readyForUpload(picked);
+  if (file.type === "image/gif" || isHeicFile(file)) return file;
   try {
     const { default: imageCompression } = await import("browser-image-compression");
     const output = await imageCompression(file, { maxSizeMB: 0.9, maxWidthOrHeight: 2000, useWebWorker: false, preserveExif: false });
@@ -235,7 +241,7 @@ export function CityForm({ id, initial }: { id: string | null; initial?: CityFor
             <input
               ref={fileRef}
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept={UPLOAD_IMAGE_ACCEPT}
               className="sr-only"
               id="city-photo-file"
               // The button below opens it; keep it out of the tab order but give it a name.
@@ -253,7 +259,7 @@ export function CityForm({ id, initial }: { id: string | null; initial?: CityFor
             <p className="text-xs text-muted-foreground">{t("photoHint")}</p>
             <FormField label={t("photoUrl")} error={errorAt(errors, "photoUrl")}>
               {(props) => (
-                <Input {...props} dir="ltr" value={values.photoUrl} maxLength={LIMITS.url} placeholder="/images/cities/tbilisi.webp" onChange={(e) => set("photoUrl", e.target.value)} />
+                <Input {...props} dir="ltr" value={values.photoUrl} maxLength={LIMITS.url} placeholder="/photos/cities/tbilisi.webp" onChange={(e) => set("photoUrl", e.target.value)} />
               )}
             </FormField>
           </div>

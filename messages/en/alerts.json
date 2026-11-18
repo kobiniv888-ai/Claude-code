@@ -1,0 +1,314 @@
+{
+  "channel": {
+    "email": "Email",
+    "telegram": "Telegram",
+    "push": "Browser and app notifications",
+    "sms": "Text message (SMS)",
+    "whatsapp": "WhatsApp"
+  },
+  "channelShort": {
+    "email": "email",
+    "telegram": "Telegram",
+    "push": "notifications"
+  },
+  "settings": {
+    "title": "Booking alerts",
+    "lead": "Choose how we tell you about a new booking or a cancellation. You can turn on more than one.",
+    "instantOn": "Instant booking is on",
+    "instantOnText": "We tell you about every booking by {channels}.",
+    "instantOff": "Instant booking is off for now",
+    "confirms": "Confirms delivery",
+    "extra": "Extra",
+    "comingSoon": "Coming soon",
+    "paid": "Paid, later",
+    "toggle": "Alerts by {channel}",
+    "saved": "Saved.",
+    "email": {
+      "sendsTo": "We send them to <address></address>.",
+      "outbox": "In this test version, emails stay in the site's email outbox.",
+      "off": "Email alerts are off.",
+      "noEmail": "Your account has no email address yet.",
+      "addEmail": "Add an email address",
+      "failing": "Our emails to <address></address> bounce, so email alerts are paused.",
+      "failingHint": "They start again when an email to you arrives, or when you change the address.",
+      "changeEmail": "Change the address",
+      "notConfigured": "The site's email service isn't connected yet."
+    },
+    "telegram": {
+      "notConfigured": "The Bayit bot on Telegram isn't ready yet. Soon you'll be able to connect it here.",
+      "intro": "Connect once: open the Bayit bot in Telegram and tap Start.",
+      "connect": "Connect Telegram",
+      "open": "Open Telegram",
+      "waiting": "Waiting for you to tap Start in Telegram…",
+      "checkAgain": "Check again",
+      "connected": "Connected on {date}.",
+      "connectedToast": "Telegram is connected.",
+      "off": "Connected, but Telegram alerts are off.",
+      "disconnect": "Disconnect",
+      "disconnectedToast": "Telegram is disconnected.",
+      "failing": "Telegram doesn't accept our messages (maybe the bot was blocked). Open the bot and tap Start, or connect again.",
+      "reconnect": "Connect again"
+    },
+    "push": {
+      "intro": "A pop-up on your phone or computer. It can't confirm that you saw it, so on its own it isn't enough for instant booking.",
+      "notConfigured": "Notifications aren't set up on the site yet.",
+      "unsupported": "This browser doesn't support notifications.",
+      "iphone": "On iPhone: first add the site to your Home Screen (Share, then Add to Home Screen), open it from there and turn notifications on here.",
+      "denied": "Notifications are blocked in this browser. Allow them in the browser's site settings, then try again.",
+      "enable": "Turn on for this device",
+      "disable": "Turn off for this device",
+      "thisDevice": "On for this device.",
+      "devices": "{count, plural, one {On for {count} device:} other {On for {count} devices:}}",
+      "unknownDevice": "A device",
+      "since": "since {date}",
+      "remove": "Remove {device}",
+      "enabledToast": "Notifications are on for this device.",
+      "disabledToast": "Notifications are off for this device.",
+      "failed": "Couldn't turn notifications on. Please try again."
+    },
+    "later": "SMS and WhatsApp alerts are planned as paid options.",
+    "test": "Send a test alert",
+    "testSent": "Test sent by {channels}.",
+    "testNotSent": "Not sent by {channels}.",
+    "testNone": "No channel is on yet, so there's nothing to test.",
+    "guestsNote": "Guests can still contact you every way you chose in the contact step of your listing."
+  },
+  "reason": {
+    "email_not_configured": "The site isn't connected to an email service yet, so we can't confirm that you get every booking.{telegram, select, yes { Connect Telegram to take instant bookings now.} other {}} Until then, guests ask you directly (Ask the host).",
+    "no_email": "We need an email address to tell you about every booking.{telegram, select, yes { Add one, or connect Telegram.} other { Add one in your settings.}} Until then, guests ask you directly (Ask the host).",
+    "email_failing": "Our emails to <address></address> bounce.{telegram, select, yes { Change to an address that works, or connect Telegram.} other { Change to an address that works.}} Until then, guests ask you directly (Ask the host).",
+    "telegram_failing": "Telegram doesn't accept our messages (maybe the bot was blocked). Connect it again or turn on email alerts. Until then, guests ask you directly (Ask the host).",
+    "no_channel": "No alert channel that confirms delivery is on.{telegram, select, yes { Turn on email or connect Telegram.} other { Turn on email alerts.}} Browser notifications alone aren't enough. Until then, guests ask you directly (Ask the host)."
+  },
+  "notice": {
+    "offTitle": "Instant booking is off for now",
+    "fix": "Booking alert settings",
+    "hotelTitle": "Instant booking for hotels is coming soon",
+    "hotelBody": "We're building booking by room type, so that one booking never blocks the whole hotel. Until then guests contact you directly, and the check-in and check-out times and rules you fill in here show on your listing."
+  },
+  "errors": {
+    "telegram_not_configured": "Telegram isn't set up on the site yet.",
+    "push_not_configured": "Notifications aren't set up on the site yet."
+  },
+  "message": {
+    "newBooking": {
+      "text": "{brand}: new booking {code}. Details: {url}",
+      "title": "New booking {code}",
+      "body": "Open {brand} for the details."
+    },
+    "cancelled": {
+      "text": "{brand}: booking {code} was cancelled. Details: {url}",
+      "title": "Booking {code} was cancelled",
+      "body": "Open {brand} for the details."
+    },
+    "test": {
+      "text": "{brand}: this is a test alert. This is how we'll tell you about new bookings and cancellations. Settings: {url}",
+      "title": "Test alert from {brand}",
+      "body": "This is how we'll tell you about new bookings and cancellations."
+    },
+    "paused": {
+      "title": "{brand}: an alert channel is paused",
+      "email": "{brand}: our emails to you bounce, so email alerts are paused.",
+      "telegram": "{brand}: Telegram doesn't accept our messages, so Telegram alerts are paused.",
+      "stillInstant": "Instant bookings continue: we alert you on your other channels.",
+      "contactOnly": "Until email or Telegram works again, guests ask you directly instead of booking instantly.",
+      "fix": "Fix it in your settings: {url}"
+    }
+  },
+  "telegram": {
+    "linked": "Connected! {brand} will send you new bookings and cancellations here. To stop, send /stop or disconnect in your settings: {url}",
+    "expired": "This link has expired or was already used. In {brand}, open Settings → Booking alerts and tap “Connect Telegram” again: {url}",
+    "help": "This is the {brand} booking alerts bot. Connect it from your account settings: {url}",
+    "stopped": "Disconnected. {brand} won't send alerts here any more. You can connect again from your settings: {url}",
+    "notLinked": "This chat isn't connected to a {brand} account. Connect it from your account settings: {url}",
+    "resumed": "Telegram alerts from {brand} are back on.",
+    "disconnected": "You disconnected Telegram in your {brand} settings. You won't get alerts here any more."
+  },
+  "save": {
+    "button": "Save search",
+    "savedButton": "Search saved",
+    "sheetTitle": "Save this search",
+    "sheetLead": "We'll email you when new places match this search, at most once a day. You can pause or delete it at any time.",
+    "nameLabel": "Search name",
+    "namePlaceholder": "e.g. Batumi in August",
+    "submit": "Save",
+    "cancel": "Cancel",
+    "saved": "Search saved: {name}",
+    "savedHint": "We'll email you when new places are listed.",
+    "savedOffHint": "Emails for saved searches are off. You can turn them on in Alerts.",
+    "exists": "You already saved this search: {name}",
+    "manage": "Manage",
+    "errors": {
+      "name_required": "Give the search a name.",
+      "name_too_long": "Up to 80 characters.",
+      "too_many_searches": "You can save up to 20 searches. Delete one in Alerts to save a new one.",
+      "failed": "We couldn't save the search. Please try again."
+    }
+  },
+  "defaultName": {
+    "place": {
+      "any": "Homes in {place}",
+      "rent": "Homes for rent in {place}",
+      "shortStay": "Short stays in {place}",
+      "monthly": "Monthly rentals in {place}",
+      "buy": "Homes for sale in {place}",
+      "hotels": "Hotels and guesthouses in {place}"
+    },
+    "anywhere": {
+      "any": "Homes in Georgia",
+      "rent": "Homes for rent in Georgia",
+      "shortStay": "Short stays in Georgia",
+      "monthly": "Monthly rentals in Georgia",
+      "buy": "Homes for sale in Georgia",
+      "hotels": "Hotels and guesthouses in Georgia"
+    },
+    "text": "“{text}”",
+    "withDates": "{name} · {dates}",
+    "withMoveIn": "{name} · from {date}"
+  },
+  "page": {
+    "metaTitle": "Alerts and saved searches",
+    "metaDescription": "Emails about new places for your saved searches and price drops of places you saved.",
+    "title": "Alerts and saved searches",
+    "lead": "Emails about new places for the searches you saved, and when a place you saved lowers its price.",
+    "emails": {
+      "title": "Emails",
+      "savedSearches": {
+        "label": "New places for my saved searches",
+        "hint": "At most one email a day, in the morning. Never on Shabbat or Jewish holidays."
+      },
+      "priceDrops": {
+        "label": "Price drops of places I saved",
+        "hint": "When a place in your lists lowers its price by 3% or more."
+      },
+      "watching": "{count, plural, =0 {No saved places yet.} one {Watching 1 saved place.} other {Watching {countText} saved places.}}",
+      "lists": "My lists",
+      "noEmail": "To get these emails, add an email address to your account.",
+      "addEmail": "Add an email address",
+      "checkEmail": "Check the address",
+      "failing": "Emails to your address are paused because an earlier email didn't arrive. Check the address in Settings.",
+      "saved": "Saved",
+      "failed": "We couldn't save that. Please try again."
+    },
+    "searches": {
+      "title": "Saved searches",
+      "count": "{count, plural, one {1 search} other {{countText} searches}}",
+      "limit": "You can save up to {max} searches.",
+      "emptyTitle": "No saved searches yet",
+      "emptyBody": "Search for a place, then tap “Save search”. We'll email you when new places match.",
+      "emptyAction": "Start a search",
+      "status": {
+        "active": "On",
+        "paused": "Paused",
+        "datesPassed": "Dates passed"
+      },
+      "switchLabel": "Emails for {name}",
+      "datesPassed": "The dates of this search have passed, so we don't email about it. Open it, choose new dates and save it again.",
+      "lastSent": "Last email: {date}",
+      "neverSent": "No email yet",
+      "open": "Open search",
+      "rename": "Rename",
+      "delete": "Delete",
+      "deleteLabel": "Delete {name}",
+      "actionsLabel": "Actions for {name}",
+      "renameTitle": "Rename the search",
+      "renameSubmit": "Save",
+      "nameLabel": "Search name",
+      "deleteTitle": "Delete this search?",
+      "deleteBody": "“{name}” will be deleted and you won't get emails about it any more.",
+      "deleteConfirm": "Delete",
+      "cancel": "Cancel",
+      "deleted": "Search deleted",
+      "paused": "Search paused. No emails about it.",
+      "resumed": "Search on again. We'll email you about places listed from now on.",
+      "renamed": "Name changed",
+      "offNotice": "Emails for saved searches are off, so nothing is sent.",
+      "turnOn": "Turn on",
+      "allPlaces": "All places in Georgia"
+    },
+    "errors": {
+      "name_required": "Give the search a name.",
+      "name_too_long": "Up to 80 characters.",
+      "not_found": "We couldn't find this search. It may have been deleted.",
+      "failed": "Something went wrong. Please try again."
+    }
+  },
+  "quick": {
+    "label": "Saved searches",
+    "hint": "{count, plural, =0 {Emails about new places} one {1 active search} other {{countText} active searches}}"
+  },
+  "unsubscribe": {
+    "savedSearch": {
+      "metaTitle": "Saved-search emails",
+      "metaDescription": "Stop or restart the emails about new places for your saved searches.",
+      "confirm": {
+        "title": "Stop saved-search emails?",
+        "body": "We won't email you about new places for your saved searches any more. Your searches stay saved in your account."
+      },
+      "alreadyOff": {
+        "title": "Saved-search emails are already off",
+        "body": "You can turn them back on here or on the Alerts page of your account."
+      },
+      "off": {
+        "title": "Saved-search emails are off",
+        "body": "We won't send you these emails any more. You can turn them back on at any time, here or on the Alerts page of your account."
+      },
+      "on": {
+        "title": "Saved-search emails are back on",
+        "body": "We'll email you when new places are listed, at most once a day."
+      },
+      "invalid": {
+        "title": "This link doesn't work",
+        "body": "The link may be cut off, or the account was deleted. You can choose which emails you get on the Alerts page of your account."
+      },
+      "limited": {
+        "title": "Too many tries",
+        "body": "Try again in an hour, or change the setting on the Alerts page of your account."
+      },
+      "error": {
+        "title": "Something went wrong",
+        "body": "We couldn't save the change. Please try again in a moment."
+      },
+      "turnOff": "Stop the emails",
+      "turnOn": "Turn the emails back on",
+      "retry": "Try again",
+      "settings": "Go to Alerts"
+    },
+    "priceDrop": {
+      "metaTitle": "Price-drop emails",
+      "metaDescription": "Stop or restart the emails about price drops of places you saved.",
+      "confirm": {
+        "title": "Stop price-drop emails?",
+        "body": "We won't email you any more when a place you saved lowers its price. Your lists stay as they are."
+      },
+      "alreadyOff": {
+        "title": "Price-drop emails are already off",
+        "body": "You can turn them back on here or on the Alerts page of your account."
+      },
+      "off": {
+        "title": "Price-drop emails are off",
+        "body": "We won't send you these emails any more. You can turn them back on at any time, here or on the Alerts page of your account."
+      },
+      "on": {
+        "title": "Price-drop emails are back on",
+        "body": "We'll email you when a place you saved lowers its price by 3% or more."
+      },
+      "invalid": {
+        "title": "This link doesn't work",
+        "body": "The link may be cut off, or the account was deleted. You can choose which emails you get on the Alerts page of your account."
+      },
+      "limited": {
+        "title": "Too many tries",
+        "body": "Try again in an hour, or change the setting on the Alerts page of your account."
+      },
+      "error": {
+        "title": "Something went wrong",
+        "body": "We couldn't save the change. Please try again in a moment."
+      },
+      "turnOff": "Stop the emails",
+      "turnOn": "Turn the emails back on",
+      "retry": "Try again",
+      "settings": "Go to Alerts"
+    }
+  }
+}

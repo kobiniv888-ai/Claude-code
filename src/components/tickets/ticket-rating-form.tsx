@@ -51,7 +51,7 @@ export function TicketRatingForm({ number }: { number: number }) {
       onSubmit={onSubmit}
       noValidate
       aria-labelledby={`${id}-title`}
-      className="flex flex-col gap-4 rounded-2xl border border-verified/30 bg-verified-soft p-4 shadow-card sm:p-5"
+      className="flex flex-col gap-4 rounded-2xl border border-success/30 bg-primary-tint p-4 shadow-card sm:p-5"
     >
       <div>
         <h2 id={`${id}-title`} className="text-lg font-semibold">
@@ -85,7 +85,7 @@ export function TicketRatingForm({ number }: { number: number }) {
                 aria-hidden="true"
                 className={cn(
                   "size-9 transition-colors",
-                  value <= shown ? "fill-warning text-warning" : "fill-transparent text-muted-foreground/60",
+                  value <= shown ? "fill-muted-foreground text-foreground" : "fill-transparent text-muted-foreground/60",
                 )}
               />
             </label>

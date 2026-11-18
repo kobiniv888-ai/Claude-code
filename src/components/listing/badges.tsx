@@ -1,21 +1,13 @@
 import { useTranslations } from "next-intl";
-import {
-  BadgeCheckIcon,
-  BriefcaseBusinessIcon,
-  FootprintsIcon,
-  FlaskConicalIcon,
-  MegaphoneIcon,
-  MoonStarIcon,
-  SparklesIcon,
-  TrendingDownIcon,
-  UtensilsCrossedIcon,
-  type LucideIcon,
-} from "lucide-react";
+import { BadgeCheckIcon, BriefcaseBusinessIcon, FlaskConicalIcon, MegaphoneIcon, SparklesIcon, TrendingDownIcon, type SpriteIconComponent as LucideIcon } from "@/components/ds/sprite-icons";
+import { KosherStampIcon, ShabbatCandlesIcon, SynagogueIcon, type IconComponent } from "@/components/ds/jewish-icons";
 import type { ListingCardBadges } from "@/lib/listing/types";
+import { publicWalkMinutes } from "@/lib/geo/public-walk";
 import { cn } from "@/lib/utils";
 
 /**
- * Trust and Jewish-friendly badges, shared by the listing card and the listing page.
+ * Trust and Jewish-friendly badges of the listing page (the card uses the design-system
+ * BadgeRow from "@/components/ds"). Same colors and icons as the Bayit badge system.
  *
  *   <ListingBadges badges={listing.badges} />                       // all that apply
  *   <ListingBadges badges={listing.badges} kinds={["synagogue"]} />  // only some
@@ -29,8 +21,8 @@ const chip: Record<BadgeSize, string> = {
 };
 
 const tones = {
-  verified: "bg-verified-soft text-verified ring-1 ring-verified/20",
-  jewish: "bg-secondary text-primary ring-1 ring-primary/10",
+  verified: "bg-primary-tint text-success ring-1 ring-success/20",
+  jewish: "bg-primary-tint text-primary-text ring-1 ring-primary/10",
   neutral: "bg-muted text-muted-foreground ring-1 ring-foreground/5",
 } as const;
 
@@ -41,7 +33,7 @@ function Chip({
   title,
   children,
 }: {
-  icon: LucideIcon;
+  icon: IconComponent;
   tone: keyof typeof tones;
   size: BadgeSize;
   title?: string;
@@ -105,19 +97,19 @@ export function ListingBadges({
       );
     } else if (kind === "synagogue" && badges.synagogueWalkMin !== null) {
       items.push(
-        <Chip key={kind} icon={FootprintsIcon} tone="jewish" size={size}>
-          {t("synagogueWalk", { count: badges.synagogueWalkMin })}
+        <Chip key={kind} icon={SynagogueIcon} tone="jewish" size={size}>
+          {t("synagogueWalk", { count: publicWalkMinutes(badges.synagogueWalkMin) ?? 0 })}
         </Chip>,
       );
     } else if (kind === "kosher" && badges.kosherKitchen) {
       items.push(
-        <Chip key={kind} icon={UtensilsCrossedIcon} tone="jewish" size={size}>
+        <Chip key={kind} icon={KosherStampIcon} tone="jewish" size={size}>
           {t("kosherKitchen")}
         </Chip>,
       );
     } else if (kind === "shabbat" && badges.shabbatFriendly) {
       items.push(
-        <Chip key={kind} icon={MoonStarIcon} tone="jewish" size={size}>
+        <Chip key={kind} icon={ShabbatCandlesIcon} tone="jewish" size={size}>
           {t("shabbatFriendly")}
         </Chip>,
       );
@@ -144,9 +136,9 @@ export function ListingLabels({
   const t = useTranslations("listingCard.labels");
   const labels: { key: string; icon: LucideIcon; text: string; className: string }[] = [];
   if (badges.promoted) labels.push({ key: "promoted", icon: MegaphoneIcon, text: t("promoted"), className: "bg-primary text-primary-foreground" });
-  if (badges.priceDropped) labels.push({ key: "drop", icon: TrendingDownIcon, text: t("priceDropped"), className: "bg-verified text-verified-foreground" });
-  if (badges.isNew) labels.push({ key: "new", icon: SparklesIcon, text: t("new"), className: "bg-card text-foreground" });
-  if (badges.demo) labels.push({ key: "demo", icon: FlaskConicalIcon, text: t("demo"), className: "bg-warning text-warning-foreground" });
+  if (badges.priceDropped) labels.push({ key: "drop", icon: TrendingDownIcon, text: t("priceDropped"), className: "bg-primary text-primary-foreground" });
+  if (badges.isNew) labels.push({ key: "new", icon: SparklesIcon, text: t("new"), className: "bg-card text-foreground ring-1 ring-foreground/10" });
+  if (badges.demo) labels.push({ key: "demo", icon: FlaskConicalIcon, text: t("demo"), className: "bg-surface-muted text-foreground" });
   if (labels.length === 0) return null;
   return (
     <ul className={cn("flex flex-wrap gap-1.5", className)}>

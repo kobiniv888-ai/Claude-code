@@ -38,6 +38,7 @@ export async function findContactableListing(listingId: string) {
       publicId: true,
       title: true,
       ownerId: true,
+      countryCode: true,
       contactMethods: true,
       owner: { select: { id: true, name: true, email: true, contactEmail: true, locale: true, businessName: true, accountType: true } },
     },

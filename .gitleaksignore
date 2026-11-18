@@ -1,0 +1,18 @@
+# Findings that were checked by hand and are not secrets.
+# Format: <commit>:<file>:<rule>:<line> (gitleaks fingerprint).
+#
+# A browser push subscription's public "auth" value, used as test data in a unit test.
+# It belongs to no account and grants no access.
+a05d801d501019094e8bdca01189ee798cfe3050:src/lib/alerts/push-subscription.test.ts:generic-api-key:6
+src/lib/alerts/push-subscription.test.ts:generic-api-key:6
+
+# Made-up keys in tests of the start-up check and the React taint layer (checked by hand, 18 Nov 2026).
+# They belong to no service and unlock nothing.
+b9b82cca314d8c939ee3d3d59eb59a38b766408c:src/lib/startup-check.test.ts:generic-api-key:34
+b9b82cca314d8c939ee3d3d59eb59a38b766408c:src/lib/startup-check.test.ts:generic-api-key:56
+2c255060518ad1f468ce20ef93b88dc3ea4e22b4:src/lib/security/taint.test.ts:generic-api-key:45
+5d909517b595a282b743de9cd87265d1714caa58:src/lib/startup-check.test.ts:generic-api-key:8
+5d909517b595a282b743de9cd87265d1714caa58:src/lib/startup-check.test.ts:generic-api-key:9
+5d909517b595a282b743de9cd87265d1714caa58:src/lib/startup-check.test.ts:generic-api-key:32
+5d909517b595a282b743de9cd87265d1714caa58:src/lib/startup-check.test.ts:generic-api-key:35
+5d909517b595a282b743de9cd87265d1714caa58:src/lib/startup-check.test.ts:generic-api-key:38

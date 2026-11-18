@@ -19,7 +19,7 @@
  * the same value as S3_PUBLIC_URL, e.g. "https://media.bayit.example"), otherwise from
  * "/api/media/" (local storage; with the s3 driver that route redirects to the bucket).
  */
-import { siteConfig } from "@/config/site";
+import { absoluteUrl as siteAbsoluteUrl } from "@/lib/site-url";
 import { encodeKeyForUrl } from "@/lib/storage/keys";
 
 export const PHOTO_SIZES = ["sm", "md", "lg", "og"] as const;
@@ -92,13 +92,62 @@ export function photoUrl(photo: PhotoRef, size: PhotoSize): string {
 /** Absolute URL (for Open Graph tags, JSON-LD and emails). */
 export function absoluteMediaUrl(url: string): string {
   if (/^https?:\/\//i.test(url)) return url;
-  const base = siteConfig.url.replace(/\/+$/, "");
-  return `${base}${url.startsWith("/") ? "" : "/"}${url}`;
+  return siteAbsoluteUrl(url);
+}
+
+// ─── Reverse image search (admin review) ──────────────────────
+
+export type ReverseImageLinks = { googleLens: string; tinEye: string };
+
+/**
+ * "Search this photo online" links for the first-listing review (SECURITY_REPORT 9.m): Google Lens
+ * and TinEye, both free, by the photo's public address. Nothing is uploaded by us: the staff
+ * member opens the link in a new tab and the search site DOWNLOADS the photo itself and may keep
+ * it, before the listing is published; Google Lens also ties the search to the staff member's
+ * Google account, so the review page lists TinEye first and its hint says to use a work browser
+ * profile that is not signed in to Google (reverse-image-privacy-1). Null for anything that is not
+ * an absolute http(s) address (a stored URL we would not link to).
+ */
+export function reverseImageSearchLinks(imageUrl: string): ReverseImageLinks | null {
+  // An absolute http(s) address, or a path on our own site ("/api/media/…"); nothing else.
+  if (!/^https?:\/\//i.test(imageUrl) && !/^\/(?!\/)/.test(imageUrl)) return null;
+  let url: URL;
+  try {
+    url = new URL(absoluteMediaUrl(imageUrl));
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+  if (url.username || url.password) return null;
+  const encoded = encodeURIComponent(url.toString());
+  return {
+    googleLens: `https://lens.google.com/uploadbyurl?url=${encoded}`,
+    tinEye: `https://tineye.com/search?url=${encoded}`,
+  };
+}
+
+// ─── Accepted uploads ─────────────────────────────────────────
+
+/**
+ * The image types every upload field offers (the file input's `accept`). JPEG, PNG and WebP only
+ * (SECURITY_REPORT 9.a): leaving HEIC out makes an iPhone convert its photos to JPEG by itself
+ * before sending them. A HEIC file that still arrives (dragged in, shared from Files) is converted
+ * in the browser where it can be (readyForUpload in @/lib/media-client), else on the server
+ * (prepareUploadImage in @/lib/images). The server checks the real bytes again (sniffImageFormat)
+ * and refuses AVIF, GIF, SVG and everything else; "heic_not_supported" means a HEIC it could not
+ * decode.
+ */
+export const UPLOAD_IMAGE_ACCEPT = "image/jpeg,image/png,image/webp";
+
+/** A picked file that is HEIC/HEIF by its type or name (converted before or after upload). */
+export function isHeicFile(file: { type: string; name: string }): boolean {
+  return /^image\/hei[cf](-sequence)?$/i.test(file.type) || /\.(heic|heif)$/i.test(file.name);
 }
 
 // ─── Private uploads ──────────────────────────────────────────
 
-export const PRIVATE_UPLOAD_PURPOSES = ["verification", "ticket"] as const;
+/** "report": turned-away report screenshots (round 3, brief 8.2; src/lib/reports/turned-away.ts). */
+export const PRIVATE_UPLOAD_PURPOSES = ["verification", "ticket", "report"] as const;
 export type PrivateUploadPurpose = (typeof PRIVATE_UPLOAD_PURPOSES)[number];
 
 /** "private/<purpose>/<userId>/" — every private upload of that user for that purpose lives under it. */

@@ -22,7 +22,7 @@ export function CtaBand({
     >
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -top-20 -end-16 -z-10 size-64 rounded-full bg-terracotta/40 blur-3xl"
+        className="pointer-events-none absolute -top-20 -end-16 -z-10 size-64 rounded-full bg-primary/40 blur-3xl"
       />
       <div
         aria-hidden="true"
@@ -47,10 +47,10 @@ export const ctaButtonClass = {
     "inline-flex h-12 items-center justify-center gap-2 rounded-xl border bg-card px-5 text-base font-semibold text-foreground shadow-card transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring [&_svg]:size-5 [&_svg]:shrink-0",
   /** Terracotta accent. */
   accent:
-    "inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-terracotta px-5 text-base font-semibold text-terracotta-foreground shadow-card transition-colors hover:bg-terracotta/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring [&_svg]:size-5 [&_svg]:shrink-0",
+    "inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-base font-semibold text-primary-foreground shadow-card transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring [&_svg]:size-5 [&_svg]:shrink-0",
   /** On a deep-blue band: light solid. */
   onPrimary:
-    "inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-primary-foreground px-5 text-base font-semibold text-primary transition-colors hover:bg-primary-foreground/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-foreground [&_svg]:size-5 [&_svg]:shrink-0",
+    "inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-primary-foreground px-5 text-base font-semibold text-brand transition-colors hover:bg-primary-foreground/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-foreground [&_svg]:size-5 [&_svg]:shrink-0",
   /** On a deep-blue band: outline. */
   onPrimaryOutline:
     "inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-primary-foreground/40 px-5 text-base font-semibold text-primary-foreground transition-colors hover:bg-primary-foreground/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-foreground [&_svg]:size-5 [&_svg]:shrink-0",

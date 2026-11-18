@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { siteConfig } from "@/config/site";
 import {
   checkLoginPhoneNumber,
   formatPhoneInternational,
@@ -8,10 +9,27 @@ import {
 } from "./phone";
 
 describe("checkLoginPhoneNumber", () => {
-  it("accepts valid numbers in allowed countries", () => {
+  it("accepts mobile numbers in Israel and Georgia", () => {
     expect(checkLoginPhoneNumber("+995555123456")).toEqual({ ok: true, e164: "+995555123456", country: "GE" });
     expect(checkLoginPhoneNumber("+972502345678")).toMatchObject({ ok: true, country: "IL" });
-    expect(checkLoginPhoneNumber("+12015550123")).toMatchObject({ ok: true, country: "US" });
+    expect(checkLoginPhoneNumber("+972500000123")).toMatchObject({ ok: true, country: "IL" });
+  });
+
+  it("SMS goes only to Israel (+972) and Georgia (+995): other countries are refused (3.2.a)", () => {
+    for (const number of ["+12015550123", "+447911123456", "+79161234567", "+971501234567", "+380501234567"]) {
+      expect(checkLoginPhoneNumber(number), number).toEqual({ ok: false, reason: "country_not_supported" });
+    }
+  });
+
+  it("premium-rate numbers never get a code (they are outside the allow-list too)", () => {
+    expect(checkLoginPhoneNumber("+19005550123").ok).toBe(false);
+    expect(checkLoginPhoneNumber("+449098790123").ok).toBe(false);
+  });
+
+  it("mobile numbers only: landlines in Israel and Georgia are refused (3.2.e)", () => {
+    expect(checkLoginPhoneNumber("+995322123456")).toEqual({ ok: false, reason: "not_mobile" });
+    expect(checkLoginPhoneNumber("+97221234567")).toEqual({ ok: false, reason: "not_mobile" });
+    expect(checkLoginPhoneNumber("+97236123456")).toEqual({ ok: false, reason: "not_mobile" });
   });
 
   it("rejects malformed or invalid numbers", () => {
@@ -37,11 +55,12 @@ describe("phone helpers", () => {
     expect(isPlaceholderEmail(null)).toBe(false);
   });
 
-  it("checks the SMS allow-list", () => {
+  it("checks the SMS allow-list: exactly Israel and Georgia", () => {
     expect(isSmsCountryAllowed("GE")).toBe(true);
     expect(isSmsCountryAllowed("IL")).toBe(true);
-    expect(isSmsCountryAllowed("NG")).toBe(false);
+    for (const country of ["NG", "US", "GB", "RU", "AE", "UA", "TR"]) expect(isSmsCountryAllowed(country), country).toBe(false);
     expect(isSmsCountryAllowed(undefined)).toBe(false);
+    expect([...siteConfig.phone.smsAllowedCountries].sort()).toEqual(["GE", "IL"]);
   });
 
   it("formats numbers for display names", () => {

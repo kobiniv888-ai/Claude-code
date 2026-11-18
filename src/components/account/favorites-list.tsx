@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, useTransition } from "react";
-import { useTranslations } from "next-intl";
-import { CheckIcon, CloudOffIcon, HeartOffIcon, LoaderIcon, SearchIcon } from "lucide-react";
+import { useEffect, useId, useRef, useState, useTransition, type ReactNode } from "react";
+import { useLocale, useTranslations } from "next-intl";
+import { CheckIcon, CloudOffIcon, FolderInputIcon, HeartIcon, HeartOffIcon, LoaderIcon, MapPinIcon, SearchIcon } from "lucide-react";
 import { toast } from "@/lib/toast";
-import { EmptyState } from "@/components/common/states";
+import { EmptyState } from "@/components/ds/empty-state";
+import { siteConfig, type AppLocale } from "@/config/site";
 import { CompareToggle } from "@/components/listing/compare-toggle";
 import { ListingCard } from "@/components/listing/listing-card";
+import { useMoveSheet } from "@/components/lists/move-sheet";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useRouter } from "@/i18n/navigation";
@@ -44,7 +46,7 @@ function NoteEditor({ listingId, initial }: { listingId: string; initial: string
 
   return (
     <div className="grid gap-1.5">
-      <label htmlFor={id} className="text-sm font-medium">
+      <label htmlFor={id} className="text-small font-semibold">
         {t("label")}
       </label>
       <Textarea
@@ -55,7 +57,7 @@ function NoteEditor({ listingId, initial }: { listingId: string; initial: string
         rows={2}
         placeholder={t("placeholder")}
         onChange={(event) => setValue(event.target.value)}
-        className="min-h-16 resize-y bg-background"
+        className="min-h-16 resize-y rounded-input bg-card"
       />
       <p aria-live="polite" className="flex min-h-5 items-center gap-1 text-xs text-muted-foreground">
         {state === "saving" ? (
@@ -65,7 +67,7 @@ function NoteEditor({ listingId, initial }: { listingId: string; initial: string
           </>
         ) : state === "saved" ? (
           <>
-            <CheckIcon className="size-3.5 text-verified" aria-hidden="true" />
+            <CheckIcon className="size-3.5 text-success" aria-hidden="true" />
             {t("saved")}
           </>
         ) : state === "error" ? (
@@ -88,7 +90,7 @@ function RemoveButton({ listingId, onRemoved }: { listingId: string; onRemoved: 
   return (
     <Button
       variant="ghost"
-      className="h-10 rounded-xl px-3 text-muted-foreground"
+      className="h-11 rounded-full px-3 text-muted-foreground"
       disabled={pending}
       onClick={() =>
         startTransition(async () => {
@@ -108,7 +110,25 @@ function RemoveButton({ listingId, onRemoved }: { listingId: string; onRemoved: 
   );
 }
 
-export function FavoritesList({ items }: { items: FavoriteItem[] }) {
+/** "Move" (round 3, saved lists): opens the list's one sheet (useMoveSheet), to put the place in another list. */
+function MoveButton({ listingId, title, onMove }: { listingId: string; title: string; onMove: (listingId: string, title: string) => void }) {
+  const t = useTranslations("lists.page");
+  return (
+    <Button
+      variant="ghost"
+      className="h-11 rounded-full px-3 text-muted-foreground"
+      onClick={() => onMove(listingId, title)}
+      aria-label={t("moveFor", { title })}
+      aria-haspopup="dialog"
+      data-move-for={listingId}
+    >
+      <FolderInputIcon aria-hidden="true" className="rtl:-scale-x-100" />
+      {t("move")}
+    </Button>
+  );
+}
+
+export function FavoritesList({ items, empty }: { items: FavoriteItem[]; empty?: ReactNode }) {
   const t = useTranslations("account.favorites");
   const router = useRouter();
   const [removed, setRemoved] = useState<ReadonlySet<string>>(new Set());
@@ -118,45 +138,72 @@ export function FavoritesList({ items }: { items: FavoriteItem[] }) {
     setRemoved((prev) => new Set(prev).add(listingId));
     router.refresh();
   };
+  const { openMove, moveSheet } = useMoveSheet({ order: visible.map((item) => item.listingId), onSaved: onRemoved });
 
   if (visible.length === 0) {
     return (
-      <EmptyState
-        bordered
-        icon={HeartOffIcon}
-        title={t("emptyTitle")}
-        description={t("emptyBody")}
-        action={{ label: t("search"), href: "/search", icon: SearchIcon }}
-      />
+      <>
+        {empty ?? <FavoritesEmpty />}
+        {moveSheet}
+      </>
     );
   }
 
   return (
-    <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {visible.map((item) =>
-        item.available ? (
-          <li key={item.listingId} className="flex flex-col gap-3 rounded-2xl border bg-card p-3 shadow-xs">
-            <ListingCard listing={item.card} />
-            <NoteEditor listingId={item.listingId} initial={item.note} />
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <CompareToggle publicId={item.card.publicId} />
-              <RemoveButton listingId={item.listingId} onRemoved={() => onRemoved(item.listingId)} />
-            </div>
-          </li>
-        ) : (
-          <li key={item.listingId} className="flex flex-col gap-3 rounded-2xl border border-dashed bg-muted/40 p-4">
-            <p className="text-xs font-semibold text-muted-foreground uppercase">{t("unavailable")}</p>
-            <p className="font-semibold break-words" dir="auto">
-              {item.title || t("untitled")}
-            </p>
-            <p className="text-sm text-muted-foreground">{t("unavailableBody")}</p>
-            <NoteEditor listingId={item.listingId} initial={item.note} />
-            <div className="mt-auto flex justify-end">
-              <RemoveButton listingId={item.listingId} onRemoved={() => onRemoved(item.listingId)} />
-            </div>
-          </li>
-        ),
-      )}
-    </ul>
+    <>
+      <ul className="grid gap-x-4 gap-y-8 sm:grid-cols-2 xl:grid-cols-3">
+        {visible.map((item) =>
+          item.available ? (
+            <li key={item.listingId} className="flex min-w-0 flex-col gap-3">
+              <ListingCard listing={item.card} />
+              <div className="grid gap-2 rounded-card bg-muted/60 p-3">
+                <NoteEditor listingId={item.listingId} initial={item.note} />
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <CompareToggle publicId={item.card.publicId} />
+                  <div className="flex flex-wrap items-center gap-1">
+                    <MoveButton listingId={item.listingId} title={item.card.title} onMove={openMove} />
+                    <RemoveButton listingId={item.listingId} onRemoved={() => onRemoved(item.listingId)} />
+                  </div>
+                </div>
+              </div>
+            </li>
+          ) : (
+            <li key={item.listingId} className="flex min-w-0 flex-col gap-3 rounded-card border border-dashed bg-muted/40 p-4">
+              <p className="text-caption font-semibold text-muted-foreground">{t("unavailable")}</p>
+              <p className="text-h3 break-words" dir="auto">
+                {item.title || t("untitled")}
+              </p>
+              <p className="text-small text-muted-foreground">{t("unavailableBody")}</p>
+              <NoteEditor listingId={item.listingId} initial={item.note} />
+              <div className="mt-auto flex flex-wrap justify-end gap-1">
+                <MoveButton listingId={item.listingId} title={item.title || t("untitled")} onMove={openMove} />
+                <RemoveButton listingId={item.listingId} onRemoved={() => onRemoved(item.listingId)} />
+              </div>
+            </li>
+          ),
+        )}
+      </ul>
+      {moveSheet}
+    </>
+  );
+}
+
+/** Nothing saved yet: a coral heart, one line, "Start searching" and the first three popular cities. */
+export function FavoritesEmpty() {
+  const t = useTranslations("account.favorites");
+  const locale = useLocale() as AppLocale;
+  return (
+    <EmptyState
+      icon={HeartIcon}
+      tone="coral"
+      title={t("emptyTitle")}
+      description={t("emptyBody")}
+      action={{ label: t("startSearching"), href: "/search", icon: SearchIcon }}
+      quickFixes={siteConfig.cities
+        .filter((city) => city.popular)
+        .slice(0, 3)
+        .map((city) => ({ label: city.names[locale], href: `/search?city=${city.slug}`, icon: MapPinIcon }))}
+      className="rounded-card bg-card px-6 shadow-raised ring-1 ring-foreground/5"
+    />
   );
 }

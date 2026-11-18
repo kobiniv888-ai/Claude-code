@@ -10,6 +10,9 @@ export const routing = defineRouting({
   localeDetection: true,
   // Remember the visitor's choice for a year.
   localeCookie: { name: "NEXT_LOCALE", maxAge: 60 * 60 * 24 * 365 },
-  // hreflang alternate links are sent as HTTP Link headers too.
-  alternateLinks: true,
+  // No HTTP "Link" hreflang header: next-intl builds it by swapping the locale prefix, so it would
+  // name the wrong per-language listing slugs, drop a landing's query and point x-default at a
+  // redirect, contradicting the page. hreflang comes only from the HTML <link rel="alternate">
+  // written by pageMetadata / localizedAlternates (@/lib/seo) and the listing page's getListingPaths.
+  alternateLinks: false,
 });

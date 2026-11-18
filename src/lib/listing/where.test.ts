@@ -10,6 +10,7 @@ import {
   publicListingWhere,
   queryWords,
   type ListingWhereContext,
+  sortBySynagogueStep,
 } from "./where";
 
 const now = new Date("2026-10-31T12:00:00.000Z");
@@ -67,6 +68,26 @@ describe("buildListingWhere", () => {
     expect(minStay).toEqual({ OR: [{ minStayNights: null }, { minStayNights: { lte: 3 } }] });
   });
 
+  it("hotels: only a whole-hotel closure hides them, and they need a free room on every night (search-1)", () => {
+    const [availability] = parts({ checkIn: "2026-11-10", checkOut: "2026-11-13" }, { freeHotelIds: ["h1", "h2"] });
+    const overlap = { startDate: { lt: new Date("2026-11-13T00:00:00.000Z") }, endDate: { gt: new Date("2026-11-10T00:00:00.000Z") } };
+    expect(availability).toEqual({
+      OR: [
+        { dealType: { notIn: ["HOTEL_ROOM"] }, availability: { none: overlap } },
+        { dealType: { in: ["HOTEL_ROOM"] }, availability: { none: { ...overlap, roomTypeId: null } }, id: { in: ["h1", "h2"] } },
+        // A contact-only hotel (no bookable room type) is searched like a whole place.
+        {
+          dealType: { in: ["HOTEL_ROOM"] },
+          roomTypes: { none: { active: true, pricePeriod: "NIGHT", price: { gt: 0 } } },
+          availability: { none: overlap },
+        },
+      ],
+    });
+    // No hotel with a free room: hotels are left out, the other places are searched as before.
+    const [none] = parts({ checkIn: "2026-11-10", checkOut: "2026-11-13" }, { freeHotelIds: [] });
+    expect((none as { OR: { id?: unknown }[] }).OR[1].id).toEqual({ in: [] });
+  });
+
   it("checks the move-in day alone for monthly rentals", () => {
     expect(parts({ deal: "monthly", checkIn: "2026-12-01" })[1]).toEqual({
       availability: {
@@ -121,7 +142,7 @@ describe("buildListingWhere", () => {
     expect(
       parts({ verifiedOnly: true, ownerType: "business", hasPhotos: true, hasVideo: true, postedWithin: "24h" }),
     ).toEqual([
-      { OR: [{ ownerVerifiedAt: { not: null } }, { owner: { idVerifiedAt: { not: null } } }] },
+      // "Verified only" is ignored while there are no document checks (src/config/verification.ts).
       { owner: { accountType: "BUSINESS" } },
       { photos: { some: {} } },
       { videoUrl: { not: null } },
@@ -199,12 +220,44 @@ describe("sorting", () => {
     expect(buildListingOrderBy("price_asc")[0]).toEqual({ priceUsd: { sort: "asc", nulls: "last" } });
     expect(buildListingOrderBy("price_desc")[0]).toEqual({ priceUsd: { sort: "desc", nulls: "last" } });
     expect(buildListingOrderBy("price_sqm")[0]).toEqual({ pricePerSqmUsd: { sort: "asc", nulls: "last" } });
-    expect(buildListingOrderBy("synagogue")[0]).toEqual({ synagogueWalkMin: { sort: "asc", nulls: "last" } });
+    // The synagogue sort never orders by the exact minutes in the database (sortBySynagogueStep).
+    expect(JSON.stringify(buildListingOrderBy("synagogue"))).not.toContain("synagogueWalkMin");
     expect(buildListingOrderBy("price_drop")[0]).toEqual({ priceDroppedAt: { sort: "desc", nulls: "last" } });
     expect(buildListingOrderBy("updated")[0]).toEqual({ contentUpdatedAt: "desc" });
     expect(buildListingOrderBy("newest")[0]).toEqual({ publishedAt: { sort: "desc", nulls: "last" } });
     for (const sort of ["newest", "synagogue", "price_drop"] as const) {
       expect(buildListingOrderBy(sort).at(-1)).toEqual({ publicId: "desc" });
     }
+  });
+});
+
+describe("the nearest-synagogue sort leaks no more than the labels (6.d)", () => {
+  const row = (publicId: number, synagogueWalkMin: number | null, bumpedDaysAgo: number | null) => ({
+    publicId,
+    synagogueWalkMin,
+    bumpedAt: bumpedDaysAgo === null ? null : new Date(Date.UTC(2026, 10, 8) - bumpedDaysAgo * 86_400_000),
+  });
+
+  it("orders by the shown step, then by the walk-free order, listings without a walk last", () => {
+    const sorted = sortBySynagogueStep([row(1, 9, 1), row(2, 6, 3), row(3, 4, 9), row(4, null, 0), row(5, 12, 0), row(6, 10, null)]);
+    // Step 5: #3; step 10: #1 (bumped 1 day ago), #2 (3 days), #6 (never bumped); step 15: #5; none: #4.
+    expect(sorted.map((r) => r.publicId)).toEqual([3, 1, 2, 6, 5, 4]);
+  });
+
+  it("never depends on the exact minutes inside a step", () => {
+    const base = [row(11, 6, 2), row(12, 7, 5), row(13, 8, 1), row(14, 10, 4), row(15, 3, 0), row(16, 16, 0)];
+    const expected = sortBySynagogueStep(base).map((r) => r.publicId);
+    // Every other exact value with the same shown step gives the same order.
+    for (let shift = 0; shift < 50; shift++) {
+      const shuffled = base.map((r, i) => {
+        const shown = Math.ceil(r.synagogueWalkMin! / 5) * 5;
+        return { ...r, synagogueWalkMin: shown - ((i + shift) % 5) };
+      });
+      expect(sortBySynagogueStep([...shuffled].reverse()).map((r) => r.publicId)).toEqual(expected);
+    }
+  });
+
+  it("breaks full ties by the public ID (stable pages)", () => {
+    expect(sortBySynagogueStep([row(7, 8, null), row(9, 7, null), row(8, 9, null)]).map((r) => r.publicId)).toEqual([9, 8, 7]);
   });
 });

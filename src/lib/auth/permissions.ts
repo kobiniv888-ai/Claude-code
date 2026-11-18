@@ -20,6 +20,11 @@ export const PERMISSIONS = [
   "settings",
   "roles",
   "audit",
+  // ADMIN only (founder's decision Q12, SECURITY_REPORT 4.3.a/d): who sent a report, and the
+  // guest's phone on a booking. Other staff keep the rest of reports and bookings; the queries
+  // themselves leave these out for them (src/lib/admin/server/reports.ts, bookings.ts).
+  "reports.reporter",
+  "bookings.guest_phone",
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 

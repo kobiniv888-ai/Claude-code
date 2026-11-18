@@ -37,7 +37,8 @@ export function stayRequestFrom(params: Record<string, string | string[] | undef
     const nights = (Date.parse(`${checkOut}T00:00:00Z`) - Date.parse(`${checkIn}T00:00:00Z`)) / 86_400_000;
     if (nights > 366) checkIn = checkOut = null;
   }
-  const rawGuests = Number(one("guests"));
+  // The booking sheet writes adults / children instead of the search's single count.
+  const rawGuests = one("guests") ? Number(one("guests")) : one("adults") ? Number(one("adults")) + (Number(one("children")) || 0) : NaN;
   const guests = Number.isInteger(rawGuests) && rawGuests >= 1 && rawGuests <= 50 ? rawGuests : null;
   return { checkIn, checkOut, guests };
 }

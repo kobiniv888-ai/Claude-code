@@ -122,7 +122,7 @@ export default async function ModerationQueuePage({ params, searchParams }: Page
                       {t("accountAge", { age: formatRelativeTime(row.owner.createdAt, locale) })}
                     </span>
                     {row.firstListing ? (
-                      <span className="rounded-full bg-warning-soft px-2 py-0.5 font-medium text-foreground">{t("firstListing")}</span>
+                      <span className="rounded-full bg-surface-muted px-2 py-0.5 font-medium text-foreground">{t("firstListing")}</span>
                     ) : null}
                     {row._count.reports > 0 ? (
                       <span className="rounded-full bg-destructive/10 px-2 py-0.5 font-medium text-destructive">

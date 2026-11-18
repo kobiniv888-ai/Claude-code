@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Container } from "@/components/common/container";
 import { ContactOptions } from "@/components/help/contact-options";
-import { FaqJsonLd } from "@/components/help/faq-json-ld";
-import { getPublishedFaq } from "@/components/help/get-faq";
 import { HelpCenter } from "@/components/help/help-center";
+import { SupportReplyPromise } from "@/components/help/support-reply-promise";
+import { getPublishedFaq } from "@/lib/help/faq";
 import { absoluteUrl, localizedPath, pageMetadata, siteName } from "@/lib/seo";
 
 type Props = { params: Promise<{ locale: string }> };
@@ -24,13 +24,13 @@ export default async function HelpPage({ params }: Props) {
   const { locale } = await params;
   setRequestLocale(locale);
   const items = await getPublishedFaq(locale);
+  const pageUrl = absoluteUrl(localizedPath(locale, "/help"));
 
   return (
     <div className="pb-16">
-      <FaqJsonLd items={items} url={absoluteUrl(localizedPath(locale, "/help"))} />
-      <HelpCenter items={items} />
-      <Container size="default" className="max-w-6xl pt-14">
-        <ContactOptions />
+      <HelpCenter items={items} pageUrl={pageUrl} />
+      <Container size="default" className="max-w-6xl pt-12">
+        <ContactOptions replyPromise={<SupportReplyPromise className="text-small text-pretty text-muted-foreground" />} />
       </Container>
     </div>
   );

@@ -7,6 +7,7 @@ import { ShabbatPaused } from "@/components/wizard/shabbat-paused";
 import { WizardShell } from "@/components/wizard/wizard-shell";
 import type { AppLocale } from "@/config/site";
 import { redirect } from "@/i18n/navigation";
+import { redirectUntilTermsAccepted } from "@/lib/legal/terms-redirect";
 import { requireUser } from "@/lib/auth/session";
 import { isShabbatModeActive } from "@/lib/settings";
 import { loadWizard } from "@/lib/wizard/server";
@@ -30,6 +31,8 @@ export default async function PostWizardPage({ params, searchParams }: Props) {
   setRequestLocale(locale);
   const query = await searchParams;
   const user = await requireUser({ phoneVerified: true, next: `/post/${encodeURIComponent(id)}` });
+  // The Terms in force (+ 18 or older) before the post form (S2 review LP-1).
+  await redirectUntilTermsAccepted(locale, `/post/${encodeURIComponent(id)}`);
 
   const shabbat = await isShabbatModeActive();
   if (shabbat.active) {
@@ -42,8 +45,24 @@ export default async function PostWizardPage({ params, searchParams }: Props) {
 
   const data = await loadWizard(id, user, "create", locale);
   if (!data) notFound();
-  // Published listings are edited from "My listings" (same wizard, "Save changes" at the end).
   if (data.listing.status !== "DRAFT") {
+    // Just published (?published=1, bug 2.7): a reload — or Back from the listing page — shows the
+    // success screen again.
+    const { status, publicPath } = data.listing;
+    if (query.published === "1" && (status === "LIVE" || status === "IN_REVIEW")) {
+      return (
+        <>
+          <HideBottomNav />
+          <WizardShell
+            listing={data.listing}
+            context={data.context}
+            initialStep="publish"
+            initialResult={{ status, reasons: [], publicId: data.listing.publicId, publicPath }}
+          />
+        </>
+      );
+    }
+    // Published listings are edited from "My listings" (same wizard, "Save changes" at the end).
     return redirect({ href: `/account/listings/${data.listing.id}/edit`, locale });
   }
 

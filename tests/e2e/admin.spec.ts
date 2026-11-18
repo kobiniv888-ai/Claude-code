@@ -1,5 +1,5 @@
 import { expect, openAs, settle, test } from "./fixtures";
-import { DEMO } from "./helpers/auth";
+import { answerStaffProof, TEST_ADMIN_PHONE } from "./helpers/staff";
 import { createReport, createTestListing, createTestUser, createTicket, sql } from "./helpers/db";
 
 /** Definition of done: an admin can handle reports and answer tickets. */
@@ -10,7 +10,7 @@ test("an admin resolves a report", async ({ browser }) => {
   const reporter = await createTestUser();
   const reportId = await createReport({ listingId: listing.id, reporterId: reporter.id, reason: "WRONG_PRICE", details: "E2E: the price on the phone was higher." });
 
-  const { context, page, consoleErrors } = await openAs(browser, DEMO.admin);
+  const { context, page, consoleErrors } = await openAs(browser, TEST_ADMIN_PHONE);
   await page.goto("/en/admin/reports");
   await page.getByRole("link", { name: "Wrong price" }).and(page.locator(`[href$="/admin/reports/${reportId}"]`)).click();
   await expect(page.getByRole("heading", { level: 1, name: "Wrong price" })).toBeVisible();
@@ -30,7 +30,7 @@ test("an admin answers a ticket and the user reads the reply", async ({ browser 
   const user = await createTestUser({ name: "E2E Ticket User" });
   const ticket = await createTicket({ userId: user.id, subject: `E2E Photos do not upload ${Date.now().toString(36)}`, body: "E2E: my photos stop at 90%." });
 
-  const admin = await openAs(browser, DEMO.admin);
+  const admin = await openAs(browser, TEST_ADMIN_PHONE);
   await admin.page.goto(`/en/admin/tickets/${ticket.id}`);
   await expect(admin.page.getByRole("heading", { level: 1 })).toContainText("E2E Photos do not upload");
   await settle(admin.page);
@@ -55,7 +55,7 @@ test("an admin rejects a listing", async ({ browser }) => {
   const owner = await createTestUser({ name: "E2E Owner" });
   const listing = await createTestListing({ ownerId: owner.id, title: `E2E Rejected flat ${Date.now().toString(36)}`, status: "IN_REVIEW" });
 
-  const { context, page, consoleErrors } = await openAs(browser, DEMO.admin);
+  const { context, page, consoleErrors } = await openAs(browser, TEST_ADMIN_PHONE);
   await page.goto(`/en/admin/moderation/${listing.id}`);
   await expect(page.getByRole("heading", { level: 1 })).toContainText("E2E Rejected flat");
   await settle(page);
@@ -65,7 +65,8 @@ test("an admin rejects a listing", async ({ browser }) => {
   await dialog.getByRole("combobox", { name: "Reason" }).click();
   await page.getByRole("option", { name: "Suspected scam" }).click();
   await dialog.getByRole("button", { name: "Reject listing" }).click();
-  await expect(page.getByText("The listing was rejected.")).toBeVisible();
+  // Rejecting is a destructive action: a fresh authenticator code first (3.6.c).
+  await answerStaffProof(page, page.getByText("The listing was rejected."));
   await expect.poll(async () => (await sql<{ status: string }>(`SELECT status FROM "Listing" WHERE id = $1`, [listing.id]))[0].status).toBe("REJECTED");
   expect(consoleErrors).toEqual([]);
   await context.close();

@@ -97,7 +97,4 @@ export function searchPath(filters: Partial<SearchFilters> = {}): string {
   return query ? `/search?${query}` : "/search";
 }
 
-/** The visitor's saved listings. */
-export const FAVORITES_PATH = "/account/favorites";
-/** Side-by-side comparison of the compare list (up to siteConfig.listings.compareMax). */
-export const COMPARE_PATH = "/account/compare";
+export { COMPARE_PATH, FAVORITES_PATH } from "./paths";

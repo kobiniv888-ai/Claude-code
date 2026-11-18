@@ -1,57 +1,27 @@
 import type { MetadataRoute } from "next";
-import { locales, siteConfig } from "@/config/site";
+import { siteConfig } from "@/config/site";
+import { laterDate } from "@/lib/city-pages/core";
+import { listCityPages } from "@/lib/city-pages";
 import { db } from "@/lib/db";
-import { DEAL_FILTERS, type DealFilter } from "@/lib/listing/search-params";
-import { searchPath } from "@/lib/listing/urls";
 import { listingPathsByLocale } from "@/lib/listing-page/load";
 import { publicListingWhere } from "@/lib/listing/where";
-import { getCities } from "@/lib/places";
-import { absoluteUrl, localizedPath, X_DEFAULT_LOCALE } from "@/lib/seo";
-import { getSettings } from "@/lib/settings";
+import { indexableSearchPaths } from "@/lib/search/seo";
+import { buildSitemap, listingCapacity, pageEntries, type SitemapGuide } from "@/lib/seo-sitemap";
 
 /**
- * /sitemap.xml — every public page in the five languages (with hreflang alternates): the static
- * pages, the popular cities × deal types, and every LIVE listing (demo listings only while the
- * "demo data" setting is on). One file holds up to 50,000 URLs, so the listings are capped at the
- * most recently updated MAX_LISTINGS (× 5 languages).
+ * /sitemap.xml (round 3, brief 10): only pages that may be indexed, in the five languages with
+ * hreflang alternates. The static pages, the indexed search landings, the INDEXABLE city pages
+ * (at least 3 real listings) and their overviews, the guides, and the real published listings:
+ * LIVE, public and NEVER demo, whatever the "demo data" setting says (demo listing pages are
+ * noindex). lastmod: when a listing's content last changed (contentUpdatedAt, or its publishing).
+ * At most 50,000 URLs (src/lib/seo-sitemap.ts). robots.txt names it only on the real site.
  */
 
 // Read the database on request (not at build time).
 export const dynamic = "force-dynamic";
 
-const MAX_LISTINGS = 9_000;
-
-/** Pages that exist in every language and should be indexed. */
-const STATIC_PAGES: readonly { path: string; priority: number; changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"] }[] = [
-  { path: "/", priority: 1, changeFrequency: "daily" },
-  { path: "/search", priority: 0.9, changeFrequency: "hourly" },
-  { path: "/jewish-life", priority: 0.8, changeFrequency: "weekly" },
-  { path: "/how-it-works", priority: 0.6, changeFrequency: "monthly" },
-  { path: "/about", priority: 0.5, changeFrequency: "monthly" },
-  { path: "/safety", priority: 0.6, changeFrequency: "monthly" },
-  { path: "/help", priority: 0.5, changeFrequency: "weekly" },
-  { path: "/contact", priority: 0.4, changeFrequency: "monthly" },
-  { path: "/legal", priority: 0.2, changeFrequency: "yearly" },
-  { path: "/legal/terms", priority: 0.2, changeFrequency: "yearly" },
-  { path: "/legal/privacy", priority: 0.2, changeFrequency: "yearly" },
-  { path: "/legal/cookies", priority: 0.2, changeFrequency: "yearly" },
-  { path: "/legal/accessibility", priority: 0.2, changeFrequency: "yearly" },
-  { path: "/legal/listing-rules", priority: 0.2, changeFrequency: "yearly" },
-];
-
-/** Deals linked for each popular city (null = all deals). */
-const CITY_DEALS: readonly (DealFilter | null)[] = [null, ...DEAL_FILTERS.filter((deal) => deal !== "rent")];
-
-type Entry = MetadataRoute.Sitemap[number];
-
-/** One entry per language for a page path, each listing the others as alternates. */
-function localized(path: string, extra: Omit<Entry, "url" | "alternates"> = {}): Entry[] {
-  const languages: Record<string, string> = Object.fromEntries(
-    locales.map((locale) => [locale, absoluteUrl(localizedPath(locale, path))]),
-  );
-  languages["x-default"] = absoluteUrl(localizedPath(X_DEFAULT_LOCALE, path));
-  return locales.map((locale) => ({ url: languages[locale], alternates: { languages }, ...extra }));
-}
+/** The most listings ever asked for (× 5 languages): the page entries take the rest of the 50,000. */
+const MAX_LISTINGS = 9_800;
 
 async function safely<T>(label: string, load: () => Promise<T>, fallback: T): Promise<T> {
   try {
@@ -64,24 +34,10 @@ async function safely<T>(label: string, load: () => Promise<T>, fallback: T): Pr
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
-  const settings = await safely("settings", getSettings, null);
-  const demoVisible = settings?.demoDataVisible ?? false;
-
-  const [cities, listings, guides] = await Promise.all([
-    safely("cities", getCities, []),
-    safely(
-      "listings",
-      () =>
-        db.listing.findMany({
-          where: publicListingWhere({ demoVisible, now }),
-          orderBy: { updatedAt: "desc" },
-          take: MAX_LISTINGS,
-          select: { publicId: true, title: true, originalLocale: true, updatedAt: true, translations: { select: { locale: true, title: true } } },
-        }),
-      [],
-    ),
+  const [cityPages, guides] = await Promise.all([
+    safely("city pages", listCityPages, []),
     siteConfig.features.articles
-      ? safely(
+      ? safely<SitemapGuide[]>(
           "guides",
           () =>
             db.article.findMany({
@@ -94,34 +50,36 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         )
       : Promise.resolve([]),
   ]);
+  const pages = { searchPaths: indexableSearchPaths(cityPages), cityPages, guides };
+  const take = Math.min(MAX_LISTINGS, listingCapacity(pageEntries(pages).length));
 
-  return [
-    ...STATIC_PAGES.flatMap(({ path, priority, changeFrequency }) => localized(path, { priority, changeFrequency })),
-    ...cities
-      .filter((city) => city.isPopular)
-      .flatMap((city) =>
-        CITY_DEALS.flatMap((deal) =>
-          localized(searchPath({ city: city.slug, deal }), { changeFrequency: "daily", priority: deal ? 0.7 : 0.8 }),
-        ),
-      ),
-    ...guides.flatMap((guide) =>
-      localized(`/jewish-life/guides/${guide.slug}`, { lastModified: guide.updatedAt, changeFrequency: "monthly", priority: 0.5 }),
-    ),
+  const listings = await safely(
+    "listings",
+    () =>
+      db.listing.findMany({
+        // demoVisible: false: demo listings never, even while the demo data is shown.
+        where: publicListingWhere({ demoVisible: false, now }),
+        orderBy: [{ contentUpdatedAt: "desc" }, { publicId: "desc" }],
+        take,
+        select: {
+          publicId: true,
+          title: true,
+          originalLocale: true,
+          contentUpdatedAt: true,
+          publishedAt: true,
+          translations: { select: { locale: true, title: true } },
+        },
+      }),
+    [],
+  );
+
+  return buildSitemap({
+    ...pages,
     // Each language has its own address (the slug of the title in that language); the page
     // redirects any other slug to it, so the sitemap lists exactly those.
-    ...listings.flatMap((listing) => {
-      const paths = listingPathsByLocale(listing);
-      const languages: Record<string, string> = Object.fromEntries(
-        locales.map((locale) => [locale, absoluteUrl(localizedPath(locale, paths[locale]))]),
-      );
-      languages["x-default"] = languages[X_DEFAULT_LOCALE];
-      return locales.map((locale) => ({
-        url: languages[locale],
-        alternates: { languages },
-        lastModified: listing.updatedAt,
-        changeFrequency: "weekly" as const,
-        priority: 0.6,
-      }));
-    }),
-  ];
+    listings: listings.map((listing) => ({
+      paths: listingPathsByLocale(listing),
+      lastModified: laterDate(listing.contentUpdatedAt, listing.publishedAt),
+    })),
+  });
 }

@@ -1,32 +1,36 @@
 import { useLocale, useTranslations } from "next-intl";
-import { BusIcon, DropletsIcon, HouseHeartIcon, LandmarkIcon, MapPinnedIcon, PlaneIcon, ShoppingCartIcon, TrainFrontIcon, UtensilsIcon, type LucideIcon } from "lucide-react";
 import { Ltr } from "@/components/common/ltr";
+import { SpriteIcon } from "@/components/ds/sprite-icons";
+import type { SpriteIconName } from "@/components/ds/sprite-icons.generated";
 import { pickLocalized } from "@/i18n/locale";
 import { formatNumber } from "@/lib/format";
-import type { NearbyInfo } from "@/lib/nearby";
-import { Section } from "./section";
+import type { PublicNearbyInfo } from "@/lib/geo/public-walk";
+import { namedAirport } from "@/lib/nearby-airports";
 
-type Row = { key: string; icon: LucideIcon; label: string; name: string | null; value: string };
+type Row = { key: string; icon: SpriteIconName; label: string; name: string | null; value: string };
 
-/** Nearby places with walking times, and the distance to the airport. */
-export function NearbySection({ nearby }: { nearby: NearbyInfo }) {
+const TRANSPORT_ICON: Record<NonNullable<PublicNearbyInfo["transport"]>["kind"], SpriteIconName> = {
+  metro: "train-front",
+  train: "train-front",
+  tram: "tram-front",
+  bus: "bus",
+};
+
+/**
+ * What is nearby, with walking times, and the distance to the airport (under the location map):
+ * "שדה התעופה של בטומי · 4 ק״מ", named by the airport's city, never by its IATA code (round 3).
+ * Synagogues and kosher places are not repeated here: the nearest verified synagogue is in the
+ * folded "Kosher and Shabbat" section (each place once).
+ */
+export function NearbyList({ nearby }: { nearby: PublicNearbyInfo }) {
   const t = useTranslations("listing.nearby");
   const locale = useLocale();
   const rows: Row[] = [];
-  const place = (key: "synagogue" | "chabad" | "kosherFood" | "mikveh", icon: LucideIcon) => {
-    const p = nearby[key];
-    if (!p) return;
-    rows.push({ key, icon, label: t(key), name: pickLocalized(p.name, locale) || null, value: t("walk", { count: p.minutes }) });
-  };
-  place("synagogue", LandmarkIcon);
-  place("chabad", HouseHeartIcon);
-  place("kosherFood", UtensilsIcon);
-  place("mikveh", DropletsIcon);
   if (nearby.supermarket) {
     const s = nearby.supermarket;
     rows.push({
       key: "supermarket",
-      icon: ShoppingCartIcon,
+      icon: "shopping-cart",
       label: t("supermarket"),
       name: (s.names && pickLocalized(s.names, locale)) || s.name || null,
       value: t("walk", { count: s.minutes }),
@@ -36,45 +40,43 @@ export function NearbySection({ nearby }: { nearby: NearbyInfo }) {
     const tr = nearby.transport;
     rows.push({
       key: "transport",
-      icon: tr.kind === "bus" ? BusIcon : TrainFrontIcon,
+      icon: TRANSPORT_ICON[tr.kind] ?? "bus",
       label: t(`transport.${tr.kind}`),
       name: (tr.names && pickLocalized(tr.names, locale)) || tr.name || null,
       value: t("walk", { count: tr.minutes }),
     });
   }
   if (nearby.airport) {
+    const airport = namedAirport(nearby.airport.code);
     rows.push({
       key: "airport",
-      icon: PlaneIcon,
-      label: t("airport"),
+      icon: "plane",
+      label: airport ? t(`airports.${airport}`) : t("airport"),
       name: null,
-      value: t("km", { km: formatNumber(nearby.airport.km, locale), code: nearby.airport.code }),
+      value: t("km", { km: formatNumber(nearby.airport.km, locale) }),
     });
   }
   if (rows.length === 0) return null;
 
   return (
-    <Section id="nearby" title={t("title")} description={t("note")} icon={MapPinnedIcon}>
-      <ul className="grid gap-2 sm:grid-cols-2">
-        {rows.map(({ key, icon: Icon, label, name, value }) => (
-          <li key={key} className="flex items-center gap-3 rounded-xl border p-3">
-            <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-primary">
-              <Icon className="size-4.5" aria-hidden />
-            </span>
+    <div className="grid gap-2">
+      <ul className="grid gap-3 sm:grid-cols-2">
+        {rows.map(({ key, icon, label, name, value }) => (
+          <li key={key} className="flex items-center gap-3">
+            <SpriteIcon name={icon} className="size-5 shrink-0 text-muted-foreground" />
             <span className="grid min-w-0 flex-1">
-              <span className="font-medium">{label}</span>
+              <span className="text-small font-medium">{label}</span>
               {name ? (
-                <span dir="auto" className="truncate text-xs text-muted-foreground">
+                <span dir="auto" className="truncate text-caption text-muted-foreground">
                   {name}
                 </span>
               ) : null}
             </span>
-            <span className="shrink-0 text-sm font-semibold text-primary">
-              {key === "airport" ? <Ltr>{value}</Ltr> : value}
-            </span>
+            <span className="shrink-0 text-small text-foreground">{key === "airport" ? <Ltr>{value}</Ltr> : value}</span>
           </li>
         ))}
       </ul>
-    </Section>
+      <p className="text-caption text-muted-foreground">{t("note")}</p>
+    </div>
   );
 }

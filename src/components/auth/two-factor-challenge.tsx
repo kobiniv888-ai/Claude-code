@@ -11,10 +11,13 @@ import { useAuthErrorMessage } from "./use-auth-messages";
 /** "Enter the code from your authenticator app" — the second step of logging in. */
 export function TwoFactorChallenge({
   onVerified,
+  onLocked,
   autoFocus = true,
   showIntro = true,
 }: {
   onVerified: () => void | Promise<void>;
+  /** The account hit the daily limit of wrong codes (SECURITY_REPORT 3.7.a): show the unlock step. */
+  onLocked?: () => void;
   autoFocus?: boolean;
   /** Icon + instructions (hide when the page heading already explains it). */
   showIntro?: boolean;
@@ -34,6 +37,7 @@ export function TwoFactorChallenge({
     if (!result?.ok) {
       setPending(false);
       setCode("");
+      if (result?.error === "totp_locked" && onLocked) return onLocked();
       setError(result ? result.error : "network");
       return;
     }

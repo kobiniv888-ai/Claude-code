@@ -1,45 +1,73 @@
-import { RotateCcw, SearchX } from "lucide-react";
+import { RotateCcwIcon, SearchXIcon } from "lucide-react";
 import { getTranslations } from "next-intl/server";
-import { EmptyState } from "@/components/common/states";
+import { chipStyles } from "@/components/ds/chip";
+import { EmptyState } from "@/components/ds/empty-state";
 import type { AppLocale } from "@/config/site";
 import { Link } from "@/i18n/navigation";
+import { formatNumber } from "@/lib/format";
+import type { ListingQueryContext } from "@/lib/listing/queries";
 import { clearFilters, hasActiveFilters, type SearchFilters } from "@/lib/listing/search-params";
 import { searchPath } from "@/lib/listing/urls";
+import { loosenLabel } from "@/lib/search/chip-label";
 import type { PopularCity } from "@/lib/search/home";
+import { rankLoosenFixes } from "@/lib/search/sheet-queries";
 
-/** "No homes match" with a clear-filters button and the popular cities to try instead. */
+/**
+ * No results: a friendly empty state with one-tap fixes built from the active filters ("Remove the
+ * 'Kosher' filter · 5", "Wider area", "Clear the dates") — only fixes that bring results, most
+ * first — then "Clear all filters" and the popular cities.
+ */
 export async function SearchEmpty({
   filters,
   cities,
   locale,
+  ctx,
+  placeNames,
 }: {
   filters: SearchFilters;
   cities: PopularCity[];
   locale: AppLocale;
+  ctx: ListingQueryContext;
+  placeNames: { city: string | null; neighborhood: string | null };
 }) {
-  const t = await getTranslations({ locale, namespace: "search.empty" });
   const filtered = hasActiveFilters(filters);
+  const [t, chipsT, f, fx, fixes] = await Promise.all([
+    getTranslations({ locale, namespace: "search.empty" }),
+    getTranslations({ locale, namespace: "search.chips" }),
+    getTranslations({ locale, namespace: "listingFields" }),
+    getTranslations({ locale, namespace: "search.fixes" }),
+    filtered ? rankLoosenFixes(filters, ctx, 4) : Promise.resolve([]),
+  ]);
   const suggestions = cities.filter((city) => city.slug !== filters.city && city.count > 0).slice(0, 8);
   const fallback = suggestions.length > 0 ? suggestions : cities.filter((city) => city.slug !== filters.city).slice(0, 8);
+  const labelCtx = { t: chipsT, f, fx, locale, currency: ctx.currency, placeNames };
 
   return (
-    <EmptyState
-      icon={SearchX}
-      bordered
-      title={filtered ? t("title") : t("titleNoListings")}
-      description={filtered ? t("description") : t("descriptionNoListings")}
-      action={filtered ? { label: t("clear"), href: searchPath(clearFilters(filters)), icon: RotateCcw } : undefined}
-    >
+    <div className="rounded-card border border-dashed border-border bg-card/60 px-4">
+      <EmptyState
+        icon={SearchXIcon}
+        tone="coral"
+        title={filtered ? t("title") : t("titleNoListings")}
+        description={filtered ? (fixes.length > 0 ? t("descriptionFixes") : t("description")) : t("descriptionNoListings")}
+        quickFixes={fixes.map((fix) => (
+          <Link key={fix.id} href={searchPath(fix.filters)} className={chipStyles({ size: "sm" })}>
+            {loosenLabel(fix.fix, filters, labelCtx)}
+            <span className="font-normal text-muted-foreground">· {fx("count", { count: fix.count, formatted: formatNumber(fix.count, locale) })}</span>
+          </Link>
+        ))}
+        action={
+          filtered
+            ? { label: t("clear"), href: searchPath(clearFilters(filters)), icon: RotateCcwIcon }
+            : undefined
+        }
+      />
       {fallback.length > 0 ? (
-        <div className="mt-6 grid gap-3">
-          <p className="text-sm font-semibold">{t("tryCities")}</p>
+        <div className="grid gap-3 pb-10 text-center">
+          <p className="text-small font-semibold">{t("tryCities")}</p>
           <ul className="flex flex-wrap justify-center gap-2">
             {fallback.map((city) => (
               <li key={city.slug}>
-                <Link
-                  href={searchPath({ deal: filters.deal, city: city.slug })}
-                  className="inline-flex min-h-9 items-center rounded-full border bg-background px-3.5 py-1.5 text-sm font-medium transition-colors hover:border-primary/40 hover:bg-secondary focus-visible:outline-2 focus-visible:outline-ring"
-                >
+                <Link href={searchPath({ deal: filters.deal, city: city.slug })} className={chipStyles({ size: "sm" })}>
                   {city.name}
                 </Link>
               </li>
@@ -47,6 +75,6 @@ export async function SearchEmpty({
           </ul>
         </div>
       ) : null}
-    </EmptyState>
+    </div>
   );
 }

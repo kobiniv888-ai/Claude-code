@@ -18,8 +18,6 @@ const OWNER_STATS: { n: number; until: number; baseViews: number }[] = [
   { n: 2, until: 0, baseViews: 24 },
   { n: 3, until: 0, baseViews: 30 },
   { n: 6, until: -10, baseViews: 34 }, // paused 10 days ago
-  { n: 8, until: -15, baseViews: 14 }, // expired 15 days ago
-  { n: 9, until: -6, baseViews: 20 }, // rented 6 days ago
 ];
 
 const FAVORITES: { n: number; note: string; daysAgo: number }[] = [

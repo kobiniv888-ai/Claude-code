@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import ar from "../../messages/ar/states.json";
-import en from "../../messages/en/states.json";
-import he from "../../messages/he/states.json";
-import ka from "../../messages/ka/states.json";
-import ru from "../../messages/ru/states.json";
+import ar from "../../messages/ar/global.json";
+import en from "../../messages/en/global.json";
+import he from "../../messages/he/global.json";
+import ka from "../../messages/ka/global.json";
+import ru from "../../messages/ru/global.json";
+import { BrandLockup } from "@/components/brand/mark";
 import { fontStyle } from "@/components/layout/fonts";
 import { locales, siteConfig, type AppLocale } from "@/config/site";
 import { dirFor } from "@/i18n/locale";
@@ -24,11 +25,12 @@ export default function GlobalNotFound() {
   return (
     <html lang="en" style={fontStyle}>
       <body className="bg-background text-foreground">
-        <title>{`${en.global.notFoundTitle} · ${siteConfig.name}`}</title>
+        <title>{`${en.notFoundTitle} · ${siteConfig.name}`}</title>
         <main className="flex min-h-dvh items-center justify-center px-4 py-10">
           <div className="w-full max-w-lg rounded-3xl border bg-card p-6 shadow-card sm:p-8">
-            {/* eslint-disable-next-line @next/next/no-img-element -- static brand mark, no layout here */}
-            <img src={siteConfig.logo.mark} alt={siteConfig.name} width={48} height={48} className="mx-auto" />
+            <div className="flex justify-center">
+              <BrandLockup locale={"en"} size={26} />
+            </div>
             <p className="mt-4 text-center text-sm font-semibold text-muted-foreground" dir="ltr">
               404
             </p>
@@ -40,8 +42,8 @@ export default function GlobalNotFound() {
                     className="group flex items-center justify-between gap-4 rounded-2xl border bg-background px-4 py-3 outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
                   >
                     <span className="grid gap-0.5">
-                      <span className="font-semibold">{messages[locale].global.notFoundTitle}</span>
-                      <span className="text-sm text-muted-foreground">{messages[locale].global.home}</span>
+                      <span className="font-semibold">{messages[locale].notFoundTitle}</span>
+                      <span className="text-sm text-muted-foreground">{messages[locale].home}</span>
                     </span>
                     <span className="shrink-0 rounded-full bg-secondary px-3 py-1 text-sm font-medium text-secondary-foreground">
                       {siteConfig.i18n.nativeNames[locale]}

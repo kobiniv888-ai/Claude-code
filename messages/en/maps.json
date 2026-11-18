@@ -1,0 +1,4 @@
+{
+  "keyMissingDev": "Map key missing — set NEXT_PUBLIC_MAP_TILE_KEY (see README)",
+  "unavailable": "The map background isn't available right now. The pins still show where places are."
+}

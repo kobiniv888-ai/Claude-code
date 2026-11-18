@@ -30,8 +30,10 @@ export function AdminPageHeader({
           {back.label}
         </Link>
       ) : null}
+      {/* basis-48: on a phone a long action (Georgian "+ დიაპაზონის დამატება") moves under the
+          title instead of squeezing it to a word per line and covering it. */}
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 basis-48">
           <h1 className="text-xl font-semibold tracking-tight text-balance sm:text-2xl">{title}</h1>
           {description ? <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{description}</p> : null}
           {meta ? <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">{meta}</div> : null}

@@ -15,6 +15,8 @@ export const USER_ACTION_REASONS = [
   "abusive_behavior",
   "impersonation",
   "discrimination",
+  /** A host cancelled, refused or questioned a guest because of who they are (round 3, brief 8.2). */
+  "turned_away",
   "multiple_accounts",
   "rules_violation",
   "other",

@@ -6,15 +6,19 @@ import { toast } from "@/lib/toast";
 import { useRouter } from "@/i18n/navigation";
 import type { ActionResult } from "@/lib/action";
 import { errorMessageKey } from "@/lib/errors";
+import { useStaffProof, withStaffProof } from "./staff-proof";
 
 /**
  * Runs an admin server action: shows a toast, refreshes the page data on success and turns
- * error codes into text (admin.errors.<code>, then the shared "errors" namespace).
+ * error codes into text (admin.errors.<code>, then the shared "errors" namespace). A destructive
+ * action that answers "fresh_proof_required" opens the authenticator dialog and is tried once more
+ * (SECURITY_REPORT 3.6.c, ./staff-proof.tsx).
  */
 export function useAdminAction() {
   const t = useTranslations("admin");
   const tErrors = useTranslations("errors");
   const router = useRouter();
+  const proof = useStaffProof();
   const [pending, startTransition] = useTransition();
 
   const errorText = useCallback(
@@ -30,7 +34,7 @@ export function useAdminAction() {
       new Promise<boolean>((resolve) => {
         startTransition(async () => {
           try {
-            const result = await fn();
+            const result = await withStaffProof(proof, fn);
             if (result.ok) {
               if (opts.success) toast.success(opts.success);
               opts.onSuccess?.(result.data);
@@ -47,7 +51,7 @@ export function useAdminAction() {
           }
         });
       }),
-    [errorText, router, tErrors],
+    [errorText, proof, router, tErrors],
   );
 
   return { run, pending, errorText };

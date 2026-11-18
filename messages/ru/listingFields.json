@@ -140,7 +140,10 @@
     "WRONG_PRICE": "Неверная цена",
     "ASKED_MONEY_UPFRONT": "Просили деньги до просмотра",
     "OFFENSIVE": "Оскорбительное содержание",
-    "OTHER": "Другое"
+    "OTHER": "Другое",
+    "CANCELLED_FOR_IDENTITY": "Хозяин отменил из-за того, кто гость",
+    "ASKED_RELIGION_OR_ORIGIN": "Хозяин спросил о религии или происхождении",
+    "REFUSED_OR_IGNORED": "Хозяин отказал или не ответил"
   },
   "ownerType": {
     "private": "Частный владелец",
@@ -176,7 +179,7 @@
     "hasVideo": "С видео",
     "furnished": "С мебелью",
     "elevator": "Лифт",
-    "synagogueMaxWalk": "Синагога в {count} мин пешком"
+    "synagogueMaxWalk": "Синагога не больше {count} мин пешком"
   },
   "facts": {
     "rooms": "{count, plural, one {{count} комната} few {{count} комнаты} many {{count} комнат} other {{count} комнаты}}",
@@ -189,8 +192,8 @@
     "floor": "Этаж {floor}",
     "floorOf": "Этаж {floor} из {total}",
     "studio": "Студия",
-    "synagogueWalk": "{count} мин пешком до синагоги",
-    "chabadWalk": "{count} мин пешком до Бейт Хабада",
+    "synagogueWalk": "Не больше {count} мин пешком до синагоги",
+    "chabadWalk": "Не больше {count} мин пешком до Бейт Хабада",
     "minStay": "{count, plural, one {Минимум {count} ночь} few {Минимум {count} ночи} many {Минимум {count} ночей} other {Минимум {count} ночи}}"
   }
 }

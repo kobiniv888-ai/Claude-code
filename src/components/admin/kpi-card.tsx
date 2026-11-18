@@ -27,7 +27,7 @@ export function KpiCard({
           aria-hidden
           className={cn(
             "size-4 shrink-0",
-            tone === "urgent" ? "text-destructive" : tone === "attention" ? "text-warning" : "text-muted-foreground",
+            tone === "urgent" ? "text-destructive" : tone === "attention" ? "text-foreground" : "text-muted-foreground",
           )}
         />
       </div>
@@ -38,7 +38,7 @@ export function KpiCard({
   const className = cn(
     "block rounded-xl border bg-card p-4 shadow-xs",
     tone === "urgent" && "border-destructive/40",
-    tone === "attention" && "border-warning/50",
+    tone === "attention" && "border-border-strong/50",
   );
   if (!href) return <div className={className}>{body}</div>;
   return (

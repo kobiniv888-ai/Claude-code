@@ -18,12 +18,19 @@
     },
     "withPage": "{title} – page {page}",
     "description": "Apartments, houses, hotels and homes for sale across Georgia, with kosher and Shabbat-friendly details, synagogue walking times and direct contact with owners.",
-    "descriptionIn": "Homes in {place}: kosher and Shabbat-friendly details, walking time to the synagogue, verified owners and direct contact with no booking fees."
+    "descriptionIn": "Homes in {place}: kosher and Shabbat-friendly details, walking time to the synagogue, verified owners and direct contact with no booking fees.",
+    "dealDescription": {
+      "rent": "Apartments and houses for rent across Georgia, for a few nights or by the month, with kosher and Shabbat-friendly details, synagogue walking times and direct contact with owners.",
+      "shortStay": "Apartments and houses for a few nights across Georgia, with kosher and Shabbat-friendly details, synagogue walking times and direct contact with hosts.",
+      "monthly": "Apartments and houses to rent by the month across Georgia, with kosher and Shabbat-friendly details, synagogue walking times and direct contact with owners.",
+      "buy": "Apartments and houses for sale across Georgia, with the price per square meter, kosher and Shabbat-friendly details and direct contact with owners.",
+      "hotels": "Hotels and guesthouses across Georgia, with their room types, kosher and Shabbat-friendly details and synagogue walking times."
+    }
   },
   "bar": {
     "label": "Search homes",
     "where": "Where",
-    "wherePlaceholder": "City, neighborhood or listing ID",
+    "wherePlaceholder": "City, area or listing ID",
     "whereTo": "Where to?",
     "clearPlace": "Clear place",
     "popularPlaces": "Popular destinations",
@@ -77,7 +84,7 @@
       "price": "Price",
       "dates": "Dates and guests",
       "moveIn": "Move-in date and guests",
-      "rooms": "Rooms",
+      "rooms": "Rooms and beds",
       "jewish": "Jewish-friendly",
       "amenities": "Amenities",
       "property": "Property details",
@@ -122,7 +129,18 @@
     "buildingAge": "Building",
     "verifiedHint": "Our team checked the owner's ID or proof of ownership.",
     "ownerType": "Posted by",
-    "postedWithin": "Posted within"
+    "postedWithin": "Posted within",
+    "noMin": "No min",
+    "noMax": "No max",
+    "kosherShabbat": "Kosher or Shabbat-friendly",
+    "kosherShabbatHint": "A kosher kitchen, Shabbat-friendly or kosher meals: any one is enough",
+    "walkUpTo": "Up to {count} min",
+    "visited": "We visited",
+    "visitedHint": "Someone from the Bayit team visited the place in person.",
+    "nearSea": "Near the sea",
+    "nearSeaHint": "Up to {minutes} min walk to a beach, from the map",
+    "nearLifts": "Near the lifts",
+    "nearLiftsHint": "Up to {minutes} min walk to a ski lift, from the map"
   },
   "chips": {
     "heading": "Active filters",
@@ -133,17 +151,22 @@
     "between": "{min} – {max}",
     "atLeast": "From {min}",
     "atMost": "Up to {max}",
-    "minRooms": "{value}+ rooms",
-    "minBedrooms": "{value}+ bedrooms",
-    "minBathrooms": "{value}+ bathrooms",
+    "minRooms": "{value} rooms",
+    "minBedrooms": "{value} bedrooms",
+    "minBathrooms": "{value} bathrooms",
     "floor": "Floor {range}",
-    "mapArea": "Map area"
+    "mapArea": "Map area",
+    "kosherShabbat": "Kosher or Shabbat-friendly",
+    "visited": "We visited",
+    "nearSea": "Near the sea",
+    "nearLifts": "Near the lifts"
   },
   "toolbar": {
     "sortLabel": "Sort by",
     "viewLabel": "View",
     "showMap": "Map",
-    "showList": "List"
+    "showList": "List",
+    "pillLabel": "Map and sort"
   },
   "results": {
     "listLabel": "Search results",
@@ -157,7 +180,8 @@
       "hotels": "Hotels and guesthouses"
     },
     "count": "{count, plural, =0 {No homes found} one {{formatted} home} other {{formatted} homes}}",
-    "countIn": "{count, plural, =0 {No homes found in {place}} one {{formatted} home in {place}} other {{formatted} homes in {place}}}"
+    "countIn": "{count, plural, =0 {No homes found in {place}} one {{formatted} home in {place}} other {{formatted} homes in {place}}}",
+    "promise": "Every host here has pledged to welcome Israelis"
   },
   "map": {
     "loading": "Loading the map…",
@@ -166,7 +190,8 @@
     "noPrice": "Price on request",
     "openListing": "View listing",
     "carouselLabel": "Homes on the map",
-    "noResultsHere": "No homes in this area. Zoom out or move the map."
+    "noResultsHere": "No homes in this area. Zoom out or move the map.",
+    "fetching": "Loading…"
   },
   "pagination": {
     "label": "Pages of results",
@@ -181,12 +206,67 @@
     "titleNoListings": "No homes here yet",
     "descriptionNoListings": "New homes are added every day. Try another city in the meantime.",
     "clear": "Clear all filters",
-    "tryCities": "Popular cities"
+    "tryCities": "Popular cities",
+    "descriptionFixes": "One small change brings results — pick one:"
   },
   "error": {
     "title": "We couldn't load the results",
     "description": "Something went wrong on our side. Please try again in a moment.",
     "retry": "Try again",
     "startOver": "Start a new search"
+  },
+  "top": {
+    "chipsLabel": "Quick filters",
+    "deal": "Deal type",
+    "price": "Price",
+    "rooms": "Rooms",
+    "quick": {
+      "kosher": "Kosher",
+      "shabbat": "Shabbat-friendly",
+      "synagogue": "Near a synagogue",
+      "hebrew": "Hebrew-speaking",
+      "kosherShabbat": "Kosher & Shabbat",
+      "nearSea": "Near the sea",
+      "nearLifts": "Near the lifts"
+    },
+    "anywhere": "All of Georgia",
+    "anyDates": "Add dates",
+    "moveIn": "Move in {date}",
+    "summaryLabel": "Change search: {summary}",
+    "propertyType": "Property type",
+    "propertyTypes": "{count, plural, one {{count} property type} other {{count} property types}}"
+  },
+  "sort": {
+    "title": "Sort by",
+    "open": "Sort: {sort}. Change sorting",
+    "short": "Sort"
+  },
+  "sheet": {
+    "dealShort": {
+      "any": "All",
+      "rent": "Rent",
+      "short-stay": "Nightly",
+      "monthly": "Monthly",
+      "buy": "Buy",
+      "hotels": "Hotels"
+    },
+    "showCount": "{count, plural, =0 {No matching homes} one {Show 1 home} other {Show <n></n> homes}}",
+    "clearAll": "Clear all",
+    "noneTitle": "No homes match all these filters",
+    "noneHint": "One change brings results:",
+    "noneGeneric": "Try a wider price range or fewer filters.",
+    "removeChip": "Remove filter {label}",
+    "synagogueNear": "Synagogue within walking distance",
+    "bigFamily": "Big families 8+",
+    "jewishTitle": "Kashrut & Shabbat",
+    "jewishMore": "More Jewish-friendly details",
+    "noPrices": "No prices to show"
+  },
+  "fixes": {
+    "remove": "Remove the “{label}” filter",
+    "dates": "Clear the dates",
+    "widerArea": "Wider area",
+    "allGeorgia": "Search all of Georgia",
+    "count": "{count, plural, one {1 home} other {{formatted} homes}}"
   }
 }

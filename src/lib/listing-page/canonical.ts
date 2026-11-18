@@ -4,6 +4,7 @@ import type { Locale } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { localizedTitle } from "@/lib/listing/mappers";
 import { listingPath } from "@/lib/listing/urls";
+import { demoAllowed } from "@/lib/site-env";
 import { isListingPublic } from "./access";
 
 /**
@@ -32,11 +33,12 @@ export async function publicListingCanonicalPath(publicId: number, locale: AppLo
         translations: { where: { locale: locale as Locale }, take: 1, select: { title: true, isAuto: true, isOriginal: true } },
       },
     }),
-    // Same stored value getSettings() reads ("demo data" switch, on by default).
+    // Same stored value getSettings() reads ("demo data" switch, on by default outside production).
     db.siteSetting.findUnique({ where: { key: "demoDataVisible" }, select: { value: true } }),
   ]);
   if (!row) return null;
-  const demoVisible = typeof demoSetting?.value === "boolean" ? demoSetting.value : true;
+  // Never on the real site (SITE_ENV=production), like getSettings() (src/lib/settings.ts).
+  const demoVisible = demoAllowed() && (typeof demoSetting?.value === "boolean" ? demoSetting.value : true);
   if (!isListingPublic(row, { demoVisible })) return null;
   return listingPath(publicId, localizedTitle(row, locale).title);
 }

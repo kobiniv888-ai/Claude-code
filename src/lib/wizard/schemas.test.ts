@@ -4,7 +4,6 @@ import { missingRequirements } from "./requirements";
 import {
   contactStepSchema,
   contactValueProblem,
-  detailsStepSchema,
   isVideoUrl,
   normalizeContactValue,
   pickStepData,
@@ -14,7 +13,7 @@ import {
   stepSaveSchemas,
   type WizardValues,
 } from "./schemas";
-import { applies, parseStepParam, stepAt, stepNumber, stepsFor } from "./steps";
+import { applies, parseStepParam, priceStepFor, stepAt, stepNumber, stepsFor } from "./steps";
 
 const base: WizardValues = {
   dealType: "SHORT_STAY",
@@ -55,6 +54,8 @@ const base: WizardValues = {
   partiesAllowed: null,
   checkInFrom: "14:00",
   checkOutUntil: "11:00",
+  checkInFlexible: false,
+  checkOutFlexible: false,
   quietHoursFrom: "",
   quietHoursTo: "",
   kitchenKosher: "CAN_KASHER",
@@ -74,6 +75,9 @@ const base: WizardValues = {
   weeklyDiscountPct: 10,
   monthlyDiscountPct: null,
   icalImportUrls: [],
+  weekendPrice: null,
+  cancellationPolicy: "MODERATE",
+  paymentMethodsAtCheckIn: ["cash"],
   contactMethods: [{ channel: "WHATSAPP", value: "+995555123456", order: 0 }],
   contactHoursFrom: "",
   contactHoursTo: "",
@@ -84,12 +88,44 @@ const kind = { dealType: "SHORT_STAY", propertyType: "APARTMENT" } as const;
 describe("steps", () => {
   it("adds the room types step only for hotels", () => {
     expect(stepsFor(kind)).not.toContain("rooms");
-    expect(stepsFor(kind)).toHaveLength(10);
+    expect(stepsFor(kind)).toHaveLength(14);
+    expect(stepsFor(kind).slice(-2)).toEqual(["pledge", "publish"]);
     const hotel = { dealType: "HOTEL_ROOM", propertyType: "HOTEL" } as const;
-    expect(stepsFor(hotel)).toHaveLength(11);
-    expect(stepNumber("rooms", hotel)).toBe(8);
-    expect(stepNumber("price", hotel)).toBe(9);
-    expect(stepNumber("price", kind)).toBe(8);
+    // Hotels skip "size" (their room types hold it): 15 - 1.
+    expect(stepsFor(hotel)).toHaveLength(14);
+    expect(stepsFor(hotel)).not.toContain("size");
+    expect(stepNumber("rooms", hotel)).toBe(10);
+    expect(stepNumber("booking", hotel)).toBe(11);
+    expect(stepNumber("booking", kind)).toBe(11);
+  });
+
+  it("uses the bookings-and-price step instead of the price step for short stays and hotels", () => {
+    const hotel = { dealType: "HOTEL_ROOM", propertyType: "HOTEL" } as const;
+    const rent = { dealType: "MONTHLY_RENT", propertyType: "APARTMENT" } as const;
+    expect(stepsFor(kind)).toContain("booking");
+    expect(stepsFor(kind)).not.toContain("price");
+    expect(stepsFor(hotel)).toContain("booking");
+    expect(stepsFor(rent)).toContain("price");
+    expect(stepsFor(rent)).not.toContain("booking");
+    expect(priceStepFor(rent)).toBe("price");
+    expect(priceStepFor(kind)).toBe("booking");
+    expect(applies("bookingTerms", rent)).toBe(false);
+    expect(applies("cleaningFee", hotel)).toBe(true);
+    // Long-stay discounts are priced by the booking quote (round 3, brief 6.3): booked stays only.
+    expect(applies("discounts", kind)).toBe(true);
+    expect(applies("discounts", hotel)).toBe(true);
+    expect(applies("discounts", rent)).toBe(false);
+  });
+
+  it("checks the long-stay discounts of the booking step: whole percents 1–60, 28+ not below 7+", () => {
+    const booking = (patch: Partial<typeof base>) =>
+      stepIssues("booking", { ...base, price: 100, pricePeriod: "NIGHT", maxGuests: 2, paymentMethodsAtCheckIn: ["cash"], ...patch }, kind);
+    expect(booking({ weeklyDiscountPct: 10, monthlyDiscountPct: 20 })).toEqual({});
+    expect(booking({ weeklyDiscountPct: 10, monthlyDiscountPct: null })).toEqual({});
+    expect(booking({ weeklyDiscountPct: 20, monthlyDiscountPct: 10 })).toEqual({ monthlyDiscountPct: "monthlyBelowWeekly" });
+    expect(booking({ weeklyDiscountPct: 61 })).toEqual({ weeklyDiscountPct: "discountTooLarge" });
+    expect(booking({ weeklyDiscountPct: 7.5 })).toEqual({ weeklyDiscountPct: "wholeNumber" });
+    expect(stepSaveSchemas.booking.shape.weeklyDiscountPct.parse(0)).toBeNull();
   });
 
   it("parses ?step= as a number or a key and clamps it", () => {
@@ -97,7 +133,8 @@ describe("steps", () => {
     expect(parseStepParam("photos", kind, 1)).toBe("photos");
     expect(parseStepParam("rooms", kind, 2)).toBe("property"); // not a step here → fallback
     expect(parseStepParam("99", kind, 1)).toBe("publish");
-    expect(parseStepParam(undefined, kind, 4)).toBe("details");
+    expect(parseStepParam(undefined, kind, 4)).toBe("size");
+    expect(parseStepParam(undefined, kind, 7)).toBe("text");
     expect(stepAt(0, kind)).toBe("deal");
   });
 
@@ -113,16 +150,22 @@ describe("steps", () => {
 describe("step save schemas", () => {
   it("accepts a half-filled step (auto-save)", () => {
     const empty = { ...base, title: "", description: "", maxGuests: null, rooms: null };
-    expect(detailsStepSchema.safeParse(pickStepData("details", empty)).success).toBe(true);
+    for (const step of ["size", "building", "features", "text"] as const) {
+      expect(stepSaveSchemas[step].safeParse(pickStepData(step, empty)).success).toBe(true);
+    }
   });
 
   it("rejects values out of range or in the wrong format", () => {
-    expect(detailsStepSchema.safeParse({ ...pickStepData("details", base), maxGuests: 0 }).success).toBe(false);
-    expect(detailsStepSchema.safeParse({ ...pickStepData("details", base), rooms: 2.3 }).success).toBe(false);
-    expect(detailsStepSchema.safeParse({ ...pickStepData("details", base), rooms: 2.5 }).success).toBe(true);
-    expect(detailsStepSchema.safeParse({ ...pickStepData("details", base), title: "x".repeat(91) }).success).toBe(false);
-    expect(detailsStepSchema.safeParse({ ...pickStepData("details", base), videoUrl: "http://youtube.com/x" }).success).toBe(false);
-    expect(detailsStepSchema.safeParse({ ...pickStepData("details", base), tour360Url: "https://my.matterport.com/show/?m=1" }).success).toBe(true);
+    expect(stepSaveSchemas.size.safeParse({ ...pickStepData("size", base), maxGuests: 0 }).success).toBe(false);
+    expect(stepSaveSchemas.size.safeParse({ ...pickStepData("size", base), rooms: 2.3 }).success).toBe(false);
+    expect(stepSaveSchemas.size.safeParse({ ...pickStepData("size", base), rooms: 2.5 }).success).toBe(true);
+    expect(stepSaveSchemas.text.safeParse({ ...pickStepData("text", base), title: "x".repeat(91) }).success).toBe(false);
+    expect(stepSaveSchemas.features.safeParse({ ...pickStepData("features", base), videoUrl: "http://youtube.com/x" }).success).toBe(false);
+    expect(stepSaveSchemas.features.safeParse({ ...pickStepData("features", base), tour360Url: "https://my.matterport.com/show/?m=1" }).success).toBe(true);
+    expect(stepSaveSchemas.building.safeParse({ ...pickStepData("building", base), cadastralCode: "abc" }).success).toBe(false);
+    // Each split step sends only its own fields.
+    expect(Object.keys(pickStepData("text", base)).sort()).toEqual(["description", "originalLocale", "title"]);
+    expect(pickStepData("building", base)).not.toHaveProperty("title");
     expect(stepSaveSchemas.amenities.safeParse({ ...pickStepData("amenities", base), checkInFrom: "25:00" }).success).toBe(false);
     expect(stepSaveSchemas.amenities.safeParse({ ...pickStepData("amenities", base), amenities: ["jacuzzi"] }).success).toBe(false);
   });
@@ -138,9 +181,75 @@ describe("step save schemas", () => {
     expect(parsed.price).toBe(100);
     expect(parsed.icalImportUrls).toEqual(["https://www.airbnb.com/calendar/ical/1.ics"]);
     expect(
-      priceStepSchema.safeParse({ ...pickStepData("price", base), icalImportUrls: ["https://a.b/1", "https://a.b/2", "https://a.b/3", "https://a.b/4"] })
-        .success,
+      priceStepSchema.safeParse({
+        ...pickStepData("price", base),
+        icalImportUrls: ["https://www.airbnb.com/1.ics", "https://www.airbnb.com/2.ics", "https://www.airbnb.com/3.ics", "https://www.airbnb.com/4.ics"],
+      }).success,
     ).toBe(false);
+  });
+
+  // SECURITY_REPORT 8.1.a: a real export link from another Airbnb country site is kept, as www.airbnb.com.
+  it("stores an Airbnb country-site calendar link as www.airbnb.com", () => {
+    const parsed = priceStepSchema.parse({ ...pickStepData("price", base), icalImportUrls: ["https://www.airbnb.com.br/calendar/ical/123.ics?s=abc"] });
+    expect(parsed.icalImportUrls).toEqual(["https://www.airbnb.com/calendar/ical/123.ics?s=abc"]);
+  });
+
+  // SECURITY_REPORT 8.1.a / Q15: calendars only from Airbnb, Booking.com, Vrbo / HomeAway, Google Calendar.
+  it("accepts calendar links only from the allowed calendar sites", () => {
+    const ical = (url: string) => priceStepSchema.safeParse({ ...pickStepData("price", base), icalImportUrls: [url] });
+    for (const url of [
+      "https://www.airbnb.com/calendar/ical/123.ics?s=abc",
+      "https://www.airbnb.co.il/calendar/ical/123.ics?s=abc",
+      "https://admin.booking.com/hotel/hoteladmin/ical.html?t=abc",
+      "https://ical.booking.com/v1/export?t=abc",
+      "https://www.vrbo.com/icalendar/abc.ics",
+      "https://www.homeaway.com/icalendar/abc.ics",
+      "https://calendar.google.com/calendar/ical/abc%40group.calendar.google.com/private-x/basic.ics",
+    ]) {
+      expect(ical(url).success, url).toBe(true);
+    }
+    for (const [url, message] of [
+      ["https://evil.example/cal.ics", "calendarHost"],
+      ["https://10.0.0.1.sslip.io/cal.ics", "calendarHost"],
+      ["https://airbnb.com.evil.example/cal.ics", "calendarHost"],
+      ["https://evilairbnb.com/cal.ics", "calendarHost"],
+      ["https://www.google.com/calendar/ical/x/basic.ics", "calendarHost"],
+      ["https://www.airbnb.com:8443/cal.ics", "calendarHost"],
+      ["https://user:pass@www.airbnb.com/cal.ics", "calendarHost"],
+      ["http://www.airbnb.com/cal.ics", "httpsOnly"],
+      ["javascript:alert(1)", "httpsOnly"],
+    ] as const) {
+      const result = ical(url);
+      expect(result.success, url).toBe(false);
+      expect(result.error?.issues[0]?.message, url).toBe(message);
+    }
+  });
+
+  // SECURITY_REPORT 7.f / Q15: 360° tours only from Matterport, Kuula, Momento360, Roundme.
+  it("accepts 360° tour links only from the allowed tour sites", () => {
+    const tour = (url: string) => stepSaveSchemas.features.safeParse({ ...pickStepData("features", base), tour360Url: url });
+    for (const url of [
+      "",
+      "https://my.matterport.com/show/?m=abc123",
+      "https://kuula.co/share/collection/7abc",
+      "https://momento360.com/e/u/abc",
+      "https://roundme.com/tour/123/view/456",
+    ]) {
+      expect(tour(url).success, url).toBe(true);
+    }
+    for (const [url, message] of [
+      ["https://evil.example/fake-tour", "tourHost"],
+      ["https://matterport.com.evil.example/show", "tourHost"],
+      ["https://kuula.co.evil.example/share", "tourHost"],
+      ["https://notkuula.co/share", "tourHost"],
+      ["http://my.matterport.com/show/?m=1", "httpsOnly"],
+      ["javascript:alert(1)", "httpsOnly"],
+      ["data:text/html,<script>alert(1)</script>", "httpsOnly"],
+    ] as const) {
+      const result = tour(url);
+      expect(result.success, url).toBe(false);
+      expect(result.error?.issues[0]?.message, url).toBe(message);
+    }
   });
 
   it("dedupes vocabularies and keeps contact methods unique and ordered", () => {
@@ -168,26 +277,42 @@ describe("step save schemas", () => {
 
 describe("stepIssues (Next is blocked)", () => {
   it("is empty for a complete step", () => {
-    for (const step of ["deal", "property", "location", "details", "amenities", "jewish", "price", "contact"] as const) {
+    for (const step of ["deal", "property", "location", "size", "building", "features", "text", "amenities", "jewish", "price", "booking", "contact"] as const) {
       expect(stepIssues(step, base, kind)).toEqual({});
     }
   });
 
-  it("requires title, description and guests for a short stay", () => {
-    const issues = stepIssues("details", { ...base, title: "Short", description: "", maxGuests: null }, kind);
-    expect(issues).toMatchObject({ title: "titleTooShort", description: "required", maxGuests: "required" });
+  it("requires title and description (a short stay's guests are in the booking step)", () => {
+    const issues = stepIssues("text", { ...base, title: "Short", description: "", maxGuests: null }, kind);
+    expect(issues).toMatchObject({ title: "titleTooShort", description: "required" });
+    expect(stepIssues("size", { ...base, maxGuests: null }, kind).maxGuests).toBeUndefined();
+    // Only the essentials: "building" and "features" never block Next on empty fields.
+    const blank = { ...base, floor: null, totalFloors: null, yearBuilt: null, condition: null, heating: [], views: [] };
+    expect(stepIssues("building", blank, kind)).toEqual({});
+    expect(stepIssues("features", blank, { dealType: "SALE", propertyType: "APARTMENT" })).toEqual({});
+    expect(stepIssues("booking", { ...base, maxGuests: null }, kind).maxGuests).toBe("required");
+  });
+
+  it("needs a nightly price, guests and a payment method to take bookings", () => {
+    expect(stepIssues("booking", { ...base, price: null }, kind).price).toBe("priceRequired");
+    expect(stepIssues("booking", { ...base, pricePeriod: "WEEK" }, kind).price).toBe("priceRequired");
+    expect(stepIssues("booking", { ...base, paymentMethodsAtCheckIn: [] }, kind).paymentMethodsAtCheckIn).toBe("paymentMethodRequired");
+    expect(stepIssues("booking", { ...base, minStayNights: 91 }, kind).minStayNights).toBe("tooLarge");
+    const hotel = { dealType: "HOTEL_ROOM", propertyType: "HOTEL" } as const;
+    expect(stepIssues("booking", { ...base, dealType: "HOTEL_ROOM", propertyType: "HOTEL", price: null, maxGuests: null }, hotel)).toEqual({});
   });
 
   it("checks cross-field rules", () => {
-    expect(stepIssues("details", { ...base, floor: 10, totalFloors: 5 }, kind).floor).toBe("floorAboveTotal");
-    expect(stepIssues("details", { ...base, bedrooms: 4, rooms: 2 }, kind).bedrooms).toBe("bedroomsAboveRooms");
+    expect(stepIssues("building", { ...base, floor: 10, totalFloors: 5 }, kind).floor).toBe("floorAboveTotal");
+    expect(stepIssues("size", { ...base, bedrooms: 4, rooms: 2 }, kind).bedrooms).toBe("bedroomsAboveRooms");
   });
 
   it("requires size and rooms for a sale, and sharedRoomFor for a room", () => {
     const sale = { dealType: "SALE", propertyType: "APARTMENT" } as const;
-    expect(stepIssues("details", { ...base, sizeSqm: null }, sale).sizeSqm).toBe("required");
+    expect(stepIssues("size", { ...base, sizeSqm: null }, sale).sizeSqm).toBe("required");
+    expect(stepIssues("size", { ...base, rooms: null }, sale).rooms).toBe("required");
     const room = { dealType: "MONTHLY_RENT", propertyType: "ROOM" } as const;
-    expect(stepIssues("details", base, room).sharedRoomFor).toBe("required");
+    expect(stepIssues("size", base, room).sharedRoomFor).toBe("required");
   });
 
   it("needs a pin inside Georgia and a city", () => {
@@ -236,6 +361,23 @@ describe("room types", () => {
     expect(roomTypeSchema.safeParse({ ...room, name: "" }).success).toBe(false);
     expect(roomTypeSchema.safeParse({ ...room, pricePeriod: "TOTAL" }).success).toBe(false);
   });
+
+  it("round 3: weekend price, sofa beds, the room's own amenities, the number of rooms and the switch", () => {
+    const room = { name: "Double room", price: 80, currency: "GEL", pricePeriod: "NIGHT", maxGuests: 2, bedsSingle: null, bedsDouble: 1, sizeSqm: null, quantity: 4 };
+    // Older clients send none of the new fields: defaults (on, no extras).
+    expect(roomTypeSchema.parse(room)).toMatchObject({ weekendPrice: null, bedsSofa: null, amenities: [], active: true, quantity: 4 });
+    const full = roomTypeSchema.parse({ ...room, weekendPrice: 95, bedsSofa: 1, amenities: ["tv", "wifi", "tv"], active: false });
+    expect(full).toMatchObject({ weekendPrice: 95, bedsSofa: 1, amenities: ["tv", "wifi"], active: false });
+    // In-room amenities only (the hotel's own pool or parking stay on the listing).
+    expect(roomTypeSchema.safeParse({ ...room, amenities: ["pool"] }).success).toBe(false);
+    // "כמה חדרים כאלה להציע בבית": 1–1000 rooms (empty means 1 when saved).
+    expect(roomTypeSchema.safeParse({ ...room, quantity: 0 }).success).toBe(false);
+    expect(roomTypeSchema.safeParse({ ...room, quantity: 1001 }).success).toBe(false);
+    expect(roomTypeSchema.parse({ ...room, quantity: null }).quantity).toBeNull();
+    // A weekend price is per night only.
+    expect(roomTypeSchema.parse({ ...room, pricePeriod: "MONTH", weekendPrice: 95 }).weekendPrice).toBeNull();
+    expect(roomTypeSchema.parse({ ...room, weekendPrice: 0 }).weekendPrice).toBeNull();
+  });
 });
 
 describe("missingRequirements", () => {
@@ -244,19 +386,21 @@ describe("missingRequirements", () => {
       values: { ...base, price: null, contactMethods: [] },
       photoCount: 3,
       phoneVerified: false,
+      pledgeAccepted: false,
     });
-    expect(missing.map((m) => m.key)).toEqual(["phoneVerified", "photos", "price", "contact"]);
+    expect(missing.map((m) => m.key)).toEqual(["phoneVerified", "photos", "price", "contact", "pledge"]);
     expect(missing.find((m) => m.key === "photos")?.step).toBe("photos");
+    expect(missing.find((m) => m.key === "pledge")?.step).toBe("pledge");
   });
 
   it("is empty for a complete listing", () => {
-    expect(missingRequirements({ values: base, photoCount: 5, phoneVerified: true })).toEqual([]);
+    expect(missingRequirements({ values: base, photoCount: 5, phoneVerified: true, pledgeAccepted: true })).toEqual([]);
   });
 
   it("lets hotels use room-type photos and prices", () => {
     const hotel = { ...base, dealType: "HOTEL_ROOM" as const, propertyType: "HOTEL" as const, price: null, maxGuests: null };
-    expect(missingRequirements({ values: hotel, photoCount: 2, roomPhotoCount: 3, pricedRoomTypes: 1, phoneVerified: true })).toEqual([]);
-    expect(missingRequirements({ values: hotel, photoCount: 5, pricedRoomTypes: 0, phoneVerified: true })).toEqual([
+    expect(missingRequirements({ values: hotel, photoCount: 2, roomPhotoCount: 3, pricedRoomTypes: 1, phoneVerified: true, pledgeAccepted: true })).toEqual([]);
+    expect(missingRequirements({ values: hotel, photoCount: 5, pricedRoomTypes: 0, phoneVerified: true, pledgeAccepted: true })).toEqual([
       { key: "price", step: "rooms" },
     ]);
   });
@@ -297,6 +441,30 @@ describe("availability ranges", () => {
     ).toEqual([
       { start: "2026-11-01", end: "2026-11-02" },
       { start: "2026-11-20", end: "2026-11-25" },
+    ]);
+  });
+});
+
+describe("the split details step (brief 5.7)", () => {
+  it("opens old ?step=details links on the first of the new steps", () => {
+    expect(parseStepParam("details", kind, 1)).toBe("size");
+    expect(parseStepParam("details", { dealType: "HOTEL_ROOM", propertyType: "HOTEL" }, 1)).toBe("building");
+  });
+
+  it("puts size, building, features and text right after the location", () => {
+    expect(stepsFor(kind).slice(2, 8)).toEqual(["location", "size", "building", "features", "text", "amenities"]);
+  });
+
+  it("lists what is missing per new step, with the step that fixes it", () => {
+    const missing = missingRequirements({
+      values: { ...base, title: "", videoUrl: "not a link" },
+      photoCount: 10,
+      phoneVerified: true,
+      pledgeAccepted: true,
+    });
+    expect(missing.map((m) => [m.key, m.step])).toEqual([
+      ["features", "features"],
+      ["text", "text"],
     ]);
   });
 });

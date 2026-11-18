@@ -1,4 +1,4 @@
-import { BadgeCheck, MonitorSmartphone, ShieldAlert } from "lucide-react";
+import { BadgeCheck, Flag, MonitorSmartphone, ShieldAlert } from "lucide-react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
@@ -16,14 +16,33 @@ import { ListingThumb, PublicId, WhenText } from "@/components/admin/listing-bit
 import { AdminPageHeader, AdminSection, FactList } from "@/components/admin/page-header";
 import { RoleChanger, UserActions } from "@/components/admin/user-actions";
 import { Ltr } from "@/components/common/ltr";
+import { PledgeAdminFact } from "@/components/pledge/pledge-admin-fact";
 import { TicketStatusBadge } from "@/components/tickets";
 import { siteConfig } from "@/config/site";
 import { Link } from "@/i18n/navigation";
+import { Pill, type PillTone } from "@/components/admin/content/pill";
+import type { BookingStatus } from "@/generated/prisma/enums";
+import { auditRecordView } from "@/lib/admin/server/file-views";
+import { hostFlagSummary } from "@/lib/admin/server/flags";
 import { coverUrl, realEmail } from "@/lib/admin/server/shared";
-import { getUserDetail } from "@/lib/admin/server/users";
+import { getUserBookings, getUserDetail, type UserBookingListRow } from "@/lib/admin/server/users";
+import { personName } from "@/lib/auth/first-name";
+import { dateToDay } from "@/lib/booking/dates";
 import { can } from "@/lib/auth/permissions";
 import { requireStaff } from "@/lib/auth/session";
-import { formatDate, formatNumber, formatRelativeTime } from "@/lib/format";
+import { formatDate, formatDateRange, formatNumber, formatRelativeTime } from "@/lib/format";
+import { FlagReviewButton } from "../../flags/_components/flag-review-button";
+import { StaffReviewList } from "../../reports/_components/staff-review-list";
+import { getUserReviewsForStaff } from "@/lib/reviews/queries";
+import type { AppLocale } from "@/config/site";
+
+const BOOKING_TONE: Record<BookingStatus, PillTone> = {
+  CONFIRMED: "success",
+  COMPLETED: "muted",
+  CANCELLED_BY_GUEST: "muted",
+  CANCELLED_BY_HOST: "warning",
+  NO_SHOW: "warning",
+};
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/admin/users/[id]">): Promise<Metadata> {
   const { locale } = await params;
@@ -35,13 +54,22 @@ export default async function UserDetailPage({ params }: PageProps<"/[locale]/ad
   const { locale, id } = await params;
   setRequestLocale(locale);
   const staff = await requireStaff("users.view");
-  const data = await getUserDetail(id);
+  const data = await getUserDetail(id, staff);
   if (!data) notFound();
+  // Opening a person's record is in the audit log (SECURITY_REPORT 12.6.d; deduplicated).
+  await auditRecordView({ staffId: staff.id, action: "user.view", targetType: "User", targetId: data.user.id });
   const { user } = data;
-  const [t, tAdmin, tFields] = await Promise.all([
+  const canModerate = can(staff.role, "moderation");
+  const [t, tAdmin, tFields, tb, bookings, flags, reviews, tReviews] = await Promise.all([
     getTranslations("admin.users"),
     getTranslations("admin"),
     getTranslations("listingFields"),
+    getTranslations("booking"),
+    getUserBookings(user.id, staff),
+    hostFlagSummary(user.id),
+    // Reviews written and received (round 3 phase-5 hardening, reviews-2): each opens /admin/reviews/<id>.
+    getUserReviewsForStaff(user.id),
+    getTranslations("reviews.admin"),
   ]);
   const n = (v: number) => formatNumber(v, locale);
   const self = user.id === staff.id;
@@ -67,15 +95,16 @@ export default async function UserDetailPage({ params }: PageProps<"/[locale]/ad
       />
 
       {canManage ? (
-        <div className="mb-5 rounded-xl border bg-card p-3 shadow-xs">
+        <div id="actions" className="mb-5 scroll-mt-20 rounded-xl border bg-card p-3 shadow-xs">
           <UserActions userId={user.id} name={user.name} status={user.status} idVerified={!!user.idVerifiedAt} canManage />
+          <p className="mt-2 text-xs text-muted-foreground">{t("blockHint")}</p>
         </div>
       ) : self ? (
         <p className="mb-5 rounded-xl border bg-card p-3 text-sm text-muted-foreground">{t("selfHint")}</p>
       ) : null}
 
       {user.status !== "ACTIVE" && user.statusReason ? (
-        <p className="mb-5 flex items-start gap-2 rounded-xl border border-warning/50 bg-warning-soft p-3 text-sm">
+        <p className="mb-5 flex items-start gap-2 rounded-xl border border-border-strong/50 bg-surface-muted p-3 text-sm">
           <ShieldAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
           <span>
             {t("statusReason", {
@@ -105,6 +134,12 @@ export default async function UserDetailPage({ params }: PageProps<"/[locale]/ad
                       <span className="text-xs text-muted-foreground">
                         {user.phoneNumberVerified ? t("phoneVerified") : t("phoneNotVerified")}
                       </span>
+                    </span>
+                  ) : data.phoneWithheld ? (
+                    // ADMIN only (Q12): other staff get the last 2 digits from the query, never the number (c).
+                    <span className="inline-flex flex-wrap items-center gap-x-1.5">
+                      {data.phoneMasked ? <Ltr>{data.phoneMasked}</Ltr> : null}
+                      <span className="text-xs text-muted-foreground">{t("phoneLast2Only")}</span>
                     </span>
                   ) : (
                     "—"
@@ -137,14 +172,15 @@ export default async function UserDetailPage({ params }: PageProps<"/[locale]/ad
           <AdminSection title={t("verificationTitle")}>
             <ul className="flex flex-col gap-2 text-sm">
               <li className="flex items-center gap-2">
-                <BadgeCheck aria-hidden className={user.idVerifiedAt ? "size-4 text-verified" : "size-4 text-muted-foreground"} />
+                <BadgeCheck aria-hidden className={user.idVerifiedAt ? "size-4 text-success" : "size-4 text-muted-foreground"} />
                 {user.idVerifiedAt
                   ? t("idVerifiedOn", { date: formatDate(user.idVerifiedAt, locale), name: data.idVerifiedBy ?? "—" })
                   : t("idNotVerified")}
               </li>
+              <PledgeAdminFact userId={user.id} locale={locale} />
               {user.accountType === "BUSINESS" ? (
                 <li className="flex items-center gap-2">
-                  <BadgeCheck aria-hidden className={user.businessVerifiedAt ? "size-4 text-verified" : "size-4 text-muted-foreground"} />
+                  <BadgeCheck aria-hidden className={user.businessVerifiedAt ? "size-4 text-success" : "size-4 text-muted-foreground"} />
                   {user.businessVerifiedAt
                     ? t("businessVerifiedOn", { date: formatDate(user.businessVerifiedAt, locale), name: data.businessVerifiedBy ?? "—" })
                     : t("businessNotVerified")}
@@ -209,14 +245,65 @@ export default async function UserDetailPage({ params }: PageProps<"/[locale]/ad
             )}
           </AdminSection>
 
-          <div className="grid gap-4 xl:grid-cols-2">
+          <AdminSection
+            id="bookings"
+            title={t("bookings.title")}
+            description={t("bookings.summary", {
+              host: n(bookings.hostTotal),
+              guest: n(bookings.guestTotal),
+            })}
+          >
+            <dl className="mb-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+              {(
+                [
+                  ["hostCancelled", bookings.hostCancelled],
+                  ["hostFlagged", bookings.hostFlagged],
+                  ["guestCancelled", bookings.guestCancelled],
+                  ["guestNoShows", bookings.guestNoShows],
+                ] as const
+              ).map(([key, value]) => (
+                <div key={key} className="rounded-lg border bg-background p-2.5">
+                  <dt className="text-xs text-muted-foreground">{t(`bookings.counts.${key}`)}</dt>
+                  <dd className="mt-0.5 text-lg font-semibold tabular-nums">{n(value)}</dd>
+                </div>
+              ))}
+            </dl>
+            <div className="grid gap-4 xl:grid-cols-2">
+              <div>
+                <h3 className="mb-2 text-xs font-medium text-muted-foreground">{t("bookings.asHost", { count: bookings.hostTotal })}</h3>
+                <BookingList rows={bookings.asHost} side="host" canOpen={canModerate} empty={t("bookings.none")} locale={locale} tb={(key) => tb(key)} flagLabel={t("bookings.flagged")} withheldGuest={tAdmin("bookings.guestHidden")} withheldRow={t("bookings.withheldRow")} />
+              </div>
+              <div>
+                <h3 className="mb-2 text-xs font-medium text-muted-foreground">{t("bookings.asGuest", { count: bookings.guestTotal })}</h3>
+                <BookingList rows={bookings.asGuest} side="guest" canOpen={canModerate} empty={t("bookings.none")} locale={locale} tb={(key) => tb(key)} flagLabel={t("bookings.flagged")} withheldGuest={tAdmin("bookings.guestHidden")} withheldRow={t("bookings.withheldRow")} />
+              </div>
+            </div>
+          </AdminSection>
+
+          <div id="reports" className="grid scroll-mt-20 gap-4 xl:grid-cols-2">
             <AdminSection title={t("reportsAgainst", { count: data.reportsAgainst.length })}>
-              <ReportList rows={data.reportsAgainst.map((r) => ({ ...r, who: r.reporter?.name ?? null }))} empty={t("noReports")} />
+              <ReportList rows={data.reportsAgainst.map((r) => ({ ...r, who: r.reporter?.name ?? (data.reporterWithheld ? tAdmin("reports.reporterWithheld") : null) }))} empty={t("noReports")} />
             </AdminSection>
-            <AdminSection title={t("reportsMade", { count: data.reportsMade.length })}>
-              <ReportList rows={data.reportsMade.map((r) => ({ ...r, who: r.targetUser?.name ?? null }))} empty={t("noReports")} />
+            {/* Who sent reports is ADMIN only (Q12): other staff never get this list. */}
+            <AdminSection title={data.reportsMade ? t("reportsMade", { count: data.reportsMade.length }) : t("reportsMade", { count: 0 })}>
+              {data.reportsMade ? (
+                <ReportList rows={data.reportsMade.map((r) => ({ ...r, who: r.targetUser?.name ?? null }))} empty={t("noReports")} />
+              ) : (
+                <p className="text-sm text-muted-foreground">{tAdmin("reports.reporterWithheld")}</p>
+              )}
             </AdminSection>
           </div>
+
+          {reviews.written.length > 0 || reviews.received.length > 0 ? (
+            <div className="grid gap-4 xl:grid-cols-2">
+              <AdminSection title={tReviews("userWritten")}>
+                <StaffReviewList rows={reviews.written} locale={locale as AppLocale} empty="—" />
+              </AdminSection>
+              <AdminSection title={tReviews("userReceived")}>
+                <StaffReviewList rows={reviews.received} locale={locale as AppLocale} empty="—" />
+              </AdminSection>
+            </div>
+          ) : null}
 
           <AdminSection title={t("ticketsTitle", { count: data.tickets.length })}>
             {data.tickets.length === 0 ? (
@@ -244,6 +331,47 @@ export default async function UserDetailPage({ params }: PageProps<"/[locale]/ad
         </div>
 
         <aside className="flex min-w-0 flex-col gap-4">
+          {flags && (flags.flagged || flags.countingReports > 0 || flags.openNoShows > 0 || flags.reviewedAt) ? (
+            <AdminSection
+              id="flags"
+              title={
+                <span className="inline-flex items-center gap-1.5">
+                  <Flag aria-hidden className={flags.flagged ? "size-4 text-destructive" : "size-4 text-muted-foreground"} />
+                  {t("flags.title")}
+                </span>
+              }
+              className={flags.flagged ? "border-destructive/40" : undefined}
+              actions={
+                canModerate ? (
+                  <Link href="/admin/flags?view=hosts" className="text-sm font-medium text-primary hover:underline">
+                    {t("flags.open")}
+                  </Link>
+                ) : null
+              }
+            >
+              <ul className="flex flex-col gap-1.5 text-sm">
+                <li className="font-medium">{flags.flagged ? t("flags.flagged") : t("flags.notFlagged")}</li>
+                <li>{t("flags.reports", { count: flags.countingReports })}</li>
+                {flags.turnedAway > 0 ? <li className="text-destructive">{t("flags.turnedAway", { count: flags.turnedAway })}</li> : null}
+                {flags.sanctioned ? <li className="text-destructive">{t("flags.sanctioned")}</li> : null}
+                {flags.openCancellations > 0 ? <li>{t("flags.cancellations", { count: flags.openCancellations })}</li> : null}
+                {flags.openNoShows > 0 ? <li>{t("flags.noShows", { count: flags.openNoShows })}</li> : null}
+                {flags.reviewedAt ? (
+                  <li className="text-xs text-muted-foreground">{t("flags.reviewedAt", { date: formatDate(flags.reviewedAt, locale) })}</li>
+                ) : null}
+              </ul>
+              {flags.flagged ? <p className="mt-2 text-xs text-muted-foreground">{t("flags.reviewRule")}</p> : null}
+              {canModerate && (flags.reportFlagOpen || flags.sanctioned) && !self ? (
+                <div className="mt-3">
+                  <FlagReviewButton
+                    target={{ userId: user.id, seenLatest: flags.latestReportAt ? flags.latestReportAt.toISOString() : null }}
+                    label={user.businessName || user.name}
+                  />
+                </div>
+              ) : null}
+            </AdminSection>
+          ) : null}
+
           <AdminSection title={t("devicesTitle")}>
             <p className="flex items-center gap-2 text-sm">
               <MonitorSmartphone aria-hidden className="size-4 text-muted-foreground" />
@@ -277,7 +405,7 @@ export default async function UserDetailPage({ params }: PageProps<"/[locale]/ad
             {data.notes.length ? (
               <ul className="mt-4 flex flex-col gap-2">
                 {data.notes.map((note) => (
-                  <li key={note.id} className="rounded-lg border border-warning/40 bg-warning-soft p-2.5 text-sm">
+                  <li key={note.id} className="rounded-lg border border-border-strong/40 bg-surface-muted p-2.5 text-sm">
                     <p className="whitespace-pre-wrap" dir="auto">
                       {note.body}
                     </p>
@@ -297,6 +425,74 @@ export default async function UserDetailPage({ params }: PageProps<"/[locale]/ad
   );
 }
 
+function BookingList({
+  rows,
+  side,
+  canOpen,
+  empty,
+  locale,
+  tb,
+  flagLabel,
+  withheldGuest,
+  withheldRow,
+}: {
+  rows: UserBookingListRow[];
+  side: "host" | "guest";
+  canOpen: boolean;
+  empty: string;
+  locale: string;
+  tb: (key: string) => string;
+  flagLabel: string;
+  withheldGuest: string;
+  withheldRow: string;
+}) {
+  if (rows.length === 0) return <p className="text-sm text-muted-foreground">{empty}</p>;
+  return (
+    <ul className="divide-y rounded-lg border">
+      {rows.map((b) =>
+        b.withheld ? (
+          // A booking with a turned-away report by this guest: who sent a report is ADMIN only (Q12).
+          <li key={b.id} className="px-3 py-2 text-xs text-muted-foreground">
+            {withheldRow}
+          </li>
+        ) : (
+        <li key={b.id} className="flex flex-col gap-0.5 px-3 py-2 text-sm">
+          <span className="flex flex-wrap items-center gap-1.5">
+            {canOpen ? (
+              <Link href={`/admin/bookings/${b.id}`} className="font-mono text-xs font-semibold hover:underline">
+                <Ltr>{b.code}</Ltr>
+              </Link>
+            ) : (
+              <Ltr className="font-mono text-xs font-semibold">{b.code}</Ltr>
+            )}
+            <Pill tone={BOOKING_TONE[b.status]} className="h-5">
+              {tb(`status.${b.status}`)}
+            </Pill>
+            {b.flaggedForReview && !b.flagReviewedAt ? (
+              <Pill tone="danger" icon={Flag} className="h-5">
+                {flagLabel}
+              </Pill>
+            ) : null}
+          </span>
+          <span className="truncate text-xs text-muted-foreground" dir="auto">
+            <PublicId id={b.listing.publicId} /> {b.listing.title}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {formatDateRange(dateToDay(b.checkIn), dateToDay(b.checkOut), locale)}
+            {" · "}
+            {side === "host" && b.guestWithheld ? (
+              <span>{withheldGuest}</span>
+            ) : (
+              <span dir="auto">{side === "host" ? b.guestName : (b.host.businessName || personName(b.host) || b.host.name)}</span>
+            )}
+          </span>
+        </li>
+        ),
+      )}
+    </ul>
+  );
+}
+
 async function ReportList({
   rows,
   empty,
@@ -304,6 +500,7 @@ async function ReportList({
   rows: {
     id: string;
     reason: string;
+    kind?: "GENERAL" | "TURNED_AWAY";
     status: "OPEN" | "RESOLVED" | "DISMISSED";
     createdAt: Date;
     listing: { publicId: number; title: string } | null;
@@ -311,7 +508,7 @@ async function ReportList({
   }[];
   empty: string;
 }) {
-  const tFields = await getTranslations("listingFields");
+  const [tFields, t] = await Promise.all([getTranslations("listingFields"), getTranslations("admin.users")]);
   if (rows.length === 0) return <p className="text-sm text-muted-foreground">{empty}</p>;
   return (
     <ul className="divide-y">
@@ -319,8 +516,9 @@ async function ReportList({
         <li key={r.id} className="flex flex-col gap-0.5 py-2 text-sm first:pt-0 last:pb-0">
           <div className="flex flex-wrap items-center gap-1.5">
             <Link href={`/admin/reports/${r.id}`} className="font-medium hover:underline">
-              {tFields(`reportReason.${r.reason}`)}
+              {tFields.has(`reportReason.${r.reason}`) ? tFields(`reportReason.${r.reason}`) : r.reason}
             </Link>
+            {r.kind === "TURNED_AWAY" ? <Pill tone="danger">{t("turnedAway")}</Pill> : null}
             <ReportStatusBadge status={r.status} className="h-5" />
           </div>
           <p className="text-xs text-muted-foreground">

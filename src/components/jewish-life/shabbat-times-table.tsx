@@ -82,7 +82,7 @@ export async function ShabbatTimesTable({
               </th>
               <th scope="col" className="px-3 py-3 text-start font-medium">
                 <span className="inline-flex items-center gap-1.5">
-                  <Flame aria-hidden="true" className="size-3.5 text-terracotta" />
+                  <Flame aria-hidden="true" className="size-3.5 text-primary-text" />
                   {t("candleLighting")}
                 </span>
               </th>

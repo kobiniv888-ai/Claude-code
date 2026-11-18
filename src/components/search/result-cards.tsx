@@ -1,34 +1,71 @@
 import { useTranslations } from "next-intl";
+import type { CardTagKind } from "@/components/listing/card-tags";
 import { ListingCard, type ListingCardVariant } from "@/components/listing/listing-card";
 import type { ListingCardData } from "@/lib/listing/types";
 import { cn } from "@/lib/utils";
 
+/** From this card on (0-based), phones load the photo after the page (the first two are on screen). */
+export const DEFER_PHOTOS_FROM = 2;
+
+/** The first result card (its photo is the largest paint of the search page). */
+export const SEARCH_FIRST_CARD_ID = "search-first-card";
+
 /** Classes of the results list (shared with the client list next to the map). */
 export function resultListClass(variant: ListingCardVariant, compact: boolean): string {
+  // Large screens always show the map next to the list, so the list has 1–2 columns there.
   return cn(
     variant === "list"
       ? "flex flex-col gap-4"
       : compact
-        ? "grid grid-cols-1 gap-x-5 gap-y-6 xl:grid-cols-2"
-        : "grid grid-cols-1 gap-x-5 gap-y-6 sm:grid-cols-2 xl:grid-cols-3",
+        ? "grid grid-cols-1 gap-x-4 gap-y-4 xl:grid-cols-2"
+        : "grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 min-[1800px]:grid-cols-3",
   );
 }
 
 /**
  * The result cards of the grid and list views, rendered on the server so that only their
  * interactive parts (photos, heart, compare, price) hydrate. The map view uses the client list in
- * search-results.tsx, which highlights the card of the hovered pin.
+ * search-results.tsx; here the hovered pin's card is ringed through data-public-id.
  */
-export function ResultCards({ items, variant }: { items: ListingCardData[]; variant: ListingCardVariant }) {
+export function ResultCards({
+  items,
+  variant,
+  nights = null,
+  preferTags,
+}: {
+  items: ListingCardData[];
+  variant: ListingCardVariant;
+  /** Nights of the searched stay (the cards add the stay total). */
+  nights?: number | null;
+  /** The card tags the search filters by (shown first). */
+  preferTags?: readonly CardTagKind[];
+}) {
   const t = useTranslations("search.results");
   return (
-    <ul aria-label={t("listLabel")} className={resultListClass(variant, false)}>
-      {items.map((listing, index) => (
-        <li key={listing.id} className="min-w-0">
-          {/* Only the first photo is above the fold on phones; the rest load as they come into view. */}
-          <ListingCard listing={listing} variant={variant} priority={index === 0} showCompare />
-        </li>
-      ))}
-    </ul>
+    <>
+      {/* As on the home page (recommended-listings.tsx): React places this in <head>, and the
+          browser paints the page once the first card has been parsed, with its photo, instead of
+          painting the bars first and the photo in a later frame (which then came after the page's
+          scripts and counted them into the largest paint). */}
+      {items.length > 0 ? <link rel="expect" href={`#${SEARCH_FIRST_CARD_ID}`} blocking="render" /> : null}
+      <ul data-result-cards="" aria-label={t("listLabel")} className={resultListClass(variant, false)}>
+        {items.map((listing, index) => (
+          <li key={listing.id} id={index === 0 ? SEARCH_FIRST_CARD_ID : undefined} data-public-id={listing.publicId} className="min-w-0">
+            {/* Only the first photo is above the fold on phones; the rest load as they come into view.
+                From the third card on, a phone loads them after the page (native lazy loading would
+                fetch ~1250 px ahead, together with the first card's photo and the scripts). */}
+            <ListingCard
+              listing={listing}
+              variant={variant}
+              priority={index === 0}
+              deferPhoto={index >= DEFER_PHOTOS_FROM}
+              showCompare
+              nights={nights}
+              preferTags={preferTags}
+            />
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }

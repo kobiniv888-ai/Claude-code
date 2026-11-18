@@ -46,8 +46,8 @@ export default async function ArticlesPage({ params }: PageProps<"/[locale]/admi
         role="note"
         className={
           featureOn
-            ? "mb-4 flex items-start gap-2 rounded-xl border border-verified/30 bg-verified-soft p-3 text-sm"
-            : "mb-4 flex items-start gap-2 rounded-xl border border-warning/40 bg-warning-soft p-3 text-sm"
+            ? "mb-4 flex items-start gap-2 rounded-xl border border-success/30 bg-primary-tint p-3 text-sm"
+            : "mb-4 flex items-start gap-2 rounded-xl border border-border-strong/40 bg-surface-muted p-3 text-sm"
         }
       >
         <ToggleLeft aria-hidden className="mt-0.5 size-4 shrink-0" />

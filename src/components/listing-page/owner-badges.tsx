@@ -26,14 +26,14 @@ const ICONS: Record<Kind, LucideIcon> = {
 };
 
 const TONE: Record<Kind, string> = {
-  phoneVerified: "bg-verified-soft text-verified ring-verified/20",
-  idVerified: "bg-verified-soft text-verified ring-verified/20",
-  ownerVerified: "bg-verified-soft text-verified ring-verified/20",
-  propertyVerified: "bg-verified-soft text-verified ring-verified/20",
-  businessVerified: "bg-verified-soft text-verified ring-verified/20",
+  phoneVerified: "bg-primary-tint text-success ring-success/20",
+  idVerified: "bg-primary-tint text-success ring-success/20",
+  ownerVerified: "bg-primary-tint text-success ring-success/20",
+  propertyVerified: "bg-primary-tint text-success ring-success/20",
+  businessVerified: "bg-primary-tint text-success ring-success/20",
   business: "bg-muted text-muted-foreground ring-foreground/5",
   keepsShabbat: "bg-secondary text-primary ring-primary/10",
-  demo: "bg-warning-soft text-warning ring-warning/20",
+  demo: "bg-surface-muted text-foreground ring-border-strong/20",
 };
 
 /** Trust badges of an owner (and, on a listing, "Owner verified" / "Property verified"). */

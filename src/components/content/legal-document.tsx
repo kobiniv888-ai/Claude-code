@@ -1,6 +1,9 @@
 import { CalendarDays } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
+import { accessibilityCoordinator } from "@/lib/legal/accessibility";
+import { retentionFacts } from "@/lib/legal/retention-facts";
+import { TERMS_VERSION } from "@/lib/legal/terms";
 import { CookieSettingsButton } from "./cookie-settings-button";
 import { CookieTable } from "./cookie-table";
 import { ContentContainer } from "./content-container";
@@ -22,7 +25,20 @@ export async function LegalDocument({ locale, doc }: { locale: string; doc: Lega
   const t = await getTranslations({ locale, namespace: "legal" });
   const meta = legalDocs[doc];
   const updated = formatContentDate(meta.lastUpdated, locale);
-  const plain = { ...contentValues(locale), date: updated };
+  // The retention times, the minimum age and the Terms version come from the constants the code
+  // enforces (src/lib/legal/retention-facts.ts), never typed into the text.
+  // The accessibility coordinator is a setting (src/lib/legal/accessibility.ts); missing → "[to be added]".
+  const coordinator = accessibilityCoordinator();
+  const missing = `[${t("common.toBeAdded")}]`;
+  const plain = {
+    ...contentValues(locale),
+    ...retentionFacts(),
+    termsVersion: formatContentDate(TERMS_VERSION, locale),
+    coordinatorName: coordinator.name ?? missing,
+    coordinatorPhone: coordinator.phone ?? missing,
+    coordinatorEmail: coordinator.email ?? missing,
+    date: updated,
+  };
   const values = { ...plain, ...contentTags };
   const sections = t.raw(`${doc}.sections`) as Record<string, SectionData>;
   const sectionKeys = Object.keys(sections);
@@ -71,7 +87,7 @@ export async function LegalDocument({ locale, doc }: { locale: string; doc: Lega
     }
     if (blockKey.startsWith("sub")) {
       return (
-        <h3 key={blockKey} className="mt-6 text-lg font-semibold">
+        <h3 key={blockKey} className="mt-6 text-body font-semibold">
           {t(path, plain)}
         </h3>
       );
@@ -117,7 +133,7 @@ export async function LegalDocument({ locale, doc }: { locale: string; doc: Lega
                 <section key={key} className="border-b py-8 first:pt-0 last:border-b-0">
                   <h2
                     id={sectionAnchor(key)}
-                    className="flex scroll-mt-24 gap-2 text-xl font-semibold tracking-tight text-foreground sm:text-2xl"
+                    className="flex scroll-mt-24 gap-2 text-h2 text-foreground"
                   >
                     <span aria-hidden="true" className="tabular-nums text-muted-foreground">
                       {index + 1}.
@@ -130,7 +146,7 @@ export async function LegalDocument({ locale, doc }: { locale: string; doc: Lega
             </article>
 
             <nav aria-labelledby="other-legal-pages" className="mt-10">
-              <h2 id="other-legal-pages" className="text-lg font-semibold">
+              <h2 id="other-legal-pages" className="text-h2 text-foreground">
                 {t("common.otherDocs")}
               </h2>
               <ul className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -140,7 +156,7 @@ export async function LegalDocument({ locale, doc }: { locale: string; doc: Lega
                     <li key={key}>
                       <Link
                         href={legalDocs[key].path}
-                        className="group flex items-center gap-3 rounded-2xl border bg-card p-4 shadow-card transition-shadow hover:shadow-card-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                        className="group flex items-center gap-3 rounded-2xl border bg-card p-4 transition-colors hover:border-primary/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                       >
                         <span
                           aria-hidden="true"

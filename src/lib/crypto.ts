@@ -1,5 +1,6 @@
 import "server-only";
 import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { readSiteEnv } from "@/lib/site-env";
 
 /**
  * Encryption and hashing helpers (server-only).
@@ -10,13 +11,19 @@ import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, 
  * - hmacHash: HMAC-SHA256 with HASH_SALT, hex. Used for IPs and device ids in logs,
  *   so we can match "same device" without storing the raw value.
  *
- * In development a key derived from BETTER_AUTH_SECRET is used (with a warning) so the
- * site runs without setup. In production missing keys are an error.
+ * On a development server of a development site (SITE_ENV=development) a key derived from
+ * BETTER_AUTH_SECRET is used (with a warning) so the site runs without setup. Anywhere else
+ * missing keys are an error.
  */
 
 const IV_BYTES = 12;
 const TAG_BYTES = 16;
-const isProduction = () => process.env.NODE_ENV === "production";
+/**
+ * The development fallback keys are allowed only on a development server (`next dev`, tests,
+ * scripts) of a development site (SITE_ENV=development). Everywhere else a missing key is an error
+ * (the server would not even start: src/lib/startup-check.ts).
+ */
+const fallbackAllowed = () => process.env.NODE_ENV !== "production" && readSiteEnv() === "development";
 
 let encryptionKey: Buffer | null = null;
 let hashSalt: Buffer | null = null;
@@ -45,7 +52,7 @@ function getEncryptionKey(): Buffer {
       );
     }
     encryptionKey = key;
-  } else if (isProduction()) {
+  } else if (!fallbackAllowed()) {
     throw new Error("APP_ENCRYPTION_KEY is not set. Generate one with: openssl rand -base64 32");
   } else {
     encryptionKey = devFallback("encryption", "APP_ENCRYPTION_KEY");
@@ -58,7 +65,7 @@ function getHashSalt(): Buffer {
   const raw = process.env.HASH_SALT?.trim();
   if (raw) {
     hashSalt = Buffer.from(raw, "utf8");
-  } else if (isProduction()) {
+  } else if (!fallbackAllowed()) {
     throw new Error("HASH_SALT is not set. Generate one with: openssl rand -hex 16");
   } else {
     hashSalt = devFallback("hash", "HASH_SALT");

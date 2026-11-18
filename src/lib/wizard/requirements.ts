@@ -5,16 +5,21 @@
  */
 import { siteConfig } from "@/config/site";
 import { stepIssues, type WizardValues } from "./schemas";
-import { stepsFor, type ListingKind, type SavableStepKey, type WizardStepKey } from "./steps";
+import { priceStepFor, stepsFor, type ListingKind, type SavableStepKey, type WizardStepKey } from "./steps";
 
 export const REQUIREMENT_KEYS = [
   "phoneVerified",
   "propertyType",
   "location",
-  "details",
+  // Round 1's "details", split with its step (brief 5.7).
+  "size",
+  "building",
+  "features",
+  "text",
   "photos",
   "price",
   "contact",
+  "pledge",
 ] as const;
 export type RequirementKey = (typeof REQUIREMENT_KEYS)[number];
 
@@ -33,12 +38,17 @@ export type RequirementInput = {
   /** Hotel room types with a price (a hotel may show "from" its cheapest room instead of its own price). */
   pricedRoomTypes?: number;
   phoneVerified: boolean;
+  /** The owner accepted the CURRENT version of the Bayit welcome pledge. */
+  pledgeAccepted: boolean;
 };
 
 const STEP_REQUIREMENTS: { key: RequirementKey; step: SavableStepKey }[] = [
   { key: "propertyType", step: "property" },
   { key: "location", step: "location" },
-  { key: "details", step: "details" },
+  { key: "size", step: "size" },
+  { key: "building", step: "building" },
+  { key: "features", step: "features" },
+  { key: "text", step: "text" },
   { key: "price", step: "price" },
   { key: "contact", step: "contact" },
 ];
@@ -49,12 +59,16 @@ export function missingRequirements({
   roomPhotoCount = 0,
   pricedRoomTypes = 0,
   phoneVerified,
+  pledgeAccepted,
 }: RequirementInput): MissingRequirement[] {
   const kind: ListingKind = { dealType: values.dealType, propertyType: values.propertyType };
   const isHotel = kind.dealType === "HOTEL_ROOM";
   const missing: MissingRequirement[] = [];
   if (!phoneVerified) missing.push({ key: "phoneVerified", step: null });
-  for (const { key, step } of STEP_REQUIREMENTS) {
+  for (const requirement of STEP_REQUIREMENTS) {
+    const { key } = requirement;
+    // Short stays and hotels set their price in the "הזמנות ומחיר" step.
+    const step = key === "price" ? priceStepFor(kind) : requirement.step;
     if (key === "price") {
       // Photos come before the price in the wizard; keep the list in step order.
       const photos = photoCount + (isHotel ? roomPhotoCount : 0);
@@ -66,5 +80,6 @@ export function missingRequirements({
       missing.push({ key, step: "rooms" });
     }
   }
+  if (!pledgeAccepted) missing.push({ key: "pledge", step: "pledge" });
   return missing.filter((m) => m.step === null || stepsFor(kind).includes(m.step));
 }

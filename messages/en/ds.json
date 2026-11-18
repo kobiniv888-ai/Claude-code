@@ -1,0 +1,70 @@
+{
+  "badges": {
+    "welcomes": "Welcomes Israelis",
+    "welcomesHint": "The host pledged to welcome Israeli and Jewish guests",
+    "verified": "Verified",
+    "verifiedHint": "Our team checked the owner's ID or proof of ownership",
+    "hebrew": "Speaks Hebrew",
+    "kosherKitchen": "Kosher kitchen",
+    "kosherMeals": "Kosher meals",
+    "shabbatFriendly": "Shabbat-friendly",
+    "synagogueWalk": "Up to {minutes} min walk to synagogue",
+    "keepsShabbat": "Keeps Shabbat",
+    "business": "Business",
+    "demo": "Demo",
+    "new": "New",
+    "priceDropped": "Price dropped",
+    "promoted": "Promoted",
+    "more": "+{count}",
+    "moreLabel": "{count, plural, one {and 1 more badge: {list}} other {and {count} more badges: {list}}}"
+  },
+  "chip": {
+    "remove": "Remove {label}"
+  },
+  "sheet": {
+    "close": "Close",
+    "clear": "Clear"
+  },
+  "section": {
+    "seeAll": "See all"
+  },
+  "carousel": {
+    "previous": "Previous",
+    "next": "Next",
+    "slide": "Photo {index} of {total}",
+    "noPhotos": "No photos yet",
+    "morePhotos": "{count, plural, one {photo} other {photos}}"
+  },
+  "contactBar": {
+    "label": "Contact the host"
+  },
+  "devUi": {
+    "title": "Design system",
+    "intro": "Internal page for developers: every color, text style and component in one place.",
+    "showResults": "{count, plural, one {Show 1 place} other {Show <n>{count}</n> places}}",
+    "emptyTitle": "No places found",
+    "emptyText": "Try removing a filter or widening the area.",
+    "emptyAction": "Start searching",
+    "fixKosher": "Remove the 'Kosher' filter",
+    "fixArea": "Widen the area",
+    "sectionTitle": "New places",
+    "sectionSubtitle": "Added this week",
+    "post": "Post a listing",
+    "showPhone": "Show phone",
+    "sheetBody": "Filters go here.",
+    "currentTheme": "Current theme",
+    "darkTheme": "Dark mode",
+    "accordionTitle": "Kosher & Shabbat",
+    "accordionBody": "Kosher kitchen, a hot plate and an urn. Shabbat times by city are on the Jewish life page.",
+    "accordionTitle2": "Good to know",
+    "accordionBody2": "Check-in from 15:00, check-out by 11:00.",
+    "calendarLabel": "Availability",
+    "booked": "Booked",
+    "inputLabel": "Where to?",
+    "inputPlaceholder": "City, neighborhood or address",
+    "notesLabel": "Message to the host",
+    "tabsShort": "Short stay",
+    "tabsMonthly": "Monthly",
+    "tabsBuy": "Buy"
+  }
+}

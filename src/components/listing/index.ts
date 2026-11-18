@@ -9,5 +9,4 @@ export { FavoriteButton } from "./favorite-button";
 export { CompareToggle } from "./compare-toggle";
 export { PhotoCarousel } from "./photo-carousel";
 export { FeatureList } from "./feature-list";
-export { RecentlyViewed } from "./recently-viewed";
 export * from "./field-icons";

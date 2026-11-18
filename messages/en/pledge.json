@@ -1,0 +1,53 @@
+{
+  "title": "The Bayit pledge",
+  "versions": {
+    "v1": {
+      "statement": "I commit to welcoming Israeli and Jewish guests and clients, and to never refusing anyone because of their religion or country of origin"
+    }
+  },
+  "badge": "Welcomes Israelis",
+  "badgeShort": "Welcoming host",
+  "explanation": "The host has committed to welcoming Israeli and Jewish guests, and to never refusing anyone because of religion or country of origin.",
+  "why": "No guest should have to worry about being turned away for who they are. That is why every host on Bayit makes this commitment before posting.",
+  "points": {
+    "everyHost": "Every host here has committed to welcoming you",
+    "noRefusal": "Nobody is refused because of religion or country of origin",
+    "report": "A host didn't keep the pledge? Tell us and we'll act on it"
+  },
+  "form": {
+    "statementLabel": "The commitment",
+    "checkbox": "I have read this and I commit to it",
+    "accept": "Accept the pledge",
+    "accepting": "Saving…",
+    "required": "To publish, please accept the pledge.",
+    "success": "Thank you! Your pledge is saved."
+  },
+  "accepted": {
+    "title": "You accepted the Bayit pledge",
+    "meta": "Version {version} · {date}",
+    "badgeNote": "Your listing pages say that you pledged to welcome Israelis."
+  },
+  "reaccept": {
+    "updatedTitle": "The Bayit pledge was updated",
+    "updatedBody": "The wording changed. Please read and accept the new wording to keep publishing.",
+    "firstTitle": "Accept the Bayit pledge",
+    "firstBody": "Every host on Bayit commits to welcoming Israeli and Jewish guests. Accept the pledge to publish.",
+    "action": "Read and accept"
+  },
+  "errors": {
+    "pledge_outdated": "The wording of the pledge was just updated. Reload the page and read the new wording.",
+    "rate_limited": "That was a bit fast. Wait a moment and try again.",
+    "auth_required": "Your session has ended. Sign in again to continue.",
+    "invalid_input": "Tick the box to accept the pledge.",
+    "server_error": "Something went wrong on our side. Please try again in a moment.",
+    "network": "No internet connection. Try again when you're back online."
+  },
+  "admin": {
+    "title": "Bayit pledge",
+    "acceptedVersion": "Accepted version {version}",
+    "acceptedAt": "on {date}",
+    "notAccepted": "Not accepted yet",
+    "outdated": "Older version — the current one is {current}",
+    "current": "Current version"
+  }
+}

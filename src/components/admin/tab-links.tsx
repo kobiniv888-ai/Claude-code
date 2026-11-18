@@ -3,7 +3,11 @@ import { Link } from "@/i18n/navigation";
 import { formatNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
-/** Tabs that are links (the tab lives in the URL), with optional counts. */
+/**
+ * Tabs that are links (the tab lives in the URL), with optional counts. On a phone they wrap onto
+ * a second line instead of scrolling sideways, so every tab and its count stays in view (the
+ * active one included, e.g. a link from the admin home to the third tab), at a 44px touch height.
+ */
 export function TabLinks({
   label,
   items,
@@ -15,8 +19,8 @@ export function TabLinks({
 }) {
   const locale = useLocale();
   return (
-    <nav aria-label={label} className="mb-4 -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-      <ul className="inline-flex min-w-max gap-1 rounded-xl border bg-card p-1 shadow-xs">
+    <nav aria-label={label} className="mb-4">
+      <ul className="flex flex-wrap gap-1 rounded-xl border bg-card p-1 shadow-xs sm:inline-flex">
         {items.map((item) => {
           const current = item.key === active;
           return (
@@ -25,7 +29,7 @@ export function TabLinks({
                 href={item.href}
                 aria-current={current ? "page" : undefined}
                 className={cn(
-                  "inline-flex h-9 items-center gap-2 rounded-lg px-3 text-sm font-medium whitespace-nowrap text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50",
+                  "inline-flex h-11 items-center gap-2 rounded-lg px-3 sm:h-9 text-sm font-medium whitespace-nowrap text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50",
                   current && "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground",
                 )}
               >
@@ -34,7 +38,7 @@ export function TabLinks({
                   <span
                     className={cn(
                       "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] tabular-nums",
-                      current ? "bg-primary-foreground/20" : item.urgent && item.count > 0 ? "bg-destructive text-white" : "bg-muted",
+                      current ? "bg-primary-foreground/20" : item.urgent && item.count > 0 ? "bg-destructive text-destructive-foreground" : "bg-muted",
                     )}
                   >
                     {formatNumber(item.count, locale)}

@@ -1,18 +1,29 @@
 import "server-only";
+import { personName } from "@/lib/auth/first-name";
 import { cache } from "react";
 import { locales, siteConfig, type AppLocale, type CurrencyCode } from "@/config/site";
 import type { Locale, Prisma } from "@/generated/prisma/client";
 import { isAppLocale, pickLocalized } from "@/i18n/locale";
 import { can } from "@/lib/auth/permissions";
 import type { CurrentUser } from "@/lib/auth/session";
-import { isStaffTwoFactorSkipped } from "@/lib/auth/session";
+import { hasStaffRights } from "@/lib/auth/session";
+import { showsDocumentBadge } from "@/config/verification";
+import { visitedMonth } from "@/lib/listing/visited";
 import { parseContactMethods } from "@/lib/contact/links";
 import { db } from "@/lib/db";
 import { isPromoted, localizedTitle } from "@/lib/listing/mappers";
 import { listingPath } from "@/lib/listing/urls";
 import { photoUrl } from "@/lib/media";
 import { parseNearby } from "@/lib/nearby";
+import { publicWalkTimes } from "@/lib/geo/public-walk";
+import { taintObject } from "@/lib/security/taint";
+import { displayAmenities } from "@/lib/geo/walk-towns";
 import { georgiaToday } from "./calendar";
+import { cheapestRoomType } from "./headline";
+import { usesRoomInventory } from "@/lib/booking/constants";
+import { freeSegments, hotelClosedRanges, roomQuantity, type RoomBlock } from "@/lib/booking/room-availability";
+import { isBookableRoomType } from "@/lib/booking/terms";
+import { publicPriceLabel } from "@/lib/booking/price-label";
 import type { ListingAccessInput, ListingViewer } from "./access";
 import type { ListingPageData, OwnerSummary, PagePhoto } from "./types";
 
@@ -24,7 +35,8 @@ import type { ListingPageData, OwnerSummary, PagePhoto } from "./types";
 
 const DAY_MS = 24 * 3600 * 1000;
 const MAX_PHOTOS = siteConfig.listings.maxPhotos;
-const CALENDAR_DAYS = 75;
+/** About six months of booked dates: the page calendar can page ahead that far. */
+const CALENDAR_DAYS = 190;
 
 type DecimalLike = { toString(): string } | null;
 const num = (value: DecimalLike): number | null => {
@@ -33,12 +45,13 @@ const num = (value: DecimalLike): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
-const photoSelect = { id: true, url: true, storageKey: true, alt: true, blurDataUrl: true } satisfies Prisma.ListingPhotoSelect;
+const photoSelect = { id: true, url: true, storageKey: true, alt: true, blurDataUrl: true, room: true } satisfies Prisma.ListingPhotoSelect;
 const photoOrder = [{ isCover: "desc" }, { sortOrder: "asc" }] satisfies Prisma.ListingPhotoOrderByWithRelationInput[];
 
 export const OWNER_PUBLIC_SELECT = {
   id: true,
   name: true,
+  firstName: true,
   image: true,
   createdAt: true,
   phoneNumberVerified: true,
@@ -48,6 +61,7 @@ export const OWNER_PUBLIC_SELECT = {
   businessName: true,
   spokenLanguages: true,
   keepsShabbat: true,
+  welcomePledgeVersion: true,
   timezone: true,
   avgReplyMinutes: true,
   replyRate: true,
@@ -62,17 +76,20 @@ export function toOwnerSummary(owner: OwnerRow): OwnerSummary {
   const business = owner.accountType === "BUSINESS";
   return {
     id: owner.id,
-    name: (business && owner.businessName?.trim()) || owner.name,
+    // Never a phone number or an email as a name (bug 8.2).
+    name: (business && owner.businessName?.trim()) || personName(owner) || "",
     image: owner.image,
     badges: {
       phoneVerified: owner.phoneNumberVerified === true,
-      idVerified: !!owner.idVerifiedAt,
+      // Document badges are hidden while there are no document checks (src/config/verification.ts).
+      idVerified: showsDocumentBadge(owner.idVerifiedAt),
       business,
-      businessVerified: business && !!owner.businessVerifiedAt,
+      businessVerified: business && showsDocumentBadge(owner.businessVerifiedAt),
       keepsShabbat: owner.keepsShabbat,
       demo: owner.isDemo,
     },
     languages: owner.spokenLanguages.slice(0, 12),
+    welcomePledgeVersion: owner.welcomePledgeVersion,
     memberSince: owner.createdAt.toISOString(),
     avgReplyMinutes: owner.avgReplyMinutes,
     replyRate: owner.replyRate,
@@ -80,13 +97,18 @@ export function toOwnerSummary(owner: OwnerRow): OwnerSummary {
   };
 }
 
-function toPhoto(row: { id: string; url: string; storageKey: string | null; alt: string | null; blurDataUrl: string | null }, fallbackAlt: string): PagePhoto {
+function toPhoto(
+  row: { id: string; url: string; storageKey: string | null; alt: string | null; blurDataUrl: string | null; room?: PagePhoto["room"] },
+  fallbackAlt: string,
+): PagePhoto {
   return {
     id: row.id,
     large: photoUrl(row, "lg"),
     medium: photoUrl(row, "md"),
     alt: row.alt?.trim() || fallbackAlt,
     blurDataUrl: row.blurDataUrl,
+    // The host's room label (round 3, brief 6.1): "All photos" groups by room.
+    room: row.room ?? null,
   };
 }
 
@@ -100,6 +122,7 @@ function listingSelect(locale: AppLocale, today: Date, until: Date) {
     deletedAt: true,
     expiresAt: true,
     dealType: true,
+    countryCode: true,
     propertyType: true,
     originalLocale: true,
     title: true,
@@ -132,7 +155,8 @@ function listingSelect(locale: AppLocale, today: Date, until: Date) {
     hotelJewishFeatures: true,
     sharedRoomFor: true,
     synagogueWalkMin: true,
-    chabadWalkMin: true,
+    seaWalkMinutes: true,
+    liftWalkMinutes: true,
     nearby: true,
     price: true,
     currency: true,
@@ -140,6 +164,9 @@ function listingSelect(locale: AppLocale, today: Date, until: Date) {
     priceDroppedAt: true,
     deposit: true,
     cleaningFee: true,
+    weekendPrice: true,
+    bookingMode: true,
+    cancellationPolicy: true,
     utilitiesIncluded: true,
     utilitiesEstimate: true,
     minStayNights: true,
@@ -147,6 +174,8 @@ function listingSelect(locale: AppLocale, today: Date, until: Date) {
     monthlyDiscountPct: true,
     checkInFrom: true,
     checkOutUntil: true,
+    checkInFlexible: true,
+    checkOutFlexible: true,
     smokingAllowed: true,
     petsAllowed: true,
     partiesAllowed: true,
@@ -165,6 +194,11 @@ function listingSelect(locale: AppLocale, today: Date, until: Date) {
     featuredUntil: true,
     ownerVerifiedAt: true,
     propertyVerifiedAt: true,
+    // "ביקרנו במקום": the date only; visitedNote and visitedById are staff-only and never selected here.
+    visitedAt: true,
+    // Real reviews (round 3, brief 8.1): the visible reviews' counters.
+    reviewCount: true,
+    ratingSum: true,
     owner: { select: OWNER_PUBLIC_SELECT },
     city: { select: { slug: true, names: true, lat: true, lng: true, timezone: true } },
     neighborhood: { select: { names: true } },
@@ -174,7 +208,9 @@ function listingSelect(locale: AppLocale, today: Date, until: Date) {
       select: { title: true, description: true, isAuto: true, isOriginal: true, editedByOwner: true },
     },
     photos: { where: { roomTypeId: null }, orderBy: photoOrder, take: MAX_PHOTOS, select: photoSelect },
+    // Switched-off room types are not offered to guests (round 3, founder's answer 3).
     roomTypes: {
+      where: { active: true },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
       take: 20,
       select: {
@@ -184,19 +220,33 @@ function listingSelect(locale: AppLocale, today: Date, until: Date) {
         price: true,
         currency: true,
         pricePeriod: true,
+        priceUsd: true,
+        weekendPrice: true,
         maxGuests: true,
         bedsSingle: true,
         bedsDouble: true,
+        bedsSofa: true,
         sizeSqm: true,
+        amenities: true,
+        quantity: true,
+        active: true,
         photos: { orderBy: photoOrder, take: 12, select: photoSelect },
       },
     },
     priceChanges: { orderBy: { changedAt: "desc" }, take: 10, select: { oldPrice: true, newPrice: true, currency: true, changedAt: true } },
+    // Hotels count rooms per room type (src/lib/booking/room-availability.ts): every booking is a row.
     availability: {
       where: { endDate: { gt: today }, startDate: { lt: until } },
       orderBy: { startDate: "asc" },
-      take: 200,
-      select: { startDate: true, endDate: true },
+      take: 3000,
+      select: { startDate: true, endDate: true, roomTypeId: true, rooms: true },
+    },
+    // Holiday prices in the calendar's months (round 3, brief 6.3): the dates sheet's live price.
+    datePrices: {
+      where: { endDate: { gt: today }, startDate: { lt: until } },
+      orderBy: { startDate: "asc" },
+      take: 120,
+      select: { roomTypeId: true, startDate: true, endDate: true, price: true, minNights: true, label: true },
     },
   } satisfies Prisma.ListingSelect;
 }
@@ -216,6 +266,10 @@ async function load(publicId: number, locale: AppLocale): Promise<LoadedListing 
   const until = new Date(today.getTime() + CALENDAR_DAYS * DAY_MS);
   const row = await db.listing.findUnique({ where: { publicId }, select: listingSelect(locale, today, until) });
   if (!row) return null;
+  // The raw row holds the host's contact values and the exact walking times: only the DTO below
+  // may reach the page (React taint, SECURITY_REPORT 5.k).
+  taintObject("raw listing row", row);
+  if (row.contactMethods && typeof row.contactMethods === "object") taintObject("host's contact values", row.contactMethods);
 
   const titles = localizedTitle(row, locale);
   const translation = row.translations[0];
@@ -235,8 +289,14 @@ async function load(publicId: number, locale: AppLocale): Promise<LoadedListing 
   }
   const photos = photoRows.map((p) => toPhoto(p, fallbackAlt));
 
+  // Hotels: free rooms per room type on the calendar's nights; the whole place is closed only
+  // when no room type has a free room (one booking never closes the hotel).
+  const blockRows: RoomBlock[] = row.availability.map((b) => ({ start: dayString(b.startDate), end: dayString(b.endDate), roomTypeId: b.roomTypeId, rooms: b.rooms }));
+  const inventory = usesRoomInventory(row.dealType);
+  const offered = inventory ? row.roomTypes.filter(isBookableRoomType) : [];
   const roomTypes = row.roomTypes.map((room) => {
     const name = pickLocalized(room.names, locale) || fallbackAlt;
+    const bookable = offered.some((r) => r.id === room.id);
     return {
       id: room.id,
       name,
@@ -244,11 +304,17 @@ async function load(publicId: number, locale: AppLocale): Promise<LoadedListing 
       price: num(room.price),
       currency: room.currency as CurrencyCode,
       pricePeriod: room.pricePeriod,
+      weekendPrice: num(room.weekendPrice),
       maxGuests: room.maxGuests,
       bedsSingle: room.bedsSingle,
       bedsDouble: room.bedsDouble,
+      bedsSofa: room.bedsSofa,
       sizeSqm: room.sizeSqm,
+      amenities: room.amenities,
       photos: room.photos.map((p) => toPhoto(p, name)),
+      ...(bookable
+        ? { quantity: roomQuantity(room), segments: freeSegments(room, blockRows, todayStr, dayString(until)) }
+        : {}),
     };
   });
 
@@ -257,7 +323,8 @@ async function load(publicId: number, locale: AppLocale): Promise<LoadedListing 
   let pricePeriod = row.pricePeriod;
   let priceIsFrom = false;
   if (!(price && price > 0) && roomTypes.length) {
-    const cheapest = roomTypes.filter((r) => r.price && r.price > 0).sort((a, b) => (a.price ?? 0) - (b.price ?? 0))[0];
+    // By value, not by the number: ₾190 is cheaper than $120 (room types may differ in currency).
+    const cheapest = cheapestRoomType(roomTypes.map((room, i) => ({ ...room, priceUsd: num(row.roomTypes[i].priceUsd) })));
     if (cheapest) {
       price = cheapest.price;
       currency = cheapest.currency;
@@ -280,9 +347,11 @@ async function load(publicId: number, locale: AppLocale): Promise<LoadedListing 
     originalLocale: isAppLocale(row.originalLocale) ? row.originalLocale : "he",
     city: row.city && cityName ? { slug: row.city.slug, name: cityName, lat: row.city.lat, lng: row.city.lng, timezone: row.city.timezone } : null,
     neighborhoodName: row.neighborhood ? pickLocalized(row.neighborhood.names, locale) || null : null,
+    countryCode: row.countryCode,
     approx: row.approxLat !== null && row.approxLng !== null ? { lat: row.approxLat, lng: row.approxLng } : null,
     price,
     currency,
+    listingCurrency: row.currency as CurrencyCode,
     pricePeriod,
     priceIsFrom,
     priceDroppedAt: row.priceDroppedAt?.toISOString() ?? null,
@@ -303,7 +372,8 @@ async function load(publicId: number, locale: AppLocale): Promise<LoadedListing 
     condition: row.condition,
     heating: row.heating,
     views: row.views,
-    amenities: row.amenities,
+    // Brief 7.3: with a pin, the computed walk replaces the host's "Near the sea" tick.
+    amenities: displayAmenities(row.amenities, row.approxLat !== null && row.approxLng !== null),
     kitchenKosher: row.kitchenKosher,
     shabbatFeatures: row.shabbatFeatures,
     jewishFeatures: row.jewishFeatures,
@@ -311,11 +381,14 @@ async function load(publicId: number, locale: AppLocale): Promise<LoadedListing 
     kosherCertName: row.kosherCertName?.trim() || null,
     hotelJewishFeatures: row.hotelJewishFeatures,
     sharedRoomFor: row.sharedRoomFor,
-    synagogueWalkMin: row.synagogueWalkMin,
-    chabadWalkMin: row.chabadWalkMin,
-    nearby: parseNearby(row.nearby),
+    // Security checklist 6.d, founder's answers (2)/(3): the page gets every walking time rounded
+    // up to 5 minutes, without meters, at most 3 of them, never a Chabad house, and the supermarket
+    // and stop picked around the public map point (src/lib/geo/public-walk.ts).
+    ...publicWalkTimes({ ...row, nearby: parseNearby(row.nearby) }),
     deposit: num(row.deposit),
     cleaningFee: num(row.cleaningFee),
+    weekendPrice: num(row.weekendPrice),
+    bookingMode: row.bookingMode,
     utilitiesIncluded: row.utilitiesIncluded,
     utilitiesEstimate: num(row.utilitiesEstimate),
     minStayNights: row.minStayNights,
@@ -323,6 +396,9 @@ async function load(publicId: number, locale: AppLocale): Promise<LoadedListing 
     monthlyDiscountPct: row.monthlyDiscountPct,
     checkInFrom: row.checkInFrom,
     checkOutUntil: row.checkOutUntil,
+    checkInFlexible: row.checkInFlexible,
+    checkOutFlexible: row.checkOutFlexible,
+    cancellationPolicy: row.cancellationPolicy,
     smokingAllowed: row.smokingAllowed,
     petsAllowed: row.petsAllowed,
     partiesAllowed: row.partiesAllowed,
@@ -337,8 +413,11 @@ async function load(publicId: number, locale: AppLocale): Promise<LoadedListing 
     viewCount: row.viewCount,
     contentUpdatedAt: row.contentUpdatedAt.toISOString(),
     publishedAt: row.publishedAt?.toISOString() ?? null,
-    ownerVerified: !!row.ownerVerifiedAt,
-    propertyVerified: !!row.propertyVerifiedAt,
+    ownerVerified: showsDocumentBadge(row.ownerVerifiedAt),
+    propertyVerified: showsDocumentBadge(row.propertyVerifiedAt),
+    visitedMonth: visitedMonth(row),
+    reviewCount: row.reviewCount,
+    ratingSum: row.ratingSum,
     promoted: isPromoted(row, undefined, now),
     isNew: !!row.publishedAt && now.getTime() - row.publishedAt.getTime() <= siteConfig.listings.newLabelDays * DAY_MS,
     photos,
@@ -347,7 +426,18 @@ async function load(publicId: number, locale: AppLocale): Promise<LoadedListing 
     priceChanges: row.priceChanges
       .map((c) => ({ oldPrice: num(c.oldPrice) ?? 0, newPrice: num(c.newPrice) ?? 0, currency: c.currency as CurrencyCode, changedAt: c.changedAt.toISOString() }))
       .filter((c) => c.oldPrice > 0 && c.newPrice > 0),
-    blocks: row.availability.map((b) => ({ start: dayString(b.startDate), end: dayString(b.endDate) })),
+    blocks: inventory
+      ? hotelClosedRanges(offered, blockRows, todayStr, dayString(until))
+      : row.availability.map((b) => ({ start: dayString(b.startDate), end: dayString(b.endDate) })),
+    datePrices: row.datePrices.map((p) => ({
+      roomTypeId: p.roomTypeId,
+      start: dayString(p.startDate),
+      end: dayString(p.endDate),
+      price: num(p.price) ?? 0,
+      minNights: p.minNights,
+      // Public text: a note with contact details (saved before the check) is dropped.
+      label: publicPriceLabel(p.label),
+    })),
     owner: toOwnerSummary(row.owner),
   };
 
@@ -398,8 +488,11 @@ export function listingPathsByLocale(row: {
 
 /** The viewer for listingAccess(): staff with moderation/reports/user rights may preview anything. */
 export function toListingViewer(user: CurrentUser | null): ListingViewer {
-  if (!user) return null;
-  const staffReady = user.isStaff && ((user.twoFactorEnabled && user.twoFactorVerified) || isStaffTwoFactorSkipped());
+  // A session whose 2-step code is not entered yet is no viewer at all: the owner's preview of a
+  // listing that is not public needs the full sign-in too (SECURITY_REPORT 4.2.b).
+  if (!user || !user.twoFactorVerified) return null;
+  // 2-step login done (only demo staff may skip it, in development); demo staff only on a test address.
+  const staffReady = hasStaffRights(user);
   const canPreviewAny = staffReady && (can(user.role, "moderation") || can(user.role, "reports.view") || can(user.role, "users.view"));
   return { id: user.id, canPreviewAny };
 }

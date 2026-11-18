@@ -1,0 +1,9 @@
+{
+  "$comment": "High/critical npm advisories accepted for a short, dated time because no fixed release exists yet. Each entry needs a reason (why it cannot be reached on the live site) and an end date; after it the security check fails again. Remove an entry as soon as a fix is released.",
+  "allow": {
+    "GHSA-fc5q-39xc-vjpf": {
+      "reason": "picomatch <=4.0.7 ReDoS with repeated extglobs; 4.0.7 is the newest release (no fix yet). It reaches production dependencies only through next-intl's @parcel/watcher (watches message files during development) and the build tools vite/vitest/tinyglobby; none of them matches visitor-supplied patterns on the live site.",
+      "until": "2026-12-02"
+    }
+  }
+}

@@ -2,8 +2,8 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { SavedRepliesManager } from "@/components/admin/content/saved-replies-manager";
 import { AdminPageHeader } from "@/components/admin/page-header";
 import { adminContentMetadata } from "@/lib/admin/content/server/metadata";
+import { listSavedReplies } from "@/lib/admin/content/server/queries";
 import { requireStaff } from "@/lib/auth/session";
-import { db } from "@/lib/db";
 
 export async function generateMetadata({ params }: PageProps<"/[locale]/admin/tickets/saved-replies">) {
   return adminContentMetadata(params, "savedReplies");
@@ -16,7 +16,7 @@ export default async function SavedRepliesPage({ params }: PageProps<"/[locale]/
   await requireStaff("tickets");
   const [t, items] = await Promise.all([
     getTranslations("adminContent.savedReplies"),
-    db.savedReply.findMany({ orderBy: { title: "asc" }, take: 200, select: { id: true, title: true, body: true } }),
+    listSavedReplies(),
   ]);
   return (
     <>

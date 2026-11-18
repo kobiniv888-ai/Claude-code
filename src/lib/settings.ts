@@ -2,12 +2,13 @@ import "server-only";
 import { cache as requestCache } from "react";
 import { z } from "zod";
 import type { Prisma } from "@/generated/prisma/client";
-import { currencyCodes, siteConfig, type CurrencyCode } from "@/config/site";
+import { currencyCodes, locales, siteConfig, type AppLocale, type CurrencyCode } from "@/config/site";
 import { audit } from "@/lib/audit";
 import { isEnabledCurrency } from "@/lib/currency/convert";
 import { db } from "@/lib/db";
 import { ShabbatModeError, ValidationError } from "@/lib/errors";
 import { isShabbatOrHolidayNow } from "@/lib/hebcal";
+import { demoAllowed } from "@/lib/site-env";
 
 /**
  * Runtime site settings that admins change in /admin/settings (table SiteSetting,
@@ -17,18 +18,16 @@ import { isShabbatOrHolidayNow } from "@/lib/hebcal";
  *   await updateSettings({ listingExpiryDays: 90 }, staff.id);   // validated + audited
  */
 
-export const HOME_SECTION_KEYS = [
-  "categories",
-  "cities",
-  "featured",
-  "newest",
-  "recentlyViewed",
-  "whyUs",
-  "howItWorks",
-  "shabbatTimes",
-  "safetyStrip",
-  "listCta",
-] as const;
+/**
+ * Home page sections that admins can switch off or reorder (Admin → Content → Home), in their
+ * default order (round 3, brief 4: a lighter home page). The hero band, the search card, the
+ * promise line and, for returning visitors, "המשך מאיפה שעצרתם" always show; see
+ * app/[locale]/(site)/page.tsx.
+ *   categories → the category chips · featured → "Recommended places" (the selected tab's type:
+ *   promoted, then newest) · cities → "Where to?" · howItWorks → the 3-step row ·
+ *   listCta → the host card.
+ */
+export const HOME_SECTION_KEYS = ["categories", "featured", "cities", "howItWorks", "listCta"] as const;
 export type HomeSectionKey = (typeof HOME_SECTION_KEYS)[number];
 
 export type PaidFeatureKey = keyof typeof siteConfig.paidFeatures;
@@ -47,7 +46,10 @@ export type SiteSettings = {
   reportsToAutoHide: number;
   /** Show the current scam-alert banner on the site. */
   scamBannerEnabled: boolean;
-  /** Show demo listings on public pages (turn off before launch). */
+  /**
+   * Show demo listings on public pages. Always false on the real site (SITE_ENV=production),
+   * whatever is stored (SECURITY_REPORT 19.i, C18): see `effectiveSettings`.
+   */
   demoDataVisible: boolean;
   /** Home page sections, in display order. */
   homeSections: { key: HomeSectionKey; enabled: boolean }[];
@@ -55,6 +57,17 @@ export type SiteSettings = {
   featuredListingIds: string[];
   /** Prices of paid features in USD (Phase 2). */
   paidFeaturePrices: Record<PaidFeatureKey, number>;
+  /**
+   * Hosts whose accepted welcome-pledge version is below this lose the green "welcomes Israelis"
+   * badge until they accept again (1 … siteConfig.pledge.currentVersion).
+   */
+  pledgeRequiredVersion: number;
+  /**
+   * The support reply promise shown on the help, contact and ticket pages (SECURITY_REPORT 19.b,
+   * founder's answer 9), per language. Empty for a language = the default text in
+   * messages/<locale>/help.json `replyTime.promise` (the founder's exact wording).
+   */
+  supportReplyPromise: Partial<Record<AppLocale, string>>;
 };
 
 export const DEFAULT_SETTINGS: SiteSettings = {
@@ -70,6 +83,8 @@ export const DEFAULT_SETTINGS: SiteSettings = {
   paidFeaturePrices: Object.fromEntries(
     PAID_FEATURE_KEYS.map((key) => [key, siteConfig.paidFeatures[key].priceUsd]),
   ) as Record<PaidFeatureKey, number>,
+  pledgeRequiredVersion: siteConfig.pledge.currentVersion,
+  supportReplyPromise: {},
 };
 
 // ─── Validation ───────────────────────────────────────────────
@@ -96,6 +111,12 @@ export const settingSchemas = {
       z.ZodNumber
     >,
   ),
+  pledgeRequiredVersion: z.number().int().min(1).max(siteConfig.pledge.currentVersion),
+  supportReplyPromise: z
+    .object(Object.fromEntries(locales.map((locale) => [locale, z.string().trim().max(300)])) as Record<AppLocale, z.ZodString>)
+    .partial()
+    .strict()
+    .transform((value) => Object.fromEntries(Object.entries(value).filter(([, text]) => !!text)) as Partial<Record<AppLocale, string>>),
 } satisfies { [K in keyof SiteSettings]: z.ZodType };
 
 export const settingsPatchSchema = z.object(settingSchemas).partial().strict();
@@ -104,6 +125,34 @@ export type SettingsPatch = Partial<SiteSettings>;
 const SETTING_KEYS = Object.keys(settingSchemas) as (keyof SiteSettings)[];
 
 /** Keeps saved order, drops unknown sections and appends sections added in a later release. */
+/**
+ * Older keys in stored settings: "newest" merged into "featured"; "whyUs", "safetyStrip" (round 1),
+ * "shabbatTimes"/"jewishLife" and "recentlyViewed" (round 3: Jewish life stays in the menu, the
+ * footer and the "כשר ושבת" chip; recently viewed moved into "המשך מאיפה שעצרתם" under the search
+ * card) left the list. Unknown keys are dropped, so an old stored list still validates instead of
+ * falling back to the defaults.
+ */
+const LEGACY_HOME_SECTIONS: Record<string, HomeSectionKey | null> = {
+  shabbatTimes: null,
+  jewishLife: null,
+  recentlyViewed: null,
+  newest: null,
+  whyUs: null,
+  safetyStrip: null,
+};
+
+function migrateHomeSections(value: unknown): unknown {
+  if (!Array.isArray(value)) return value;
+  const seen = new Set<string>();
+  return value.flatMap((item: unknown) => {
+    if (!item || typeof item !== "object" || !("key" in item) || typeof item.key !== "string") return [item];
+    const key = Object.hasOwn(LEGACY_HOME_SECTIONS, item.key) ? LEGACY_HOME_SECTIONS[item.key] : item.key;
+    if (!key || !(HOME_SECTION_KEYS as readonly string[]).includes(key) || seen.has(key)) return [];
+    seen.add(key);
+    return [{ ...item, key }];
+  });
+}
+
 function normalizeHomeSections(list: SiteSettings["homeSections"]): SiteSettings["homeSections"] {
   const known = list.filter((s) => (HOME_SECTION_KEYS as readonly string[]).includes(s.key));
   const present = new Set(known.map((s) => s.key));
@@ -127,7 +176,9 @@ export function mergeSettings(rows: { key: string; value: unknown }[]): SiteSett
       else console.warn(`[settings] ignoring invalid stored value for "${key}"`);
       continue;
     }
-    const parsed = settingSchemas[settingKey].safeParse(value);
+    const parsed = settingSchemas[settingKey].safeParse(
+      settingKey === "homeSections" ? migrateHomeSections(value) : value,
+    );
     if (parsed.success) target[settingKey] = parsed.data;
     else console.warn(`[settings] ignoring invalid stored value for "${key}"`);
   }
@@ -140,22 +191,32 @@ export function mergeSettings(rows: { key: string; value: unknown }[]): SiteSett
 const CACHE_MS = process.env.NODE_ENV === "production" ? 30_000 : 0;
 let cache: { settings: SiteSettings; at: number } | null = null;
 
+/**
+ * What the site actually uses: the stored settings, except that demo listings never show on the
+ * real site (SITE_ENV=production, or SITE_ENV missing: fail closed), even when the admin switch
+ * is on. On development and staging sites the switch works as stored.
+ */
+export function effectiveSettings(settings: SiteSettings): SiteSettings {
+  return settings.demoDataVisible && !demoAllowed() ? { ...settings, demoDataVisible: false } : settings;
+}
+
 async function loadSettings(): Promise<SiteSettings> {
-  if (cache && Date.now() - cache.at < CACHE_MS) return cache.settings;
+  if (cache && Date.now() - cache.at < CACHE_MS) return effectiveSettings(cache.settings);
   try {
     const rows = await db.siteSetting.findMany({ select: { key: true, value: true } });
     const settings = mergeSettings(rows);
     cache = { settings, at: Date.now() };
-    return settings;
+    return effectiveSettings(settings);
   } catch (error) {
     console.error("[settings] could not read settings, using defaults:", error);
-    return cache?.settings ?? structuredClone(DEFAULT_SETTINGS);
+    return effectiveSettings(cache?.settings ?? structuredClone(DEFAULT_SETTINGS));
   }
 }
 
 /**
  * Current settings — cached 30 s in production (none in development) and read once per request.
- * Never throws: falls back to the defaults when the database is unavailable.
+ * Never throws: falls back to the defaults when the database is unavailable. Demo listings are
+ * always off on the real site (`effectiveSettings`).
  */
 export const getSettings: () => Promise<SiteSettings> = requestCache(loadSettings);
 

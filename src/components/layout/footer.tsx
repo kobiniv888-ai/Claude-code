@@ -1,18 +1,21 @@
+import { ChevronDown } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
+import { FooterCityLinks } from "@/components/city-page/footer-city-links";
 import { brandIcons } from "@/components/common/brand-icons";
 import { Container } from "@/components/common/container";
 import { LogoLink } from "@/components/common/logo";
 import { siteConfig } from "@/config/site";
 import { Link } from "@/i18n/navigation";
 import { siteName } from "@/lib/seo";
-import { CurrencySwitcher } from "./currency-switcher";
-import { LanguageSwitcher } from "./language-switcher";
+import { FooterPickers } from "./footer-pickers";
 
 const COLUMNS = [
   {
     key: "explore",
+    // The home page's four deal tabs, with the same names (round 3, section 3).
     links: [
-      { key: "rent", href: "/search?deal=rent" },
+      { key: "shortStay", href: "/search?deal=short-stay" },
+      { key: "monthly", href: "/search?deal=monthly" },
       { key: "buy", href: "/search?deal=buy" },
       { key: "hotels", href: "/search?deal=hotels" },
       { key: "map", href: "/search?view=map" },
@@ -23,7 +26,7 @@ const COLUMNS = [
   {
     key: "company",
     links: [
-      { key: "about", href: "/about" },
+      { key: "ourStory", href: "/about" },
       { key: "howItWorks", href: "/how-it-works" },
       { key: "contact", href: "/contact" },
     ],
@@ -33,7 +36,10 @@ const COLUMNS = [
     links: [
       { key: "help", href: "/help" },
       { key: "safety", href: "/safety" },
+      { key: "emergency", href: "/safety#emergency" },
       { key: "listingRules", href: "/legal/listing-rules" },
+      // SECURITY_REPORT 18.2: how to report a security problem (also /.well-known/security.txt).
+      { key: "security", href: "/security" },
     ],
   },
   {
@@ -51,14 +57,15 @@ const SOCIAL = ["facebook", "instagram", "telegram", "whatsapp"] as const;
 
 export async function Footer() {
   const t = await getTranslations("footer");
+  const tPhotos = await getTranslations("photos.credits");
   const locale = await getLocale();
   const name = siteName(locale);
   const social = SOCIAL.filter((key) => siteConfig.social[key]);
 
   return (
-    <footer className="mt-auto border-t bg-card/60">
-      <Container className="py-12 sm:py-14">
-        <div className="grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1.3fr)_repeat(4,minmax(0,1fr))] lg:gap-8">
+    <footer data-site-footer="" className="mt-auto border-t border-border bg-surface-muted">
+      <Container className="py-10 sm:py-14">
+        <div className="grid grid-cols-1 gap-6 sm:gap-10 lg:grid-cols-[minmax(0,1.3fr)_repeat(4,minmax(0,1fr))] lg:gap-8">
           <div className="grid content-start gap-4">
             <LogoLink />
             <p className="max-w-sm text-sm leading-relaxed text-pretty text-muted-foreground">{t("mission")}</p>
@@ -75,7 +82,7 @@ export async function Footer() {
                           target="_blank"
                           rel="noopener noreferrer"
                           aria-label={t(`social.${key}`, { name })}
-                          className="inline-flex size-11 items-center justify-center rounded-full border bg-background text-foreground/80 outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+                          className="inline-flex size-11 items-center justify-center rounded-full border border-border bg-card text-muted-foreground outline-none transition-colors hover:bg-card hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
                         >
                           <Icon size={18} />
                         </a>
@@ -87,7 +94,35 @@ export async function Footer() {
             ) : null}
           </div>
 
-          <div className="grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-4 lg:col-span-4">
+          {/* Phones: one accordion per column (native <details>, no JavaScript). */}
+          <div className="divide-y divide-border rounded-card border border-border bg-card sm:hidden">
+            {COLUMNS.map((column) => (
+              <details key={column.key} name="footer-columns" className="group">
+                <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 text-sm font-semibold text-foreground outline-none select-none focus-visible:ring-3 focus-visible:ring-ring/50 [&::-webkit-details-marker]:hidden">
+                  {t(`columns.${column.key}`, { name })}
+                  <ChevronDown
+                    className="size-4.5 shrink-0 text-muted-foreground transition-transform duration-(--motion-base) group-open:rotate-180 motion-reduce:transition-none"
+                    aria-hidden="true"
+                  />
+                </summary>
+                <ul className="grid gap-0.5 px-4 pb-3">
+                  {column.links.map((link) => (
+                    <li key={link.key}>
+                      <Link
+                        href={link.href}
+                        className="-mx-1 flex min-h-11 items-center rounded-md px-1 text-sm text-muted-foreground underline-offset-4 outline-none transition-colors hover:text-foreground hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+                      >
+                        {t(`links.${link.key}`)}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            ))}
+          </div>
+
+          {/* Tablets and desktops: the columns side by side. */}
+          <div className="hidden grid-cols-4 gap-x-6 gap-y-8 sm:grid lg:col-span-4">
             {COLUMNS.map((column) => (
               <nav key={column.key} aria-labelledby={`footer-${column.key}`}>
                 <h2 id={`footer-${column.key}`} className="mb-3 text-sm font-semibold wrap-break-word text-foreground">
@@ -110,14 +145,30 @@ export async function Footer() {
           </div>
         </div>
 
-        <div className="mt-12 flex flex-col-reverse gap-5 border-t pt-6 sm:flex-row sm:items-center sm:justify-between">
+        {/* Round 3, brief 10: every page links to the city pages. */}
+        <FooterCityLinks locale={locale} />
+
+        <div className="mt-8 flex flex-col-reverse gap-6 border-t pt-6 sm:mt-12 sm:flex-row sm:items-center sm:justify-between">
           <div className="grid gap-1 text-xs text-muted-foreground">
             <p>{t("copyright", { year: String(new Date().getFullYear()), name })}</p>
-            <p>{t("madeFor")}</p>
+            <p>{t("builtBy")}</p>
+            <p>
+              {/* Required by the CC BY / CC BY-SA photo licenses. */}
+              <Link
+                href="/photo-credits"
+                className="-mx-1 inline-flex min-h-9 items-center rounded-md px-1 underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                {tPhotos("footerLink")}
+              </Link>
+            </p>
           </div>
-          <div role="group" aria-label={t("preferences")} className="flex flex-wrap items-center gap-2">
-            <LanguageSwitcher variant="footer" align="end" />
-            <CurrencySwitcher variant="footer" align="end" />
+          <div role="group" aria-labelledby="footer-preferences" className="grid gap-2 sm:flex sm:items-center sm:gap-3">
+            <p id="footer-preferences" className="text-xs font-semibold text-muted-foreground">
+              {t("preferences")}
+            </p>
+            <div data-footer-pickers="" className="flex flex-wrap items-center gap-2">
+              <FooterPickers />
+            </div>
           </div>
         </div>
       </Container>

@@ -15,6 +15,7 @@ import {
   UsersIcon,
   UtensilsCrossedIcon,
 } from "lucide-react";
+import { BayitBadge } from "@/components/ds/badges";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -25,12 +26,15 @@ import {
   KITCHEN_KOSHER,
   SHABBAT_FEATURES,
 } from "@/lib/listing/fields";
+import { UPLOAD_IMAGE_ACCEPT } from "@/lib/media";
+import { readyForUpload } from "@/lib/media-client";
 import { cn } from "@/lib/utils";
 import { applies } from "@/lib/wizard/steps";
 import { CheckCards, ChoiceCards, Field, FieldError, Section } from "../fields";
 import { HOTEL_JEWISH_ICONS, JEWISH_ICONS, SHABBAT_ICONS } from "../icons";
 import { useOptionLabel } from "../labels";
 import type { StepProps } from "../step-props";
+import { useReportBusy } from "../busy-context";
 
 const HOST_FEATURES = new Set(["host_keeps_shabbat", "host_speaks_hebrew"]);
 
@@ -46,29 +50,22 @@ function ShabbatBadgePreview({ features }: { features: string[] }) {
   return (
     <div
       className={cn(
-        "grid gap-3 rounded-xl border p-4 transition-colors",
-        on ? "border-verified/30 bg-verified-soft dark:bg-verified/15" : "border-dashed border-border bg-muted/40",
+        "grid gap-3 rounded-card border p-4 transition-colors",
+        on ? "border-primary/30 bg-primary-tint" : "border-dashed border-border bg-muted/40",
       )}
       aria-live="polite"
     >
       <div className="flex flex-wrap items-center gap-3">
-        <span className="text-sm font-medium">{t("badgePreview")}</span>
-        <span
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold",
-            on ? "bg-verified text-verified-foreground" : "bg-card text-muted-foreground ring-1 ring-border",
-          )}
-        >
-          <MoonStarIcon className="size-4" aria-hidden />
-          {t("badge")}
-        </span>
+        <span className="text-small font-semibold">{t("badgePreview")}</span>
+        {/* The real badge guests will see on the card (ds/badges), greyed out until earned. */}
+        <BayitBadge kind="shabbatFriendly" size="md" variant={on ? "solid" : "soft"} className={on ? undefined : "grayscale"} />
       </div>
       <p className="text-sm text-pretty">{on ? t("badgeOn") : t("badgeOff")}</p>
       <ul className="grid gap-1.5 text-sm">
         {rules.map((rule) => (
           <li key={rule.key} className="flex items-center gap-2">
             {rule.met ? (
-              <CircleCheckIcon className="size-4 text-verified" aria-hidden />
+              <CircleCheckIcon className="size-4 text-primary-text" aria-hidden />
             ) : (
               <CircleIcon className="size-4 text-muted-foreground" aria-hidden />
             )}
@@ -95,11 +92,14 @@ function KosherCertificateUpload({
   const [state, setState] = useState<"idle" | "uploading" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+  useReportBusy(state === "uploading");
 
-  const upload = async (file: File) => {
+  const upload = async (picked: File) => {
     setState("uploading");
     setError(null);
     try {
+      // HEIC: converted to JPEG where this browser can (else the server converts it).
+      const { file } = await readyForUpload(picked);
       const form = new FormData();
       form.set("purpose", "verification");
       form.set("file", file);
@@ -125,7 +125,7 @@ function KosherCertificateUpload({
       <span className="text-sm font-medium">{t("certPhoto")}</span>
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-dashed border-border bg-muted/30 p-3">
         {value ? (
-          <span className="flex min-w-0 items-center gap-2 text-sm font-medium text-verified">
+          <span className="flex min-w-0 items-center gap-2 text-sm font-medium text-primary-text">
             <FileCheckIcon className="size-5 shrink-0" aria-hidden />
             <span className="truncate" dir="auto">
               {fileName ?? t("certUploaded")}
@@ -153,7 +153,7 @@ function KosherCertificateUpload({
         <input
           ref={input}
           type="file"
-          accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"
+          accept={`${UPLOAD_IMAGE_ACCEPT},application/pdf`}
           className="sr-only"
           tabIndex={-1}
           aria-hidden
@@ -203,7 +203,8 @@ export function JewishStep({ values, set, errors, kind }: StepProps) {
             legend={t("shabbatLegend")}
             values={values.shabbatFeatures}
             onChange={(shabbatFeatures) => set({ shabbatFeatures })}
-            columns="grid-cols-1 md:grid-cols-2"
+            layout="tiles"
+            columns="grid-cols-2 lg:grid-cols-3"
             options={SHABBAT_FEATURES.map((f) => ({
               value: f,
               label: label("shabbat", f),
@@ -220,7 +221,8 @@ export function JewishStep({ values, set, errors, kind }: StepProps) {
           legend={t("moreLegend")}
           values={values.jewishFeatures}
           onChange={(jewishFeatures) => set({ jewishFeatures })}
-          columns="grid-cols-1 min-[420px]:grid-cols-2"
+          layout="tiles"
+          columns="grid-cols-2 lg:grid-cols-3"
           options={jewishOptions.map((f) => ({
             value: f,
             label: label("jewish", f),
@@ -229,11 +231,11 @@ export function JewishStep({ values, set, errors, kind }: StepProps) {
           }))}
         />
         <div className="grid gap-2 sm:grid-cols-2">
-          <p className="flex items-start gap-2.5 rounded-xl bg-secondary/70 p-3 text-sm">
+          <p className="flex items-start gap-2.5 rounded-card bg-primary-tint/60 p-3 text-small">
             <FootprintsIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
             <span>{t("walkingNote")}</span>
           </p>
-          <p className="flex items-start gap-2.5 rounded-xl bg-secondary/70 p-3 text-sm">
+          <p className="flex items-start gap-2.5 rounded-card bg-primary-tint/60 p-3 text-small">
             <UsersIcon className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
             <span>{bigFamily ? t("bigFamilyOn") : t("bigFamilyNote", { count: BIG_FAMILY_MIN_GUESTS })}</span>
           </p>
@@ -246,7 +248,8 @@ export function JewishStep({ values, set, errors, kind }: StepProps) {
             legend={t("hotelLegend")}
             values={values.hotelJewishFeatures}
             onChange={(hotelJewishFeatures) => set({ hotelJewishFeatures })}
-            columns="grid-cols-1 min-[420px]:grid-cols-2"
+            layout="tiles"
+            columns="grid-cols-2 lg:grid-cols-4"
             options={HOTEL_JEWISH_FEATURES.map((f) => ({
               value: f,
               label: label("hotelJewish", f),

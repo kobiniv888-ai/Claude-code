@@ -1,6 +1,9 @@
+import type { TurnstileHandle } from "@/components/common/turnstile";
 import type { AppLocale } from "@/config/site";
+import type { PledgeStatus } from "@/lib/pledge";
 import type { StepIssues, WizardValues } from "@/lib/wizard/schemas";
 import type { ListingKind, WizardStepKey } from "@/lib/wizard/steps";
+import type { TermsConsentState } from "@/components/legal/terms-consent";
 import type {
   DayRange,
   PublishOutcome,
@@ -42,4 +45,34 @@ export type StepProps = {
   setChosen: (patch: Partial<{ deal: boolean; property: boolean }>) => void;
   /** Reports a save state for actions the step runs itself (photos, calendar…). */
   track: <T>(promise: Promise<T>) => Promise<T>;
+  /** The owner's Bayit welcome pledge (accepted in the pledge step; publishing needs the current version). */
+  pledge: PledgeStatus;
+  setPledge: (status: PledgeStatus) => void;
+  /** The saved answers have arrived (bug 2.2). Until then the step is read-only. */
+  ready: boolean;
+  /** Opens the place calendar in a full-screen sheet over the form (bug 2.10). */
+  openCalendar: () => void;
+  /** Publishing (create mode): the bottom bar's "פרסום" button and the rules checkbox share it. */
+  publish: PublishController | null;
+};
+
+/** State of "פרסום" (bug 2.7: the button lives in the bottom bar, the rules and CAPTCHA in the step). */
+export type PublishController = {
+  accepted: boolean;
+  setAccepted: (accepted: boolean) => void;
+  rulesError: boolean;
+  publishing: boolean;
+  /** Callback ref for the step's <Turnstile> (the hook resets it after a failed publish). */
+  captchaRef: (handle: TurnstileHandle | null) => void;
+  onToken: (token: string) => void;
+  onExpire: () => void;
+  /** Checks, saves, waits for the CAPTCHA and publishes. */
+  publish: () => Promise<void>;
+  /**
+   * The preview step's "בדיקה לפני פרסום" reports how many errors it found (round 3, brief 6.1):
+   * while there are any, "פרסום" shows them instead of asking the server (which refuses too).
+   */
+  setMistakeErrors?: (count: number) => void;
+  /** The "18 or older + Terms" box (SECURITY_REPORT 15.11.b/c): the account's first publish, or the Terms changed. */
+  terms?: TermsConsentState;
 };

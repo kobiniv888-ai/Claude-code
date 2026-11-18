@@ -1,5 +1,8 @@
 import { z } from "zod";
+import { COUNTRIES, DEFAULT_COUNTRY } from "@/config/countries";
+import { normalizePhone } from "@/lib/phone";
 import { locales, type AppLocale } from "@/config/site";
+import { MAX_CITY_SLUG_LENGTH, RESERVED_CITY_SLUGS } from "@/lib/city-pages/slugs";
 import { REQUIRED_LOCALES } from "./localized";
 
 /**
@@ -14,6 +17,7 @@ export const FORM_ERROR_CODES = [
   "too_short",
   "invalid",
   "invalid_slug",
+  "reserved_slug",
   "invalid_url",
   "invalid_number",
   "out_of_range",
@@ -23,6 +27,9 @@ export const FORM_ERROR_CODES = [
   "airport_coords_required",
   "ends_before_start",
   "date_in_past",
+  "date_in_future",
+  "demo_not_verifiable",
+  "source_required",
 ] as const;
 export type FormErrorCode = (typeof FORM_ERROR_CODES)[number];
 
@@ -41,6 +48,7 @@ export const LIMITS = {
   address: 300,
   hours: 500,
   url: 500,
+  placeSource: 500,
   phrase: 120,
   translation: 5000,
   emergencyLabel: 200,
@@ -129,7 +137,7 @@ export function isHttpUrl(value: string): boolean {
   }
 }
 
-/** A site path ("/images/cities/tbilisi.webp", "/api/media/…") or an http(s) URL. */
+/** A site path ("/photos/cities/tbilisi.webp", "/api/media/…") or an http(s) URL. */
 export function isImageUrl(value: string): boolean {
   if (value.startsWith("/")) return !value.startsWith("//") && !/\s/.test(value) && !value.includes("..");
   return isHttpUrl(value);
@@ -142,11 +150,15 @@ export const optionalImageUrl = text(LIMITS.url)
   .default("")
   .refine((v) => v === "" || isImageUrl(v), "invalid_url");
 
-/** E.164 phone number as produced by PhoneInput ("" = none). */
+/**
+ * A phone number ("" = none), stored in E.164 without the national 0 (src/lib/phone.ts, brief
+ * 2.5): "+995 032 2 12 34 56" and "0322123456" both become "+995322123456".
+ */
 export const optionalPhone = z
   .string()
   .trim()
   .default("")
+  .transform((v) => (v === "" ? "" : (normalizePhone(v, COUNTRIES[DEFAULT_COUNTRY].defaultPhoneCountry) ?? v)))
   .refine((v) => v === "" || /^\+[1-9]\d{6,14}$/.test(v), "invalid_phone");
 
 const isoDate = z
@@ -155,13 +167,30 @@ const isoDate = z
   .refine((v) => !Number.isNaN(Date.parse(v)), "invalid_date")
   .transform((v) => new Date(v));
 
+/** "YYYY-MM-DD" (a calendar day, not in the future; one day of slack for time zones) → Date at UTC midnight, "" → null. */
+const placeVerifiedDate = z
+  .string()
+  .trim()
+  .default("")
+  .refine((v) => v === "" || (/^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`))), "invalid_date")
+  .refine((v) => v === "" || Date.parse(`${v}T00:00:00Z`) <= Date.now() + 86_400_000, "date_in_future")
+  .transform((v) => (v ? new Date(`${v}T00:00:00Z`) : null));
+
 // ─── Cities and neighborhoods ────────────────────────────────
+
+/**
+ * A city's slug is the first part of its city pages' address (/he/batumi/short-stays): at most
+ * MAX_CITY_SLUG_LENGTH characters, and never a name the site already uses (/he/hotels, /he/post…).
+ */
+export const citySlugSchema = slugSchema
+  .refine((v) => v.length <= MAX_CITY_SLUG_LENGTH, "too_long")
+  .refine((v) => !RESERVED_CITY_SLUGS.has(v), "reserved_slug");
 
 export const citySchema = z
   .object({
     names: requiredLocalized(LIMITS.name),
     aliases: text(LIMITS.aliases).default(""),
-    slug: slugSchema,
+    slug: citySlugSchema,
     lat: latSchema,
     lng: lngSchema,
     timezone: z.enum(CITY_TIMEZONES, { error: "invalid" }),
@@ -213,6 +242,17 @@ export const placeSchema = z.object({
   website: optionalHttpUrl,
   active: z.boolean().default(true),
   isDemo: z.boolean().default(false),
+  /**
+   * The day the place was last checked ("YYYY-MM-DD", empty = not verified). Only verified,
+   * non-demo places give listings their walking times (brief 5.9).
+   */
+  verifiedAt: placeVerifiedDate,
+  /** Where it was checked (a call, a visit, the community's site…). Required with a date. */
+  source: text(LIMITS.placeSource).default(""),
+}).superRefine((place, ctx) => {
+  if (!place.verifiedAt) return;
+  if (place.isDemo) ctx.addIssue({ code: "custom", path: ["verifiedAt"], message: "demo_not_verifiable" });
+  if (!place.source) ctx.addIssue({ code: "custom", path: ["source"], message: "source_required" });
 });
 export type PlaceInput = z.input<typeof placeSchema>;
 

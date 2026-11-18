@@ -3,7 +3,7 @@
 import { z } from "zod";
 import type { Prisma } from "@/generated/prisma/client";
 import { fail, ok, type ActionResult } from "@/lib/action";
-import { audit } from "@/lib/audit";
+import { audit, auditOrThrow } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { removeDemoData, type DemoDataCounts } from "@/lib/demo";
 import { EMERGENCY_CONTACTS_SETTING_KEY } from "@/lib/jewish-life/emergency";
@@ -59,10 +59,13 @@ export async function deleteAllDemoData(input: unknown): Promise<ActionResult<De
       const parsed = z.object({ confirmation: z.string().max(40) }).safeParse(input);
       if (!parsed.success) return fail("invalid_input");
       if (parsed.data.confirmation.trim() !== DELETE_DEMO_CONFIRMATION) throw new ContentActionError("confirmation_mismatch", 422);
+      // Q13: nothing is removed unless the audit log takes the entry first (the removal spans
+      // many tables and runs on its own); the counts follow in a second entry.
+      await auditOrThrow({ actorId: staff.id, action: "demo.remove_start", targetType: "SiteSetting", targetId: "demoData" });
       const removed = await removeDemoData();
       await audit({ actorId: staff.id, action: "demo.remove", targetType: "SiteSetting", targetId: "demoData", details: { removed } });
       return ok(removed);
     },
-    { limit: 3, windowSeconds: 600 },
+    { limit: { limit: 3, windowSeconds: 600 }, freshProof: "consume" },
   );
 }

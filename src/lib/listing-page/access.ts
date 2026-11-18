@@ -6,6 +6,7 @@
  * may preview any other state with a status banner; everyone else gets a 404.
  */
 import type { ListingStatus, UserStatus } from "@/generated/prisma/enums";
+import { isAccountInGoodStanding } from "@/lib/auth/account-status";
 
 export type ListingAccessInput = {
   status: ListingStatus;
@@ -27,8 +28,6 @@ export type ListingAccess = "public" | "preview" | "none";
 /** Why a previewed listing is not public: its status, or a reason a LIVE one is hidden. */
 export type PreviewReason = ListingStatus | "EXPIRED_DATE" | "DEMO_HIDDEN" | "OWNER_INACTIVE";
 
-const ACTIVE_OWNER: readonly UserStatus[] = ["ACTIVE", "WARNED"];
-
 export function previewReason(
   listing: ListingAccessInput,
   opts: { demoVisible: boolean; now?: Date },
@@ -37,7 +36,7 @@ export function previewReason(
   if (listing.deletedAt) return "DELETED";
   if (listing.status !== "LIVE") return listing.status;
   if (listing.expiresAt && listing.expiresAt.getTime() <= now.getTime()) return "EXPIRED_DATE";
-  if (listing.owner.deletedAt || !ACTIVE_OWNER.includes(listing.owner.status)) return "OWNER_INACTIVE";
+  if (listing.owner.deletedAt || !isAccountInGoodStanding(listing.owner.status)) return "OWNER_INACTIVE";
   if (listing.isDemo && !opts.demoVisible) return "DEMO_HIDDEN";
   return null;
 }

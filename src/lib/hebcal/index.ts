@@ -159,11 +159,34 @@ export async function getHolidaysInRange(
   locale: AppLocale,
   options: { il?: boolean } = {},
 ): Promise<Holiday[]> {
-  const raw = holidaysBetween(toYmd(start, DEFAULT_TIME_ZONE), toYmd(end, DEFAULT_TIME_ZONE), options.il ?? false);
-  if (raw.length === 0) return [];
-  const t = await translator(locale);
-  return raw.map((h) => toHoliday(t, h));
+  const from = toYmd(start, DEFAULT_TIME_ZONE);
+  const to = toYmd(end, DEFAULT_TIME_ZONE);
+  const il = options.il ?? false;
+  const key = `${locale}|${il ? "il" : "d"}|${ymdToString(from)}|${ymdToString(to)}`;
+  let list = holidayRangeCache.get(key);
+  if (!list) {
+    list = (async () => {
+      const raw = holidaysBetween(from, to, il);
+      if (raw.length === 0) return [];
+      const t = await translator(locale);
+      return raw.map((h) => toHoliday(t, h));
+    })();
+    if (holidayRangeCache.size >= HOLIDAY_CACHE_MAX) holidayRangeCache.clear();
+    holidayRangeCache.set(key, list);
+    list.catch(() => holidayRangeCache.delete(key));
+  }
+  // A copy: callers may sort or filter their list.
+  return (await list).slice();
 }
+
+/**
+ * Holiday lists depend only on the dates, the language and the calendar (pure hebcal
+ * computations), so they are kept across requests: the date pickers' 18 months of holiday marks
+ * (home, search) and the Jewish life lists no longer recompute on every page view (~4 ms each).
+ * Keys hold whole days, so the cache turns over by itself; it is bounded.
+ */
+const holidayRangeCache = new Map<string, Promise<Holiday[]>>();
+const HOLIDAY_CACHE_MAX = 200;
 
 /** Translated base name of a holiday key ("sukkot" → "סוכות"), or of "shabbat". */
 export async function holidayName(key: HolidayKey | "shabbat", locale: AppLocale): Promise<string> {

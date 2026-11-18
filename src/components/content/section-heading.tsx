@@ -1,7 +1,7 @@
 import type { ComponentProps, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-/** Section title (h2) with an optional eyebrow and lead paragraph. */
+/** Section title (h2, the round-2 section size) with an optional eyebrow and lead paragraph. */
 export function SectionHeading({
   id,
   eyebrow,
@@ -19,23 +19,23 @@ export function SectionHeading({
 }) {
   return (
     <div className={cn("max-w-2xl", align === "center" && "mx-auto text-center", className)}>
-      {eyebrow ? <p className="mb-2 text-sm font-semibold text-accent-foreground">{eyebrow}</p> : null}
-      <h2 id={id} className="scroll-mt-24 text-2xl font-bold tracking-tight text-balance sm:text-3xl">
+      {eyebrow ? <p className="mb-1.5 text-caption text-primary-text">{eyebrow}</p> : null}
+      <h2 id={id} className="scroll-mt-24 text-h2 text-balance text-foreground">
         {title}
       </h2>
-      {lead ? <p className="mt-3 text-base text-pretty text-muted-foreground sm:text-lg">{lead}</p> : null}
+      {lead ? <p className="mt-1.5 text-body text-pretty text-muted-foreground">{lead}</p> : null}
     </div>
   );
 }
 
-/** Vertical rhythm for a page section. */
+/** Vertical rhythm for a page section (32px on phones, more on desktop). */
 export function ContentSection({
   className,
   children,
   ...props
 }: ComponentProps<"section">) {
   return (
-    <section className={cn("py-12 sm:py-16", className)} {...props}>
+    <section className={cn("py-section", className)} {...props}>
       {children}
     </section>
   );

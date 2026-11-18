@@ -41,13 +41,11 @@ import {
   WifiIcon,
   WindIcon,
   ZapIcon,
-  BookOpenIcon,
   ScrollTextIcon,
   UtensilsCrossedIcon,
   CoffeeIcon,
   WineIcon,
   FootprintsIcon,
-  LanguagesIcon,
   DropletsIcon,
   ShowerHeadIcon,
   CastleIcon,
@@ -56,6 +54,7 @@ import {
   type LucideProps,
 } from "lucide-react";
 import { MessengerIcon, TelegramIcon, ViberIcon, WhatsAppIcon } from "@/components/common/brand-icons";
+import { HebrewBubbleIcon, KosherStampIcon, ShabbatCandlesIcon } from "@/components/ds/jewish-icons";
 import type { DealType, PropertyType } from "@/generated/prisma/enums";
 import type { ContactChannelKey } from "@/lib/listing/fields";
 
@@ -120,15 +119,15 @@ export const JEWISH_ICONS: Record<string, Icon> = {
   separable_beds: BedDoubleIcon,
   sukkah_space: FenceIcon,
   pesach_ready: UtensilsCrossedIcon,
-  kosher_food_nearby: StoreIcon,
+  kosher_food_nearby: KosherStampIcon,
   mikveh_nearby: ShowerHeadIcon,
-  host_keeps_shabbat: BookOpenIcon,
-  host_speaks_hebrew: LanguagesIcon,
+  host_keeps_shabbat: ShabbatCandlesIcon,
+  host_speaks_hebrew: HebrewBubbleIcon,
 };
 
 export const HOTEL_JEWISH_ICONS: Record<string, Icon> = {
   kosher_breakfast: CoffeeIcon,
-  kosher_meals: UtensilsCrossedIcon,
+  kosher_meals: KosherStampIcon,
   shabbat_meals: WineIcon,
   separate_swimming: WavesIcon,
 };

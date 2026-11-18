@@ -15,16 +15,16 @@ import type { ListingStatus } from "@/generated/prisma/enums";
 import { cn } from "@/lib/utils";
 
 const STYLE: Record<ListingStatus, { icon: LucideIcon; className: string }> = {
-  LIVE: { icon: CheckCircle2Icon, className: "bg-verified-soft text-verified" },
+  LIVE: { icon: CheckCircle2Icon, className: "bg-primary-tint text-success" },
   IN_REVIEW: { icon: SearchCheckIcon, className: "bg-secondary text-primary" },
-  NEEDS_CHANGES: { icon: AlertTriangleIcon, className: "bg-warning-soft text-warning" },
+  NEEDS_CHANGES: { icon: AlertTriangleIcon, className: "bg-surface-muted text-foreground" },
   PAUSED: { icon: PauseCircleIcon, className: "bg-muted text-muted-foreground" },
   EXPIRED: { icon: HourglassIcon, className: "bg-destructive/10 text-destructive" },
   DRAFT: { icon: FilePenLineIcon, className: "bg-muted text-muted-foreground" },
   RENTED: { icon: KeyRoundIcon, className: "bg-secondary text-primary" },
   SOLD: { icon: KeyRoundIcon, className: "bg-secondary text-primary" },
   REJECTED: { icon: BanIcon, className: "bg-destructive/10 text-destructive" },
-  HIDDEN: { icon: EyeOffIcon, className: "bg-warning-soft text-warning" },
+  HIDDEN: { icon: EyeOffIcon, className: "bg-surface-muted text-foreground" },
   DELETED: { icon: BanIcon, className: "bg-muted text-muted-foreground" },
 };
 
