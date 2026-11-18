@@ -85,3 +85,25 @@ export function packageAgeReport(entries, published, allow, now = new Date(), mi
   const stale = Object.keys(allow).filter((id) => !installed.has(id) || !allowed.some((a) => a.id === id));
   return { young, allowed, unknown, stale };
 }
+
+/**
+ * The high/critical advisories in an `npm audit --json` report that are NOT covered by an
+ * unexpired entry of scripts/audit-allow.json (pure). `allow`: GHSA id → { reason, until } where
+ * `until` is an ISO date; an expired or missing entry blocks again (fail closed). Use the allow-list
+ * only for an advisory with no fixed release yet, and say why it cannot be reached.
+ */
+export function blockingAdvisories(report, allow = {}, now = new Date()) {
+  const out = new Map();
+  for (const vuln of Object.values(report?.vulnerabilities ?? {})) {
+    for (const via of vuln?.via ?? []) {
+      if (typeof via !== "object" || !via) continue;
+      if (via.severity !== "high" && via.severity !== "critical") continue;
+      const id = String(via.url ?? "").split("/").pop() || String(via.source ?? via.title);
+      const entry = allow[id];
+      const until = entry?.until ? new Date(`${entry.until}T23:59:59Z`) : null;
+      if (entry?.reason && until && until >= now) continue;
+      out.set(id, { id, severity: via.severity, title: via.title ?? "", expired: Boolean(entry) });
+    }
+  }
+  return [...out.values()];
+}

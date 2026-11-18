@@ -7,6 +7,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  blockingAdvisories,
   FRAMEWORK_FLOORS,
   MIN_PACKAGE_AGE_DAYS,
   auditSeverities,
@@ -75,5 +76,35 @@ describe("security:check rules", () => {
     }
     const pkg = JSON.parse(readFileSync(path.join(ROOT, "package.json"), "utf8")) as { scripts: Record<string, string> };
     expect(pkg.scripts["security:check"]).toBe("node scripts/security-check.mjs");
+  });
+});
+
+describe("advisory allow-list (scripts/audit-allow.json)", () => {
+  const report = {
+    vulnerabilities: {
+      picomatch: { via: [{ url: "https://github.com/advisories/GHSA-aaaa-bbbb-cccc", severity: "high", title: "ReDoS" }] },
+      vite: { via: ["picomatch"] },
+      other: { via: [{ url: "https://github.com/advisories/GHSA-dddd-eeee-ffff", severity: "moderate", title: "minor" }] },
+    },
+  };
+  const now = new Date("2026-11-18T12:00:00Z");
+
+  it("blocks a high advisory that is not listed", () => {
+    expect(blockingAdvisories(report, {}, now).map((a) => a.id)).toEqual(["GHSA-aaaa-bbbb-cccc"]);
+  });
+  it("lets a listed advisory pass until its end date", () => {
+    const allow = { "GHSA-aaaa-bbbb-cccc": { reason: "no fix yet", until: "2026-12-02" } };
+    expect(blockingAdvisories(report, allow, now)).toEqual([]);
+  });
+  it("blocks again after the end date, and without a reason (fail closed)", () => {
+    expect(blockingAdvisories(report, { "GHSA-aaaa-bbbb-cccc": { reason: "x", until: "2026-11-17" } }, now)[0]?.expired).toBe(true);
+    expect(blockingAdvisories(report, { "GHSA-aaaa-bbbb-cccc": { until: "2026-12-02" } }, now)).toHaveLength(1);
+  });
+  it("every committed entry has a reason and an end date", () => {
+    const file = JSON.parse(readFileSync(path.join(process.cwd(), "scripts/audit-allow.json"), "utf8"));
+    for (const entry of Object.values(file.allow ?? {}) as { reason?: string; until?: string }[]) {
+      expect(entry.reason && entry.reason.length > 20).toBe(true);
+      expect(entry.until).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    }
   });
 });

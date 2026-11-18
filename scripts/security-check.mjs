@@ -25,7 +25,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { FRAMEWORK_FLOORS, MIN_PACKAGE_AGE_DAYS, auditSeverities, belowFloor, lockfileEntries, packageAgeReport } from "./security-check-lib.mjs";
+import { FRAMEWORK_FLOORS, MIN_PACKAGE_AGE_DAYS, auditSeverities, blockingAdvisories, belowFloor, lockfileEntries, packageAgeReport } from "./security-check-lib.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const REGISTRY = (process.env.npm_config_registry ?? "https://registry.npmjs.org/").replace(/\/?$/, "/");
@@ -52,8 +52,10 @@ function auditCheck() {
   }
   const counts = auditSeverities(report);
   line(`   critical ${counts.critical}, high ${counts.high}, moderate ${counts.moderate}, low ${counts.low}`);
-  if (counts.critical + counts.high > 0) {
-    failures.push(`npm audit: ${counts.critical} critical and ${counts.high} high advisories in production dependencies (npm audit --omit=dev).`);
+  const allow = readJson(path.join(ROOT, "scripts/audit-allow.json")).allow ?? {};
+  for (const [id, entry] of Object.entries(allow)) line(`   allow-listed ${id} until ${entry.until}: ${entry.reason}`);
+  for (const adv of blockingAdvisories(report, allow)) {
+    failures.push(`npm audit: ${adv.severity} advisory ${adv.id} (${adv.title})${adv.expired ? " — its allow-list entry has expired" : ""}. Upgrade, or if no fixed release exists add it to scripts/audit-allow.json with the reason and an end date.`);
   }
 }
 
